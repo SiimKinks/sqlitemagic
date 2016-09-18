@@ -1,0 +1,2 @@
+ALTER TABLE a RENAME TO author;
+ALTER TABLE m RENAME TO magazine;

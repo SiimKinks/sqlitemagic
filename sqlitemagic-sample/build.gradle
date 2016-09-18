@@ -1,0 +1,33 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+	repositories {
+		mavenLocal()
+		jcenter()
+		maven {
+			url  "http://dl.bintray.com/siimkinks/maven"
+		}
+	}
+	dependencies {
+		classpath 'com.android.tools.build:gradle:2.1.2'
+		classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.8.2'
+		classpath 'me.tatarka:gradle-retrolambda:3.3.0-beta4'
+
+		// NOTE: Do not place your application dependencies here; they belong
+		// in the individual module build.gradle files
+	}
+}
+
+allprojects {
+	repositories {
+		mavenLocal()
+		jcenter()
+		maven {
+			url  "http://dl.bintray.com/siimkinks/maven"
+		}
+	}
+}
+
+task clean(type: Delete) {
+	delete rootProject.buildDir
+}

@@ -1,0 +1,3 @@
+rootProject.name = 'sqlitemagic-intellij-plugin'
+include 'sqlitemagic-annotations'
+

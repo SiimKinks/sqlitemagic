@@ -1,0 +1,28 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+apply from: '../buildsystem/dependencies.gradle'
+
+buildscript {
+    repositories {
+        jcenter()
+        mavenLocal()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.1.2'
+        classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.8.2'
+    }
+}
+
+allprojects {
+    repositories {
+        mavenLocal()
+        jcenter()
+        maven {
+            url "${System.getenv("ANDROID_HOME")}/extras/android/m2repository/"
+        }
+    }
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.14.1'
+    distributionUrl = 'https://services.gradle.org/distributions/gradle-2.14.1-all.zip'
+}

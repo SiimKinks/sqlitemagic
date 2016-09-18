@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">TODO</string>
+    <string name="action_add_from_network">Add from network</string>
+    <string name="item_lists_title">Lists (%1$s)</string>
+    <string name="new_list_hint">List name</string>
+    <string name="new_list">New List</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete_success">Delete successful</string>
+    <string name="delete_confirm_title">Delete %1$s?</string>
+    <string name="delete_action">Delete</string>
+    <string name="title_activity_list">ListActivity</string>
+    <string name="new_item_hint">Description</string>
+    <string name="new_item">New item</string>
+    <string name="delete_undo">Undo delete</string>
+    <string name="edit_action">OK</string>
+    <string name="edit_item">\"Edit item</string>
+    <string name="edit">Edit</string>
+    <string name="edit_list_name">Edit list name</string>
+</resources>

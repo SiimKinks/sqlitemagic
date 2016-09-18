@@ -1,0 +1,27 @@
+apply plugin: 'com.jfrog.bintray'
+
+// Bintray
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+bintray {
+	user = properties.getProperty("bintray.user")
+	key = properties.getProperty("bintray.apikey")
+
+	publications = ['mavenJava']
+	pkg {
+		repo = 'maven'
+		name = POM_ARTIFACT_ID
+		desc = POM_DESCRIPTION
+		vcsUrl = POM_VCS_URL
+		licenses = ["Apache-2.0"]
+		publish = true
+		publicDownloadNumbers = true
+		version {
+			gpg {
+				sign = true //Determines whether to GPG sign the files. The default is false
+				passphrase = properties.getProperty("bintray.gpg.password") //Optional. The passphrase for GPG signing'
+			}
+		}
+	}
+}

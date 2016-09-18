@@ -1,0 +1,70 @@
+group 'com.siimkinks.sqlitemagic'
+version '0.8.2'
+
+apply plugin: 'java'
+
+sourceCompatibility = 1.5
+
+repositories {
+    mavenLocal()
+    jcenter()
+    maven {
+        url "${System.getenv("ANDROID_HOME")}/extras/android/m2repository/"
+    }
+}
+
+dependencies {
+    compile "com.siimkinks.sqlitemagic:sqlitemagic-annotations:${version}"
+    compile "com.siimkinks.sqlitemagic:sqlitemagic-compiler:${version}"
+    compile "com.siimkinks.sqlitemagic:sqlitemagic:${version}"
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+project.afterEvaluate {
+    def annotationsJarFile = project.configurations.compile.find {
+        it.name.startsWith("sqlitemagic-annotations-${version}")
+    }.toString()
+    annotationsJarFile = annotationsJarFile.substring(0, annotationsJarFile.lastIndexOf('.')) + "-sources.jar"
+    def deleteTask = project.task("deleteGen", type: Delete) {
+        delete "${project.rootDir.path}/sqlitemagic-plugin/generated-sources"
+    }
+    def annotationsCopyTask = project.task("copyAnnotations", type: Copy) {
+        from (project.zipTree{annotationsJarFile})
+        into("${project.rootDir.path}/sqlitemagic-plugin/generated-sources")
+        exclude "**/META-INF/"
+        outputs.upToDateWhen {
+            false
+        }
+    }
+    def compilerJarFile = project.configurations.compile.find {
+        it.name.startsWith("sqlitemagic-compiler-${version}")
+    }.toString()
+    compilerJarFile = compilerJarFile.substring(0, compilerJarFile.lastIndexOf('.')) + "-sources.jar"
+    def compilerCopyTask = project.task("copyCompiler", type: Copy) {
+        from (project.zipTree{compilerJarFile})
+        include "**/NameConst.java"
+        exclude "**/META-INF/"
+        into("${project.rootDir.path}/sqlitemagic-plugin/generated-sources")
+        outputs.upToDateWhen {
+            false
+        }
+    }
+    def runtimeJarFile = project.configurations.compile.find {
+        it.name.startsWith("sqlitemagic-${version}")
+    }.toString()
+    runtimeJarFile = runtimeJarFile.substring(0, runtimeJarFile.lastIndexOf('.')) + "-sources.jar"
+    def runtimeCopyTask = project.task("copySqliteMagic", type: Copy) {
+        from (project.zipTree{runtimeJarFile})
+        include "**/GlobalConst.java"
+        exclude "**/META-INF/"
+        into("${project.rootDir.path}/sqlitemagic-plugin/generated-sources")
+        outputs.upToDateWhen {
+            false
+        }
+    }
+
+    annotationsCopyTask.dependsOn(deleteTask)
+    compilerCopyTask.dependsOn(deleteTask)
+    runtimeCopyTask.dependsOn(compilerCopyTask)
+    runtimeCopyTask.dependsOn(annotationsCopyTask)
+}

@@ -1,0 +1,22 @@
+apply plugin: 'java'
+apply from: '../buildsystem/maven-push.gradle'
+apply from: '../buildsystem/bintray-push.gradle'
+
+targetCompatibility = JavaVersion.VERSION_1_7
+sourceCompatibility = JavaVersion.VERSION_1_7
+
+dependencies {
+	compile libraries.android
+	compile libraries.supportAnnotations
+	compile libraries.rxJava
+
+	testCompile libraries.junit
+	testCompile libraries.truth
+
+	compile project(path: ':annotations')
+}
+
+tasks.withType(Test) {
+	scanForTestClasses = false
+	include "**/*Test.class"
+}

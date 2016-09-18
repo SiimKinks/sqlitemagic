@@ -1,0 +1,92 @@
+<idea-plugin version="2">
+    <id>com.siimkinks.sqlitemagic</id>
+    <name>SqliteMagic Plugin</name>
+    <version>0.5.0</version>
+    <vendor email="kinkssiim@gmail.com" url="http://www.deepdot.com">Siim Kinks</vendor>
+
+    <description><![CDATA[
+      A plugin that adds first-class support for SqliteMagic
+    ]]></description>
+    <category>Tools Integration</category>
+
+    <change-notes><![CDATA[
+      <ul>
+      <li>0.5.2
+        <ol>
+          <li>Magic methods now generate interface return types</li>
+        </ol>
+      </li>
+      <li>0.5.0
+        <ol>
+          <li>Removed magic column constants as they are no longer supported</li>
+        </ol>
+      </li>
+      <li>0.4.0
+        <ol>
+          <li>Added support for bulk delete methods</li>
+        </ol>
+      </li>
+      <li>0.1.5
+        <ol>
+          <li>Added support for immutable object magic column constants</li>
+        </ol>
+      </li>
+      <li>0.1.1
+        <ol>
+          <li>Added support for mutable object magic id column</li>
+        </ol>
+      </li>
+      <li>0.1.0
+        <ol>
+          <li>Initial release</li>
+        </ol>
+      </li>
+      </ul>
+    ]]>
+    </change-notes>
+
+    <idea-version since-build="138.00"/>
+
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <application-components>
+        <component>
+            <implementation-class>com.siimkinks.sqlitemagic.intellij.plugin.SqliteMagicLoader</implementation-class>
+        </component>
+    </application-components>
+
+    <extensionPoints>
+        <extensionPoint name="processor" interface="com.siimkinks.sqlitemagic.intellij.plugin.processor.Processor"/>
+    </extensionPoints>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <lang.psiAugmentProvider implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicAugmentProvider"/>
+        <implicitUsageProvider implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicImplicitUsageProvider"/>
+        <inspectionToolProvider implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicInspectionProvider"/>
+
+        <treeGenerator implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicLightMethodGenerator"/>
+
+        <lang.structureViewExtension implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicStructureViewExtension"/>
+
+        <daemon.highlightInfoFilter implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicHighlightErrorFilter"/>
+
+        <findUsagesHandlerFactory implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicFieldFindUsagesHandlerFactory"/>
+        <renamePsiElementProcessor implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicRenameFieldReferenceProcessor"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.siimkinks.sqlitemagic">
+        <processor implementation="com.siimkinks.sqlitemagic.intellij.plugin.processor.TableMethodsProcessor"/>
+        <processor implementation="com.siimkinks.sqlitemagic.intellij.plugin.processor.TableColumnsProcessor"/>
+    </extensions>
+
+    <project-components>
+        <!-- Add your project components here -->
+    </project-components>
+
+    <actions>
+        <!-- Add your actions here -->
+    </actions>
+
+</idea-plugin>

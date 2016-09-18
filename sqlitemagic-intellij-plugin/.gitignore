@@ -1,0 +1,10 @@
+.gradle
+/local.properties
+/.idea
+*.iml
+.DS_Store
+/build
+/captures
+/out
+/sqlitemagic-plugin/generated-sources
+*.jar

@@ -1,0 +1,51 @@
+apply plugin: 'maven-publish'
+
+task sourcesJar(type: Jar) {
+	from sourceSets.main.allJava
+	classifier = 'sources'
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+	from javadoc.destinationDir
+	classifier = 'javadoc'
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			artifactId POM_ARTIFACT_ID
+
+			from components.java
+
+			artifact sourcesJar
+			artifact javadocJar
+
+			pom.withXml {
+				asNode().children().last() + {
+					resolveStrategy = Closure.DELEGATE_FIRST
+					name POM_NAME
+					description POM_DESCRIPTION
+					url POM_URL
+					scm {
+						url POM_SCM_URL
+						connection POM_SCM_CONNECTION
+						developerConnection POM_SCM_DEV_CONNECTION
+					}
+					licenses {
+						license {
+							name POM_LICENCE_NAME
+							url POM_LICENCE_URL
+							distribution POM_LICENCE_DIST
+						}
+					}
+					developers {
+						developer {
+							id POM_DEVELOPER_ID
+							name POM_DEVELOPER_NAME
+						}
+					}
+				}
+			}
+		}
+	}
+}
