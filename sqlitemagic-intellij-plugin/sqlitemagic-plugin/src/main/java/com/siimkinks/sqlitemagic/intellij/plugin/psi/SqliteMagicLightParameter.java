@@ -10,6 +10,7 @@ import com.intellij.psi.impl.light.LightModifierList;
 import com.intellij.psi.impl.light.LightParameter;
 import com.intellij.psi.impl.light.LightVariableBuilder;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.ReflectionUtil;
+
 import org.jetbrains.annotations.NotNull;
 
 public class SqliteMagicLightParameter extends LightParameter {

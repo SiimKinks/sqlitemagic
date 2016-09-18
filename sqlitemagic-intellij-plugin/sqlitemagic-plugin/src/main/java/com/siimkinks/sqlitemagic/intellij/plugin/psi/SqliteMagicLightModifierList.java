@@ -2,13 +2,11 @@ package com.siimkinks.sqlitemagic.intellij.plugin.psi;
 
 import com.intellij.lang.Language;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.*;
 import com.intellij.psi.impl.light.LightModifierList;
 import com.intellij.util.IncorrectOperationException;
+
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.*;
 
 public class SqliteMagicLightModifierList extends LightModifierList {
   private static final Set<String> ALL_MODIFIERS = new HashSet<String>(Arrays.asList(PsiModifier.MODIFIERS));

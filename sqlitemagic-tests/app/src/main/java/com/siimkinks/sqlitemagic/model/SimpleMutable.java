@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic.model;
 
+import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
-import com.siimkinks.sqlitemagic.Utils;
 
 import java.util.Random;
 

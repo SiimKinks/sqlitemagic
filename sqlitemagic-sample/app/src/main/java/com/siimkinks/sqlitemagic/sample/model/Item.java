@@ -4,13 +4,12 @@ import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.CountQueryObservable;
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
-
-import com.google.auto.value.AutoValue;
 
 import static com.siimkinks.sqlitemagic.ItemTable.ITEM;
 

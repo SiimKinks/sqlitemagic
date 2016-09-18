@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic.intellij.plugin.extension;
 
-import com.intellij.openapi.fileTypes.StdFileTypes;
-import com.intellij.psi.*;
 import com.intellij.refactoring.rename.RenameJavaVariableProcessor;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;

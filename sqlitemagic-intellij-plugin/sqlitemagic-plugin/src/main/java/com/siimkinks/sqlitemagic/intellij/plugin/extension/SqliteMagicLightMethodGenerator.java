@@ -8,6 +8,7 @@ import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.impl.source.tree.TreeGenerator;
 import com.intellij.util.CharTable;
 import com.siimkinks.sqlitemagic.intellij.plugin.psi.SqliteMagicLightMethodBuilder;
+
 import org.jetbrains.annotations.Nullable;
 
 public class SqliteMagicLightMethodGenerator implements TreeGenerator {

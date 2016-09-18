@@ -2,14 +2,11 @@ package com.siimkinks.sqlitemagic.intellij.plugin.provider;
 
 import com.intellij.codeInsight.AnnotationUtil;
 import com.intellij.codeInsight.daemon.ImplicitUsageProvider;
-import com.intellij.psi.*;
-import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
-import java.util.*;
 
 public class SqliteMagicImplicitUsageProvider implements ImplicitUsageProvider {
     private static final List<Class<? extends Annotation>> ANNOTATIONS = new ArrayList<Class<? extends Annotation>>() {

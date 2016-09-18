@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.intellij.plugin.processor;
 
-import com.intellij.psi.*;
-import com.siimkinks.sqlitemagic.GlobalConst;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.intellij.plugin.problem.ProblemBuilder;
@@ -10,7 +8,7 @@ import com.siimkinks.sqlitemagic.intellij.plugin.psi.SqliteMagicLightMethodBuild
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiAnnotationUtil;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiClassUtil;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiMethodUtil;
-import com.siimkinks.sqlitemagic.util.NameConst;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;

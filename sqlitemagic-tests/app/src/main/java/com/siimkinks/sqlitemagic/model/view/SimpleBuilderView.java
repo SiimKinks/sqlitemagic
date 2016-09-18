@@ -1,11 +1,10 @@
 package com.siimkinks.sqlitemagic.model.view;
 
+import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.CompiledSelect;
 import com.siimkinks.sqlitemagic.annotation.View;
 import com.siimkinks.sqlitemagic.annotation.ViewColumn;
 import com.siimkinks.sqlitemagic.annotation.ViewQuery;
-
-import com.google.auto.value.AutoValue;
 
 @AutoValue
 @View

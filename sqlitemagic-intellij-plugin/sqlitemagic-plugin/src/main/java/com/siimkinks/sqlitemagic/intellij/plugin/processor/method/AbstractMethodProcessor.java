@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.intellij.plugin.processor.AbstractProcessor;
 import com.siimkinks.sqlitemagic.intellij.plugin.processor.Processor;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiAnnotationUtil;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiClassUtil;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.annotation.Annotation;

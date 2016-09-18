@@ -1,12 +1,12 @@
 package com.siimkinks.sqlitemagic.intellij.plugin.psi;
 
 import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.*;
 import com.intellij.psi.impl.CheckUtil;
 import com.intellij.psi.impl.light.LightFieldBuilder;
 import com.intellij.psi.impl.light.LightModifierList;
 import com.intellij.util.IncorrectOperationException;
 import com.siimkinks.sqlitemagic.intellij.plugin.icon.SqliteMagicIcons;
+
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 

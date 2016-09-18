@@ -11,6 +11,7 @@ import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiMethod;
 import com.siimkinks.sqlitemagic.intellij.plugin.psi.SqliteMagicLightFieldBuilder;
 import com.siimkinks.sqlitemagic.intellij.plugin.psi.SqliteMagicLightMethodBuilder;
+
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;

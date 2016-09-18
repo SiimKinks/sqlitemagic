@@ -5,7 +5,6 @@ import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.*;
 import com.intellij.psi.augment.PsiAugmentProvider;
 import com.intellij.psi.impl.source.PsiExtensibleClass;
 import com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicProcessorExtensionPoint;
@@ -13,10 +12,10 @@ import com.siimkinks.sqlitemagic.intellij.plugin.extension.UserMapKeys;
 import com.siimkinks.sqlitemagic.intellij.plugin.processor.Processor;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiAnnotationUtil;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiClassUtil;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.annotation.Annotation;
-import java.util.*;
 
 public class SqliteMagicAugmentProvider extends PsiAugmentProvider {
     private static final Logger LOG = Logger.getInstance(SqliteMagicAugmentProvider.class.getName());

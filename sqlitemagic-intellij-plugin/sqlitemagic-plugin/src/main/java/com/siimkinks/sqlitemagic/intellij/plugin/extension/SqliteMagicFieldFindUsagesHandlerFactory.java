@@ -3,15 +3,9 @@ package com.siimkinks.sqlitemagic.intellij.plugin.extension;
 import com.intellij.find.findUsages.FindUsagesHandler;
 import com.intellij.find.findUsages.JavaFindUsagesHandler;
 import com.intellij.find.findUsages.JavaFindUsagesHandlerFactory;
-import com.intellij.ide.util.SuperMethodWarningUtil;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.*;
-import com.intellij.psi.util.PsiUtilCore;
-import com.intellij.util.containers.ContainerUtil;
-import gnu.trove.THashSet;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.Set;
+import org.jetbrains.annotations.NotNull;
 
 // TODO implement
 public class SqliteMagicFieldFindUsagesHandlerFactory extends JavaFindUsagesHandlerFactory {

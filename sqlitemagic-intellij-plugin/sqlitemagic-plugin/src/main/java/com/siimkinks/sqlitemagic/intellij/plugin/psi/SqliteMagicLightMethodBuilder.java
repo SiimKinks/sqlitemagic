@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.intellij.plugin.psi;
 import com.intellij.lang.ASTNode;
 import com.intellij.lang.java.JavaLanguage;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.*;
 import com.intellij.psi.impl.CheckUtil;
 import com.intellij.psi.impl.light.LightMethodBuilder;
 import com.intellij.psi.impl.light.LightModifierList;
@@ -11,6 +10,7 @@ import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.StringBuilderSpinAllocator;
 import com.siimkinks.sqlitemagic.intellij.plugin.icon.SqliteMagicIcons;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.ReflectionUtil;
+
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

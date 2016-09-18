@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.intellij.plugin.extension;
 
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.UserDataHolder;
+
 import org.jetbrains.annotations.NotNull;
 
 public class UserMapKeys {

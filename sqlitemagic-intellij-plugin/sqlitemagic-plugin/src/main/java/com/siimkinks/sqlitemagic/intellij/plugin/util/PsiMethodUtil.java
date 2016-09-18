@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.intellij.plugin.util;
 
-import com.intellij.psi.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.intellij.plugin.processor.clazz;
 
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.siimkinks.sqlitemagic.intellij.plugin.problem.ProblemBuilder;
 import com.siimkinks.sqlitemagic.intellij.plugin.problem.ProblemEmptyBuilder;
@@ -10,12 +8,11 @@ import com.siimkinks.sqlitemagic.intellij.plugin.problem.SqliteMagicProblem;
 import com.siimkinks.sqlitemagic.intellij.plugin.processor.AbstractProcessor;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiAnnotationUtil;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiClassUtil;
-import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiMethodUtil;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.util.*;
 
 public abstract class AbstractClassProcessor extends AbstractProcessor implements ClassProcessor {
 

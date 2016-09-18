@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.intellij.plugin;
 
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.diagnostic.Logger;
+
 import org.jetbrains.annotations.NotNull;
 
 public final class SqliteMagicLoader implements ApplicationComponent {

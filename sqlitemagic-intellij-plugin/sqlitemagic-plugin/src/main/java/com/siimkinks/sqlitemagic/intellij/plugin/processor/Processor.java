@@ -5,6 +5,7 @@ import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.siimkinks.sqlitemagic.intellij.plugin.problem.SqliteMagicProblem;
+
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.annotation.Annotation;

@@ -11,10 +11,9 @@ import com.intellij.psi.PsiTypeElement;
 import com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicProcessorExtensionPoint;
 import com.siimkinks.sqlitemagic.intellij.plugin.problem.SqliteMagicProblem;
 import com.siimkinks.sqlitemagic.intellij.plugin.processor.Processor;
+
 import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.*;
 
 public class SqliteMagicInspection extends BaseJavaLocalInspectionTool {
     private static final Logger LOG = Logger.getInstance(SqliteMagicInspection.class.getName());

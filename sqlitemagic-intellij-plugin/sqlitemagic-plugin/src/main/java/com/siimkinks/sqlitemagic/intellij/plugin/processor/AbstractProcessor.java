@@ -2,16 +2,15 @@ package com.siimkinks.sqlitemagic.intellij.plugin.processor;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.*;
 import com.siimkinks.sqlitemagic.intellij.plugin.processor.Processor;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiAnnotationUtil;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 public abstract class AbstractProcessor implements Processor {

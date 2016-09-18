@@ -1,25 +1,14 @@
 package com.siimkinks.sqlitemagic.intellij.plugin.processor;
 
-import com.google.common.base.Strings;
-import com.intellij.ide.util.PsiNavigationSupport;
-import com.intellij.psi.*;
-import com.intellij.psi.impl.GeneratedMarkerVisitor;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.PsiUtil;
-import com.intellij.util.PsiNavigateUtil;
-import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
-import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.intellij.plugin.problem.ProblemBuilder;
 import com.siimkinks.sqlitemagic.intellij.plugin.processor.clazz.AbstractClassProcessor;
 import com.siimkinks.sqlitemagic.intellij.plugin.psi.SqliteMagicLightFieldBuilder;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiAnnotationUtil;
 import com.siimkinks.sqlitemagic.intellij.plugin.util.PsiClassUtil;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
-import java.util.regex.Pattern;
+import org.jetbrains.annotations.NotNull;
 
 
 public class TableColumnsProcessor extends AbstractClassProcessor {

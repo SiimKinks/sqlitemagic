@@ -2,13 +2,10 @@ package com.siimkinks.sqlitemagic.intellij.plugin.extension;
 
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 import com.intellij.codeInsight.daemon.impl.HighlightInfoFilter;
-import com.intellij.lang.annotation.HighlightSeverity;
-import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiFile;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.regex.Pattern;
 
 // TODO implement
 public class SqliteMagicHighlightErrorFilter implements HighlightInfoFilter {
