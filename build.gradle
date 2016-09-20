@@ -3,7 +3,7 @@ apply from: 'buildsystem/dependencies.gradle'
 
 allprojects {
 	group = 'com.siimkinks.sqlitemagic'
-	version = '0.8.2'
+	version = '0.8.3'
 
 	buildscript {
 		repositories {
@@ -28,7 +28,7 @@ allprojects {
 }
 
 task wrapper(type: Wrapper) {
-	gradleVersion = '2.14.1'
-	distributionUrl = 'https://services.gradle.org/distributions/gradle-2.14.1-all.zip'
+	gradleVersion = '3.1'
+	distributionUrl = 'https://services.gradle.org/distributions/gradle-3.1-all.zip'
 }
 

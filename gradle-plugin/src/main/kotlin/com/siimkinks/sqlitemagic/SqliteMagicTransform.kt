@@ -169,7 +169,7 @@ class SqliteMagicTransform(val project: Project,
 	}
 
 	fun putJavaCompileTask(variant: BaseVariant) {
-		javaCompileTasks.put(Pair(variant.flavorName, variant.buildType.name), variant.javaCompiler)
+		javaCompileTasks.put(Pair(variant.flavorName, variant.buildType.name), variant.javaCompile)
 	}
 
 	override fun getScopes(): MutableSet<QualifiedContent.Scope> {
