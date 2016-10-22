@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.Unique;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.siimkinks.sqlitemagic.util.StringUtil;
 
@@ -34,6 +35,7 @@ public final class MethodColumnElement extends ColumnElement {
   private final Set<Modifier> modifiers;
   private final Column columnAnnotation;
   private final Id idAnnotation;
+  private final Unique uniqueAnnotation;
   private final TableElement enclosingTable;
   private final String sqlType;
   // real Java type e.g. Author
@@ -67,6 +69,7 @@ public final class MethodColumnElement extends ColumnElement {
         .modifiers(columnElement.getModifiers())
         .columnAnnotation(columnAnnotation)
         .idAnnotation(columnElement.getAnnotation(Id.class))
+        .uniqueAnnotation(columnElement.getAnnotation(Unique.class))
         .enclosingTable(enclosingTable)
         .sqlType(sqlType)
         .deserializedType(deserializedType)

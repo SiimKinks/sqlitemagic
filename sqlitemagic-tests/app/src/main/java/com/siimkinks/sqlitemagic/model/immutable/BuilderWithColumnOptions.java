@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
+import com.siimkinks.sqlitemagic.annotation.Unique;
 import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.NotPersistedModel;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
@@ -37,6 +38,9 @@ public abstract class BuilderWithColumnOptions extends ParentAbstractClass imple
 
   @Column(CONST_INT)
   public abstract int constantRenamedInt();
+
+  @Unique
+  public abstract int uniqueColumn();
 
   @Nullable
   @IgnoreColumn
@@ -77,6 +81,7 @@ public abstract class BuilderWithColumnOptions extends ParentAbstractClass imple
         .notPersistedAuthor(Author.newRandom())
         .inlineRenamedInt(r.nextInt())
         .constantRenamedInt(r.nextInt())
+        .uniqueColumn(r.nextInt())
         .build();
   }
 
@@ -101,6 +106,8 @@ public abstract class BuilderWithColumnOptions extends ParentAbstractClass imple
     public abstract Builder inlineRenamedInt(int inlineRenamedInt);
 
     public abstract Builder constantRenamedInt(int constantRenamedInt);
+
+    public abstract Builder uniqueColumn(int uniqueColumn);
 
     public abstract BuilderWithColumnOptions build();
   }

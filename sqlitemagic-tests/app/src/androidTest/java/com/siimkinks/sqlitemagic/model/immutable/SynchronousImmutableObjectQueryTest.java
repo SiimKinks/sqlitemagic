@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
 
 import lombok.Cleanup;
 
@@ -43,6 +44,7 @@ import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderAndNullableFieldsT
 import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER;
 import static com.siimkinks.sqlitemagic.SimpleValueWithCreatorAndNullableFieldsTable.SIMPLE_VALUE_WITH_CREATOR_AND_NULLABLE_FIELDS;
 import static com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE_WITH_CREATOR;
+import static org.junit.Assert.fail;
 
 @RunWith(AndroidJUnit4.class)
 public final class SynchronousImmutableObjectQueryTest {
@@ -1794,5 +1796,41 @@ public final class SynchronousImmutableObjectQueryTest {
 
     final CreatorWithColumnOptions expected = inserted.minimalCopy();
     assertThat(val).isEqualTo(expected);
+  }
+
+  @Test
+  public void builderUniqueConstraintThrowsOnViolation() {
+    BuilderWithColumnOptions.deleteTable().execute();
+    final BuilderWithColumnOptions inserted = BuilderWithColumnOptions.newRandom();
+    inserted.persist().execute();
+
+    try {
+      inserted
+          .copy()
+          .id(new Random().nextInt())
+          .build()
+          .persist()
+          .execute();
+      fail();
+    } catch (SQLException e) {
+      // this must happen due to UNIQUE constraint violation
+    }
+  }
+
+  @Test
+  public void creatorUniqueConstraintThrowsOnViolation() {
+    BuilderWithColumnOptions.deleteTable().execute();
+    final CreatorWithColumnOptions inserted = CreatorWithColumnOptions.newRandom();
+    inserted.persist().execute();
+
+    try {
+      CreatorWithColumnOptions
+          .newRandomWithUniqueColumn(inserted.uniqueColumn())
+          .persist()
+          .execute();
+      fail();
+    } catch (SQLException e) {
+      // this must happen due to UNIQUE constraint violation
+    }
   }
 }

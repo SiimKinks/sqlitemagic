@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
+import com.siimkinks.sqlitemagic.annotation.Unique;
 import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.NotPersistedModel;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
@@ -38,6 +39,9 @@ public abstract class CreatorWithColumnOptions extends ParentAbstractClass imple
   @Column(CONST_INT)
   public abstract int constantRenamedInt();
 
+  @Unique
+  public abstract int uniqueColumn();
+
   @Nullable
   @IgnoreColumn
   public abstract TransformableObject ignoreTransformerObject();
@@ -59,6 +63,23 @@ public abstract class CreatorWithColumnOptions extends ParentAbstractClass imple
         Author.newRandom(),
         r.nextInt(),
         r.nextInt(),
+        r.nextInt(),
+        null,
+        null,
+        r.nextLong());
+  }
+
+  public static CreatorWithColumnOptions newRandomWithUniqueColumn(int uniqueColumn) {
+    final Random r = new Random();
+    return new AutoValue_CreatorWithColumnOptions(
+        r.nextBoolean(),
+        r.nextBoolean(),
+        r.nextLong(),
+        Author.newRandom(),
+        Author.newRandom(),
+        r.nextInt(),
+        r.nextInt(),
+        uniqueColumn,
         null,
         null,
         r.nextLong());
@@ -75,6 +96,7 @@ public abstract class CreatorWithColumnOptions extends ParentAbstractClass imple
         author,
         inlineRenamedInt(),
         constantRenamedInt(),
+        uniqueColumn(),
         null,
         null,
         0L);

@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.Const;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.Unique;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.TypeName;
 
@@ -39,6 +40,8 @@ public abstract class ColumnElement implements BaseColumnElement {
   abstract String getSqlType();
 
   abstract Id getIdAnnotation();
+
+  abstract Unique getUniqueAnnotation();
 
   public abstract TransformerElement getTransformer();
 
@@ -193,6 +196,10 @@ public abstract class ColumnElement implements BaseColumnElement {
     return isId() && getIdAnnotation().autoIncrement();
   }
 
+  public boolean isUnique() {
+    return getUniqueAnnotation() != null;
+  }
+
   public boolean isOnDeleteCascade() {
     return isHandledRecursively() && getColumnAnnotation().onDeleteCascade();
   }
@@ -207,6 +214,8 @@ public abstract class ColumnElement implements BaseColumnElement {
       if (getIdAnnotation().autoIncrement()) {
         schema.append(" AUTOINCREMENT");
       }
+    } else if (isUnique()) {
+      schema.append(" UNIQUE");
     }
     if (isOnDeleteCascade()) {
       final TableElement referencedTable = getReferencedTable();

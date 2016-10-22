@@ -4,6 +4,7 @@ import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.Unique;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.TypeName;
 
@@ -36,6 +37,7 @@ public final class DefaultIdColumnElement extends ColumnElement {
   private final String getterString = "id";
   private final TableElement referencedTable = null;
   private final Id idAnnotation = null;
+  private final Unique uniqueAnnotation = null;
   private final Column columnAnnotation = null;
   private final TransformerElement transformer = null;
   private final boolean id = true;
