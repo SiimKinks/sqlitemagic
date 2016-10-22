@@ -9,26 +9,26 @@ import com.siimkinks.sqlitemagic.annotation.ViewQuery;
 @AutoValue
 @View
 public abstract class SimpleBuilderView {
-	@ViewQuery
-	static final CompiledSelect QUERY = SimpleInterfaceView.QUERY;
+  @ViewQuery
+  static final CompiledSelect QUERY = SimpleInterfaceView.QUERY;
 
-	@ViewColumn("an")
-	public abstract String authorName();
+  @ViewColumn("an")
+  public abstract String authorName();
 
-	@ViewColumn("mn")
-	public abstract String magazineName();
+  @ViewColumn("mn")
+  public abstract String magazineName();
 
-	public static Builder builder() {
-		return new AutoValue_SimpleBuilderView.Builder();
-	}
+  public static Builder builder() {
+    return new AutoValue_SimpleBuilderView.Builder();
+  }
 
-	@AutoValue.Builder
-	public static abstract class Builder {
+  @AutoValue.Builder
+  public static abstract class Builder {
 
-		public abstract Builder authorName(String authorName);
+    public abstract Builder authorName(String authorName);
 
-		public abstract Builder magazineName(String magazineName);
+    public abstract Builder magazineName(String magazineName);
 
-		public abstract SimpleBuilderView build();
-	}
+    public abstract SimpleBuilderView build();
+  }
 }

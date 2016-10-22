@@ -13,61 +13,71 @@ import java.util.Random;
 @Table(persistAll = true)
 @AutoValue
 public abstract class SimpleValueWithBuilder implements ImmutableEquals {
-	public static final String TABLE = "simplevaluewithbuilder";
-	public static final String C_ID = "simplevaluewithbuilder.id";
-	public static final String C_STRING_VALUE = "simplevaluewithbuilder.string_value";
+  public static final String TABLE = "simplevaluewithbuilder";
+  public static final String C_ID = "simplevaluewithbuilder.id";
+  public static final String C_STRING_VALUE = "simplevaluewithbuilder.string_value";
 
-	@Id
-	@Nullable
-	public abstract Long id();
-	public abstract String stringValue();
-	abstract Boolean boxedBoolean();
-	public abstract boolean aBoolean();
-	public abstract int integer();
-	abstract TransformableObject transformableObject();
+  @Id
+  @Nullable
+  public abstract Long id();
 
-	public static Builder builder() {
-		return new AutoValue_SimpleValueWithBuilder.Builder();
-	}
+  public abstract String stringValue();
 
-	@AutoValue.Builder
-	public static abstract class Builder {
-		public abstract Builder id(@Nullable Long id);
-		public abstract Builder stringValue(String stringValue);
-		public abstract Builder boxedBoolean(Boolean boxedBoolean);
-		public abstract Builder aBoolean(boolean aBoolean);
-		public abstract Builder integer(int integer);
-		public abstract Builder transformableObject(TransformableObject transformableObject);
+  abstract Boolean boxedBoolean();
 
-		public abstract SimpleValueWithBuilder build();
-	}
+  public abstract boolean aBoolean();
 
-	public SimpleValueWithBuilder.Builder copy() {
-		return new AutoValue_SimpleValueWithBuilder.Builder(this);
-	}
+  public abstract int integer();
 
-	public static SimpleValueWithBuilder.Builder newRandom() {
-		final Random random = new Random();
-		return SimpleValueWithBuilder.builder()
-				.stringValue(Utils.randomTableName())
-				.boxedBoolean(random.nextBoolean())
-				.aBoolean(random.nextBoolean())
-				.integer(random.nextInt())
-				.transformableObject(new TransformableObject(random.nextInt()));
-	}
+  abstract TransformableObject transformableObject();
 
-	public boolean equalsWithoutId(Object o) {
-		if (o == this) {
-			return true;
-		}
-		if (o instanceof SimpleValueWithBuilder) {
-			SimpleValueWithBuilder that = (SimpleValueWithBuilder) o;
-			return (this.stringValue().equals(that.stringValue()))
-					&& (this.boxedBoolean().equals(that.boxedBoolean()))
-					&& (this.aBoolean() == that.aBoolean())
-					&& (this.integer() == that.integer())
-					&& (this.transformableObject().equals(that.transformableObject()));
-		}
-		return false;
-	}
+  public static Builder builder() {
+    return new AutoValue_SimpleValueWithBuilder.Builder();
+  }
+
+  @AutoValue.Builder
+  public static abstract class Builder {
+    public abstract Builder id(@Nullable Long id);
+
+    public abstract Builder stringValue(String stringValue);
+
+    public abstract Builder boxedBoolean(Boolean boxedBoolean);
+
+    public abstract Builder aBoolean(boolean aBoolean);
+
+    public abstract Builder integer(int integer);
+
+    public abstract Builder transformableObject(TransformableObject transformableObject);
+
+    public abstract SimpleValueWithBuilder build();
+  }
+
+  public SimpleValueWithBuilder.Builder copy() {
+    return new AutoValue_SimpleValueWithBuilder.Builder(this);
+  }
+
+  public static SimpleValueWithBuilder.Builder newRandom() {
+    final Random random = new Random();
+    return SimpleValueWithBuilder.builder()
+        .stringValue(Utils.randomTableName())
+        .boxedBoolean(random.nextBoolean())
+        .aBoolean(random.nextBoolean())
+        .integer(random.nextInt())
+        .transformableObject(new TransformableObject(random.nextInt()));
+  }
+
+  public boolean equalsWithoutId(Object o) {
+    if (o == this) {
+      return true;
+    }
+    if (o instanceof SimpleValueWithBuilder) {
+      SimpleValueWithBuilder that = (SimpleValueWithBuilder) o;
+      return (this.stringValue().equals(that.stringValue()))
+          && (this.boxedBoolean().equals(that.boxedBoolean()))
+          && (this.aBoolean() == that.aBoolean())
+          && (this.integer() == that.integer())
+          && (this.transformableObject().equals(that.transformableObject()));
+    }
+    return false;
+  }
 }

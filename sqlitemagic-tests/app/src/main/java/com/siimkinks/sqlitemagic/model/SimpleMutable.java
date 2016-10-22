@@ -17,30 +17,30 @@ import lombok.ToString;
 @Table
 public class SimpleMutable {
 
-	public static final String TABLE = "simplemutable";
-	public static final String C_ID = "simplemutable.id";
+  public static final String TABLE = "simplemutable";
+  public static final String C_ID = "simplemutable.id";
 
-	@Id(autoIncrement = false)
-	@Column
-	long id;
-	@Column
-	String name;
-	@Column
-	long aLong;
-	@Column
-	String name2;
+  @Id(autoIncrement = false)
+  @Column
+  long id;
+  @Column
+  String name;
+  @Column
+  long aLong;
+  @Column
+  String name2;
 
-	public static SimpleMutable newRandom() {
-		final SimpleMutable simpleMutable = new SimpleMutable();
-		fillWithRandomValues(simpleMutable);
-		return simpleMutable;
-	}
+  public static SimpleMutable newRandom() {
+    final SimpleMutable simpleMutable = new SimpleMutable();
+    fillWithRandomValues(simpleMutable);
+    return simpleMutable;
+  }
 
-	public static void fillWithRandomValues(SimpleMutable simpleMutable) {
-		final Random r = new Random();
-		simpleMutable.id = Math.abs(r.nextLong());
-		simpleMutable.name = Utils.randomTableName();
-		simpleMutable.aLong = r.nextLong();
-		simpleMutable.name2 = Utils.randomTableName();
-	}
+  public static void fillWithRandomValues(SimpleMutable simpleMutable) {
+    final Random r = new Random();
+    simpleMutable.id = Math.abs(r.nextLong());
+    simpleMutable.name = Utils.randomTableName();
+    simpleMutable.aLong = r.nextLong();
+    simpleMutable.name2 = Utils.randomTableName();
+  }
 }

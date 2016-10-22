@@ -25,39 +25,39 @@ import lombok.Getter;
  */
 public class GenClassesManagerStep implements ProcessingStep {
 
-	@Inject
-	Environment environment;
-	@Inject
-	GenClassesManagerWriter writer;
-	@Inject
-	TransformerValidator transformerValidator;
-	@Getter
-	private final Map<String, TransformerElement> allTransformerElements = new HashMap<>();
-	@Getter
-	private final List<ViewElement> allViewElements = new ArrayList<>();
+  @Inject
+  Environment environment;
+  @Inject
+  GenClassesManagerWriter writer;
+  @Inject
+  TransformerValidator transformerValidator;
+  @Getter
+  private final Map<String, TransformerElement> allTransformerElements = new HashMap<>();
+  @Getter
+  private final List<ViewElement> allViewElements = new ArrayList<>();
 
-	public GenClassesManagerStep() {
-		SqliteMagicProcessor.inject(this);
-	}
+  public GenClassesManagerStep() {
+    SqliteMagicProcessor.inject(this);
+  }
 
-	@Override
-	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		if (roundEnv.processingOver()) {
-			try{
-				writer.writeSource(environment, this);
-			} catch (IOException e) {
-				e.printStackTrace();
-				return false;
-			}
-			transformerValidator.warnTransformationsNullabilityContracts(allTransformerElements);
-		} else {
-			collectGeneratedData();
-		}
-		return true;
-	}
+  @Override
+  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    if (roundEnv.processingOver()) {
+      try {
+        writer.writeSource(environment, this);
+      } catch (IOException e) {
+        e.printStackTrace();
+        return false;
+      }
+      transformerValidator.warnTransformationsNullabilityContracts(allTransformerElements);
+    } else {
+      collectGeneratedData();
+    }
+    return true;
+  }
 
-	private void collectGeneratedData() {
-		allViewElements.addAll(environment.getViewElements());
-		allTransformerElements.putAll(environment.getTransformerElements());
-	}
+  private void collectGeneratedData() {
+    allViewElements.addAll(environment.getViewElements());
+    allTransformerElements.putAll(environment.getTransformerElements());
+  }
 }

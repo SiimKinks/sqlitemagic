@@ -6,42 +6,42 @@ targetCompatibility = JavaVersion.VERSION_1_7
 sourceCompatibility = JavaVersion.VERSION_1_7
 
 configurations {
-	provided
+  provided
 }
 
 sourceSets {
-	main {
-		compileClasspath += configurations.provided
-	}
+  main {
+    compileClasspath += configurations.provided
+  }
 }
 
 dependencies {
-	compile fileTree(dir: 'libs', include: ['*.jar'])
-	compile files("${System.properties['java.home']}/../lib/tools.jar")
+  compile fileTree(dir: 'libs', include: ['*.jar'])
+  compile files("${System.properties['java.home']}/../lib/tools.jar")
 
-	compile libraries.autoService
-	compile libraries.guava
-	compile libraries.lombok
-	compile libraries.javapoet
-	compile libraries.rxJava
-	compile libraries.dagger
-	compile libraries.jackson
+  compile libraries.autoService
+  compile libraries.guava
+  compile libraries.lombok
+  compile libraries.javapoet
+  compile libraries.rxJava
+  compile libraries.dagger
+  compile libraries.jackson
 
-	provided libraries.daggerCompiler
+  provided libraries.daggerCompiler
 
-	testCompile libraries.googleCompileTesting
-	testCompile libraries.junit
+  testCompile libraries.googleCompileTesting
+  testCompile libraries.junit
 
-	compile project(path: ':runtime')
+  compile project(path: ':runtime')
 }
 
 tasks.withType(Test) {
-	scanForTestClasses = false
-	include "**/*Test.class"
+  scanForTestClasses = false
+  include "**/*Test.class"
 }
 
 task(setupTestsEnv) << {
-	System.setProperty('SQLITE_MAGIC_AUTO_LIB', 'com.google.auto.value.AutoValue')
+  System.setProperty('SQLITE_MAGIC_AUTO_LIB', 'com.google.auto.value.AutoValue')
 }
 
 test.dependsOn setupTestsEnv

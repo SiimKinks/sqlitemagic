@@ -6,6 +6,6 @@ targetCompatibility = JavaVersion.VERSION_1_7
 sourceCompatibility = JavaVersion.VERSION_1_7
 
 tasks.withType(Test) {
-	scanForTestClasses = false
-	include "**/*Test.class"
+  scanForTestClasses = false
+  include "**/*Test.class"
 }

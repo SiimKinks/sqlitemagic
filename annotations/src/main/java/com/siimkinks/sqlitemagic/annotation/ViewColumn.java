@@ -11,15 +11,15 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.CLASS)
 public @interface ViewColumn {
-	/**
-	 * <p>Fully qualified column name or column alias.</p>
-	 * Examples:<br>
-	 * <ul>
-	 * <li>fully qualified name -- "author.name"</li>
-	 * <li>alias -- "foo"</li>
-	 * </ul>
-	 *
-	 * @return Column name or alias.
-	 */
-	String value();
+  /**
+   * <p>Fully qualified column name or column alias.</p>
+   * Examples:<br>
+   * <ul>
+   * <li>fully qualified name -- "author.name"</li>
+   * <li>alias -- "foo"</li>
+   * </ul>
+   *
+   * @return Column name or alias.
+   */
+  String value();
 }

@@ -11,31 +11,32 @@ import java.util.List;
 import butterknife.ButterKnife;
 
 public abstract class BaseListAdapter<T> extends RecyclerView.Adapter<BaseListAdapter.ViewHolder<T>> {
-	private List<T> items = new ArrayList<>();
+  private List<T> items = new ArrayList<>();
 
-	@MainThread
-	public final void setData(@NonNull List<T> itemLists) {
-		this.items = itemLists;
-		notifyDataSetChanged();
-	}
+  @MainThread
+  public final void setData(@NonNull List<T> itemLists) {
+    this.items = itemLists;
+    notifyDataSetChanged();
+  }
 
-	@Override
-	public final void onBindViewHolder(ViewHolder<T> holder, int position) {
-		holder.setItem(items.get(position));
-	}
+  @Override
+  public final void onBindViewHolder(ViewHolder<T> holder, int position) {
+    holder.setItem(items.get(position));
+  }
 
-	@Override
-	public final int getItemCount() {
-		return items.size();
-	}
+  @Override
+  public final int getItemCount() {
+    return items.size();
+  }
 
-	public abstract static class ViewHolder<T> extends RecyclerView.ViewHolder {
-		public ViewHolder(View itemView) {
-			super(itemView);
-			ButterKnife.bind(this, itemView);
-		}
+  public abstract static class ViewHolder<T> extends RecyclerView.ViewHolder {
+    public ViewHolder(View itemView) {
+      super(itemView);
+      ButterKnife.bind(this, itemView);
+    }
 
-		abstract void setItem(@NonNull T t);
-		public abstract void deleteItem();
-	}
+    abstract void setItem(@NonNull T t);
+
+    public abstract void deleteItem();
+  }
 }

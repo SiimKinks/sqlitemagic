@@ -15,26 +15,26 @@ import javax.lang.model.element.TypeElement;
 
 public class TransformerCollectionStep implements ProcessingStep {
 
-	@Inject
-	Environment environment;
-	@Inject
-	TransformerValidator validator;
+  @Inject
+  Environment environment;
+  @Inject
+  TransformerValidator validator;
 
-	public TransformerCollectionStep() {
-		SqliteMagicProcessor.inject(this);
-	}
+  public TransformerCollectionStep() {
+    SqliteMagicProcessor.inject(this);
+  }
 
-	@Override
-	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		boolean isSuccessfulProcessing = true;
-		for (Element element : roundEnv.getElementsAnnotatedWith(Transformer.class)) {
-			TransformerElement transformerElement = new TransformerElement(environment, element);
-			if (!validator.isTransformerValid(transformerElement)) {
-				isSuccessfulProcessing = false;
-			} else {
-				environment.addTransformerElement(transformerElement);
-			}
-		}
-		return isSuccessfulProcessing;
-	}
+  @Override
+  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    boolean isSuccessfulProcessing = true;
+    for (Element element : roundEnv.getElementsAnnotatedWith(Transformer.class)) {
+      TransformerElement transformerElement = new TransformerElement(environment, element);
+      if (!validator.isTransformerValid(transformerElement)) {
+        isSuccessfulProcessing = false;
+      } else {
+        environment.addTransformerElement(transformerElement);
+      }
+    }
+    return isSuccessfulProcessing;
+  }
 }

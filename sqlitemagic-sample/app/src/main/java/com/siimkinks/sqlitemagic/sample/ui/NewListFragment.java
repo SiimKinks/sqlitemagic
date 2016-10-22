@@ -11,31 +11,31 @@ import rx.Observable;
 import rx.schedulers.Schedulers;
 
 public final class NewListFragment extends CreateNewFragment {
-	public static NewListFragment create() {
-		return new NewListFragment();
-	}
+  public static NewListFragment create() {
+    return new NewListFragment();
+  }
 
-	@Override
-	void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked) {
-		Observable.combineLatest(
-				createClicked,
-				RxTextView.textChanges(inputView),
-				(__, text) -> text.toString())
-				.observeOn(Schedulers.io())
-				.flatMap(name -> ItemList.builder()
-						.name(name)
-						.archived(false)
-						.build()
-						.persist()
-						.observe()
-						.toObservable())
-				.first()
-				.subscribe();
-	}
+  @Override
+  void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked) {
+    Observable.combineLatest(
+        createClicked,
+        RxTextView.textChanges(inputView),
+        (__, text) -> text.toString())
+        .observeOn(Schedulers.io())
+        .flatMap(name -> ItemList.builder()
+            .name(name)
+            .archived(false)
+            .build()
+            .persist()
+            .observe()
+            .toObservable())
+        .first()
+        .subscribe();
+  }
 
-	@Override
-	int layoutResId() {
-		return R.layout.new_list;
-	}
+  @Override
+  int layoutResId() {
+    return R.layout.new_list;
+  }
 }
 

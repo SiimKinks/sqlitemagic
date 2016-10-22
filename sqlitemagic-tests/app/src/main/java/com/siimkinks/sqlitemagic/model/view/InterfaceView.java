@@ -16,28 +16,28 @@ import static com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE
 
 @View
 public interface InterfaceView {
-	@ViewQuery
-	CompiledSelect QUERY = Select
-			.columns(
-					length(MAGAZINE.NAME).as("magLen"),
-					SIMPLE_VALUE_WITH_BUILDER.all().as("svwb"),
-					AUTHOR.NAME.as("an"),
-					SIMPLE_VALUE_WITH_CREATOR.all())
-			.from(MAGAZINE)
-			.join(SIMPLE_VALUE_WITH_BUILDER)
-			.join(SIMPLE_VALUE_WITH_CREATOR)
-			.queryDeep()
-			.compile();
+  @ViewQuery
+  CompiledSelect QUERY = Select
+      .columns(
+          length(MAGAZINE.NAME).as("magLen"),
+          SIMPLE_VALUE_WITH_BUILDER.all().as("svwb"),
+          AUTHOR.NAME.as("an"),
+          SIMPLE_VALUE_WITH_CREATOR.all())
+      .from(MAGAZINE)
+      .join(SIMPLE_VALUE_WITH_BUILDER)
+      .join(SIMPLE_VALUE_WITH_CREATOR)
+      .queryDeep()
+      .compile();
 
-	@ViewColumn("magLen")
-	long magazineNameLen();
+  @ViewColumn("magLen")
+  long magazineNameLen();
 
-	@ViewColumn("an")
-	String authorName();
+  @ViewColumn("an")
+  String authorName();
 
-	@ViewColumn("svwb")
-	SimpleValueWithBuilder simpleBuilder();
+  @ViewColumn("svwb")
+  SimpleValueWithBuilder simpleBuilder();
 
-	@ViewColumn("simplevaluewithcreator")
-	SimpleValueWithCreator simpleCreator();
+  @ViewColumn("simplevaluewithcreator")
+  SimpleValueWithCreator simpleCreator();
 }

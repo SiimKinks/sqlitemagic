@@ -16,31 +16,31 @@ import static com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE
 
 @View
 public interface ComplexInterfaceView {
-	String MAGAZINE_ALIAS = "bm";
-	String AUTHOR_NAME_ALIAS = "am";
-	String VALUE_W_BUILDER_ALIAS = "bs";
+  String MAGAZINE_ALIAS = "bm";
+  String AUTHOR_NAME_ALIAS = "am";
+  String VALUE_W_BUILDER_ALIAS = "bs";
 
-	@ViewQuery
-	CompiledSelect QUERY = Select
-			.columns(
-					BUILDER_MAGAZINE.all().as(MAGAZINE_ALIAS),
-					AUTHOR.all(),
-					SIMPLE_VALUE_WITH_BUILDER.all(),
-					SIMPLE_VALUE_WITH_CREATOR.all(),
-					AUTHOR.NAME.as(AUTHOR_NAME_ALIAS),
-					SIMPLE_VALUE_WITH_BUILDER.STRING_VALUE.as(VALUE_W_BUILDER_ALIAS))
-			.from(BUILDER_MAGAZINE)
-			.queryDeep()
-			.compile();
+  @ViewQuery
+  CompiledSelect QUERY = Select
+      .columns(
+          BUILDER_MAGAZINE.all().as(MAGAZINE_ALIAS),
+          AUTHOR.all(),
+          SIMPLE_VALUE_WITH_BUILDER.all(),
+          SIMPLE_VALUE_WITH_CREATOR.all(),
+          AUTHOR.NAME.as(AUTHOR_NAME_ALIAS),
+          SIMPLE_VALUE_WITH_BUILDER.STRING_VALUE.as(VALUE_W_BUILDER_ALIAS))
+      .from(BUILDER_MAGAZINE)
+      .queryDeep()
+      .compile();
 
-	@ViewColumn(VALUE_W_BUILDER_ALIAS)
-	String builderString();
+  @ViewColumn(VALUE_W_BUILDER_ALIAS)
+  String builderString();
 
-	@ViewColumn(MAGAZINE_ALIAS)
-	@Nullable
-	BuilderMagazine builderMagazine();
+  @ViewColumn(MAGAZINE_ALIAS)
+  @Nullable
+  BuilderMagazine builderMagazine();
 
-	@ViewColumn(AUTHOR_NAME_ALIAS)
-	@Nullable
-	String authorName();
+  @ViewColumn(AUTHOR_NAME_ALIAS)
+  @Nullable
+  String authorName();
 }

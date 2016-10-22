@@ -12,8 +12,8 @@ public class SqliteMagicHighlightErrorFilter implements HighlightInfoFilter {
 //    private static final Pattern UNINITIALIZED_MESSAGE = Pattern.compile("Variable '.+' might not have been initialized");
 //    private static final Pattern LOMBOK_ANYANNOTATIONREQUIRED = Pattern.compile("Incompatible types\\. Found: '__*', required: 'lombok.*AnyAnnotation\\[\\]'");
 
-    @Override
-    public boolean accept(@NotNull HighlightInfo highlightInfo, @Nullable PsiFile file) {
+  @Override
+  public boolean accept(@NotNull HighlightInfo highlightInfo, @Nullable PsiFile file) {
 //        if (null != file && HighlightSeverity.ERROR.equals(highlightInfo.getSeverity())) {
 //
 //            String description = StringUtil.notNullize(highlightInfo.getDescription());
@@ -30,8 +30,8 @@ public class SqliteMagicHighlightErrorFilter implements HighlightInfoFilter {
 //                return false;
 //            }
 //        }
-        return true;
-    }
+    return true;
+  }
 
 //    private boolean uninitializedField(String description) {
 //        return UNINITIALIZED_MESSAGE.matcher(description).matches();

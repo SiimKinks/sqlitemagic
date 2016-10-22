@@ -48,185 +48,185 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ColumnClassWriter {
-	public static final String VAL_VARIABLE = "val";
+  public static final String VAL_VARIABLE = "val";
 
-	private final Environment environment;
-	private final String className;
-	private final TypeName superClass;
-	private final TypeName deserializedTypeName;
-	private final TypeVariableName parentTableType;
-	@Nullable
-	private final CodeBlock initBlock;
-	private final ExtendedTypeElement serializedType;
-	private final FormatData valueGetter;
-	private final String cursorParserConstantName;
-	@Nullable
-	private final TransformerElement transformerElement;
-	private final boolean nullable;
+  private final Environment environment;
+  private final String className;
+  private final TypeName superClass;
+  private final TypeName deserializedTypeName;
+  private final TypeVariableName parentTableType;
+  @Nullable
+  private final CodeBlock initBlock;
+  private final ExtendedTypeElement serializedType;
+  private final FormatData valueGetter;
+  private final String cursorParserConstantName;
+  @Nullable
+  private final TransformerElement transformerElement;
+  private final boolean nullable;
 
-	public static ColumnClassWriter from(@NonNull TransformerElement transformerElement,
-										 @NonNull Environment environment) {
-		final String className = getClassName(transformerElement);
-		final TypeName deserializedTypeName = transformerElement.getDeserializedTypeNameForGenerics();
-		final ClassName superClassName = transformerElement.isNumericType() ? NUMERIC_COLUMN : COLUMN;
-		final TypeVariableName parentTableType = TypeVariableName.get("T");
-		final ExtendedTypeElement serializedType = transformerElement.getSerializedType();
+  public static ColumnClassWriter from(@NonNull TransformerElement transformerElement,
+                                       @NonNull Environment environment) {
+    final String className = getClassName(transformerElement);
+    final TypeName deserializedTypeName = transformerElement.getDeserializedTypeNameForGenerics();
+    final ClassName superClassName = transformerElement.isNumericType() ? NUMERIC_COLUMN : COLUMN;
+    final TypeVariableName parentTableType = TypeVariableName.get("T");
+    final ExtendedTypeElement serializedType = transformerElement.getSerializedType();
 
-		return ColumnClassWriter.builder()
-				.environment(environment)
-				.className(className)
-				.deserializedTypeName(deserializedTypeName)
-				.serializedType(serializedType)
-				.superClass(ParameterizedTypeName.get(superClassName,
-						deserializedTypeName, deserializedTypeName, deserializedTypeName, parentTableType))
-				.parentTableType(parentTableType)
-				.valueGetter(transformerElement.serializedValueGetter(VAL_VARIABLE))
-				.cursorParserConstantName(transformerElement.cursorParserConstantName(environment))
-				.transformerElement(transformerElement)
-				.nullable(!serializedType.isPrimitiveElement())
-				.build();
-	}
+    return ColumnClassWriter.builder()
+        .environment(environment)
+        .className(className)
+        .deserializedTypeName(deserializedTypeName)
+        .serializedType(serializedType)
+        .superClass(ParameterizedTypeName.get(superClassName,
+            deserializedTypeName, deserializedTypeName, deserializedTypeName, parentTableType))
+        .parentTableType(parentTableType)
+        .valueGetter(transformerElement.serializedValueGetter(VAL_VARIABLE))
+        .cursorParserConstantName(transformerElement.cursorParserConstantName(environment))
+        .transformerElement(transformerElement)
+        .nullable(!serializedType.isPrimitiveElement())
+        .build();
+  }
 
-	public static ColumnClassWriter from(@NonNull TableElement tableElement,
-										 @NonNull Environment environment) {
-		final ColumnElement idColumn = tableElement.getIdColumn();
-		final TypeName deserializedTypeName = tableElement.getTableElementTypeName();
-		final TypeName serializedTypeName = idColumn.getSerializedTypeNameForGenerics();
-		final TypeVariableName parentTableType = TypeVariableName.get("T");
-		final String className = getClassName(tableElement);
+  public static ColumnClassWriter from(@NonNull TableElement tableElement,
+                                       @NonNull Environment environment) {
+    final ColumnElement idColumn = tableElement.getIdColumn();
+    final TypeName deserializedTypeName = tableElement.getTableElementTypeName();
+    final TypeName serializedTypeName = idColumn.getSerializedTypeNameForGenerics();
+    final TypeVariableName parentTableType = TypeVariableName.get("T");
+    final String className = getClassName(tableElement);
 
-		final ColumnClassWriterBuilder builder = ColumnClassWriter.builder()
-				.environment(environment)
-				.className(className)
-				.superClass(ParameterizedTypeName.get(COMPLEX_COLUMN,
-						deserializedTypeName, serializedTypeName, idColumn.getEquivalentType(), parentTableType))
-				.parentTableType(parentTableType)
-				.deserializedTypeName(deserializedTypeName)
-				.serializedType(idColumn.getSerializedType())
-				.valueGetter(tableElement.serializedValueGetter(VAL_VARIABLE))
-				.cursorParserConstantName(idColumn.cursorParserConstantName(environment))
-				.nullable(idColumn.isNullable());
-		return builder.build();
-	}
+    final ColumnClassWriterBuilder builder = ColumnClassWriter.builder()
+        .environment(environment)
+        .className(className)
+        .superClass(ParameterizedTypeName.get(COMPLEX_COLUMN,
+            deserializedTypeName, serializedTypeName, idColumn.getEquivalentType(), parentTableType))
+        .parentTableType(parentTableType)
+        .deserializedTypeName(deserializedTypeName)
+        .serializedType(idColumn.getSerializedType())
+        .valueGetter(tableElement.serializedValueGetter(VAL_VARIABLE))
+        .cursorParserConstantName(idColumn.cursorParserConstantName(environment))
+        .nullable(idColumn.isNullable());
+    return builder.build();
+  }
 
-	public void write(@NonNull Filer filer) throws IOException {
-		final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
-				.addModifiers(CLASS_MODIFIERS)
-				.addTypeVariable(parentTableType)
-				.superclass(superClass)
-				.addMethod(constructor())
-				.addMethod(toSqlArg())
-				.addMethod(aliasOverride());
-		if (transformerElement != null) {
-			classBuilder.addMethod(cursorParserOverride(transformerElement))
-					.addMethod(statementParserOverride(transformerElement));
-		}
-		writeSource(filer, classBuilder.build());
-	}
+  public void write(@NonNull Filer filer) throws IOException {
+    final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
+        .addModifiers(CLASS_MODIFIERS)
+        .addTypeVariable(parentTableType)
+        .superclass(superClass)
+        .addMethod(constructor())
+        .addMethod(toSqlArg())
+        .addMethod(aliasOverride());
+    if (transformerElement != null) {
+      classBuilder.addMethod(cursorParserOverride(transformerElement))
+          .addMethod(statementParserOverride(transformerElement));
+    }
+    writeSource(filer, classBuilder.build());
+  }
 
-	@NonNull
-	private MethodSpec constructor() {
-		return MethodSpec.constructorBuilder()
-				.addParameters(Arrays.asList(
-						notNullParameter(ParameterizedTypeName.get(TABLE, parentTableType), "table"),
-						notNullParameter(String.class, "name"),
-						nullableParameter(TypeName.BOOLEAN, "nullable"),
-						nullableParameter(STRING, "alias")
-				))
-				.addStatement("super(table, name, false, $T.$L, nullable, alias)", UTIL, cursorParserConstantName)
-				.build();
-	}
+  @NonNull
+  private MethodSpec constructor() {
+    return MethodSpec.constructorBuilder()
+        .addParameters(Arrays.asList(
+            notNullParameter(ParameterizedTypeName.get(TABLE, parentTableType), "table"),
+            notNullParameter(String.class, "name"),
+            nullableParameter(TypeName.BOOLEAN, "nullable"),
+            nullableParameter(STRING, "alias")
+        ))
+        .addStatement("super(table, name, false, $T.$L, nullable, alias)", UTIL, cursorParserConstantName)
+        .build();
+  }
 
-	@NonNull
-	private MethodSpec toSqlArg() {
-		final MethodSpec.Builder builder = MethodSpec.methodBuilder("toSqlArg")
-				.addAnnotation(NON_NULL)
-				.addAnnotation(Override.class)
-				.addParameter(notNullParameter(deserializedTypeName, VAL_VARIABLE))
-				.returns(String.class);
-		if (initBlock != null) {
-			builder.addCode(initBlock);
-		}
-		if (nullable) {
-			builder.addStatement(String.format("final $T sqlVal = %s", valueGetter.getFormat()),
-					valueGetter.getWithOtherArgsBefore(serializedType.getTypeElement()))
-					.beginControlFlow("if (sqlVal == null)")
-					.addStatement("throw new $T($S)", NullPointerException.class, "SQL argument cannot be null")
-					.endControlFlow();
-			if (serializedType.isPrimitiveElement()) {
-				final TypeName boxedType = TypeName.get(serializedType.getTypeMirror()).box();
-				builder.addStatement("return $T.toString(sqlVal)", boxedType);
-			} else if (serializedType.isStringType(environment)) {
-				builder.addStatement("return sqlVal");
-			} else {
-				builder.addStatement("return sqlVal.toString()");
-			}
-		} else {
-			if (serializedType.isPrimitiveElement()) {
-				final TypeName boxedType = TypeName.get(serializedType.getTypeMirror()).box();
-				builder.addStatement(String.format("return $T.toString(%s)", valueGetter.getFormat()),
-						valueGetter.getWithOtherArgsBefore(boxedType));
-			} else if (serializedType.isStringType(environment)) {
-				builder.addStatement(String.format("return %s", valueGetter.getFormat()),
-						valueGetter.getArgs());
-			} else {
-				builder.addStatement(String.format("return %s.toString()", valueGetter.getFormat()),
-						valueGetter.getArgs());
-			}
-		}
-		return builder.build();
-	}
+  @NonNull
+  private MethodSpec toSqlArg() {
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder("toSqlArg")
+        .addAnnotation(NON_NULL)
+        .addAnnotation(Override.class)
+        .addParameter(notNullParameter(deserializedTypeName, VAL_VARIABLE))
+        .returns(String.class);
+    if (initBlock != null) {
+      builder.addCode(initBlock);
+    }
+    if (nullable) {
+      builder.addStatement(String.format("final $T sqlVal = %s", valueGetter.getFormat()),
+          valueGetter.getWithOtherArgsBefore(serializedType.getTypeElement()))
+          .beginControlFlow("if (sqlVal == null)")
+          .addStatement("throw new $T($S)", NullPointerException.class, "SQL argument cannot be null")
+          .endControlFlow();
+      if (serializedType.isPrimitiveElement()) {
+        final TypeName boxedType = TypeName.get(serializedType.getTypeMirror()).box();
+        builder.addStatement("return $T.toString(sqlVal)", boxedType);
+      } else if (serializedType.isStringType(environment)) {
+        builder.addStatement("return sqlVal");
+      } else {
+        builder.addStatement("return sqlVal.toString()");
+      }
+    } else {
+      if (serializedType.isPrimitiveElement()) {
+        final TypeName boxedType = TypeName.get(serializedType.getTypeMirror()).box();
+        builder.addStatement(String.format("return $T.toString(%s)", valueGetter.getFormat()),
+            valueGetter.getWithOtherArgsBefore(boxedType));
+      } else if (serializedType.isStringType(environment)) {
+        builder.addStatement(String.format("return %s", valueGetter.getFormat()),
+            valueGetter.getArgs());
+      } else {
+        builder.addStatement(String.format("return %s.toString()", valueGetter.getFormat()),
+            valueGetter.getArgs());
+      }
+    }
+    return builder.build();
+  }
 
-	@NonNull
-	private MethodSpec aliasOverride() {
-		final TypeName classType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, className), parentTableType);
-		return MethodSpec.methodBuilder("as")
-				.addAnnotation(NON_NULL)
-				.addAnnotation(Override.class)
-				.addModifiers(PUBLIC)
-				.returns(classType)
-				.addParameter(notNullParameter(STRING, "alias"))
-				.addStatement("return new $T(table, name, nullable, alias)", classType)
-				.build();
-	}
+  @NonNull
+  private MethodSpec aliasOverride() {
+    final TypeName classType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, className), parentTableType);
+    return MethodSpec.methodBuilder("as")
+        .addAnnotation(NON_NULL)
+        .addAnnotation(Override.class)
+        .addModifiers(PUBLIC)
+        .returns(classType)
+        .addParameter(notNullParameter(STRING, "alias"))
+        .addStatement("return new $T(table, name, nullable, alias)", classType)
+        .build();
+  }
 
-	@NonNull
-	private MethodSpec cursorParserOverride(@NonNull TransformerElement transformerElement) {
-		final TypeVariableName returnType = TypeVariableName.get("V");
-		final MethodSpec.Builder builder = MethodSpec.methodBuilder("getFromCursor")
-				.addAnnotation(NULLABLE)
-				.addAnnotation(Override.class)
-				.addParameter(notNullParameter(FAST_CURSOR, "cursor"))
-				.addTypeVariable(returnType)
-				.returns(returnType)
-				.addStatement("final $T dbVal = super.getFromCursor(cursor)", transformerElement.getSerializedTypeName());
-		final FormatData valGetter = transformerElement.deserializedValueGetter("dbVal");
-		builder.addStatement(valGetter.formatInto("return ($T) %s"), valGetter.getWithOtherArgsBefore(returnType));
-		return builder.build();
-	}
+  @NonNull
+  private MethodSpec cursorParserOverride(@NonNull TransformerElement transformerElement) {
+    final TypeVariableName returnType = TypeVariableName.get("V");
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder("getFromCursor")
+        .addAnnotation(NULLABLE)
+        .addAnnotation(Override.class)
+        .addParameter(notNullParameter(FAST_CURSOR, "cursor"))
+        .addTypeVariable(returnType)
+        .returns(returnType)
+        .addStatement("final $T dbVal = super.getFromCursor(cursor)", transformerElement.getSerializedTypeName());
+    final FormatData valGetter = transformerElement.deserializedValueGetter("dbVal");
+    builder.addStatement(valGetter.formatInto("return ($T) %s"), valGetter.getWithOtherArgsBefore(returnType));
+    return builder.build();
+  }
 
-	@NonNull
-	private MethodSpec statementParserOverride(@NonNull TransformerElement transformerElement) {
-		final TypeVariableName returnType = TypeVariableName.get("V");
-		final MethodSpec.Builder builder = MethodSpec.methodBuilder("getFromStatement")
-				.addAnnotation(NULLABLE)
-				.addAnnotation(Override.class)
-				.addParameter(notNullParameter(SQLITE_STATEMENT, "stm"))
-				.addTypeVariable(returnType)
-				.returns(returnType)
-				.addStatement("final $T dbVal = super.getFromStatement(stm)", transformerElement.getSerializedTypeName());
-		final FormatData valGetter = transformerElement.deserializedValueGetter("dbVal");
-		builder.addStatement(valGetter.formatInto("return ($T) %s"), valGetter.getWithOtherArgsBefore(returnType));
-		return builder.build();
-	}
+  @NonNull
+  private MethodSpec statementParserOverride(@NonNull TransformerElement transformerElement) {
+    final TypeVariableName returnType = TypeVariableName.get("V");
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder("getFromStatement")
+        .addAnnotation(NULLABLE)
+        .addAnnotation(Override.class)
+        .addParameter(notNullParameter(SQLITE_STATEMENT, "stm"))
+        .addTypeVariable(returnType)
+        .returns(returnType)
+        .addStatement("final $T dbVal = super.getFromStatement(stm)", transformerElement.getSerializedTypeName());
+    final FormatData valGetter = transformerElement.deserializedValueGetter("dbVal");
+    builder.addStatement(valGetter.formatInto("return ($T) %s"), valGetter.getWithOtherArgsBefore(returnType));
+    return builder.build();
+  }
 
-	@NonNull
-	public static String getClassName(@NonNull TransformerElement transformerElement) {
-		return transformerElement.getClassName() + "Column";
-	}
+  @NonNull
+  public static String getClassName(@NonNull TransformerElement transformerElement) {
+    return transformerElement.getClassName() + "Column";
+  }
 
-	@NonNull
-	public static String getClassName(@NonNull TableElement tableElement) {
-		return tableElement.getTableElementName() + "Column";
-	}
+  @NonNull
+  public static String getClassName(@NonNull TableElement tableElement) {
+    return tableElement.getTableElementName() + "Column";
+  }
 }

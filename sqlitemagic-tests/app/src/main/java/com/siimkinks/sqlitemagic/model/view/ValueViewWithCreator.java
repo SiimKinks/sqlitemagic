@@ -17,31 +17,31 @@ import static com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE
 @View
 @AutoValue
 public abstract class ValueViewWithCreator {
-	@ViewQuery
-	static final CompiledSelect QUERY = Select
-			.columns(
-					AUTHOR.NAME.as("an"),
-					MAGAZINE.NAME,
-					SIMPLE_VALUE_WITH_CREATOR.all(),
-					SIMPLE_VALUE_WITH_BUILDER.all()
-			)
-			.from(MAGAZINE)
-			.join(AUTHOR)
-			.join(SIMPLE_VALUE_WITH_BUILDER)
-			.join(SIMPLE_VALUE_WITH_CREATOR)
-			.where(MAGAZINE.AUTHOR.is(AUTHOR.ID))
-			.queryDeep()
-			.compile();
+  @ViewQuery
+  static final CompiledSelect QUERY = Select
+      .columns(
+          AUTHOR.NAME.as("an"),
+          MAGAZINE.NAME,
+          SIMPLE_VALUE_WITH_CREATOR.all(),
+          SIMPLE_VALUE_WITH_BUILDER.all()
+      )
+      .from(MAGAZINE)
+      .join(AUTHOR)
+      .join(SIMPLE_VALUE_WITH_BUILDER)
+      .join(SIMPLE_VALUE_WITH_CREATOR)
+      .where(MAGAZINE.AUTHOR.is(AUTHOR.ID))
+      .queryDeep()
+      .compile();
 
-	@ViewColumn("magazine.name")
-	public abstract String magazineName();
+  @ViewColumn("magazine.name")
+  public abstract String magazineName();
 
-	@ViewColumn("an")
-	public abstract String authorName();
+  @ViewColumn("an")
+  public abstract String authorName();
 
-	@ViewColumn("simplevaluewithbuilder")
-	public abstract SimpleValueWithBuilder simpleBuilder();
+  @ViewColumn("simplevaluewithbuilder")
+  public abstract SimpleValueWithBuilder simpleBuilder();
 
-	@ViewColumn("simplevaluewithcreator")
-	public abstract SimpleValueWithCreator simpleCreator();
+  @ViewColumn("simplevaluewithcreator")
+  public abstract SimpleValueWithCreator simpleCreator();
 }

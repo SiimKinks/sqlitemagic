@@ -15,32 +15,32 @@ import javax.lang.model.element.TypeElement;
 
 public final class ViewCodeGenerationStep implements ProcessingStep {
 
-	@Inject
-	Environment environment;
-	private final Filer filer;
-	@Inject
-	ViewWriter viewWriter;
+  @Inject
+  Environment environment;
+  private final Filer filer;
+  @Inject
+  ViewWriter viewWriter;
 
-	public ViewCodeGenerationStep() {
-		SqliteMagicProcessor.inject(this);
-		this.filer = environment.getFiler();
-	}
+  public ViewCodeGenerationStep() {
+    SqliteMagicProcessor.inject(this);
+    this.filer = environment.getFiler();
+  }
 
-	@Override
-	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		for (ViewElement viewElement : environment.getViewElements()) {
-			TypeElement element = viewElement.getViewElement();
-			try{
-				viewWriter.writeSource(filer, viewElement);
-			} catch (Exception e) {
-				final String errMsg = e.getMessage();
-				environment.error(element, errMsg);
-				if (Strings.isNullOrEmpty(errMsg)) {
-					e.printStackTrace();
-				}
-				return false;
-			}
-		}
-		return true;
-	}
+  @Override
+  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    for (ViewElement viewElement : environment.getViewElements()) {
+      TypeElement element = viewElement.getViewElement();
+      try {
+        viewWriter.writeSource(filer, viewElement);
+      } catch (Exception e) {
+        final String errMsg = e.getMessage();
+        environment.error(element, errMsg);
+        if (Strings.isNullOrEmpty(errMsg)) {
+          e.printStackTrace();
+        }
+        return false;
+      }
+    }
+    return true;
+  }
 }

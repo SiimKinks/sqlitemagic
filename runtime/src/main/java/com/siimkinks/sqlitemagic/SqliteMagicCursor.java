@@ -6,32 +6,32 @@ import android.database.sqlite.SQLiteQuery;
 import android.support.annotation.NonNull;
 
 final class SqliteMagicCursor extends SQLiteCursor {
-	private FastCursor cursor;
+  private FastCursor cursor;
 
-	public SqliteMagicCursor(SQLiteCursorDriver driver, String editTable, SQLiteQuery query) {
-		super(driver, editTable, query);
-	}
+  public SqliteMagicCursor(SQLiteCursorDriver driver, String editTable, SQLiteQuery query) {
+    super(driver, editTable, query);
+  }
 
-	@NonNull
-	FastCursor getFastCursor() {
-		if (cursor == null) {
-			cursor = FastCursor.from(this);
-		}
-		return cursor;
-	}
+  @NonNull
+  FastCursor getFastCursor() {
+    if (cursor == null) {
+      cursor = FastCursor.from(this);
+    }
+    return cursor;
+  }
 
-	FastCursor getFastCursorAndSync() {
-		final FastCursor cursor = getFastCursor();
-		cursor.syncWith(this);
-		return cursor;
-	}
+  FastCursor getFastCursorAndSync() {
+    final FastCursor cursor = getFastCursor();
+    cursor.syncWith(this);
+    return cursor;
+  }
 
-	@Override
-	public void close() {
-		super.close();
-		if (cursor != null) {
-			cursor.close();
-			cursor = null;
-		}
-	}
+  @Override
+  public void close() {
+    super.close();
+    if (cursor != null) {
+      cursor.close();
+      cursor = null;
+    }
+  }
 }

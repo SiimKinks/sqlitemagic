@@ -53,32 +53,44 @@
 
     <application-components>
         <component>
-            <implementation-class>com.siimkinks.sqlitemagic.intellij.plugin.SqliteMagicLoader</implementation-class>
+            <implementation-class>com.siimkinks.sqlitemagic.intellij.plugin.SqliteMagicLoader
+            </implementation-class>
         </component>
     </application-components>
 
     <extensionPoints>
-        <extensionPoint name="processor" interface="com.siimkinks.sqlitemagic.intellij.plugin.processor.Processor"/>
+        <extensionPoint name="processor"
+                        interface="com.siimkinks.sqlitemagic.intellij.plugin.processor.Processor"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
-        <lang.psiAugmentProvider implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicAugmentProvider"/>
-        <implicitUsageProvider implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicImplicitUsageProvider"/>
-        <inspectionToolProvider implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicInspectionProvider"/>
+        <lang.psiAugmentProvider
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicAugmentProvider"/>
+        <implicitUsageProvider
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicImplicitUsageProvider"/>
+        <inspectionToolProvider
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.provider.SqliteMagicInspectionProvider"/>
 
-        <treeGenerator implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicLightMethodGenerator"/>
+        <treeGenerator
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicLightMethodGenerator"/>
 
-        <lang.structureViewExtension implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicStructureViewExtension"/>
+        <lang.structureViewExtension
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicStructureViewExtension"/>
 
-        <daemon.highlightInfoFilter implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicHighlightErrorFilter"/>
+        <daemon.highlightInfoFilter
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicHighlightErrorFilter"/>
 
-        <findUsagesHandlerFactory implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicFieldFindUsagesHandlerFactory"/>
-        <renamePsiElementProcessor implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicRenameFieldReferenceProcessor"/>
+        <findUsagesHandlerFactory
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicFieldFindUsagesHandlerFactory"/>
+        <renamePsiElementProcessor
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.extension.SqliteMagicRenameFieldReferenceProcessor"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.siimkinks.sqlitemagic">
-        <processor implementation="com.siimkinks.sqlitemagic.intellij.plugin.processor.TableMethodsProcessor"/>
-        <processor implementation="com.siimkinks.sqlitemagic.intellij.plugin.processor.TableColumnsProcessor"/>
+        <processor
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.processor.TableMethodsProcessor"/>
+        <processor
+            implementation="com.siimkinks.sqlitemagic.intellij.plugin.processor.TableColumnsProcessor"/>
     </extensions>
 
     <project-components>

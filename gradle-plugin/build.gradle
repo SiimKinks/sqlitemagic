@@ -7,21 +7,21 @@ targetCompatibility = JavaVersion.VERSION_1_7
 sourceCompatibility = JavaVersion.VERSION_1_7
 
 dependencies {
-	compileOnly gradleApi()
+  compileOnly gradleApi()
 
-	compile libraries.android
-	compile libraries.androidApt
-	compile libraries.androidGradle
-	compile libraries.autoValue
-	compile libraries.javassist
-	compile libraries.kotlinStdLib
-	compile libraries.kotlinReflect
-	compile libraries.ztZip
+  compile libraries.android
+  compile libraries.androidApt
+  compile libraries.androidGradle
+  compile libraries.autoValue
+  compile libraries.javassist
+  compile libraries.kotlinStdLib
+  compile libraries.kotlinReflect
+  compile libraries.ztZip
 
-	compile project(path: ':annotations')
+  compile project(path: ':annotations')
 }
 
 tasks.withType(Test) {
-	scanForTestClasses = false
-	include "**/*Test.class"
+  scanForTestClasses = false
+  include "**/*Test.class"
 }

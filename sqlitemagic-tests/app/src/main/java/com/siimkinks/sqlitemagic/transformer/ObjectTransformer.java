@@ -13,15 +13,15 @@ import com.siimkinks.sqlitemagic.model.TransformableObject;
 @Transformer
 public class ObjectTransformer {
 
-	@NonNull
-	@ObjectToDbValue
-	public static Integer objectToDbValue(TransformableObject javaObject) {
-		return javaObject.value;
-	}
+  @NonNull
+  @ObjectToDbValue
+  public static Integer objectToDbValue(TransformableObject javaObject) {
+    return javaObject.value;
+  }
 
-	@NonNull
-	@DbValueToObject
-	public static TransformableObject dbValueToObject(Integer dbObject) {
-		return new TransformableObject(dbObject);
-	}
+  @NonNull
+  @DbValueToObject
+  public static TransformableObject dbValueToObject(Integer dbObject) {
+    return new TransformableObject(dbObject);
+  }
 }

@@ -19,37 +19,41 @@ import static com.siimkinks.sqlitemagic.ItemListTable.ITEM_LIST;
 @AutoValue
 @Table(persistAll = true)
 public abstract class ItemList implements Parcelable {
-	public static final CompiledCountSelect COUNT = Select
-			.from(ITEM_LIST)
-			.count();
+  public static final CompiledCountSelect COUNT = Select
+      .from(ITEM_LIST)
+      .count();
 
-	@Id
-	@Nullable
-	public abstract Long id();
-	public abstract String name();
-	public abstract boolean archived();
+  @Id
+  @Nullable
+  public abstract Long id();
 
-	public static Builder builder() {
-		return new AutoValue_ItemList.Builder();
-	}
+  public abstract String name();
 
-	@AutoValue.Builder
-	public static abstract class Builder {
-		abstract Builder id(@Nullable Long id);
-		public abstract Builder name(@NonNull String name);
-		public abstract Builder archived(boolean archived);
+  public abstract boolean archived();
 
-		public abstract ItemList build();
-	}
+  public static Builder builder() {
+    return new AutoValue_ItemList.Builder();
+  }
 
-	public static List<ItemList> createRandom(int count) {
-		final ArrayList<ItemList> output = new ArrayList<>(count);
-		for (int i = 0; i < count; i++) {
-			output.add(ItemList.builder()
-					.name(Utils.randomTableName())
-					.archived(false)
-					.build());
-		}
-		return output;
-	}
+  @AutoValue.Builder
+  public static abstract class Builder {
+    abstract Builder id(@Nullable Long id);
+
+    public abstract Builder name(@NonNull String name);
+
+    public abstract Builder archived(boolean archived);
+
+    public abstract ItemList build();
+  }
+
+  public static List<ItemList> createRandom(int count) {
+    final ArrayList<ItemList> output = new ArrayList<>(count);
+    for (int i = 0; i < count; i++) {
+      output.add(ItemList.builder()
+          .name(Utils.randomTableName())
+          .archived(false)
+          .build());
+    }
+    return output;
+  }
 }

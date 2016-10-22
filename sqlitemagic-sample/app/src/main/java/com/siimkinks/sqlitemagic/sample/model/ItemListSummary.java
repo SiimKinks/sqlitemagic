@@ -14,22 +14,22 @@ import static com.siimkinks.sqlitemagic.Select.val;
 
 @View
 public interface ItemListSummary {
-	@ViewQuery
-	CompiledSelect QUERY = Select
-			.columns(
-					ITEM_LIST.all().as("item_list"),
-					Select.column(count())
-							.from(ITEM)
-							.where(ITEM.COMPLETE.is(val(false))
-									.and(ITEM.LIST.is(ITEM_LIST.ID)))
-							.asColumn("count"))
-			.from(ITEM_LIST)
-			.order(by(ITEM_LIST.NAME))
-			.compile();
+  @ViewQuery
+  CompiledSelect QUERY = Select
+      .columns(
+          ITEM_LIST.all().as("item_list"),
+          Select.column(count())
+              .from(ITEM)
+              .where(ITEM.COMPLETE.is(val(false))
+                  .and(ITEM.LIST.is(ITEM_LIST.ID)))
+              .asColumn("count"))
+      .from(ITEM_LIST)
+      .order(by(ITEM_LIST.NAME))
+      .compile();
 
-	@ViewColumn("item_list")
-	ItemList itemList();
+  @ViewColumn("item_list")
+  ItemList itemList();
 
-	@ViewColumn("count")
-	long itemsCount();
+  @ViewColumn("count")
+  long itemsCount();
 }

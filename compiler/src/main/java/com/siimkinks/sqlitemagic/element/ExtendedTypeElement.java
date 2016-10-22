@@ -26,80 +26,80 @@ import static com.siimkinks.sqlitemagic.Const.STRING_TYPE;
 @ToString(doNotUseGetters = true)
 @AllArgsConstructor(suppressConstructorProperties = true)
 public class ExtendedTypeElement {
-	private final Dual<TypeElement, Boolean> typeElement;
-	private final TypeMirror typeMirror;
-	private final boolean isArrayElement;
+  private final Dual<TypeElement, Boolean> typeElement;
+  private final TypeMirror typeMirror;
+  private final boolean isArrayElement;
 
-	public static final ExtendedTypeElement EMPTY = new ExtendedTypeElement(null, null, false);
-	private static ExtendedTypeElement LONG;
-	private static ExtendedTypeElement PRIMITIVE_LONG;
+  public static final ExtendedTypeElement EMPTY = new ExtendedTypeElement(null, null, false);
+  private static ExtendedTypeElement LONG;
+  private static ExtendedTypeElement PRIMITIVE_LONG;
 
-	public static ExtendedTypeElement LONG(Environment environment) {
-		if (LONG == null) {
-			LONG = new ExtendedTypeElement(Dual.create(environment.getTypeElement(Long.class), false));
-		}
-		return LONG;
-	}
+  public static ExtendedTypeElement LONG(Environment environment) {
+    if (LONG == null) {
+      LONG = new ExtendedTypeElement(Dual.create(environment.getTypeElement(Long.class), false));
+    }
+    return LONG;
+  }
 
-	public static ExtendedTypeElement PRIMITIVE_LONG(Environment environment) {
-		if (PRIMITIVE_LONG == null) {
-			PRIMITIVE_LONG = new ExtendedTypeElement(Dual.create(environment.getTypeElement(Long.class), true));
-		}
-		return PRIMITIVE_LONG;
-	}
+  public static ExtendedTypeElement PRIMITIVE_LONG(Environment environment) {
+    if (PRIMITIVE_LONG == null) {
+      PRIMITIVE_LONG = new ExtendedTypeElement(Dual.create(environment.getTypeElement(Long.class), true));
+    }
+    return PRIMITIVE_LONG;
+  }
 
-	public ExtendedTypeElement(Dual<TypeElement, Boolean> element) {
-		this.typeElement = element;
-		this.typeMirror = getTypeMirror(element);
-		this.isArrayElement = false;
-	}
+  public ExtendedTypeElement(Dual<TypeElement, Boolean> element) {
+    this.typeElement = element;
+    this.typeMirror = getTypeMirror(element);
+    this.isArrayElement = false;
+  }
 
-	public String getQualifiedName() {
-		String qualifiedName = Environment.getQualifiedName(getTypeElement());
-		if (isArrayElement) {
-			qualifiedName += "[]";
-		}
-		return qualifiedName;
-	}
+  public String getQualifiedName() {
+    String qualifiedName = Environment.getQualifiedName(getTypeElement());
+    if (isArrayElement) {
+      qualifiedName += "[]";
+    }
+    return qualifiedName;
+  }
 
-	public TypeElement getTypeElement() {
-		return typeElement != null ? typeElement.getFirst() : null;
-	}
+  public TypeElement getTypeElement() {
+    return typeElement != null ? typeElement.getFirst() : null;
+  }
 
-	public boolean isPrimitiveElement() {
-		return typeElement != null ? typeElement.getSecond() : false;
-	}
+  public boolean isPrimitiveElement() {
+    return typeElement != null ? typeElement.getSecond() : false;
+  }
 
-	public TypeName asTypeName() {
-		final ClassName className = ClassName.get(getTypeElement());
-		if (isArrayElement) {
-			return ArrayTypeName.of(className);
-		}
-		return className;
-	}
+  public TypeName asTypeName() {
+    final ClassName className = ClassName.get(getTypeElement());
+    if (isArrayElement) {
+      return ArrayTypeName.of(className);
+    }
+    return className;
+  }
 
-	public boolean isStringType(@NonNull Environment environment) {
-		final Types typeUtils = environment.getTypeUtils();
-		return typeUtils.isSubtype(typeMirror, STRING_TYPE);
-	}
+  public boolean isStringType(@NonNull Environment environment) {
+    final Types typeUtils = environment.getTypeUtils();
+    return typeUtils.isSubtype(typeMirror, STRING_TYPE);
+  }
 
-	private static TypeMirror getTypeMirror(Dual<TypeElement, Boolean> element) {
-		if (element != null) {
-			final TypeElement typeElement = element.getFirst();
-			if (typeElement != null) {
-				return typeElement.asType();
-			}
-		}
-		return null;
-	}
+  private static TypeMirror getTypeMirror(Dual<TypeElement, Boolean> element) {
+    if (element != null) {
+      final TypeElement typeElement = element.getFirst();
+      if (typeElement != null) {
+        return typeElement.asType();
+      }
+    }
+    return null;
+  }
 
-	public boolean isBoxedByteArray(Environment environment) {
-		return environment.getTypeUtils().isSameType(getTypeElement().asType(), Const.BYTE_TYPE)
-				&& !isPrimitiveElement() && isArrayElement();
-	}
+  public boolean isBoxedByteArray(Environment environment) {
+    return environment.getTypeUtils().isSameType(getTypeElement().asType(), Const.BYTE_TYPE)
+        && !isPrimitiveElement() && isArrayElement();
+  }
 
-	public boolean isPrimitiveByteArray(Environment environment) {
-		return environment.getTypeUtils().isSameType(getTypeElement().asType(), Const.BYTE_TYPE)
-				&& isPrimitiveElement() && isArrayElement();
-	}
+  public boolean isPrimitiveByteArray(Environment environment) {
+    return environment.getTypeUtils().isSameType(getTypeElement().asType(), Const.BYTE_TYPE)
+        && isPrimitiveElement() && isArrayElement();
+  }
 }

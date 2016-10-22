@@ -18,26 +18,26 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 public final class SimpleMutableWithNullableFields {
-	@Id
-	@Column
-	public Long id;
-	@Nullable
-	@Column
-	public String nullableString;
-	@NonNull
-	@Column
-	public String nonNullString;
+  @Id
+  @Column
+  public Long id;
+  @Nullable
+  @Column
+  public String nullableString;
+  @NonNull
+  @Column
+  public String nonNullString;
 
-	public static SimpleMutableWithNullableFields newRandom() {
-		final SimpleMutableWithNullableFields obj = new SimpleMutableWithNullableFields();
-		fillWithRandomValues(obj);
-		return obj;
-	}
+  public static SimpleMutableWithNullableFields newRandom() {
+    final SimpleMutableWithNullableFields obj = new SimpleMutableWithNullableFields();
+    fillWithRandomValues(obj);
+    return obj;
+  }
 
-	public static void fillWithRandomValues(SimpleMutableWithNullableFields obj) {
-		final Random r = new Random();
-		obj.id = r.nextLong();
-		obj.nullableString = Utils.randomTableName();
-		obj.nonNullString = Utils.randomTableName();
-	}
+  public static void fillWithRandomValues(SimpleMutableWithNullableFields obj) {
+    final Random r = new Random();
+    obj.id = r.nextLong();
+    obj.nullableString = Utils.randomTableName();
+    obj.nonNullString = Utils.randomTableName();
+  }
 }

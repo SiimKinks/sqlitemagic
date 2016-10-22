@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
 public interface ParentInterface {
-	boolean interfaceParentClassColumn();
+  boolean interfaceParentClassColumn();
 
-	boolean implementThisInterfaceMethod();
+  boolean implementThisInterfaceMethod();
 }

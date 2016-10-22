@@ -9,8 +9,8 @@ import java.util.Map;
 // TODO implement
 public class SqliteMagicRenameFieldReferenceProcessor extends RenameJavaVariableProcessor {
 
-    @Override
-    public boolean canProcessElement(@NotNull PsiElement element) {
+  @Override
+  public boolean canProcessElement(@NotNull PsiElement element) {
 //        final boolean isPsiJavaField = element instanceof PsiField && StdFileTypes.JAVA.getLanguage().equals(element.getLanguage());
 //        if (isPsiJavaField) {
 //            final PsiField psiField = (PsiField) element;
@@ -20,11 +20,11 @@ public class SqliteMagicRenameFieldReferenceProcessor extends RenameJavaVariable
 //                return true;
 //            }
 //        }
-        return false;
-    }
+    return false;
+  }
 
-    @Override
-    public void prepareRenaming(PsiElement element, String newName, Map<PsiElement, String> allRenames) {
+  @Override
+  public void prepareRenaming(PsiElement element, String newName, Map<PsiElement, String> allRenames) {
 //        final PsiField psiField = (PsiField) element;
 //        final PsiClass containingClass = psiField.getContainingClass();
 //        if (null != containingClass) {
@@ -46,5 +46,5 @@ public class SqliteMagicRenameFieldReferenceProcessor extends RenameJavaVariable
 //                allRenames.put(psiMethod, LombokUtils.toSetterName(accessorsInfo, newName, isBoolean));
 //            }
 //        }
-    }
+  }
 }

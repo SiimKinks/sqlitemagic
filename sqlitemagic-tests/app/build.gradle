@@ -2,52 +2,52 @@ apply plugin: 'com.android.application'
 apply plugin: 'sqlitemagic'
 
 android {
-	compileSdkVersion 24
-	buildToolsVersion "24.0.0"
+  compileSdkVersion 24
+  buildToolsVersion "24.0.0"
 
-	defaultConfig {
-		applicationId "com.siimkinks.sqlitemagic"
-		minSdkVersion 16
-		targetSdkVersion 24
-		versionCode 1
-		versionName "1.0"
+  defaultConfig {
+    applicationId "com.siimkinks.sqlitemagic"
+    minSdkVersion 16
+    targetSdkVersion 24
+    versionCode 1
+    versionName "1.0"
 
-		buildConfigField "int", "DB_VERSION", "3"
-		buildConfigField "String", "DB_NAME", '"db.db"'
+    buildConfigField "int", "DB_VERSION", "3"
+    buildConfigField "String", "DB_NAME", '"db.db"'
 
-		testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-	}
-	buildTypes {
-		release {
-			buildConfigField "int", "DB_VERSION", "2"
+    testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+  }
+  buildTypes {
+    release {
+      buildConfigField "int", "DB_VERSION", "2"
 
-			minifyEnabled false
-			proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-		}
-	}
-	lintOptions {
-		abortOnError false
-	}
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+    }
+  }
+  lintOptions {
+    abortOnError false
+  }
 }
 
 dependencies {
-	compile libraries.supportV7
-	compile libraries.rxJava
-	compile libraries.rxJavaMath
+  compile libraries.supportV7
+  compile libraries.rxJava
+  compile libraries.rxJavaMath
 
-	provided libraries.autoValueAnnotations
-	provided libraries.lombok
+  provided libraries.autoValueAnnotations
+  provided libraries.lombok
 
-	apt libraries.autoValue
-	apt libraries.autoValueParcel
+  apt libraries.autoValue
+  apt libraries.autoValueParcel
 
-	testCompile libraries.truth
+  testCompile libraries.truth
 
-	androidTestCompile libraries.supportAnnotationsForTesting
-	androidTestCompile libraries.supportTestRunner
-	androidTestCompile(libraries.truth) {
-		exclude group: 'junit' // Android has JUnit built in.
-	}
+  androidTestCompile libraries.supportAnnotationsForTesting
+  androidTestCompile libraries.supportTestRunner
+  androidTestCompile(libraries.truth) {
+    exclude group: 'junit' // Android has JUnit built in.
+  }
 }
 
 sqlitemagic {
@@ -56,6 +56,6 @@ sqlitemagic {
 }
 
 tasks.withType(Test) {
-	scanForTestClasses = false
-	include "**/*Test.class"
+  scanForTestClasses = false
+  include "**/*Test.class"
 }

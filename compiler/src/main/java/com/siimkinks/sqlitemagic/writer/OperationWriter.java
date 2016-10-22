@@ -4,7 +4,7 @@ import com.squareup.javapoet.TypeSpec;
 
 public interface OperationWriter {
 
-	void writeDao(TypeSpec.Builder classBuilder);
+  void writeDao(TypeSpec.Builder classBuilder);
 
-	void writeHandler(TypeSpec.Builder classBuilder);
+  void writeHandler(TypeSpec.Builder classBuilder);
 }

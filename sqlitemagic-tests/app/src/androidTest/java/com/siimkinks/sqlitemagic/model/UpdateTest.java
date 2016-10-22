@@ -16,139 +16,139 @@ import static com.siimkinks.sqlitemagic.BuilderMagazineTable.BUILDER_MAGAZINE;
 
 @RunWith(AndroidJUnit4.class)
 public final class UpdateTest {
-	@Test
-	public void updateSingle() {
-		BuilderMagazine.deleteTable().execute();
-		BuilderMagazine magazine = BuilderMagazine.newRandom().build();
-		assertThat(magazine.persist().execute()).isNotEqualTo(-1);
-		magazine = Select
-				.from(BUILDER_MAGAZINE)
-				.queryDeep()
-				.takeFirst()
-				.execute();
+  @Test
+  public void updateSingle() {
+    BuilderMagazine.deleteTable().execute();
+    BuilderMagazine magazine = BuilderMagazine.newRandom().build();
+    assertThat(magazine.persist().execute()).isNotEqualTo(-1);
+    magazine = Select
+        .from(BUILDER_MAGAZINE)
+        .queryDeep()
+        .takeFirst()
+        .execute();
 
-		BuilderMagazine expected = magazine.copy()
-				.name("asdasd")
-				.build();
-		assertThat(Update
-				.table(BUILDER_MAGAZINE)
-				.set(BUILDER_MAGAZINE.NAME, "asdasd")
-				.execute())
-				.isEqualTo(1);
-		assertThat(Select
-				.from(BUILDER_MAGAZINE)
-				.where(BUILDER_MAGAZINE.ID.is(expected.id()))
-				.queryDeep()
-				.takeFirst()
-				.execute())
-				.isEqualTo(expected);
-	}
+    BuilderMagazine expected = magazine.copy()
+        .name("asdasd")
+        .build();
+    assertThat(Update
+        .table(BUILDER_MAGAZINE)
+        .set(BUILDER_MAGAZINE.NAME, "asdasd")
+        .execute())
+        .isEqualTo(1);
+    assertThat(Select
+        .from(BUILDER_MAGAZINE)
+        .where(BUILDER_MAGAZINE.ID.is(expected.id()))
+        .queryDeep()
+        .takeFirst()
+        .execute())
+        .isEqualTo(expected);
+  }
 
-	@Test
-	public void updateMultiple() {
-		BuilderMagazine.deleteTable().execute();
-		final int testCount = 10;
-		for (int i = 0; i < testCount; i++) {
-			final BuilderMagazine magazine = BuilderMagazine
-					.newRandom()
-					.build();
-			assertThat(magazine.persist().execute()).isNotEqualTo(-1);
-		}
-		assertThat(Update
-				.table(BUILDER_MAGAZINE)
-				.set(BUILDER_MAGAZINE.NAME, "asd")
-				.execute())
-				.isEqualTo(testCount);
-		for (BuilderMagazine magazine : Select.from(BUILDER_MAGAZINE).execute()) {
-			assertThat(magazine.name()).isEqualTo("asd");
-		}
-	}
+  @Test
+  public void updateMultiple() {
+    BuilderMagazine.deleteTable().execute();
+    final int testCount = 10;
+    for (int i = 0; i < testCount; i++) {
+      final BuilderMagazine magazine = BuilderMagazine
+          .newRandom()
+          .build();
+      assertThat(magazine.persist().execute()).isNotEqualTo(-1);
+    }
+    assertThat(Update
+        .table(BUILDER_MAGAZINE)
+        .set(BUILDER_MAGAZINE.NAME, "asd")
+        .execute())
+        .isEqualTo(testCount);
+    for (BuilderMagazine magazine : Select.from(BUILDER_MAGAZINE).execute()) {
+      assertThat(magazine.name()).isEqualTo("asd");
+    }
+  }
 
-	@Test
-	public void updateWhere() {
-		BuilderMagazine magazine = BuilderMagazine.newRandom().build();
-		final long id = magazine.persist().execute();
-		assertThat(id).isNotEqualTo(-1);
-		magazine = Select
-				.from(BUILDER_MAGAZINE)
-				.where(BUILDER_MAGAZINE.ID.is(id))
-				.queryDeep()
-				.takeFirst()
-				.execute();
-		assertThat(BuilderMagazine
-				.newRandom()
-				.build()
-				.persist()
-				.execute()).isNotEqualTo(-1);
-		assertThat(Select.from(BUILDER_MAGAZINE).count().execute()).isGreaterThan(1L);
+  @Test
+  public void updateWhere() {
+    BuilderMagazine magazine = BuilderMagazine.newRandom().build();
+    final long id = magazine.persist().execute();
+    assertThat(id).isNotEqualTo(-1);
+    magazine = Select
+        .from(BUILDER_MAGAZINE)
+        .where(BUILDER_MAGAZINE.ID.is(id))
+        .queryDeep()
+        .takeFirst()
+        .execute();
+    assertThat(BuilderMagazine
+        .newRandom()
+        .build()
+        .persist()
+        .execute()).isNotEqualTo(-1);
+    assertThat(Select.from(BUILDER_MAGAZINE).count().execute()).isGreaterThan(1L);
 
-		BuilderMagazine expected = magazine.copy()
-				.name("asdasd")
-				.build();
-		assertThat(Update
-				.table(BUILDER_MAGAZINE)
-				.set(BUILDER_MAGAZINE.NAME, "asdasd")
-				.where(BUILDER_MAGAZINE.ID.is(id))
-				.execute())
-				.isEqualTo(1);
-		assertThat(Select
-				.from(BUILDER_MAGAZINE)
-				.where(BUILDER_MAGAZINE.ID.is(expected.id()))
-				.queryDeep()
-				.takeFirst()
-				.execute())
-				.isEqualTo(expected);
-	}
+    BuilderMagazine expected = magazine.copy()
+        .name("asdasd")
+        .build();
+    assertThat(Update
+        .table(BUILDER_MAGAZINE)
+        .set(BUILDER_MAGAZINE.NAME, "asdasd")
+        .where(BUILDER_MAGAZINE.ID.is(id))
+        .execute())
+        .isEqualTo(1);
+    assertThat(Select
+        .from(BUILDER_MAGAZINE)
+        .where(BUILDER_MAGAZINE.ID.is(expected.id()))
+        .queryDeep()
+        .takeFirst()
+        .execute())
+        .isEqualTo(expected);
+  }
 
-	@Test
-	public void updateMultipleWhere() {
-		BuilderMagazine.deleteTable().execute();
-		final int testCount = 10;
-		for (int i = 0; i < testCount; i++) {
-			final BuilderMagazine magazine = BuilderMagazine
-					.newRandom()
-					.name("asd")
-					.build();
-			assertThat(magazine.persist().execute()).isNotEqualTo(-1);
-		}
-		for (int i = 0; i < 4; i++) {
-			assertThat(BuilderMagazine
-					.newRandom()
-					.build()
-					.persist()
-					.execute())
-					.isNotEqualTo(-1);
-		}
-		assertThat(Select.from(BUILDER_MAGAZINE).count().execute()).isEqualTo(testCount + 4);
-		assertThat(Update
-				.table(BUILDER_MAGAZINE)
-				.set(BUILDER_MAGAZINE.NAME, "dsa")
-				.where(BUILDER_MAGAZINE.NAME.is("asd"))
-				.execute())
-				.isEqualTo(testCount);
-		final List<BuilderMagazine> magazines = Select
-				.from(BUILDER_MAGAZINE)
-				.where(BUILDER_MAGAZINE.NAME.is("dsa"))
-				.execute();
-		assertThat(magazines.size()).isEqualTo(testCount);
-		for (BuilderMagazine magazine : magazines) {
-			assertThat(magazine.name()).isEqualTo("dsa");
-		}
-	}
+  @Test
+  public void updateMultipleWhere() {
+    BuilderMagazine.deleteTable().execute();
+    final int testCount = 10;
+    for (int i = 0; i < testCount; i++) {
+      final BuilderMagazine magazine = BuilderMagazine
+          .newRandom()
+          .name("asd")
+          .build();
+      assertThat(magazine.persist().execute()).isNotEqualTo(-1);
+    }
+    for (int i = 0; i < 4; i++) {
+      assertThat(BuilderMagazine
+          .newRandom()
+          .build()
+          .persist()
+          .execute())
+          .isNotEqualTo(-1);
+    }
+    assertThat(Select.from(BUILDER_MAGAZINE).count().execute()).isEqualTo(testCount + 4);
+    assertThat(Update
+        .table(BUILDER_MAGAZINE)
+        .set(BUILDER_MAGAZINE.NAME, "dsa")
+        .where(BUILDER_MAGAZINE.NAME.is("asd"))
+        .execute())
+        .isEqualTo(testCount);
+    final List<BuilderMagazine> magazines = Select
+        .from(BUILDER_MAGAZINE)
+        .where(BUILDER_MAGAZINE.NAME.is("dsa"))
+        .execute();
+    assertThat(magazines.size()).isEqualTo(testCount);
+    for (BuilderMagazine magazine : magazines) {
+      assertThat(magazine.name()).isEqualTo("dsa");
+    }
+  }
 
-	@Test
-	public void nothingUpdated() {
-		BuilderMagazine.deleteTable().execute();
-		assertThat(Update
-				.table(BUILDER_MAGAZINE)
-				.set(BUILDER_MAGAZINE.NAME, "asd")
-				.execute())
-				.isEqualTo(0);
-		assertThat(Update
-				.table(BUILDER_MAGAZINE)
-				.set(BUILDER_MAGAZINE.NAME, "asd")
-				.where(BUILDER_MAGAZINE.NAME.is("dsa"))
-				.execute())
-				.isEqualTo(0);
-	}
+  @Test
+  public void nothingUpdated() {
+    BuilderMagazine.deleteTable().execute();
+    assertThat(Update
+        .table(BUILDER_MAGAZINE)
+        .set(BUILDER_MAGAZINE.NAME, "asd")
+        .execute())
+        .isEqualTo(0);
+    assertThat(Update
+        .table(BUILDER_MAGAZINE)
+        .set(BUILDER_MAGAZINE.NAME, "asd")
+        .where(BUILDER_MAGAZINE.NAME.is("dsa"))
+        .execute())
+        .isEqualTo(0);
+  }
 }

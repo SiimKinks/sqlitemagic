@@ -15,53 +15,53 @@ import rx.schedulers.Schedulers;
 import static com.siimkinks.sqlitemagic.ItemListTable.ITEM_LIST;
 
 public final class EditListNameFragment extends CreateNewFragment {
-	private static final String EXTRA_LIST_ID = "list_id";
+  private static final String EXTRA_LIST_ID = "list_id";
 
-	public static EditListNameFragment create(long listId) {
-		final EditListNameFragment fragment = new EditListNameFragment();
-		final Bundle extras = new Bundle();
-		extras.putLong(EXTRA_LIST_ID, listId);
-		fragment.setArguments(extras);
-		return fragment;
-	}
+  public static EditListNameFragment create(long listId) {
+    final EditListNameFragment fragment = new EditListNameFragment();
+    final Bundle extras = new Bundle();
+    extras.putLong(EXTRA_LIST_ID, listId);
+    fragment.setArguments(extras);
+    return fragment;
+  }
 
-	@Override
-	void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked) {
-		final long listId = getArguments().getLong(EXTRA_LIST_ID);
-		final String currentListName = Select.column(ITEM_LIST.NAME)
-				.from(ITEM_LIST)
-				.where(ITEM_LIST.ID.is(listId))
-				.takeFirst()
-				.execute();
-		inputView.setText(currentListName);
-		inputView.setSelection(currentListName.length());
-		Observable.combineLatest(
-				createClicked,
-				RxTextView.textChanges(inputView),
-				(__, text) -> text.toString())
-				.observeOn(Schedulers.io())
-				.flatMap(name -> Update
-						.table(ITEM_LIST)
-						.set(ITEM_LIST.NAME, name)
-						.where(ITEM_LIST.ID.is(listId))
-						.observe()
-						.toObservable())
-				.first()
-				.subscribe();
-	}
+  @Override
+  void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked) {
+    final long listId = getArguments().getLong(EXTRA_LIST_ID);
+    final String currentListName = Select.column(ITEM_LIST.NAME)
+        .from(ITEM_LIST)
+        .where(ITEM_LIST.ID.is(listId))
+        .takeFirst()
+        .execute();
+    inputView.setText(currentListName);
+    inputView.setSelection(currentListName.length());
+    Observable.combineLatest(
+        createClicked,
+        RxTextView.textChanges(inputView),
+        (__, text) -> text.toString())
+        .observeOn(Schedulers.io())
+        .flatMap(name -> Update
+            .table(ITEM_LIST)
+            .set(ITEM_LIST.NAME, name)
+            .where(ITEM_LIST.ID.is(listId))
+            .observe()
+            .toObservable())
+        .first()
+        .subscribe();
+  }
 
-	protected int actionStringResId() {
-		return R.string.edit_action;
-	}
+  protected int actionStringResId() {
+    return R.string.edit_action;
+  }
 
-	@Override
-	protected int titleStringResId() {
-		return R.string.edit_list_name;
-	}
+  @Override
+  protected int titleStringResId() {
+    return R.string.edit_list_name;
+  }
 
-	@Override
-	int layoutResId() {
-		return R.layout.new_list;
-	}
+  @Override
+  int layoutResId() {
+    return R.layout.new_list;
+  }
 }
 

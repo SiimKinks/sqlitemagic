@@ -23,22 +23,22 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.CLASS)
 public @interface Invokes {
-	/**
-	 * Invocation target in the format of {@code <fully qualified class name>#<method name>}
-	 * <p>
-	 * <b>Example:</b><br>
-	 * {@code com.siimkinks.sqlitemagic.SqlUtil#getNrOfTables}
-	 *
-	 * @return Invocation target
-	 */
-	String value();
+  /**
+   * Invocation target in the format of {@code <fully qualified class name>#<method name>}
+   * <p>
+   * <b>Example:</b><br>
+   * {@code com.siimkinks.sqlitemagic.SqlUtil#getNrOfTables}
+   *
+   * @return Invocation target
+   */
+  String value();
 
-	/**
-	 * Define if invoked method should receive "{@code this}" as the only input parameter.
-	 *
-	 * @return {@code true} if invoked method should receive "{@code this}" as the only
-	 * input parameter; {@code false} if invoked method should receive all annotated method
-	 * parameters as input.
-	 */
-	boolean useThisAsOnlyParam() default false;
+  /**
+   * Define if invoked method should receive "{@code this}" as the only input parameter.
+   *
+   * @return {@code true} if invoked method should receive "{@code this}" as the only
+   * input parameter; {@code false} if invoked method should receive all annotated method
+   * parameters as input.
+   */
+  boolean useThisAsOnlyParam() default false;
 }

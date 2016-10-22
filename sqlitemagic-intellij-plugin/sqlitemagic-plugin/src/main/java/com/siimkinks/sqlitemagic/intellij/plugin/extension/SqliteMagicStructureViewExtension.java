@@ -19,38 +19,38 @@ import java.util.Collection;
 
 public class SqliteMagicStructureViewExtension implements StructureViewExtension {
 
-    @Override
-    public Class<? extends PsiElement> getType() {
-        return PsiClass.class;
+  @Override
+  public Class<? extends PsiElement> getType() {
+    return PsiClass.class;
+  }
+
+  @Override
+  public StructureViewTreeElement[] getChildren(PsiElement parent) {
+    Collection<StructureViewTreeElement> result = new ArrayList<StructureViewTreeElement>();
+    final PsiClass psiClass = (PsiClass) parent;
+
+    for (PsiField psiField : psiClass.getFields()) {
+      if (psiField instanceof SqliteMagicLightFieldBuilder) {
+        result.add(new PsiFieldTreeElement(psiField, false));
+      }
     }
 
-    @Override
-    public StructureViewTreeElement[] getChildren(PsiElement parent) {
-        Collection<StructureViewTreeElement> result = new ArrayList<StructureViewTreeElement>();
-        final PsiClass psiClass = (PsiClass) parent;
-
-        for (PsiField psiField : psiClass.getFields()) {
-            if (psiField instanceof SqliteMagicLightFieldBuilder) {
-                result.add(new PsiFieldTreeElement(psiField, false));
-            }
-        }
-
-        for (PsiMethod psiMethod : psiClass.getMethods()) {
-            if (psiMethod instanceof SqliteMagicLightMethodBuilder) {
-                result.add(new PsiMethodTreeElement(psiMethod, false));
-            }
-        }
-
-        if (!result.isEmpty()) {
-            return result.toArray(new StructureViewTreeElement[result.size()]);
-        } else {
-            return StructureViewTreeElement.EMPTY_ARRAY;
-        }
+    for (PsiMethod psiMethod : psiClass.getMethods()) {
+      if (psiMethod instanceof SqliteMagicLightMethodBuilder) {
+        result.add(new PsiMethodTreeElement(psiMethod, false));
+      }
     }
 
-    @Nullable
-    @Override
-    public Object getCurrentEditorElement(Editor editor, PsiElement parent) {
-        return null;
+    if (!result.isEmpty()) {
+      return result.toArray(new StructureViewTreeElement[result.size()]);
+    } else {
+      return StructureViewTreeElement.EMPTY_ARRAY;
     }
+  }
+
+  @Nullable
+  @Override
+  public Object getCurrentEditorElement(Editor editor, PsiElement parent) {
+    return null;
+  }
 }

@@ -10,14 +10,14 @@ import lombok.Data;
 @Data
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Dual<T1, T2> {
-	private final T1 first;
-	private final T2 second;
+  private final T1 first;
+  private final T2 second;
 
-	public static <T1, T2> Dual<T1, T2> create(T1 first, T2 second) {
-		return new Dual<T1, T2>(first, second);
-	}
+  public static <T1, T2> Dual<T1, T2> create(T1 first, T2 second) {
+    return new Dual<T1, T2>(first, second);
+  }
 
-	public static <T1, T2> Dual<T1, T2> empty() {
-		return create(null, null);
-	}
+  public static <T1, T2> Dual<T1, T2> empty() {
+    return create(null, null);
+  }
 }

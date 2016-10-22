@@ -10,17 +10,17 @@ import lombok.ToString;
 @ToString
 public abstract class BaseModel {
 
-	@Id(autoIncrement = true)
-	@Column(useAccessMethods = true)
-	private Long baseId;
+  @Id(autoIncrement = true)
+  @Column(useAccessMethods = true)
+  private Long baseId;
 
-	public Long getBaseId() {
-		return baseId;
-	}
+  public Long getBaseId() {
+    return baseId;
+  }
 
-	public void setBaseId(Long baseId) {
-		this.baseId = baseId;
-	}
+  public void setBaseId(Long baseId) {
+    this.baseId = baseId;
+  }
 
 
 }

@@ -10,15 +10,15 @@ import com.siimkinks.sqlitemagic.model.immutable.BuilderMagazine;
 @AutoValue
 @View
 public abstract class ComplexCreatorView {
-	@ViewQuery
-	static final CompiledSelect QUERY = ComplexInterfaceView.QUERY;
+  @ViewQuery
+  static final CompiledSelect QUERY = ComplexInterfaceView.QUERY;
 
-	@ViewColumn(ComplexInterfaceView.VALUE_W_BUILDER_ALIAS)
-	public abstract String builderString();
+  @ViewColumn(ComplexInterfaceView.VALUE_W_BUILDER_ALIAS)
+  public abstract String builderString();
 
-	@ViewColumn(ComplexInterfaceView.MAGAZINE_ALIAS)
-	public abstract BuilderMagazine builderMagazine();
+  @ViewColumn(ComplexInterfaceView.MAGAZINE_ALIAS)
+  public abstract BuilderMagazine builderMagazine();
 
-	@ViewColumn(ComplexInterfaceView.AUTHOR_NAME_ALIAS)
-	public abstract String authorName();
+  @ViewColumn(ComplexInterfaceView.AUTHOR_NAME_ALIAS)
+  public abstract String authorName();
 }

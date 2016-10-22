@@ -14,25 +14,25 @@ import lombok.ToString;
 @Table(persistAll = true)
 public class Magazine {
 
-	public static final String TABLE = "magazine";
-	public static final String C_ID = "magazine._id";
-	public static final String C_NAME = "magazine.name";
-	public static final String C_AUTHOR = "magazine.author";
+  public static final String TABLE = "magazine";
+  public static final String C_ID = "magazine._id";
+  public static final String C_NAME = "magazine.name";
+  public static final String C_AUTHOR = "magazine.author";
 
-	String name;
-	@Column(onDeleteCascade = true)
-	Author author;
-	int nrOfReleases;
+  String name;
+  @Column(onDeleteCascade = true)
+  Author author;
+  int nrOfReleases;
 
-	public static Magazine newRandom() {
-		final Magazine magazine = new Magazine();
-		fillWithRandomValues(magazine);
-		return magazine;
-	}
+  public static Magazine newRandom() {
+    final Magazine magazine = new Magazine();
+    fillWithRandomValues(magazine);
+    return magazine;
+  }
 
-	public static void fillWithRandomValues(Magazine magazine) {
-		magazine.name = Utils.randomTableName();
-		magazine.author = Author.newRandom();
-		magazine.nrOfReleases = new Random().nextInt();
-	}
+  public static void fillWithRandomValues(Magazine magazine) {
+    magazine.name = Utils.randomTableName();
+    magazine.author = Author.newRandom();
+    magazine.nrOfReleases = new Random().nextInt();
+  }
 }

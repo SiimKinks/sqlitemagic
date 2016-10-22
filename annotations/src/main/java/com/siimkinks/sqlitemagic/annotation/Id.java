@@ -11,10 +11,10 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.CLASS)
 public @interface Id {
-	/**
-	 * Define if this id column should be auto-incremented or not.
-	 *
-	 * @return True if column is auto-incremented, false if not.
-	 */
-	boolean autoIncrement() default true;
+  /**
+   * Define if this id column should be auto-incremented or not.
+   *
+   * @return True if column is auto-incremented, false if not.
+   */
+  boolean autoIncrement() default true;
 }

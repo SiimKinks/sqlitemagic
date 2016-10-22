@@ -9,21 +9,21 @@ import org.jetbrains.annotations.NotNull;
 
 // TODO implement
 public class SqliteMagicFieldFindUsagesHandlerFactory extends JavaFindUsagesHandlerFactory {
-    public SqliteMagicFieldFindUsagesHandlerFactory(Project project) {
-        super(project);
-    }
+  public SqliteMagicFieldFindUsagesHandlerFactory(Project project) {
+    super(project);
+  }
 
-    @Override
-    public boolean canFindUsages(@NotNull PsiElement element) {
-        return element instanceof PsiField;
-    }
+  @Override
+  public boolean canFindUsages(@NotNull PsiElement element) {
+    return element instanceof PsiField;
+  }
 
-    @Override
-    public FindUsagesHandler createFindUsagesHandler(@NotNull PsiElement element, boolean forHighlightUsages) {
-        return new JavaFindUsagesHandler(element, this) {
-            @NotNull
-            @Override
-            public PsiElement[] getSecondaryElements() {
+  @Override
+  public FindUsagesHandler createFindUsagesHandler(@NotNull PsiElement element, boolean forHighlightUsages) {
+    return new JavaFindUsagesHandler(element, this) {
+      @NotNull
+      @Override
+      public PsiElement[] getSecondaryElements() {
 //                final PsiField psiField = (PsiField) getPsiElement();
 //                final PsiClass containingClass = psiField.getContainingClass();
 //                if (containingClass != null) {
@@ -50,8 +50,8 @@ public class SqliteMagicFieldFindUsagesHandlerFactory extends JavaFindUsagesHand
 //                        return PsiUtilCore.toPsiElementArray(elements);
 //                    }
 //                }
-                return super.getSecondaryElements();
-            }
-        };
-    }
+        return super.getSecondaryElements();
+      }
+    };
+  }
 }

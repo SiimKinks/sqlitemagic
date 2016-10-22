@@ -23,7 +23,7 @@ public class SqliteMagicLightParameter extends LightParameter {
     PsiManager manager = declarationScope.getManager();
     myNameIdentifier = new SqliteMagicLightIdentifier(manager, name);
     ReflectionUtil.setFinalFieldPerReflection(LightVariableBuilder.class, this, LightModifierList.class,
-            new SqliteMagicLightModifierList(manager, language));
+        new SqliteMagicLightModifierList(manager, language));
   }
 
   @NotNull

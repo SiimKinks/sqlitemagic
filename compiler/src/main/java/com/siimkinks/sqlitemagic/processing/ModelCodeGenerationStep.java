@@ -15,32 +15,32 @@ import javax.lang.model.element.TypeElement;
 
 public class ModelCodeGenerationStep implements ProcessingStep {
 
-	@Inject
-	Environment environment;
-	private final Filer filer;
-	@Inject
-	ModelWriter modelWriter;
+  @Inject
+  Environment environment;
+  private final Filer filer;
+  @Inject
+  ModelWriter modelWriter;
 
-	public ModelCodeGenerationStep() {
-		SqliteMagicProcessor.inject(this);
-		this.filer = environment.getFiler();
-	}
+  public ModelCodeGenerationStep() {
+    SqliteMagicProcessor.inject(this);
+    this.filer = environment.getFiler();
+  }
 
-	@Override
-	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		for (TableElement tableElement : environment.getTableElements()) {
-			TypeElement element = tableElement.getTableElement();
-			try{
-				modelWriter.writeSource(filer, tableElement);
-			} catch (Exception e) {
-				final String errMsg = e.getMessage();
-				environment.error(element, errMsg);
-				if (Strings.isNullOrEmpty(errMsg)) {
-					e.printStackTrace();
-				}
-				return false;
-			}
-		}
-		return true;
-	}
+  @Override
+  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    for (TableElement tableElement : environment.getTableElements()) {
+      TypeElement element = tableElement.getTableElement();
+      try {
+        modelWriter.writeSource(filer, tableElement);
+      } catch (Exception e) {
+        final String errMsg = e.getMessage();
+        environment.error(element, errMsg);
+        if (Strings.isNullOrEmpty(errMsg)) {
+          e.printStackTrace();
+        }
+        return false;
+      }
+    }
+    return true;
+  }
 }

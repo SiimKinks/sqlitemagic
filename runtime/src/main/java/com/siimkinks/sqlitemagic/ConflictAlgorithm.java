@@ -13,14 +13,14 @@ import static android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE;
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_ROLLBACK;
 
 @IntDef({
-		CONFLICT_ABORT,
-		CONFLICT_FAIL,
-		CONFLICT_IGNORE,
-		CONFLICT_NONE,
-		CONFLICT_REPLACE,
-		CONFLICT_ROLLBACK
+    CONFLICT_ABORT,
+    CONFLICT_FAIL,
+    CONFLICT_IGNORE,
+    CONFLICT_NONE,
+    CONFLICT_REPLACE,
+    CONFLICT_ROLLBACK
 })
 @Retention(RetentionPolicy.SOURCE)
 public @interface ConflictAlgorithm {
-	String[] CONFLICT_VALUES = new String[]{"", "OR ROLLBACK", "OR ABORT", "OR FAIL", "OR IGNORE", "OR REPLACE"};
+  String[] CONFLICT_VALUES = new String[]{"", "OR ROLLBACK", "OR ABORT", "OR FAIL", "OR IGNORE", "OR REPLACE"};
 }

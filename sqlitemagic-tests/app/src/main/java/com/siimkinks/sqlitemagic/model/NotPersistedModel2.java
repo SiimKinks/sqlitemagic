@@ -5,9 +5,9 @@ import com.siimkinks.sqlitemagic.transformer.TransformerWithGenerics;
 
 @Table(persistAll = true)
 public final class NotPersistedModel2 {
-	TransformerWithGenerics.TransformableObject o1;
+  TransformerWithGenerics.TransformableObject o1;
 
-	TransformerWithGenerics.TransformableObject2 o2;
+  TransformerWithGenerics.TransformableObject2 o2;
 
-	TransformerWithGenerics.TransformableObject3 o3;
+  TransformerWithGenerics.TransformableObject3 o3;
 }

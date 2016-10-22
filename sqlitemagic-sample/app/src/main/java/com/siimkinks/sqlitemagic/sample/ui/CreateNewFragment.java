@@ -21,52 +21,52 @@ import rx.subjects.PublishSubject;
 import static butterknife.ButterKnife.findById;
 
 public abstract class CreateNewFragment extends DialogFragment {
-	private final PublishSubject<String> createClicked = PublishSubject.create();
+  private final PublishSubject<String> createClicked = PublishSubject.create();
 
-	abstract void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked);
+  abstract void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked);
 
-	@NonNull
-	@Override
-	public Dialog onCreateDialog(Bundle savedInstanceState) {
-		final Context context = getActivity();
-		final View view = LayoutInflater.from(context).inflate(layoutResId(), null);
-		final EditText inputView = findById(view, android.R.id.input);
-		observeCreateAction(inputView, createClicked);
-		setCancelable(false);
+  @NonNull
+  @Override
+  public Dialog onCreateDialog(Bundle savedInstanceState) {
+    final Context context = getActivity();
+    final View view = LayoutInflater.from(context).inflate(layoutResId(), null);
+    final EditText inputView = findById(view, android.R.id.input);
+    observeCreateAction(inputView, createClicked);
+    setCancelable(false);
 
-		return new AlertDialog.Builder(context)
-				.setTitle(titleStringResId())
-				.setView(view)
-				.setCancelable(false)
-				.setPositiveButton(actionStringResId(), (d, which) -> {
-					createClicked.onNext("clicked");
-				})
-				.setNegativeButton(R.string.cancel, (d, which) -> {
-				})
-				.setOnKeyListener((arg0, keyCode, event) -> {
-					if (keyCode == KeyEvent.KEYCODE_BACK) {
-						dismiss();
-						return true;
-					}
-					return false;
-				})
-				.create();
-	}
+    return new AlertDialog.Builder(context)
+        .setTitle(titleStringResId())
+        .setView(view)
+        .setCancelable(false)
+        .setPositiveButton(actionStringResId(), (d, which) -> {
+          createClicked.onNext("clicked");
+        })
+        .setNegativeButton(R.string.cancel, (d, which) -> {
+        })
+        .setOnKeyListener((arg0, keyCode, event) -> {
+          if (keyCode == KeyEvent.KEYCODE_BACK) {
+            dismiss();
+            return true;
+          }
+          return false;
+        })
+        .create();
+  }
 
-	protected int actionStringResId() {
-		return R.string.create;
-	}
+  protected int actionStringResId() {
+    return R.string.create;
+  }
 
-	protected int titleStringResId() {
-		return R.string.new_item;
-	}
+  protected int titleStringResId() {
+    return R.string.new_item;
+  }
 
-	@LayoutRes
-	abstract int layoutResId();
+  @LayoutRes
+  abstract int layoutResId();
 
-	@Override
-	public void onResume() {
-		super.onResume();
-		getDialog().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-	}
+  @Override
+  public void onResume() {
+    super.onResume();
+    getDialog().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+  }
 }

@@ -11,18 +11,18 @@ import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 
 @View
 public interface SimpleInterfaceView {
-	@ViewQuery
-	CompiledSelect QUERY = Select
-			.columns(
-					MAGAZINE.NAME.as("mn"),
-					AUTHOR.NAME.as("an"))
-			.from(MAGAZINE)
-			.queryDeep()
-			.compile();
+  @ViewQuery
+  CompiledSelect QUERY = Select
+      .columns(
+          MAGAZINE.NAME.as("mn"),
+          AUTHOR.NAME.as("an"))
+      .from(MAGAZINE)
+      .queryDeep()
+      .compile();
 
-	@ViewColumn("an")
-	String authorName();
+  @ViewColumn("an")
+  String authorName();
 
-	@ViewColumn("mn")
-	String magazineName();
+  @ViewColumn("mn")
+  String magazineName();
 }

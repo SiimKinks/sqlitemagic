@@ -9,16 +9,16 @@ import com.siimkinks.sqlitemagic.annotation.ViewQuery;
 @AutoValue
 @View
 public abstract class SimpleCreatorView {
-	@ViewQuery
-	static final CompiledSelect QUERY = SimpleInterfaceView.QUERY;
+  @ViewQuery
+  static final CompiledSelect QUERY = SimpleInterfaceView.QUERY;
 
-	@ViewColumn("an")
-	public abstract String authorName();
+  @ViewColumn("an")
+  public abstract String authorName();
 
-	@ViewColumn("mn")
-	public abstract String magazineName();
+  @ViewColumn("mn")
+  public abstract String magazineName();
 
-	public static SimpleCreatorView create(String authorName, String magazineName) {
-		return new AutoValue_SimpleCreatorView(authorName, magazineName);
-	}
+  public static SimpleCreatorView create(String authorName, String magazineName) {
+    return new AutoValue_SimpleCreatorView(authorName, magazineName);
+  }
 }

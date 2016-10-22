@@ -21,11 +21,11 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
 public @interface View {
-	/**
-	 * Represents view name.<br>
-	 * Defaults to lower case class name.
-	 *
-	 * @return View name.
-	 */
-	String value() default "";
+  /**
+   * Represents view name.<br>
+   * Defaults to lower case class name.
+   *
+   * @return View name.
+   */
+  String value() default "";
 }

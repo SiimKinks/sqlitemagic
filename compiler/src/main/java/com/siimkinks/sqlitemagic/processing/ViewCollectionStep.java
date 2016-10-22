@@ -17,37 +17,37 @@ import javax.lang.model.element.TypeElement;
 
 public final class ViewCollectionStep implements ProcessingStep {
 
-	@Inject
-	Environment environment;
-	@Inject
-	ViewValidator validator;
+  @Inject
+  Environment environment;
+  @Inject
+  ViewValidator validator;
 
-	public ViewCollectionStep() {
-		SqliteMagicProcessor.inject(this);
-	}
+  public ViewCollectionStep() {
+    SqliteMagicProcessor.inject(this);
+  }
 
-	@Override
-	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		boolean isSuccessfulProcess = true;
-		for (Element element : roundEnv.getElementsAnnotatedWith(View.class)) {
-			try {
-				final ViewElement viewElement = new ViewElement(environment, element);
-				if (!validator.isViewElementValid(viewElement)) {
-					isSuccessfulProcess = false;
-				} else {
-					environment.addViewElement(viewElement);
-				}
-			} catch (AnnotationTypeMismatchException ex) {
-				environment.error(element, String.format("@%s and @%s annotation attribute values must be self defined constant expressions",
-						View.class.getSimpleName(), ViewColumn.class.getSimpleName()));
-				return false;
-			} catch (Exception e) {
-				environment.error(element, "View collection error = " + e.getMessage());
-				e.printStackTrace();
-				return false;
-			}
-		}
+  @Override
+  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    boolean isSuccessfulProcess = true;
+    for (Element element : roundEnv.getElementsAnnotatedWith(View.class)) {
+      try {
+        final ViewElement viewElement = new ViewElement(environment, element);
+        if (!validator.isViewElementValid(viewElement)) {
+          isSuccessfulProcess = false;
+        } else {
+          environment.addViewElement(viewElement);
+        }
+      } catch (AnnotationTypeMismatchException ex) {
+        environment.error(element, String.format("@%s and @%s annotation attribute values must be self defined constant expressions",
+            View.class.getSimpleName(), ViewColumn.class.getSimpleName()));
+        return false;
+      } catch (Exception e) {
+        environment.error(element, "View collection error = " + e.getMessage());
+        e.printStackTrace();
+        return false;
+      }
+    }
 
-		return isSuccessfulProcess;
-	}
+    return isSuccessfulProcess;
+  }
 }

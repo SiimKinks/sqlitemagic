@@ -16,25 +16,25 @@ import javax.lang.model.element.TypeElement;
  */
 public class TransformerCodeGenerationStep implements ProcessingStep {
 
-	@Inject
-	Environment environment;
-	@Inject
-	TransformerWriter writer;
+  @Inject
+  Environment environment;
+  @Inject
+  TransformerWriter writer;
 
-	public TransformerCodeGenerationStep() {
-		SqliteMagicProcessor.inject(this);
-	}
+  public TransformerCodeGenerationStep() {
+    SqliteMagicProcessor.inject(this);
+  }
 
-	@Override
-	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		if (environment.get$processingRounds() == 1) {
-			try{
-				writer.writeSource(environment);
-			} catch (IOException e) {
-				e.printStackTrace();
-				return false;
-			}
-		}
-		return true;
-	}
+  @Override
+  public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    if (environment.get$processingRounds() == 1) {
+      try {
+        writer.writeSource(environment);
+      } catch (IOException e) {
+        e.printStackTrace();
+        return false;
+      }
+    }
+    return true;
+  }
 }

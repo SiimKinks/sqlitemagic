@@ -8,42 +8,42 @@ import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.TypeName;
 
 public interface BaseColumnElement {
-	String getElementName();
+  String getElementName();
 
-	String getGetterString();
+  String getGetterString();
 
-	String getColumnName();
+  String getColumnName();
 
-	TableElement getReferencedTable();
+  TableElement getReferencedTable();
 
-	ExtendedTypeElement getDeserializedType();
+  ExtendedTypeElement getDeserializedType();
 
-	TypeName getDeserializedTypeNameForGenerics();
+  TypeName getDeserializedTypeNameForGenerics();
 
-	TypeName getSerializedTypeNameForGenerics();
+  TypeName getSerializedTypeNameForGenerics();
 
-	TypeName getEquivalentType();
+  TypeName getEquivalentType();
 
-	String cursorGetter(String cursorVariable, String offsetString);
+  String cursorGetter(String cursorVariable, String offsetString);
 
-	@Nullable
-	String cursorParserConstantName(@NonNull Environment environment);
+  @Nullable
+  String cursorParserConstantName(@NonNull Environment environment);
 
-	TransformerElement getTransformer();
+  TransformerElement getTransformer();
 
-	boolean hasTransformer();
+  boolean hasTransformer();
 
-	boolean isReferencedColumn();
+  boolean isReferencedColumn();
 
-	boolean isNeededForShallowQuery();
+  boolean isNeededForShallowQuery();
 
-	boolean isHandledRecursively();
+  boolean isHandledRecursively();
 
-	boolean isNumericType();
+  boolean isNumericType();
 
-	boolean isNullable();
+  boolean isNullable();
 
-	boolean hasNullableAnnotation();
+  boolean hasNullableAnnotation();
 
-	FormatData deserializedValueSetter(String entityElementVariableName, String settableValue, String managerVariableName);
+  FormatData deserializedValueSetter(String entityElementVariableName, String settableValue, String managerVariableName);
 }

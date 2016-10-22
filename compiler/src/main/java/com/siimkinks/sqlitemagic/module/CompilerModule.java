@@ -16,29 +16,29 @@ import dagger.Provides;
 import lombok.javac.handlers.HandleTable;
 
 @Module(
-		injects = {
-				TransformerCollectionStep.class,
-				TransformerCodeGenerationStep.class,
-				ModelCollectionStep.class,
-				ModelCodeGenerationStep.class,
-				GenClassesManagerStep.class,
-				ViewCollectionStep.class,
-				ViewCodeGenerationStep.class,
-				HandleTable.class,
-		},
-		library = true
+    injects = {
+        TransformerCollectionStep.class,
+        TransformerCodeGenerationStep.class,
+        ModelCollectionStep.class,
+        ModelCodeGenerationStep.class,
+        GenClassesManagerStep.class,
+        ViewCollectionStep.class,
+        ViewCodeGenerationStep.class,
+        HandleTable.class,
+    },
+    library = true
 )
 public class CompilerModule {
 
-	private final Environment environment;
+  private final Environment environment;
 
-	public CompilerModule(Environment environment) {
-		this.environment = environment;
-	}
+  public CompilerModule(Environment environment) {
+    this.environment = environment;
+  }
 
-	@Provides
-	@Singleton
-	Environment provideEnvironment() {
-		return environment;
-	}
+  @Provides
+  @Singleton
+  Environment provideEnvironment() {
+    return environment;
+  }
 }

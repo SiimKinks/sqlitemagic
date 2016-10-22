@@ -11,15 +11,15 @@ import static com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder.setupDa
  * @author Siim Kinks
  */
 public class TestApp extends Application {
-	@Override
-	public void onCreate() {
-		super.onCreate();
-		initDb(this);
-	}
+  @Override
+  public void onCreate() {
+    super.onCreate();
+    initDb(this);
+  }
 
-	public static void initDb(@NonNull Application app) {
-		SqliteMagic.setLoggingEnabled(true);
-		SqliteMagic.init(app, setupDatabase().scheduleRxQueriesOn(Schedulers.immediate()));
-	}
+  public static void initDb(@NonNull Application app) {
+    SqliteMagic.setLoggingEnabled(true);
+    SqliteMagic.init(app, setupDatabase().scheduleRxQueriesOn(Schedulers.immediate()));
+  }
 
 }

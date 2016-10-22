@@ -74,254 +74,254 @@ import static com.siimkinks.sqlitemagic.writer.EntityEnvironment.getGeneratedHan
 @Singleton
 public class GenClassesManagerWriter {
 
-	@Inject
-	public GenClassesManagerWriter() {
-	}
+  @Inject
+  public GenClassesManagerWriter() {
+  }
 
-	public void writeSource(Environment environment, GenClassesManagerStep managerStep) throws IOException {
-		if (!environment.getAllTableElements().isEmpty()) {
-			Filer filer = environment.getFiler();
-			final MethodSpec executeViewCreate = executeViewCreate();
-			TypeSpec.Builder classBuilder = TypeSpec.classBuilder(CLASS_NAME_GENERATED_CLASSES_MANAGER)
-					.addModifiers(CLASS_MODIFIERS)
-					.addMethod(databaseConfigurator(environment))
-					.addMethod(databaseSchemaCreator(environment, managerStep, executeViewCreate))
-					.addMethod(executeViewCreate)
-					.addMethod(nrOfTables(environment))
-					.addMethod(dbVersion(environment))
-					.addMethod(dbName(environment))
-					.addMethod(columnForValue(environment, managerStep));
-			WriterUtil.writeSource(filer, classBuilder.build(), PACKAGE_ROOT);
-			persistLatestStructure(environment);
-		}
-	}
+  public void writeSource(Environment environment, GenClassesManagerStep managerStep) throws IOException {
+    if (!environment.getAllTableElements().isEmpty()) {
+      Filer filer = environment.getFiler();
+      final MethodSpec executeViewCreate = executeViewCreate();
+      TypeSpec.Builder classBuilder = TypeSpec.classBuilder(CLASS_NAME_GENERATED_CLASSES_MANAGER)
+          .addModifiers(CLASS_MODIFIERS)
+          .addMethod(databaseConfigurator(environment))
+          .addMethod(databaseSchemaCreator(environment, managerStep, executeViewCreate))
+          .addMethod(executeViewCreate)
+          .addMethod(nrOfTables(environment))
+          .addMethod(dbVersion(environment))
+          .addMethod(dbName(environment))
+          .addMethod(columnForValue(environment, managerStep));
+      WriterUtil.writeSource(filer, classBuilder.build(), PACKAGE_ROOT);
+      persistLatestStructure(environment);
+    }
+  }
 
-	private void persistLatestStructure(Environment environment) {
-		final List<TableElement> allTableElements = environment.getAllTableElements();
-		final HashMap<String, TableStructure> structure = new HashMap<>(allTableElements.size());
-		for (TableElement tableElement : allTableElements) {
-			final List<ColumnElement> allColumns = tableElement.getAllColumns();
-			final ArrayList<ColumnStructure> columns = new ArrayList<>(allColumns.size());
-			for (ColumnElement columnElement : allColumns) {
-				columns.add(ColumnStructure.create(columnElement));
-			}
-			structure.put(tableElement.getTableName(), TableStructure.create(tableElement, columns));
-		}
-		try {
-			final File latestStructDir = new File(System.getProperty("PROJECT_DIR"), "db");
-			if (!latestStructDir.exists()) {
-				latestStructDir.mkdirs();
-			}
-			final File latestStructureFile = new File(latestStructDir, "latest.struct");
-			JsonConfig.OBJECT_MAPPER.writeValue(latestStructureFile, structure);
-		} catch (IOException e) {
-			environment.getMessager().printMessage(Diagnostic.Kind.WARNING, "Error persisting latest schema graph");
-		}
-	}
+  private void persistLatestStructure(Environment environment) {
+    final List<TableElement> allTableElements = environment.getAllTableElements();
+    final HashMap<String, TableStructure> structure = new HashMap<>(allTableElements.size());
+    for (TableElement tableElement : allTableElements) {
+      final List<ColumnElement> allColumns = tableElement.getAllColumns();
+      final ArrayList<ColumnStructure> columns = new ArrayList<>(allColumns.size());
+      for (ColumnElement columnElement : allColumns) {
+        columns.add(ColumnStructure.create(columnElement));
+      }
+      structure.put(tableElement.getTableName(), TableStructure.create(tableElement, columns));
+    }
+    try {
+      final File latestStructDir = new File(System.getProperty("PROJECT_DIR"), "db");
+      if (!latestStructDir.exists()) {
+        latestStructDir.mkdirs();
+      }
+      final File latestStructureFile = new File(latestStructDir, "latest.struct");
+      JsonConfig.OBJECT_MAPPER.writeValue(latestStructureFile, structure);
+    } catch (IOException e) {
+      environment.getMessager().printMessage(Diagnostic.Kind.WARNING, "Error persisting latest schema graph");
+    }
+  }
 
-	private MethodSpec databaseConfigurator(Environment environment) {
-		MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CONFIGURE_DATABASE)
-				.addModifiers(STATIC_METHOD_MODIFIERS)
-				.addParameter(SQLITE_DATABASE, "db");
-		if (hasAnyForeignKeys(environment.getAllTableElements())) {
-			method.addStatement("db.setForeignKeyConstraintsEnabled(true)");
-		}
-		return method.build();
-	}
+  private MethodSpec databaseConfigurator(Environment environment) {
+    MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CONFIGURE_DATABASE)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addParameter(SQLITE_DATABASE, "db");
+    if (hasAnyForeignKeys(environment.getAllTableElements())) {
+      method.addStatement("db.setForeignKeyConstraintsEnabled(true)");
+    }
+    return method.build();
+  }
 
-	private boolean hasAnyForeignKeys(List<TableElement> allTableElements) {
-		for (TableElement allTableElement : allTableElements) {
-			for (ColumnElement columnElement : allTableElement.getColumnsExceptId()) {
-				if (columnElement.isOnDeleteCascade()) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
+  private boolean hasAnyForeignKeys(List<TableElement> allTableElements) {
+    for (TableElement allTableElement : allTableElements) {
+      for (ColumnElement columnElement : allTableElement.getColumnsExceptId()) {
+        if (columnElement.isOnDeleteCascade()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
-	private MethodSpec databaseSchemaCreator(Environment environment, GenClassesManagerStep managerStep, MethodSpec executeViewCreate) {
-		MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CREATE_TABLES);
-		final CodeBlock.Builder sqlTransactionBody = CodeBlock.builder();
-		sqlTransactionBody.add(buildSchemaCreations(environment));
-		sqlTransactionBody.add(buildViewSchemaCreations(managerStep, executeViewCreate));
-		return WriterUtil.buildSqlTransactionMethod(method, sqlTransactionBody.build());
-	}
+  private MethodSpec databaseSchemaCreator(Environment environment, GenClassesManagerStep managerStep, MethodSpec executeViewCreate) {
+    MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CREATE_TABLES);
+    final CodeBlock.Builder sqlTransactionBody = CodeBlock.builder();
+    sqlTransactionBody.add(buildSchemaCreations(environment));
+    sqlTransactionBody.add(buildViewSchemaCreations(managerStep, executeViewCreate));
+    return WriterUtil.buildSqlTransactionMethod(method, sqlTransactionBody.build());
+  }
 
-	private CodeBlock buildViewSchemaCreations(GenClassesManagerStep managerStep, MethodSpec executeViewCreate) {
-		final CodeBlock.Builder builder = CodeBlock.builder();
-		WriterUtil.addDebugLogging(builder, "Creating views");
-		final List<ViewElement> allViewElements = managerStep.getAllViewElements();
-		for (ViewElement viewElement : allViewElements) {
-			final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
-			builder.addStatement("$N(db, $T.$L, $S)",
-					executeViewCreate,
-					viewDao,
-					FIELD_VIEW_QUERY,
-					viewElement.getViewName());
-		}
-		return builder.build();
-	}
+  private CodeBlock buildViewSchemaCreations(GenClassesManagerStep managerStep, MethodSpec executeViewCreate) {
+    final CodeBlock.Builder builder = CodeBlock.builder();
+    WriterUtil.addDebugLogging(builder, "Creating views");
+    final List<ViewElement> allViewElements = managerStep.getAllViewElements();
+    for (ViewElement viewElement : allViewElements) {
+      final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
+      builder.addStatement("$N(db, $T.$L, $S)",
+          executeViewCreate,
+          viewDao,
+          FIELD_VIEW_QUERY,
+          viewElement.getViewName());
+    }
+    return builder.build();
+  }
 
-	private MethodSpec executeViewCreate() {
-		return MethodSpec.methodBuilder(METHOD_CREATE_VIEW)
-				.addModifiers(STATIC_METHOD_MODIFIERS)
-				.addParameter(notNullParameter(SQLITE_DATABASE, "db"))
-				.addParameter(notNullParameter(COMPILED_N_COLUMNS_SELECT, "query"))
-				.addParameter(notNullParameter(STRING, "viewName"))
-				.addStatement("final $1T queryImpl = ($1T) query",
-						COMPILED_N_COLUMNS_SELECT_IMPL)
-				.addStatement("final String[] args = queryImpl.args")
-				.beginControlFlow("if (args != null)")
-				.addStatement("db.execSQL(\"CREATE VIEW IF NOT EXISTS \" + viewName + \" AS \" + queryImpl.sql, args)")
-				.nextControlFlow("else")
-				.addStatement("db.execSQL(\"CREATE VIEW IF NOT EXISTS \" + viewName + \" AS \" + queryImpl.sql)")
-				.endControlFlow()
-				.build();
-	}
+  private MethodSpec executeViewCreate() {
+    return MethodSpec.methodBuilder(METHOD_CREATE_VIEW)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addParameter(notNullParameter(SQLITE_DATABASE, "db"))
+        .addParameter(notNullParameter(COMPILED_N_COLUMNS_SELECT, "query"))
+        .addParameter(notNullParameter(STRING, "viewName"))
+        .addStatement("final $1T queryImpl = ($1T) query",
+            COMPILED_N_COLUMNS_SELECT_IMPL)
+        .addStatement("final String[] args = queryImpl.args")
+        .beginControlFlow("if (args != null)")
+        .addStatement("db.execSQL(\"CREATE VIEW IF NOT EXISTS \" + viewName + \" AS \" + queryImpl.sql, args)")
+        .nextControlFlow("else")
+        .addStatement("db.execSQL(\"CREATE VIEW IF NOT EXISTS \" + viewName + \" AS \" + queryImpl.sql)")
+        .endControlFlow()
+        .build();
+  }
 
-	private CodeBlock buildSchemaCreations(Environment environment) {
-		CodeBlock.Builder builder = CodeBlock.builder();
-		WriterUtil.addDebugLogging(builder, "Creating tables");
-		for (TableElement tableElement : TopsortTables.sort(environment)) {
-			ClassName modelHandler = getGeneratedHandlerClassName(tableElement);
-			builder.addStatement("db.execSQL($T.$L)", modelHandler, FIELD_TABLE_SCHEMA);
-		}
-		return builder.build();
-	}
+  private CodeBlock buildSchemaCreations(Environment environment) {
+    CodeBlock.Builder builder = CodeBlock.builder();
+    WriterUtil.addDebugLogging(builder, "Creating tables");
+    for (TableElement tableElement : TopsortTables.sort(environment)) {
+      ClassName modelHandler = getGeneratedHandlerClassName(tableElement);
+      builder.addStatement("db.execSQL($T.$L)", modelHandler, FIELD_TABLE_SCHEMA);
+    }
+    return builder.build();
+  }
 
-	private MethodSpec nrOfTables(Environment environment) {
-		return createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_GET_NR_OF_TABLES)
-				.addModifiers(STATIC_METHOD_MODIFIERS)
-				.returns(TypeName.INT)
-				.addStatement("return $L", environment.getAllTableElements().size())
-				.build();
-	}
+  private MethodSpec nrOfTables(Environment environment) {
+    return createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_GET_NR_OF_TABLES)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .returns(TypeName.INT)
+        .addStatement("return $L", environment.getAllTableElements().size())
+        .build();
+  }
 
-	private MethodSpec dbVersion(Environment environment) {
-		final Integer dbVersion = environment.getDbVersion();
-		return createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_GET_DB_VERSION)
-				.addModifiers(STATIC_METHOD_MODIFIERS)
-				.returns(TypeName.INT)
-				.addStatement("return $L", (dbVersion != null) ? dbVersion : 1)
-				.build();
-	}
+  private MethodSpec dbVersion(Environment environment) {
+    final Integer dbVersion = environment.getDbVersion();
+    return createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_GET_DB_VERSION)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .returns(TypeName.INT)
+        .addStatement("return $L", (dbVersion != null) ? dbVersion : 1)
+        .build();
+  }
 
-	private MethodSpec dbName(Environment environment) {
-		return createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_GET_DB_NAME)
-				.addModifiers(STATIC_METHOD_MODIFIERS)
-				.returns(String.class)
-				.addStatement("return $L", environment.getDbName())
-				.build();
-	}
+  private MethodSpec dbName(Environment environment) {
+    return createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_GET_DB_NAME)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .returns(String.class)
+        .addStatement("return $L", environment.getDbName())
+        .build();
+  }
 
-	private MethodSpec columnForValue(Environment environment, GenClassesManagerStep managerStep) {
-		final TypeVariableName valType = TypeVariableName.get("V");
-		final ParameterizedTypeName returnType = ParameterizedTypeName.get(COLUMN, valType, valType, valType, anyWildcardTypeName());
-		final MethodSpec.Builder builder = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_COLUMN_FOR_VALUE)
-				.addTypeVariable(valType)
-				.addModifiers(STATIC_METHOD_MODIFIERS)
-				.addParameter(notNullParameter(valType, VAL_VARIABLE))
-				.returns(returnType)
-				.beginControlFlow("if ($L == null)", VAL_VARIABLE)
-				.addStatement("throw new $T($S)", NullPointerException.class, "Value cannot be null")
-				.endControlFlow()
-				.addStatement("final $T className = val.getClass().getCanonicalName()", STRING)
-				.addStatement("final $T strVal", STRING)
-				.beginControlFlow("switch (className)");
-		final CodeBlock.Builder switchBody = CodeBlock.builder();
-		int i = 0;
-		for (TransformerElement transformer : managerStep.getAllTransformerElements().values()) {
-			final String objValName = "objVal" + i;
-			switchBody.add("case $S:\n", transformer.getQualifiedDeserializedName())
-					.indent()
-					.addStatement("final $1T $2L = ($1T) $3L",
-							transformer.getDeserializedType().asTypeName(),
-							objValName,
-							VAL_VARIABLE);
-			final ExtendedTypeElement serializedType = transformer.getSerializedType();
-			final FormatData valueGetter = transformer.serializedValueGetter(objValName);
-			if (serializedType.isPrimitiveElement()) {
-				final TypeName boxedType = TypeName.get(serializedType.getTypeMirror()).box();
-				switchBody.addStatement(String.format("strVal = $T.toString(%s)", valueGetter.getFormat()),
-						valueGetter.getWithOtherArgsBefore(boxedType));
-			} else if (serializedType.isStringType(environment)) {
-				switchBody.addStatement(valueGetter.formatInto("strVal = %s"), valueGetter.getArgs());
-			} else {
-				switchBody.addStatement(String.format("strVal = %s.toString()", valueGetter.getFormat()),
-						valueGetter.getArgs());
-			}
-			switchBody.addStatement("return new $T($T.ANONYMOUS_TABLE, strVal, false, null)",
-					ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(transformer)),
-					TABLE)
-					.unindent();
-			i++;
-		}
-		switchBody.add("default:\n")
-				.indent()
-				.addStatement("return new $T<>($T.ANONYMOUS_TABLE, \"'\" + val.toString() + \"'\", false, $T.STRING_PARSER, false, null)",
-						COLUMN,
-						TABLE,
-						UTIL)
-				.unindent();
-		builder.addCode(switchBody.build())
-				.endControlFlow();
-		return builder.build();
-	}
+  private MethodSpec columnForValue(Environment environment, GenClassesManagerStep managerStep) {
+    final TypeVariableName valType = TypeVariableName.get("V");
+    final ParameterizedTypeName returnType = ParameterizedTypeName.get(COLUMN, valType, valType, valType, anyWildcardTypeName());
+    final MethodSpec.Builder builder = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_COLUMN_FOR_VALUE)
+        .addTypeVariable(valType)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addParameter(notNullParameter(valType, VAL_VARIABLE))
+        .returns(returnType)
+        .beginControlFlow("if ($L == null)", VAL_VARIABLE)
+        .addStatement("throw new $T($S)", NullPointerException.class, "Value cannot be null")
+        .endControlFlow()
+        .addStatement("final $T className = val.getClass().getCanonicalName()", STRING)
+        .addStatement("final $T strVal", STRING)
+        .beginControlFlow("switch (className)");
+    final CodeBlock.Builder switchBody = CodeBlock.builder();
+    int i = 0;
+    for (TransformerElement transformer : managerStep.getAllTransformerElements().values()) {
+      final String objValName = "objVal" + i;
+      switchBody.add("case $S:\n", transformer.getQualifiedDeserializedName())
+          .indent()
+          .addStatement("final $1T $2L = ($1T) $3L",
+              transformer.getDeserializedType().asTypeName(),
+              objValName,
+              VAL_VARIABLE);
+      final ExtendedTypeElement serializedType = transformer.getSerializedType();
+      final FormatData valueGetter = transformer.serializedValueGetter(objValName);
+      if (serializedType.isPrimitiveElement()) {
+        final TypeName boxedType = TypeName.get(serializedType.getTypeMirror()).box();
+        switchBody.addStatement(String.format("strVal = $T.toString(%s)", valueGetter.getFormat()),
+            valueGetter.getWithOtherArgsBefore(boxedType));
+      } else if (serializedType.isStringType(environment)) {
+        switchBody.addStatement(valueGetter.formatInto("strVal = %s"), valueGetter.getArgs());
+      } else {
+        switchBody.addStatement(String.format("strVal = %s.toString()", valueGetter.getFormat()),
+            valueGetter.getArgs());
+      }
+      switchBody.addStatement("return new $T($T.ANONYMOUS_TABLE, strVal, false, null)",
+          ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(transformer)),
+          TABLE)
+          .unindent();
+      i++;
+    }
+    switchBody.add("default:\n")
+        .indent()
+        .addStatement("return new $T<>($T.ANONYMOUS_TABLE, \"'\" + val.toString() + \"'\", false, $T.STRING_PARSER, false, null)",
+            COLUMN,
+            TABLE,
+            UTIL)
+        .unindent();
+    builder.addCode(switchBody.build())
+        .endControlFlow();
+    return builder.build();
+  }
 
-	static String loadFromCursorMethodParams() {
-		return "cursor, columns, tableGraphNodeNames, queryDeep";
-	}
+  static String loadFromCursorMethodParams() {
+    return "cursor, columns, tableGraphNodeNames, queryDeep";
+  }
 
-	static void addLoadFromCursorMethodParams(MethodSpec.Builder builder) {
-		builder.addParameter(notNullParameter(FAST_CURSOR, "cursor"))
-				.addParameter(columnsParam())
-				.addParameter(tableGraphNodeNamesParam())
-				.addParameter(boolean.class, "queryDeep");
-	}
+  static void addLoadFromCursorMethodParams(MethodSpec.Builder builder) {
+    builder.addParameter(notNullParameter(FAST_CURSOR, "cursor"))
+        .addParameter(columnsParam())
+        .addParameter(tableGraphNodeNamesParam())
+        .addParameter(boolean.class, "queryDeep");
+  }
 
-	static ParameterSpec columnsParam() {
-		return ParameterSpec.builder(ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, STRING, TypeName.INT.box()),
-				"columns")
-				.addAnnotation(NULLABLE)
-				.build();
-	}
+  static ParameterSpec columnsParam() {
+    return ParameterSpec.builder(ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, STRING, TypeName.INT.box()),
+        "columns")
+        .addAnnotation(NULLABLE)
+        .build();
+  }
 
-	static ParameterSpec columnOffsetParam() {
-		return ParameterSpec.builder(MUTABLE_INT, "columnOffset")
-				.addAnnotation(NON_NULL)
-				.build();
-	}
+  static ParameterSpec columnOffsetParam() {
+    return ParameterSpec.builder(MUTABLE_INT, "columnOffset")
+        .addAnnotation(NON_NULL)
+        .build();
+  }
 
-	static ParameterSpec fromSelectClauseParam() {
-		return ParameterSpec.builder(FROM,
-				"from")
-				.addAnnotation(NON_NULL)
-				.build();
-	}
+  static ParameterSpec fromSelectClauseParam() {
+    return ParameterSpec.builder(FROM,
+        "from")
+        .addAnnotation(NON_NULL)
+        .build();
+  }
 
-	static ParameterSpec selectFromTablesParam() {
-		return ParameterSpec.builder(STRING_ARRAY_SET,
-				"selectFromTables")
-				.addAnnotation(NULLABLE)
-				.build();
-	}
+  static ParameterSpec selectFromTablesParam() {
+    return ParameterSpec.builder(STRING_ARRAY_SET,
+        "selectFromTables")
+        .addAnnotation(NULLABLE)
+        .build();
+  }
 
-	static ParameterSpec tableGraphNodeNamesParam() {
-		return ParameterSpec.builder(ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, STRING, STRING),
-				"tableGraphNodeNames")
-				.build();
-	}
+  static ParameterSpec tableGraphNodeNamesParam() {
+    return ParameterSpec.builder(ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, STRING, STRING),
+        "tableGraphNodeNames")
+        .build();
+  }
 
-	static ParameterSpec select1Param() {
-		return ParameterSpec.builder(TypeName.BOOLEAN,
-				"select1")
-				.build();
-	}
+  static ParameterSpec select1Param() {
+    return ParameterSpec.builder(TypeName.BOOLEAN,
+        "select1")
+        .build();
+  }
 
-	static ParameterSpec subscriptionParam() {
-		return ParameterSpec.builder(Subscription.class, "subscription")
-				.addAnnotation(NON_NULL)
-				.build();
-	}
+  static ParameterSpec subscriptionParam() {
+    return ParameterSpec.builder(Subscription.class, "subscription")
+        .addAnnotation(NON_NULL)
+        .build();
+  }
 }

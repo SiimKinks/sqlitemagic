@@ -7,13 +7,13 @@ import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.CodeBlock;
 
 public interface ValueWriter {
-	String buildOneValueSetter(String settableVariableName, BaseColumnElement settableColumn);
+  String buildOneValueSetter(String settableVariableName, BaseColumnElement settableColumn);
 
-	CodeBlock buildAllValuesReturningSetter(Callback settableValueCallback);
+  CodeBlock buildAllValuesReturningSetter(Callback settableValueCallback);
 
-	String buildOneValueSetterFromProvidedVariable(String entityVariableName, String settableValueName, MethodColumnElement settableColumn);
+  String buildOneValueSetterFromProvidedVariable(String entityVariableName, String settableValueName, MethodColumnElement settableColumn);
 
-	interface Callback {
-		void call(CodeBlock.Builder mainBuilder, CodeBlock.Builder preCodeBuilder, BaseColumnElement columnElement, int pos, FormatData valueSetterFormat);
-	}
+  interface Callback {
+    void call(CodeBlock.Builder mainBuilder, CodeBlock.Builder preCodeBuilder, BaseColumnElement columnElement, int pos, FormatData valueSetterFormat);
+  }
 }

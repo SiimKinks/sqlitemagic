@@ -12,13 +12,13 @@ import com.siimkinks.sqlitemagic.intellij.plugin.psi.SqliteMagicLightMethodBuild
 import org.jetbrains.annotations.Nullable;
 
 public class SqliteMagicLightMethodGenerator implements TreeGenerator {
-    @Nullable
-    @Override
-    public TreeElement generateTreeFor(PsiElement original, CharTable table, PsiManager manager) {
-        TreeElement result = null;
-        if (original instanceof SqliteMagicLightMethodBuilder) {
-            result = ChangeUtil.copyElement((TreeElement) SourceTreeToPsiMap.psiElementToTree(original), table);
-        }
-        return result;
+  @Nullable
+  @Override
+  public TreeElement generateTreeFor(PsiElement original, CharTable table, PsiManager manager) {
+    TreeElement result = null;
+    if (original instanceof SqliteMagicLightMethodBuilder) {
+      result = ChangeUtil.copyElement((TreeElement) SourceTreeToPsiMap.psiElementToTree(original), table);
     }
+    return result;
+  }
 }

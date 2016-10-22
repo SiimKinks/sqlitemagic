@@ -13,24 +13,24 @@ import java.util.Collection;
 import java.util.List;
 
 public interface Processor {
-    boolean acceptAnnotation(@NotNull PsiAnnotation psiAnnotation, @NotNull Class<? extends PsiElement> type);
+  boolean acceptAnnotation(@NotNull PsiAnnotation psiAnnotation, @NotNull Class<? extends PsiElement> type);
 
-    @NotNull
-    String getSupportedAnnotation();
+  @NotNull
+  String getSupportedAnnotation();
 
-    @NotNull
-    Class<? extends Annotation> getSupportedAnnotationClass();
+  @NotNull
+  Class<? extends Annotation> getSupportedAnnotationClass();
 
-    @NotNull
-    Class<? extends PsiElement> getSupportedClass();
+  @NotNull
+  Class<? extends PsiElement> getSupportedClass();
 
-    @NotNull
-    Collection<SqliteMagicProblem> verifyAnnotation(@NotNull PsiAnnotation psiAnnotation);
+  @NotNull
+  Collection<SqliteMagicProblem> verifyAnnotation(@NotNull PsiAnnotation psiAnnotation);
 
-    boolean isEnabled(@NotNull Project project);
+  boolean isEnabled(@NotNull Project project);
 
-    boolean canProduce(@NotNull Class<? extends PsiElement> type);
+  boolean canProduce(@NotNull Class<? extends PsiElement> type);
 
-    @NotNull
-    List<? super PsiElement> process(@NotNull PsiClass psiClass);
+  @NotNull
+  List<? super PsiElement> process(@NotNull PsiClass psiClass);
 }

@@ -13,30 +13,30 @@ import org.jetbrains.annotations.NotNull;
 
 public class TableColumnsProcessor extends AbstractClassProcessor {
 
-    protected TableColumnsProcessor() {
-        super(Table.class, PsiField.class);
+  protected TableColumnsProcessor() {
+    super(Table.class, PsiField.class);
+  }
+
+  @Override
+  protected boolean validate(@NotNull PsiAnnotation psiAnnotation, @NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
+    // TODO implement
+    return true;
+  }
+
+  @Override
+  protected void generatePsiElements(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
+    boolean hasIdColumn = false;
+    for (PsiField field : PsiClassUtil.collectClassFieldsIntern(psiClass)) {
+      if (PsiAnnotationUtil.isAnnotatedWith(field, Id.class)) {
+        hasIdColumn = true;
+        break;
+      }
     }
 
-    @Override
-    protected boolean validate(@NotNull PsiAnnotation psiAnnotation, @NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
-        // TODO implement
-        return true;
+    if (!hasIdColumn && !psiClass.hasModifierProperty("abstract")) {
+      target.add(new SqliteMagicLightFieldBuilder(psiClass.getManager(), "id", PsiType.LONG)
+          .withContainingClass(psiClass)
+          .withNavigationElement(psiAnnotation));
     }
-
-    @Override
-    protected void generatePsiElements(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
-        boolean hasIdColumn = false;
-        for (PsiField field : PsiClassUtil.collectClassFieldsIntern(psiClass)) {
-            if (PsiAnnotationUtil.isAnnotatedWith(field, Id.class)) {
-                hasIdColumn = true;
-                break;
-            }
-        }
-
-        if (!hasIdColumn && !psiClass.hasModifierProperty("abstract")) {
-            target.add(new SqliteMagicLightFieldBuilder(psiClass.getManager(), "id", PsiType.LONG)
-                    .withContainingClass(psiClass)
-                    .withNavigationElement(psiAnnotation));
-        }
-    }
+  }
 }
