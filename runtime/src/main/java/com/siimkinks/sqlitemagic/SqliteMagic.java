@@ -15,9 +15,7 @@ public final class SqliteMagic {
   static boolean LOGGING_ENABLED = false;
   static Logger LOGGER;
   @Nullable
-  Application context;
-  @Nullable
-  DbConnectionImpl dbConnectionImpl;
+  DbConnectionImpl defaultConnection;
 
   static class SingletonHolder {
     public static final SqliteMagic instance = new SqliteMagic();
@@ -38,8 +36,13 @@ public final class SqliteMagic {
     return getDefaultDbConnection().newTransaction();
   }
 
+  @NonNull
   static DbConnectionImpl getDefaultDbConnection() {
-    return SingletonHolder.instance.dbConnectionImpl;
+    final DbConnectionImpl defaultConnection = SingletonHolder.instance.defaultConnection;
+    if (defaultConnection == null) {
+      throw new IllegalStateException("Looks like SqliteMagic is not initialized...");
+    }
+    return defaultConnection;
   }
 
   /**
@@ -61,46 +64,18 @@ public final class SqliteMagic {
    * @param context Application context
    */
   public static void init(@NonNull Application context) {
-    init(context, new DatabaseSetupBuilder());
+    new DatabaseSetupBuilder(context).init();
   }
 
   /**
-   * Initialize library.
-   * <p>
-   * This will create and open the default DB connection; creates tables on the first
-   * initialization; runs any upgrade scripts if needed.
+   * Create a new database connection configuration builder.
    *
-   * @param context              Application context
-   * @param databaseSetupBuilder Default DB connection configuration
-   */
-  public static void init(@NonNull Application context,
-                          @NonNull DatabaseSetupBuilder databaseSetupBuilder) {
-    final SqliteMagic sqliteMagic = SingletonHolder.instance;
-    if (sqliteMagic.dbConnectionImpl != null) {
-      sqliteMagic.dbConnectionImpl.close();
-    }
-    sqliteMagic.context = context;
-    sqliteMagic.dbConnectionImpl = openConnection(context, databaseSetupBuilder);
-  }
-
-  /**
-   * Open a new database connection.
-   * <p>
-   * This will create a new database if needed; creates tables on the first
-   * initialization; runs any upgrade scripts if needed.
-   *
-   * @param databaseSetupBuilder Database connection configuration
-   * @return Opened database connection
+   * @return A new database connection configuration builder
    */
   @NonNull
   @CheckResult
-  public static DbConnection openNewConnection(@NonNull DatabaseSetupBuilder databaseSetupBuilder) {
-    final SqliteMagic sqliteMagic = SingletonHolder.instance;
-    final Application context = sqliteMagic.context;
-    if (context == null) {
-      throw new IllegalStateException("SqliteMagic is not initialized. Make sure you have called SqliteMagic#init");
-    }
-    return openConnection(context, databaseSetupBuilder);
+  public static DatabaseSetupBuilder setup(@NonNull Application context) {
+    return new DatabaseSetupBuilder(context);
   }
 
   private static DbConnectionImpl openConnection(@NonNull Application context,
@@ -112,17 +87,13 @@ public final class SqliteMagic {
       }
       final int version = getDbVersion();
       final DbHelper dbHelper = new DbHelper(context, name, version);
-      logStartingInfo(name, version);
+      LogUtil.logInfo("Initializing database with [name=%s, version=%s, logging=%s]",
+          name, version, LOGGING_ENABLED);
       return new DbConnectionImpl(dbHelper, databaseSetupBuilder.queryScheduler);
     } catch (Exception e) {
       throw new IllegalStateException("Error initializing database. " +
           "Make sure there is at least one model annotated with @Table", e);
     }
-  }
-
-  private static void logStartingInfo(@NonNull String dbName, int dbVersion) {
-    LogUtil.logInfo("Initializing database with [name=%s, version=%s, logging=%s]",
-        dbName, dbVersion, LOGGING_ENABLED);
   }
 
   /**
@@ -141,22 +112,15 @@ public final class SqliteMagic {
    * Database connection configuration builder.
    */
   public static final class DatabaseSetupBuilder {
+    @NonNull
+    private final Application context;
     @Nullable
     String name;
     @NonNull
     Scheduler queryScheduler = Schedulers.io();
 
-    DatabaseSetupBuilder() {
-    }
-
-    /**
-     * Create a new database connection configuration builder.
-     *
-     * @return A new database connection configuration builder
-     */
-    @CheckResult
-    public static DatabaseSetupBuilder setupDatabase() {
-      return new DatabaseSetupBuilder();
+    DatabaseSetupBuilder(@NonNull Application context) {
+      this.context = context;
     }
 
     /**
@@ -186,6 +150,34 @@ public final class SqliteMagic {
     public DatabaseSetupBuilder scheduleRxQueriesOn(@NonNull Scheduler scheduler) {
       this.queryScheduler = scheduler;
       return this;
+    }
+
+    /**
+     * Initialize library.
+     * <p>
+     * This will create and open the default DB connection; creates tables on the first
+     * initialization; runs any upgrade scripts if needed.
+     */
+    public void init() {
+      final SqliteMagic sqliteMagic = SingletonHolder.instance;
+      if (sqliteMagic.defaultConnection != null) {
+        sqliteMagic.defaultConnection.close();
+      }
+      sqliteMagic.defaultConnection = openConnection(context, this);
+    }
+
+    /**
+     * Open a new database connection.
+     * <p>
+     * This will create a new database if needed; creates tables on the first
+     * initialization; runs any upgrade scripts if needed.
+     *
+     * @return Opened database connection
+     */
+    @NonNull
+    @CheckResult
+    public DbConnection openNewConnection() {
+      return openConnection(context, this);
     }
   }
 }
