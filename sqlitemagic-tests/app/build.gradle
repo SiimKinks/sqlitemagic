@@ -42,6 +42,7 @@ dependencies {
   apt libraries.autoValueParcel
 
   testCompile libraries.truth
+  testCompile libraries.mockito
 
   androidTestCompile libraries.supportAnnotationsForTesting
   androidTestCompile libraries.supportTestRunner

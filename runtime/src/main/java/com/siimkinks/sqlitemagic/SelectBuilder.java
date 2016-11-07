@@ -4,6 +4,9 @@ import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
+import com.siimkinks.sqlitemagic.internal.StringArraySet;
+
 import java.util.ArrayList;
 import java.util.LinkedList;
 

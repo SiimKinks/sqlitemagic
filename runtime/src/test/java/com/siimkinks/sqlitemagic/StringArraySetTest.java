@@ -2,6 +2,8 @@ package com.siimkinks.sqlitemagic;
 
 import android.support.annotation.NonNull;
 
+import com.siimkinks.sqlitemagic.internal.StringArraySet;
+
 import org.junit.Test;
 
 import java.util.UUID;

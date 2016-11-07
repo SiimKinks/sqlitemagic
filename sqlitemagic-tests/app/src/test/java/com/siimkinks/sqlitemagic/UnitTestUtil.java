@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic;
 
 import com.google.common.base.Strings;
 import com.google.common.truth.Truth;
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import static com.google.common.truth.Truth.assertThat;
 

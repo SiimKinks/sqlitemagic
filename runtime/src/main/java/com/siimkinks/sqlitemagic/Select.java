@@ -5,10 +5,13 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Size;
 
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
+import com.siimkinks.sqlitemagic.internal.StringArraySet;
+
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-import static com.siimkinks.sqlitemagic.StringArraySet.BASE_SIZE;
+import static com.siimkinks.sqlitemagic.internal.StringArraySet.BASE_SIZE;
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.LONG_PARSER;

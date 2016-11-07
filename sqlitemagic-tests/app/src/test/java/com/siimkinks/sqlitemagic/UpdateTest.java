@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic;
 import android.database.sqlite.SQLiteDatabase;
 import android.support.annotation.Nullable;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -12,8 +13,15 @@ import static com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.COMPLEX_
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.UnitTestUtil.assertStringsAreEqualOrMatching;
 import static com.siimkinks.sqlitemagic.UnitTestUtil.replaceRandomTableNames;
+import static org.mockito.Mockito.mock;
 
 public final class UpdateTest {
+  @Before
+  public void setUp() {
+    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
+    instance.defaultConnection = mock(DbConnectionImpl.class);
+  }
+
   @Test
   public void updateSqlBuilder() {
     assertSqlBuilder(Update

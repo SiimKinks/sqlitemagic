@@ -27,7 +27,6 @@ import static android.database.sqlite.SQLiteDatabase.CONFLICT_ROLLBACK;
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.InternalTester.assertTriggersHaveNoObservers;
-import static com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder.setupDatabase;
 import static com.siimkinks.sqlitemagic.model.TestUtil.createVals;
 import static com.siimkinks.sqlitemagic.model.TestUtil.updateVals;
 import static java.util.Collections.singletonList;
@@ -745,8 +744,10 @@ public final class DbConnectionTest {
 
   @NonNull
   private DbConnection openNewConnection() {
-    return SqliteMagic.openNewConnection(setupDatabase()
+    return SqliteMagic
+        .setup(TestApp.INSTANCE)
         .withName("newConnection.db")
-        .scheduleRxQueriesOn(Schedulers.immediate()));
+        .scheduleRxQueriesOn(Schedulers.immediate())
+        .openNewConnection();
   }
 }

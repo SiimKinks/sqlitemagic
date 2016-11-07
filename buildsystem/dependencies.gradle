@@ -25,6 +25,7 @@ ext {
   junitVersion = '4.12'
   kotlinVersion = '1.0.4'
   lombokVersion = '1.14.8' // do not increment!
+  mockitoVersion = '1.10.19'
   rxJavaMathVersion = '1.0.0'
   rxJavaVersion = '1.2.0'
   supportTestRunnerVersion = '0.5'
@@ -50,6 +51,7 @@ ext {
       kotlinReflect               : "org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}",
       kotlinStdLib                : "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}",
       lombok                      : "org.projectlombok:lombok:${lombokVersion}",
+      mockito                     : "org.mockito:mockito-core:$mockitoVersion",
       rxJava                      : "io.reactivex:rxjava:${rxJavaVersion}",
       rxJavaMath                  : "io.reactivex:rxjava-math:${rxJavaMathVersion}",
       supportAnnotations          : files("${android.sdk}/extras/android/support/annotations/android-support-annotations.jar"),

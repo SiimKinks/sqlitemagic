@@ -6,14 +6,17 @@ import android.os.ParcelFileDescriptor.AutoCloseInputStream;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
+
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Random;
 
-import static com.siimkinks.sqlitemagic.ContainerHelpers.EMPTY_BYTES;
-import static com.siimkinks.sqlitemagic.ContainerHelpers.EMPTY_PRIMITIVE_BYTES;
+import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_BYTES;
+import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_PRIMITIVE_BYTES;
 
 /**
  * Internal utility functions.
@@ -21,6 +24,7 @@ import static com.siimkinks.sqlitemagic.ContainerHelpers.EMPTY_PRIMITIVE_BYTES;
 public final class Utils {
   private static final Random RANDOM = new Random();
   private static final char[] CHAR_SET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
+  @VisibleForTesting
   static final int TABLE_NAME_LEN = 6;
 
   private Utils() {

@@ -120,6 +120,9 @@ public final class SqliteMagic {
     Scheduler queryScheduler = Schedulers.io();
 
     DatabaseSetupBuilder(@NonNull Application context) {
+      if (context == null) {
+        throw new NullPointerException("Application context cannot be null");
+      }
       this.context = context;
     }
 
@@ -133,7 +136,8 @@ public final class SqliteMagic {
      * @param name Database name
      * @return Database connection configuration builder
      */
-    public DatabaseSetupBuilder withName(@NonNull String name) {
+    @CheckResult
+    public DatabaseSetupBuilder withName(@Nullable String name) {
       this.name = name;
       return this;
     }
@@ -147,7 +151,11 @@ public final class SqliteMagic {
      *                  {@link CompiledSelect#observe() observe()} methods are used
      * @return Database connection configuration builder
      */
+    @CheckResult
     public DatabaseSetupBuilder scheduleRxQueriesOn(@NonNull Scheduler scheduler) {
+      if (scheduler == null) {
+        throw new NullPointerException("Rx queries scheduler cannot be null");
+      }
       this.queryScheduler = scheduler;
       return this;
     }

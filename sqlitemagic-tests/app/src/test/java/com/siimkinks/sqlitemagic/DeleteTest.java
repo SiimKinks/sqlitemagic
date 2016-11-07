@@ -2,12 +2,19 @@ package com.siimkinks.sqlitemagic;
 
 import android.support.annotation.Nullable;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.BookTable.BOOK;
+import static org.mockito.Mockito.mock;
 
 public final class DeleteTest {
+  @Before
+  public void setUp() {
+    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
+    instance.defaultConnection = mock(DbConnectionImpl.class);
+  }
 
   @Test
   public void deleteFromBuilder() {

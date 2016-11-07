@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.SimpleAllValuesMutable;
 import com.siimkinks.sqlitemagic.transformer.BooleanTransformer;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -48,8 +49,14 @@ import static com.siimkinks.sqlitemagic.Utils.INTEGER_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.LONG_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.SHORT_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.STRING_PARSER;
+import static org.mockito.Mockito.mock;
 
 public final class SelectSqlBuilderTest {
+  @Before
+  public void setUp() {
+    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
+    instance.defaultConnection = mock(DbConnectionImpl.class);
+  }
 
   @Test
   public void selectAllFrom() {

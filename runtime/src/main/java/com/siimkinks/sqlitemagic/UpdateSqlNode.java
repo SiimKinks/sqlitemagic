@@ -6,6 +6,7 @@ import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 
 import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation;
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.LinkedList;
 

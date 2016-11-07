@@ -21,7 +21,6 @@ import rx.schedulers.Schedulers;
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.InternalTester.assertTriggersHaveNoObservers;
-import static com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder.setupDatabase;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
 
 @RunWith(AndroidJUnit4.class)
@@ -34,19 +33,17 @@ public final class DbDefaultConnectionTest {
   @After
   public void tearDown() {
     Author.deleteTable().execute();
-    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
-    TestApp.initDb(instance.context);
+    TestApp.initDb(TestApp.INSTANCE);
   }
 
   @Test
   public void reInitClosesPrev() {
-    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
     final DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
     final DbHelper dbHelper = dbConnection.dbHelper;
     final SQLiteDatabase readableDatabase = dbHelper.getReadableDatabase();
     final SQLiteDatabase writableDatabase = dbHelper.getWritableDatabase();
 
-    initDbWithNewConnection(instance);
+    initDbWithNewConnection();
 
     assertThat(readableDatabase.isOpen()).isFalse();
     assertThat(writableDatabase.isOpen()).isFalse();
@@ -56,7 +53,6 @@ public final class DbDefaultConnectionTest {
 
   @Test
   public void reInitCompletesQueries() {
-    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
     final DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
 
     final TestSubscriber<List<Author>> ts = new TestSubscriber<>();
@@ -67,7 +63,7 @@ public final class DbDefaultConnectionTest {
         .subscribe(ts);
     final ArrayList<Author> authors = insertAuthors(5);
 
-    initDbWithNewConnection(instance);
+    initDbWithNewConnection();
 
     insertAuthors(5);
 
@@ -81,7 +77,6 @@ public final class DbDefaultConnectionTest {
 
   @Test
   public void queryAfterReInit() {
-    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
     final DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
 
     final TestSubscriber<List<Author>> tsBefore = new TestSubscriber<>();
@@ -92,7 +87,7 @@ public final class DbDefaultConnectionTest {
         .subscribe(tsBefore);
     final ArrayList<Author> authorsBefore = insertAuthors(5);
 
-    initDbWithNewConnection(instance);
+    initDbWithNewConnection();
 
     final TestSubscriber<List<Author>> tsAfter = new TestSubscriber<>();
     final Subscription subscriptionAfter = Select
@@ -118,9 +113,10 @@ public final class DbDefaultConnectionTest {
     assertTriggersHaveNoObservers();
   }
 
-  private void initDbWithNewConnection(SqliteMagic instance) {
-    SqliteMagic.init(instance.context, setupDatabase()
+  private void initDbWithNewConnection() {
+    SqliteMagic.setup(TestApp.INSTANCE)
         .withName("new.db")
-        .scheduleRxQueriesOn(Schedulers.immediate()));
+        .scheduleRxQueriesOn(Schedulers.immediate())
+        .init();
   }
 }

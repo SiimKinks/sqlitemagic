@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.util;
+package com.siimkinks.sqlitemagic.internal;
 
 /**
  * For internal use.

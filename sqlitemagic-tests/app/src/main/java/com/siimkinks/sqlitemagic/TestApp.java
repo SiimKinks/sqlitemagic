@@ -5,21 +5,21 @@ import android.support.annotation.NonNull;
 
 import rx.schedulers.Schedulers;
 
-import static com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder.setupDatabase;
-
-/**
- * @author Siim Kinks
- */
 public class TestApp extends Application {
+  public static Application INSTANCE;
+
   @Override
   public void onCreate() {
     super.onCreate();
+    INSTANCE = this;
     initDb(this);
   }
 
   public static void initDb(@NonNull Application app) {
     SqliteMagic.setLoggingEnabled(true);
-    SqliteMagic.init(app, setupDatabase().scheduleRxQueriesOn(Schedulers.immediate()));
+    SqliteMagic.setup(app)
+        .scheduleRxQueriesOn(Schedulers.immediate())
+        .init();
   }
 
 }

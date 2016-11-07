@@ -7,6 +7,8 @@ import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.siimkinks.sqlitemagic.internal.StringArraySet;
+
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -20,7 +22,7 @@ import static com.siimkinks.sqlitemagic.SqlUtil.getNrOfTables;
  * Note: some parts are forked from <a href="https://github.com/square/sqlbrite">sqlbrite</a>
  * and modified to extended functionality and improvements
  */
-public final class DbConnectionImpl implements DbConnection {
+public class DbConnectionImpl implements DbConnection {
   @NonNull
   final DbHelper dbHelper;
   @NonNull

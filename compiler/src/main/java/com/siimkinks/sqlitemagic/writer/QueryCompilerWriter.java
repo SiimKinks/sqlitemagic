@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic.writer;
 
 import android.support.annotation.NonNull;
 
-import com.siimkinks.sqlitemagic.SimpleArrayMap;
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.ElementGraphWalker;

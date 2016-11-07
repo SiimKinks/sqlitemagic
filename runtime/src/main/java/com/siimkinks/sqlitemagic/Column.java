@@ -11,6 +11,8 @@ import android.support.annotation.Size;
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode;
 import com.siimkinks.sqlitemagic.Utils.ValueParser;
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
+import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 import java.util.Collection;

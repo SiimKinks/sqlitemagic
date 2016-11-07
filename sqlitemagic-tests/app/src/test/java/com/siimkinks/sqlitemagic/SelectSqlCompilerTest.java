@@ -6,6 +6,7 @@ import android.support.annotation.NonNull;
 import com.google.common.truth.Truth;
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.Select.SelectN;
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.Book;
 import com.siimkinks.sqlitemagic.model.ComplexObjectWithSameLeafs;
@@ -17,6 +18,7 @@ import com.siimkinks.sqlitemagic.model.immutable.SimpleValueWithCreator;
 import com.siimkinks.sqlitemagic.model.view.ComplexInterfaceView;
 import com.siimkinks.sqlitemagic.model.view.ComplexView;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import lombok.experimental.Builder;
@@ -58,8 +60,15 @@ import static com.siimkinks.sqlitemagic.UnitTestUtil.replaceRandomTableNames;
 import static com.siimkinks.sqlitemagic.model.view.ComplexInterfaceView.AUTHOR_NAME_ALIAS;
 import static com.siimkinks.sqlitemagic.model.view.ComplexInterfaceView.MAGAZINE_ALIAS;
 import static com.siimkinks.sqlitemagic.model.view.ComplexInterfaceView.VALUE_W_BUILDER_ALIAS;
+import static org.mockito.Mockito.mock;
 
 public final class SelectSqlCompilerTest {
+  @Before
+  public void setUp() {
+    final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
+    instance.defaultConnection = mock(DbConnectionImpl.class);
+  }
+
   @Test
   public void selectAllFromSimple() {
     CompiledSelect<Author, SelectN> compiledSelect = Select

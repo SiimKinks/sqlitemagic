@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.QueryObservable;
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Select.SelectN;
 import com.siimkinks.sqlitemagic.SqliteMagic;
+import com.siimkinks.sqlitemagic.TestApp;
 import com.siimkinks.sqlitemagic.TestScheduler;
 import com.siimkinks.sqlitemagic.Transaction;
 import com.siimkinks.sqlitemagic.Update;
@@ -46,8 +47,6 @@ import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.SimpleAllValuesMutableTable.SIMPLE_ALL_VALUES_MUTABLE;
 import static com.siimkinks.sqlitemagic.SimpleCreatorViewTable.SIMPLE_CREATOR_VIEW;
 import static com.siimkinks.sqlitemagic.SimpleMutableTable.SIMPLE_MUTABLE;
-import static com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder.setupDatabase;
-import static com.siimkinks.sqlitemagic.SqliteMagic.openNewConnection;
 import static com.siimkinks.sqlitemagic.model.TestUtil.awaitTerminalEvent;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertComplexValues;
@@ -951,9 +950,11 @@ public final class QueryObserveTest {
 
   @Test
   public void backpressureSupportedWhenSchedulerSlow() {
-    final DbConnection connection = openNewConnection(setupDatabase()
+    final DbConnection connection = SqliteMagic
+        .setup(TestApp.INSTANCE)
         .withName("asd.db")
-        .scheduleRxQueriesOn(scheduler));
+        .scheduleRxQueriesOn(scheduler)
+        .openNewConnection();
     Author.deleteTable()
         .usingConnection(connection)
         .execute();

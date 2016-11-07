@@ -1,16 +1,22 @@
-package com.siimkinks.sqlitemagic;
+package com.siimkinks.sqlitemagic.internal;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
-import java.lang.reflect.Array;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.Map;
 
-public class StringArraySet implements Set<String> {
+/**
+ * Base implementation of Android ArrayMap that doesn't include any standard Java
+ * container API interoperability.  These features are generally heavier-weight ways
+ * to interact with the container, so discouraged, but they can be useful to make it
+ * easier to use as a drop-in replacement for HashMap.  If you don't need them, this
+ * class can be preferrable since it doesn't bring in any of the implementation of those
+ * APIs, allowing that code to be stripped by ProGuard.
+ */
+@SuppressWarnings("unchecked")
+public class SimpleArrayMap<K, V> {
   /**
-   * The minimum amount by which the capacity of a ArraySet will increase.
+   * The minimum amount by which the capacity of a ArrayMap will increase.
    * This is tuned to be relatively space-efficient.
    */
   public static final int BASE_SIZE = 4;
@@ -35,7 +41,7 @@ public class StringArraySet implements Set<String> {
   Object[] array;
   int size;
 
-  private int indexOf(Object key, int hash) {
+  int indexOf(Object key, int hash) {
     final int N = size;
 
     // Important fast case: if nothing is in here, nothing to look for.
@@ -51,7 +57,7 @@ public class StringArraySet implements Set<String> {
     }
 
     // If the key at the returned index matches, that's what we want.
-    if (key.equals(array[index])) {
+    if (key.equals(array[index << 1])) {
       return index;
     }
 
@@ -60,12 +66,12 @@ public class StringArraySet implements Set<String> {
     final int[] hashes = this.hashes;
     final Object[] array = this.array;
     for (end = index + 1; end < N && hashes[end] == hash; end++) {
-      if (key.equals(array[end])) return end;
+      if (key.equals(array[end << 1])) return end;
     }
 
     // Search for a matching key before the index.
     for (int i = index - 1; i >= 0 && hashes[i] == hash; i--) {
-      if (key.equals(array[i])) return i;
+      if (key.equals(array[i << 1])) return i;
     }
 
     // Key not found -- return negative value indicating where a
@@ -75,7 +81,7 @@ public class StringArraySet implements Set<String> {
     return ~end;
   }
 
-  private int indexOfNull() {
+  int indexOfNull() {
     final int N = size;
 
     // Important fast case: if nothing is in here, nothing to look for.
@@ -91,7 +97,7 @@ public class StringArraySet implements Set<String> {
     }
 
     // If the key at the returned index matches, that's what we want.
-    if (null == array[index]) {
+    if (null == array[index << 1]) {
       return index;
     }
 
@@ -100,12 +106,12 @@ public class StringArraySet implements Set<String> {
     final int[] hashes = this.hashes;
     final Object[] array = this.array;
     for (end = index + 1; end < N && hashes[end] == 0; end++) {
-      if (null == array[end]) return end;
+      if (null == array[end << 1]) return end;
     }
 
     // Search for a matching key before the index.
     for (int i = index - 1; i >= 0 && hashes[i] == 0; i--) {
-      if (null == array[i]) return i;
+      if (null == array[i << 1]) return i;
     }
 
     // Key not found -- return negative value indicating where a
@@ -117,7 +123,7 @@ public class StringArraySet implements Set<String> {
 
   private void allocArrays(final int size) {
     if (size == (BASE_SIZE * 2)) {
-      synchronized (StringArraySet.class) {
+      synchronized (SimpleArrayMap.class) {
         if (twiceBaseCache != null) {
           final Object[] array = twiceBaseCache;
           this.array = array;
@@ -129,7 +135,7 @@ public class StringArraySet implements Set<String> {
         }
       }
     } else if (size == BASE_SIZE) {
-      synchronized (StringArraySet.class) {
+      synchronized (SimpleArrayMap.class) {
         if (baseCache != null) {
           final Object[] array = baseCache;
           this.array = array;
@@ -143,16 +149,16 @@ public class StringArraySet implements Set<String> {
     }
 
     hashes = new int[size];
-    array = new Object[size];
+    array = new Object[size << 1];
   }
 
   private static void freeArrays(final int[] hashes, final Object[] array, final int size) {
     if (hashes.length == (BASE_SIZE * 2)) {
-      synchronized (StringArraySet.class) {
+      synchronized (SimpleArrayMap.class) {
         if (twiceBaseCacheSize < CACHE_SIZE) {
           array[0] = twiceBaseCache;
           array[1] = hashes;
-          for (int i = size - 1; i >= 2; i--) {
+          for (int i = (size << 1) - 1; i >= 2; i--) {
             array[i] = null;
           }
           twiceBaseCache = array;
@@ -160,11 +166,11 @@ public class StringArraySet implements Set<String> {
         }
       }
     } else if (hashes.length == BASE_SIZE) {
-      synchronized (StringArraySet.class) {
+      synchronized (SimpleArrayMap.class) {
         if (baseCacheSize < CACHE_SIZE) {
           array[0] = baseCache;
           array[1] = hashes;
-          for (int i = size - 1; i >= 2; i--) {
+          for (int i = (size << 1) - 1; i >= 2; i--) {
             array[i] = null;
           }
           baseCache = array;
@@ -175,19 +181,19 @@ public class StringArraySet implements Set<String> {
   }
 
   /**
-   * Create a new empty StringArraySet.  The default capacity of an array map is 0, and
+   * Create a new empty ArrayMap.  The default capacity of an array map is 0, and
    * will grow once items are added to it.
    */
-  public StringArraySet() {
+  public SimpleArrayMap() {
     hashes = ContainerHelpers.EMPTY_INTS;
     array = ContainerHelpers.EMPTY_OBJECTS;
     size = 0;
   }
 
   /**
-   * Create a new StringArraySet with a given initial capacity.
+   * Create a new ArrayMap with a given initial capacity.
    */
-  public StringArraySet(int capacity) {
+  public SimpleArrayMap(int capacity) {
     if (capacity == 0) {
       hashes = ContainerHelpers.EMPTY_INTS;
       array = ContainerHelpers.EMPTY_OBJECTS;
@@ -198,25 +204,16 @@ public class StringArraySet implements Set<String> {
   }
 
   /**
-   * Create a new StringArraySet with the mappings from the given StringArraySet.
+   * Create a new ArrayMap with the mappings from the given ArrayMap.
    */
-  public StringArraySet(@NonNull StringArraySet set) {
+  public SimpleArrayMap(@NonNull SimpleArrayMap map) {
     this();
-    addAll(set);
-  }
-
-  /**
-   * Create a new StringArraySet with the mappings from the given String array.
-   */
-  public StringArraySet(@NonNull String[] array) {
-    this();
-    addAll(array);
+    putAll(map);
   }
 
   /**
    * Make the array map empty.  All storage is released.
    */
-  @Override
   public void clear() {
     if (size != 0) {
       freeArrays(hashes, array, size);
@@ -235,34 +232,84 @@ public class StringArraySet implements Set<String> {
       final int[] ohashes = hashes;
       final Object[] oarray = array;
       allocArrays(minimumCapacity);
-      final int size = this.size;
       if (size > 0) {
         System.arraycopy(ohashes, 0, hashes, 0, size);
-        System.arraycopy(oarray, 0, array, 0, size);
+        System.arraycopy(oarray, 0, array, 0, size << 1);
       }
       freeArrays(ohashes, oarray, size);
     }
   }
 
   /**
-   * Check whether a value exists in the set.
+   * Check whether a key exists in the array.
    *
-   * @param key The value to search for.
-   * @return Returns true if the value exists, else false.
+   * @param key The key to search for.
+   * @return Returns true if the key exists, else false.
    */
-  @Override
-  public boolean contains(@Nullable Object key) {
-    return indexOf(key) >= 0;
+  public boolean containsKey(@Nullable Object key) {
+    return indexOfKey(key) >= 0;
   }
 
   /**
-   * Returns the index of a value in the set.
+   * Returns the index of a key in the set.
    *
-   * @param key The value to search for.
-   * @return Returns the index of the value if it exists, else a negative integer.
+   * @param key The key to search for.
+   * @return Returns the index of the key if it exists, else a negative integer.
    */
-  public int indexOf(@Nullable Object key) {
+  public int indexOfKey(@Nullable Object key) {
     return key == null ? indexOfNull() : indexOf(key, key.hashCode());
+  }
+
+  int indexOfValue(@Nullable Object value) {
+    final int N = size * 2;
+    final Object[] array = this.array;
+    if (value == null) {
+      for (int i = 1; i < N; i += 2) {
+        if (array[i] == null) {
+          return i >> 1;
+        }
+      }
+    } else {
+      for (int i = 1; i < N; i += 2) {
+        if (value.equals(array[i])) {
+          return i >> 1;
+        }
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Check whether a value exists in the array.  This requires a linear search
+   * through the entire array.
+   *
+   * @param value The value to search for.
+   * @return Returns true if the value exists, else false.
+   */
+  public boolean containsValue(@Nullable Object value) {
+    return indexOfValue(value) >= 0;
+  }
+
+  /**
+   * Retrieve a value from the array.
+   *
+   * @param key The key of the value to retrieve.
+   * @return Returns the value associated with the given key,
+   * or null if there is no such key.
+   */
+  public V get(@Nullable Object key) {
+    final int index = indexOfKey(key);
+    return index >= 0 ? (V) array[(index << 1) + 1] : null;
+  }
+
+  /**
+   * Return the key at the given index in the array.
+   *
+   * @param index The desired index, must be between 0 and {@link #size()}-1.
+   * @return Returns the key stored at the given index.
+   */
+  public K keyAt(int index) {
+    return (K) array[index << 1];
   }
 
   /**
@@ -271,39 +318,55 @@ public class StringArraySet implements Set<String> {
    * @param index The desired index, must be between 0 and {@link #size()}-1.
    * @return Returns the value stored at the given index.
    */
-  public String valueAt(int index) {
-    return (String) array[index];
+  public V valueAt(int index) {
+    return (V) array[(index << 1) + 1];
+  }
+
+  /**
+   * Set the value at a given index in the array.
+   *
+   * @param index The desired index, must be between 0 and {@link #size()}-1.
+   * @param value The new value to store at this index.
+   * @return Returns the previous value at the given index.
+   */
+  public V setValueAt(int index, @NonNull V value) {
+    index = (index << 1) + 1;
+    V old = (V) array[index];
+    array[index] = value;
+    return old;
   }
 
   /**
    * Return true if the array map contains no items.
    */
-  @Override
   public boolean isEmpty() {
     return size <= 0;
   }
 
   /**
-   * Adds the specified object to this set. The set is not modified if it
-   * already contains the object.
+   * Add a new value to the array map.
    *
-   * @param value the object to add.
-   * @return {@code true} if this set is modified, {@code false} otherwise.
-   * @throws ClassCastException when the class of the object is inappropriate for this set.
+   * @param key   The key under which to store the value. If
+   *              this key already exists in the array, its value will be replaced.
+   * @param value The value to store for the given key.
+   * @return Returns the old value that was stored for the given key, or null if there
+   * was no such key.
    */
-  @Override
-  public boolean add(@Nullable String value) {
+  public V put(@Nullable K key, @NonNull V value) {
     final int hash;
     int index;
-    if (value == null) {
+    if (key == null) {
       hash = 0;
       index = indexOfNull();
     } else {
-      hash = value.hashCode();
-      index = indexOf(value, hash);
+      hash = key.hashCode();
+      index = indexOf(key, hash);
     }
     if (index >= 0) {
-      return false;
+      index = (index << 1) + 1;
+      final V old = (V) array[index];
+      array[index] = value;
+      return old;
     }
 
     index = ~index;
@@ -325,53 +388,51 @@ public class StringArraySet implements Set<String> {
 
     if (index < size) {
       System.arraycopy(hashes, index, hashes, index + 1, size - index);
-      System.arraycopy(array, index, array, index + 1, size - index);
+      System.arraycopy(array, index << 1, array, (index + 1) << 1, (size - index) << 1);
     }
 
     hashes[index] = hash;
-    array[index] = value;
+    array[index << 1] = key;
+    array[(index << 1) + 1] = value;
     size++;
-    return true;
+    return null;
   }
 
-  public void addAll(@NonNull StringArraySet array) {
+  /**
+   * Perform a {@link #put(Object, Object)} of all key/value pairs in <var>array</var>
+   *
+   * @param array The array whose contents are to be retrieved.
+   */
+  public void putAll(@NonNull SimpleArrayMap<? extends K, ? extends V> array) {
     final int N = array.size;
     ensureCapacity(size + N);
     if (size == 0) {
       if (N > 0) {
         System.arraycopy(array.hashes, 0, hashes, 0, N);
-        System.arraycopy(array.array, 0, this.array, 0, N);
+        System.arraycopy(array.array, 0, this.array, 0, N << 1);
         size = N;
       }
     } else {
       for (int i = 0; i < N; i++) {
-        add(array.valueAt(i));
+        put(array.keyAt(i), array.valueAt(i));
       }
     }
   }
 
-  public void addAll(@NonNull String[] array) {
-    final int N = array.length;
-    ensureCapacity(size + N);
-    for (int i = 0; i < N; i++) {
-      add(array[i]);
-    }
-  }
-
   /**
-   * Removes the specified object from this set.
+   * Remove an existing key from the array map.
    *
-   * @param object the object to remove.
-   * @return {@code true} if this set was modified, {@code false} otherwise.
+   * @param key The key of the mapping to remove.
+   * @return Returns the value that was stored under the key, or null if there
+   * was no such key.
    */
-  @Override
-  public boolean remove(Object object) {
-    final int index = indexOf(object);
+  public V remove(@Nullable Object key) {
+    final int index = indexOfKey(key);
     if (index >= 0) {
-      removeAt(index);
-      return true;
+      return removeAt(index);
     }
-    return false;
+
+    return null;
   }
 
   /**
@@ -380,8 +441,8 @@ public class StringArraySet implements Set<String> {
    * @param index The desired index, must be between 0 and {@link #size()}-1.
    * @return Returns the value that was stored at this index.
    */
-  public String removeAt(int index) {
-    final Object old = array[index];
+  public V removeAt(int index) {
+    final Object old = array[(index << 1) + 1];
     if (size <= 1) {
       // Now empty.
       freeArrays(hashes, array, size);
@@ -402,78 +463,63 @@ public class StringArraySet implements Set<String> {
         size--;
         if (index > 0) {
           System.arraycopy(ohashes, 0, hashes, 0, index);
-          System.arraycopy(oarray, 0, array, 0, index);
+          System.arraycopy(oarray, 0, array, 0, index << 1);
         }
         if (index < size) {
           System.arraycopy(ohashes, index + 1, hashes, index, size - index);
-          System.arraycopy(oarray, index + 1, array, index, size - index);
+          System.arraycopy(oarray, (index + 1) << 1, array, index << 1,
+              (size - index) << 1);
         }
       } else {
         size--;
         if (index < size) {
           System.arraycopy(hashes, index + 1, hashes, index, size - index);
-          System.arraycopy(array, index + 1, array, index, size - index);
+          System.arraycopy(array, (index + 1) << 1, array, index << 1,
+              (size - index) << 1);
         }
-        array[size] = null;
+        array[size << 1] = null;
+        array[(size << 1) + 1] = null;
       }
     }
-    return (String) old;
+    return (V) old;
   }
 
   /**
    * Return the number of items in this array map.
    */
-  @Override
   public int size() {
     return size;
   }
 
-  @Override
-  public Object[] toArray() {
-    Object[] result = new Object[size];
-    System.arraycopy(array, 0, result, 0, size);
-    return result;
-  }
-
-  @Override
-  public <T> T[] toArray(T[] array) {
-    if (array.length < size) {
-      @SuppressWarnings("unchecked") T[] newArray
-          = (T[]) Array.newInstance(array.getClass().getComponentType(), size);
-      array = newArray;
-    }
-    System.arraycopy(this.array, 0, array, 0, size);
-    if (array.length > size) {
-      array[size] = null;
-    }
-    return array;
-  }
-
   /**
    * {@inheritDoc}
-   * <p>
-   * This implementation returns false if the object is not a set, or
-   * if the sets have different sizes.  Otherwise, for each value in this
-   * set, it checks to make sure the value also exists in the other set.
-   * If any value doesn't exist, the method returns false; otherwise, it
-   * returns true.
+   * <p>This implementation returns false if the object is not a map, or
+   * if the maps have different sizes. Otherwise, for each key in this map,
+   * values of both maps are compared. If the values for any key are not
+   * equal, the method returns false, otherwise it returns true.
    * </p>
    */
   @Override
-  public boolean equals(Object object) {
+  public boolean equals(@Nullable Object object) {
     if (this == object) {
       return true;
     }
-    if (object instanceof Set) {
-      Set<?> set = (Set<?>) object;
-      if (size() != set.size()) {
+    if (object instanceof Map) {
+      Map<?, ?> map = (Map<?, ?>) object;
+      if (size() != map.size()) {
         return false;
       }
 
       try {
         for (int i = 0; i < size; i++) {
-          String mine = valueAt(i);
-          if (!set.contains(mine)) {
+          K key = keyAt(i);
+          V mine = valueAt(i);
+          Object theirs = map.get(key);
+          if (mine == null) {
+            if (theirs != null || !map.containsKey(key)) {
+              return false;
+            }
+          } else if (!mine.equals(theirs)) {
             return false;
           }
         }
@@ -493,18 +539,19 @@ public class StringArraySet implements Set<String> {
   @Override
   public int hashCode() {
     final int[] hashes = this.hashes;
+    final Object[] array = this.array;
     int result = 0;
-    for (int i = 0, s = size; i < s; i++) {
-      result += hashes[i];
+    for (int i = 0, v = 1, s = size; i < s; i++, v += 2) {
+      Object value = array[v];
+      result += hashes[i] ^ (value == null ? 0 : value.hashCode());
     }
     return result;
   }
 
   /**
    * {@inheritDoc}
-   * <p>
-   * This implementation composes a string by iterating over its values. If
-   * this set contains itself as a value, the string "(this Set)"
+   * <p>This implementation composes a string by iterating over its mappings. If
+   * this map contains itself as a key or a value, the string "(this Map)"
    * will appear in its place.
    * </p>
    */
@@ -514,106 +561,28 @@ public class StringArraySet implements Set<String> {
       return "{}";
     }
 
-    final int size = this.size;
-    StringBuilder buffer = new StringBuilder(size * 14);
+    StringBuilder buffer = new StringBuilder(size * 28);
     buffer.append('{');
     for (int i = 0; i < size; i++) {
       if (i > 0) {
         buffer.append(", ");
       }
+      Object key = keyAt(i);
+      if (key != this) {
+        buffer.append(key);
+      } else {
+        buffer.append("(this Map)");
+      }
+      buffer.append('=');
       Object value = valueAt(i);
       if (value != this) {
         buffer.append(value);
       } else {
-        buffer.append("(this Set)");
+        buffer.append("(this Map)");
       }
     }
     buffer.append('}');
     return buffer.toString();
   }
-
-  // ------------------------------------------------------------------------
-  // Interop with traditional Java containers.  Not as efficient as using
-  // specialized collection APIs.
-  // ------------------------------------------------------------------------
-
-  /**
-   * Return an {@link java.util.Iterator} over all values in the set.
-   * <p><b>Note:</b> this is a fairly inefficient way to access the array contents, it
-   * requires generating a number of temporary objects and allocates additional state
-   * information associated with the container that will remain for the life of the container.</p>
-   */
-  @NonNull
-  @Override
-  public Iterator<String> iterator() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * Determine if the array set contains all of the values in the given collection.
-   *
-   * @param collection The collection whose contents are to be checked against.
-   * @return Returns true if this array set contains a value for every entry
-   * in <var>collection</var>, else returns false.
-   */
-  @Override
-  public boolean containsAll(@NonNull Collection<?> collection) {
-    Iterator<?> it = collection.iterator();
-    while (it.hasNext()) {
-      if (!contains(it.next())) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Perform an {@link #add(Object)} of all values in <var>collection</var>
-   *
-   * @param collection The collection whose contents are to be retrieved.
-   */
-  @Override
-  public boolean addAll(@NonNull Collection<? extends String> collection) {
-    ensureCapacity(size + collection.size());
-    boolean added = false;
-    for (String value : collection) {
-      added |= add(value);
-    }
-    return added;
-  }
-
-  /**
-   * Remove all values in the array set that exist in the given collection.
-   *
-   * @param collection The collection whose contents are to be used to remove values.
-   * @return Returns true if any values were removed from the array set, else false.
-   */
-  @Override
-  public boolean removeAll(@NonNull Collection<?> collection) {
-    boolean removed = false;
-    for (Object value : collection) {
-      removed |= remove(value);
-    }
-    return removed;
-  }
-
-  /**
-   * Remove all values in the array set that do <b>not</b> exist in the given collection.
-   *
-   * @param collection The collection whose contents are to be used to determine which
-   *                   values to keep.
-   * @return Returns true if any values were removed from the array set, else false.
-   */
-  @Override
-  public boolean retainAll(@NonNull Collection<?> collection) {
-    boolean removed = false;
-    final Object[] array = this.array;
-    for (int i = size - 1; i >= 0; i--) {
-      if (!collection.contains(array[i])) {
-        removeAt(i);
-        removed = true;
-      }
-    }
-    return removed;
-  }
 }
+
