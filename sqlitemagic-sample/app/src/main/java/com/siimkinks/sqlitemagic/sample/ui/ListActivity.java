@@ -28,7 +28,6 @@ import rx.subscriptions.CompositeSubscription;
 
 import static com.siimkinks.sqlitemagic.ItemListTable.ITEM_LIST;
 import static com.siimkinks.sqlitemagic.ItemTable.ITEM;
-import static com.siimkinks.sqlitemagic.Select.OrderingTerm.by;
 
 public class ListActivity extends AppCompatActivity {
   public static final String EXTRA_LIST = "list";
@@ -78,7 +77,7 @@ public class ListActivity extends AppCompatActivity {
     subscriptions.add(Select
         .from(ITEM)
         .where(ITEM.LIST.is(itemList))
-        .order(by(ITEM.COMPLETE, ITEM.DESCRIPTION))
+        .orderBy(ITEM.COMPLETE.asc(), ITEM.DESCRIPTION.asc())
         .observe()
         .runQuery()
         .observeOn(AndroidSchedulers.mainThread())

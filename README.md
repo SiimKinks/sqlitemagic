@@ -4,7 +4,7 @@ SqliteMagic
 Simple yet powerful SQLite database layer for Android that makes database handling feel like magic.
 
 #### Overview:
-* Simple, intuitive & typesafe API
+* Simple, intuitive & **typesafe API**
 * Minimal [setup](https://github.com/SiimKinks/sqlitemagic/wiki/Setup) needed
 * Built in [RxJava support](https://github.com/SiimKinks/sqlitemagic/wiki/RxJava-Support) with reactive stream semantics on queries and operations
 * Built in [AutoValue](https://github.com/SiimKinks/sqlitemagic/wiki/Immutable-Objects) immutable objects support
@@ -358,7 +358,7 @@ Documentation
 -----------------
 
 - **[Wiki](https://github.com/SiimKinks/sqlitemagic/wiki)**
-- [Javadoc](TODO)
+- [Javadoc](https://siimkinks.github.io/sqlitemagic/javadoc/)
 
 Updates
 ------------

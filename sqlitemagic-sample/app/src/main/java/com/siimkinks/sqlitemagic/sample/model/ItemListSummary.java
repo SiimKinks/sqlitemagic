@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.annotation.ViewQuery;
 
 import static com.siimkinks.sqlitemagic.ItemListTable.ITEM_LIST;
 import static com.siimkinks.sqlitemagic.ItemTable.ITEM;
-import static com.siimkinks.sqlitemagic.Select.OrderingTerm.by;
 import static com.siimkinks.sqlitemagic.Select.count;
 import static com.siimkinks.sqlitemagic.Select.val;
 
@@ -24,7 +23,7 @@ public interface ItemListSummary {
                   .and(ITEM.LIST.is(ITEM_LIST.ID)))
               .asColumn("count"))
       .from(ITEM_LIST)
-      .order(by(ITEM_LIST.NAME))
+      .orderBy(ITEM_LIST.NAME.asc())
       .compile();
 
   @ViewColumn("item_list")
