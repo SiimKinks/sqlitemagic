@@ -12,8 +12,8 @@ import java.util.Date;
 @AutoValue
 @Table(persistAll = true)
 public abstract class SimpleAllValuesImmutableWithBuilder {
-  public static final String TABLE = "simpleallvaluesimmutablewithbuilder";
-  public static final String C_ID = "simpleallvaluesimmutablewithbuilder.id";
+  public static final String TABLE = "simple_all_values_immutable_with_builder";
+  public static final String C_ID = "simple_all_values_immutable_with_builder.id";
 
   @Id
   @Nullable

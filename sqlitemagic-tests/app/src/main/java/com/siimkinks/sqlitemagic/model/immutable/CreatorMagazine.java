@@ -13,12 +13,10 @@ import java.util.Random;
 @AutoValue
 @Table(persistAll = true)
 public abstract class CreatorMagazine implements ImmutableEquals {
-  public static final String TABLE = "creatormagazine";
-  public static final String C_ID = "creatormagazine.id";
-  public static final String C_NAME = "creatormagazine.name";
-  public static final String C_AUTHOR = "creatormagazine.author";
-  public static final String C_SIMPLE_VALUE_WITH_BUILDER = "creatormagazine.simplevaluewithbuilder";
-  public static final String C_SIMPLE_VALUE_WITH_CREATOR = "creatormagazine.simplevaluewithcreator";
+  public static final String TABLE = "creator_magazine";
+  public static final String C_ID = "creator_magazine.id";
+  public static final String C_NAME = "creator_magazine.name";
+  public static final String C_AUTHOR = "creator_magazine.author";
 
   @Id
   public abstract long id();

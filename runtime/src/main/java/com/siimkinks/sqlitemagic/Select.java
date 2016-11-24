@@ -57,7 +57,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Select all columns.
+   * Select all column.
    * <p>
    * Equivalent to statement SELECT * [...]
    *
@@ -72,7 +72,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    * Select single column.
    *
    * @param column Column to select. This param must be one of annotation processor
-   *               generated column objects that corresponds to column in a database
+   *               generated column objects that correspond to a column in a database
    *               table
    * @param <R>    Java type that column represents
    * @return SQL SELECT statement builder
@@ -83,10 +83,10 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Select multiple columns.
+   * Select multiple column.
    *
    * @param columns Columns to select. These params must be one of annotation processor
-   *                generated column objects that corresponds to column in a database
+   *                generated column objects that correspond to a column in a database
    *                table
    * @return SQL SELECT statement builder
    */
@@ -96,7 +96,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Select distinct columns.
+   * Select distinct column.
    * <p>
    * Creates "SELECT DISTINCT * ..." query builder where duplicate rows
    * are removed from the set of result rows. For the purposes of detecting duplicate
@@ -128,9 +128,9 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Select multiple distinct columns.
+   * Select multiple distinct column.
    * <p>
-   * Creates "SELECT DISTINCT {@code columns} ..." query builder where duplicate rows
+   * Creates "SELECT DISTINCT {@code column} ..." query builder where duplicate rows
    * are removed from the set of result rows. For the purposes of detecting duplicate
    * rows, two NULL values are considered to be equal.
    *
@@ -145,7 +145,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Select all columns from {@code table}.
+   * Select all column from {@code table}.
    * <p>
    * Creates "SELECT * FROM {@code table} ..." query builder.
    *
@@ -244,11 +244,11 @@ public final class Select<S> extends SelectSqlNode<S> {
     }
 
     /**
-     * Compiles columns before anything else is built.
+     * Compiles column before anything else is built.
      * <p>
      * This method determines what tables are selected.
      *
-     * @return Tables that are selected in the statement (determined by the selected columns).
+     * @return Tables that are selected in the statement (determined by the selected column).
      * If null or empty then select is from all needed tables.
      */
     @Nullable
@@ -687,12 +687,12 @@ public final class Select<S> extends SelectSqlNode<S> {
     /**
      * Add an ORDER BY clause to the query.
      *
-     * @param orderingTerm Ordering term that defines ORDER BY clause.
+     * @param orderingTerms Ordering terms that define ORDER BY clause.
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<R, S> order(@NonNull OrderingTerm orderingTerm) {
-      return new OrderBy<>(this, orderingTerm);
+    public OrderBy<R, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+      return new OrderBy<>(this, orderingTerms);
     }
 
     /**
@@ -753,12 +753,12 @@ public final class Select<S> extends SelectSqlNode<S> {
     /**
      * Add an ORDER BY clause to the query.
      *
-     * @param orderingTerm Ordering term that defines ORDER BY clause.
+     * @param orderingTerms Ordering terms that define ORDER BY clause.
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<T, S> order(@NonNull OrderingTerm orderingTerm) {
-      return new OrderBy<>(this, orderingTerm);
+    public OrderBy<T, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+      return new OrderBy<>(this, orderingTerms);
     }
 
     /**
@@ -815,12 +815,12 @@ public final class Select<S> extends SelectSqlNode<S> {
     /**
      * Add an ORDER BY clause to the query.
      *
-     * @param orderingTerm Ordering term that defines ORDER BY clause.
+     * @param orderingTerms Ordering terms that define ORDER BY clause.
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<T, S> order(@NonNull OrderingTerm orderingTerm) {
-      return new OrderBy<>(this, orderingTerm);
+    public OrderBy<T, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+      return new OrderBy<>(this, orderingTerms);
     }
 
     /**
@@ -868,12 +868,12 @@ public final class Select<S> extends SelectSqlNode<S> {
     /**
      * Add an ORDER BY clause to the query.
      *
-     * @param orderingTerm Ordering term that defines ORDER BY clause.
+     * @param orderingTerms Ordering terms that define ORDER BY clause.
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<T, S> order(@NonNull OrderingTerm orderingTerm) {
-      return new OrderBy<>(this, orderingTerm);
+    public OrderBy<T, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+      return new OrderBy<>(this, orderingTerms);
     }
 
     /**
@@ -890,56 +890,36 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Builder for ORDER BY ordering term.
+   * Object representing ORDER BY ordering term.
    */
   public static final class OrderingTerm extends SqlClause {
-    @NonNull
-    private final Column[] columns;
+    static final String ASC = " ASC";
+    static final String DESC = " DESC";
+
     @Nullable
-    private String ordering;
+    private final Column column;
+    @Nullable
+    private final Expr expr;
+    @Nullable
+    private final String ordering;
 
-    OrderingTerm(@NonNull @Size(min = 1) Column[] columns) {
-      this.columns = columns;
-    }
-
-    /**
-     * Create ORDER BY ordering term.
-     *
-     * @param columns Columns to order selection by. These params must be one of
-     *                annotation processor generated column objects that corresponds
-     *                to column in a database table
-     * @return Ordering term to be used in {@code order} method.
-     */
-    @CheckResult
-    public static OrderingTerm by(@NonNull @Size(min = 1) Column... columns) {
-      return new OrderingTerm(columns);
-    }
-
-    /**
-     * Order rows in ascending order.
-     *
-     * @return Ordering term to be used in {@code order} method.
-     */
-    @CheckResult
-    public OrderingTerm asc() {
-      ordering = " ASC";
-      return this;
-    }
-
-    /**
-     * Order rows in descending order.
-     *
-     * @return Ordering term to be used in {@code order} method.
-     */
-    @CheckResult
-    public OrderingTerm desc() {
-      ordering = " DESC";
-      return this;
+    OrderingTerm(@Nullable Column column,
+                 @Nullable Expr expr,
+                 @Nullable String ordering) {
+      this.column = column;
+      this.expr = expr;
+      this.ordering = ordering;
     }
 
     @Override
     void appendSql(@NonNull StringBuilder sb) {
-      appendColumns(sb, columns);
+      if (column != null) {
+        column.appendSql(sb);
+      } else if (expr != null) {
+        expr.appendToSql(sb);
+      } else {
+        throw new IllegalStateException("Ordering term must have either column or expr");
+      }
       if (ordering != null) {
         sb.append(ordering);
       }
@@ -947,7 +927,13 @@ public final class Select<S> extends SelectSqlNode<S> {
 
     @Override
     void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
-      appendColumns(sb, columns, systemRenamedTables);
+      if (column != null) {
+        column.appendSql(sb, systemRenamedTables);
+      } else if (expr != null) {
+        expr.appendToSql(sb, systemRenamedTables);
+      } else {
+        throw new IllegalStateException("Ordering term must have either column or expr");
+      }
       if (ordering != null) {
         sb.append(ordering);
       }
@@ -962,23 +948,36 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   public static final class OrderBy<T, S> extends SelectNode<T, S> {
     @NonNull
-    private final OrderingTerm orderingTerm;
+    private final OrderingTerm[] orderingTerms;
 
-    OrderBy(@NonNull SelectNode<T, S> parent, @NonNull OrderingTerm orderingTerm) {
+    OrderBy(@NonNull SelectNode<T, S> parent,
+            @NonNull @Size(min = 1) OrderingTerm[] orderingTerms) {
       super(parent);
-      this.orderingTerm = orderingTerm;
+      this.orderingTerms = orderingTerms;
     }
 
     @Override
     void appendSql(@NonNull StringBuilder sb) {
       sb.append("ORDER BY ");
-      orderingTerm.appendSql(sb);
+      final OrderingTerm[] orderingTerms = this.orderingTerms;
+      for (int i = 0, length = orderingTerms.length; i < length; i++) {
+        if (i > 0) {
+          sb.append(',');
+        }
+        orderingTerms[i].appendSql(sb);
+      }
     }
 
     @Override
     void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
       sb.append("ORDER BY ");
-      orderingTerm.appendSql(sb, systemRenamedTables);
+      final OrderingTerm[] orderingTerms = this.orderingTerms;
+      for (int i = 0, length = orderingTerms.length; i < length; i++) {
+        if (i > 0) {
+          sb.append(',');
+        }
+        orderingTerms[i].appendSql(sb, systemRenamedTables);
+      }
     }
 
     /**
@@ -1020,9 +1019,17 @@ public final class Select<S> extends SelectSqlNode<S> {
           .append(limitClause);
     }
 
+    /**
+     * Add a OFFSET clause to the query.
+     * <p>
+     * If {@code m} evaluates to a negative value, the results are the same as if it had evaluated to zero.
+     *
+     * @param m Nr of omitted rows from the result set
+     * @return SQL SELECT statement builder
+     */
     @CheckResult
-    public Offset<T, S> offset(int rowNr) {
-      return new Offset<>(this, String.valueOf(rowNr));
+    public Offset<T, S> offset(int m) {
+      return new Offset<>(this, String.valueOf(m));
     }
   }
 
@@ -1202,6 +1209,21 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
+   * The group_concat() function returns a string which is the concatenation of distinct values of column X.
+   * Parameter "separator" is used as the separator between instances of X.
+   * The order of the concatenated elements is arbitrary.
+   *
+   * @param column Input of this aggregate function
+   * @return Column representing the result of this function
+   * @see <a href="http://www.sqlite.org/lang_aggfunc.html">SQLite documentation: Aggregate Functions</a>
+   */
+  @NonNull
+  @CheckResult
+  public static <P, X extends Column<?, ?, ?, P>> Column<String, String, CharSequence, P> groupConcatDistinct(@NonNull X column, @NonNull String separator) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(DISTINCT ", ",'" + separator + "')", STRING_PARSER, false, null);
+  }
+
+  /**
    * The max() aggregate function returns the maximum value of all values in the group.
    * The maximum value is the value that would be returned last in an ORDER BY on the same column.
    * Aggregate max() returns NULL if and only if there are no non-NULL values in the group.
@@ -1358,7 +1380,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Join columns.
+   * Join column.
    * This operator always evaluates to either NULL or a text value.
    *
    * @param columns Columns to concatenate

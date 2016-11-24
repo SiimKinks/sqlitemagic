@@ -17,8 +17,8 @@ import lombok.ToString;
 @Table
 public class SimpleMutable {
 
-  public static final String TABLE = "simplemutable";
-  public static final String C_ID = "simplemutable.id";
+  public static final String TABLE = "simple_mutable";
+  public static final String C_ID = "simple_mutable.id";
 
   @Id(autoIncrement = false)
   @Column

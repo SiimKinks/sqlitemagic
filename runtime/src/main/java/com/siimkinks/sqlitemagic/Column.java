@@ -8,6 +8,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Size;
 
+import com.siimkinks.sqlitemagic.Select.OrderingTerm;
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode;
 import com.siimkinks.sqlitemagic.Utils.ValueParser;
@@ -19,6 +20,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 
+import static com.siimkinks.sqlitemagic.Select.OrderingTerm.ASC;
+import static com.siimkinks.sqlitemagic.Select.OrderingTerm.DESC;
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.STRING_PARSER;
 
@@ -308,6 +311,32 @@ public class Column<T, R, ET, P> {
   @CheckResult
   public Column<T, R, ET, P> as(@NonNull String alias) {
     return new Column<>(table, name, allFromTable, valueParser, nullable, alias);
+  }
+
+  /**
+   * Create ORDER BY ordering term.
+   * <p>
+   * Orders rows in ascending order.
+   *
+   * @return Ordering term to be used in {@code orderBy} method.
+   */
+  @NonNull
+  @CheckResult
+  public OrderingTerm asc() {
+    return new OrderingTerm(this, null, ASC);
+  }
+
+  /**
+   * Create ORDER BY ordering term.
+   * <p>
+   * Orders rows in descending order.
+   *
+   * @return Ordering term to be used in {@code orderBy} method.
+   */
+  @NonNull
+  @CheckResult
+  public OrderingTerm desc() {
+    return new OrderingTerm(this, null, DESC);
   }
 
   /**

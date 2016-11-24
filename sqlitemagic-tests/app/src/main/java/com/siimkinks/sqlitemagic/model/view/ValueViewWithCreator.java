@@ -39,9 +39,9 @@ public abstract class ValueViewWithCreator {
   @ViewColumn("an")
   public abstract String authorName();
 
-  @ViewColumn("simplevaluewithbuilder")
+  @ViewColumn("simple_value_with_builder")
   public abstract SimpleValueWithBuilder simpleBuilder();
 
-  @ViewColumn("simplevaluewithcreator")
+  @ViewColumn("simple_value_with_creator")
   public abstract SimpleValueWithCreator simpleCreator();
 }

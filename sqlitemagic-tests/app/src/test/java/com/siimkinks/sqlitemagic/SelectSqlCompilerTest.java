@@ -166,15 +166,15 @@ public final class SelectSqlCompilerTest {
         .compile();
 
     final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
-    columns.put("complexobjectwithsameleafs.name", 0);
+    columns.put("complex_object_with_same_leafs.name", 0);
     columns.put("book", 1);
-    columns.put("complexobjectwithsameleafs.magazine", 5);
+    columns.put("complex_object_with_same_leafs.magazine", 5);
 
     CompiledSelectMetadata.assertThat()
-        .sql("SELECT complexobjectwithsameleafs.name,book.*,complexobjectwithsameleafs.magazine " +
-            "FROM complexobjectwithsameleafs ")
-        .tableName("complexobjectwithsameleafs")
-        .observedTables("complexobjectwithsameleafs")
+        .sql("SELECT complex_object_with_same_leafs.name,book.*,complex_object_with_same_leafs.magazine " +
+            "FROM complex_object_with_same_leafs ")
+        .tableName("complex_object_with_same_leafs")
+        .observedTables("complex_object_with_same_leafs")
         .queryDeep(false)
         .columns(columns)
         .tableGraphNodeNames(new SimpleArrayMap<String, String>())
@@ -193,18 +193,18 @@ public final class SelectSqlCompilerTest {
         .compile();
 
     final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
-    columns.put("complexobjectwithsameleafs.name", 0);
+    columns.put("complex_object_with_same_leafs.name", 0);
     columns.put("book", 1);
-    columns.put("complexobjectwithsameleafs.magazine", 5);
+    columns.put("complex_object_with_same_leafs.magazine", 5);
     final SimpleArrayMap<String, String> graphNodes = new SimpleArrayMap<>();
     graphNodes.put("book", "book");
 
     CompiledSelectMetadata.assertThat()
-        .sql("SELECT complexobjectwithsameleafs.name,book.*,complexobjectwithsameleafs.magazine " +
-            "FROM complexobjectwithsameleafs " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id ")
-        .tableName("complexobjectwithsameleafs")
-        .observedTables("complexobjectwithsameleafs", "book")
+        .sql("SELECT complex_object_with_same_leafs.name,book.*,complex_object_with_same_leafs.magazine " +
+            "FROM complex_object_with_same_leafs " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id ")
+        .tableName("complex_object_with_same_leafs")
+        .observedTables("complex_object_with_same_leafs", "book")
         .queryDeep(true)
         .columns(columns)
         .tableGraphNodeNames(graphNodes)
@@ -347,13 +347,13 @@ public final class SelectSqlCompilerTest {
     graphNodes.put("magazineauthor", "?");
     CompiledSelectMetadata.assertThat()
         .sqlWithWildcards("SELECT book.base_id,?._id,author.name,?.name " +
-            "FROM complexobjectwithsameleafs " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
+            "FROM complex_object_with_same_leafs " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
             "LEFT JOIN author ON book.author=author.id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id " +
             "LEFT JOIN author AS ? ON ?.author=?.id ")
-        .tableName("complexobjectwithsameleafs")
-        .observedTables("complexobjectwithsameleafs", "book", "author", "magazine")
+        .tableName("complex_object_with_same_leafs")
+        .observedTables("complex_object_with_same_leafs", "book", "author", "magazine")
         .columns(columns)
         .tableGraphNodeNames(graphNodes)
         .queryDeep(true)
@@ -381,17 +381,17 @@ public final class SelectSqlCompilerTest {
         .queryDeep()
         .compile();
     CompiledSelectMetadata.assertThat()
-        .sql(replaceRandomTableNames("SELECT * FROM complexobjectwithsameleafs " +
-            "LEFT JOIN simplevaluewithbuilder AS ? ON complexobjectwithsameleafs.simple_value_with_builder=?.id " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
+        .sql(replaceRandomTableNames("SELECT * FROM complex_object_with_same_leafs " +
+            "LEFT JOIN simple_value_with_builder AS ? ON complex_object_with_same_leafs.simple_value_with_builder=?.id " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
             "LEFT JOIN author ON book.author=author.id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id " +
             "LEFT JOIN author AS ? ON ?.author=?.id " +
-            "LEFT JOIN simplevaluewithbuilder AS ? ON complexobjectwithsameleafs.simple_value_with_builder_duplicate=?.id ") +
+            "LEFT JOIN simple_value_with_builder AS ? ON complex_object_with_same_leafs.simple_value_with_builder_duplicate=?.id ") +
             "WHERE author.name=\\? ")
         .args("asd")
-        .tableName("complexobjectwithsameleafs")
-        .observedTables("complexobjectwithsameleafs", "simplevaluewithbuilder", "book", "author", "magazine")
+        .tableName("complex_object_with_same_leafs")
+        .observedTables("complex_object_with_same_leafs", "simple_value_with_builder", "book", "author", "magazine")
         .queryDeep(true)
         .build()
         .isEqualTo(select);
@@ -417,7 +417,7 @@ public final class SelectSqlCompilerTest {
         .where(BOOK.TITLE.is("asd").and(BOOK.NR_OF_RELEASES.is(12).or(COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME.is("asdasd"))))
         .queryDeep()
         .compile();
-    assertWhereClause(select, "WHERE \\(book.title=\\? AND \\(book.nr_of_releases=\\? OR complexobjectwithsameleafs.name=\\?\\)\\) ", "asd", "12", "asdasd");
+    assertWhereClause(select, "WHERE \\(book.title=\\? AND \\(book.nr_of_releases=\\? OR complex_object_with_same_leafs.name=\\?\\)\\) ", "asd", "12", "asdasd");
 
     select = Select
         .columns(
@@ -429,7 +429,7 @@ public final class SelectSqlCompilerTest {
         .where(BOOK.TITLE.is("asd").or(BOOK.NR_OF_RELEASES.is(12).and(COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME.is("asdasd").and(COMPLEX_OBJECT_WITH_SAME_LEAFS.ID.is(123L)))))
         .queryDeep()
         .compile();
-    assertWhereClause(select, "WHERE \\(book.title=\\? OR \\(book.nr_of_releases=\\? AND \\(complexobjectwithsameleafs.name=\\? AND complexobjectwithsameleafs.id=\\?\\)\\)\\) ", "asd", "12", "asdasd", "123");
+    assertWhereClause(select, "WHERE \\(book.title=\\? OR \\(book.nr_of_releases=\\? AND \\(complex_object_with_same_leafs.name=\\? AND complex_object_with_same_leafs.id=\\?\\)\\)\\) ", "asd", "12", "asdasd", "123");
 
     select = Select
         .columns(
@@ -441,7 +441,7 @@ public final class SelectSqlCompilerTest {
         .where(BOOK.TITLE.is("asd").or(BOOK.BASE_ID.is(22L)).and(BOOK.NR_OF_RELEASES.is(12).or(COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME.is("asdasd"))))
         .queryDeep()
         .compile();
-    assertWhereClause(select, "WHERE \\(\\(book.title=\\? OR book.base_id=\\?\\) AND \\(book.nr_of_releases=\\? OR complexobjectwithsameleafs.name=\\?\\)\\) ", "asd", "22", "12", "asdasd");
+    assertWhereClause(select, "WHERE \\(\\(book.title=\\? OR book.base_id=\\?\\) AND \\(book.nr_of_releases=\\? OR complex_object_with_same_leafs.name=\\?\\)\\) ", "asd", "22", "12", "asdasd");
 
     select = Select
         .columns(
@@ -453,7 +453,7 @@ public final class SelectSqlCompilerTest {
         .where(BOOK.TITLE.is("asd").or(BOOK.BASE_ID.is(22L)).and(BOOK.NR_OF_RELEASES.is(12).or(COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME.is("asdasd"))))
         .queryDeep()
         .compile();
-    assertWhereClause(select, "WHERE \\(\\(book.title=\\? OR book.base_id=\\?\\) AND \\(book.nr_of_releases=\\? OR complexobjectwithsameleafs.name=\\?\\)\\) ", "asd", "22", "12", "asdasd");
+    assertWhereClause(select, "WHERE \\(\\(book.title=\\? OR book.base_id=\\?\\) AND \\(book.nr_of_releases=\\? OR complex_object_with_same_leafs.name=\\?\\)\\) ", "asd", "22", "12", "asdasd");
   }
 
   private void assertWhereClause(CompiledSelect<ComplexObjectWithSameLeafs, SelectN> genericSelect, String expectedWhereClause, String... args) {
@@ -470,17 +470,17 @@ public final class SelectSqlCompilerTest {
     columns.put(select.tableGraphNodeNames.get("magazine"), 16);
 
     CompiledSelectMetadata.assertThat()
-        .sql(replaceRandomTableNames("SELECT ?.*,?.*,book.*,?.* FROM complexobjectwithsameleafs " +
-            "LEFT JOIN simplevaluewithbuilder AS ? ON complexobjectwithsameleafs.simple_value_with_builder=?.id " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id " +
-            "LEFT JOIN simplevaluewithbuilder AS ? ON complexobjectwithsameleafs.simple_value_with_builder_duplicate=?.id ") +
+        .sql(replaceRandomTableNames("SELECT ?.*,?.*,book.*,?.* FROM complex_object_with_same_leafs " +
+            "LEFT JOIN simple_value_with_builder AS ? ON complex_object_with_same_leafs.simple_value_with_builder=?.id " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id " +
+            "LEFT JOIN simple_value_with_builder AS ? ON complex_object_with_same_leafs.simple_value_with_builder_duplicate=?.id ") +
             expectedWhereClause)
         .args(args)
         .columns(columns)
         .tableGraphNodeNames(graphNodes)
-        .tableName("complexobjectwithsameleafs")
-        .observedTables("complexobjectwithsameleafs", "simplevaluewithbuilder", "book", "magazine")
+        .tableName("complex_object_with_same_leafs")
+        .observedTables("complex_object_with_same_leafs", "simple_value_with_builder", "book", "magazine")
         .queryDeep(true)
         .build()
         .isEqualTo(select);
@@ -518,18 +518,18 @@ public final class SelectSqlCompilerTest {
     graphNodes.put("magazine", "magazine");
     graphNodes.put("magazineauthor", magazineAuthorAlias);
     CompiledSelectMetadata.assertThat()
-        .sql("SELECT book.*,magazine.*," + magazineAuthorAlias + ".*," + bookAuthorAlias + ".* FROM complexobjectwithsameleafs " +
-            "LEFT JOIN magazine ON complexobjectwithsameleafs.magazine=magazine._id " +
+        .sql("SELECT book.*,magazine.*," + magazineAuthorAlias + ".*," + bookAuthorAlias + ".* FROM complex_object_with_same_leafs " +
+            "LEFT JOIN magazine ON complex_object_with_same_leafs.magazine=magazine._id " +
             "LEFT JOIN author AS " + magazineAuthorAlias + " ON magazine.author=" + magazineAuthorAlias + ".id " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
             "LEFT JOIN author AS " + bookAuthorAlias + " ON book.author=" + bookAuthorAlias + ".id " +
             "WHERE (" + magazineAuthorAlias + ".name=? " +
             "AND " + bookAuthorAlias + ".name=?) ")
         .args("asd", "dsa")
         .columns(columns)
         .tableGraphNodeNames(graphNodes)
-        .tableName("complexobjectwithsameleafs")
-        .observedTables("complexobjectwithsameleafs", "book", "author", "magazine")
+        .tableName("complex_object_with_same_leafs")
+        .observedTables("complex_object_with_same_leafs", "book", "author", "magazine")
         .queryDeep(true)
         .build()
         .isEqualTo(select);
@@ -555,15 +555,15 @@ public final class SelectSqlCompilerTest {
     graphNodes.put("magazine", "?");
     graphNodes.put("magazineauthor", "?");
     final CompiledSelectMetadata compiledSelectMetadata = CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards("SELECT book.*,?.*,author.*,?.* FROM complexobjectwithsameleafs " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
+        .sqlWithWildcards("SELECT book.*,?.*,author.*,?.* FROM complex_object_with_same_leafs " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
             "LEFT JOIN author ON book.author=author.id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id " +
             "LEFT JOIN author AS ? ON ?.author=?.id ")
         .columns(columns)
         .tableGraphNodeNames(graphNodes)
-        .tableName("complexobjectwithsameleafs")
-        .observedTables("complexobjectwithsameleafs", "book", "author", "magazine")
+        .tableName("complex_object_with_same_leafs")
+        .observedTables("complex_object_with_same_leafs", "book", "author", "magazine")
         .queryDeep(true)
         .build();
     compiledSelectMetadata.isEqualTo(select2);
@@ -592,28 +592,28 @@ public final class SelectSqlCompilerTest {
 
     CompiledSelectMetadata.assertThat()
         .sqlWithWildcards("SELECT " +
-            "complexvaluewithcreator.string," +
-            "complexvaluewithcreator.id," +
-            "complexvaluewithcreator.not_persisted_author," +
-            "complexvaluewithcreator.not_persisted_complex_object_with_same_leafs," +
-            "complexvaluewithcreator.not_persisted_creator_simple_value," +
-            "complexvaluewithcreator.not_persisted_builder_simple_value," +
+            "complex_value_with_creator.string," +
+            "complex_value_with_creator.id," +
+            "complex_value_with_creator.not_persisted_author," +
+            "complex_value_with_creator.not_persisted_complex_object_with_same_leafs," +
+            "complex_value_with_creator.not_persisted_creator_simple_value," +
+            "complex_value_with_creator.not_persisted_builder_simple_value," +
             "auth.*," +
             "?.*," +
             "?.*," +
             "?.*," +
-            "simplevaluewithbuilder.*," +
-            "simplevaluewithcreator.* " +
-            "FROM complexvaluewithcreator " +
-            "LEFT JOIN author AS auth ON complexvaluewithcreator.author=auth.id " +
-            "LEFT JOIN author AS ? ON complexvaluewithcreator.nullable_author=?.id " +
-            "LEFT JOIN complexobjectwithsameleafs AS ? ON complexvaluewithcreator.complex_object_with_same_leafs=?.id " +
-            "LEFT JOIN simplevaluewithbuilder AS ? ON ?.simple_value_with_builder=?.id " +
-            "LEFT JOIN simplevaluewithbuilder AS ? ON ?.simple_value_with_builder_duplicate=?.id " +
-            "LEFT JOIN simplevaluewithbuilder ON complexvaluewithcreator.builder_simple_value=simplevaluewithbuilder.id " +
-            "LEFT JOIN simplevaluewithcreator ON complexvaluewithcreator.creator_simple_value=simplevaluewithcreator.id ")
-        .tableName("complexvaluewithcreator")
-        .observedTables("complexvaluewithcreator", "complexobjectwithsameleafs", "simplevaluewithbuilder", "simplevaluewithcreator", "author")
+            "simple_value_with_builder.*," +
+            "simple_value_with_creator.* " +
+            "FROM complex_value_with_creator " +
+            "LEFT JOIN author AS auth ON complex_value_with_creator.author=auth.id " +
+            "LEFT JOIN author AS ? ON complex_value_with_creator.nullable_author=?.id " +
+            "LEFT JOIN complex_object_with_same_leafs AS ? ON complex_value_with_creator.complex_object_with_same_leafs=?.id " +
+            "LEFT JOIN simple_value_with_builder AS ? ON ?.simple_value_with_builder=?.id " +
+            "LEFT JOIN simple_value_with_builder AS ? ON ?.simple_value_with_builder_duplicate=?.id " +
+            "LEFT JOIN simple_value_with_builder ON complex_value_with_creator.builder_simple_value=simple_value_with_builder.id " +
+            "LEFT JOIN simple_value_with_creator ON complex_value_with_creator.creator_simple_value=simple_value_with_creator.id ")
+        .tableName("complex_value_with_creator")
+        .observedTables("complex_value_with_creator", "complex_object_with_same_leafs", "simple_value_with_builder", "simple_value_with_creator", "author")
         .queryDeep(true)
         .columns(((CompiledSelectImpl) compiledSelect).columns)
         .tableGraphNodeNames(((CompiledSelectImpl) compiledSelect).tableGraphNodeNames)
@@ -720,8 +720,8 @@ public final class SelectSqlCompilerTest {
         .compile();
 
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards("SELECT ?.name FROM complexobjectwithsameleafs LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ")
-        .observedTables("complexobjectwithsameleafs", "magazine")
+        .sqlWithWildcards("SELECT ?.name FROM complex_object_with_same_leafs LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ")
+        .observedTables("complex_object_with_same_leafs", "magazine")
         .build()
         .isEqualToColumnSelect(compiledSelect);
   }
@@ -745,17 +745,17 @@ public final class SelectSqlCompilerTest {
     final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
     columns.put("magazine.name", 0);
     columns.put("author.name", 1);
-    columns.put("simplevaluewithbuilder", 2);
-    columns.put("simplevaluewithcreator", 8);
+    columns.put("simple_value_with_builder", 2);
+    columns.put("simple_value_with_creator", 8);
     final SimpleArrayMap<String, String> graphNodes = new SimpleArrayMap<>();
     graphNodes.put("author", "author");
 
     CompiledSelectMetadata.assertThat()
-        .sql("SELECT magazine.name,author.name,simplevaluewithbuilder.*,simplevaluewithcreator.* " +
-            "FROM magazine , author , simplevaluewithbuilder , simplevaluewithcreator " +
+        .sql("SELECT magazine.name,author.name,simple_value_with_builder.*,simple_value_with_creator.* " +
+            "FROM magazine , author , simple_value_with_builder , simple_value_with_creator " +
             "WHERE magazine.author=author.id ")
         .tableName("magazine")
-        .observedTables("magazine", "author", "simplevaluewithbuilder", "simplevaluewithcreator")
+        .observedTables("magazine", "author", "simple_value_with_builder", "simple_value_with_creator")
         .columns(columns)
         .tableGraphNodeNames(graphNodes)
         .queryDeep(true)
@@ -1006,10 +1006,10 @@ public final class SelectSqlCompilerTest {
   @Test
   public void complexConcatFunction() {
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards("SELECT book.nr_of_releases \\|\\| ?.name \\|\\| complexobjectwithsameleafs.name " +
-            "FROM complexobjectwithsameleafs LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ")
-        .observedTables("complexobjectwithsameleafs", "book", "magazine")
+        .sqlWithWildcards("SELECT book.nr_of_releases \\|\\| ?.name \\|\\| complex_object_with_same_leafs.name " +
+            "FROM complex_object_with_same_leafs LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ")
+        .observedTables("complex_object_with_same_leafs", "book", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(concat(BOOK.NR_OF_RELEASES, MAGAZINE.NAME, COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME))
@@ -1017,10 +1017,10 @@ public final class SelectSqlCompilerTest {
             .compile());
 
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards("SELECT book.nr_of_releases \\|\\| ?.name \\|\\| complexobjectwithsameleafs.name " +
-            "FROM complexobjectwithsameleafs LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ")
-        .observedTables("complexobjectwithsameleafs", "book", "magazine")
+        .sqlWithWildcards("SELECT book.nr_of_releases \\|\\| ?.name \\|\\| complex_object_with_same_leafs.name " +
+            "FROM complex_object_with_same_leafs LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ")
+        .observedTables("complex_object_with_same_leafs", "book", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(BOOK.NR_OF_RELEASES.concat(MAGAZINE.NAME.concat(COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME)))
@@ -1222,10 +1222,10 @@ public final class SelectSqlCompilerTest {
   @Test
   public void numericArithmeticExpressionsChained() {
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards("SELECT (((?.nr_of_releases+(book.nr_of_releases*?.nr_of_releases))/(8%book.nr_of_releases))-?.nr_of_releases) FROM complexobjectwithsameleafs " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ")
-        .observedTables("complexobjectwithsameleafs", "book", "magazine")
+        .sqlWithWildcards("SELECT (((?.nr_of_releases+(book.nr_of_releases*?.nr_of_releases))/(8%book.nr_of_releases))-?.nr_of_releases) FROM complex_object_with_same_leafs " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ")
+        .observedTables("complex_object_with_same_leafs", "book", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(MAGAZINE.NR_OF_RELEASES.add(BOOK.NR_OF_RELEASES.mul(MAGAZINE.NR_OF_RELEASES))
@@ -1240,10 +1240,10 @@ public final class SelectSqlCompilerTest {
                                           @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Long, Long, Number, ?>, NumericColumn> columnValueCallback,
                                           @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine>, Integer, NumericColumn> valueCallback) {
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards(String.format("SELECT (?.nr_of_releases%sbook.nr_of_releases) FROM complexobjectwithsameleafs " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ", op))
-        .observedTables("complexobjectwithsameleafs", "book", "magazine")
+        .sqlWithWildcards(String.format("SELECT (?.nr_of_releases%sbook.nr_of_releases) FROM complex_object_with_same_leafs " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ", op))
+        .observedTables("complex_object_with_same_leafs", "book", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(columnCallback.call(MAGAZINE.NR_OF_RELEASES, BOOK.NR_OF_RELEASES))
@@ -1251,9 +1251,9 @@ public final class SelectSqlCompilerTest {
             .compile());
 
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards(String.format("SELECT (?.nr_of_releases%s5) FROM complexobjectwithsameleafs " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ", op))
-        .observedTables("complexobjectwithsameleafs", "magazine")
+        .sqlWithWildcards(String.format("SELECT (?.nr_of_releases%s5) FROM complex_object_with_same_leafs " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ", op))
+        .observedTables("complex_object_with_same_leafs", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(columnValueCallback.call(MAGAZINE.NR_OF_RELEASES, val(5L)))
@@ -1261,9 +1261,9 @@ public final class SelectSqlCompilerTest {
             .compile());
 
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards(String.format("SELECT (?.nr_of_releases%s5) FROM complexobjectwithsameleafs " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ", op))
-        .observedTables("complexobjectwithsameleafs", "magazine")
+        .sqlWithWildcards(String.format("SELECT (?.nr_of_releases%s5) FROM complex_object_with_same_leafs " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ", op))
+        .observedTables("complex_object_with_same_leafs", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(valueCallback.call(MAGAZINE.NR_OF_RELEASES, 5))
@@ -1286,8 +1286,8 @@ public final class SelectSqlCompilerTest {
   private void assertFunctionWithSystemRename(@NonNull String func,
                                               @NonNull Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>> funcCall) {
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards(String.format("SELECT %s?.name) FROM complexobjectwithsameleafs LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ", func))
-        .observedTables("complexobjectwithsameleafs", "magazine")
+        .sqlWithWildcards(String.format("SELECT %s?.name) FROM complex_object_with_same_leafs LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ", func))
+        .observedTables("complex_object_with_same_leafs", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(funcCall.call(MAGAZINE.NAME))
@@ -1298,8 +1298,8 @@ public final class SelectSqlCompilerTest {
   private void assertNumericFunction(@NonNull String func,
                                      @NonNull Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>> funcCall) {
     CompiledSelectMetadata.assertThat()
-        .sql(String.format("SELECT %sbook.nr_of_releases) FROM complexobjectwithsameleafs LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id ", func))
-        .observedTables("complexobjectwithsameleafs", "book")
+        .sql(String.format("SELECT %sbook.nr_of_releases) FROM complex_object_with_same_leafs LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id ", func))
+        .observedTables("complex_object_with_same_leafs", "book")
         .build()
         .isEqualToColumnSelect(Select
             .column(funcCall.call(BOOK.NR_OF_RELEASES))
@@ -1310,8 +1310,8 @@ public final class SelectSqlCompilerTest {
   private void assertNumericFunctionWithSystemRename(@NonNull String func,
                                                      @NonNull Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>> funcCall) {
     CompiledSelectMetadata.assertThat()
-        .sqlWithWildcards(String.format("SELECT %s?.nr_of_releases) FROM complexobjectwithsameleafs LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ", func))
-        .observedTables("complexobjectwithsameleafs", "magazine")
+        .sqlWithWildcards(String.format("SELECT %s?.nr_of_releases) FROM complex_object_with_same_leafs LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ", func))
+        .observedTables("complex_object_with_same_leafs", "magazine")
         .build()
         .isEqualToColumnSelect(Select
             .column(funcCall.call(MAGAZINE.NR_OF_RELEASES))
@@ -1326,19 +1326,19 @@ public final class SelectSqlCompilerTest {
         .compile();
 
     final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
-    columns.put("buildermagazine", 0);
+    columns.put("builder_magazine", 0);
     columns.put(MAGAZINE_ALIAS, 0);
     columns.put("author", 5);
-    columns.put("simplevaluewithbuilder", 9);
-    columns.put("simplevaluewithcreator", 15);
+    columns.put("simple_value_with_builder", 9);
+    columns.put("simple_value_with_creator", 15);
     columns.put(AUTHOR_NAME_ALIAS, 21);
     columns.put("author.name", 21);
     columns.put(VALUE_W_BUILDER_ALIAS, 22);
-    columns.put("simplevaluewithbuilder.string_value", 22);
+    columns.put("simple_value_with_builder.string_value", 22);
     final CompiledSelectImpl query = (CompiledSelectImpl) ComplexInterfaceView.QUERY;
     CompiledSelectMetadata.assertThat()
-        .sql("SELECT * FROM complexinterfaceview ")
-        .tableName("complexinterfaceview")
+        .sql("SELECT * FROM complex_interface_view ")
+        .tableName("complex_interface_view")
         .observedTables(SimpleValueWithBuilder.TABLE, BuilderMagazine.TABLE, Author.TABLE, SimpleValueWithCreator.TABLE)
         .tableGraphNodeNames(query.tableGraphNodeNames)
         .columns(columns)
@@ -1369,8 +1369,8 @@ public final class SelectSqlCompilerTest {
     final CompiledSelectImpl query = (CompiledSelectImpl) ComplexView.QUERY;
 
     CompiledSelectMetadata.assertThat()
-        .sql("SELECT * FROM complexview ")
-        .tableName("complexview")
+        .sql("SELECT * FROM complex_view ")
+        .tableName("complex_view")
         .observedTables(Book.TABLE, Magazine.TABLE, Author.TABLE)
         .queryDeep(true)
         .tableGraphNodeNames(query.tableGraphNodeNames)
@@ -1524,7 +1524,7 @@ public final class SelectSqlCompilerTest {
     final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
     columns.put("count(*)", 0);
     CompiledSelectMetadata.assertThat()
-        .sql("SELECT count(*) FROM complexvaluewithcreator ")
+        .sql("SELECT count(*) FROM complex_value_with_creator ")
         .tableName(ComplexValueWithCreator.TABLE)
         .observedTables(ComplexValueWithCreator.TABLE)
         .tableGraphNodeNames(new SimpleArrayMap<String, String>())

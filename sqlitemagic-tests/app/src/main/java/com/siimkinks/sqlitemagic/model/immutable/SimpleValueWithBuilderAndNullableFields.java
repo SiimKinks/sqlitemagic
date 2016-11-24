@@ -12,11 +12,11 @@ import java.util.Random;
 @Table(persistAll = true)
 @AutoValue
 public abstract class SimpleValueWithBuilderAndNullableFields implements ImmutableEquals {
-  public static final String TABLE = "simplevaluewithbuilderandnullablefields";
-  public static final String C_ID = "simplevaluewithbuilderandnullablefields.id";
-  public static final String C_STRING = "simplevaluewithbuilderandnullablefields.string";
-  public static final String C_BOXED_BOOLEAN = "simplevaluewithbuilderandnullablefields.boxed_boolean";
-  public static final String C_BOXED_INTEGER = "simplevaluewithbuilderandnullablefields.boxed_integer";
+  public static final String TABLE = "simple_value_with_builder_and_nullable_fields";
+  public static final String C_ID = "simple_value_with_builder_and_nullable_fields.id";
+  public static final String C_STRING = "simple_value_with_builder_and_nullable_fields.string";
+  public static final String C_BOXED_BOOLEAN = "simple_value_with_builder_and_nullable_fields.boxed_boolean";
+  public static final String C_BOXED_INTEGER = "simple_value_with_builder_and_nullable_fields.boxed_integer";
 
   @Id
   @Nullable

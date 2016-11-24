@@ -1,12 +1,11 @@
 package lombok.javac.handlers;
 
-import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.Environment;
-import com.siimkinks.sqlitemagic.annotation.internal.Invokes;
 import com.siimkinks.sqlitemagic.SqliteMagicProcessor;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
+import com.siimkinks.sqlitemagic.annotation.internal.Invokes;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
@@ -33,6 +32,7 @@ import lombok.javac.JavacTreeMaker;
 import static com.siimkinks.sqlitemagic.Const.DEFAULT_ID_COLUMN_NAME;
 import static com.siimkinks.sqlitemagic.Const.DEFAULT_ID_FIELD_NAME;
 import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_PROCESSOR_DID_NOT_RUN;
+import static com.siimkinks.sqlitemagic.element.TableElement.determineTableName;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_DELETE;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_INSERT;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_PERSIST;
@@ -285,11 +285,7 @@ public class HandleTable extends JavacAnnotationHandler<Table> {
   }
 
   private String getTableName(Table tableAnnotation, JavacNode tableElement) {
-    final String definedTableName = tableAnnotation.value();
-    if (!Strings.isNullOrEmpty(definedTableName)) {
-      return definedTableName;
-    }
-    return tableElement.getName().toLowerCase();
+    return determineTableName(tableElement.getName(), tableAnnotation.value());
   }
 
   private static Set<String> findAllStaticMethodNames(JavacNode typeNode) {

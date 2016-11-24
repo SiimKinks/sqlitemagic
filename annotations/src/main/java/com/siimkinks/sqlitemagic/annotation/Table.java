@@ -27,16 +27,16 @@ import java.lang.annotation.Target;
 public @interface Table {
   /**
    * Table name.<br>
-   * Defaults to lower cased class name.
+   * Defaults to lower cased class name where camel case is replaced with "_".
    *
    * @return Table name
    */
   String value() default "";
 
   /**
-   * Persist all possible fields in object.<br>
+   * Persist all possible columns.<br>
    * If true system tries to create sql table columns
-   * from all fields using all the default behavior of {@link Column}.
+   * from all fields using the default behavior of {@link Column}.
    * If any field has {@link Column} annotation then it uses its preferences.
    * If any field is annotated with {@link IgnoreColumn} then this field is ignored.
    *

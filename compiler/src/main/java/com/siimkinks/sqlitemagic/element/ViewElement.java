@@ -30,6 +30,8 @@ import javax.lang.model.element.VariableElement;
 
 import lombok.Getter;
 
+import static com.siimkinks.sqlitemagic.util.StringUtil.replaceCamelCaseWithUnderscore;
+
 public final class ViewElement {
   private final Environment environment;
   @Getter
@@ -86,7 +88,7 @@ public final class ViewElement {
     final String viewName = viewAnnotation.value();
     if (Strings.isNullOrEmpty(viewName)) {
       final String rawName = viewElement.getSimpleName().toString();
-      return rawName.toLowerCase();
+      return replaceCamelCaseWithUnderscore(rawName).toLowerCase();
     }
     return viewName;
   }

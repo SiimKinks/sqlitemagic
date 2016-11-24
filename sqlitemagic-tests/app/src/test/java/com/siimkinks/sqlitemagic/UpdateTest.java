@@ -171,8 +171,8 @@ public final class UpdateTest {
             .set(BOOK.NR_OF_RELEASES, Select
                 .column(BOOK.NR_OF_RELEASES)
                 .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)),
-        "UPDATE book SET nr_of_releases=(SELECT book.nr_of_releases FROM complexobjectwithsameleafs " +
-            "LEFT JOIN book ON complexobjectwithsameleafs.book=book.base_id ) ",
+        "UPDATE book SET nr_of_releases=(SELECT book.nr_of_releases FROM complex_object_with_same_leafs " +
+            "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id ) ",
         3);
 
     assertSqlBuilderWithWildcards(Update
@@ -180,8 +180,8 @@ public final class UpdateTest {
             .set(BOOK.NR_OF_RELEASES, Select
                 .column(MAGAZINE.NR_OF_RELEASES)
                 .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)),
-        "UPDATE book SET nr_of_releases=(SELECT ?.nr_of_releases FROM complexobjectwithsameleafs " +
-            "LEFT JOIN magazine AS ? ON complexobjectwithsameleafs.magazine=?._id ) ",
+        "UPDATE book SET nr_of_releases=(SELECT ?.nr_of_releases FROM complex_object_with_same_leafs " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ) ",
         3);
   }
 

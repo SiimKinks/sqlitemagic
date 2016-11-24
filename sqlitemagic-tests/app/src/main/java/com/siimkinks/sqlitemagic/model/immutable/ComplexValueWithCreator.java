@@ -15,21 +15,21 @@ import java.util.Random;
 @Table(persistAll = true)
 @AutoValue
 public abstract class ComplexValueWithCreator {
-  public static final String TABLE = "complexvaluewithcreator";
-  public static final String C_ID = "complexvaluewithcreator.id";
-  public static final String C_STRING = "complexvaluewithcreator.string";
-  public static final String C_NULLABLE_STRING = "complexvaluewithcreator.nullable_string";
-  public static final String C_AUTHOR = "complexvaluewithcreator.author";
-  public static final String C_NOT_PERSISTED_AUTHOR = "complexvaluewithcreator.not_persisted_author";
-  public static final String C_NULLABLE_AUTHOR = "complexvaluewithcreator.nulable_author";
-  public static final String C_COMPLEX_OBJECT_WITH_SAME_LEAFS = "complexvaluewithcreator.complex_object_with_same_leafs";
-  public static final String C_NOT_PERSISTED_COMPLEX_OBJECT_WITH_SAME_LEAFS = "complexvaluewithcreator.not_persisted_complex_object_with_same_leafs";
-  public static final String C_BUILDER_SIMPLE_VALUE = "complexvaluewithcreator.builder_simple_value";
-  public static final String C_NOT_PERSISTED_BUILDER_SIMPLE_VALUE = "complexvaluewithcreator.not_persisted_builder_simple_value";
-  public static final String C_NULLABLE_BUILDER_SIMPLE_VALUE = "complexvaluewithcreator.nullable_builder_simple_value";
-  public static final String C_CREATOR_SIMPLE_VALUE = "complexvaluewithcreator.creator_simple_value";
-  public static final String C_NOT_PERSISTED_CREATOR_SIMPLE_VALUE = "complexvaluewithcreator.not_persisted_creator_simple_value";
-  public static final String C_NULLABLE_CREATOR_SIMPLE_VALUE = "complexvaluewithcreator.nullable_creator_simple_value";
+  public static final String TABLE = "complex_value_with_creator";
+  public static final String C_ID = "complex_value_with_creator.id";
+  public static final String C_STRING = "complex_value_with_creator.string";
+  public static final String C_NULLABLE_STRING = "complex_value_with_creator.nullable_string";
+  public static final String C_AUTHOR = "complex_value_with_creator.author";
+  public static final String C_NOT_PERSISTED_AUTHOR = "complex_value_with_creator.not_persisted_author";
+  public static final String C_NULLABLE_AUTHOR = "complex_value_with_creator.nullable_author";
+  public static final String C_COMPLEX_OBJECT_WITH_SAME_LEAFS = "complex_value_with_creator.complex_object_with_same_leafs";
+  public static final String C_NOT_PERSISTED_COMPLEX_OBJECT_WITH_SAME_LEAFS = "complex_value_with_creator.not_persisted_complex_object_with_same_leafs";
+  public static final String C_BUILDER_SIMPLE_VALUE = "complex_value_with_creator.builder_simple_value";
+  public static final String C_NOT_PERSISTED_BUILDER_SIMPLE_VALUE = "complex_value_with_creator.not_persisted_builder_simple_value";
+  public static final String C_NULLABLE_BUILDER_SIMPLE_VALUE = "complex_value_with_creator.nullable_builder_simple_value";
+  public static final String C_CREATOR_SIMPLE_VALUE = "complex_value_with_creator.creator_simple_value";
+  public static final String C_NOT_PERSISTED_CREATOR_SIMPLE_VALUE = "complex_value_with_creator.not_persisted_creator_simple_value";
+  public static final String C_NULLABLE_CREATOR_SIMPLE_VALUE = "complex_value_with_creator.nullable_creator_simple_value";
 
   @Id
   abstract long id();

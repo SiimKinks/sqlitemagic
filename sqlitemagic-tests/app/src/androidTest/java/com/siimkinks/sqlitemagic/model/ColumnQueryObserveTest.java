@@ -18,7 +18,6 @@ import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.COMPLEX_OBJECT_WITH_SAME_LEAFS;
 import static com.siimkinks.sqlitemagic.InternalTester.assertTriggersHaveNoObservers;
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
-import static com.siimkinks.sqlitemagic.Select.OrderingTerm.by;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertComplexValuesWithSameLeafs;
 import static rx.Observable.from;
@@ -97,7 +96,7 @@ public final class ColumnQueryObserveTest {
 
     final Subscription subscription = Select.column(AUTHOR.NAME)
         .from(AUTHOR)
-        .order(by(AUTHOR.ID).desc())
+        .orderBy(AUTHOR.ID.desc())
         .takeFirst()
         .observe()
         .subscribe(o);
@@ -182,7 +181,7 @@ public final class ColumnQueryObserveTest {
     final Subscription subscription = Select
         .column(MAGAZINE.NAME)
         .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
-        .order(by(COMPLEX_OBJECT_WITH_SAME_LEAFS.ID).desc())
+        .orderBy(COMPLEX_OBJECT_WITH_SAME_LEAFS.ID.desc())
         .takeFirst()
         .observe()
         .subscribe(o);

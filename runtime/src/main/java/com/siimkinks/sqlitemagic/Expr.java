@@ -3,10 +3,14 @@ package com.siimkinks.sqlitemagic;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 
+import com.siimkinks.sqlitemagic.Select.OrderingTerm;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+
+import static com.siimkinks.sqlitemagic.Select.OrderingTerm.ASC;
+import static com.siimkinks.sqlitemagic.Select.OrderingTerm.DESC;
 
 /**
  * An SQL expression.
@@ -40,6 +44,32 @@ public class Expr {
 
   boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
     return column.equals(this.column);
+  }
+
+  /**
+   * Create ORDER BY ordering term.
+   * <p>
+   * Orders rows in ascending order.
+   *
+   * @return Ordering term to be used in {@code orderBy} method.
+   */
+  @NonNull
+  @CheckResult
+  public OrderingTerm asc() {
+    return new OrderingTerm(null, this, ASC);
+  }
+
+  /**
+   * Create ORDER BY ordering term.
+   * <p>
+   * Orders rows in descending order.
+   *
+   * @return Ordering term to be used in {@code orderBy} method.
+   */
+  @NonNull
+  @CheckResult
+  public OrderingTerm desc() {
+    return new OrderingTerm(null, this, DESC);
   }
 
   /**

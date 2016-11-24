@@ -13,8 +13,8 @@ import java.util.Random;
 @Table(persistAll = true)
 @AutoValue
 public abstract class SimpleValueWithCreator implements ImmutableEquals {
-  public static final String TABLE = "simplevaluewithcreator";
-  public static final String C_ID = "simplevaluewithcreator.id";
+  public static final String TABLE = "simple_value_with_creator";
+  public static final String C_ID = "simple_value_with_creator.id";
 
   @Id
   @Nullable

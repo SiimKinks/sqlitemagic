@@ -13,7 +13,7 @@ import rx.Single;
  */
 public interface EntityPersistBuilder extends ConnectionProvidedOperation<EntityPersistBuilder> {
   /**
-   * Configure this operation to ignore {@code null} values inside entity while
+   * Configure this operation to ignore {@code null} values inside entity when
    * persisting provided object.
    *
    * @return Operation builder

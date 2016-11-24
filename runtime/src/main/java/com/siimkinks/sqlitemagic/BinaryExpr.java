@@ -46,7 +46,6 @@ final class BinaryExpr extends Expr {
 
   @Override
   boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
-    final boolean lhsContains = lhs.containsColumn(column);
-    return lhsContains || rhs.containsColumn(column);
+    return lhs.containsColumn(column) || rhs.containsColumn(column);
   }
 }

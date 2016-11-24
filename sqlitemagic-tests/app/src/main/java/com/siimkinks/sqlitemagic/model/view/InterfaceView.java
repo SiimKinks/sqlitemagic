@@ -38,6 +38,6 @@ public interface InterfaceView {
   @ViewColumn("svwb")
   SimpleValueWithBuilder simpleBuilder();
 
-  @ViewColumn("simplevaluewithcreator")
+  @ViewColumn("simple_value_with_creator")
   SimpleValueWithCreator simpleCreator();
 }

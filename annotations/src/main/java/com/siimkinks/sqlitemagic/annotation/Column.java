@@ -43,7 +43,7 @@ public @interface Column {
   boolean onDeleteCascade() default false;
 
   /**
-   * Respect access methods when accessing model fields.<br>
+   * Respect access methods when accessing this field.<br>
    * Access methods can be with names representing field names e.g.
    * {@code name(), name(String)} or with JavaBeans-style prefixes like
    * {@code getName(), setName(String), isMale()}.<br>

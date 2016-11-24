@@ -13,9 +13,9 @@ import java.util.Random;
 @Table(persistAll = true)
 @AutoValue
 public abstract class SimpleValueWithBuilder implements ImmutableEquals {
-  public static final String TABLE = "simplevaluewithbuilder";
-  public static final String C_ID = "simplevaluewithbuilder.id";
-  public static final String C_STRING_VALUE = "simplevaluewithbuilder.string_value";
+  public static final String TABLE = "simple_value_with_builder";
+  public static final String C_ID = "simple_value_with_builder.id";
+  public static final String C_STRING_VALUE = "simple_value_with_builder.string_value";
 
   @Id
   @Nullable

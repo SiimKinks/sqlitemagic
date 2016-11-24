@@ -36,6 +36,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
+import static com.siimkinks.sqlitemagic.util.StringUtil.replaceCamelCaseWithUnderscore;
+
 @EqualsAndHashCode(of = {"tableName"})
 public class TableElement {
 
@@ -89,10 +91,7 @@ public class TableElement {
     this.tableElement = (TypeElement) tableElement;
     this.tableAnnotation = tableElement.getAnnotation(Table.class);
     this.modelPackage = environment.getPackage(tableElement);
-    this.tableName = tableAnnotation.value();
-    if (Strings.isNullOrEmpty(tableName)) {
-      this.tableName = transformTableName(tableElement);
-    }
+    this.tableName = determineTableName(tableElement.getSimpleName().toString(), tableAnnotation.value());
     tableElementTypeName = Environment.getTypeName(this.tableElement);
     collectImmutableObjectMetadataIfNeeded(environment, this.tableElement);
   }
@@ -128,9 +127,12 @@ public class TableElement {
     addMissingColumnsIfNeeded();
   }
 
-  private String transformTableName(Element tableElement) {
-    String rawName = tableElement.getSimpleName().toString();
-    return rawName.toLowerCase();
+  @NonNull
+  public static String determineTableName(String rawTableElementName, String tableAnnotationValue) {
+    if (Strings.isNullOrEmpty(tableAnnotationValue)) {
+      return replaceCamelCaseWithUnderscore(rawTableElementName).toLowerCase();
+    }
+    return tableAnnotationValue;
   }
 
   public void addColumnElement(ColumnElement columnElement) throws DuplicateException {

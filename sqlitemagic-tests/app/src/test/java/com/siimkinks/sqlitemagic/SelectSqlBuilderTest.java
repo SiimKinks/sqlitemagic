@@ -22,7 +22,6 @@ import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.BookTable.BOOK;
 import static com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.COMPLEX_OBJECT_WITH_SAME_LEAFS;
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
-import static com.siimkinks.sqlitemagic.Select.OrderingTerm.by;
 import static com.siimkinks.sqlitemagic.Select.abs;
 import static com.siimkinks.sqlitemagic.Select.avg;
 import static com.siimkinks.sqlitemagic.Select.avgDistinct;
@@ -147,7 +146,7 @@ public final class SelectSqlBuilderTest {
     expected += "CROSS JOIN author USING (author,id) ";
     assertSql(sqlNode, expected);
 
-    expected = "SELECT * FROM complexobjectwithsameleafs , book , author ";
+    expected = "SELECT * FROM complex_object_with_same_leafs , book , author ";
     sqlNode = Select.from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
         .join(BOOK)
         .join(AUTHOR);
@@ -177,7 +176,7 @@ public final class SelectSqlBuilderTest {
     expected += "CROSS JOIN author AS a USING (author,id) ";
     assertSql(sqlNode, expected);
 
-    expected = "SELECT * FROM complexobjectwithsameleafs AS c , book AS b , author AS a ";
+    expected = "SELECT * FROM complex_object_with_same_leafs AS c , book AS b , author AS a ";
     sqlNode = Select.from(COMPLEX_OBJECT_WITH_SAME_LEAFS.as("c"))
         .join(b)
         .join(author);
@@ -572,14 +571,14 @@ public final class SelectSqlBuilderTest {
   }
 
   private void assertNumericSameTypeExpr(@NonNull String operator, @NonNull Expr expr) {
-    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%ssimpleallvaluesmutable.primitive_int ";
+    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%ssimple_all_values_mutable.primitive_int ";
 
     assertSql(Select.from(BOOK).where(expr),
         String.format(expectedBase, operator));
   }
 
   private void assertNumericEquivalentTypeExpr(@NonNull String operator, @NonNull Expr expr) {
-    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%ssimpleallvaluesmutable.primitive_long ";
+    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%ssimple_all_values_mutable.primitive_long ";
 
     assertSql(Select.from(BOOK).where(expr),
         String.format(expectedBase, operator));
@@ -777,7 +776,7 @@ public final class SelectSqlBuilderTest {
 
     sqlNode = Select.from(AUTHOR)
         .where(AUTHOR.PRIMITIVE_BOOLEAN.between(AUTHOR.BOXED_BOOLEAN).and(SIMPLE_ALL_VALUES_MUTABLE.BOXED_BOOLEAN));
-    expected = expectedBase + "WHERE author.primitive_boolean BETWEEN author.boxed_boolean AND simpleallvaluesmutable.boxed_boolean ";
+    expected = expectedBase + "WHERE author.primitive_boolean BETWEEN author.boxed_boolean AND simple_all_values_mutable.boxed_boolean ";
     assertSql(sqlNode, expected);
   }
 
@@ -803,7 +802,7 @@ public final class SelectSqlBuilderTest {
 
     sqlNode = Select.from(a)
         .where(a.PRIMITIVE_BOOLEAN.between(a.BOXED_BOOLEAN).and(SIMPLE_ALL_VALUES_MUTABLE.BOXED_BOOLEAN));
-    expected = expectedBase + "WHERE a.primitive_boolean BETWEEN a.boxed_boolean AND simpleallvaluesmutable.boxed_boolean ";
+    expected = expectedBase + "WHERE a.primitive_boolean BETWEEN a.boxed_boolean AND simple_all_values_mutable.boxed_boolean ";
     assertSql(sqlNode, expected);
 
     sqlNode = Select.from(a)
@@ -847,12 +846,12 @@ public final class SelectSqlBuilderTest {
   public void joinTransformer() {
     SelectSqlNode sqlNode = Select.from(AUTHOR)
         .join(SIMPLE_ALL_VALUES_MUTABLE.on(AUTHOR.BOXED_BOOLEAN.is(SIMPLE_ALL_VALUES_MUTABLE.BOXED_BOOLEAN)));
-    String expected = "SELECT * FROM author , simpleallvaluesmutable ON author.boxed_boolean=simpleallvaluesmutable.boxed_boolean ";
+    String expected = "SELECT * FROM author , simple_all_values_mutable ON author.boxed_boolean=simple_all_values_mutable.boxed_boolean ";
     assertSql(sqlNode, expected);
 
     sqlNode = Select.from(AUTHOR)
         .join(SIMPLE_ALL_VALUES_MUTABLE.on(AUTHOR.BOXED_BOOLEAN.is(true)));
-    expected = "SELECT * FROM author , simpleallvaluesmutable ON author.boxed_boolean=? ";
+    expected = "SELECT * FROM author , simple_all_values_mutable ON author.boxed_boolean=? ";
     assertSql(sqlNode, expected, BooleanTransformer.objectToDbValue(true).toString());
   }
 
@@ -863,22 +862,22 @@ public final class SelectSqlBuilderTest {
 
     SelectSqlNode sqlNode = Select.from(a)
         .join(SIMPLE_ALL_VALUES_MUTABLE.on(a.BOXED_BOOLEAN.is(SIMPLE_ALL_VALUES_MUTABLE.BOXED_BOOLEAN)));
-    String expected = "SELECT * FROM author AS a , simpleallvaluesmutable ON a.boxed_boolean=simpleallvaluesmutable.boxed_boolean ";
+    String expected = "SELECT * FROM author AS a , simple_all_values_mutable ON a.boxed_boolean=simple_all_values_mutable.boxed_boolean ";
     assertSql(sqlNode, expected);
 
     sqlNode = Select.from(a)
         .join(s.on(a.BOXED_BOOLEAN.is(s.BOXED_BOOLEAN)));
-    expected = "SELECT * FROM author AS a , simpleallvaluesmutable AS s ON a.boxed_boolean=s.boxed_boolean ";
+    expected = "SELECT * FROM author AS a , simple_all_values_mutable AS s ON a.boxed_boolean=s.boxed_boolean ";
     assertSql(sqlNode, expected);
 
     sqlNode = Select.from(a)
         .join(SIMPLE_ALL_VALUES_MUTABLE.on(a.BOXED_BOOLEAN.is(true)));
-    expected = "SELECT * FROM author AS a , simpleallvaluesmutable ON a.boxed_boolean=? ";
+    expected = "SELECT * FROM author AS a , simple_all_values_mutable ON a.boxed_boolean=? ";
     assertSql(sqlNode, expected, BooleanTransformer.objectToDbValue(true).toString());
 
     sqlNode = Select.from(a)
         .join(s.on(a.BOXED_BOOLEAN.is(true)));
-    expected = "SELECT * FROM author AS a , simpleallvaluesmutable AS s ON a.boxed_boolean=? ";
+    expected = "SELECT * FROM author AS a , simple_all_values_mutable AS s ON a.boxed_boolean=? ";
     assertSql(sqlNode, expected, BooleanTransformer.objectToDbValue(true).toString());
   }
 
@@ -908,7 +907,7 @@ public final class SelectSqlBuilderTest {
         .having(BOOK.NR_OF_RELEASES.is(1990));
     assertSql(sqlNode, expected, "1990");
 
-    expected = expectedBase + "LEFT JOIN simpleallvaluesmutable GROUP BY book.title,book.author HAVING book.nr_of_releases=simpleallvaluesmutable.boxed_integer ";
+    expected = expectedBase + "LEFT JOIN simple_all_values_mutable GROUP BY book.title,book.author HAVING book.nr_of_releases=simple_all_values_mutable.boxed_integer ";
     sqlNode = Select.from(BOOK)
         .leftJoin(SIMPLE_ALL_VALUES_MUTABLE)
         .groupBy(BOOK.TITLE, BOOK.AUTHOR)
@@ -959,14 +958,14 @@ public final class SelectSqlBuilderTest {
         .having(b.NR_OF_RELEASES.is(1990));
     assertSql(sqlNode, expected, "1990");
 
-    expected = expectedBase + "LEFT JOIN simpleallvaluesmutable GROUP BY b.title,b.author HAVING b.nr_of_releases=simpleallvaluesmutable.boxed_integer ";
+    expected = expectedBase + "LEFT JOIN simple_all_values_mutable GROUP BY b.title,b.author HAVING b.nr_of_releases=simple_all_values_mutable.boxed_integer ";
     sqlNode = Select.from(b)
         .leftJoin(SIMPLE_ALL_VALUES_MUTABLE)
         .groupBy(b.TITLE, b.AUTHOR)
         .having(b.NR_OF_RELEASES.is(SIMPLE_ALL_VALUES_MUTABLE.BOXED_INTEGER));
     assertSql(sqlNode, expected);
 
-    expected = expectedBase + "LEFT JOIN simpleallvaluesmutable AS s GROUP BY b.title,b.author HAVING b.nr_of_releases=s.boxed_integer ";
+    expected = expectedBase + "LEFT JOIN simple_all_values_mutable AS s GROUP BY b.title,b.author HAVING b.nr_of_releases=s.boxed_integer ";
     sqlNode = Select.from(b)
         .leftJoin(s)
         .groupBy(b.TITLE, b.AUTHOR)
@@ -1006,39 +1005,44 @@ public final class SelectSqlBuilderTest {
   public void orderByTest() {
     final String expectedBase = "SELECT * FROM book ";
 
-    String expected = expectedBase + "ORDER BY book.nr_of_releases ";
+    String expected = expectedBase + "ORDER BY book.nr_of_releases ASC ";
     SelectSqlNode sqlNode = Select.from(BOOK)
-        .order(by(BOOK.NR_OF_RELEASES));
+        .orderBy(BOOK.NR_OF_RELEASES.asc());
     assertSql(sqlNode, expected);
 
-    expected = expectedBase + "ORDER BY book.nr_of_releases,book.title ";
+    expected = expectedBase + "ORDER BY book.nr_of_releases ASC,book.title ASC ";
     sqlNode = Select.from(BOOK)
-        .order(by(BOOK.NR_OF_RELEASES, BOOK.TITLE));
+        .orderBy(BOOK.NR_OF_RELEASES.asc(), BOOK.TITLE.asc());
     assertSql(sqlNode, expected);
 
-    expected = expectedBase + "ORDER BY book.nr_of_releases,book.title,book.author ";
+    expected = expectedBase + "ORDER BY book.nr_of_releases ASC,book.title ASC,book.author ASC ";
     sqlNode = Select.from(BOOK)
-        .order(by(BOOK.NR_OF_RELEASES, BOOK.TITLE, BOOK.AUTHOR));
-    assertSql(sqlNode, expected);
-
-    expected = expectedBase + "ORDER BY book.nr_of_releases ASC ";
-    sqlNode = Select.from(BOOK)
-        .order(by(BOOK.NR_OF_RELEASES).asc());
-    assertSql(sqlNode, expected);
-
-    expected = expectedBase + "ORDER BY book.nr_of_releases,book.title ASC ";
-    sqlNode = Select.from(BOOK)
-        .order(by(BOOK.NR_OF_RELEASES, BOOK.TITLE).asc());
+        .orderBy(BOOK.NR_OF_RELEASES.asc(), BOOK.TITLE.asc(), BOOK.AUTHOR.asc());
     assertSql(sqlNode, expected);
 
     expected = expectedBase + "ORDER BY book.nr_of_releases DESC ";
     sqlNode = Select.from(BOOK)
-        .order(by(BOOK.NR_OF_RELEASES).desc());
+        .orderBy(BOOK.NR_OF_RELEASES.desc());
     assertSql(sqlNode, expected);
 
-    expected = expectedBase + "ORDER BY book.nr_of_releases,book.title DESC ";
+    expected = expectedBase + "ORDER BY book.nr_of_releases DESC,book.title ASC ";
     sqlNode = Select.from(BOOK)
-        .order(by(BOOK.NR_OF_RELEASES, BOOK.TITLE).desc());
+        .orderBy(BOOK.NR_OF_RELEASES.desc(), BOOK.TITLE.asc());
+    assertSql(sqlNode, expected);
+
+    expected = expectedBase + "ORDER BY book.nr_of_releases ASC,book.title DESC ";
+    sqlNode = Select.from(BOOK)
+        .orderBy(BOOK.NR_OF_RELEASES.asc(), BOOK.TITLE.desc());
+    assertSql(sqlNode, expected);
+
+    expected = expectedBase + "ORDER BY trim(book.nr_of_releases) DESC ";
+    sqlNode = Select.from(BOOK)
+        .orderBy(BOOK.NR_OF_RELEASES.trim().desc());
+    assertSql(sqlNode, expected);
+
+    expected = expectedBase + "ORDER BY book.nr_of_releases || ' ' || book.title ASC ";
+    sqlNode = Select.from(BOOK)
+        .orderBy(BOOK.NR_OF_RELEASES.concat(val(" ")).concat(BOOK.TITLE).asc());
     assertSql(sqlNode, expected);
   }
 
@@ -1047,39 +1051,44 @@ public final class SelectSqlBuilderTest {
     final String expectedBase = "SELECT * FROM book AS b ";
     final BookTable b = BOOK.as("b");
 
-    String expected = expectedBase + "ORDER BY b.nr_of_releases ";
+    String expected = expectedBase + "ORDER BY b.nr_of_releases ASC ";
     SelectSqlNode sqlNode = Select.from(b)
-        .order(by(b.NR_OF_RELEASES));
+        .orderBy(b.NR_OF_RELEASES.asc());
     assertSql(sqlNode, expected);
 
-    expected = expectedBase + "ORDER BY b.nr_of_releases,b.title ";
+    expected = expectedBase + "ORDER BY b.nr_of_releases ASC,b.title ASC ";
     sqlNode = Select.from(b)
-        .order(by(b.NR_OF_RELEASES, b.TITLE));
+        .orderBy(b.NR_OF_RELEASES.asc(), b.TITLE.asc());
     assertSql(sqlNode, expected);
 
-    expected = expectedBase + "ORDER BY b.nr_of_releases,b.title,b.author ";
+    expected = expectedBase + "ORDER BY b.nr_of_releases ASC,b.title ASC,b.author ASC ";
     sqlNode = Select.from(b)
-        .order(by(b.NR_OF_RELEASES, b.TITLE, b.AUTHOR));
-    assertSql(sqlNode, expected);
-
-    expected = expectedBase + "ORDER BY b.nr_of_releases ASC ";
-    sqlNode = Select.from(b)
-        .order(by(b.NR_OF_RELEASES).asc());
-    assertSql(sqlNode, expected);
-
-    expected = expectedBase + "ORDER BY b.nr_of_releases,b.title ASC ";
-    sqlNode = Select.from(b)
-        .order(by(b.NR_OF_RELEASES, b.TITLE).asc());
+        .orderBy(b.NR_OF_RELEASES.asc(), b.TITLE.asc(), b.AUTHOR.asc());
     assertSql(sqlNode, expected);
 
     expected = expectedBase + "ORDER BY b.nr_of_releases DESC ";
     sqlNode = Select.from(b)
-        .order(by(b.NR_OF_RELEASES).desc());
+        .orderBy(b.NR_OF_RELEASES.desc());
     assertSql(sqlNode, expected);
 
-    expected = expectedBase + "ORDER BY b.nr_of_releases,b.title DESC ";
+    expected = expectedBase + "ORDER BY b.nr_of_releases DESC,b.title ASC ";
     sqlNode = Select.from(b)
-        .order(by(b.NR_OF_RELEASES, b.TITLE).desc());
+        .orderBy(b.NR_OF_RELEASES.desc(), b.TITLE.asc());
+    assertSql(sqlNode, expected);
+
+    expected = expectedBase + "ORDER BY b.nr_of_releases ASC,b.title DESC ";
+    sqlNode = Select.from(b)
+        .orderBy(b.NR_OF_RELEASES.asc(), b.TITLE.desc());
+    assertSql(sqlNode, expected);
+
+    expected = expectedBase + "ORDER BY trim(b.nr_of_releases) DESC ";
+    sqlNode = Select.from(b)
+        .orderBy(b.NR_OF_RELEASES.trim().desc());
+    assertSql(sqlNode, expected);
+
+    expected = expectedBase + "ORDER BY b.nr_of_releases || ' ' || b.title ASC ";
+    sqlNode = Select.from(b)
+        .orderBy(b.NR_OF_RELEASES.concat(val(" ")).concat(b.TITLE).asc());
     assertSql(sqlNode, expected);
   }
 
@@ -1128,7 +1137,7 @@ public final class SelectSqlBuilderTest {
   }
 
   private void assertSimpleSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<String, Select1>, Expr> callback) {
-    final String expectedBase = "SELECT * FROM author WHERE author.name%s(SELECT simpleallvaluesmutable.string FROM simpleallvaluesmutable ) ";
+    final String expectedBase = "SELECT * FROM author WHERE author.name%s(SELECT simple_all_values_mutable.string FROM simple_all_values_mutable ) ";
     final SelectSqlNode.SelectNode<String, Select1> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.STRING)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
@@ -1215,7 +1224,7 @@ public final class SelectSqlBuilderTest {
   }
 
   private void assertSameTypeNumericSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr> callback) {
-    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%s(SELECT simpleallvaluesmutable.primitive_int FROM simpleallvaluesmutable ) ";
+    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%s(SELECT simple_all_values_mutable.primitive_int FROM simple_all_values_mutable ) ";
     final SelectSqlNode.SelectNode<Integer, Select1> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
@@ -1225,7 +1234,7 @@ public final class SelectSqlBuilderTest {
   }
 
   private void assertEquivalentTypeNumericSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<? extends Number, Select1>, Expr> callback) {
-    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%s(SELECT simpleallvaluesmutable.boxed_double FROM simpleallvaluesmutable ) ";
+    final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%s(SELECT simple_all_values_mutable.boxed_double FROM simple_all_values_mutable ) ";
     final SelectSqlNode.SelectNode<Double, Select1> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.BOXED_DOUBLE)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
@@ -1407,7 +1416,7 @@ public final class SelectSqlBuilderTest {
   }
 
   private void assertEquivalentTypeComplexSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr> callback) {
-    final String expectedBase = "SELECT * FROM book WHERE book.author%s(SELECT simpleallvaluesmutable.primitive_int FROM simpleallvaluesmutable ) ";
+    final String expectedBase = "SELECT * FROM book WHERE book.author%s(SELECT simple_all_values_mutable.primitive_int FROM simple_all_values_mutable ) ";
     final SelectSqlNode.SelectNode<Integer, Select1> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
@@ -1430,7 +1439,7 @@ public final class SelectSqlBuilderTest {
       }
     });
 
-    final String expected = "SELECT simpleallvaluesmutable.id FROM simpleallvaluesmutable WHERE (avg(simpleallvaluesmutable.primitive_int)>? AND avg(simpleallvaluesmutable.primitive_long)<?) ";
+    final String expected = "SELECT simple_all_values_mutable.id FROM simple_all_values_mutable WHERE (avg(simple_all_values_mutable.primitive_int)>? AND avg(simple_all_values_mutable.primitive_long)<?) ";
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.ID)
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(avg(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT).greaterThan(5555.0)
@@ -1696,7 +1705,7 @@ public final class SelectSqlBuilderTest {
             .from(BOOK),
         expected);
 
-    expected = "SELECT simpleallvaluesmutable.id FROM simpleallvaluesmutable WHERE abs(simpleallvaluesmutable.primitive_int)>=? ";
+    expected = "SELECT simple_all_values_mutable.id FROM simple_all_values_mutable WHERE abs(simple_all_values_mutable.primitive_int)>=? ";
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.ID)
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(abs(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT).greaterOrEqual(5)),
@@ -1710,7 +1719,7 @@ public final class SelectSqlBuilderTest {
             .from(BOOK),
         expected);
 
-    expected = "SELECT simpleallvaluesmutable.id FROM simpleallvaluesmutable WHERE length(simpleallvaluesmutable.primitive_int)<? ";
+    expected = "SELECT simple_all_values_mutable.id FROM simple_all_values_mutable WHERE length(simple_all_values_mutable.primitive_int)<? ";
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.ID)
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(length(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT).lessThan(6L)),
@@ -1850,12 +1859,12 @@ public final class SelectSqlBuilderTest {
 
   @Test
   public void numericArithmeticExpressionsChained() {
-    String expected = "SELECT ((((1+2)*(5-3))/2.0)%10.0) FROM simpleallvaluesmutable ";
+    String expected = "SELECT ((((1+2)*(5-3))/2.0)%10.0) FROM simple_all_values_mutable ";
     assertSql(Select.column(val(1).add(2).mul(val(5).sub(3)).div(2.0).mod(10.0))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
 
-    expected = "SELECT ((((simpleallvaluesmutable.primitive_int+2)*(5-3))/2.0)%10.0) FROM simpleallvaluesmutable ";
+    expected = "SELECT ((((simple_all_values_mutable.primitive_int+2)*(5-3))/2.0)%10.0) FROM simple_all_values_mutable ";
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT.add(2).mul(val(5).sub(3)).div(2.0).mod(10.0))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
@@ -1865,17 +1874,17 @@ public final class SelectSqlBuilderTest {
                                           @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable>, NumericColumn> columnCallback,
                                           @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Long, Long, Number, ?>, NumericColumn> columnValueCallback,
                                           @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, Integer, NumericColumn> valueCallback) {
-    String expected = String.format("SELECT (simpleallvaluesmutable.primitive_int%ssimpleallvaluesmutable.primitive_short) FROM simpleallvaluesmutable ", op);
+    String expected = String.format("SELECT (simple_all_values_mutable.primitive_int%ssimple_all_values_mutable.primitive_short) FROM simple_all_values_mutable ", op);
     assertSql(Select.column(columnCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
 
-    expected = String.format("SELECT (simpleallvaluesmutable.primitive_int%s5) FROM simpleallvaluesmutable ", op);
+    expected = String.format("SELECT (simple_all_values_mutable.primitive_int%s5) FROM simple_all_values_mutable ", op);
     assertSql(Select.column(columnValueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, val(5L)))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
 
-    expected = String.format("SELECT (simpleallvaluesmutable.primitive_int%s5) FROM simpleallvaluesmutable ", op);
+    expected = String.format("SELECT (simple_all_values_mutable.primitive_int%s5) FROM simple_all_values_mutable ", op);
     assertSql(Select.column(valueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, 5))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
@@ -1895,13 +1904,13 @@ public final class SelectSqlBuilderTest {
             .from(AUTHOR),
         expected);
 
-    expected = String.format("SELECT simpleallvaluesmutable.id FROM simpleallvaluesmutable WHERE %s(simpleallvaluesmutable.string)=? ", funcName);
+    expected = String.format("SELECT simple_all_values_mutable.id FROM simple_all_values_mutable WHERE %s(simple_all_values_mutable.string)=? ", funcName);
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.ID)
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(func.call(SIMPLE_ALL_VALUES_MUTABLE.STRING).is(888)),
         expected);
 
-    expected = String.format("SELECT simpleallvaluesmutable.id FROM simpleallvaluesmutable WHERE %s(DISTINCT simpleallvaluesmutable.string)!=? ", funcName);
+    expected = String.format("SELECT simple_all_values_mutable.id FROM simple_all_values_mutable WHERE %s(DISTINCT simple_all_values_mutable.string)!=? ", funcName);
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.ID)
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(distinctFunc.call(SIMPLE_ALL_VALUES_MUTABLE.STRING).isNot(888)),
@@ -1922,13 +1931,13 @@ public final class SelectSqlBuilderTest {
             .from(BOOK),
         expected);
 
-    expected = String.format("SELECT simpleallvaluesmutable.id FROM simpleallvaluesmutable WHERE %s(simpleallvaluesmutable.primitive_int)<? ", funcName);
+    expected = String.format("SELECT simple_all_values_mutable.id FROM simple_all_values_mutable WHERE %s(simple_all_values_mutable.primitive_int)<? ", funcName);
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.ID)
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(func.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT).lessThan(888)),
         expected);
 
-    expected = String.format("SELECT simpleallvaluesmutable.id FROM simpleallvaluesmutable WHERE %s(DISTINCT simpleallvaluesmutable.primitive_int)>=? ", funcName);
+    expected = String.format("SELECT simple_all_values_mutable.id FROM simple_all_values_mutable WHERE %s(DISTINCT simple_all_values_mutable.primitive_int)>=? ", funcName);
     assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.ID)
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(distinctFunc.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT).greaterOrEqual(888)),

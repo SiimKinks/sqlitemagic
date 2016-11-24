@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
 public @interface View {
   /**
    * Represents view name.<br>
-   * Defaults to lower case class name.
+   * Defaults to lower case class name where camel case is replaced with "_".
    *
    * @return View name.
    */
