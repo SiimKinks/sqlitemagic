@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.sample.ui;
 import android.support.annotation.NonNull;
 import android.widget.EditText;
 
-import com.jakewharton.rxbinding.widget.RxTextView;
 import com.siimkinks.sqlitemagic.sample.R;
 import com.siimkinks.sqlitemagic.sample.model.ItemList;
 
@@ -16,12 +15,8 @@ public final class NewListFragment extends CreateNewFragment {
   }
 
   @Override
-  void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked) {
-    Observable.combineLatest(
-        createClicked,
-        RxTextView.textChanges(inputView),
-        (__, text) -> text.toString())
-        .observeOn(Schedulers.io())
+  protected void observeValidCreate(@NonNull EditText inputView, @NonNull Observable<String> createStream) {
+    createStream.observeOn(Schedulers.io())
         .flatMap(name -> ItemList.builder()
             .name(name)
             .archived(false)

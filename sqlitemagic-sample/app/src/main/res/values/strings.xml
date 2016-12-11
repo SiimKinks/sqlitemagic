@@ -14,7 +14,8 @@
     <string name="new_item">New item</string>
     <string name="delete_undo">Undo delete</string>
     <string name="edit_action">OK</string>
-    <string name="edit_item">\"Edit item</string>
+    <string name="edit_item">Edit item</string>
     <string name="edit">Edit</string>
     <string name="edit_list_name">Edit list name</string>
+    <string name="error_input_invalid">Please fill this</string>
 </resources>

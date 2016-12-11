@@ -4,7 +4,6 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.widget.EditText;
 
-import com.jakewharton.rxbinding.widget.RxTextView;
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Update;
 import com.siimkinks.sqlitemagic.sample.R;
@@ -26,7 +25,7 @@ public final class EditItemNameFragment extends CreateNewFragment {
   }
 
   @Override
-  void observeCreateAction(@NonNull EditText inputView, @NonNull Observable<String> createClicked) {
+  protected void observeValidCreate(@NonNull EditText inputView, @NonNull Observable<String> createStream) {
     final long itemId = getArguments().getLong(EXTRA_ITEM_ID);
     final String currentItemName = Select
         .column(ITEM.DESCRIPTION)
@@ -36,11 +35,7 @@ public final class EditItemNameFragment extends CreateNewFragment {
         .execute();
     inputView.setText(currentItemName);
     inputView.setSelection(currentItemName.length());
-    Observable.combineLatest(
-        createClicked,
-        RxTextView.textChanges(inputView),
-        (__, text) -> text.toString())
-        .observeOn(Schedulers.io())
+    createStream.observeOn(Schedulers.io())
         .flatMap(name -> Update
             .table(ITEM)
             .set(ITEM.DESCRIPTION, name)

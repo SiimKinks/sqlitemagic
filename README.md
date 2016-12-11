@@ -122,7 +122,7 @@ public abstract class Book {
   </tr>
 </table>
 
-**Database operation builder methods are "automagically" [generated](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations) during compile time on objects with `@Table` annotation using bytecode manipulation and AST transformations. These methods may seem "magic", but actually they are only glue methods that only call corresponding table generated class methods. This way one can still see human readable code during debugging - just press "step into" when magic method is encountered.**
+**Database operation builder methods are "automagically" [generated](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations) during compile time on objects with `@Table` annotation using bytecode manipulation and AST transformations. These methods may seem like "magic", but actually they are only glue methods that call corresponding table generated class methods. This way one can still see human readable code during debugging - just press "step into" when magic method is encountered.**
  
 #### [Do Operations With Objects](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations):
 
