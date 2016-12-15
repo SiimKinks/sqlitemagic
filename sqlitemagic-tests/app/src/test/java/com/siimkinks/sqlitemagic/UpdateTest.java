@@ -3,6 +3,8 @@ package com.siimkinks.sqlitemagic;
 import android.database.sqlite.SQLiteDatabase;
 import android.support.annotation.Nullable;
 
+import com.siimkinks.sqlitemagic.model.Author;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -122,6 +124,28 @@ public final class UpdateTest {
   }
 
   @Test
+  public void updateComplexColumn() {
+    final Author author = Author.newRandom();
+    final Long id = author.id;
+    final String idStr = Long.toString(id);
+    assertSqlBuilder(Update
+            .table(BOOK)
+            .set(BOOK.AUTHOR, author)
+            .set(BOOK.AUTHOR, author),
+        "UPDATE book SET author=?,author=? ",
+        3,
+        idStr, idStr);
+
+    assertSqlBuilder(Update
+            .table(BOOK)
+            .set(BOOK.AUTHOR, id)
+            .set(BOOK.AUTHOR, id),
+        "UPDATE book SET author=?,author=? ",
+        3,
+        idStr, idStr);
+  }
+
+  @Test
   public void updateWithColumn() {
     assertSqlBuilder(Update
             .table(BOOK)
@@ -145,6 +169,12 @@ public final class UpdateTest {
             .table(BOOK)
             .set(BOOK.AUTHOR, BOOK.AUTHOR),
         "UPDATE book SET author=book.author ",
+        3);
+
+    assertSqlBuilder(Update
+            .table(BOOK)
+            .set(BOOK.AUTHOR, BOOK.BASE_ID),
+        "UPDATE book SET author=book.base_id ",
         3);
   }
 

@@ -135,6 +135,23 @@ public final class Update extends UpdateSqlNode {
     }
 
     /**
+     * Update a complex column with new value.
+     *
+     * @param column Column to update. This param must be one of annotation processor
+     *               generated complex column objects that corresponds to a complex column
+     *               in a database table
+     * @param value  A new value to set for updated column
+     * @param <V>    Value type
+     * @param <R>    Column return type
+     * @param <ET>   Column equivalent type
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public <V, R, ET> Set<T> set(@NonNull ComplexColumn<V, R, ET, T> column, long value) {
+      return new Set<>(this, new UpdateColumn<>(column).is(value));
+    }
+
+    /**
      * Update a column with the value of another column.
      *
      * @param column           Column to update. This param must be one of annotation processor
@@ -175,7 +192,7 @@ public final class Update extends UpdateSqlNode {
     }
   }
 
-  private static final class UpdateColumn<T, R, ET, P> extends Column<T, R, ET, P> {
+  private static final class UpdateColumn<T, R, ET, P> extends ComplexColumn<T, R, ET, P> {
     @NonNull
     private final Column<T, R, ET, P> parentColumn;
 
@@ -237,6 +254,26 @@ public final class Update extends UpdateSqlNode {
      */
     @CheckResult
     public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T> column, @NonNull V value) {
+      final Expr expr = new UpdateColumn<>(column).is(value);
+      updates.add(expr);
+      expr.addArgs(updateBuilder.args);
+      return this;
+    }
+
+    /**
+     * Update a complex column with new value.
+     *
+     * @param column Column to update. This param must be one of annotation processor
+     *               generated complex column objects that corresponds to a complex column
+     *               in a database table
+     * @param value  A new value to set for updated column
+     * @param <V>    Value type
+     * @param <R>    Column return type
+     * @param <ET>   Column equivalent type
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public <V, R, ET> Set<T> set(@NonNull ComplexColumn<V, R, ET, T> column, long value) {
       final Expr expr = new UpdateColumn<>(column).is(value);
       updates.add(expr);
       expr.addArgs(updateBuilder.args);

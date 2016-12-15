@@ -33,7 +33,7 @@ buildscript {
   }
   dependencies {
     classpath 'com.android.tools.build:gradle:<latest version>'
-    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.10.0'
+    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.10.1'
   }
 }
 
