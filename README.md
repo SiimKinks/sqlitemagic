@@ -185,7 +185,7 @@ Single&lt;Long&gt; insert = book
     .observe();
 
 // update
-Single&lt;Boolean&gt; update = author
+Completable update = author
     .update()
     .observe();
 
@@ -206,7 +206,7 @@ Single&lt;Integer&gt; delete = author
     .observe();
     
 // Bulk operations are also supported
-Single&lt;Boolean&gt; bulkPersist = Author
+Completable bulkPersist = Author
     .persist(someAuthors)
     .ignoreNullValues()
     .observe();</code></pre>
