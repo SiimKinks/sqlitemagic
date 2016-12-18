@@ -9,7 +9,6 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
@@ -35,20 +34,20 @@ import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
-import static com.siimkinks.sqlitemagic.WriterUtil.addCallableToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleCreateFromCallableParentClass;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleCreateFromParentClass;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleOnSubscribeToType;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxAction0ToType;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterFromParentClass;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterToType;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
 import static com.siimkinks.sqlitemagic.WriterUtil.conflictAlgorithmParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.connectionImplParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbVariablesForOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityParameter;
-import static com.siimkinks.sqlitemagic.WriterUtil.ifSubscriberUnsubscribed;
+import static com.siimkinks.sqlitemagic.WriterUtil.ifSubscriptionUnsubscribed;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationBuilderInnerClassSkeleton;
-import static com.siimkinks.sqlitemagic.WriterUtil.operationRxSingleMethod;
+import static com.siimkinks.sqlitemagic.WriterUtil.operationRxCompletableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.typedIterable;
 import static com.siimkinks.sqlitemagic.WriterUtil.updateStatementVariable;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_UPDATE;
@@ -66,7 +65,8 @@ import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addBindC
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addBindColumnToStatementBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addIdNullCheck;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addImmutableIdsParameterIfNeeded;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxSingleTransactionEndBlock;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxCompletableEmitterTransactionEndBlock;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addSubscriptionForEmitter;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addThrowOperationFailedExceptionWithEntityVariable;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionStartBlock;
@@ -323,19 +323,17 @@ public class UpdateWriter implements OperationWriter {
   }
 
   private MethodSpec updateObserve(TypeSpec.Builder typeBuilder, final MethodSpec updateExecute) {
-    final TypeName entityTypeName = TypeName.BOOLEAN.box();
-    final MethodSpec.Builder builder = operationRxSingleMethod(entityTypeName)
+    final MethodSpec.Builder builder = operationRxCompletableMethod()
         .addAnnotation(Override.class);
-    addCallableToType(typeBuilder, entityTypeName, new Callback<MethodSpec.Builder>() {
+    addRxAction0ToType(typeBuilder, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
         builder.beginControlFlow("if (!$N())", updateExecute)
             .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, FAILED_TO_UPDATE_ERR_MSG)
-            .endControlFlow()
-            .addStatement("return $T.TRUE", TypeName.BOOLEAN.box());
+            .endControlFlow();
       }
     });
-    addRxSingleCreateFromCallableParentClass(builder);
+    addRxCompletableFromParentClass(builder);
     return builder.build();
   }
 
@@ -470,32 +468,32 @@ public class UpdateWriter implements OperationWriter {
   }
 
   private TypeSpec bulkUpdate() {
-    final TypeName observeType = TypeName.BOOLEAN.box();
-    final ParameterizedTypeName interfaceType = ParameterizedTypeName.get(ENTITY_BULK_UPDATE_BUILDER, observeType);
+    final TypeName interfaceType = ENTITY_BULK_UPDATE_BUILDER;
     final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_BULK_UPDATE, interfaceType, iterable, OBJECTS_VARIABLE);
     return builder
         .addSuperinterface(interfaceType)
         .addMethod(bulkUpdateExecute())
-        .addMethod(bulkUpdateObserve(builder, observeType))
+        .addMethod(bulkUpdateObserve(builder))
         .build();
   }
 
-  private MethodSpec bulkUpdateObserve(TypeSpec.Builder typeBuilder, TypeName observeType) {
-    final MethodSpec.Builder builder = operationRxSingleMethod(observeType)
+  private MethodSpec bulkUpdateObserve(TypeSpec.Builder typeBuilder) {
+    final MethodSpec.Builder builder = operationRxCompletableMethod()
         .addAnnotation(Override.class);
-    addRxSingleCreateFromParentClass(builder);
-    addRxSingleOnSubscribeToType(typeBuilder, observeType, new Callback<MethodSpec.Builder>() {
+    addRxCompletableFromEmitterFromParentClass(builder);
+    addRxCompletableFromEmitterToType(typeBuilder, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
         builder.addCode(entityDbVariablesForOperationBuilder(tableElement));
+        addSubscriptionForEmitter(builder);
         addTransactionStartBlock(builder);
         addBulkUpdateTopBlock(builder);
-        builder.nextControlFlow("else $L", ifSubscriberUnsubscribed())
+        builder.nextControlFlow("else $L", ifSubscriptionUnsubscribed())
             .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, ERROR_UNSUBSCRIBED_UNEXPECTEDLY)
             .endControlFlow()
             .endControlFlow()
             .endControlFlow();
-        addRxSingleTransactionEndBlock(builder, allTableTriggers, "Boolean.TRUE");
+        addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers);
       }
     });
     return builder.build();

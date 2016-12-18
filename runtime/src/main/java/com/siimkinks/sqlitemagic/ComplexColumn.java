@@ -11,12 +11,15 @@ import com.siimkinks.sqlitemagic.Utils.ValueParser;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-class ComplexColumn<
-    T, // exact type
-    R, // return type (when this column is queried)
-    ET, // equivalent type,
-    P> // parent table type
-    extends NumericColumn<T, R, ET, P> {
+/**
+ * A column used in queries and conditions.
+ *
+ * @param <T>  Exact type
+ * @param <R>  Return type (when this column is queried)
+ * @param <ET> Equivalent type
+ * @param <P>  Parent table type
+ */
+class ComplexColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
   ComplexColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
                 @NonNull ValueParser<?> valueParser, boolean nullable, @Nullable String alias) {
     super(table, name, allFromTable, valueParser, nullable, alias);

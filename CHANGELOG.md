@@ -1,10 +1,16 @@
 Change Log
 ========
 
-Version 0.10.1 _(TODO)_
+Version 0.11.0 _(2016-12-18)_
 ---------------------------------
 
-* Added option to update complex column by its ID in `UPDATE` statement builder
+* Option to create expression from raw string via `Expr.raw()`.
+* Option to update complex column by its ID in `UPDATE` statement builder.
+* Inner selection and function columns now append less SQL when possible.
+
+#### Breaking changes:
+
+* Return `Completable` instead of `Single<Boolean>` in entity bulk operations and `entity.update().observe()`
 
 Version 0.10.0 _(2016-11-24)_
 ---------------------------------

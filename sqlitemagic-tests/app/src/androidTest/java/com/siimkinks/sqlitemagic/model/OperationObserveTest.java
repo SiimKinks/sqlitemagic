@@ -90,13 +90,12 @@ public final class OperationObserveTest {
     author.insert().execute();
     author.name = Utils.randomTableName();
 
-    final Boolean success = author.update()
+    final Throwable e = author.update()
         .observe()
-        .toBlocking()
-        .value();
+        .get();
 
     assertThat(countAuthors.execute()).isEqualTo(1L);
-    assertThat(success).isTrue();
+    assertThat(e).isNull();
     assertThat(author).isEqualTo(selectFirstAuthor.execute());
   }
 
@@ -107,13 +106,12 @@ public final class OperationObserveTest {
     final Random r = new Random();
     final SimpleValueWithBuilder updatedVal = insertedVal.copy().id(id).integer(r.nextInt()).build();
 
-    final Boolean success = updatedVal.update()
+    final Throwable e = updatedVal.update()
         .observe()
-        .toBlocking()
-        .value();
+        .get();
 
     assertThat(countVals.execute()).isEqualTo(1L);
-    assertThat(success).isTrue();
+    assertThat(e).isNull();
     assertThat(updatedVal).isEqualTo(selectFirstVal.execute());
   }
 
@@ -232,9 +230,8 @@ public final class OperationObserveTest {
     }
     assertThat(Author.insert(list)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
     assertThat(list).containsExactlyElementsIn(expected);
@@ -250,9 +247,8 @@ public final class OperationObserveTest {
     assertThat(SimpleValueWithBuilder
         .insert(list)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<SimpleValueWithBuilder> expectedList = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
     for (int i = 0, listSize = list.size(); i < listSize; i++) {
@@ -292,9 +288,8 @@ public final class OperationObserveTest {
 
     assertThat(Author.update(authors)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
     assertThat(authors).containsExactlyElementsIn(expected);
@@ -315,9 +310,8 @@ public final class OperationObserveTest {
 
     assertThat(SimpleValueWithBuilder.update(updatedValues)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<SimpleValueWithBuilder> expected = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
     assertThat(updatedValues).containsExactlyElementsIn(expected);
@@ -352,9 +346,8 @@ public final class OperationObserveTest {
 
     assertThat(Author.persist(list)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
     assertThat(list).containsExactlyElementsIn(expected);
@@ -371,9 +364,8 @@ public final class OperationObserveTest {
     assertThat(SimpleValueWithBuilder
         .persist(list)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<SimpleValueWithBuilder> expectedList = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
     for (int i = 0, listSize = list.size(); i < listSize; i++) {
@@ -414,9 +406,8 @@ public final class OperationObserveTest {
     assertThat(Author
         .persist(authors)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
     assertThat(authors).containsExactlyElementsIn(expected);
@@ -438,9 +429,8 @@ public final class OperationObserveTest {
     assertThat(SimpleValueWithBuilder
         .persist(updatedValues)
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<SimpleValueWithBuilder> expected = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
     assertThat(updatedValues).containsExactlyElementsIn(expected);
@@ -483,9 +473,8 @@ public final class OperationObserveTest {
     assertThat(Author.persist(updatedAuthors)
         .ignoreNullValues()
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
     assertThat(authors).containsExactlyElementsIn(expected);
@@ -509,9 +498,8 @@ public final class OperationObserveTest {
         .persist(updatedValues)
         .ignoreNullValues()
         .observe()
-        .toBlocking()
-        .value())
-        .isTrue();
+        .get())
+        .isNull();
 
     final List<SimpleValueWithBuilderAndNullableFields> expected = Select.from(SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS).execute();
     assertThat(values).containsExactlyElementsIn(expected);
@@ -664,12 +652,14 @@ public final class OperationObserveTest {
     final TestSubscriber<Boolean> ts = new TestSubscriber<>();
     Author.insert(vals1)
         .observe()
+        .toSingleDefault(Boolean.TRUE)
         .flatMap(new Func1<Boolean, Single<Boolean>>() {
           @Override
           public Single<Boolean> call(Boolean aBoolean) {
             return SimpleMutable
                 .insert(vals2)
-                .observe();
+                .observe()
+                .toSingleDefault(Boolean.TRUE);
           }
         })
         .subscribeOn(Schedulers.io())
@@ -704,12 +694,14 @@ public final class OperationObserveTest {
     final TestSubscriber<Boolean> ts = new TestSubscriber<>();
     Author.update(vals1)
         .observe()
+        .toSingleDefault(Boolean.TRUE)
         .flatMap(new Func1<Boolean, Single<Boolean>>() {
           @Override
           public Single<Boolean> call(Boolean aBoolean) {
             return SimpleMutable
                 .update(vals2)
-                .observe();
+                .observe()
+                .toSingleDefault(Boolean.TRUE);
           }
         })
         .subscribeOn(Schedulers.io())
@@ -736,12 +728,14 @@ public final class OperationObserveTest {
     final TestSubscriber<Boolean> ts = new TestSubscriber<>();
     Author.persist(vals1)
         .observe()
+        .toSingleDefault(Boolean.TRUE)
         .flatMap(new Func1<Boolean, Single<Boolean>>() {
           @Override
           public Single<Boolean> call(Boolean aBoolean) {
             return SimpleMutable
                 .persist(vals2)
-                .observe();
+                .observe()
+                .toSingleDefault(Boolean.TRUE);
           }
         })
         .subscribeOn(Schedulers.io())

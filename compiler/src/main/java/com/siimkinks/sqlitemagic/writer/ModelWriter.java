@@ -23,6 +23,8 @@ public class ModelWriter {
   public static final String DB_CONNECTION_VARIABLE = "dbConnection";
   public static final String MANAGER_VARIABLE = "manager";
   public static final String TRANSACTION_VARIABLE = "transaction";
+  public static final String EMITTER_VARIABLE = "emitter";
+  public static final String SUBSCRIPTION_VARIABLE = "subscription";
   public static final String OBJECTS_VARIABLE = "objects";
   public static final String CONFLICT_ALGORITHM_VARIABLE = "conflictAlgorithm";
   public static final String STATEMENT_VARIABLE = "stm";

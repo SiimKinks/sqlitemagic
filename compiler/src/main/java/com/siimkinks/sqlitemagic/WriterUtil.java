@@ -14,11 +14,11 @@ import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder;
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder;
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder;
 import com.siimkinks.sqlitemagic.exception.OperationFailedException;
+import com.siimkinks.sqlitemagic.internal.MutableInt;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 import com.siimkinks.sqlitemagic.util.Callback;
 import com.siimkinks.sqlitemagic.util.FormatData;
-import com.siimkinks.sqlitemagic.internal.MutableInt;
 import com.siimkinks.sqlitemagic.util.StringUtil;
 import com.siimkinks.sqlitemagic.writer.EntityEnvironment;
 import com.squareup.javapoet.ClassName;
@@ -68,9 +68,11 @@ import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxObs
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionStartBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.CONFLICT_ALGORITHM_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.STATEMENT_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.SUBSCRIPTION_VARIABLE;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -139,7 +141,13 @@ public class WriterUtil {
   public static final ClassName SINGLE = ClassName.get("rx", "Single");
   public static final ClassName SINGLE_ON_SUBSCRIBE = ClassName.get("rx", "Single", "OnSubscribe");
   public static final ClassName SINGLE_SUBSCRIBER = ClassName.get("rx", "SingleSubscriber");
+  public static final ClassName COMPLETABLE = ClassName.get("rx", "Completable");
+  public static final ClassName COMPLETABLE_EMITTER = ClassName.get("rx", "CompletableEmitter");
   public static final ClassName SCHEDULERS = ClassName.get("rx.schedulers", "Schedulers");
+  public static final ClassName ACTION_0 = ClassName.get("rx.functions", "Action0");
+  public static final ClassName ACTION_1 = ClassName.get("rx.functions", "Action1");
+  public static final ClassName SUBSCRIPTION = ClassName.get("rx", "Subscription");
+  public static final ClassName SUBSCRIPTIONS = ClassName.get("rx.subscriptions", "Subscriptions");
 
   public static final String IF_LOGGING_ENABLED = "if (SqliteMagic.LOGGING_ENABLED)";
 
@@ -328,6 +336,18 @@ public class WriterUtil {
         .returns(ParameterizedTypeName.get(SINGLE, entityTypeName));
   }
 
+  public static MethodSpec.Builder operationRxCompletableMethod() {
+    return operationRxCompletableMethod(METHOD_OBSERVE);
+  }
+
+  public static MethodSpec.Builder operationRxCompletableMethod(String methodName) {
+    return MethodSpec.methodBuilder(methodName)
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(NON_NULL)
+        .addAnnotation(CHECK_RESULT)
+        .returns(COMPLETABLE);
+  }
+
   public static CodeBlock.Builder wrapIntoRxSingleCreate(TypeName observedType, Callback<MethodSpec.Builder> methodBuildCallback) {
     final MethodSpec.Builder callbackMethodBuilder = MethodSpec.methodBuilder("call")
         .addAnnotation(Override.class)
@@ -355,13 +375,13 @@ public class WriterUtil {
         .addCode(chainedScheduler());
   }
 
-  public static void addRxSingleCreateFromParentClass(MethodSpec.Builder builder) {
-    builder.addCode("return $T.create(this)", SINGLE)
+  public static void addRxCompletableFromParentClass(MethodSpec.Builder builder) {
+    builder.addCode("return $T.fromAction(this)", COMPLETABLE)
         .addCode(chainedScheduler());
   }
 
-  public static void addRxObservableCreateFromParentClass(MethodSpec.Builder builder) {
-    builder.addCode("return $T.create(this)", OBSERVABLE)
+  public static void addRxCompletableFromEmitterFromParentClass(MethodSpec.Builder builder) {
+    builder.addCode("return $T.fromEmitter(this)", COMPLETABLE)
         .addCode(chainedScheduler());
   }
 
@@ -373,6 +393,10 @@ public class WriterUtil {
 
   public static String ifSubscriberUnsubscribed() {
     return "if (subscriber.isUnsubscribed())";
+  }
+
+  public static String ifSubscriptionUnsubscribed() {
+    return "if (" + SUBSCRIPTION_VARIABLE + ".isUnsubscribed())";
   }
 
   public static String ifNotSubscriberUnsubscribed() {
@@ -387,12 +411,20 @@ public class WriterUtil {
     return String.format("subscriber.onSuccess(%s)", variableName);
   }
 
+  public static String emitterOnCompleted() {
+    return String.format(EMITTER_VARIABLE + ".onCompleted()");
+  }
+
   public static String subscriberOnCompleted() {
     return "subscriber.onCompleted()";
   }
 
   public static String subscriberOnError() {
     return "subscriber.onError(e)";
+  }
+
+  public static String emitterOnError() {
+    return EMITTER_VARIABLE + ".onError(e)";
   }
 
   public static TypeSpec.Builder addRxObservableOnSubscribeToType(@NonNull TypeSpec.Builder typeBuilder,
@@ -408,6 +440,13 @@ public class WriterUtil {
                                                               @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
     return addRxOnSubscribeToType(typeBuilder, observedType,
         SINGLE_SUBSCRIBER, SINGLE_ON_SUBSCRIBE,
+        methodBodyBuildCallback);
+  }
+
+  public static TypeSpec.Builder addRxCompletableFromEmitterToType(@NonNull TypeSpec.Builder typeBuilder,
+                                                                   @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
+    return addRxFromEmitterToType(typeBuilder,
+        COMPLETABLE_EMITTER,
         methodBodyBuildCallback);
   }
 
@@ -438,6 +477,32 @@ public class WriterUtil {
     methodBodyBuildCallback.call(callBuilder);
 
     typeBuilder.addSuperinterface(ParameterizedTypeName.get(CALLABLE, returnType))
+        .addMethod(callBuilder.build());
+    return typeBuilder;
+  }
+
+  private static TypeSpec.Builder addRxFromEmitterToType(@NonNull TypeSpec.Builder typeBuilder,
+                                                         @NonNull TypeName emitterType,
+                                                         @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
+    final MethodSpec.Builder callBuilder = MethodSpec.methodBuilder("call")
+        .addAnnotation(Override.class)
+        .addModifiers(Modifier.PUBLIC)
+        .addParameter(emitterType, EMITTER_VARIABLE);
+    methodBodyBuildCallback.call(callBuilder);
+
+    typeBuilder.addSuperinterface(ParameterizedTypeName.get(ACTION_1, emitterType))
+        .addMethod(callBuilder.build());
+    return typeBuilder;
+  }
+
+  public static TypeSpec.Builder addRxAction0ToType(@NonNull TypeSpec.Builder typeBuilder,
+                                                    @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
+    final MethodSpec.Builder callBuilder = MethodSpec.methodBuilder("call")
+        .addAnnotation(Override.class)
+        .addModifiers(Modifier.PUBLIC);
+    methodBodyBuildCallback.call(callBuilder);
+
+    typeBuilder.addSuperinterface(ACTION_0)
         .addMethod(callBuilder.build());
     return typeBuilder;
   }
@@ -645,7 +710,6 @@ public class WriterUtil {
   public static void writeSource(Filer filer, TypeSpec classTypeSpec, String packageName) throws IOException {
     JavaFile javaFile = JavaFile.builder(packageName, classTypeSpec)
         .addFileComment(Const.GENERATION_COMMENT)
-        .indent("\t")
         .build();
     javaFile.writeTo(filer);
   }

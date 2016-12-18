@@ -27,7 +27,7 @@ ext {
   lombokVersion = '1.14.8' // do not increment!
   mockitoVersion = '1.10.19'
   rxJavaMathVersion = '1.0.0'
-  rxJavaVersion = '1.2.0'
+  rxJavaVersion = '1.2.4'
   supportTestRunnerVersion = '0.5'
   truthVersion = '0.30'
   ztZipVersion = '1.9'

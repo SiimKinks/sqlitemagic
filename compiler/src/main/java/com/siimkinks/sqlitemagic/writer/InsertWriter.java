@@ -35,17 +35,18 @@ import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.addCallableToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterFromParentClass;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleCreateFromCallableParentClass;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleCreateFromParentClass;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleOnSubscribeToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.conflictAlgorithmParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.connectionImplParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbVariablesForOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityParameter;
-import static com.siimkinks.sqlitemagic.WriterUtil.ifSubscriberUnsubscribed;
+import static com.siimkinks.sqlitemagic.WriterUtil.ifSubscriptionUnsubscribed;
 import static com.siimkinks.sqlitemagic.WriterUtil.insertStatementVariable;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationBuilderInnerClassSkeleton;
+import static com.siimkinks.sqlitemagic.WriterUtil.operationRxCompletableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationRxSingleMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.typedIterable;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_INSERT;
@@ -67,8 +68,9 @@ import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addCheck
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addImmutableIdsParameterIfNeeded;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addInlineExecuteInsertWithCheckIdValidity;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addMethodInternalCallOnComplexColumnsIfNeeded;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxSingleTransactionEndBlock;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxCompletableEmitterTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addSetIdStatementIfNeeded;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addSubscriptionForEmitter;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTopMethodEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTopMethodStartBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionEndBlock;
@@ -316,14 +318,14 @@ public class InsertWriter implements OperationWriter {
   }
 
   private MethodSpec bulkInsertObserve(TypeSpec.Builder typeBuilder) {
-    final TypeName entityTypeName = TypeName.BOOLEAN.box();
-    final MethodSpec.Builder builder = operationRxSingleMethod(entityTypeName)
+    final MethodSpec.Builder builder = operationRxCompletableMethod()
         .addAnnotation(Override.class);
-    addRxSingleCreateFromParentClass(builder);
-    addRxSingleOnSubscribeToType(typeBuilder, entityTypeName, new Callback<MethodSpec.Builder>() {
+    addRxCompletableFromEmitterFromParentClass(builder);
+    addRxCompletableFromEmitterToType(typeBuilder, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
         builder.addCode(entityDbVariablesForOperationBuilder(tableElement));
+        addSubscriptionForEmitter(builder);
         addTransactionStartBlock(builder);
         builder.addCode(insertStatementVariable())
             .beginControlFlow("synchronized (stm)")
@@ -335,12 +337,12 @@ public class InsertWriter implements OperationWriter {
         addAfterInsertLoggingStatement(builder);
         addCheckIdValidity(builder, FAILED_TO_INSERT_ERR_MSG);
         addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
-        builder.beginControlFlow(ifSubscriberUnsubscribed())
+        builder.beginControlFlow(ifSubscriptionUnsubscribed())
             .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, ERROR_UNSUBSCRIBED_UNEXPECTEDLY)
             .endControlFlow()
             .endControlFlow()
             .endControlFlow();
-        addRxSingleTransactionEndBlock(builder, allTableTriggers, "Boolean.TRUE");
+        addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers);
       }
     });
     return builder.build();

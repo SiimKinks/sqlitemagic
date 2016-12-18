@@ -1410,6 +1410,42 @@ public final class SelectSqlCompilerTest {
   }
 
   @Test
+  public void selectionAsColumnUsedMultipleTimes() {
+    final NumericColumn<Long, Long, Long, ?> same_authors = Select
+        .column(count())
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
+        .asColumn("same_authors");
+
+    final CompiledSelect<Book, SelectN> compiledSelect = Select
+        .columns(BOOK.TITLE, BOOK.AUTHOR, same_authors)
+        .from(BOOK)
+        .where(same_authors.greaterThan(5L))
+        .orderBy(same_authors.asc())
+        .compile();
+
+
+    final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
+    columns.put("book.title", 0);
+    columns.put("book.author", 1);
+    columns.put("same_authors", 2);
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT book.title," +
+            "book.author," +
+            "(SELECT count(*) FROM magazine WHERE magazine.author=book.author ) AS 'same_authors' " +
+            "FROM book " +
+            "WHERE same_authors>? " +
+            "ORDER BY same_authors ASC ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE)
+        .tableGraphNodeNames(new SimpleArrayMap<String, String>())
+        .columns(columns)
+        .args("5")
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
   public void selectionAsColumnWrappedInFunctionColumn() {
     final CompiledSelect<Book, SelectN> compiledSelect = Select
         .columns(BOOK.TITLE,
@@ -1440,6 +1476,41 @@ public final class SelectSqlCompilerTest {
   }
 
   @Test
+  public void selectionAsColumnWrappedInFunctionColumnUsedMultipleTimes() {
+    final Column<String, String, CharSequence, ?> mag_name = lower(Select
+        .column(MAGAZINE.NAME)
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
+        .asColumn("mag_name"));
+
+    final CompiledSelect<Book, SelectN> compiledSelect = Select
+        .columns(BOOK.TITLE, BOOK.AUTHOR, mag_name)
+        .from(BOOK)
+        .where(mag_name.isNot("foo"))
+        .orderBy(mag_name.asc())
+        .compile();
+
+    final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
+    columns.put("book.title", 0);
+    columns.put("book.author", 1);
+    columns.put("mag_name", 2);
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT book.title," +
+            "book.author," +
+            "lower((SELECT magazine.name FROM magazine WHERE magazine.author=book.author )) AS 'mag_name' " +
+            "FROM book " +
+            "WHERE mag_name!=? " +
+            "ORDER BY mag_name ASC ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE)
+        .tableGraphNodeNames(new SimpleArrayMap<String, String>())
+        .columns(columns)
+        .args("foo")
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
   public void selectionAsColumnWrappedInFunctionCopyColumn() {
     final CompiledSelect<Book, SelectN> compiledSelect = Select
         .columns(BOOK.TITLE,
@@ -1451,7 +1522,6 @@ public final class SelectSqlCompilerTest {
         .from(BOOK)
         .compile();
 
-
     final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
     columns.put("book.title", 0);
     columns.put("book.author", 1);
@@ -1462,6 +1532,75 @@ public final class SelectSqlCompilerTest {
             "book.author," +
             "abs((SELECT count(*) FROM magazine WHERE magazine.author=book.author )) AS 'same_authors' " +
             "FROM book ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE)
+        .tableGraphNodeNames(new SimpleArrayMap<String, String>())
+        .columns(columns)
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void selectionAsColumnWrappedInFunctionCopyColumnUsedMultipleTimes() {
+    final NumericColumn<Long, Long, Long, ?> same_authors = abs(Select
+        .column(count())
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
+        .asColumn("same_authors"));
+
+    final CompiledSelect<Book, SelectN> compiledSelect = Select
+        .columns(BOOK.TITLE, BOOK.AUTHOR, same_authors)
+        .from(BOOK)
+        .where(same_authors.greaterThan(5L))
+        .orderBy(same_authors.desc())
+        .compile();
+
+    final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
+    columns.put("book.title", 0);
+    columns.put("book.author", 1);
+    columns.put("same_authors", 2);
+    columns.put("abs(same_authors)", 2);
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT book.title," +
+            "book.author," +
+            "abs((SELECT count(*) FROM magazine WHERE magazine.author=book.author )) AS 'same_authors' " +
+            "FROM book " +
+            "WHERE same_authors>? " +
+            "ORDER BY same_authors DESC ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE)
+        .tableGraphNodeNames(new SimpleArrayMap<String, String>())
+        .columns(columns)
+        .args("5")
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void selectionAsColumnUsedInExpression() {
+    final NumericColumn<Long, Long, Long, ?> same_authors = Select
+        .column(count())
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
+        .asColumn("same_authors");
+
+    final CompiledSelect<Book, SelectN> compiledSelect = Select
+        .columns(BOOK.TITLE, BOOK.AUTHOR, same_authors)
+        .from(BOOK)
+        .where(BOOK.NR_OF_RELEASES.greaterThan(same_authors))
+        .compile();
+
+    final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
+    columns.put("book.title", 0);
+    columns.put("book.author", 1);
+    columns.put("same_authors", 2);
+    columns.put("same_authors", 2);
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT book.title," +
+            "book.author," +
+            "(SELECT count(*) FROM magazine WHERE magazine.author=book.author ) AS 'same_authors' " +
+            "FROM book " +
+            "WHERE book.nr_of_releases>same_authors ")
         .tableName(Book.TABLE)
         .observedTables(Book.TABLE, Magazine.TABLE)
         .tableGraphNodeNames(new SimpleArrayMap<String, String>())

@@ -47,6 +47,19 @@ public class Expr {
   }
 
   /**
+   * Create SQLite expression from raw SQL string.
+   *
+   * @param rawExpr Raw expression
+   * @param args Expression arguments
+   * @return Raw SQL expression.
+   */
+  @NonNull
+  @CheckResult
+  public static Expr raw(@NonNull String rawExpr, @NonNull String... args) {
+    return new ExprR(rawExpr, args);
+  }
+
+  /**
    * Create ORDER BY ordering term.
    * <p>
    * Orders rows in ascending order.
@@ -55,7 +68,7 @@ public class Expr {
    */
   @NonNull
   @CheckResult
-  public OrderingTerm asc() {
+  public final OrderingTerm asc() {
     return new OrderingTerm(null, this, ASC);
   }
 
@@ -68,7 +81,7 @@ public class Expr {
    */
   @NonNull
   @CheckResult
-  public OrderingTerm desc() {
+  public final OrderingTerm desc() {
     return new OrderingTerm(null, this, DESC);
   }
 

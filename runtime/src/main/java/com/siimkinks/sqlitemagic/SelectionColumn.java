@@ -11,17 +11,20 @@ import com.siimkinks.sqlitemagic.internal.StringArraySet;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-final class SelectionColumn<
-    T, // exact type
-    R, // return type (when this column is queried)
-    ET, // equivalent type
-    P>  // parent table type
-    extends NumericColumn<T, R, ET, P> {
-
+/**
+ * A column used in queries and conditions.
+ *
+ * @param <T>  Exact type
+ * @param <R>  Return type (when this column is queried)
+ * @param <ET> Equivalent type
+ * @param <P>  Parent table type
+ */
+final class SelectionColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
   @NonNull
   private final SelectBuilder<?> selectBuilder;
   @Nullable
   private ArrayList<String> parentObservedTables;
+  private boolean compiledToSelection = false;
 
   private SelectionColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
                           @NonNull ValueParser<?> valueParser, boolean nullable,
@@ -46,6 +49,10 @@ final class SelectionColumn<
 
   @Override
   void appendSql(@NonNull StringBuilder sb) {
+    if (compiledToSelection) {
+      sb.append(getAppendableAlias());
+      return;
+    }
     sb.append('(');
     selectBuilder.appendCompiledQuery(sb, parentObservedTables);
     sb.append(')');
@@ -53,6 +60,10 @@ final class SelectionColumn<
 
   @Override
   void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
+    if (compiledToSelection) {
+      sb.append(getAppendableAlias());
+      return;
+    }
     sb.append('(');
     selectBuilder.appendCompiledQuery(sb, parentObservedTables);
     sb.append(')');
@@ -83,6 +94,7 @@ final class SelectionColumn<
     appendSql(compiledCols);
     appendAliasDeclarationIfNeeded(compiledCols);
     putColumnPosition(columnPositions, name, columnOffset, this);
+    compiledToSelection = true;
     return columnOffset + 1;
   }
 
@@ -94,6 +106,7 @@ final class SelectionColumn<
     appendSql(compiledCols, systemRenamedTables);
     appendAliasDeclarationIfNeeded(compiledCols);
     putColumnPosition(columnPositions, name, columnOffset, this);
+    compiledToSelection = true;
     return columnOffset + 1;
   }
 

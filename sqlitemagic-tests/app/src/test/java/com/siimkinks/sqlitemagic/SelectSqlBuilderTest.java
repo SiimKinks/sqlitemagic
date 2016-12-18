@@ -505,6 +505,50 @@ public final class SelectSqlBuilderTest {
   }
 
   @Test
+  public void rawExpr() {
+    String sql = "author.name IS NOT NULL";
+    Expr expr = Expr.raw(sql);
+    assertRawExpr(sql, expr);
+
+    sql = "author.name = ?";
+    expr = Expr.raw(sql, "asd");
+    assertRawExpr(sql, expr, "asd");
+
+    sql = "author.name = ? AND author.name != ?";
+    expr = Expr.raw(sql, "asd", "dsa");
+    assertRawExpr(sql, expr, "asd", "dsa");
+  }
+
+  @Test
+  public void rawExprWithNonRawExpr() {
+    String sql = "author.name = ?";
+    Expr expr = AUTHOR.NAME.isNot("dsa").and(Expr.raw(sql, "asd"));
+    assertRawExpr("(author.name!=? AND " + sql + ")", expr, "dsa", "asd");
+
+    sql = "author.name = ?";
+    expr = Expr.raw(sql, "asd").and(AUTHOR.NAME.isNot("dsa"));
+    assertRawExpr("(" + sql + " AND author.name!=?)", expr, "asd", "dsa");
+
+    sql = "author.name IS NOT NULL";
+    expr = AUTHOR.NAME.isNot("asd").and(Expr.raw(sql));
+    assertRawExpr("(author.name!=? AND " + sql + ")", expr, "asd");
+
+    sql = "author.name IS NOT NULL";
+    expr = Expr.raw(sql).and(AUTHOR.NAME.isNot("asd"));
+    assertRawExpr("(" + sql + " AND author.name!=?)", expr, "asd");
+  }
+
+  private void assertRawExpr(@NonNull String expectedExpr,
+                             @NonNull Expr expr,
+                             @NonNull String... args) {
+    final String expected = "SELECT * FROM author WHERE " + expectedExpr + " ";
+
+    assertSql(Select.from(AUTHOR).where(expr),
+        expected,
+        args);
+  }
+
+  @Test
   public void exprSimple() {
     assertSimpleExpr("=?", AUTHOR.NAME.is("asd"));
     assertSimpleExpr("!=?", AUTHOR.NAME.isNot("asd"));

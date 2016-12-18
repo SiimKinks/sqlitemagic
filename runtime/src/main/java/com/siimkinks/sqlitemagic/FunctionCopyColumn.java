@@ -11,18 +11,21 @@ import com.siimkinks.sqlitemagic.internal.StringArraySet;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-final class FunctionCopyColumn<
-    T, // exact type
-    R, // return type (when this column is queried)
-    ET, // equivalent type
-    P>  // parent table type
-    extends NumericColumn<T, R, ET, P> {
-
+/**
+ * A column used in queries and conditions.
+ *
+ * @param <T>  Exact type
+ * @param <R>  Return type (when this column is queried)
+ * @param <ET> Equivalent type
+ * @param <P>  Parent table type
+ */
+final class FunctionCopyColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
   @NonNull
   private final Column<T, R, ET, P> wrappedColumn;
   @NonNull
   private final String prefix;
   private final char suffix;
+  private boolean compiledToSelection = false;
 
   FunctionCopyColumn(@NonNull Table<P> table,
                      @NonNull Column<T, R, ET, P> wrappedColumn,
@@ -57,6 +60,10 @@ final class FunctionCopyColumn<
 
   @Override
   void appendSql(@NonNull StringBuilder sb) {
+    if (compiledToSelection && hasAlias()) {
+      sb.append(getAppendableAlias());
+      return;
+    }
     sb.append(prefix);
     wrappedColumn.appendSql(sb);
     sb.append(suffix);
@@ -64,6 +71,10 @@ final class FunctionCopyColumn<
 
   @Override
   void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
+    if (compiledToSelection && hasAlias()) {
+      sb.append(getAppendableAlias());
+      return;
+    }
     sb.append(prefix);
     wrappedColumn.appendSql(sb, systemRenamedTables);
     sb.append(suffix);
@@ -91,6 +102,7 @@ final class FunctionCopyColumn<
     appendSql(compiledCols);
     appendAliasDeclarationIfNeeded(compiledCols);
     putColumnPosition(columnPositions, name, columnOffset, this);
+    compiledToSelection = true;
     return columnOffset + 1;
   }
 
@@ -102,6 +114,7 @@ final class FunctionCopyColumn<
     appendSql(compiledCols, systemRenamedTables);
     appendAliasDeclarationIfNeeded(compiledCols);
     putColumnPosition(columnPositions, name, columnOffset, this);
+    compiledToSelection = true;
     return columnOffset + 1;
   }
 
