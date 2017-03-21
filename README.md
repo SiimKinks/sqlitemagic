@@ -54,13 +54,18 @@ SqliteMagic.init(applicationContext);
 _Note that there is no need to extend or implement any base classes or interfaces_
 
 <table style="width:100%; border-collapse: collapse;" >
-  <tr>
-    <th>POJO</th>
-    <th>AutoValue</th>
-  </tr>
-  <tr style="background: none">
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">@Table(persistAll = true)
+<tr>
+<th>POJO</th>
+<th>AutoValue</th>
+</tr>
+<tr style="background: none">
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+
+
+
+@Table(persistAll = true)
 public class Author {
 
   @Id(autoIncrement = false)
@@ -72,6 +77,8 @@ public class Author {
   
   ...
 }
+
+
 
 @Table(persistAll = true)
 public class Book {
@@ -87,10 +94,13 @@ public class Book {
 }
 
 
-      </code></pre>
-    </td>
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">@Table(persistAll = true)
+```
+
+</td>
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+@Table(persistAll = true)
 @AutoValue
 public abstract class Author {
 
@@ -117,9 +127,10 @@ public abstract class Book {
   
   ...
 }
-      </code></pre>
-    </td>
-  </tr>
+```
+
+</td>
+</tr>
 </table>
 
 **Database operation builder methods are "automagically" [generated](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations) during compile time on objects with `@Table` annotation using bytecode manipulation and AST transformations. These methods may seem like "magic", but actually they are only glue methods that call corresponding table generated class methods. This way one can still see human readable code during debugging - just press "step into" when magic method is encountered.**
@@ -127,13 +138,15 @@ public abstract class Book {
 #### [Do Operations With Objects](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations):
 
 <table style="width:100%; border-collapse: collapse;" >
-  <tr>
-    <th>Synchronous</th>
-    <th>RxJava</th>
-  </tr>
-  <tr style="background: none">
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">Author author = new Author(73, "Foo", "Bar");
+<tr>
+<th>Synchronous</th>
+<th>RxJava</th>
+</tr>
+<tr style="background: none">
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+Author author = new Author(73, "Foo", "Bar");
 Book book = new Book(77, "Bar", author);
 
 // insert -- NOTE: author object also gets
@@ -170,17 +183,20 @@ success = Author
     .ignoreNullValues()
     .execute();
 
-</code></pre>
-    </td>
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">Author author = new Author(73, "Foo", "Bar");
+```
+
+</td>
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+Author author = new Author(73, "Foo", "Bar");
 Book book = new Book(77, "Bar", author);
 
 // insert -- NOTE: author object also gets
 // inserted and the whole operation is
 // wrapped in transaction when result
 // object gets subscribed
-Single&lt;Long&gt; insert = book
+Single<Long> insert = book
     .insert()
     .observe();
 
@@ -190,7 +206,7 @@ Completable update = author
     .observe();
 
 // update or insert
-Single&lt;Long&gt; persist = author
+Single<Long> persist = author
     .persist()
     .observe();
     
@@ -201,7 +217,7 @@ persist = author
     .observe();
     
 // delete
-Single&lt;Integer&gt; delete = author
+Single<Integer> delete = author
     .delete()
     .observe();
     
@@ -209,9 +225,11 @@ Single&lt;Integer&gt; delete = author
 Completable bulkPersist = Author
     .persist(someAuthors)
     .ignoreNullValues()
-    .observe();</code></pre>
-    </td>
-  </tr>
+    .observe();
+```
+
+</td>
+</tr>
 </table>
 
 (All database operations trigger [RxJava notifications](https://github.com/SiimKinks/sqlitemagic/wiki/RxJava-Support) on active queries that listen to table that is being modified)
@@ -219,13 +237,16 @@ Completable bulkPersist = Author
 #### Use Typesafe Operation Builders:
 
 <table style="width:100%; border-collapse: collapse;" >
-  <tr>
-    <th>Synchronous</th>
-    <th>RxJava</th>
-  </tr>
-  <tr style="background: none">
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">import static com.siimkinks.sqlitemagic.BookTable.BOOK;
+<tr>
+<th>Synchronous</th>
+<th>RxJava</th>
+</tr>
+<tr style="background: none">
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+import static com.siimkinks.sqlitemagic
+    .BookTable.BOOK;
 ...
 
 int nrOfUpdatedRows = Update
@@ -239,41 +260,50 @@ int nrOfDeletedRows = Delete
     .where(BOOK.ID.isNot(77L)
         .and(BOOK.TITLE.is("Foo")))
     .execute();
-</code></pre>
-    </td>
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">import static com.siimkinks.sqlitemagic.BookTable.BOOK;
+```
+
+</td>
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+import static com.siimkinks.sqlitemagic
+    .BookTable.BOOK;
 ...
 
-Single&lt;Integer&gt; update = Update
+Single<Integer> update = Update
     .table(BOOK)
     .set(BOOK.TITLE, "Foo")
     .where(BOOK.ID.is(77L))
     .observe();
 
-Single&lt;Integer&gt; delete = Delete
+Single<Integer> delete = Delete
     .from(BOOK)
     .where(BOOK.ID.isNot(77L)
         .and(BOOK.TITLE.is("Foo")))
-    .observe();</code></pre>
-    </td>
-  </tr>
+    .observe();
+```
+
+</td>
+</tr>
 </table>
 
 #### [Query Data](https://github.com/SiimKinks/sqlitemagic/wiki/Querying-Objects):
 SqliteMagic ships with its own [DSL](https://github.com/SiimKinks/sqlitemagic/wiki/SQL-Building) (or	Domain Specific Language) that emulates SQL in Java (inspired by [JOOQ](http://www.jooq.org/)).
 
 <table style="width:100%; border-collapse: collapse;" >
-  <tr>
-    <th>Synchronous</th>
-    <th>RxJava</th>
-  </tr>
-  <tr style="background: none">
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
+<tr>
+<th>Synchronous</th>
+<th>RxJava</th>
+</tr>
+<tr style="background: none">
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+import static com.siimkinks.sqlitemagic
+    .AuthorTable.AUTHOR;
 ...
 
-List&lt;Author&gt; authors = Select
+List<Author> authors = Select
     .from(AUTHOR)
     .where(AUTHOR.FIRST_NAME.like("Foo%")
         .and(AUTHOR.LAST_NAME.isNot("Bar")))
@@ -282,42 +312,52 @@ List&lt;Author&gt; authors = Select
     .execute();
 
 
-</code></pre>
-    </td>
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
+```
+
+</td>
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+import static com.siimkinks.sqlitemagic
+    .AuthorTable.AUTHOR;
 ...
 
 // QueryObservable is an rx.Observable of Query
 // which offers query-specific convenience
 // operators.
-QueryObservable&lt;List&lt;Author&gt;&gt; observable = Select
+QueryObservable<List<Author>> observable = Select
     .from(AUTHOR)
     .where(AUTHOR.FIRST_NAME.like("Foo%")
         .and(AUTHOR.LAST_NAME.isNot("Bar")))
     .orderBy(AUTHOR.LAST_NAME.desc())
     .limit(10)
-    .observe();</code></pre>
-    </td>
-  </tr>
+    .observe();
+```
+
+</td>
+</tr>
 </table>
 
 #### [Query Complex Data](https://github.com/SiimKinks/sqlitemagic/wiki/Automatic-SQL-Perfecting):
 
 <table style="width:100%; border-collapse: collapse;" >
-  <tr>
-    <th>Synchronous</th>
-    <th>RxJava</th>
-  </tr>
-  <tr style="background: none">
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
-import static com.siimkinks.sqlitemagic.BookTable.BOOK;
+<tr>
+<th>Synchronous</th>
+<th>RxJava</th>
+</tr>
+<tr style="background: none">
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+import static com.siimkinks.sqlitemagic
+    .AuthorTable.AUTHOR;
+import static com.siimkinks.sqlitemagic
+    .BookTable.BOOK;
 ...
 
 // the resulting Book objects also contain
 // Author objects
-List&lt;Book&gt; books = Select
+List<Book> books = Select
     .from(BOOK)
     .where(BOOK.TITLE.is("Bar")
         .and(AUTHOR.is(someAuthorObject)))
@@ -327,16 +367,22 @@ List&lt;Book&gt; books = Select
     // which is queried in a single
     // SELECT statement
     .queryDeep()
-    .execute();</code></pre>
-    </td>
-    <td style="padding:0; margin:0; border:none; width:50%;">
-      <pre lang="java"><code class="language-java">import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
-import static com.siimkinks.sqlitemagic.BookTable.BOOK;
+    .execute();
+```
+
+</td>
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```java
+import static com.siimkinks.sqlitemagic
+    .AuthorTable.AUTHOR;
+import static com.siimkinks.sqlitemagic
+    .BookTable.BOOK;
 ...
 
 // the resulting Book objects also contain
 // Author objects
-QueryObservable&lt;List&lt;Book&gt;&gt; observable = Select
+QueryObservable<List<Book>> observable = Select
     .from(BOOK)
     .where(BOOK.TITLE.is("Bar")
         .and(AUTHOR.is(someAuthorObject)))
@@ -346,9 +392,11 @@ QueryObservable&lt;List&lt;Book&gt;&gt; observable = Select
     // which is queried in a single
     // SELECT statement
     .queryDeep()
-    .observe();</code></pre>
-    </td>
-  </tr>
+    .observe();
+```
+
+</td>
+</tr>
 </table>
 
 There is so much more to querying data like [SQL functions](https://github.com/SiimKinks/sqlitemagic/wiki/Column-Expressions), [views](https://github.com/SiimKinks/sqlitemagic/wiki/Views), more [type safety](https://github.com/SiimKinks/sqlitemagic/wiki/Generated-Tables), [selecting columns](https://github.com/SiimKinks/sqlitemagic/wiki/Querying-Specific-Columns), querying only [the first result](https://github.com/SiimKinks/sqlitemagic/wiki/Take-First), [counting](https://github.com/SiimKinks/sqlitemagic/wiki/Count), RxJava [convenience operators](https://github.com/SiimKinks/sqlitemagic/wiki/RxJava-Support), etc.
