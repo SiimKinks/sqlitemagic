@@ -32,7 +32,7 @@ dependencies {
   testCompile libraries.googleCompileTesting
   testCompile libraries.junit
 
-  compile project(path: ':runtime')
+  compile project(':runtime')
 }
 
 tasks.withType(Test) {

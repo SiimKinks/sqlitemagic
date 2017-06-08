@@ -18,11 +18,11 @@ class SqliteMagicTransform(val project: Project,
                            val androidExtension: BaseExtension) : Transform() {
   private val javaCompileTasks: HashMap<Pair<String, String>, AbstractCompile> = HashMap()
   val jarContentType = setOf(CLASSES)
-  val jarScope = setOf(EXTERNAL_LIBRARIES)
+  val jarScope = mutableSetOf(EXTERNAL_LIBRARIES)
 
   override fun transform(transformInvocation: TransformInvocation) {
     super.transform(transformInvocation)
-    val projectFilesOutput = transformInvocation.outputProvider.getContentLocation(name, setOf(CLASSES), setOf(PROJECT), Format.DIRECTORY)
+    val projectFilesOutput = transformInvocation.outputProvider.getContentLocation(name, setOf(CLASSES), mutableSetOf(PROJECT), Format.DIRECTORY)
 
     transformInvocation.inputs
         .filter { it.directoryInputs.isNotEmpty() }
