@@ -6,11 +6,12 @@ import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.BaseColumnElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
+import com.siimkinks.sqlitemagic.util.Callback;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -33,6 +34,9 @@ import static com.siimkinks.sqlitemagic.WriterUtil.ARRAY_LIST;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLLECTIONS;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.COMPILED_N_COLUMNS_SELECT_IMPL;
+import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
+import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER;
+import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER_WITH_COLUMN_OFFSET;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN;
@@ -46,22 +50,20 @@ import static com.siimkinks.sqlitemagic.WriterUtil.writeSource;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_VIEW_QUERY;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_ADD_DEEP_QUERY_PARTS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_ADD_SHALLOW_QUERY_PARTS;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_ALL_FROM_CURSOR;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_FIRST_FROM_CURSOR;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_FROM_CURSOR_POSITION;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_MAPPER;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION;
 import static com.siimkinks.sqlitemagic.util.NameConst.PACKAGE_ROOT;
 import static com.siimkinks.sqlitemagic.util.StringUtil.replaceCamelCaseWithUnderscore;
 import static com.siimkinks.sqlitemagic.writer.EntityEnvironment.getGeneratedDaoClassName;
 import static com.siimkinks.sqlitemagic.writer.EntityEnvironment.getGeneratedTableStructureInterfaceNameString;
-import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.addLoadFromCursorMethodParams;
-import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.columnOffsetParam;
+import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.columnsParam;
 import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.fromSelectClauseParam;
-import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.loadFromCursorMethodParams;
 import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.select1Param;
 import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.selectFromTablesParam;
-import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.subscriptionParam;
 import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.tableGraphNodeNamesParam;
 import static com.siimkinks.sqlitemagic.writer.QueryCompilerWriter.queryPartsAddMethodSignature;
+import static com.siimkinks.sqlitemagic.writer.RetrieveWriter.addValuesGatheringBlock;
 import static com.squareup.javapoet.TypeName.BOOLEAN;
 import static com.squareup.javapoet.TypeName.INT;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
@@ -81,8 +83,11 @@ public final class StructureWriter {
   private final List<BaseColumnElement> columns;
   private final Set<TableElement> allTableTriggers;
   private final ClassName handlerClassName;
+  private final ClassName daoClassName;
   private final boolean hasAnyPersistedComplexColumns;
   private final boolean isQueryPartNeededForShallowQuery;
+  private final boolean isFullQueryNeeded;
+  private final boolean isOffsetQueryNeeded;
   private final boolean isView;
 
   public static StructureWriter from(@NonNull EntityEnvironment entityEnvironment,
@@ -98,9 +103,12 @@ public final class StructureWriter {
         .columnsCount(tableElement.getAllColumnsCount())
         .columns(new ArrayList<BaseColumnElement>(tableElement.getAllColumns()))
         .allTableTriggers(tableElement.getAllTableTriggers())
+        .daoClassName(entityEnvironment.getDaoClassName())
         .handlerClassName(entityEnvironment.getHandlerClassName())
         .hasAnyPersistedComplexColumns(tableElement.hasAnyPersistedComplexColumns())
         .isQueryPartNeededForShallowQuery(tableElement.isQueryPartNeededForShallowQuery())
+        .isFullQueryNeeded(tableElement.hasAnyPersistedComplexColumns())
+        .isOffsetQueryNeeded(true)
         .environment(environment)
         .build();
   }
@@ -108,6 +116,7 @@ public final class StructureWriter {
   public static StructureWriter from(@NonNull ViewElement viewElement,
                                      @NonNull Environment environment) {
     final String className = getGeneratedTableStructureInterfaceNameString(viewElement.getViewElementName());
+    final ClassName generatedDaoClassName = getGeneratedDaoClassName(viewElement);
     return builder()
         .className(className)
         .classType(ClassName.get(PACKAGE_ROOT, className))
@@ -118,8 +127,11 @@ public final class StructureWriter {
         .columnsCount(viewElement.getAllColumnsCount())
         .columns(new ArrayList<BaseColumnElement>(viewElement.getColumns()))
         .allTableTriggers(viewElement.getAllTableTriggers())
-        .handlerClassName(getGeneratedDaoClassName(viewElement))
+        .daoClassName(generatedDaoClassName)
+        .handlerClassName(generatedDaoClassName)
         .hasAnyPersistedComplexColumns(viewElement.hasAnyComplexColumns())
+        .isFullQueryNeeded(!viewElement.isFullQuerySameAsShallow())
+        .isOffsetQueryNeeded(false)
         .isView(true)
         .build();
   }
@@ -132,9 +144,7 @@ public final class StructureWriter {
         .addField(structureField())
         .addFields(columnFields())
         .addMethod(aliasOverride())
-        .addMethod(loadFromCursorOverride(METHOD_ALL_FROM_CURSOR, true, subscriptionParam()))
-        .addMethod(loadFromCursorOverride(METHOD_FIRST_FROM_CURSOR, false))
-        .addMethod(loadFromCursorOverride(METHOD_FROM_CURSOR_POSITION, false, columnOffsetParam()));
+        .addMethod(mapper());
     if (hasAnyPersistedComplexColumns && !isView) {
       classBuilder.addMethod(queryPartsAddOverride(METHOD_ADD_DEEP_QUERY_PARTS));
       if (isQueryPartNeededForShallowQuery) {
@@ -243,25 +253,83 @@ public final class StructureWriter {
         .build();
   }
 
-  @NonNull
-  private MethodSpec loadFromCursorOverride(@NonNull String methodName, boolean returnsList, ParameterSpec... extraParams) {
-    final TypeName returnType = returnsList ? ParameterizedTypeName.get(ARRAY_LIST, structureElementTypeName) : structureElementTypeName;
-    final MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName)
+  private MethodSpec mapper() {
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_MAPPER)
         .addAnnotation(Override.class)
         .addAnnotation(NON_NULL)
-        .returns(returnType);
-    addLoadFromCursorMethodParams(builder);
-    final StringBuilder extraParamsStr = new StringBuilder();
-    for (ParameterSpec parameterSpec : extraParams) {
-      builder.addParameter(parameterSpec);
-      extraParamsStr.append(", ");
-      extraParamsStr.append(parameterSpec.name);
+        .addParameter(columnsParam())
+        .addParameter(tableGraphNodeNamesParam())
+        .addParameter(boolean.class, "queryDeep")
+        .returns(ParameterizedTypeName.get(MAPPER, structureElementTypeName));
+
+    if (isOffsetQueryNeeded) {
+      builder.beginControlFlow("if (columns == null || columns.isEmpty())");
+      addValuesGatheringBlock(builder, isFullQueryNeeded,
+          new Callback<MethodSpec.Builder>() {
+            @Override
+            public void call(MethodSpec.Builder deepBuilder) {
+              deepBuilder.addStatement("return $L", mapperFunction(true, CodeBlock.builder()
+                  .addStatement("columnOffset.value = 0")
+                  .addStatement("return $T.$L(cursor, columnOffset)",
+                      daoClassName,
+                      METHOD_FULL_OBJECT_FROM_CURSOR_POSITION)
+                  .build()));
+            }
+          },
+          new Callback<MethodSpec.Builder>() {
+            @Override
+            public void call(MethodSpec.Builder shallowBuilder) {
+              shallowBuilder.addStatement("return $L", mapperFunction(true, CodeBlock.builder()
+                  .addStatement("columnOffset.value = 0")
+                  .addStatement("return $T.$L(cursor, columnOffset)",
+                      daoClassName,
+                      METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION)
+                  .build()));
+            }
+          });
+      builder.nextControlFlow("else");
     }
-    builder.addStatement("return $T.$L($L)",
-        handlerClassName,
-        methodName,
-        loadFromCursorMethodParams() + extraParamsStr.toString());
+
+    addValuesGatheringBlock(builder, isFullQueryNeeded,
+        new Callback<MethodSpec.Builder>() {
+          @Override
+          public void call(MethodSpec.Builder deepBuilder) {
+            deepBuilder.addStatement("return $L", mapperFunction(false, CodeBlock.builder()
+                .addStatement("return $T.$L(cursor, columns, tableGraphNodeNames, \"\")",
+                    daoClassName,
+                    METHOD_FULL_OBJECT_FROM_CURSOR_POSITION)
+                .build()));
+          }
+        },
+        new Callback<MethodSpec.Builder>() {
+          @Override
+          public void call(MethodSpec.Builder shallowBuilder) {
+            shallowBuilder.addStatement("return $L", mapperFunction(false, CodeBlock.builder()
+                .addStatement("return $T.$L(cursor, columns, tableGraphNodeNames, \"\")",
+                    daoClassName,
+                    METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION)
+                .build()));
+          }
+        });
+
+    if (isOffsetQueryNeeded) {
+      builder.endControlFlow();
+    }
     return builder.build();
+  }
+
+  private TypeSpec mapperFunction(boolean withColumnOffset, @NonNull CodeBlock functionBody) {
+    return TypeSpec
+        .anonymousClassBuilder("")
+        .addSuperinterface(ParameterizedTypeName.get(withColumnOffset ? MAPPER_WITH_COLUMN_OFFSET : MAPPER, structureElementTypeName))
+        .addMethod(MethodSpec.methodBuilder("apply")
+            .addAnnotation(Override.class)
+            .addModifiers(PUBLIC)
+            .addParameter(FAST_CURSOR, "cursor")
+            .returns(structureElementTypeName)
+            .addCode(functionBody)
+            .build())
+        .build();
   }
 
   private MethodSpec queryPartsAddOverride(@NonNull String methodName) {

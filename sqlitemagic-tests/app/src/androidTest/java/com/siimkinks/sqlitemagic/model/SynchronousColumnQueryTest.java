@@ -20,9 +20,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import rx.functions.Func1;
-import rx.functions.Func2;
-import rx.observables.MathObservable;
+import hu.akarnokd.rxjava2.math.MathObservable;
+import io.reactivex.Observable;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -42,7 +43,6 @@ import static com.siimkinks.sqlitemagic.model.TestUtil.insertMagazines;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertMutableWithNonNullFields;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertMutableWithSomeNullFields;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertSimpleAllValues;
-import static rx.Observable.from;
 
 @RunWith(AndroidJUnit4.class)
 public final class SynchronousColumnQueryTest {
@@ -61,16 +61,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void queryNonNullList() {
-    final List<String> expected = from(insertMutableWithNonNullFields(5))
-        .map(new Func1<SimpleMutableWithNullableFields, String>() {
+    final List<String> expected = Observable.fromIterable(insertMutableWithNonNullFields(5))
+        .map(new Function<SimpleMutableWithNullableFields, String>() {
           @Override
-          public String call(SimpleMutableWithNullableFields author) {
+          public String apply(SimpleMutableWithNullableFields author) {
             return author.nonNullString;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(SIMPLE_MUTABLE_WITH_NULLABLE_FIELDS.NON_NULL_STRING)
@@ -81,16 +80,11 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void queryNullableList() {
-    final List<String> expected = from(insertMutableWithSomeNullFields(17))
-        .map(new Func1<SimpleMutableWithNullableFields, String>() {
-          @Override
-          public String call(SimpleMutableWithNullableFields author) {
-            return author.nullableString;
-          }
-        })
-        .toList()
-        .toBlocking()
-        .first();
+    final ArrayList<SimpleMutableWithNullableFields> inserts = insertMutableWithSomeNullFields(17);
+    final ArrayList<String> expected = new ArrayList<>(inserts.size());
+    for (SimpleMutableWithNullableFields insert : inserts) {
+      expected.add(insert.nullableString);
+    }
 
     assertThat(Select
         .column(SIMPLE_MUTABLE_WITH_NULLABLE_FIELDS.NULLABLE_STRING)
@@ -116,16 +110,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void queryComplexList() {
-    final List<Long> expected = from(insertMagazines(7))
-        .map(new Func1<Magazine, Long>() {
+    final List<Long> expected = Observable.fromIterable(insertMagazines(7))
+        .map(new Function<Magazine, Long>() {
           @Override
-          public Long call(Magazine magazine) {
+          public Long apply(Magazine magazine) {
             return magazine.author.id;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(MAGAZINE.AUTHOR)
@@ -136,16 +129,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void queryTransformerList() {
-    final List<Boolean> expected = from(insertAuthors(8))
-        .map(new Func1<Author, Boolean>() {
+    final List<Boolean> expected = Observable.fromIterable(insertAuthors(8))
+        .map(new Function<Author, Boolean>() {
           @Override
-          public Boolean call(Author author) {
+          public Boolean apply(Author author) {
             return author.boxedBoolean;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(AUTHOR.BOXED_BOOLEAN)
@@ -156,16 +148,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void queryComplexChildColumn() {
-    final List<String> expected = from(insertMagazines(7))
-        .map(new Func1<Magazine, String>() {
+    final List<String> expected = Observable.fromIterable(insertMagazines(7))
+        .map(new Function<Magazine, String>() {
           @Override
-          public String call(Magazine magazine) {
+          public String apply(Magazine magazine) {
             return magazine.author.name;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(AUTHOR.NAME)
@@ -220,15 +211,14 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void queryComplexChildFirstColumn() {
-    final String expected = from(insertMagazines(7))
-        .map(new Func1<Magazine, String>() {
+    final String expected = Observable.fromIterable(insertMagazines(7))
+        .map(new Function<Magazine, String>() {
           @Override
-          public String call(Magazine magazine) {
+          public String apply(Magazine magazine) {
             return magazine.author.name;
           }
         })
-        .toBlocking()
-        .first();
+        .blockingFirst();
 
     assertThat(Select
         .column(AUTHOR.NAME)
@@ -609,16 +599,15 @@ public final class SynchronousColumnQueryTest {
   @Test
   public void aliasWithSpaces() {
     final int count = 8;
-    final List<String> expected = from(insertAuthors(count))
-        .map(new Func1<Author, String>() {
+    final List<String> expected = Observable.fromIterable(insertAuthors(count))
+        .map(new Function<Author, String>() {
           @Override
-          public String call(Author v) {
+          public String apply(Author v) {
             return v.name;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(AUTHOR.NAME.as("author name"))
@@ -645,21 +634,20 @@ public final class SynchronousColumnQueryTest {
   @Test
   public void avgFunction() {
     final double count = 8;
-    final Integer sum = from(insertSimpleAllValues((int) count))
-        .map(new Func1<SimpleAllValuesMutable, Integer>() {
+    final Integer sum = Observable.fromIterable(insertSimpleAllValues((int) count))
+        .map(new Function<SimpleAllValuesMutable, Integer>() {
           @Override
-          public Integer call(SimpleAllValuesMutable v) {
+          public Integer apply(SimpleAllValuesMutable v) {
             return (int) v.primitiveShort;
           }
         })
-        .reduce(new Func2<Integer, Integer, Integer>() {
+        .reduce(new BiFunction<Integer, Integer, Integer>() {
           @Override
-          public Integer call(Integer v1, Integer v2) {
+          public Integer apply(Integer v1, Integer v2) {
             return v1 + v2;
           }
         })
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     final Double value = Select
         .column(avg(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT))
@@ -703,16 +691,15 @@ public final class SynchronousColumnQueryTest {
   @Test
   public void groupConcatFunction() {
     final int count = 8;
-    final List<String> strings = from(insertAuthors(count))
-        .map(new Func1<Author, String>() {
+    final List<String> strings = Observable.fromIterable(insertAuthors(count))
+        .map(new Function<Author, String>() {
           @Override
-          public String call(Author v) {
+          public String apply(Author v) {
             return v.name;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(groupConcat(AUTHOR.NAME))
@@ -733,14 +720,13 @@ public final class SynchronousColumnQueryTest {
   public void maxFunction() {
     final List<SimpleAllValuesMutable> vals = insertSimpleAllValues(9);
     final Integer max = MathObservable.max(
-        from(vals).map(new Func1<SimpleAllValuesMutable, Integer>() {
+        Observable.fromIterable(vals).map(new Function<SimpleAllValuesMutable, Integer>() {
           @Override
-          public Integer call(SimpleAllValuesMutable v) {
+          public Integer apply(SimpleAllValuesMutable v) {
             return v.primitiveInt;
           }
         }))
-        .toBlocking()
-        .first();
+        .blockingFirst();
 
     assertThat(Select
         .column(Select.max(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT))
@@ -767,15 +753,14 @@ public final class SynchronousColumnQueryTest {
   public void minFunction() {
     final List<SimpleAllValuesMutable> vals = insertSimpleAllValues(9);
     final Integer min = MathObservable.min(
-        from(vals)
-            .map(new Func1<SimpleAllValuesMutable, Integer>() {
+        Observable.fromIterable(vals)
+            .map(new Function<SimpleAllValuesMutable, Integer>() {
               @Override
-              public Integer call(SimpleAllValuesMutable v) {
+              public Integer apply(SimpleAllValuesMutable v) {
                 return v.primitiveInt;
               }
             }))
-        .toBlocking()
-        .first();
+        .blockingFirst();
 
     assertThat(Select
         .column(Select.min(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT))
@@ -800,16 +785,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void sumFunction() {
-    final Integer sum = MathObservable.sumInteger(
-        from(insertSimpleAllValues(9))
-            .map(new Func1<SimpleAllValuesMutable, Integer>() {
+    final Integer sum = MathObservable.sumInt(
+        Observable.fromIterable(insertSimpleAllValues(9))
+            .map(new Function<SimpleAllValuesMutable, Integer>() {
               @Override
-              public Integer call(SimpleAllValuesMutable v) {
+              public Integer apply(SimpleAllValuesMutable v) {
                 return (int) v.primitiveShort;
               }
             }))
-        .toBlocking()
-        .first();
+        .blockingFirst();
 
     assertThat(Select
         .column(Select.sum(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT))
@@ -821,16 +805,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void concatFunction() {
-    final List<String> expected = from(insertSimpleAllValues(5))
-        .map(new Func1<SimpleAllValuesMutable, String>() {
+    final List<String> expected = Observable.fromIterable(insertSimpleAllValues(5))
+        .map(new Function<SimpleAllValuesMutable, String>() {
           @Override
-          public String call(SimpleAllValuesMutable v) {
+          public String apply(SimpleAllValuesMutable v) {
             return v.string + v.primitiveShort;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT))
@@ -849,16 +832,15 @@ public final class SynchronousColumnQueryTest {
   @Test
   public void concatWithValFunction() {
     final List<SimpleAllValuesMutable> insertedVals = insertSimpleAllValues(5);
-    List<String> expected = from(insertedVals)
-        .map(new Func1<SimpleAllValuesMutable, String>() {
+    List<String> expected = Observable.fromIterable(insertedVals)
+        .map(new Function<SimpleAllValuesMutable, String>() {
           @Override
-          public String call(SimpleAllValuesMutable v) {
+          public String apply(SimpleAllValuesMutable v) {
             return v.string + " - " + v.primitiveShort;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(" - ").concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
@@ -866,16 +848,15 @@ public final class SynchronousColumnQueryTest {
         .execute())
         .isEqualTo(expected);
 
-    expected = from(insertedVals)
-        .map(new Func1<SimpleAllValuesMutable, String>() {
+    expected = Observable.fromIterable(insertedVals)
+        .map(new Function<SimpleAllValuesMutable, String>() {
           @Override
-          public String call(SimpleAllValuesMutable v) {
+          public String apply(SimpleAllValuesMutable v) {
             return v.string + "8" + v.primitiveShort;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(8).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
@@ -883,16 +864,15 @@ public final class SynchronousColumnQueryTest {
         .execute())
         .isEqualTo(expected);
 
-    expected = from(insertedVals)
-        .map(new Func1<SimpleAllValuesMutable, String>() {
+    expected = Observable.fromIterable(insertedVals)
+        .map(new Function<SimpleAllValuesMutable, String>() {
           @Override
-          public String call(SimpleAllValuesMutable v) {
+          public String apply(SimpleAllValuesMutable v) {
             return v.string + "cls" + v.primitiveShort;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(new Cls()).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
@@ -900,16 +880,15 @@ public final class SynchronousColumnQueryTest {
         .execute())
         .isEqualTo(expected);
 
-    expected = from(insertedVals)
-        .map(new Func1<SimpleAllValuesMutable, String>() {
+    expected = Observable.fromIterable(insertedVals)
+        .map(new Function<SimpleAllValuesMutable, String>() {
           @Override
-          public String call(SimpleAllValuesMutable v) {
+          public String apply(SimpleAllValuesMutable v) {
             return v.string + "1" + v.primitiveShort;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(true).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
@@ -920,16 +899,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void replaceFunction() {
-    final List<String> expected = from(insertAuthors(10))
-        .map(new Func1<Author, String>() {
+    final List<String> expected = Observable.fromIterable(insertAuthors(10))
+        .map(new Function<Author, String>() {
           @Override
-          public String call(Author author) {
+          public String apply(Author author) {
             return author.name.replace("a", "___");
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(AUTHOR.NAME.replace("a", "___"))
@@ -940,16 +918,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void substringFunction() {
-    final List<String> expected = from(insertAuthors(10))
-        .map(new Func1<Author, String>() {
+    final List<String> expected = Observable.fromIterable(insertAuthors(10))
+        .map(new Function<Author, String>() {
           @Override
-          public String call(Author author) {
+          public String apply(Author author) {
             return author.name.substring(2);
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(AUTHOR.NAME.substring(3))
@@ -960,16 +937,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void substringFunctionWithLen() {
-    final List<String> expected = from(insertAuthors(10))
-        .map(new Func1<Author, String>() {
+    final List<String> expected = Observable.fromIterable(insertAuthors(10))
+        .map(new Function<Author, String>() {
           @Override
-          public String call(Author author) {
+          public String apply(Author author) {
             return author.name.substring(2, 4);
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(AUTHOR.NAME.substring(3, 2))
@@ -1028,16 +1004,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void absFunction() {
-    final List<Integer> expected = from(insertSimpleAllValues(9))
-        .map(new Func1<SimpleAllValuesMutable, Integer>() {
+    final List<Integer> expected = Observable.fromIterable(insertSimpleAllValues(9))
+        .map(new Function<SimpleAllValuesMutable, Integer>() {
           @Override
-          public Integer call(SimpleAllValuesMutable v) {
+          public Integer apply(SimpleAllValuesMutable v) {
             return Math.abs(v.primitiveInt);
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(abs(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT))
@@ -1048,16 +1023,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void lengthFunction() {
-    final List<Long> expected = from(insertSimpleAllValues(9))
-        .map(new Func1<SimpleAllValuesMutable, Long>() {
+    final List<Long> expected = Observable.fromIterable(insertSimpleAllValues(9))
+        .map(new Function<SimpleAllValuesMutable, Long>() {
           @Override
-          public Long call(SimpleAllValuesMutable v) {
+          public Long apply(SimpleAllValuesMutable v) {
             return (long) v.string.length();
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(length(SIMPLE_ALL_VALUES_MUTABLE.STRING))
@@ -1068,16 +1042,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void lowerFunction() {
-    final List<String> expected = from(insertSimpleAllValues(9))
-        .map(new Func1<SimpleAllValuesMutable, String>() {
+    final List<String> expected = Observable.fromIterable(insertSimpleAllValues(9))
+        .map(new Function<SimpleAllValuesMutable, String>() {
           @Override
-          public String call(SimpleAllValuesMutable v) {
+          public String apply(SimpleAllValuesMutable v) {
             return v.string.toLowerCase();
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(lower(SIMPLE_ALL_VALUES_MUTABLE.STRING))
@@ -1088,16 +1061,15 @@ public final class SynchronousColumnQueryTest {
 
   @Test
   public void upperFunction() {
-    final List<String> expected = from(insertSimpleAllValues(9))
-        .map(new Func1<SimpleAllValuesMutable, String>() {
+    final List<String> expected = Observable.fromIterable(insertSimpleAllValues(9))
+        .map(new Function<SimpleAllValuesMutable, String>() {
           @Override
-          public String call(SimpleAllValuesMutable v) {
+          public String apply(SimpleAllValuesMutable v) {
             return v.string.toUpperCase();
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(upper(SIMPLE_ALL_VALUES_MUTABLE.STRING))
@@ -1173,16 +1145,15 @@ public final class SynchronousColumnQueryTest {
 
   private void assertArithmeticExpression(@NonNull List<SimpleAllValuesMutable> vals,
                                           @NonNull final ArithmeticExpressionEvaluator evaluator) {
-    final List<Double> expected = from(vals)
-        .map(new Func1<SimpleAllValuesMutable, Double>() {
+    final List<Double> expected = Observable.fromIterable(vals)
+        .map(new Function<SimpleAllValuesMutable, Double>() {
           @Override
-          public Double call(SimpleAllValuesMutable v) {
+          public Double apply(SimpleAllValuesMutable v) {
             return evaluator.func(v.primitiveShort, v.boxedShort);
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     assertThat(Select
         .column(evaluator.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT, SIMPLE_ALL_VALUES_MUTABLE.BOXED_SHORT))

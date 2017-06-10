@@ -8,7 +8,7 @@ import android.support.annotation.WorkerThread;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 
-import rx.Single;
+import io.reactivex.Single;
 
 /**
  * Compiled SQL UPDATE statement.

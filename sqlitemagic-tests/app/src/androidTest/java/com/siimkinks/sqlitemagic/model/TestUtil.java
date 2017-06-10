@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.model;
 
 import com.siimkinks.sqlitemagic.CompiledFirstSelect;
+import com.siimkinks.sqlitemagic.Func1;
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Select.SelectN;
 import com.siimkinks.sqlitemagic.SelectSqlNode;
@@ -23,9 +24,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
-import rx.Observable;
-import rx.functions.Func1;
-import rx.observers.TestSubscriber;
+import io.reactivex.Observable;
+import io.reactivex.functions.Function;
+import io.reactivex.observers.TestObserver;
+import io.reactivex.subscribers.TestSubscriber;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -313,23 +315,21 @@ public final class TestUtil {
     }
   }
 
-  public static <T> List<T> createVals(Func1<Integer, T> createFunc) {
+  public static <T> List<T> createVals(Function<Integer, T> createFunc) {
     return Observable.range(0, 5)
         .map(createFunc)
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
   }
 
-  public static <T> List<T> updateVals(List<T> vals, Func1<T, T> updateFunc) {
-    return Observable.from(vals)
+  public static <T> List<T> updateVals(List<T> vals, Function<T, T> updateFunc) {
+    return Observable.fromIterable(vals)
         .map(updateFunc)
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
   }
 
-  public static void awaitTerminalEvent(TestSubscriber<?> ts) {
+  public static void awaitTerminalEvent(TestObserver<?> ts) {
     ts.awaitTerminalEvent(10, SECONDS);
   }
 

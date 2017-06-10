@@ -7,9 +7,7 @@ import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.util.Callback;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
@@ -18,21 +16,12 @@ import lombok.AllArgsConstructor;
 import lombok.experimental.Builder;
 
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_ALL_FROM_CURSOR;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_FIRST_FROM_CURSOR;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_FROM_CURSOR_POSITION;
+import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_NEW_INSTANCE_WITH_ONLY_ID;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION;
-import static com.siimkinks.sqlitemagic.WriterUtil.ARRAY_LIST;
-import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
-import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
-import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
-import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.addLoadFromCursorMethodParams;
 import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.columnOffsetParam;
 import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.columnsParam;
-import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.loadFromCursorMethodParams;
-import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.subscriptionParam;
 import static com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter.tableGraphNodeNamesParam;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
@@ -74,11 +63,6 @@ public class RetrieveWriter implements OperationWriter {
 
   @Override
   public void writeHandler(TypeSpec.Builder handlerClassBuilder) {
-    final MethodSpec fromCurrentCursorPosition = getFromCurrentCursorPosition();
-    handlerClassBuilder
-        .addMethod(allFromCursor())
-        .addMethod(firstFromCursor(fromCurrentCursorPosition, tableElementTypeName))
-        .addMethod(fromCurrentCursorPosition);
   }
 
   // -------------------------------------------
@@ -120,14 +104,14 @@ public class RetrieveWriter implements OperationWriter {
   }
 
   @NonNull
-  static MethodSpec.Builder objectFromCursorPositionBaseMethodBuilder(String methodName, TypeName tableElementTypeName) {
+  private static MethodSpec.Builder objectFromCursorPositionBaseMethodBuilder(String methodName, TypeName tableElementTypeName) {
     return MethodSpec.methodBuilder(methodName)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(FAST_CURSOR, "cursor")
         .returns(tableElementTypeName);
   }
 
-  static MethodSpec.Builder allObjectValuesFromCursorPositionMethodBuilder(String methodName, TypeName typeName) {
+  private static MethodSpec.Builder allObjectValuesFromCursorPositionMethodBuilder(String methodName, TypeName typeName) {
     return objectFromCursorPositionBaseMethodBuilder(methodName, typeName)
         .addParameter(columnOffsetParam());
   }
@@ -159,76 +143,6 @@ public class RetrieveWriter implements OperationWriter {
     return builder.build();
   }
 
-  // -------------------------------------------
-  //                  Handler methods
-  // -------------------------------------------
-
-  private MethodSpec allFromCursor() {
-    final ParameterizedTypeName returnType = ParameterizedTypeName.get(ARRAY_LIST, tableElementTypeName);
-    final MethodSpec.Builder builder = allFromCursorBuilder(returnType)
-        .beginControlFlow("if (columns == null || columns.isEmpty())")
-        .addStatement("final $1T columnOffset = new $1T()", MUTABLE_INT);
-    addAllValuesGatheringBlock(builder, false);
-    builder.nextControlFlow("else");
-    addAllValuesGatheringBlock(builder, true);
-    builder.endControlFlow()
-        .addStatement("return values");
-    return builder.build();
-  }
-
-  @NonNull
-  static MethodSpec.Builder allFromCursorBuilder(ParameterizedTypeName returnType) {
-    return loadFromCursorMethodBuilder(METHOD_ALL_FROM_CURSOR, returnType)
-        .addParameter(subscriptionParam())
-        .addStatement("final int rowCount = cursor.getCount()")
-        .beginControlFlow("if (rowCount == 0)")
-        .addStatement("return new $T<>()", ARRAY_LIST)
-        .endControlFlow()
-        .addStatement("final $T values = new $T<>(rowCount)",
-            returnType, ARRAY_LIST);
-  }
-
-  private void addAllValuesGatheringBlock(MethodSpec.Builder builder, boolean fromSelection) {
-    addValuesGatheringBlock(builder, tableElement.hasAnyPersistedComplexColumns(),
-        cursorRowAdder(METHOD_FULL_OBJECT_FROM_CURSOR_POSITION, daoClassName, fromSelection),
-        cursorRowAdder(METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION, daoClassName, fromSelection));
-  }
-
-  static MethodSpec firstFromCursor(MethodSpec getFromCurrentCursorPosition, TypeName tableElementTypeName) {
-    final MethodSpec.Builder builder = loadFromCursorMethodBuilder(METHOD_FIRST_FROM_CURSOR, tableElementTypeName)
-        .beginControlFlow("if (!cursor.moveToFirst())")
-        .addStatement("return null")
-        .endControlFlow()
-        .addStatement("return $N($L, null)", getFromCurrentCursorPosition, loadFromCursorMethodParams());
-    return builder.build();
-  }
-
-  private MethodSpec getFromCurrentCursorPosition() {
-    final MethodSpec.Builder builder = loadFromCursorMethodBuilder(METHOD_FROM_CURSOR_POSITION, tableElementTypeName)
-        .addParameter(columnOffsetParam())
-        .beginControlFlow("if (columns == null || columns.isEmpty())");
-    addFirstValueGatheringBlock(builder, false);
-    builder.nextControlFlow("else");
-    addFirstValueGatheringBlock(builder, true);
-    builder.endControlFlow();
-    return builder.build();
-  }
-
-  private void addFirstValueGatheringBlock(MethodSpec.Builder builder, boolean fromSelection) {
-    addValuesGatheringBlock(builder, tableElement.hasAnyPersistedComplexColumns(),
-        cursorRowReturner(METHOD_FULL_OBJECT_FROM_CURSOR_POSITION, daoClassName, fromSelection),
-        cursorRowReturner(METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION, daoClassName, fromSelection));
-  }
-
-  @NonNull
-  static MethodSpec.Builder loadFromCursorMethodBuilder(String methodName, TypeName returnType) {
-    final MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
-        .returns(returnType);
-    addLoadFromCursorMethodParams(builder);
-    return builder;
-  }
-
   static void addValuesGatheringBlock(MethodSpec.Builder builder,
                                       boolean addDeepQuery,
                                       Callback<MethodSpec.Builder> deepBuilderCallback,
@@ -242,56 +156,5 @@ public class RetrieveWriter implements OperationWriter {
     if (addDeepQuery) {
       builder.endControlFlow();
     }
-  }
-
-  @NonNull
-  static Callback<MethodSpec.Builder> cursorRowAdder(final String callableMethodName,
-                                                     final ClassName daoClassName,
-                                                     final boolean fromSelection) {
-    return new Callback<MethodSpec.Builder>() {
-      @Override
-      public void call(MethodSpec.Builder builder) {
-        CodeBlock.Builder codeBuilder = CodeBlock.builder()
-            .add("values.add($T.$L(cursor, ",
-                daoClassName,
-                callableMethodName);
-        if (fromSelection) {
-          codeBuilder.add("columns, tableGraphNodeNames, $S", "");
-        } else {
-          codeBuilder.add("columnOffset");
-        }
-        codeBuilder.add("))")
-            .add(codeBlockEnd());
-        builder.beginControlFlow("while (cursor.moveToNext() && !subscription.isUnsubscribed())")
-            .addCode(codeBuilder.build());
-        if (!fromSelection) {
-          builder.addStatement("columnOffset.value = 0");
-        }
-        builder.endControlFlow();
-      }
-    };
-  }
-
-  @NonNull
-  static Callback<MethodSpec.Builder> cursorRowReturner(final String callableMethodName,
-                                                        final ClassName daoClassName,
-                                                        final boolean fromSelection) {
-    return new Callback<MethodSpec.Builder>() {
-      @Override
-      public void call(MethodSpec.Builder builder) {
-        CodeBlock.Builder codeBuilder = CodeBlock.builder()
-            .add("return $T.$L(cursor, ",
-                daoClassName,
-                callableMethodName);
-        if (fromSelection) {
-          codeBuilder.add("columns, tableGraphNodeNames, $S", "");
-        } else {
-          codeBuilder.add("columnOffset == null ? new $T() : columnOffset", MUTABLE_INT);
-        }
-        codeBuilder.add(")")
-            .add(codeBlockEnd());
-        builder.addCode(codeBuilder.build());
-      }
-    };
   }
 }

@@ -6,14 +6,13 @@ import android.support.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.CompiledCountSelect;
 import com.siimkinks.sqlitemagic.CompiledSelect;
-import com.siimkinks.sqlitemagic.DbConnection;
 import com.siimkinks.sqlitemagic.Delete;
+import com.siimkinks.sqlitemagic.Func1;
+import com.siimkinks.sqlitemagic.ListQueryObservable;
 import com.siimkinks.sqlitemagic.Query;
-import com.siimkinks.sqlitemagic.QueryObservable;
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Select.SelectN;
 import com.siimkinks.sqlitemagic.SqliteMagic;
-import com.siimkinks.sqlitemagic.TestApp;
 import com.siimkinks.sqlitemagic.TestScheduler;
 import com.siimkinks.sqlitemagic.Transaction;
 import com.siimkinks.sqlitemagic.Update;
@@ -32,12 +31,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import rx.Observable;
-import rx.Subscription;
-import rx.functions.Action1;
-import rx.functions.Func1;
-import rx.internal.util.RxRingBuffer;
-import rx.observers.TestSubscriber;
+import io.reactivex.Observable;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
+import io.reactivex.observers.TestObserver;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -87,14 +85,14 @@ public final class QueryObserveTest {
   public void runListQueryInFlatMap() {
     final List<Author> expected = insertAuthors(3);
     final List<Author> result = selectAuthors.observe()
-        .flatMap(new Func1<Query<List<Author>>, Observable<List<Author>>>() {
+        .flatMap(new Function<Query<List<Author>>, Observable<List<Author>>>() {
           @Override
-          public Observable<List<Author>> call(Query<List<Author>> listQuery) {
+          public Observable<List<Author>> apply(Query<List<Author>> listQuery) {
             return listQuery.run();
           }
         })
-        .toBlocking()
-        .first();
+        .blockingFirst();
+
     assertThat(result).containsExactlyElementsIn(expected);
   }
 
@@ -105,14 +103,13 @@ public final class QueryObserveTest {
         .from(AUTHOR)
         .where(AUTHOR.NAME.is("asd"))
         .observe()
-        .flatMap(new Func1<Query<List<Author>>, Observable<List<Author>>>() {
+        .flatMap(new Function<Query<List<Author>>, Observable<List<Author>>>() {
           @Override
-          public Observable<List<Author>> call(Query<List<Author>> query) {
+          public Observable<List<Author>> apply(Query<List<Author>> query) {
             return query.run();
           }
         })
-        .toBlocking()
-        .first();
+        .blockingFirst();
     assertThat(result).isNotNull();
     assertThat(result).isEmpty();
   }
@@ -123,37 +120,34 @@ public final class QueryObserveTest {
     final Author result = selectAuthors
         .takeFirst()
         .observe()
-        .flatMap(new Func1<Query<Author>, Observable<Author>>() {
+        .flatMap(new Function<Query<Author>, Observable<Author>>() {
           @Override
-          public Observable<Author> call(Query<Author> query) {
+          public Observable<Author> apply(Query<Author> query) {
             return query.run();
           }
         })
-        .toBlocking()
-        .first();
+        .blockingFirst();
     assertThat(result).isEqualTo(expected);
   }
 
   @Test
   public void runEmptyFirstQueryInFlatMap() {
     insertAuthors(3);
-    final TestSubscriber<Author> ts = new TestSubscriber<>();
-    final Subscription subscription = Select
+    final TestObserver<Author> ts = Select
         .from(AUTHOR)
         .where(AUTHOR.NAME.is("asd"))
         .takeFirst()
         .observe()
-        .first()
-        .flatMap(new Func1<Query<Author>, Observable<Author>>() {
+        .take(1)
+        .flatMap(new Function<Query<Author>, Observable<Author>>() {
           @Override
-          public Observable<Author> call(Query<Author> query) {
+          public Observable<Author> apply(Query<Author> query) {
             return query.run();
           }
         })
-        .subscribe(ts);
+        .test();
 
     awaitTerminalEvent(ts);
-    assertThat(subscription.isUnsubscribed()).isTrue();
     ts.assertNoErrors();
     ts.assertNoValues();
   }
@@ -162,14 +156,13 @@ public final class QueryObserveTest {
   public void runCountQueryInFlatMap() {
     insertAuthors(3);
     final Long result = countAuthors.observe()
-        .flatMap(new Func1<Query<Long>, Observable<Long>>() {
+        .flatMap(new Function<Query<Long>, Observable<Long>>() {
           @Override
-          public Observable<Long> call(Query<Long> query) {
+          public Observable<Long> apply(Query<Long> query) {
             return query.run();
           }
         })
-        .toBlocking()
-        .first();
+        .blockingFirst();
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(3);
   }
@@ -177,7 +170,7 @@ public final class QueryObserveTest {
   @Test
   public void queryObservesInsert() {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe()
+    selectAuthors.observe()
         .subscribe(o);
     o.assertElements()
         .hasElements(authors)
@@ -190,13 +183,13 @@ public final class QueryObserveTest {
         .hasSingleElement(newRandom)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void queryNotNotifiedWhenInsertFails() {
     List<SimpleMutable> values = insertSimpleValues(3);
-    final Subscription subscription = selectSimple.observe().subscribe(o);
+    selectSimple.observe().subscribe(o);
     o.assertElements()
         .hasElements(values)
         .isExhausted();
@@ -204,13 +197,13 @@ public final class QueryObserveTest {
     assertThat(values.get(1).insert().conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE).execute()).isEqualTo(-1);
     o.assertNoMoreEvents();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void queryObservesUpdate() {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -233,13 +226,13 @@ public final class QueryObserveTest {
         .hasElements(authors)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void queryNotNotifiedWhenUpdateAffectsZeroRows() {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -252,13 +245,13 @@ public final class QueryObserveTest {
         .isEqualTo(0);
     o.assertNoMoreEvents();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void queryObservesDelete() {
     List<Author> authors = insertAuthors(4);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -278,7 +271,7 @@ public final class QueryObserveTest {
         .hasElements(authors)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
@@ -288,7 +281,7 @@ public final class QueryObserveTest {
     for (Magazine magazine : magazines) {
       authors.add(magazine.author);
     }
-    final Subscription subscription = selectMagazines.observe().subscribe(o);
+    selectMagazines.observe().subscribe(o);
     o.assertElements()
         .hasElements(magazines)
         .isExhausted();
@@ -310,13 +303,13 @@ public final class QueryObserveTest {
         .hasElements(magazines)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void queryNotNotifiedWhenDeleteAffectsZeroRows() {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -332,24 +325,24 @@ public final class QueryObserveTest {
         .isEqualTo(0);
     o.assertNoMoreEvents();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void queryMultipleTables() {
     final List<Magazine> magazines = insertComplexValues(3);
-    final Subscription subscription = selectMagazines.observe().subscribe(o);
+    selectMagazines.observe().subscribe(o);
     o.assertElements()
         .hasElements(magazines)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void queryMultipleTablesObservesChanges() {
     final List<Magazine> magazines = insertComplexValues(3);
-    final Subscription subscription = selectMagazines.observe().subscribe(o);
+    selectMagazines.observe().subscribe(o);
     o.assertElements()
         .hasElements(magazines)
         .isExhausted();
@@ -369,7 +362,7 @@ public final class QueryObserveTest {
         .hasSingleElement(m)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
@@ -385,7 +378,7 @@ public final class QueryObserveTest {
     }
     Author.insert(authors).execute();
 
-    final Subscription subscription = Select.from(AUTHOR)
+    Select.from(AUTHOR)
         .where(AUTHOR.NAME.is(Select
             .column(BOOK.TITLE)
             .from(BOOK)
@@ -413,7 +406,7 @@ public final class QueryObserveTest {
         .hasSingleElement(a)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
@@ -429,7 +422,7 @@ public final class QueryObserveTest {
     }
     SimpleAllValuesMutable.insert(vals).execute();
 
-    final Subscription subscription = Select.from(SIMPLE_ALL_VALUES_MUTABLE)
+    Select.from(SIMPLE_ALL_VALUES_MUTABLE)
         .where(SIMPLE_ALL_VALUES_MUTABLE.STRING.is(Select
             .column(AUTHOR.NAME)
             .from(BOOK)
@@ -464,7 +457,7 @@ public final class QueryObserveTest {
         .hasSingleElement(s)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
@@ -474,7 +467,7 @@ public final class QueryObserveTest {
     for (Magazine magazine : magazines) {
       expected.add(SimpleCreatorView.create(magazine.author.name, magazine.name));
     }
-    final Subscription subscription = Select.from(SIMPLE_CREATOR_VIEW).observe().subscribe(o);
+    Select.from(SIMPLE_CREATOR_VIEW).observe().subscribe(o);
     o.assertElements()
         .hasElements(expected)
         .isExhausted();
@@ -494,7 +487,7 @@ public final class QueryObserveTest {
         .hasElements(expected)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   static final Func1<Cursor, Object> mapAuthor = new Func1<Cursor, Object>() {
@@ -507,7 +500,7 @@ public final class QueryObserveTest {
   @Test
   public void rawQueryObservesChanges() {
     final ArrayList<Author> authors = insertAuthors(3);
-    final Subscription subscription = Select.raw("SELECT * FROM author")
+    Select.raw("SELECT * FROM author")
         .from(AUTHOR)
         .observe()
         .subscribe(co);
@@ -522,13 +515,13 @@ public final class QueryObserveTest {
         .hasRows(mapAuthor, authors)
         .isExhausted();
 
-    subscription.unsubscribe();
+    co.dispose();
   }
 
   @Test
   public void rawQueryNotNotifiedForIrrelevantTableChange() {
     final ArrayList<Author> authors = insertAuthors(3);
-    final Subscription subscription = Select.raw("SELECT * FROM author")
+    Select.raw("SELECT * FROM author")
         .from(AUTHOR)
         .observe()
         .subscribe(co);
@@ -541,17 +534,29 @@ public final class QueryObserveTest {
 
     co.assertNoMoreEvents();
 
-    subscription.unsubscribe();
+    co.dispose();
+  }
+
+  @Test
+  public void rawQueryForMissingTableCallsError() {
+    Select.raw("SELECT * FROM missing")
+        .from(AUTHOR)
+        .observe()
+        .subscribe(o);
+
+    o.assertErrorContains("no such table: missing");
+
+    o.dispose();
   }
 
   @Test
   public void queryNotNotifiedAfterUnsubscribe() {
     List<Author> authors = insertAuthors(3);
-    Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
-    subscription.unsubscribe();
+    o.dispose();
 
     assertThat(Author.newRandom().insert().execute()).isNotEqualTo(-1);
     o.assertNoMoreEvents();
@@ -560,26 +565,26 @@ public final class QueryObserveTest {
   @Test
   public void queryOnlyNotifiedAfterSubscribe() {
     List<Author> authors = insertAuthors(3);
-    final QueryObservable<List<Author>> query = selectAuthors.observe();
+    final ListQueryObservable<Author> query = selectAuthors.observe();
     o.assertNoMoreEvents();
 
     final Author a = Author.newRandom();
     assertThat(a.insert().execute()).isNotEqualTo(-1);
     o.assertNoMoreEvents();
 
-    final Subscription subscription = query.subscribe(o);
+    query.subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .hasSingleElement(a)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void transactionOnlyNotifiesOnce() {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -603,7 +608,7 @@ public final class QueryObserveTest {
         .hasElements(authors)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
@@ -611,10 +616,10 @@ public final class QueryObserveTest {
     // Tests the case where a transaction is created in the subscriber to a query which gets
     // notified as the result of another transaction being committed. With improper ordering, this
     // can result in creating a new transaction before the old is committed on the underlying DB.
-    final Subscription subscription = selectAuthors.observe()
-        .subscribe(new Action1<Query>() {
+    final Disposable disposable = selectAuthors.observe()
+        .subscribe(new Consumer<Query>() {
           @Override
-          public void call(Query query) {
+          public void accept(Query query) {
             SqliteMagic.newTransaction().end();
           }
         });
@@ -627,13 +632,13 @@ public final class QueryObserveTest {
     } finally {
       transaction.end();
     }
-    subscription.unsubscribe();
+    disposable.dispose();
   }
 
   @Test
   public void transactionIsCloseable() throws IOException {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -657,13 +662,13 @@ public final class QueryObserveTest {
         .hasElements(authors)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void transactionDoesNotThrow() {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -685,7 +690,7 @@ public final class QueryObserveTest {
         .hasElements(authors)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
@@ -698,9 +703,7 @@ public final class QueryObserveTest {
 
   @Test
   public void querySubscribedToDuringTransactionThrowsWithBackpressure() {
-    o.doRequest(0);
-
-    final QueryObservable<List<Author>> query = selectAuthors.observe();
+    final ListQueryObservable<Author> query = selectAuthors.observe();
 
     final Transaction transaction = SqliteMagic.newTransaction();
     query.subscribe(o);
@@ -729,9 +732,9 @@ public final class QueryObserveTest {
     new Thread() {
       @Override
       public void run() {
-        final Subscription subscription = selectAuthors.observe().subscribe(o);
+        selectAuthors.observe().subscribe(o);
         latch.countDown();
-        subscription.unsubscribe();
+        o.dispose();
       }
     }.start();
 
@@ -783,7 +786,7 @@ public final class QueryObserveTest {
   @Test
   public void nestedTransactionsOnlyNotifyOnce() {
     List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -813,13 +816,13 @@ public final class QueryObserveTest {
         .hasElements(authors)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void nestedTransactionsOnMultipleTables() {
     final List<Magazine> magazines = insertComplexValues(3);
-    final Subscription subscription = selectMagazines.observe().subscribe(o);
+    selectMagazines.observe().subscribe(o);
     o.assertElements()
         .hasElements(magazines)
         .isExhausted();
@@ -858,13 +861,13 @@ public final class QueryObserveTest {
         .hasElements(magazines)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void emptyTransactionDoesNotNotify() {
     final List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -877,13 +880,13 @@ public final class QueryObserveTest {
     }
     o.assertNoMoreEvents();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void transactionRollbackDoesNotNotify() {
     final List<Author> authors = insertAuthors(3);
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
+    selectAuthors.observe().subscribe(o);
     o.assertElements()
         .hasElements(authors)
         .isExhausted();
@@ -898,102 +901,6 @@ public final class QueryObserveTest {
     }
     o.assertNoMoreEvents();
 
-    subscription.unsubscribe();
-  }
-
-  @Test
-  public void backpressureSupportedWhenConsumerSlow() {
-    final List<Author> authors = insertAuthors(3);
-    o.doRequest(2);
-
-    final Subscription subscription = selectAuthors.observe().subscribe(o);
-    o.assertElements()
-        .hasElements(authors)
-        .isExhausted();
-
-    Author a = Author.newRandom();
-    assertThat(a.insert().execute()).isNotEqualTo(-1);
-    authors.add(a);
-    o.assertElements()
-        .hasElements(authors)
-        .isExhausted();
-
-    a = Author.newRandom();
-    assertThat(a.insert().execute()).isNotEqualTo(-1);
-    authors.add(a);
-    o.assertNoMoreEvents();
-
-    a = authors.remove(1);
-    assertThat(a.delete().execute()).isEqualTo(1);
-    o.assertNoMoreEvents();
-
-    o.doRequest(1);
-    o.assertElements()
-        .hasElements(authors)
-        .isExhausted();
-
-    a = authors.remove(1);
-    assertThat(a.delete().execute()).isEqualTo(1);
-    o.assertNoMoreEvents();
-    a = authors.remove(0);
-    assertThat(a.delete().execute()).isEqualTo(1);
-    o.assertNoMoreEvents();
-
-    o.doRequest(Long.MAX_VALUE);
-    o.assertElements()
-        .hasElements(authors)
-        .isExhausted();
-    o.assertNoMoreEvents();
-
-    subscription.unsubscribe();
-  }
-
-  @Test
-  public void backpressureSupportedWhenSchedulerSlow() {
-    final DbConnection connection = SqliteMagic
-        .setup(TestApp.INSTANCE)
-        .withName("asd.db")
-        .scheduleRxQueriesOn(scheduler)
-        .openNewConnection();
-    Author.deleteTable()
-        .usingConnection(connection)
-        .execute();
-    final ArrayList<Author> authors = new ArrayList<>(3);
-    for (int i = 0; i < 3; i++) {
-      final Author author = Author.newRandom();
-      author.insert()
-          .usingConnection(connection)
-          .execute();
-      authors.add(author);
-    }
-    final Subscription subscription = Select
-        .from(AUTHOR)
-        .usingConnection(connection)
-        .observe()
-        .subscribe(o);
-    o.assertElements()
-        .hasElements(authors)
-        .isExhausted();
-
-    // Switch the scheduler to queue actions.
-    scheduler.runTasksImmediately(false);
-
-    // Shotgun twice as many insertions as the scheduler queue can handle.
-    for (int i = 0; i < RxRingBuffer.SIZE * 2; i++) {
-      Author.newRandom()
-          .insert()
-          .usingConnection(connection)
-          .execute();
-    }
-
-    scheduler.triggerActions();
-
-    // Assert we got all the events from the queue
-    for (int i = 0; i < RxRingBuffer.SIZE; i++) {
-      o.assertElements(); // Ignore contents, just assert we got notified.
-    }
-
-    subscription.unsubscribe();
-    connection.close();
+    o.dispose();
   }
 }

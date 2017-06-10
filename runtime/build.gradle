@@ -10,7 +10,7 @@ dependencies {
 
   compile libraries.android
   compile libraries.supportAnnotations
-  compileOnly libraries.rxJava
+  compileOnly libraries.rxJava2
 
   testCompile libraries.junit
   testCompile libraries.truth

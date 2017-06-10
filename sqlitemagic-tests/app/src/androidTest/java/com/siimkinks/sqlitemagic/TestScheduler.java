@@ -2,12 +2,11 @@ package com.siimkinks.sqlitemagic;
 
 import java.util.concurrent.TimeUnit;
 
-import rx.Scheduler;
-import rx.Subscription;
-import rx.functions.Action0;
+import io.reactivex.Scheduler;
+import io.reactivex.disposables.Disposable;
 
 public final class TestScheduler extends Scheduler {
-  private final rx.schedulers.TestScheduler delegate = new rx.schedulers.TestScheduler();
+  private final io.reactivex.schedulers.TestScheduler delegate = new io.reactivex.schedulers.TestScheduler();
   private boolean runTasksImmediately = true;
 
   public void runTasksImmediately(boolean runTasksImmediately) {
@@ -27,31 +26,31 @@ public final class TestScheduler extends Scheduler {
     private final Worker delegateWorker = delegate.createWorker();
 
     @Override
-    public Subscription schedule(Action0 action) {
-      Subscription subscription = delegateWorker.schedule(action);
+    public Disposable schedule(Runnable action) {
+      Disposable disposable = delegateWorker.schedule(action);
       if (runTasksImmediately) {
         triggerActions();
       }
-      return subscription;
+      return disposable;
     }
 
     @Override
-    public Subscription schedule(Action0 action, long delayTime, TimeUnit unit) {
-      Subscription subscription = delegateWorker.schedule(action, delayTime, unit);
+    public Disposable schedule(Runnable action, long delayTime, TimeUnit unit) {
+      Disposable disposable = delegateWorker.schedule(action, delayTime, unit);
       if (runTasksImmediately) {
         triggerActions();
       }
-      return subscription;
+      return disposable;
     }
 
     @Override
-    public void unsubscribe() {
-      delegateWorker.unsubscribe();
+    public void dispose() {
+      delegateWorker.dispose();
     }
 
     @Override
-    public boolean isUnsubscribed() {
-      return delegateWorker.isUnsubscribed();
+    public boolean isDisposed() {
+      return delegateWorker.isDisposed();
     }
   }
 }

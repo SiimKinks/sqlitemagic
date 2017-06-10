@@ -16,11 +16,9 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 
-import rx.Subscription;
-import rx.functions.Func0;
-import rx.functions.Func1;
-import rx.observers.TestSubscriber;
-import rx.schedulers.Schedulers;
+import io.reactivex.functions.Function;
+import io.reactivex.observers.TestObserver;
+import io.reactivex.schedulers.Schedulers;
 
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE;
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_ROLLBACK;
@@ -57,193 +55,177 @@ public final class DbConnectionTest {
 
   @Test
   public void closeConnection() {
-    final TestSubscriber<List<Author>> ts = new TestSubscriber<>();
-    final Subscription subscription = Select
+    final TestObserver<List<Author>> ts = Select
         .from(AUTHOR)
         .usingConnection(newConnection)
         .observe()
         .runQuery()
-        .subscribe(ts);
+        .test();
     final SQLiteDatabase writableDatabase = newConnection.getWritableDatabase();
     assertThat(writableDatabase.isOpen()).isTrue();
     newConnection.close();
     assertThat(writableDatabase.isOpen()).isFalse();
-    ts.assertCompleted();
-    assertThat(subscription.isUnsubscribed()).isTrue();
+    ts.assertComplete();
   }
 
   @Test
   public void selectFirst() {
-    final TestSubscriber<Author> ts1 = new TestSubscriber<>();
-    final Subscription s1 = SELECT_AUTHORS
+    final TestObserver<Author> ts1 = SELECT_AUTHORS
         .takeFirst()
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<Author> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<Author> ts2 = Select
         .from(AUTHOR)
         .usingConnection(newConnection)
         .takeFirst()
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     assertEventsOnlyOnNewConnection(0, ts1, ts2);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
   public void selectCount() {
-    final TestSubscriber<Long> ts1 = new TestSubscriber<>();
-    final Subscription s1 = SELECT_AUTHORS
+    final TestObserver<Long> ts1 = SELECT_AUTHORS
         .count()
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<Long> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<Long> ts2 = Select
         .from(AUTHOR)
         .usingConnection(newConnection)
         .count()
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     assertEventsOnlyOnNewConnection(1, ts1, ts2);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
   public void selectCursor() {
-    final TestSubscriber<Cursor> ts1 = new TestSubscriber<>();
-    final Subscription s1 = SELECT_AUTHORS
+    final TestObserver<Cursor> ts1 = SELECT_AUTHORS
         .toCursor()
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<Cursor> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<Cursor> ts2 = Select
         .from(AUTHOR)
         .usingConnection(newConnection)
         .toCursor()
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     assertEventsOnlyOnNewConnection(1, ts1, ts2);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
   public void selectColumnList() {
-    final TestSubscriber<List<Long>> ts1 = new TestSubscriber<>();
-    final Subscription s1 = Select
+    final TestObserver<List<Long>> ts1 = Select
         .column(AUTHOR.ID)
         .from(AUTHOR)
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<List<Long>> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<List<Long>> ts2 = Select
         .column(AUTHOR.ID)
         .from(AUTHOR)
         .usingConnection(newConnection)
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     assertEventsOnlyOnNewConnection(1, ts1, ts2);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
   public void selectFirstColumn() {
-    final TestSubscriber<Long> ts1 = new TestSubscriber<>();
-    final Subscription s1 = Select
+    final TestObserver<Long> ts1 = Select
         .column(AUTHOR.ID)
         .from(AUTHOR)
         .takeFirst()
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<Long> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<Long> ts2 = Select
         .column(AUTHOR.ID)
         .from(AUTHOR)
         .usingConnection(newConnection)
         .takeFirst()
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     assertEventsOnlyOnNewConnection(0, ts1, ts2);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
   public void selectColumnCursor() {
-    final TestSubscriber<Cursor> ts1 = new TestSubscriber<>();
-    final Subscription s1 = Select
+    final TestObserver<Cursor> ts1 = Select
         .column(AUTHOR.ID)
         .from(AUTHOR)
         .toCursor()
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<Cursor> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<Cursor> ts2 = Select
         .column(AUTHOR.ID)
         .from(AUTHOR)
         .usingConnection(newConnection)
         .toCursor()
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     assertEventsOnlyOnNewConnection(1, ts1, ts2);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
   public void selectRaw() {
-    final TestSubscriber<Cursor> ts1 = new TestSubscriber<>();
-    final Subscription s1 = Select.raw("SELECT * FROM author")
+    final TestObserver<Cursor> ts1 = Select.raw("SELECT * FROM author")
         .from(AUTHOR)
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<Cursor> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select.raw("SELECT * FROM author")
+    final TestObserver<Cursor> ts2 = Select.raw("SELECT * FROM author")
         .from(AUTHOR)
         .usingConnection(newConnection)
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     assertEventsOnlyOnNewConnection(1, ts1, ts2);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
@@ -277,21 +259,19 @@ public final class DbConnectionTest {
         .usingConnection(newConnection)
         .execute();
 
-    final TestSubscriber<Long> ts1 = new TestSubscriber<>();
-    final Subscription s1 = SELECT_AUTHORS
+    final TestObserver<Long> ts1 = SELECT_AUTHORS
         .count()
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<Long> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<Long> ts2 = Select
         .from(AUTHOR)
         .usingConnection(newConnection)
         .count()
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     ts1.assertValue(1L);
     ts2.assertValue(1L);
@@ -303,8 +283,8 @@ public final class DbConnectionTest {
     ts1.assertValue(1L);
     ts2.assertValues(1L, 0L);
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
@@ -347,24 +327,22 @@ public final class DbConnectionTest {
     final Author a2 = Author.newRandom();
     a2.insert().usingConnection(newConnection).execute();
 
-    final TestSubscriber<String> ts1 = new TestSubscriber<>();
-    final Subscription s1 = Select
+    final TestObserver<String> ts1 = Select
         .column(AUTHOR.NAME)
         .from(AUTHOR)
         .takeFirst()
         .observe()
         .runQuery()
-        .subscribe(ts1);
+        .test();
 
-    final TestSubscriber<String> ts2 = new TestSubscriber<>();
-    final Subscription s2 = Select
+    final TestObserver<String> ts2 = Select
         .column(AUTHOR.NAME)
         .from(AUTHOR)
         .usingConnection(newConnection)
         .takeFirst()
         .observe()
         .runQuery()
-        .subscribe(ts2);
+        .test();
 
     ts1.assertValue(a1.name);
     ts2.assertValue(a2.name);
@@ -377,8 +355,8 @@ public final class DbConnectionTest {
     ts1.assertValue(a1.name);
     ts2.assertValues(a2.name, "asd");
 
-    s1.unsubscribe();
-    s2.unsubscribe();
+    ts1.dispose();
+    ts2.dispose();
   }
 
   @Test
@@ -412,9 +390,9 @@ public final class DbConnectionTest {
 
   @Test
   public void bulkInsert() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
@@ -472,9 +450,9 @@ public final class DbConnectionTest {
 
   @Test
   public void bulkUpdate() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
@@ -482,9 +460,9 @@ public final class DbConnectionTest {
         .usingConnection(newConnection)
         .execute();
 
-    final List<Author> updateVals = updateVals(vals, new Func1<Author, Author>() {
+    final List<Author> updateVals = updateVals(vals, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         final Author val = Author.newRandom();
         val.id = author.id;
         return val;
@@ -534,9 +512,9 @@ public final class DbConnectionTest {
 
   @Test
   public void bulkPersistWithInsert() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
@@ -553,9 +531,9 @@ public final class DbConnectionTest {
 
   @Test
   public void bulkPersistWithInsertIgnoringNull() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         final Author author = Author.newRandom();
         author.name = null;
         return author;
@@ -616,9 +594,9 @@ public final class DbConnectionTest {
 
   @Test
   public void bulkPersistWithUpdate() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
@@ -626,9 +604,9 @@ public final class DbConnectionTest {
         .usingConnection(newConnection)
         .execute();
 
-    final List<Author> updateVals = updateVals(vals, new Func1<Author, Author>() {
+    final List<Author> updateVals = updateVals(vals, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         final Author val = Author.newRandom();
         val.id = author.id;
         return val;
@@ -648,9 +626,9 @@ public final class DbConnectionTest {
 
   @Test
   public void bulkPersistWithUpdateIgnoringNull() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
@@ -658,9 +636,9 @@ public final class DbConnectionTest {
         .usingConnection(newConnection)
         .execute();
 
-    final List<Author> updateVals = updateVals(vals, new Func1<Author, Author>() {
+    final List<Author> updateVals = updateVals(vals, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         final Author val = Author.newRandom();
         val.id = author.id;
         return val;
@@ -680,24 +658,25 @@ public final class DbConnectionTest {
   }
 
   private void assertEventsOnlyOnNewConnection(int initialValueCount,
-                                               @NonNull TestSubscriber<?> defConnTs,
-                                               @NonNull TestSubscriber<?> newConnTs) {
+                                               @NonNull TestObserver<?> defConnTs,
+                                               @NonNull TestObserver<?> newConnTs) {
     defConnTs.assertValueCount(initialValueCount);
     newConnTs.assertValueCount(initialValueCount);
 
-    final Author author = Author.newRandom();
-    author.insert().usingConnection(newConnection).execute();
+    Author.newRandom()
+        .insert()
+        .usingConnection(newConnection)
+        .execute();
 
     defConnTs.assertValueCount(initialValueCount);
     newConnTs.assertValueCount(initialValueCount + 1);
   }
 
   private void assertOperationOnNewConnection(@NonNull Func0<List<Author>> operation) {
-    final Subscription defS = SELECT_AUTHORS.observe()
+    SELECT_AUTHORS.observe()
         .subscribe(defaultObserver);
 
-    final Subscription newS = Select
-        .from(AUTHOR)
+    Select.from(AUTHOR)
         .usingConnection(newConnection)
         .observe()
         .subscribe(newObserver);
@@ -712,15 +691,15 @@ public final class DbConnectionTest {
         .hasElements(vals)
         .isExhausted();
 
-    defS.unsubscribe();
-    newS.unsubscribe();
+    defaultObserver.dispose();
+    newObserver.dispose();
   }
 
   private void assertOperationOnNewConnection(@NonNull List<Author> initialVal, @NonNull Func0<List<Author>> operation) {
-    final Subscription defS = SELECT_AUTHORS.observe()
+    SELECT_AUTHORS.observe()
         .subscribe(defaultObserver);
 
-    final Subscription newS = Select
+    Select
         .from(AUTHOR)
         .usingConnection(newConnection)
         .observe()
@@ -738,8 +717,8 @@ public final class DbConnectionTest {
         .hasElements(vals)
         .isExhausted();
 
-    defS.unsubscribe();
-    newS.unsubscribe();
+    defaultObserver.dispose();
+    newObserver.dispose();
   }
 
   @NonNull
@@ -747,7 +726,7 @@ public final class DbConnectionTest {
     return SqliteMagic
         .setup(TestApp.INSTANCE)
         .withName("newConnection.db")
-        .scheduleRxQueriesOn(Schedulers.immediate())
+        .scheduleRxQueriesOn(Schedulers.trampoline())
         .openNewConnection();
   }
 }

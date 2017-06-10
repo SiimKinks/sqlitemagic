@@ -3,30 +3,23 @@ package com.siimkinks.sqlitemagic;
 import android.support.annotation.CallSuper;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 
-import rx.Observable;
-import rx.Scheduler;
-import rx.Subscriber;
-import rx.Subscription;
+import com.siimkinks.sqlitemagic.internal.MutableInt;
 
-import static rx.exceptions.Exceptions.throwOrReport;
+import java.util.Set;
+
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.Scheduler;
+import io.reactivex.functions.Function;
 
 /**
  * An executable query.
  */
 public abstract class Query<T> {
-  static final Subscription INFINITE_SUBSCRIPTION = new Subscription() {
-    @Override
-    public void unsubscribe() {
-      // ignore
-    }
-
-    @Override
-    public boolean isUnsubscribed() {
-      return false;
-    }
-  };
   @NonNull
   final DbConnectionImpl dbConnection;
 
@@ -48,7 +41,7 @@ public abstract class Query<T> {
   @CheckResult
   @WorkerThread
   public final T runBlocking() {
-    return runImpl(INFINITE_SUBSCRIPTION, true);
+    return map(rawQuery(true));
   }
 
   /**
@@ -68,22 +61,18 @@ public abstract class Query<T> {
   @NonNull
   @CheckResult
   public final Observable<T> run() {
-    return Observable.create(new Observable.OnSubscribe<T>() {
+    return Observable.create(new ObservableOnSubscribe<T>() {
       @Override
-      public void call(Subscriber<? super T> subscriber) {
-        try {
-          final T result = runImpl(subscriber, true);
-          if (!subscriber.isUnsubscribed()) {
-            if (result != null) {
-              subscriber.onNext(result);
-            }
-            if (!subscriber.isUnsubscribed()) {
-              subscriber.onCompleted();
-            }
-          }
-        } catch (Throwable t) {
-          throwOrReport(t, subscriber, Query.this.toString());
+      public void subscribe(ObservableEmitter<T> emitter) throws Exception {
+        final SqliteMagicCursor cursor = rawQuery(true);
+        if (emitter.isDisposed()) {
+          return;
         }
+        final T result = map(cursor);
+        if (result != null) {
+          emitter.onNext(result);
+        }
+        emitter.onComplete();
       }
     });
   }
@@ -91,15 +80,40 @@ public abstract class Query<T> {
   /**
    * Executes this query against a database.
    *
-   * @param subscriber Subscriber
-   * @param inStream   Whether query is executed in observable stream or synchronously
-   * @return Query result
+   * @param inStream
+   *     Whether query is executed in observable stream or synchronously
+   * @return Query result, maybe {@code null}
    */
   @CallSuper
-  T runImpl(@NonNull Subscription subscriber, boolean inStream) {
+  SqliteMagicCursor rawQuery(boolean inStream) {
     if (inStream && dbConnection.transactions.get() != null) {
       throw new IllegalStateException("Cannot execute observable query in a transaction.");
     }
     return null;
+  }
+
+  abstract T map(SqliteMagicCursor cursor);
+
+  static abstract class DatabaseQuery<T, E> extends Query<T> implements Function<Set<String>, Query<T>> {
+    @Nullable
+    final Mapper<E> mapper;
+
+    DatabaseQuery(@NonNull DbConnectionImpl dbConnection, @Nullable Mapper<E> mapper) {
+      super(dbConnection);
+      this.mapper = mapper;
+    }
+
+    @Override
+    public Query<T> apply(Set<String> __) throws Exception {
+      return this;
+    }
+  }
+
+  interface Mapper<R> {
+    R apply(@NonNull FastCursor cursor);
+  }
+
+  static abstract class MapperWithColumnOffset<R> implements Mapper<R> {
+    final MutableInt columnOffset = new MutableInt();
   }
 }

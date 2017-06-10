@@ -38,7 +38,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
 import static com.siimkinks.sqlitemagic.WriterUtil.addCallableToType;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterFromParentClass;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableCreateFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleCreateFromCallableParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
@@ -48,7 +48,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.dbVariableFromPresentConnecti
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerVariableFromDbConnection;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityParameter;
-import static com.siimkinks.sqlitemagic.WriterUtil.ifSubscriptionUnsubscribed;
+import static com.siimkinks.sqlitemagic.WriterUtil.ifDisposed;
 import static com.siimkinks.sqlitemagic.WriterUtil.insertStatementVariable;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationBuilderInnerClassSkeleton;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationRxCompletableMethod;
@@ -75,7 +75,7 @@ import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addInlin
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addMethodInternalCallOnComplexColumnsIfNeeded;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxCompletableEmitterTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addSetIdStatementIfNeeded;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addSubscriptionForEmitter;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addDisposableForEmitter;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addThrowOperationFailedExceptionWithEntityVariable;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTopMethodEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTopMethodStartBlock;
@@ -347,13 +347,13 @@ public class PersistWriter implements OperationWriter {
   private MethodSpec bulkPersistObserve(TypeSpec.Builder typeBuilder) {
     final MethodSpec.Builder builder = operationRxCompletableMethod()
         .addAnnotation(Override.class);
-    addRxCompletableFromEmitterFromParentClass(builder);
+    addRxCompletableCreateFromParentClass(builder);
     addRxCompletableFromEmitterToType(typeBuilder, new Callback<MethodSpec.Builder>() {
 
       @Override
       public void call(MethodSpec.Builder builder) {
         builder.addCode(dbConnectionVariable());
-        addSubscriptionForEmitter(builder);
+        addDisposableForEmitter(builder);
         addTransactionStartBlock(builder);
 
         builder.beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE);
@@ -388,7 +388,7 @@ public class PersistWriter implements OperationWriter {
   }
 
   private void addBulkPersistOnNext(MethodSpec.Builder builder) {
-    builder.beginControlFlow(ifSubscriptionUnsubscribed())
+    builder.beginControlFlow(ifDisposed())
         .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, ERROR_UNSUBSCRIBED_UNEXPECTEDLY)
         .endControlFlow();
   }

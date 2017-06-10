@@ -5,23 +5,24 @@ import android.util.Log;
 import com.siimkinks.sqlitemagic.Query;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 
-import rx.Subscriber;
+import io.reactivex.observers.DisposableObserver;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public final class RecordingObserver extends Subscriber<Query> {
+public final class RecordingObserver extends DisposableObserver<Query> {
   private static final Object COMPLETED = "<completed>";
   private static final String TAG = RecordingObserver.class.getSimpleName();
 
   private final BlockingDeque<Object> events = new LinkedBlockingDeque<>();
 
   @Override
-  public void onCompleted() {
-    Log.d(TAG, "onCompleted");
+  public void onComplete() {
+    Log.d(TAG, "onComplete");
     events.add(COMPLETED);
   }
 
@@ -34,11 +35,11 @@ public final class RecordingObserver extends Subscriber<Query> {
   @Override
   public void onNext(Query value) {
     Log.d(TAG, "onNext " + value);
-    events.add(value.runBlocking());
-  }
-
-  public void doRequest(long amount) {
-    request(amount);
+    try {
+      events.add(value.runBlocking());
+    } catch (Exception e) {
+      events.add(e);
+    }
   }
 
   private Object takeEvent() {
@@ -60,8 +61,8 @@ public final class RecordingObserver extends Subscriber<Query> {
 
   public ListAssert assertElements() {
     Object event = takeEvent();
-    assertThat(event).isInstanceOf(ArrayList.class);
-    return new ListAssert((ArrayList) event);
+    assertThat(event).isInstanceOf(List.class);
+    return new ListAssert((List) event);
   }
 
   public void assertErrorContains(String expected) {
@@ -79,10 +80,10 @@ public final class RecordingObserver extends Subscriber<Query> {
   }
 
   public static final class ListAssert {
-    private final ArrayList elements;
+    private final List elements;
     private int pos = 0;
 
-    ListAssert(ArrayList elements) {
+    ListAssert(List elements) {
       this.elements = elements;
     }
 

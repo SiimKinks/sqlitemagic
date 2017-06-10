@@ -5,7 +5,7 @@ import android.support.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.ConflictAlgorithm;
 
-import rx.Single;
+import io.reactivex.Single;
 
 /**
  * Builder for insert operation.

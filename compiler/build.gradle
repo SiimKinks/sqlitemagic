@@ -23,7 +23,7 @@ dependencies {
   compile libraries.guava
   compile libraries.lombok
   compile libraries.javapoet
-  compile libraries.rxJava
+  compile libraries.rxJava2
   compile libraries.dagger
   compile libraries.jackson
 
@@ -40,8 +40,10 @@ tasks.withType(Test) {
   include "**/*Test.class"
 }
 
-task(setupTestsEnv) << {
-  System.setProperty('SQLITE_MAGIC_AUTO_LIB', 'com.google.auto.value.AutoValue')
+task(setupTestsEnv) {
+  doFirst {
+    System.setProperty('SQLITE_MAGIC_AUTO_LIB', 'com.google.auto.value.AutoValue')
+  }
 }
 
 test.dependsOn setupTestsEnv

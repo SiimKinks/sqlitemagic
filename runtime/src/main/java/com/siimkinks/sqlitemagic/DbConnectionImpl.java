@@ -13,8 +13,9 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import rx.Scheduler;
-import rx.subjects.PublishSubject;
+import io.reactivex.Scheduler;
+import io.reactivex.functions.Consumer;
+import io.reactivex.subjects.PublishSubject;
 
 import static com.siimkinks.sqlitemagic.SqlUtil.getNrOfTables;
 
@@ -80,6 +81,15 @@ public class DbConnectionImpl implements DbConnection {
     }
   };
 
+  final Consumer<Object> ensureNotInTransaction = new Consumer<Object>() {
+    @Override
+    public void accept(Object __) throws Exception {
+      if (transactions.get() != null) {
+        throw new IllegalStateException("Cannot subscribe to observable query in a transaction.");
+      }
+    }
+  };
+
   DbConnectionImpl(@NonNull DbHelper dbHelper, @NonNull Scheduler queryScheduler) {
     this.dbHelper = dbHelper;
     this.queryScheduler = queryScheduler;
@@ -93,10 +103,10 @@ public class DbConnectionImpl implements DbConnection {
 
   @Override
   public final void close() {
-    if (triggers.hasCompleted()) {
+    if (triggers.hasComplete()) {
       return;
     }
-    triggers.onCompleted();
+    triggers.onComplete();
     synchronized (databaseLock) {
       final EntityDbManager[] cachedEntityData = this.entityDbManagers;
       for (int i = 0, length = cachedEntityData.length; i < length; i++) {

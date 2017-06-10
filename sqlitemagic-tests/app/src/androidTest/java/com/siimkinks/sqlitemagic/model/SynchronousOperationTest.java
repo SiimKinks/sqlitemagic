@@ -21,7 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-import rx.functions.Func1;
+import io.reactivex.functions.Function;
 
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_FAIL;
 import static com.google.common.truth.Truth.assertThat;
@@ -924,9 +924,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleMutableBulkInsert() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
@@ -939,9 +939,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithBuilderBulkInsert() {
-    final List<SimpleValueWithBuilder> vals = createVals(new Func1<Integer, SimpleValueWithBuilder>() {
+    final List<SimpleValueWithBuilder> vals = createVals(new Function<Integer, SimpleValueWithBuilder>() {
       @Override
-      public SimpleValueWithBuilder call(Integer integer) {
+      public SimpleValueWithBuilder apply(Integer integer) {
         return SimpleValueWithBuilder.newRandom().build();
       }
     });
@@ -953,9 +953,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithCreatorBulkInsert() {
-    final List<SimpleValueWithCreator> vals = createVals(new Func1<Integer, SimpleValueWithCreator>() {
+    final List<SimpleValueWithCreator> vals = createVals(new Function<Integer, SimpleValueWithCreator>() {
       @Override
-      public SimpleValueWithCreator call(Integer integer) {
+      public SimpleValueWithCreator apply(Integer integer) {
         return SimpleValueWithCreator.newRandom();
       }
     });
@@ -967,9 +967,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkInsert() {
-    final List<Magazine> val = createVals(new Func1<Integer, Magazine>() {
+    final List<Magazine> val = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         return Magazine.newRandom();
       }
     });
@@ -981,9 +981,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkInsert() {
-    final List<BuilderMagazine> val = createVals(new Func1<Integer, BuilderMagazine>() {
+    final List<BuilderMagazine> val = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom().build();
       }
     });
@@ -995,9 +995,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkInsert() {
-    final List<CreatorMagazine> val = createVals(new Func1<Integer, CreatorMagazine>() {
+    final List<CreatorMagazine> val = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         return CreatorMagazine.newRandom();
       }
     });
@@ -1009,18 +1009,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleMutableBulkUpdate() {
-    List<Author> vals = createVals(new Func1<Integer, Author>() {
+    List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
     boolean success = Author.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(vals, new Func1<Author, Author>() {
+    vals = updateVals(vals, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         final Author val = Author.newRandom();
         val.id = author.id;
         return val;
@@ -1035,18 +1035,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithBuilderBulkUpdate() {
-    List<SimpleValueWithBuilder> vals = createVals(new Func1<Integer, SimpleValueWithBuilder>() {
+    List<SimpleValueWithBuilder> vals = createVals(new Function<Integer, SimpleValueWithBuilder>() {
       @Override
-      public SimpleValueWithBuilder call(Integer integer) {
+      public SimpleValueWithBuilder apply(Integer integer) {
         return SimpleValueWithBuilder.newRandom().build();
       }
     });
     boolean success = SimpleValueWithBuilder.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_BUILDER).execute(), new Func1<SimpleValueWithBuilder, SimpleValueWithBuilder>() {
+    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_BUILDER).execute(), new Function<SimpleValueWithBuilder, SimpleValueWithBuilder>() {
       @Override
-      public SimpleValueWithBuilder call(SimpleValueWithBuilder val) {
+      public SimpleValueWithBuilder apply(SimpleValueWithBuilder val) {
         return SimpleValueWithBuilder.newRandom()
             .id(val.id())
             .build();
@@ -1061,18 +1061,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithCreatorBulkUpdate() {
-    List<SimpleValueWithCreator> vals = createVals(new Func1<Integer, SimpleValueWithCreator>() {
+    List<SimpleValueWithCreator> vals = createVals(new Function<Integer, SimpleValueWithCreator>() {
       @Override
-      public SimpleValueWithCreator call(Integer integer) {
+      public SimpleValueWithCreator apply(Integer integer) {
         return SimpleValueWithCreator.newRandom();
       }
     });
     boolean success = SimpleValueWithCreator.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_CREATOR).execute(), new Func1<SimpleValueWithCreator, SimpleValueWithCreator>() {
+    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_CREATOR).execute(), new Function<SimpleValueWithCreator, SimpleValueWithCreator>() {
       @Override
-      public SimpleValueWithCreator call(SimpleValueWithCreator val) {
+      public SimpleValueWithCreator apply(SimpleValueWithCreator val) {
         return SimpleValueWithCreator.newRandom(val.id());
       }
     });
@@ -1085,18 +1085,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkUpdate() {
-    List<Magazine> vals = createVals(new Func1<Integer, Magazine>() {
+    List<Magazine> vals = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         return Magazine.newRandom();
       }
     });
     boolean success = Magazine.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(vals, new Func1<Magazine, Magazine>() {
+    vals = updateVals(vals, new Function<Magazine, Magazine>() {
       @Override
-      public Magazine call(Magazine magazine) {
+      public Magazine apply(Magazine magazine) {
         final Magazine val = Magazine.newRandom();
         val.id = magazine.id;
         val.author.id = magazine.author.id;
@@ -1112,18 +1112,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkUpdate() {
-    List<BuilderMagazine> vals = createVals(new Func1<Integer, BuilderMagazine>() {
+    List<BuilderMagazine> vals = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom().build();
       }
     });
     boolean success = BuilderMagazine.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(BUILDER_MAGAZINE).execute(), new Func1<BuilderMagazine, BuilderMagazine>() {
+    vals = updateVals(Select.from(BUILDER_MAGAZINE).execute(), new Function<BuilderMagazine, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(BuilderMagazine builderMagazine) {
+      public BuilderMagazine apply(BuilderMagazine builderMagazine) {
         final Author author = Author.newRandom();
         author.id = builderMagazine.author().id;
         return BuilderMagazine.builder()
@@ -1146,18 +1146,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkUpdate() {
-    List<CreatorMagazine> vals = createVals(new Func1<Integer, CreatorMagazine>() {
+    List<CreatorMagazine> vals = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         return CreatorMagazine.newRandom();
       }
     });
     boolean success = CreatorMagazine.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(CREATOR_MAGAZINE).execute(), new Func1<CreatorMagazine, CreatorMagazine>() {
+    vals = updateVals(Select.from(CREATOR_MAGAZINE).execute(), new Function<CreatorMagazine, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(CreatorMagazine builderMagazine) {
+      public CreatorMagazine apply(CreatorMagazine builderMagazine) {
         final Author author = Author.newRandom();
         author.id = builderMagazine.author().id;
         return CreatorMagazine.create(
@@ -1179,9 +1179,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleMutableBulkPersistWithInsert() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
@@ -1194,9 +1194,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithBuilderBulkPersistWithInsert() {
-    final List<SimpleValueWithBuilder> vals = createVals(new Func1<Integer, SimpleValueWithBuilder>() {
+    final List<SimpleValueWithBuilder> vals = createVals(new Function<Integer, SimpleValueWithBuilder>() {
       @Override
-      public SimpleValueWithBuilder call(Integer integer) {
+      public SimpleValueWithBuilder apply(Integer integer) {
         return SimpleValueWithBuilder.newRandom().build();
       }
     });
@@ -1208,9 +1208,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithCreatorBulkPersistWithInsert() {
-    final List<SimpleValueWithCreator> vals = createVals(new Func1<Integer, SimpleValueWithCreator>() {
+    final List<SimpleValueWithCreator> vals = createVals(new Function<Integer, SimpleValueWithCreator>() {
       @Override
-      public SimpleValueWithCreator call(Integer integer) {
+      public SimpleValueWithCreator apply(Integer integer) {
         return SimpleValueWithCreator.newRandom();
       }
     });
@@ -1222,9 +1222,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkPersistWithInsert() {
-    final List<Magazine> val = createVals(new Func1<Integer, Magazine>() {
+    final List<Magazine> val = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         return Magazine.newRandom();
       }
     });
@@ -1236,9 +1236,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkPersistWithInsert() {
-    final List<BuilderMagazine> val = createVals(new Func1<Integer, BuilderMagazine>() {
+    final List<BuilderMagazine> val = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom().build();
       }
     });
@@ -1250,9 +1250,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkPersistWithInsert() {
-    final List<CreatorMagazine> val = createVals(new Func1<Integer, CreatorMagazine>() {
+    final List<CreatorMagazine> val = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         return CreatorMagazine.newRandom();
       }
     });
@@ -1264,18 +1264,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleMutableBulkPersistWithUpdate() {
-    List<Author> vals = createVals(new Func1<Integer, Author>() {
+    List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
     boolean success = Author.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(vals, new Func1<Author, Author>() {
+    vals = updateVals(vals, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         final Author val = Author.newRandom();
         val.id = author.id;
         return val;
@@ -1290,18 +1290,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithBuilderBulkPersistWithUpdate() {
-    List<SimpleValueWithBuilder> vals = createVals(new Func1<Integer, SimpleValueWithBuilder>() {
+    List<SimpleValueWithBuilder> vals = createVals(new Function<Integer, SimpleValueWithBuilder>() {
       @Override
-      public SimpleValueWithBuilder call(Integer integer) {
+      public SimpleValueWithBuilder apply(Integer integer) {
         return SimpleValueWithBuilder.newRandom().build();
       }
     });
     boolean success = SimpleValueWithBuilder.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_BUILDER).execute(), new Func1<SimpleValueWithBuilder, SimpleValueWithBuilder>() {
+    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_BUILDER).execute(), new Function<SimpleValueWithBuilder, SimpleValueWithBuilder>() {
       @Override
-      public SimpleValueWithBuilder call(SimpleValueWithBuilder val) {
+      public SimpleValueWithBuilder apply(SimpleValueWithBuilder val) {
         return SimpleValueWithBuilder.newRandom()
             .id(val.id())
             .build();
@@ -1316,18 +1316,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithCreatorBulkPersistWithUpdate() {
-    List<SimpleValueWithCreator> vals = createVals(new Func1<Integer, SimpleValueWithCreator>() {
+    List<SimpleValueWithCreator> vals = createVals(new Function<Integer, SimpleValueWithCreator>() {
       @Override
-      public SimpleValueWithCreator call(Integer integer) {
+      public SimpleValueWithCreator apply(Integer integer) {
         return SimpleValueWithCreator.newRandom();
       }
     });
     boolean success = SimpleValueWithCreator.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_CREATOR).execute(), new Func1<SimpleValueWithCreator, SimpleValueWithCreator>() {
+    vals = updateVals(Select.from(SIMPLE_VALUE_WITH_CREATOR).execute(), new Function<SimpleValueWithCreator, SimpleValueWithCreator>() {
       @Override
-      public SimpleValueWithCreator call(SimpleValueWithCreator val) {
+      public SimpleValueWithCreator apply(SimpleValueWithCreator val) {
         return SimpleValueWithCreator.newRandom(val.id());
       }
     });
@@ -1340,18 +1340,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkPersistWithUpdate() {
-    List<Magazine> vals = createVals(new Func1<Integer, Magazine>() {
+    List<Magazine> vals = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         return Magazine.newRandom();
       }
     });
     boolean success = Magazine.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(vals, new Func1<Magazine, Magazine>() {
+    vals = updateVals(vals, new Function<Magazine, Magazine>() {
       @Override
-      public Magazine call(Magazine magazine) {
+      public Magazine apply(Magazine magazine) {
         final Magazine val = Magazine.newRandom();
         val.id = magazine.id;
         val.author.id = magazine.author.id;
@@ -1367,18 +1367,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkPersistWithUpdate() {
-    List<BuilderMagazine> vals = createVals(new Func1<Integer, BuilderMagazine>() {
+    List<BuilderMagazine> vals = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom().build();
       }
     });
     boolean success = BuilderMagazine.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(BUILDER_MAGAZINE).execute(), new Func1<BuilderMagazine, BuilderMagazine>() {
+    vals = updateVals(Select.from(BUILDER_MAGAZINE).execute(), new Function<BuilderMagazine, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(BuilderMagazine builderMagazine) {
+      public BuilderMagazine apply(BuilderMagazine builderMagazine) {
         final Author author = Author.newRandom();
         author.id = builderMagazine.author().id;
         return BuilderMagazine.builder()
@@ -1401,18 +1401,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkPersistWithUpdate() {
-    List<CreatorMagazine> vals = createVals(new Func1<Integer, CreatorMagazine>() {
+    List<CreatorMagazine> vals = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         return CreatorMagazine.newRandom();
       }
     });
     boolean success = CreatorMagazine.insert(vals).execute();
     assertThat(success).isTrue();
 
-    vals = updateVals(Select.from(CREATOR_MAGAZINE).execute(), new Func1<CreatorMagazine, CreatorMagazine>() {
+    vals = updateVals(Select.from(CREATOR_MAGAZINE).execute(), new Function<CreatorMagazine, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(CreatorMagazine builderMagazine) {
+      public CreatorMagazine apply(CreatorMagazine builderMagazine) {
         final Author author = Author.newRandom();
         author.id = builderMagazine.author().id;
         return CreatorMagazine.create(
@@ -1434,9 +1434,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleMutableBulkPersistWithInsertIgnoringNull() {
-    final List<Author> vals = createVals(new Func1<Integer, Author>() {
+    final List<Author> vals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         final Author val = Author.newRandom();
         val.name = null;
         val.boxedBoolean = null;
@@ -1452,9 +1452,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithBuilderBulkPersistWithInsertIgnoringNull() {
-    final List<SimpleValueWithBuilderAndNullableFields> vals = createVals(new Func1<Integer, SimpleValueWithBuilderAndNullableFields>() {
+    final List<SimpleValueWithBuilderAndNullableFields> vals = createVals(new Function<Integer, SimpleValueWithBuilderAndNullableFields>() {
       @Override
-      public SimpleValueWithBuilderAndNullableFields call(Integer integer) {
+      public SimpleValueWithBuilderAndNullableFields apply(Integer integer) {
         return SimpleValueWithBuilderAndNullableFields.newRandom()
             .string(null)
             .boxedBoolean(null)
@@ -1469,9 +1469,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithCreatorBulkPersistWithInsertIgnoringNull() {
-    final List<SimpleValueWithCreatorAndNullableFields> vals = createVals(new Func1<Integer, SimpleValueWithCreatorAndNullableFields>() {
+    final List<SimpleValueWithCreatorAndNullableFields> vals = createVals(new Function<Integer, SimpleValueWithCreatorAndNullableFields>() {
       @Override
-      public SimpleValueWithCreatorAndNullableFields call(Integer integer) {
+      public SimpleValueWithCreatorAndNullableFields apply(Integer integer) {
         return SimpleValueWithCreatorAndNullableFields.create(
             null,
             null,
@@ -1487,9 +1487,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkPersistWithInsertIgnoringNull() {
-    final List<Magazine> val = createVals(new Func1<Integer, Magazine>() {
+    final List<Magazine> val = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         final Magazine val = Magazine.newRandom();
         val.name = null;
         return val;
@@ -1503,9 +1503,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkPersistWithInsertIgnoringComplexNull() {
-    final List<Magazine> val = createVals(new Func1<Integer, Magazine>() {
+    final List<Magazine> val = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         final Magazine val = Magazine.newRandom();
         val.name = null;
         val.author = null;
@@ -1520,9 +1520,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkPersistWithInsertIgnoringNull() {
-    final List<BuilderMagazine> val = createVals(new Func1<Integer, BuilderMagazine>() {
+    final List<BuilderMagazine> val = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom()
             .name(null)
             .build();
@@ -1536,9 +1536,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkPersistWithInsertIgnoringComplexNull() {
-    final List<BuilderMagazine> val = createVals(new Func1<Integer, BuilderMagazine>() {
+    final List<BuilderMagazine> val = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom()
             .name(null)
             .author(null)
@@ -1553,9 +1553,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkPersistWithInsertIgnoringNull() {
-    final List<CreatorMagazine> val = createVals(new Func1<Integer, CreatorMagazine>() {
+    final List<CreatorMagazine> val = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         final Random r = new Random();
         return CreatorMagazine.create(
             r.nextLong(),
@@ -1574,9 +1574,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkPersistWithInsertIgnoringComplexNull() {
-    final List<CreatorMagazine> val = createVals(new Func1<Integer, CreatorMagazine>() {
+    final List<CreatorMagazine> val = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         final Random r = new Random();
         return CreatorMagazine.create(
             r.nextLong(),
@@ -1595,18 +1595,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleMutableBulkPersistWithUpdateIgnoringNull() {
-    final List<Author> insertVals = createVals(new Func1<Integer, Author>() {
+    final List<Author> insertVals = createVals(new Function<Integer, Author>() {
       @Override
-      public Author call(Integer integer) {
+      public Author apply(Integer integer) {
         return Author.newRandom();
       }
     });
     boolean success = Author.insert(insertVals).execute();
     assertThat(success).isTrue();
 
-    final List<Author> updateVals = updateVals(insertVals, new Func1<Author, Author>() {
+    final List<Author> updateVals = updateVals(insertVals, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         final Author val = Author.newRandom();
         val.id = author.id;
         val.name = null;
@@ -1619,9 +1619,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<Author> updateValsIter = updateVals.iterator();
-    final List<Author> vals = updateVals(insertVals, new Func1<Author, Author>() {
+    final List<Author> vals = updateVals(insertVals, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         final Author val = Author.newRandom();
         val.id = author.id;
         val.name = author.name;
@@ -1636,9 +1636,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithBuilderBulkPersistWithUpdateIgnoringNull() {
-    List<SimpleValueWithBuilderAndNullableFields> insertVals = createVals(new Func1<Integer, SimpleValueWithBuilderAndNullableFields>() {
+    List<SimpleValueWithBuilderAndNullableFields> insertVals = createVals(new Function<Integer, SimpleValueWithBuilderAndNullableFields>() {
       @Override
-      public SimpleValueWithBuilderAndNullableFields call(Integer integer) {
+      public SimpleValueWithBuilderAndNullableFields apply(Integer integer) {
         return SimpleValueWithBuilderAndNullableFields.newRandom().build();
       }
     });
@@ -1646,9 +1646,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     insertVals = Select.from(SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS).execute();
-    final List<SimpleValueWithBuilderAndNullableFields> updateVals = updateVals(insertVals, new Func1<SimpleValueWithBuilderAndNullableFields, SimpleValueWithBuilderAndNullableFields>() {
+    final List<SimpleValueWithBuilderAndNullableFields> updateVals = updateVals(insertVals, new Function<SimpleValueWithBuilderAndNullableFields, SimpleValueWithBuilderAndNullableFields>() {
       @Override
-      public SimpleValueWithBuilderAndNullableFields call(SimpleValueWithBuilderAndNullableFields val) {
+      public SimpleValueWithBuilderAndNullableFields apply(SimpleValueWithBuilderAndNullableFields val) {
         return SimpleValueWithBuilderAndNullableFields.newRandom()
             .id(val.id())
             .string(null)
@@ -1661,9 +1661,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<SimpleValueWithBuilderAndNullableFields> updateValsIter = updateVals.iterator();
-    final List<SimpleValueWithBuilderAndNullableFields> vals = updateVals(insertVals, new Func1<SimpleValueWithBuilderAndNullableFields, SimpleValueWithBuilderAndNullableFields>() {
+    final List<SimpleValueWithBuilderAndNullableFields> vals = updateVals(insertVals, new Function<SimpleValueWithBuilderAndNullableFields, SimpleValueWithBuilderAndNullableFields>() {
       @Override
-      public SimpleValueWithBuilderAndNullableFields call(SimpleValueWithBuilderAndNullableFields val) {
+      public SimpleValueWithBuilderAndNullableFields apply(SimpleValueWithBuilderAndNullableFields val) {
         return SimpleValueWithBuilderAndNullableFields.newRandom()
             .id(val.id())
             .string(val.string())
@@ -1678,9 +1678,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void simpleImmutableWithCreatorBulkPersistWithUpdateIgnoringNull() {
-    List<SimpleValueWithCreatorAndNullableFields> insertVals = createVals(new Func1<Integer, SimpleValueWithCreatorAndNullableFields>() {
+    List<SimpleValueWithCreatorAndNullableFields> insertVals = createVals(new Function<Integer, SimpleValueWithCreatorAndNullableFields>() {
       @Override
-      public SimpleValueWithCreatorAndNullableFields call(Integer integer) {
+      public SimpleValueWithCreatorAndNullableFields apply(Integer integer) {
         return SimpleValueWithCreatorAndNullableFields.newRandom();
       }
     });
@@ -1688,9 +1688,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     insertVals = Select.from(SIMPLE_VALUE_WITH_CREATOR_AND_NULLABLE_FIELDS).execute();
-    final List<SimpleValueWithCreatorAndNullableFields> updateVals = updateVals(insertVals, new Func1<SimpleValueWithCreatorAndNullableFields, SimpleValueWithCreatorAndNullableFields>() {
+    final List<SimpleValueWithCreatorAndNullableFields> updateVals = updateVals(insertVals, new Function<SimpleValueWithCreatorAndNullableFields, SimpleValueWithCreatorAndNullableFields>() {
       @Override
-      public SimpleValueWithCreatorAndNullableFields call(SimpleValueWithCreatorAndNullableFields val) {
+      public SimpleValueWithCreatorAndNullableFields apply(SimpleValueWithCreatorAndNullableFields val) {
         return SimpleValueWithCreatorAndNullableFields.createWithId(
             val.id(),
             null,
@@ -1704,9 +1704,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<SimpleValueWithCreatorAndNullableFields> updateValsIter = updateVals.iterator();
-    final List<SimpleValueWithCreatorAndNullableFields> vals = updateVals(insertVals, new Func1<SimpleValueWithCreatorAndNullableFields, SimpleValueWithCreatorAndNullableFields>() {
+    final List<SimpleValueWithCreatorAndNullableFields> vals = updateVals(insertVals, new Function<SimpleValueWithCreatorAndNullableFields, SimpleValueWithCreatorAndNullableFields>() {
       @Override
-      public SimpleValueWithCreatorAndNullableFields call(SimpleValueWithCreatorAndNullableFields val) {
+      public SimpleValueWithCreatorAndNullableFields apply(SimpleValueWithCreatorAndNullableFields val) {
         return SimpleValueWithCreatorAndNullableFields.createWithId(
             val.id(),
             val.string(),
@@ -1721,18 +1721,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkPersistWithUpdateIgnoringNull() {
-    final List<Magazine> insertVals = createVals(new Func1<Integer, Magazine>() {
+    final List<Magazine> insertVals = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         return Magazine.newRandom();
       }
     });
     boolean success = Magazine.insert(insertVals).execute();
     assertThat(success).isTrue();
 
-    final List<Magazine> updateVals = updateVals(insertVals, new Func1<Magazine, Magazine>() {
+    final List<Magazine> updateVals = updateVals(insertVals, new Function<Magazine, Magazine>() {
       @Override
-      public Magazine call(Magazine magazine) {
+      public Magazine apply(Magazine magazine) {
         final Magazine val = Magazine.newRandom();
         val.id = magazine.id;
         val.name = null;
@@ -1745,9 +1745,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<Magazine> updateValsIter = updateVals.iterator();
-    final List<Magazine> vals = updateVals(insertVals, new Func1<Magazine, Magazine>() {
+    final List<Magazine> vals = updateVals(insertVals, new Function<Magazine, Magazine>() {
       @Override
-      public Magazine call(Magazine magazine) {
+      public Magazine apply(Magazine magazine) {
         final Magazine val = new Magazine();
         val.id = magazine.id;
         val.name = magazine.name;
@@ -1763,18 +1763,18 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexMutableBulkPersistWithUpdateIgnoringComplexNull() {
-    final List<Magazine> insertVals = createVals(new Func1<Integer, Magazine>() {
+    final List<Magazine> insertVals = createVals(new Function<Integer, Magazine>() {
       @Override
-      public Magazine call(Integer integer) {
+      public Magazine apply(Integer integer) {
         return Magazine.newRandom();
       }
     });
     boolean success = Magazine.insert(insertVals).execute();
     assertThat(success).isTrue();
 
-    final List<Magazine> updateVals = updateVals(insertVals, new Func1<Magazine, Magazine>() {
+    final List<Magazine> updateVals = updateVals(insertVals, new Function<Magazine, Magazine>() {
       @Override
-      public Magazine call(Magazine magazine) {
+      public Magazine apply(Magazine magazine) {
         final Magazine val = Magazine.newRandom();
         val.id = magazine.id;
         val.name = null;
@@ -1787,9 +1787,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<Magazine> updateValsIter = updateVals.iterator();
-    final List<Magazine> vals = updateVals(insertVals, new Func1<Magazine, Magazine>() {
+    final List<Magazine> vals = updateVals(insertVals, new Function<Magazine, Magazine>() {
       @Override
-      public Magazine call(Magazine magazine) {
+      public Magazine apply(Magazine magazine) {
         final Magazine val = new Magazine();
         val.id = magazine.id;
         val.name = magazine.name;
@@ -1804,9 +1804,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkPersistWithUpdateIgnoringNull() {
-    List<BuilderMagazine> insertVals = createVals(new Func1<Integer, BuilderMagazine>() {
+    List<BuilderMagazine> insertVals = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom().build();
       }
     });
@@ -1814,9 +1814,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     insertVals = Select.from(BUILDER_MAGAZINE).execute();
-    final List<BuilderMagazine> updateVals = updateVals(insertVals, new Func1<BuilderMagazine, BuilderMagazine>() {
+    final List<BuilderMagazine> updateVals = updateVals(insertVals, new Function<BuilderMagazine, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(BuilderMagazine builderMagazine) {
+      public BuilderMagazine apply(BuilderMagazine builderMagazine) {
         final Author author = Author.newRandom();
         author.id = builderMagazine.author().id;
         return BuilderMagazine.builder()
@@ -1835,9 +1835,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<BuilderMagazine> updateValsIter = updateVals.iterator();
-    final List<BuilderMagazine> vals = updateVals(insertVals, new Func1<BuilderMagazine, BuilderMagazine>() {
+    final List<BuilderMagazine> vals = updateVals(insertVals, new Function<BuilderMagazine, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(BuilderMagazine builderMagazine) {
+      public BuilderMagazine apply(BuilderMagazine builderMagazine) {
         final BuilderMagazine updateVal = updateValsIter.next();
         return BuilderMagazine.builder()
             .id(builderMagazine.id())
@@ -1854,9 +1854,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithBuilderBulkPersistWithUpdateIgnoringComplexNull() {
-    List<BuilderMagazine> insertVals = createVals(new Func1<Integer, BuilderMagazine>() {
+    List<BuilderMagazine> insertVals = createVals(new Function<Integer, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(Integer integer) {
+      public BuilderMagazine apply(Integer integer) {
         return BuilderMagazine.newRandom().build();
       }
     });
@@ -1864,9 +1864,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     insertVals = Select.from(BUILDER_MAGAZINE).queryDeep().execute();
-    final List<BuilderMagazine> updateVals = updateVals(insertVals, new Func1<BuilderMagazine, BuilderMagazine>() {
+    final List<BuilderMagazine> updateVals = updateVals(insertVals, new Function<BuilderMagazine, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(BuilderMagazine builderMagazine) {
+      public BuilderMagazine apply(BuilderMagazine builderMagazine) {
         return BuilderMagazine.builder()
             .id(builderMagazine.id())
             .name(null)
@@ -1883,9 +1883,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<BuilderMagazine> updateValsIter = updateVals.iterator();
-    final List<BuilderMagazine> vals = updateVals(insertVals, new Func1<BuilderMagazine, BuilderMagazine>() {
+    final List<BuilderMagazine> vals = updateVals(insertVals, new Function<BuilderMagazine, BuilderMagazine>() {
       @Override
-      public BuilderMagazine call(BuilderMagazine builderMagazine) {
+      public BuilderMagazine apply(BuilderMagazine builderMagazine) {
         final BuilderMagazine updateVal = updateValsIter.next();
         return BuilderMagazine.builder()
             .id(builderMagazine.id())
@@ -1902,9 +1902,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkPersistWithUpdateIgnoringNull() {
-    List<CreatorMagazine> insertVals = createVals(new Func1<Integer, CreatorMagazine>() {
+    List<CreatorMagazine> insertVals = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         return CreatorMagazine.newRandom();
       }
     });
@@ -1912,9 +1912,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     insertVals = Select.from(CREATOR_MAGAZINE).execute();
-    final List<CreatorMagazine> updateVals = updateVals(insertVals, new Func1<CreatorMagazine, CreatorMagazine>() {
+    final List<CreatorMagazine> updateVals = updateVals(insertVals, new Function<CreatorMagazine, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(CreatorMagazine builderMagazine) {
+      public CreatorMagazine apply(CreatorMagazine builderMagazine) {
         final Author author = Author.newRandom();
         author.id = builderMagazine.author().id;
         return CreatorMagazine.create(
@@ -1932,9 +1932,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<CreatorMagazine> updateValsIter = updateVals.iterator();
-    final List<CreatorMagazine> vals = updateVals(insertVals, new Func1<CreatorMagazine, CreatorMagazine>() {
+    final List<CreatorMagazine> vals = updateVals(insertVals, new Function<CreatorMagazine, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(CreatorMagazine builderMagazine) {
+      public CreatorMagazine apply(CreatorMagazine builderMagazine) {
         final CreatorMagazine updateVal = updateValsIter.next();
         return CreatorMagazine.create(
             builderMagazine.id(),
@@ -1950,9 +1950,9 @@ public final class SynchronousOperationTest {
 
   @Test
   public void complexImmutableWithCreatorBulkPersistWithUpdateIgnoringComplexNull() {
-    List<CreatorMagazine> insertVals = createVals(new Func1<Integer, CreatorMagazine>() {
+    List<CreatorMagazine> insertVals = createVals(new Function<Integer, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(Integer integer) {
+      public CreatorMagazine apply(Integer integer) {
         return CreatorMagazine.newRandom();
       }
     });
@@ -1960,9 +1960,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     insertVals = Select.from(CREATOR_MAGAZINE).queryDeep().execute();
-    final List<CreatorMagazine> updateVals = updateVals(insertVals, new Func1<CreatorMagazine, CreatorMagazine>() {
+    final List<CreatorMagazine> updateVals = updateVals(insertVals, new Function<CreatorMagazine, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(CreatorMagazine builderMagazine) {
+      public CreatorMagazine apply(CreatorMagazine builderMagazine) {
         return CreatorMagazine.create(
             builderMagazine.id(),
             null,
@@ -1978,9 +1978,9 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     final Iterator<CreatorMagazine> updateValsIter = updateVals.iterator();
-    final List<CreatorMagazine> vals = updateVals(insertVals, new Func1<CreatorMagazine, CreatorMagazine>() {
+    final List<CreatorMagazine> vals = updateVals(insertVals, new Function<CreatorMagazine, CreatorMagazine>() {
       @Override
-      public CreatorMagazine call(CreatorMagazine builderMagazine) {
+      public CreatorMagazine apply(CreatorMagazine builderMagazine) {
         final CreatorMagazine updateVal = updateValsIter.next();
         return CreatorMagazine.create(
             builderMagazine.id(),

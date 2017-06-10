@@ -22,8 +22,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import lombok.experimental.Builder;
-import rx.functions.Func1;
-import rx.functions.Func2;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;

@@ -14,9 +14,6 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import rx.functions.Func1;
-import rx.functions.Func2;
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.BookTable.BOOK;

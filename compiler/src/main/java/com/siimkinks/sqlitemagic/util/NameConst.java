@@ -31,9 +31,7 @@ public final class NameConst {
   public static final String METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL = "addShallowQueryPartsInternal";
   public static final String METHOD_ADD_DEEP_QUERY_PARTS = "addDeepQueryParts";
   public static final String METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL = "addDeepQueryPartsInternal";
-  public static final String METHOD_ALL_FROM_CURSOR = "allFromCursor";
-  public static final String METHOD_FIRST_FROM_CURSOR = "firstFromCursor";
-  public static final String METHOD_FROM_CURSOR_POSITION = "fromCurrentCursorPosition";
+  public static final String METHOD_MAPPER = "mapper";
   public static final String METHOD_FULL_OBJECT_FROM_CURSOR_POSITION = "fullObjectFromCursorPosition";
   public static final String METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION = "shallowObjectFromCursorPosition";
   public static final String METHOD_CREATE_VIEW = "createView";

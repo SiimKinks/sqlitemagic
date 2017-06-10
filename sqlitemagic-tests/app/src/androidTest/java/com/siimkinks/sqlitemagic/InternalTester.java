@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic;
 
 import java.util.Set;
 
-import rx.subjects.PublishSubject;
+import io.reactivex.subjects.PublishSubject;
 
 import static com.google.common.truth.Truth.assertThat;
 

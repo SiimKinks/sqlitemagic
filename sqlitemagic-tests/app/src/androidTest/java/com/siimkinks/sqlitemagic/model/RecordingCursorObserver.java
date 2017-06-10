@@ -3,25 +3,25 @@ package com.siimkinks.sqlitemagic.model;
 import android.database.Cursor;
 import android.util.Log;
 
+import com.siimkinks.sqlitemagic.Func1;
 import com.siimkinks.sqlitemagic.Query;
 
 import java.util.ArrayList;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 
-import rx.Subscriber;
-import rx.functions.Func1;
+import io.reactivex.observers.DisposableObserver;
 
 import static com.google.common.truth.Truth.assertThat;
 
-class RecordingCursorObserver extends Subscriber<Query> {
+class RecordingCursorObserver extends DisposableObserver<Query> {
   private static final Object COMPLETED = "<completed>";
   private static final String TAG = RecordingCursorObserver.class.getSimpleName();
 
   final BlockingDeque<Object> events = new LinkedBlockingDeque<>();
 
   @Override
-  public final void onCompleted() {
+  public final void onComplete() {
     Log.d(TAG, "onCompleted");
     events.add(COMPLETED);
   }
@@ -35,11 +35,11 @@ class RecordingCursorObserver extends Subscriber<Query> {
   @Override
   public final void onNext(Query value) {
     Log.d(TAG, "onNext " + value);
-    events.add(value.runBlocking());
-  }
-
-  public final void doRequest(long amount) {
-    request(amount);
+    try {
+      events.add(value.runBlocking());
+    } catch (Exception e) {
+      events.add(e);
+    }
   }
 
   protected Object takeEvent() {

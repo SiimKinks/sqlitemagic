@@ -14,9 +14,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import rx.Subscription;
-import rx.observers.TestSubscriber;
-import rx.schedulers.Schedulers;
+import io.reactivex.observers.TestObserver;
+import io.reactivex.schedulers.Schedulers;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -48,19 +47,18 @@ public final class DbDefaultConnectionTest {
     assertThat(readableDatabase.isOpen()).isFalse();
     assertThat(writableDatabase.isOpen()).isFalse();
     assertThat(dbConnection.triggers.hasObservers()).isFalse();
-    assertThat(dbConnection.triggers.hasCompleted()).isTrue();
+    assertThat(dbConnection.triggers.hasComplete()).isTrue();
   }
 
   @Test
   public void reInitCompletesQueries() {
     final DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
 
-    final TestSubscriber<List<Author>> ts = new TestSubscriber<>();
-    final Subscription subscription = Select
+    final TestObserver<List<Author>> ts = Select
         .from(AUTHOR)
         .observe()
         .runQuery()
-        .subscribe(ts);
+        .test();
     final ArrayList<Author> authors = insertAuthors(5);
 
     initDbWithNewConnection();
@@ -69,9 +67,8 @@ public final class DbDefaultConnectionTest {
 
     ts.awaitTerminalEvent();
     ts.assertValues(Collections.<Author>emptyList(), authors);
-    ts.assertCompleted();
+    ts.assertComplete();
     ts.assertNoErrors();
-    assertThat(subscription.isUnsubscribed()).isTrue();
     assertThat(dbConnection.triggers.hasObservers()).isFalse();
   }
 
@@ -79,44 +76,40 @@ public final class DbDefaultConnectionTest {
   public void queryAfterReInit() {
     final DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
 
-    final TestSubscriber<List<Author>> tsBefore = new TestSubscriber<>();
-    final Subscription subscriptionBefore = Select
+    final TestObserver<List<Author>> tsBefore = Select
         .from(AUTHOR)
         .observe()
         .runQuery()
-        .subscribe(tsBefore);
+        .test();
     final ArrayList<Author> authorsBefore = insertAuthors(5);
 
     initDbWithNewConnection();
 
-    final TestSubscriber<List<Author>> tsAfter = new TestSubscriber<>();
-    final Subscription subscriptionAfter = Select
+    final TestObserver<List<Author>> tsAfter = Select
         .from(AUTHOR)
         .observe()
         .runQuery()
         .take(2)
-        .subscribe(tsAfter);
+        .test();
     final ArrayList<Author> authorsAfter = insertAuthors(5);
 
     tsBefore.awaitTerminalEvent();
     tsBefore.assertValues(Collections.<Author>emptyList(), authorsBefore);
-    tsBefore.assertCompleted();
+    tsBefore.assertComplete();
     tsBefore.assertNoErrors();
-    assertThat(subscriptionBefore.isUnsubscribed()).isTrue();
     assertThat(dbConnection.triggers.hasObservers()).isFalse();
 
     tsAfter.awaitTerminalEvent();
     tsAfter.assertValues(Collections.<Author>emptyList(), authorsAfter);
-    tsAfter.assertCompleted();
+    tsAfter.assertComplete();
     tsAfter.assertNoErrors();
-    assertThat(subscriptionAfter.isUnsubscribed()).isTrue();
     assertTriggersHaveNoObservers();
   }
 
   private void initDbWithNewConnection() {
     SqliteMagic.setup(TestApp.INSTANCE)
         .withName("new.db")
-        .scheduleRxQueriesOn(Schedulers.immediate())
+        .scheduleRxQueriesOn(Schedulers.trampoline())
         .init();
   }
 }

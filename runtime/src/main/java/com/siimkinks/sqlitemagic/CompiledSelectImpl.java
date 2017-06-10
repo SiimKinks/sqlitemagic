@@ -7,24 +7,22 @@ import android.database.sqlite.SQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.annotation.WorkerThread;
 
-import com.siimkinks.sqlitemagic.internal.MutableInt;
+import com.siimkinks.sqlitemagic.Query.DatabaseQuery;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import rx.Observable;
-import rx.Subscription;
-import rx.functions.Action0;
-import rx.functions.Func1;
+import io.reactivex.Observable;
+import io.reactivex.functions.Predicate;
 
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-// TODO optimize string allocations
-final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledSelect<T, S> {
+final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implements CompiledSelect<T, S> {
   @NonNull
   final String sql;
   @Nullable
@@ -47,7 +45,7 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
                      @Nullable SimpleArrayMap<String, Integer> columns,
                      @Nullable SimpleArrayMap<String, String> tableGraphNodeNames,
                      boolean queryDeep) {
-    super(dbConnection);
+    super(dbConnection, table.mapper(columns, tableGraphNodeNames, queryDeep));
     this.sql = sql;
     this.args = args;
     this.table = table;
@@ -58,24 +56,36 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
   }
 
   @NonNull
-  @CheckResult
   @Override
-  List<T> runImpl(@NonNull Subscription subscription, boolean inStream) {
-    super.runImpl(subscription, inStream);
+  SqliteMagicCursor rawQuery(boolean inStream) {
+    super.rawQuery(inStream);
     final SQLiteDatabase db = dbConnection.getReadableDatabase();
-    SqliteMagicCursor cursor = null;
+    final long startNanos = nanoTime();
+    final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+    if (SqliteMagic.LOGGING_ENABLED) {
+      final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
+      LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
+    }
+    return cursor;
+  }
+
+  @Override
+  List<T> map(@NonNull SqliteMagicCursor cursor) {
     try {
-      final long startNanos = nanoTime();
-      cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
-      if (SqliteMagic.LOGGING_ENABLED) {
-        final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
-        LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
+      final FastCursor fastCursor = cursor.getFastCursor();
+      final int rowCount = fastCursor.getCount();
+      if (rowCount == 0) {
+        return Collections.emptyList();
       }
-      return table.allFromCursor(cursor.getFastCursor(), columns, tableGraphNodeNames, queryDeep, subscription);
+      final Mapper<T> mapper = this.mapper;
+      final ArrayList<T> values = new ArrayList<>(rowCount);
+      while (fastCursor.moveToNext()) {
+        //noinspection ConstantConditions -- mapper is not null here
+        values.add(mapper.apply(fastCursor));
+      }
+      return values;
     } finally {
-      if (cursor != null) {
-        cursor.close();
-      }
+      cursor.close();
     }
   }
 
@@ -85,42 +95,36 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
   }
 
   @NonNull
-  @CheckResult
-  @WorkerThread
   @Override
   public List<T> execute() {
-    return runImpl(INFINITE_SUBSCRIPTION, false);
+    return map(rawQuery(false));
   }
 
   @NonNull
-  @CheckResult
   @Override
-  public QueryObservable<List<T>> observe() {
-    return new QueryObservable<>(createQueryObservable(observedTables, (Query<List<T>>) this));
+  public ListQueryObservable<T> observe() {
+    return new ListQueryObservable<>(createQueryObservable(observedTables, this));
   }
 
   @NonNull
-  @CheckResult
   @Override
   public CompiledFirstSelect<T, S> takeFirst() {
     return new CompiledFirstSelectImpl<>(this, dbConnection);
   }
 
   @NonNull
-  @CheckResult
   @Override
   public CompiledCountSelect<S> count() {
     return new CompiledCountSelectImpl<>(sql, args, dbConnection, observedTables);
   }
 
   @NonNull
-  @CheckResult
   @Override
   public CompiledCursorSelect<T, S> toCursor() {
     return new CompiledCursorSelectImpl<>(this, dbConnection);
   }
 
-  static final class CompiledCountSelectImpl<S> extends Query<Long> implements CompiledCountSelect<S> {
+  static final class CompiledCountSelectImpl<S> extends DatabaseQuery<Long, Long> implements CompiledCountSelect<S> {
     @NonNull
     private final SQLiteStatement countStm;
     @NonNull
@@ -134,7 +138,7 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
                             @Nullable String[] args,
                             @NonNull DbConnectionImpl dbConnection,
                             @NonNull String[] observedTables) {
-      super(dbConnection);
+      super(dbConnection, null);
       final String sql = addCountFunction(parentSql);
       final SQLiteStatement countStm = dbConnection.compileStatement(sql);
       countStm.bindAllArgsAsStrings(args);
@@ -155,15 +159,11 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
       return sb.toString();
     }
 
-    @NonNull
     @Override
-    Long runImpl(@NonNull Subscription subscriber, boolean inStream) {
-      super.runImpl(subscriber, inStream);
+    Long map(SqliteMagicCursor __) {
       return execute();
     }
 
-    @CheckResult
-    @WorkerThread
     @Override
     public long execute() {
       final long count;
@@ -180,10 +180,9 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
     }
 
     @NonNull
-    @CheckResult
     @Override
     public CountQueryObservable observe() {
-      return new CountQueryObservable(createQueryObservable(observedTables, (Query<Long>) this));
+      return new CountQueryObservable(createQueryObservable(observedTables, this));
     }
 
     @Override
@@ -192,7 +191,7 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
     }
   }
 
-  static final class CompiledCursorSelectImpl<T, S> extends Query<Cursor> implements CompiledCursorSelect<T, S> {
+  static final class CompiledCursorSelectImpl<T, S> extends DatabaseQuery<Cursor, T> implements CompiledCursorSelect<T, S> {
     @NonNull
     private final String sql;
     @Nullable
@@ -206,12 +205,10 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
     @Nullable
     private final SimpleArrayMap<String, String> tableGraphNodeNames;
     private final boolean queryDeep;
-    @NonNull
-    private final MutableInt columnOffset = new MutableInt();
 
     CompiledCursorSelectImpl(@NonNull CompiledSelectImpl<T, S> compiledSelect,
                              @NonNull DbConnectionImpl dbConnection) {
-      super(dbConnection);
+      super(dbConnection, compiledSelect.mapper);
       this.sql = compiledSelect.sql;
       this.args = compiledSelect.args;
       this.table = compiledSelect.table;
@@ -222,21 +219,20 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
     }
 
     @Nullable
-    @CheckResult
-    @WorkerThread
     @Override
     public T getFromCurrentPosition(@NonNull Cursor cursor) {
-      columnOffset.value = 0;
-      return table.fromCurrentCursorPosition(((SqliteMagicCursor) cursor).getFastCursorAndSync(), columns, tableGraphNodeNames, queryDeep, columnOffset);
+      final FastCursor fastCursor = ((SqliteMagicCursor) cursor).getFastCursorAndSync();
+      //noinspection ConstantConditions -- mapper is not null here
+      return mapper.apply(fastCursor);
     }
 
     @NonNull
     @Override
-    Cursor runImpl(@NonNull Subscription subscriber, boolean inStream) {
-      super.runImpl(subscriber, inStream);
+    SqliteMagicCursor rawQuery(boolean inStream) {
+      super.rawQuery(inStream);
       final SQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final Cursor cursor = db.rawQueryWithFactory(null, sql, args, null, null);
+      final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
@@ -244,19 +240,21 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
       return cursor;
     }
 
-    @NonNull
-    @CheckResult
-    @WorkerThread
     @Override
-    public Cursor execute() {
-      return runImpl(INFINITE_SUBSCRIPTION, false);
+    Cursor map(@NonNull SqliteMagicCursor cursor) {
+      return cursor;
     }
 
     @NonNull
-    @CheckResult
     @Override
-    public QueryObservable<Cursor> observe() {
-      return new QueryObservable<>(createQueryObservable(observedTables, (Query<Cursor>) this));
+    public Cursor execute() {
+      return rawQuery(false);
+    }
+
+    @NonNull
+    @Override
+    public SingleItemQueryObservable<Cursor> observe() {
+      return new SingleItemQueryObservable<>(createQueryObservable(observedTables, this));
     }
 
     @Override
@@ -265,7 +263,7 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
     }
   }
 
-  static final class CompiledFirstSelectImpl<T, S> extends Query<T> implements CompiledFirstSelect<T, S> {
+  static final class CompiledFirstSelectImpl<T, S> extends DatabaseQuery<T, T> implements CompiledFirstSelect<T, S> {
     @NonNull
     final String sql;
     @Nullable
@@ -282,7 +280,7 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
 
     CompiledFirstSelectImpl(@NonNull CompiledSelectImpl<T, S> compiledSelect,
                             @NonNull DbConnectionImpl dbConnection) {
-      super(dbConnection);
+      super(dbConnection, compiledSelect.mapper);
       this.sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql);
       this.args = compiledSelect.args;
       this.table = compiledSelect.table;
@@ -305,40 +303,44 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
       return sql + "LIMIT 1 ";
     }
 
-    @Nullable
+    @NonNull
     @Override
-    T runImpl(@NonNull Subscription subscriber, boolean inStream) {
-      super.runImpl(subscriber, inStream);
+    SqliteMagicCursor rawQuery(boolean inStream) {
+      super.rawQuery(inStream);
       final SQLiteDatabase db = dbConnection.getReadableDatabase();
-      SqliteMagicCursor cursor = null;
+      final long startNanos = nanoTime();
+      final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+      if (SqliteMagic.LOGGING_ENABLED) {
+        final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
+        LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
+      }
+      return cursor;
+    }
+
+    @Override
+    T map(@NonNull SqliteMagicCursor cursor) {
       try {
-        final long startNanos = nanoTime();
-        cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
-        if (SqliteMagic.LOGGING_ENABLED) {
-          final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
-          LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
+        final FastCursor fastCursor = cursor.getFastCursor();
+        if (fastCursor.moveToNext()) {
+          //noinspection ConstantConditions -- mapper is not null here
+          return mapper.apply(fastCursor);
         }
-        return table.firstFromCursor(cursor.getFastCursor(), columns, tableGraphNodeNames, queryDeep);
+        return null;
       } finally {
-        if (cursor != null) {
-          cursor.close();
-        }
+        cursor.close();
       }
     }
 
     @Nullable
-    @CheckResult
-    @WorkerThread
     @Override
     public T execute() {
-      return runImpl(INFINITE_SUBSCRIPTION, false);
+      return map(rawQuery(false));
     }
 
     @NonNull
-    @CheckResult
     @Override
-    public QueryObservable<T> observe() {
-      return new QueryObservable<>(createQueryObservable(observedTables, (Query<T>) this));
+    public SingleItemQueryObservable<T> observe() {
+      return new SingleItemQueryObservable<>(createQueryObservable(observedTables, this));
     }
 
     @Override
@@ -349,26 +351,26 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
 
   @NonNull
   @CheckResult
-  static <Q extends Query> Observable<Q> createQueryObservable(@NonNull final String[] observedTables,
-                                                               @NonNull final Q query) {
-    final Func1<Set<String>, Boolean> tableFilter;
+  static <Q extends DatabaseQuery<T, E>, T, E> Observable<Query<T>> createQueryObservable(@NonNull final String[] observedTables,
+                                                                                          @NonNull final Q query) {
+    final Predicate<Set<String>> tableFilter;
     if (observedTables.length > 1) {
-      tableFilter = new Func1<Set<String>, Boolean>() {
+      tableFilter = new Predicate<Set<String>>() {
         @Override
-        public Boolean call(Set<String> triggers) {
+        public boolean test(Set<String> triggers) {
           for (String table : observedTables) {
             if (triggers.contains(table)) {
-              return Boolean.TRUE;
+              return true;
             }
           }
-          return Boolean.FALSE;
+          return false;
         }
       };
     } else {
       final String table = observedTables[0];
-      tableFilter = new Func1<Set<String>, Boolean>() {
+      tableFilter = new Predicate<Set<String>>() {
         @Override
-        public Boolean call(Set<String> triggers) {
+        public boolean test(Set<String> triggers) {
           return triggers.contains(table);
         }
       };
@@ -376,23 +378,9 @@ final class CompiledSelectImpl<T, S> extends Query<List<T>> implements CompiledS
     final DbConnectionImpl dbConnectionImpl = query.dbConnection;
     return dbConnectionImpl.triggers
         .filter(tableFilter) // Only trigger on tables we care about.
-        .map(new Func1<Set<String>, Q>() {
-          @Override
-          public Q call(Set<String> triggers) {
-            return query;
-          }
-        })
-        .onBackpressureLatest() // Guard against uncontrollable frequency of upstream emissions.
+        .map(query)
         .startWith(query)
         .observeOn(dbConnectionImpl.queryScheduler)
-        .onBackpressureLatest() // Guard against uncontrollable frequency of scheduler executions.
-        .doOnSubscribe(new Action0() {
-          @Override
-          public void call() {
-            if (dbConnectionImpl.transactions.get() != null) {
-              throw new IllegalStateException("Cannot subscribe to observable query in a transaction.");
-            }
-          }
-        });
+        .doOnSubscribe(dbConnectionImpl.ensureNotInTransaction);
   }
 }

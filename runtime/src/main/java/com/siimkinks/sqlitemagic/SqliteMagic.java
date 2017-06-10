@@ -5,8 +5,8 @@ import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
-import rx.Scheduler;
-import rx.schedulers.Schedulers;
+import io.reactivex.Scheduler;
+import io.reactivex.schedulers.Schedulers;
 
 import static com.siimkinks.sqlitemagic.SqlUtil.getDbName;
 import static com.siimkinks.sqlitemagic.SqlUtil.getDbVersion;

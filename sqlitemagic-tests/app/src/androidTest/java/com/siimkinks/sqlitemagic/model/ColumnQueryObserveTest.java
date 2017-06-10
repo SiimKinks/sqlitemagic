@@ -10,8 +10,8 @@ import org.junit.Test;
 
 import java.util.List;
 
-import rx.Subscription;
-import rx.functions.Func1;
+import io.reactivex.Observable;
+import io.reactivex.functions.Function;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -20,7 +20,6 @@ import static com.siimkinks.sqlitemagic.InternalTester.assertTriggersHaveNoObser
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertComplexValuesWithSameLeafs;
-import static rx.Observable.from;
 
 public final class ColumnQueryObserveTest {
 
@@ -46,18 +45,17 @@ public final class ColumnQueryObserveTest {
 
   @Test
   public void simpleColumnListQueryObservesChanges() {
-    final List<String> expected = from(insertAuthors(9))
-        .map(new Func1<Author, String>() {
+    final List<String> expected = Observable.fromIterable(insertAuthors(9))
+        .map(new Function<Author, String>() {
           @Override
-          public String call(Author author) {
+          public String apply(Author author) {
             return author.name;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
-    final Subscription subscription = Select
+    Select
         .column(AUTHOR.NAME)
         .from(AUTHOR)
         .observe()
@@ -79,22 +77,21 @@ public final class ColumnQueryObserveTest {
         .hasSingleElement(a.name)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void simpleColumnFirstQueryObservesChanges() {
-    final String expected = from(insertAuthors(9))
-        .map(new Func1<Author, String>() {
+    final String expected = Observable.fromIterable(insertAuthors(9))
+        .map(new Function<Author, String>() {
           @Override
-          public String call(Author author) {
+          public String apply(Author author) {
             return author.name;
           }
         })
-        .toBlocking()
-        .last();
+        .blockingLast();
 
-    final Subscription subscription = Select.column(AUTHOR.NAME)
+    Select.column(AUTHOR.NAME)
         .from(AUTHOR)
         .orderBy(AUTHOR.ID.desc())
         .takeFirst()
@@ -112,23 +109,22 @@ public final class ColumnQueryObserveTest {
     assertThat(a.persist().execute()).isNotEqualTo(-1);
     o.assertSingleElement(a.name);
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void complexColumnListQueryObservesChanges() {
-    final List<String> expected = from(insertComplexValuesWithSameLeafs(9))
-        .map(new Func1<ComplexObjectWithSameLeafs, String>() {
+    final List<String> expected = Observable.fromIterable(insertComplexValuesWithSameLeafs(9))
+        .map(new Function<ComplexObjectWithSameLeafs, String>() {
           @Override
-          public String call(ComplexObjectWithSameLeafs v) {
+          public String apply(ComplexObjectWithSameLeafs v) {
             return v.magazine.name;
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
-    final Subscription subscription = Select
+    Select
         .column(MAGAZINE.NAME)
         .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
         .observe()
@@ -163,22 +159,21 @@ public final class ColumnQueryObserveTest {
         .hasSingleElement(c.magazine.name)
         .isExhausted();
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 
   @Test
   public void complexColumnFirstQueryObservesChanges() {
-    final String expected = from(insertComplexValuesWithSameLeafs(9))
-        .map(new Func1<ComplexObjectWithSameLeafs, String>() {
+    final String expected = Observable.fromIterable(insertComplexValuesWithSameLeafs(9))
+        .map(new Function<ComplexObjectWithSameLeafs, String>() {
           @Override
-          public String call(ComplexObjectWithSameLeafs v) {
+          public String apply(ComplexObjectWithSameLeafs v) {
             return v.magazine.name;
           }
         })
-        .toBlocking()
-        .last();
+        .blockingLast();
 
-    final Subscription subscription = Select
+    Select
         .column(MAGAZINE.NAME)
         .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
         .orderBy(COMPLEX_OBJECT_WITH_SAME_LEAFS.ID.desc())
@@ -208,6 +203,6 @@ public final class ColumnQueryObserveTest {
     assertThat(c.persist().execute()).isNotEqualTo(-1);
     o.assertSingleElement(c.magazine.name);
 
-    subscription.unsubscribe();
+    o.dispose();
   }
 }

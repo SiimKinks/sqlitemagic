@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic.entity;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 
-import rx.Completable;
+import io.reactivex.Completable;
 
 /**
  * Builder for bulk persist operation.

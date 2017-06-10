@@ -28,21 +28,17 @@ import static com.siimkinks.sqlitemagic.Const.STATEMENT_METHOD_MAP;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.SqliteMagicProcessor.GENERATE_LOGGING;
 import static com.siimkinks.sqlitemagic.WriterUtil.CONTENT_VALUES;
+import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLE;
+import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLES;
 import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
-import static com.siimkinks.sqlitemagic.WriterUtil.SUBSCRIPTION;
-import static com.siimkinks.sqlitemagic.WriterUtil.SUBSCRIPTIONS;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
 import static com.siimkinks.sqlitemagic.WriterUtil.dbVariableFromPresentConnectionVariable;
-import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnCompleted;
+import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnComplete;
 import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnError;
-import static com.siimkinks.sqlitemagic.WriterUtil.ifNotSubscriberUnsubscribed;
-import static com.siimkinks.sqlitemagic.WriterUtil.subscriberOnCompleted;
-import static com.siimkinks.sqlitemagic.WriterUtil.subscriberOnError;
-import static com.siimkinks.sqlitemagic.WriterUtil.subscriberOnSuccess;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_INSERT_SQL;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_TABLE_SCHEMA;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_UPDATE_SQL;
@@ -51,9 +47,9 @@ import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_CONTENT_VA
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_NOT_NULL_CONTENT_VALUES;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SET_ID;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.DISPOSABLE_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
-import static com.siimkinks.sqlitemagic.writer.ModelWriter.SUBSCRIPTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.TRANSACTION_VARIABLE;
 
 // FIXME !!! check logging generation
@@ -472,15 +468,15 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
         .beginControlFlow("try");
   }
 
-  public static void addSubscriptionForEmitter(MethodSpec.Builder builder) {
+  public static void addDisposableForEmitter(MethodSpec.Builder builder) {
     builder
         .addStatement("final $T $L = $T.empty()",
-            SUBSCRIPTION,
-            SUBSCRIPTION_VARIABLE,
-            SUBSCRIPTIONS)
-        .addStatement("$L.setSubscription($L)",
+            DISPOSABLE,
+            DISPOSABLE_VARIABLE,
+            DISPOSABLES)
+        .addStatement("$L.setDisposable($L)",
             EMITTER_VARIABLE,
-            SUBSCRIPTION_VARIABLE);
+            DISPOSABLE_VARIABLE);
   }
 
   static void addTransactionEndBlock(@NonNull MethodSpec.Builder builder, @NonNull Set<TableElement> allTableTriggers,
@@ -506,57 +502,17 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
         .endControlFlow();
   }
 
-  public static void addRxObservableTransactionEndBlock(@NonNull MethodSpec.Builder builder,
-                                                        @NonNull Set<TableElement> allTableTriggers) {
-    builder.addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
-        .addStatement("success = true")
-        .nextControlFlow("catch ($T e)", Throwable.class)
-        .beginControlFlow(ifNotSubscriberUnsubscribed())
-        .addStatement(subscriberOnError())
-        .endControlFlow()
-        .nextControlFlow("finally")
-        .addStatement("$L.end()", TRANSACTION_VARIABLE)
-        .beginControlFlow("if (success)")
-        .beginControlFlow(ifNotSubscriberUnsubscribed())
-        .addStatement(subscriberOnCompleted())
-        .endControlFlow();
-    addTableTriggersSendingStatement(builder, allTableTriggers);
-    builder.endControlFlow()
-        .endControlFlow();
-  }
-
-  public static void addRxSingleTransactionEndBlock(@NonNull MethodSpec.Builder builder,
-                                                    @NonNull Set<TableElement> allTableTriggers,
-                                                    @NonNull String successValue) {
-    builder
-        .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
-        .addStatement("success = true")
-        .nextControlFlow("catch ($T e)", Throwable.class)
-        .beginControlFlow(ifNotSubscriberUnsubscribed())
-        .addStatement(subscriberOnError())
-        .endControlFlow()
-        .nextControlFlow("finally")
-        .addStatement("$L.end()", TRANSACTION_VARIABLE)
-        .beginControlFlow("if (success)")
-        .beginControlFlow(ifNotSubscriberUnsubscribed())
-        .addStatement(subscriberOnSuccess(successValue))
-        .endControlFlow();
-    addTableTriggersSendingStatement(builder, allTableTriggers);
-    builder.endControlFlow()
-        .endControlFlow();
-  }
-
   public static void addRxCompletableEmitterTransactionEndBlock(@NonNull MethodSpec.Builder builder,
                                                                 @NonNull Set<TableElement> allTableTriggers) {
     builder
         .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
         .addStatement("success = true")
         .nextControlFlow("catch ($T e)", Throwable.class)
-        .addStatement(emitterOnError())
+        .addCode(emitterOnError())
         .nextControlFlow("finally")
         .addStatement("$L.end()", TRANSACTION_VARIABLE)
         .beginControlFlow("if (success)")
-        .addStatement(emitterOnCompleted());
+        .addStatement(emitterOnComplete());
     addTableTriggersSendingStatement(builder, allTableTriggers);
     builder.endControlFlow()
         .endControlFlow();

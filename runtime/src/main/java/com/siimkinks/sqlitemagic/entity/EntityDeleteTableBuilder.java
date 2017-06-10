@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic.entity;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 
-import rx.Single;
+import io.reactivex.Single;
 
 /**
  * Builder for table delete operation.

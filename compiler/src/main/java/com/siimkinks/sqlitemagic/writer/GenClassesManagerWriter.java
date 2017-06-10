@@ -31,9 +31,8 @@ import java.util.List;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
-
-import rx.Subscription;
 
 import static com.siimkinks.sqlitemagic.Const.CLASS_MODIFIERS;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
@@ -284,6 +283,7 @@ public class GenClassesManagerWriter {
     return ParameterSpec.builder(ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, STRING, TypeName.INT.box()),
         "columns")
         .addAnnotation(NULLABLE)
+        .addModifiers(Modifier.FINAL)
         .build();
   }
 
@@ -310,18 +310,13 @@ public class GenClassesManagerWriter {
   static ParameterSpec tableGraphNodeNamesParam() {
     return ParameterSpec.builder(ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, STRING, STRING),
         "tableGraphNodeNames")
+        .addModifiers(Modifier.FINAL)
         .build();
   }
 
   static ParameterSpec select1Param() {
     return ParameterSpec.builder(TypeName.BOOLEAN,
         "select1")
-        .build();
-  }
-
-  static ParameterSpec subscriptionParam() {
-    return ParameterSpec.builder(Subscription.class, "subscription")
-        .addAnnotation(NON_NULL)
         .build();
   }
 }

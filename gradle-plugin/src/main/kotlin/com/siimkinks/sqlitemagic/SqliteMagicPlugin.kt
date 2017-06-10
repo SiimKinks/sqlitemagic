@@ -12,7 +12,7 @@ import org.gradle.api.artifacts.DependencyResolutionListener
 import org.gradle.api.artifacts.DependencySet
 import org.gradle.api.artifacts.ResolvableDependencies
 
-const val VERSION = "0.11.0"
+const val VERSION = "0.12.0"
 
 class SqliteMagicPlugin : Plugin<Project> {
   override fun apply(project: Project) {
@@ -34,11 +34,9 @@ class SqliteMagicPlugin : Plugin<Project> {
   }
 
   private fun configureProject(project: Project, sqlitemagic: SqliteMagicPluginExtension) {
-    project.apply({ it.plugin("android-apt") })
-
     val compileDeps = project.getConfigurationDependency("compile")
     val providedDeps = project.getConfigurationDependency("provided")
-    val aptDeps = project.getConfigurationDependency("apt")
+    val aptDeps = project.getConfigurationDependency("annotationProcessor")
 
     project.gradle.addListener(object : DependencyResolutionListener {
       override fun beforeResolve(dependencies: ResolvableDependencies?) {
@@ -57,9 +55,6 @@ class SqliteMagicPlugin : Plugin<Project> {
       System.setProperty("SQLITE_MAGIC_GENERATE_LOGGING", sqlitemagic.generateLogging.toString())
       System.setProperty("SQLITE_MAGIC_AUTO_LIB", sqlitemagic.autoValueAnnotation)
       System.setProperty("PROJECT_DIR", project.projectDir.toString())
-      project.configurations.getByName("compile").find {
-        it.name.startsWith("rxjava")
-      } ?: throw IllegalStateException("Missing RxJava dependency. Please add it manually.")
     }
   }
 

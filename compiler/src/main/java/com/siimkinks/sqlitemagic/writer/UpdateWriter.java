@@ -35,8 +35,8 @@ import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxAction0ToType;
-import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterFromParentClass;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxActionToType;
+import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableCreateFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
@@ -45,7 +45,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.connectionImplParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbVariablesForOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityParameter;
-import static com.siimkinks.sqlitemagic.WriterUtil.ifSubscriptionUnsubscribed;
+import static com.siimkinks.sqlitemagic.WriterUtil.ifDisposed;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationBuilderInnerClassSkeleton;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationRxCompletableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.typedIterable;
@@ -66,7 +66,7 @@ import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addBindC
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addIdNullCheck;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addImmutableIdsParameterIfNeeded;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxCompletableEmitterTransactionEndBlock;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addSubscriptionForEmitter;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addDisposableForEmitter;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addThrowOperationFailedExceptionWithEntityVariable;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionStartBlock;
@@ -325,7 +325,7 @@ public class UpdateWriter implements OperationWriter {
   private MethodSpec updateObserve(TypeSpec.Builder typeBuilder, final MethodSpec updateExecute) {
     final MethodSpec.Builder builder = operationRxCompletableMethod()
         .addAnnotation(Override.class);
-    addRxAction0ToType(typeBuilder, new Callback<MethodSpec.Builder>() {
+    addRxActionToType(typeBuilder, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
         builder.beginControlFlow("if (!$N())", updateExecute)
@@ -480,15 +480,15 @@ public class UpdateWriter implements OperationWriter {
   private MethodSpec bulkUpdateObserve(TypeSpec.Builder typeBuilder) {
     final MethodSpec.Builder builder = operationRxCompletableMethod()
         .addAnnotation(Override.class);
-    addRxCompletableFromEmitterFromParentClass(builder);
+    addRxCompletableCreateFromParentClass(builder);
     addRxCompletableFromEmitterToType(typeBuilder, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
         builder.addCode(entityDbVariablesForOperationBuilder(tableElement));
-        addSubscriptionForEmitter(builder);
+        addDisposableForEmitter(builder);
         addTransactionStartBlock(builder);
         addBulkUpdateTopBlock(builder);
-        builder.nextControlFlow("else $L", ifSubscriptionUnsubscribed())
+        builder.nextControlFlow("else $L", ifDisposed())
             .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, ERROR_UNSUBSCRIBED_UNEXPECTEDLY)
             .endControlFlow()
             .endControlFlow()

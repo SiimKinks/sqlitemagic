@@ -30,10 +30,10 @@ public interface CompiledCountSelect<S> {
    * provided model operations. Unsubscribe when you no longer want updates to a query.
    * <p>
    * Since database triggers are inherently asynchronous, items emitted from the returned
-   * observable use the {@link rx.Scheduler} supplied to
+   * observable use the {@link io.reactivex.Scheduler} supplied to
    * {@link com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder#scheduleRxQueriesOn}. For
    * consistency, the immediate notification sent on subscribe also uses this scheduler. As such,
-   * calling {@link rx.Observable#subscribeOn subscribeOn} on the returned observable has no effect.
+   * calling {@link io.reactivex.Observable#subscribeOn subscribeOn} on the returned observable has no effect.
    * <p>
    * Note: To skip the immediate notification and only receive subsequent notifications when data
    * has changed call {@code skip(1)} on the returned observable.
@@ -42,7 +42,7 @@ public interface CompiledCountSelect<S> {
    * operators.
    * <p>
    * <b>Warning:</b> this method does not perform the query! Only by subscribing to the returned
-   * {@link rx.Observable} will the operation occur.
+   * {@link io.reactivex.Observable} will the operation occur.
    */
   @NonNull
   @CheckResult

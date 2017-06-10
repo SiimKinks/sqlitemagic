@@ -12,8 +12,6 @@ import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation;
 
 import java.util.Collection;
 
-import rx.Subscription;
-
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.createQueryObservable;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -36,8 +34,9 @@ public final class RawSelect {
    * an immediate notification for initial data as well as subsequent
    * notifications for when the supplied {@code table}'s data changes.
    *
-   * @param tables Tables to select from. This param must be one of annotation processor
-   *               generated table objects that corresponds to table in a database
+   * @param tables
+   *     Tables to select from. This param must be one of annotation processor
+   *     generated table objects that corresponds to table in a database
    * @return A builder for raw SQL SELECT statement
    */
   @CheckResult
@@ -57,8 +56,9 @@ public final class RawSelect {
    * an immediate notification for initial data as well as subsequent
    * notifications for when the supplied {@code table}'s data changes.
    *
-   * @param tables Tables to select from. This param must be one of annotation processor
-   *               generated table objects that corresponds to table in a database
+   * @param tables
+   *     Tables to select from. This param must be one of annotation processor
+   *     generated table objects that corresponds to table in a database
    * @return A builder for raw SQL SELECT statement
    */
   @CheckResult
@@ -101,7 +101,8 @@ public final class RawSelect {
     /**
      * Define SQL arguments.
      *
-     * @param args Arguments for the created SQL
+     * @param args
+     *     Arguments for the created SQL
      * @return A builder for raw SQL SELECT statement
      */
     @CheckResult
@@ -121,7 +122,7 @@ public final class RawSelect {
      */
     @CheckResult
     public CompiledRawSelect compile() {
-      return new CompiledRawSelect(this, dbConnection);
+      return new CompiledRawSelectImpl(this, dbConnection);
     }
 
     /**
@@ -135,7 +136,7 @@ public final class RawSelect {
     @CheckResult
     @WorkerThread
     public Cursor execute() {
-      return new CompiledRawSelect(this, dbConnection).execute();
+      return new CompiledRawSelectImpl(this, dbConnection).execute();
     }
 
     /**
@@ -147,10 +148,11 @@ public final class RawSelect {
      * provided model operations. Unsubscribe when you no longer want updates to a query.
      * <p>
      * Since database triggers are inherently asynchronous, items emitted from the returned
-     * observable use the {@link rx.Scheduler} supplied to
+     * observable use the {@link io.reactivex.Scheduler} supplied to
      * {@link com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder#scheduleRxQueriesOn}. For
      * consistency, the immediate notification sent on subscribe also uses this scheduler. As such,
-     * calling {@link rx.Observable#subscribeOn subscribeOn} on the returned observable has no effect.
+     * calling {@link io.reactivex.Observable#subscribeOn subscribeOn} on the returned observable has no
+     * effect.
      * <p>
      * Note: To skip the immediate notification and only receive subsequent notifications when data
      * has changed call {@code skip(1)} on the returned observable.
@@ -159,22 +161,16 @@ public final class RawSelect {
      * operators.
      * <p>
      * <b>Warning:</b> this method does not perform the query! Only by subscribing to the returned
-     * {@link rx.Observable} will the operation occur.
+     * {@link io.reactivex.Observable} will the operation occur.
      */
     @NonNull
     @CheckResult
-    public QueryObservable<Cursor> observe() {
-      return new CompiledRawSelect(this, dbConnection).observe();
+    public SingleItemQueryObservable<Cursor> observe() {
+      return new CompiledRawSelectImpl(this, dbConnection).observe();
     }
   }
 
-  /**
-   * Immutable object that contains raw SQL SELECT statement. This object
-   * can be shared between threads without any side effects.
-   * <p>
-   * Note: This class does not contain SQL statement compiled against database.
-   */
-  public static final class CompiledRawSelect extends Query<Cursor> {
+  static final class CompiledRawSelectImpl extends Query.DatabaseQuery<Cursor, Cursor> implements CompiledRawSelect {
     @NonNull
     final String sql;
     @NonNull
@@ -182,9 +178,9 @@ public final class RawSelect {
     @Nullable
     final String[] args;
 
-    CompiledRawSelect(@NonNull From from,
-                      @NonNull DbConnectionImpl dbConnection) {
-      super(dbConnection);
+    CompiledRawSelectImpl(@NonNull From from,
+                          @NonNull DbConnectionImpl dbConnection) {
+      super(dbConnection, null);
       this.sql = from.select.sql;
       this.observedTables = from.observedTables;
       this.args = from.args;
@@ -192,11 +188,11 @@ public final class RawSelect {
 
     @NonNull
     @Override
-    Cursor runImpl(@NonNull Subscription subscriber, boolean inStream) {
-      super.runImpl(subscriber, inStream);
+    SqliteMagicCursor rawQuery(boolean inStream) {
+      super.rawQuery(inStream);
       final SQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final Cursor cursor = db.rawQueryWithFactory(null, sql, args, null, null);
+      final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
@@ -204,47 +200,21 @@ public final class RawSelect {
       return cursor;
     }
 
-    /**
-     * Execute this raw SELECT statement against a database.
-     * <p>
-     * This method runs synchronously in the calling thread.
-     *
-     * @return {@link Cursor} over the result set
-     */
-    @NonNull
-    @CheckResult
-    @WorkerThread
-    public Cursor execute() {
-      return runImpl(INFINITE_SUBSCRIPTION, false);
+    @Override
+    Cursor map(@NonNull SqliteMagicCursor cursor) {
+      return cursor;
     }
 
-    /**
-     * Create an observable which will notify subscribers with a {@linkplain Query query} for
-     * execution.
-     * <p>
-     * Subscribers will receive an immediate notification for initial data as well as subsequent
-     * notifications for when the supplied {@code table}'s data changes through the SqliteMagic
-     * provided model operations. Unsubscribe when you no longer want updates to a query.
-     * <p>
-     * Since database triggers are inherently asynchronous, items emitted from the returned
-     * observable use the {@link rx.Scheduler} supplied to
-     * {@link com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder#scheduleRxQueriesOn}. For
-     * consistency, the immediate notification sent on subscribe also uses this scheduler. As such,
-     * calling {@link rx.Observable#subscribeOn subscribeOn} on the returned observable has no effect.
-     * <p>
-     * Note: To skip the immediate notification and only receive subsequent notifications when data
-     * has changed call {@code skip(1)} on the returned observable.
-     * <p>
-     * One might want to explore the returned type methods for convenience query related
-     * operators.
-     * <p>
-     * <b>Warning:</b> this method does not perform the query! Only by subscribing to the returned
-     * {@link rx.Observable} will the operation occur.
-     */
     @NonNull
-    @CheckResult
-    public QueryObservable<Cursor> observe() {
-      return new QueryObservable<>(createQueryObservable(observedTables, (Query<Cursor>) this));
+    @Override
+    public Cursor execute() {
+      return rawQuery(false);
+    }
+
+    @NonNull
+    @Override
+    public SingleItemQueryObservable<Cursor> observe() {
+      return new SingleItemQueryObservable<>(createQueryObservable(observedTables,this));
     }
 
     @Override

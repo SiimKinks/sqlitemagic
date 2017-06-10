@@ -23,11 +23,12 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import rx.Single;
-import rx.Subscription;
-import rx.functions.Func1;
-import rx.observers.TestSubscriber;
-import rx.schedulers.Schedulers;
+import io.reactivex.Single;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.Function;
+import io.reactivex.observers.TestObserver;
+import io.reactivex.schedulers.Schedulers;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -63,8 +64,7 @@ public final class OperationObserveTest {
     final Long insertedId = author
         .insert()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
     assertThat(countAuthors.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isEqualTo(author.id);
@@ -76,8 +76,7 @@ public final class OperationObserveTest {
     final SimpleValueWithBuilder val = SimpleValueWithBuilder.newRandom().build();
     final Long insertedId = val.insert()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
     assertThat(countVals.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isNotEqualTo(val.id());
@@ -92,7 +91,7 @@ public final class OperationObserveTest {
 
     final Throwable e = author.update()
         .observe()
-        .get();
+        .blockingGet();
 
     assertThat(countAuthors.execute()).isEqualTo(1L);
     assertThat(e).isNull();
@@ -108,7 +107,7 @@ public final class OperationObserveTest {
 
     final Throwable e = updatedVal.update()
         .observe()
-        .get();
+        .blockingGet();
 
     assertThat(countVals.execute()).isEqualTo(1L);
     assertThat(e).isNull();
@@ -120,8 +119,7 @@ public final class OperationObserveTest {
     Author author = Author.newRandom();
     final Long insertedId = author.persist()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
     assertThat(countAuthors.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isEqualTo(author.id);
@@ -132,8 +130,7 @@ public final class OperationObserveTest {
 
     final Long updatedId = author.persist()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
 
     assertThat(author.id).isEqualTo(insertedId);
     assertThat(insertedId).isEqualTo(updatedId);
@@ -146,8 +143,7 @@ public final class OperationObserveTest {
     final SimpleValueWithBuilder val = SimpleValueWithBuilder.newRandom().build();
     final Long insertedId = val.persist()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
     assertThat(countVals.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isNotEqualTo(val.id());
@@ -159,8 +155,7 @@ public final class OperationObserveTest {
 
     final Long updatedId = updatedVal.persist()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
 
     assertThat(updatedVal.id()).isEqualTo(insertedId);
     assertThat(insertedId).isEqualTo(updatedId);
@@ -183,8 +178,7 @@ public final class OperationObserveTest {
     final Long updatedId = updatedAuthor.persist()
         .ignoreNullValues()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
 
     assertThat(author.id).isEqualTo(updatedAuthor.id);
     assertThat(updatedAuthor.id).isEqualTo(insertedId);
@@ -211,8 +205,7 @@ public final class OperationObserveTest {
     final Long updatedId = updatedVal.persist()
         .ignoreNullValues()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
 
     assertThat(expected.id()).isEqualTo(updatedVal.id());
     assertThat(updatedVal.id()).isEqualTo(insertedId);
@@ -230,7 +223,7 @@ public final class OperationObserveTest {
     }
     assertThat(Author.insert(list)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
@@ -247,7 +240,7 @@ public final class OperationObserveTest {
     assertThat(SimpleValueWithBuilder
         .insert(list)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<SimpleValueWithBuilder> expectedList = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
@@ -265,11 +258,15 @@ public final class OperationObserveTest {
     for (int i = 0; i < testCount; i++) {
       list.add(Author.newRandom());
     }
-    final Subscription subscription = Author.insert(list)
+    final Disposable disposable = Author.insert(list)
         .observe()
         .subscribeOn(Schedulers.io())
-        .subscribe();
-    subscription.unsubscribe();
+        .subscribe(new Action() {
+          @Override
+          public void run() throws Exception {
+          }
+        });
+    disposable.dispose();
     Thread.sleep(500);
     assertThat(Select
         .from(AUTHOR)
@@ -288,7 +285,7 @@ public final class OperationObserveTest {
 
     assertThat(Author.update(authors)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
@@ -310,7 +307,7 @@ public final class OperationObserveTest {
 
     assertThat(SimpleValueWithBuilder.update(updatedValues)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<SimpleValueWithBuilder> expected = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
@@ -324,11 +321,11 @@ public final class OperationObserveTest {
     for (Author author : list) {
       author.name = Utils.randomTableName();
     }
-    final Subscription subscription = Author.update(list)
+    final Disposable disposable = Author.update(list)
         .observe()
         .subscribeOn(Schedulers.io())
         .subscribe();
-    subscription.unsubscribe();
+    disposable.dispose();
     Thread.sleep(500);
     assertThat(Select
         .from(AUTHOR)
@@ -346,7 +343,7 @@ public final class OperationObserveTest {
 
     assertThat(Author.persist(list)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
@@ -364,7 +361,7 @@ public final class OperationObserveTest {
     assertThat(SimpleValueWithBuilder
         .persist(list)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<SimpleValueWithBuilder> expectedList = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
@@ -382,11 +379,11 @@ public final class OperationObserveTest {
     for (int i = 0; i < testCount; i++) {
       list.add(Author.newRandom());
     }
-    final Subscription subscription = Author.persist(list)
+    final Disposable disposable = Author.persist(list)
         .observe()
         .subscribeOn(Schedulers.io())
         .subscribe();
-    subscription.unsubscribe();
+    disposable.dispose();
     Thread.sleep(500);
     assertThat(Select
         .from(AUTHOR)
@@ -406,7 +403,7 @@ public final class OperationObserveTest {
     assertThat(Author
         .persist(authors)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
@@ -429,7 +426,7 @@ public final class OperationObserveTest {
     assertThat(SimpleValueWithBuilder
         .persist(updatedValues)
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<SimpleValueWithBuilder> expected = Select.from(SIMPLE_VALUE_WITH_BUILDER).execute();
@@ -443,12 +440,12 @@ public final class OperationObserveTest {
     for (Author author : list) {
       author.name = Utils.randomTableName();
     }
-    final Subscription subscription = Author
+    final Disposable disposable = Author
         .persist(list)
         .observe()
         .subscribeOn(Schedulers.io())
         .subscribe();
-    subscription.unsubscribe();
+    disposable.dispose();
     Thread.sleep(500);
     assertThat(Select
         .from(AUTHOR)
@@ -473,7 +470,7 @@ public final class OperationObserveTest {
     assertThat(Author.persist(updatedAuthors)
         .ignoreNullValues()
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<Author> expected = Select.from(AUTHOR).execute();
@@ -498,7 +495,7 @@ public final class OperationObserveTest {
         .persist(updatedValues)
         .ignoreNullValues()
         .observe()
-        .get())
+        .blockingGet())
         .isNull();
 
     final List<SimpleValueWithBuilderAndNullableFields> expected = Select.from(SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS).execute();
@@ -512,13 +509,13 @@ public final class OperationObserveTest {
     for (Author author : list) {
       author.name = null;
     }
-    final Subscription subscription = Author
+    final Disposable disposable = Author
         .persist(list)
         .ignoreNullValues()
         .observe()
         .subscribeOn(Schedulers.io())
         .subscribe();
-    subscription.unsubscribe();
+    disposable.dispose();
     Thread.sleep(500);
     assertThat(Select
         .from(AUTHOR)
@@ -535,8 +532,7 @@ public final class OperationObserveTest {
     final Author randAuthor = list.get(new Random().nextInt(testCount));
     final int affectedRows = randAuthor.delete()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
 
     assertThat(affectedRows).isEqualTo(1);
     assertThat(countAuthors.execute()).isEqualTo(testCount - 1);
@@ -550,8 +546,7 @@ public final class OperationObserveTest {
 
     final int affectedRows = Author.deleteTable()
         .observe()
-        .toBlocking()
-        .value();
+        .blockingGet();
     assertThat(affectedRows).isEqualTo(testCount);
     assertThat(countAuthors.execute()).isEqualTo(0);
   }
@@ -575,8 +570,7 @@ public final class OperationObserveTest {
         .table(BUILDER_MAGAZINE)
         .set(BUILDER_MAGAZINE.NAME, "asdasd")
         .observe()
-        .toBlocking()
-        .value())
+        .blockingGet())
         .isEqualTo(1);
     assertThat(Select
         .from(BUILDER_MAGAZINE)
@@ -592,7 +586,7 @@ public final class OperationObserveTest {
     final CompiledCountSelect compiledCountSelect = Select.from(BOOK).count();
     final CompiledDelete compiledDelete = Delete.from(BOOK).compile();
 
-    assertThat(compiledDelete.observe().toBlocking().value()).isEqualTo(0L);
+    assertThat(compiledDelete.observe().blockingGet()).isEqualTo(0L);
     assertThat(compiledCountSelect.execute()).isEqualTo(0);
 
     final int testCount = 10;
@@ -602,7 +596,7 @@ public final class OperationObserveTest {
     }
     assertThat(compiledCountSelect.execute()).isEqualTo(testCount);
 
-    assertThat(compiledDelete.observe().toBlocking().value()).isEqualTo(testCount);
+    assertThat(compiledDelete.observe().blockingGet()).isEqualTo(testCount);
     assertThat(compiledCountSelect.execute()).isEqualTo(0);
   }
 
@@ -611,14 +605,13 @@ public final class OperationObserveTest {
     final SimpleMutable value = SimpleMutable.newRandom();
     value.insert().execute();
 
-    final TestSubscriber<Long> ts = new TestSubscriber<>();
-    value.insert()
+    final TestObserver<Long> ts = value.insert()
         .observe()
-        .subscribe(ts);
+        .test();
 
     ts.awaitTerminalEvent(2, TimeUnit.SECONDS);
     ts.assertNoValues();
-    final List<Throwable> errors = ts.getOnErrorEvents();
+    final List<Throwable> errors = ts.errors();
     assertThat(errors.size()).isEqualTo(1);
   }
 
@@ -627,10 +620,10 @@ public final class OperationObserveTest {
     final SimpleMutable value = SimpleMutable.newRandom();
     value.id = 1;
 
-    final TestSubscriber<Boolean> ts = new TestSubscriber<>();
-    value.update()
+    final TestObserver<Void> ts = value
+        .update()
         .observe()
-        .subscribe(ts);
+        .test();
 
     ts.awaitTerminalEvent(2, TimeUnit.SECONDS);
     ts.assertNoValues();
@@ -649,13 +642,12 @@ public final class OperationObserveTest {
       vals2.add(SimpleMutable.newRandom());
     }
 
-    final TestSubscriber<Boolean> ts = new TestSubscriber<>();
-    Author.insert(vals1)
+    final TestObserver<Boolean> ts = Author.insert(vals1)
         .observe()
         .toSingleDefault(Boolean.TRUE)
-        .flatMap(new Func1<Boolean, Single<Boolean>>() {
+        .flatMap(new Function<Boolean, Single<Boolean>>() {
           @Override
-          public Single<Boolean> call(Boolean aBoolean) {
+          public Single<Boolean> apply(Boolean aBoolean) {
             return SimpleMutable
                 .insert(vals2)
                 .observe()
@@ -663,11 +655,11 @@ public final class OperationObserveTest {
           }
         })
         .subscribeOn(Schedulers.io())
-        .subscribe(ts);
+        .test();
 
     ts.awaitTerminalEvent();
     ts.assertNoErrors();
-    ts.assertCompleted();
+    ts.assertComplete();
     ts.assertValue(Boolean.TRUE);
   }
 
@@ -675,9 +667,9 @@ public final class OperationObserveTest {
   public void streamedBulkUpdateOperation() {
     final int size = 10;
     List<Author> vals1 = insertAuthors(size);
-    vals1 = updateVals(vals1, new Func1<Author, Author>() {
+    vals1 = updateVals(vals1, new Function<Author, Author>() {
       @Override
-      public Author call(Author author) {
+      public Author apply(Author author) {
         author.name = "asd";
         return author;
       }
@@ -691,13 +683,12 @@ public final class OperationObserveTest {
       vals2.add(val);
     }
 
-    final TestSubscriber<Boolean> ts = new TestSubscriber<>();
-    Author.update(vals1)
+    final TestObserver<Boolean> ts = Author.update(vals1)
         .observe()
         .toSingleDefault(Boolean.TRUE)
-        .flatMap(new Func1<Boolean, Single<Boolean>>() {
+        .flatMap(new Function<Boolean, Single<Boolean>>() {
           @Override
-          public Single<Boolean> call(Boolean aBoolean) {
+          public Single<Boolean> apply(Boolean aBoolean) {
             return SimpleMutable
                 .update(vals2)
                 .observe()
@@ -705,11 +696,11 @@ public final class OperationObserveTest {
           }
         })
         .subscribeOn(Schedulers.io())
-        .subscribe(ts);
+        .test();
 
     ts.awaitTerminalEvent();
     ts.assertNoErrors();
-    ts.assertCompleted();
+    ts.assertComplete();
     ts.assertValue(Boolean.TRUE);
   }
 
@@ -725,13 +716,12 @@ public final class OperationObserveTest {
       vals2.add(SimpleMutable.newRandom());
     }
 
-    final TestSubscriber<Boolean> ts = new TestSubscriber<>();
-    Author.persist(vals1)
+    final TestObserver<Boolean> ts = Author.persist(vals1)
         .observe()
         .toSingleDefault(Boolean.TRUE)
-        .flatMap(new Func1<Boolean, Single<Boolean>>() {
+        .flatMap(new Function<Boolean, Single<Boolean>>() {
           @Override
-          public Single<Boolean> call(Boolean aBoolean) {
+          public Single<Boolean> apply(Boolean aBoolean) {
             return SimpleMutable
                 .persist(vals2)
                 .observe()
@@ -739,11 +729,11 @@ public final class OperationObserveTest {
           }
         })
         .subscribeOn(Schedulers.io())
-        .subscribe(ts);
+        .test();
 
     ts.awaitTerminalEvent();
     ts.assertNoErrors();
-    ts.assertCompleted();
+    ts.assertComplete();
     ts.assertValue(Boolean.TRUE);
   }
 }

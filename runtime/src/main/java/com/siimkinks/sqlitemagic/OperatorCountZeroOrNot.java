@@ -1,10 +1,14 @@
 package com.siimkinks.sqlitemagic;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.exceptions.Exceptions;
+import android.support.annotation.NonNull;
 
-final class OperatorCountZeroOrNot implements Observable.Operator<Boolean, Query<Long>> {
+import io.reactivex.ObservableOperator;
+import io.reactivex.Observer;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.observers.DisposableObserver;
+import io.reactivex.plugins.RxJavaPlugins;
+
+final class OperatorCountZeroOrNot implements ObservableOperator<Boolean, Query<Long>> {
   private static class Holder {
     final static OperatorCountZeroOrNot COUNT_ZERO = new OperatorCountZeroOrNot(true);
     final static OperatorCountZeroOrNot COUNT_NOT_ZERO = new OperatorCountZeroOrNot(false);
@@ -18,36 +22,61 @@ final class OperatorCountZeroOrNot implements Observable.Operator<Boolean, Query
     return Holder.COUNT_NOT_ZERO;
   }
 
-  final boolean countZero;
+  private final boolean countZero;
 
   OperatorCountZeroOrNot(boolean countZero) {
     this.countZero = countZero;
   }
 
   @Override
-  public Subscriber<? super Query<Long>> call(final Subscriber<? super Boolean> subscriber) {
-    return new Subscriber<Query<Long>>(subscriber) {
-      @Override
-      public void onNext(Query<Long> query) {
-        try {
-          final Long count = query.runImpl(subscriber, true);
-          if (!subscriber.isUnsubscribed()) {
-            subscriber.onNext(count > 0 ^ countZero ? Boolean.TRUE : Boolean.FALSE);
-          }
-        } catch (Throwable e) {
-          Exceptions.throwOrReport(e, this, query.toString());
+  public Observer<? super Query<Long>> apply(Observer<? super Boolean> observer) throws Exception {
+    return new MappingObserver(observer, countZero);
+  }
+
+  static final class MappingObserver extends DisposableObserver<Query<Long>> {
+    @NonNull
+    private final Observer<? super Boolean> downstream;
+    private final boolean countZero;
+
+    MappingObserver(@NonNull Observer<? super Boolean> downstream, boolean countZero) {
+      this.downstream = downstream;
+      this.countZero = countZero;
+    }
+
+    @Override
+    protected void onStart() {
+      downstream.onSubscribe(this);
+    }
+
+    @Override
+    public void onNext(Query<Long> query) {
+      try {
+        // returns null every time, but is needed for transaction checks
+        final SqliteMagicCursor cursor = query.rawQuery(true);
+        final Long count = query.map(cursor);
+        if (!isDisposed()) {
+          downstream.onNext(count > 0 ^ countZero ? Boolean.TRUE : Boolean.FALSE);
         }
+      } catch (Throwable e) {
+        Exceptions.throwIfFatal(e);
+        onError(e);
       }
+    }
 
-      @Override
-      public void onCompleted() {
-        subscriber.onCompleted();
+    @Override
+    public void onComplete() {
+      if (!isDisposed()) {
+        downstream.onComplete();
       }
+    }
 
-      @Override
-      public void onError(Throwable e) {
-        subscriber.onError(e);
+    @Override
+    public void onError(Throwable e) {
+      if (isDisposed()) {
+        RxJavaPlugins.onError(e);
+      } else {
+        downstream.onError(e);
       }
-    };
+    }
   }
 }

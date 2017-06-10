@@ -5,7 +5,7 @@ import android.support.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.ConflictAlgorithm;
 
-import rx.Completable;
+import io.reactivex.Completable;
 
 /**
  * Builder for update operation.

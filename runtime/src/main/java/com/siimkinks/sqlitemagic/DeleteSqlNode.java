@@ -10,7 +10,7 @@ import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.LinkedList;
 
-import rx.Single;
+import io.reactivex.Single;
 
 abstract class DeleteSqlNode extends SqlNode {
   @NonNull

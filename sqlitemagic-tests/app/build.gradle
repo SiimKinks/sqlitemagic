@@ -32,14 +32,14 @@ android {
 
 dependencies {
   compile libraries.supportV7
-  compile libraries.rxJava
-  compile libraries.rxJavaMath
+  compile libraries.rxJava2
+  compile libraries.rxJava2Extensions
 
   provided libraries.autoValueAnnotations
   provided libraries.lombok
 
-  apt libraries.autoValue
-  apt libraries.autoValueParcel
+  annotationProcessor libraries.autoValue
+  annotationProcessor libraries.autoValueParcel
 
   testCompile libraries.truth
   testCompile libraries.mockito

@@ -5,19 +5,17 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Size;
 
-import com.siimkinks.sqlitemagic.internal.MutableInt;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-import rx.Subscription;
-
 /**
  * Metadata of a table in a database.
  *
- * @param <T> Table Java object type
+ * @param <T>
+ *     Table Java object type
  */
 public class Table<T> {
   static final Table<?> ANONYMOUS_TABLE = new Table<>("", null, 1);
@@ -54,9 +52,12 @@ public class Table<T> {
    * This method gives table class the opportunity to perfect selection at select statement
    * build time.
    *
-   * @param observedTables      Tables that are being selected
-   * @param tableGraphNodeNames Selection graph node names
-   * @param columnPositions     Column positions in the selection
+   * @param observedTables
+   *     Tables that are being selected
+   * @param tableGraphNodeNames
+   *     Selection graph node names
+   * @param columnPositions
+   *     Column positions in the selection
    * @return Whether selection should be deep.
    */
   boolean perfectSelection(@NonNull ArrayList<String> observedTables,
@@ -76,7 +77,8 @@ public class Table<T> {
   /**
    * Create an alias for this table.
    *
-   * @param alias The alias name
+   * @param alias
+   *     The alias name
    * @return New table with provided alias.
    */
   @NonNull
@@ -98,7 +100,8 @@ public class Table<T> {
   /**
    * Create join "ON" clause.
    *
-   * @param expr Expression to use in join "ON" clause
+   * @param expr
+   *     Expression to use in join "ON" clause
    * @return Join clause
    */
   @NonNull
@@ -147,7 +150,8 @@ public class Table<T> {
    * right-hand dataset is omitted from the joined dataset. This is the only difference
    * between a USING clause and its equivalent ON constraint.
    *
-   * @param columns Columns to use in the USING clause
+   * @param columns
+   *     Columns to use in the USING clause
    * @return Join clause
    */
   @NonNull
@@ -193,28 +197,9 @@ public class Table<T> {
   }
 
   @NonNull
-  ArrayList<T> allFromCursor(@NonNull FastCursor cursor,
-                             @Nullable SimpleArrayMap<String, Integer> columnPositions,
-                             SimpleArrayMap<String, String> tableGraphNodeNames,
-                             boolean queryDeep,
-                             @NonNull Subscription subscription) {
-    throw new RuntimeException("not implemented");
-  }
-
-  @Nullable
-  T firstFromCursor(@NonNull FastCursor cursor,
-                    @Nullable SimpleArrayMap<String, Integer> columnPositions,
-                    SimpleArrayMap<String, String> tableGraphNodeNames,
-                    boolean queryDeep) {
-    throw new RuntimeException("not implemented");
-  }
-
-  @NonNull
-  T fromCurrentCursorPosition(@NonNull FastCursor cursor,
-                              @Nullable SimpleArrayMap<String, Integer> columnPositions,
-                              SimpleArrayMap<String, String> tableGraphNodeNames,
-                              boolean queryDeep,
-                              @NonNull MutableInt columnOffset) {
+  Query.Mapper<T> mapper(@Nullable final SimpleArrayMap<String, Integer> columnPositions,
+                         SimpleArrayMap<String, String> tableGraphNodeNames,
+                         final boolean queryDeep) {
     throw new RuntimeException("not implemented");
   }
 

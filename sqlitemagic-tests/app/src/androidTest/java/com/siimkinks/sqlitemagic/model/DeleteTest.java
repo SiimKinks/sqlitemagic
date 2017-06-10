@@ -50,8 +50,7 @@ public final class DeleteTest {
     final Author randomAuthor = authors.get(new Random().nextInt(count));
     assertThat(randomAuthor.delete()
         .observe()
-        .toBlocking()
-        .value())
+        .blockingGet())
         .isEqualTo(1);
     assertThat(COUNT_AUTHORS.execute()).isEqualTo(count - 1);
   }
@@ -72,8 +71,7 @@ public final class DeleteTest {
     assertThat(COUNT_AUTHORS.execute()).isEqualTo(count);
     assertThat(Author.deleteTable()
         .observe()
-        .toBlocking()
-        .value())
+        .blockingGet())
         .isEqualTo(count);
     assertThat(COUNT_AUTHORS.execute()).isEqualTo(0);
   }
@@ -96,8 +94,7 @@ public final class DeleteTest {
     assertThat(COUNT_AUTHORS.execute()).isEqualTo(count);
     assertThat(Author.delete(deletedAuthors)
         .observe()
-        .toBlocking()
-        .value())
+        .blockingGet())
         .isEqualTo(deletedAuthors.size());
     assertThat(COUNT_AUTHORS.execute()).isEqualTo(count - deletedAuthors.size());
   }

@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 
-import rx.Observable;
+import io.reactivex.Observable;
 
 import static com.siimkinks.sqlitemagic.OperatorCountZeroOrNot.countNotZero;
 import static com.siimkinks.sqlitemagic.OperatorCountZeroOrNot.countZero;
@@ -11,7 +11,7 @@ import static com.siimkinks.sqlitemagic.OperatorCountZeroOrNot.countZero;
 /**
  * An {@link Observable} of {@link Query} which offers count query specific convenience operators.
  */
-public final class CountQueryObservable extends QueryObservable<Long> {
+public class CountQueryObservable extends SingleItemQueryObservable<Long> {
   CountQueryObservable(Observable<Query<Long>> o) {
     super(o);
   }

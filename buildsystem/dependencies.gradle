@@ -29,6 +29,7 @@ ext {
   rxJavaMathVersion = '1.0.0'
   rxJavaVersion = '1.3.0'
   rxJava2Version = '2.1.0'
+  rxJava2ExtensionsVersion = '0.17.0'
   supportTestRunnerVersion = '0.5'
   truthVersion = '0.33'
   ztZipVersion = '1.9'
@@ -55,6 +56,7 @@ ext {
       mockito                     : "org.mockito:mockito-core:$mockitoVersion",
       rxJava                      : "io.reactivex:rxjava:${rxJavaVersion}",
       rxJava2                     : "io.reactivex.rxjava2:rxjava:${rxJava2Version}",
+      rxJava2Extensions           : "com.github.akarnokd:rxjava2-extensions:${rxJava2ExtensionsVersion}",
       rxJavaMath                  : "io.reactivex:rxjava-math:${rxJavaMathVersion}",
       supportAnnotations          : files("${android.sdk}/extras/android/support/annotations/android-support-annotations.jar"),
       supportAnnotationsForTesting: "com.android.support:support-annotations:$androidSupportLibsVersion",

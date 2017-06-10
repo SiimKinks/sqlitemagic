@@ -64,15 +64,13 @@ import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_OBSERVE;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SET_CONFLICT_ALGORITHM;
 import static com.siimkinks.sqlitemagic.util.NameConst.PACKAGE_ROOT;
 import static com.siimkinks.sqlitemagic.writer.EntityEnvironment.tableNameFromStructureConstant;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxObservableTransactionEndBlock;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionStartBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.CONFLICT_ALGORITHM_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.DISPOSABLE_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.STATEMENT_VARIABLE;
-import static com.siimkinks.sqlitemagic.writer.ModelWriter.SUBSCRIPTION_VARIABLE;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -109,6 +107,8 @@ public class WriterUtil {
   public static final ClassName DB_CONNECTION_IMPL = ClassName.get(DbConnectionImpl.class);
   public static final ClassName OPERATION_FAILED_EXCEPTION = ClassName.get(OperationFailedException.class);
   public static final ClassName TRANSACTION = ClassName.get(Transaction.class);
+  public static final ClassName MAPPER = ClassName.get(Query.Mapper.class);
+  public static final ClassName MAPPER_WITH_COLUMN_OFFSET = ClassName.get(Query.MapperWithColumnOffset.class);
   public static final ClassName MUTABLE_INT = ClassName.get(MutableInt.class);
   public static final ClassName FROM = ClassName.get(Select.From.class);
   public static final ClassName TABLE = ClassName.get(Table.class);
@@ -135,19 +135,13 @@ public class WriterUtil {
   public static final ParameterizedTypeName SYSTEM_RENAMED_TABLES_TYPE_NAME =
       ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, ClassName.get(String.class), ParameterizedTypeName.get(LinkedList.class, String.class));
 
-  public static final ClassName OBSERVABLE = ClassName.get("rx", "Observable");
-  public static final ClassName OBSERVABLE_ON_SUBSCRIBE = ClassName.get("rx", "Observable", "OnSubscribe");
-  public static final ClassName OBSERVABLE_SUBSCRIBER = ClassName.get("rx", "Subscriber");
-  public static final ClassName SINGLE = ClassName.get("rx", "Single");
-  public static final ClassName SINGLE_ON_SUBSCRIBE = ClassName.get("rx", "Single", "OnSubscribe");
-  public static final ClassName SINGLE_SUBSCRIBER = ClassName.get("rx", "SingleSubscriber");
-  public static final ClassName COMPLETABLE = ClassName.get("rx", "Completable");
-  public static final ClassName COMPLETABLE_EMITTER = ClassName.get("rx", "CompletableEmitter");
-  public static final ClassName SCHEDULERS = ClassName.get("rx.schedulers", "Schedulers");
-  public static final ClassName ACTION_0 = ClassName.get("rx.functions", "Action0");
-  public static final ClassName ACTION_1 = ClassName.get("rx.functions", "Action1");
-  public static final ClassName SUBSCRIPTION = ClassName.get("rx", "Subscription");
-  public static final ClassName SUBSCRIPTIONS = ClassName.get("rx.subscriptions", "Subscriptions");
+  public static final ClassName SINGLE = ClassName.get("io.reactivex", "Single");
+  public static final ClassName COMPLETABLE = ClassName.get("io.reactivex", "Completable");
+  public static final ClassName COMPLETABLE_ON_SUBSCRIBE = ClassName.get("io.reactivex", "CompletableOnSubscribe");
+  public static final ClassName COMPLETABLE_EMITTER = ClassName.get("io.reactivex", "CompletableEmitter");
+  public static final ClassName ACTION = ClassName.get("io.reactivex.functions", "Action");
+  public static final ClassName DISPOSABLE = ClassName.get("io.reactivex.disposables", "Disposable");
+  public static final ClassName DISPOSABLES = ClassName.get("io.reactivex.disposables", "Disposables");
 
   public static final String IF_LOGGING_ENABLED = "if (SqliteMagic.LOGGING_ENABLED)";
 
@@ -246,84 +240,6 @@ public class WriterUtil {
         .build();
   }
 
-  public static MethodSpec.Builder operationRxObserveMethod(TypeName entityTypeName) {
-    return operationRxObserveMethod(METHOD_OBSERVE, entityTypeName);
-  }
-
-  public static MethodSpec.Builder operationRxObserveMethod(String methodName, TypeName entityTypeName) {
-    return MethodSpec.methodBuilder(methodName)
-        .addModifiers(Modifier.PUBLIC)
-        .addAnnotation(NON_NULL)
-        .addAnnotation(CHECK_RESULT)
-        .returns(ParameterizedTypeName.get(OBSERVABLE, entityTypeName));
-  }
-
-  public static MethodSpec.Builder privateOperationRxObserveMethod(String methodName, TypeName entityTypeName) {
-    return MethodSpec.methodBuilder(methodName)
-        .addModifiers(PRIVATE)
-        .returns(ParameterizedTypeName.get(OBSERVABLE, entityTypeName));
-  }
-
-  public static CodeBlock.Builder wrapIntoRxObservableCreate(TypeName observedType, Callback<MethodSpec.Builder> methodBuildCallback) {
-    final MethodSpec.Builder callbackMethodBuilder = MethodSpec.methodBuilder("call")
-        .addAnnotation(Override.class)
-        .addModifiers(Modifier.PUBLIC)
-        .addParameter(ParameterizedTypeName.get(OBSERVABLE_SUBSCRIBER, WildcardTypeName.supertypeOf(observedType)), "subscriber");
-    methodBuildCallback.call(callbackMethodBuilder);
-    TypeSpec onSubscribe = TypeSpec.anonymousClassBuilder("")
-        .addSuperinterface(ParameterizedTypeName.get(OBSERVABLE_ON_SUBSCRIBE, observedType))
-        .addMethod(callbackMethodBuilder.build())
-        .build();
-    return CodeBlock.builder()
-        .add("$T.create($L)", OBSERVABLE, onSubscribe);
-  }
-
-  public static void addWrappedReturnedRxObservableCreate(MethodSpec.Builder builder, TypeName observedType, final Callback<MethodSpec.Builder> methodBuildCallback) {
-    builder.addCode("return ")
-        .addCode(wrapIntoRxObservableCreate(observedType, methodBuildCallback)
-            .add(chainedScheduler())
-            .build());
-  }
-
-  public static void addWrappedReturnedTransactionHandledRxObservableCreate(MethodSpec.Builder builder,
-                                                                            TypeName observedType,
-                                                                            final TableElement tableElement,
-                                                                            final Set<TableElement> allTableTriggers,
-                                                                            final Callback<MethodSpec.Builder> methodBuildCallback) {
-    builder.addCode("return ")
-        .addCode(wrapIntoRxObservableCreate(observedType, new Callback<MethodSpec.Builder>() {
-          @Override
-          public void call(MethodSpec.Builder builder) {
-            builder.addCode(entityDbVariablesForOperationBuilder(tableElement));
-            addTransactionStartBlock(builder);
-            methodBuildCallback.call(builder);
-            addRxObservableTransactionEndBlock(builder, allTableTriggers);
-          }
-        }).add(chainedScheduler()).build());
-  }
-
-  public static CodeBlock.Builder wrapIntoErrorHandledRxObservableCreate(TypeName observedType, final Callback<MethodSpec.Builder> methodBuildCallback) {
-    return wrapIntoRxObservableCreate(observedType, new Callback<MethodSpec.Builder>() {
-      @Override
-      public void call(MethodSpec.Builder builder) {
-        builder.beginControlFlow("try");
-        methodBuildCallback.call(builder);
-        builder.nextControlFlow("catch (Throwable e)")
-            .beginControlFlow(ifNotSubscriberUnsubscribed())
-            .addStatement(subscriberOnError())
-            .endControlFlow()
-            .endControlFlow();
-      }
-    });
-  }
-
-  public static void addWrappedReturnedErrorHandledRxObservableCreate(MethodSpec.Builder builder, TypeName observedType, final Callback<MethodSpec.Builder> methodBuildCallback) {
-    builder.addCode("return ")
-        .addCode(wrapIntoErrorHandledRxObservableCreate(observedType, methodBuildCallback)
-            .add(chainedScheduler())
-            .build());
-  }
-
   public static MethodSpec.Builder operationRxSingleMethod(TypeName entityTypeName) {
     return operationRxSingleMethod(METHOD_OBSERVE, entityTypeName);
   }
@@ -348,28 +264,6 @@ public class WriterUtil {
         .returns(COMPLETABLE);
   }
 
-  public static CodeBlock.Builder wrapIntoRxSingleCreate(TypeName observedType, Callback<MethodSpec.Builder> methodBuildCallback) {
-    final MethodSpec.Builder callbackMethodBuilder = MethodSpec.methodBuilder("call")
-        .addAnnotation(Override.class)
-        .addModifiers(Modifier.PUBLIC)
-        .addException(Exception.class)
-        .returns(observedType);
-    methodBuildCallback.call(callbackMethodBuilder);
-    final TypeSpec callable = TypeSpec.anonymousClassBuilder("")
-        .addSuperinterface(ParameterizedTypeName.get(CALLABLE, observedType))
-        .addMethod(callbackMethodBuilder.build())
-        .build();
-    return CodeBlock.builder()
-        .add("$T.fromCallable($L)", SINGLE, callable);
-  }
-
-  public static void addWrappedReturnedRxSingleCreate(MethodSpec.Builder builder, TypeName observedType, final Callback<MethodSpec.Builder> methodBuildCallback) {
-    builder.addCode("return ")
-        .addCode(wrapIntoRxSingleCreate(observedType, methodBuildCallback)
-            .add(chainedScheduler())
-            .build());
-  }
-
   public static void addRxSingleCreateFromCallableParentClass(MethodSpec.Builder builder) {
     builder.addCode("return $T.fromCallable(this)", SINGLE)
         .addCode(chainedScheduler());
@@ -380,8 +274,8 @@ public class WriterUtil {
         .addCode(chainedScheduler());
   }
 
-  public static void addRxCompletableFromEmitterFromParentClass(MethodSpec.Builder builder) {
-    builder.addCode("return $T.fromEmitter(this)", COMPLETABLE)
+  public static void addRxCompletableCreateFromParentClass(MethodSpec.Builder builder) {
+    builder.addCode("return $T.create(this)", COMPLETABLE)
         .addCode(chainedScheduler());
   }
 
@@ -391,79 +285,51 @@ public class WriterUtil {
         .build();
   }
 
-  public static String ifSubscriberUnsubscribed() {
-    return "if (subscriber.isUnsubscribed())";
+  public static String ifDisposed() {
+    return "if (" + DISPOSABLE_VARIABLE + ".isDisposed())";
   }
 
-  public static String ifSubscriptionUnsubscribed() {
-    return "if (" + SUBSCRIPTION_VARIABLE + ".isUnsubscribed())";
-  }
-
-  public static String ifNotSubscriberUnsubscribed() {
-    return "if (!subscriber.isUnsubscribed())";
-  }
-
-  public static String subscriberOnNext(String variableName) {
-    return String.format("subscriber.onNext(%s)", variableName);
+  public static String ifNotDisposableDisposed() {
+    return "if (!" + DISPOSABLE_VARIABLE + ".isDisposed())";
   }
 
   public static String subscriberOnSuccess(String variableName) {
     return String.format("subscriber.onSuccess(%s)", variableName);
   }
 
-  public static String emitterOnCompleted() {
-    return String.format(EMITTER_VARIABLE + ".onCompleted()");
+  public static String emitterOnComplete() {
+    return String.format(EMITTER_VARIABLE + ".onComplete()");
   }
 
   public static String subscriberOnCompleted() {
-    return "subscriber.onCompleted()";
+    return "subscriber.onComplete()";
   }
 
   public static String subscriberOnError() {
     return "subscriber.onError(e)";
   }
 
-  public static String emitterOnError() {
-    return EMITTER_VARIABLE + ".onError(e)";
-  }
-
-  public static TypeSpec.Builder addRxObservableOnSubscribeToType(@NonNull TypeSpec.Builder typeBuilder,
-                                                                  @NonNull TypeName observedType,
-                                                                  @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
-    return addRxOnSubscribeToType(typeBuilder, observedType,
-        OBSERVABLE_SUBSCRIBER, OBSERVABLE_ON_SUBSCRIBE,
-        methodBodyBuildCallback);
-  }
-
-  public static TypeSpec.Builder addRxSingleOnSubscribeToType(@NonNull TypeSpec.Builder typeBuilder,
-                                                              @NonNull TypeName observedType,
-                                                              @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
-    return addRxOnSubscribeToType(typeBuilder, observedType,
-        SINGLE_SUBSCRIBER, SINGLE_ON_SUBSCRIBE,
-        methodBodyBuildCallback);
+  public static CodeBlock emitterOnError() {
+    return CodeBlock.builder()
+        .beginControlFlow("if (!$L.isDisposed())", DISPOSABLE_VARIABLE)
+        .addStatement("$L.onError(e)", EMITTER_VARIABLE)
+        .endControlFlow()
+        .build();
   }
 
   public static TypeSpec.Builder addRxCompletableFromEmitterToType(@NonNull TypeSpec.Builder typeBuilder,
                                                                    @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
-    return addRxFromEmitterToType(typeBuilder,
-        COMPLETABLE_EMITTER,
-        methodBodyBuildCallback);
-  }
-
-  private static TypeSpec.Builder addRxOnSubscribeToType(@NonNull TypeSpec.Builder typeBuilder,
-                                                         @NonNull TypeName observedType,
-                                                         @NonNull ClassName subscriberClass,
-                                                         @NonNull ClassName onSubscribeClass,
-                                                         @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
-    final MethodSpec.Builder callBuilder = MethodSpec.methodBuilder("call")
+    final MethodSpec.Builder methodBuilder = MethodSpec
+        .methodBuilder("subscribe")
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
-        .addParameter(ParameterizedTypeName.get(subscriberClass, WildcardTypeName.supertypeOf(observedType)), "subscriber");
-    methodBodyBuildCallback.call(callBuilder);
+        .addParameter(COMPLETABLE_EMITTER, EMITTER_VARIABLE)
+        .addException(Exception.class);
+    methodBodyBuildCallback.call(methodBuilder);
 
-    typeBuilder.addSuperinterface(ParameterizedTypeName.get(onSubscribeClass, observedType))
-        .addMethod(callBuilder.build());
-    return typeBuilder;
+    return typeBuilder
+        .addSuperinterface(COMPLETABLE_ON_SUBSCRIBE)
+        .addMethod(methodBuilder.build());
   }
 
   public static TypeSpec.Builder addCallableToType(@NonNull TypeSpec.Builder typeBuilder,
@@ -481,28 +347,15 @@ public class WriterUtil {
     return typeBuilder;
   }
 
-  private static TypeSpec.Builder addRxFromEmitterToType(@NonNull TypeSpec.Builder typeBuilder,
-                                                         @NonNull TypeName emitterType,
-                                                         @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
-    final MethodSpec.Builder callBuilder = MethodSpec.methodBuilder("call")
+  public static TypeSpec.Builder addRxActionToType(@NonNull TypeSpec.Builder typeBuilder,
+                                                   @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
+    final MethodSpec.Builder callBuilder = MethodSpec.methodBuilder("run")
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
-        .addParameter(emitterType, EMITTER_VARIABLE);
+        .addException(Exception.class);
     methodBodyBuildCallback.call(callBuilder);
 
-    typeBuilder.addSuperinterface(ParameterizedTypeName.get(ACTION_1, emitterType))
-        .addMethod(callBuilder.build());
-    return typeBuilder;
-  }
-
-  public static TypeSpec.Builder addRxAction0ToType(@NonNull TypeSpec.Builder typeBuilder,
-                                                    @NonNull Callback<MethodSpec.Builder> methodBodyBuildCallback) {
-    final MethodSpec.Builder callBuilder = MethodSpec.methodBuilder("call")
-        .addAnnotation(Override.class)
-        .addModifiers(Modifier.PUBLIC);
-    methodBodyBuildCallback.call(callBuilder);
-
-    typeBuilder.addSuperinterface(ACTION_0)
+    typeBuilder.addSuperinterface(ACTION)
         .addMethod(callBuilder.build());
     return typeBuilder;
   }

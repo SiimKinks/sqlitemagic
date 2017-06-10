@@ -22,8 +22,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 
+import io.reactivex.Observable;
+import io.reactivex.functions.Function;
 import lombok.Cleanup;
-import rx.functions.Func1;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -36,7 +37,6 @@ import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertComplexValuesWithSameLeafs;
 import static com.siimkinks.sqlitemagic.model.TestUtil.testMutableObjectPersistAndRetrieve;
 import static com.siimkinks.sqlitemagic.model.TestUtil.testMutableObjectWithDefinedIdPersistAndRetrieve;
-import static rx.Observable.from;
 
 @RunWith(AndroidJUnit4.class)
 public final class SynchronousMutableQueryTest {
@@ -741,10 +741,10 @@ public final class SynchronousMutableQueryTest {
     Magazine.deleteTable().execute();
     Author.deleteTable().execute();
 
-    final List<ComplexObjectWithSameLeafs> expected = from(insertComplexValuesWithSameLeafs(5))
-        .map(new Func1<ComplexObjectWithSameLeafs, ComplexObjectWithSameLeafs>() {
+    final List<ComplexObjectWithSameLeafs> expected = Observable.fromIterable(insertComplexValuesWithSameLeafs(5))
+        .map(new Function<ComplexObjectWithSameLeafs, ComplexObjectWithSameLeafs>() {
           @Override
-          public ComplexObjectWithSameLeafs call(ComplexObjectWithSameLeafs o) {
+          public ComplexObjectWithSameLeafs apply(ComplexObjectWithSameLeafs o) {
             o.simpleValueWithBuilder = null;
             o.simpleValueWithBuilderDuplicate = null;
             o.magazine = null;
@@ -753,8 +753,7 @@ public final class SynchronousMutableQueryTest {
           }
         })
         .toList()
-        .toBlocking()
-        .first();
+        .blockingGet();
 
     final List<ComplexObjectWithSameLeafs> vals = Select
         .columns(COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME,

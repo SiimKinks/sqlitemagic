@@ -10,7 +10,6 @@ dependencies {
   compileOnly gradleApi()
 
   compile libraries.android
-  compile libraries.androidApt
   compile libraries.androidGradle
   compile libraries.autoValue
   compile libraries.javassist

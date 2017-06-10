@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic;
 import android.app.Application;
 import android.support.annotation.NonNull;
 
-import rx.schedulers.Schedulers;
+import io.reactivex.schedulers.Schedulers;
 
 public class TestApp extends Application {
   public static Application INSTANCE;
@@ -18,7 +18,7 @@ public class TestApp extends Application {
   public static void initDb(@NonNull Application app) {
     SqliteMagic.setLoggingEnabled(true);
     SqliteMagic.setup(app)
-        .scheduleRxQueriesOn(Schedulers.immediate())
+        .scheduleRxQueriesOn(Schedulers.trampoline())
         .init();
   }
 

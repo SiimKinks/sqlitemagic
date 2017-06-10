@@ -1,29 +1,28 @@
 package com.siimkinks.sqlitemagic;
 
+import android.database.Cursor;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 
 /**
- * Compiled SQL select statement with {@code LIMIT 1} clause.
- *
- * @param <T> Selected table type
- * @param <S> Selection type
+ * Immutable object that contains raw SQL SELECT statement. This object
+ * can be shared between threads without any side effects.
+ * <p>
+ * Note: This class does not contain SQL statement compiled against database.
  */
-public interface CompiledFirstSelect<T, S> {
+public interface CompiledRawSelect {
   /**
-   * Execute this compiled select statement against a database.
+   * Execute this raw SELECT statement against a database.
    * <p>
-   * Returned value will be {@code null} only if query returns no rows.<br>
    * This method runs synchronously in the calling thread.
    *
-   * @return Query result or {@code null} if query returns no rows
+   * @return {@link Cursor} over the result set
    */
-  @Nullable
+  @NonNull
   @CheckResult
   @WorkerThread
-  T execute();
+  Cursor execute();
 
   /**
    * Create an observable which will notify subscribers with a {@linkplain Query query} for
@@ -37,7 +36,8 @@ public interface CompiledFirstSelect<T, S> {
    * observable use the {@link io.reactivex.Scheduler} supplied to
    * {@link com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder#scheduleRxQueriesOn}. For
    * consistency, the immediate notification sent on subscribe also uses this scheduler. As such,
-   * calling {@link io.reactivex.Observable#subscribeOn subscribeOn} on the returned observable has no effect.
+   * calling {@link io.reactivex.Observable#subscribeOn subscribeOn} on the returned observable has no
+   * effect.
    * <p>
    * Note: To skip the immediate notification and only receive subsequent notifications when data
    * has changed call {@code skip(1)} on the returned observable.
@@ -50,5 +50,5 @@ public interface CompiledFirstSelect<T, S> {
    */
   @NonNull
   @CheckResult
-  SingleItemQueryObservable<T> observe();
+  SingleItemQueryObservable<Cursor> observe();
 }
