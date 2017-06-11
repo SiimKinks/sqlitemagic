@@ -66,7 +66,7 @@ public class ModelCollectionStep implements ProcessingStep {
           }
         } catch (Exception e) {
           final String errMsg = e.getMessage();
-          environment.error(element, "Table column collection error = " + errMsg);
+          environment.error(element, "Table column collection error [%s|message=%s]", e.getClass().getSimpleName(), errMsg);
           if (errMsg == null) {
             e.printStackTrace();
           }
@@ -89,6 +89,7 @@ public class ModelCollectionStep implements ProcessingStep {
       return collectMethodColumns(tableElement, allMethods);
     } else {
       final ImmutableSet<VariableElement> allFields = environment.getLocalAndInheritedColumnFields((TypeElement) parentElement);
+      tableElement.setAllFields(allFields);
       return collectFieldColumns(tableElement, allFields);
     }
   }

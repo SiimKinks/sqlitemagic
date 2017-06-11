@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.BaseColumnElement;
-import com.siimkinks.sqlitemagic.element.MethodColumnElement;
 import com.siimkinks.sqlitemagic.util.Dual;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.CodeBlock;
@@ -145,7 +144,7 @@ public class ValueBuilderWriter implements ValueWriter {
   }
 
   @Override
-  public String buildOneValueSetterFromProvidedVariable(String entityVariableName, String settableValueName, MethodColumnElement settableColumn) {
+  public String buildOneValueSetterFromProvidedVariable(String entityVariableName, String settableValueName, BaseColumnElement settableColumn) {
     return buildNewFromPrevious(entityVariableName, oneValueBuildMethod(settableValueName, settableColumn));
   }
 

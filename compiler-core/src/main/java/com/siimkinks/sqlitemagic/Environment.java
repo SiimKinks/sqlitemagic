@@ -321,8 +321,7 @@ public class Environment {
     }
     for (VariableElement field : ElementFilter.fieldsIn(type.getEnclosedElements())) {
       final Set<Modifier> modifiers = field.getModifiers();
-      if (!modifiers.contains(Modifier.STATIC)
-          && !modifiers.contains(Modifier.FINAL)) {
+      if (!modifiers.contains(Modifier.STATIC)) {
         fields.put(field.getSimpleName().toString(), field);
       }
     }

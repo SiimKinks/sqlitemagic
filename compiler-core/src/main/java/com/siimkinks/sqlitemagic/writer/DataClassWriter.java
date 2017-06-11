@@ -3,11 +3,12 @@ package com.siimkinks.sqlitemagic.writer;
 import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.BaseColumnElement;
+import com.siimkinks.sqlitemagic.element.TableElement;
 import com.squareup.javapoet.CodeBlock;
 
 import java.util.List;
 
-import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -17,34 +18,37 @@ import lombok.experimental.Builder;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
 import static com.siimkinks.sqlitemagic.WriterUtil.getDefaultValue;
 import static com.siimkinks.sqlitemagic.WriterUtil.typeName;
+import static com.siimkinks.sqlitemagic.element.FieldColumnElement.getterStringForField;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 
 @Data
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class ValueCreatorWriter implements ValueWriter {
-
+public class DataClassWriter implements ValueWriter {
   private final Environment environment;
   private final List<? extends BaseColumnElement> allColumns;
-  private final ImmutableSet<ExecutableElement> allMethods;
-  private final String abstractClassName;
+  private final ImmutableSet<VariableElement> allFields;
+  private final TableElement tableElement;
+  private final String simpleClassName;
 
-  public static ValueCreatorWriter create(Environment environment,
-                                          List<? extends BaseColumnElement> allColumns,
-                                          ImmutableSet<ExecutableElement> allMethods,
-                                          String abstractClassName) {
-    return ValueCreatorWriter.builder()
+  public static DataClassWriter create(Environment environment,
+                                       List<? extends BaseColumnElement> allColumns,
+                                       ImmutableSet<VariableElement> allFields,
+                                       TableElement tableElement,
+                                       String simpleClassName) {
+    return DataClassWriter.builder()
         .environment(environment)
         .allColumns(allColumns)
-        .allMethods(allMethods)
-        .abstractClassName(abstractClassName)
+        .allFields(allFields)
+        .tableElement(tableElement)
+        .simpleClassName(simpleClassName)
         .build();
   }
 
   @Override
   public String buildOneValueSetter(String settableVariableName, BaseColumnElement settableColumn) {
     return String.format("new %s(%s)",
-        environment.getValueImplementationClassNameString(abstractClassName),
+        simpleClassName,
         constructorArgsWithOneValue(settableVariableName, settableColumn));
   }
 
@@ -52,25 +56,24 @@ public class ValueCreatorWriter implements ValueWriter {
   public CodeBlock buildAllValuesReturningSetter(Callback settableValueCallback) {
     final CodeBlock.Builder preCodeBuilder = CodeBlock.builder();
     final CodeBlock.Builder builder = CodeBlock.builder()
-        .add("return new $L(",
-            environment.getValueImplementationClassNameString(abstractClassName));
+        .add("return new $L(", simpleClassName);
     final int columnsSize = allColumns.size();
     int lastColumnPos = 0;
     boolean first = true;
-    for (ExecutableElement method : allMethods) {
+    for (VariableElement field : allFields) {
       if (first) {
         first = false;
       } else {
         builder.add(", ");
       }
       builder.add("\n\t\t");
-      final String methodName = method.getSimpleName().toString();
+      final String fieldName = field.getSimpleName().toString();
       final BaseColumnElement columnElement = lastColumnPos < columnsSize ? allColumns.get(lastColumnPos) : null;
-      if (columnElement != null && methodName.equals(columnElement.getElementName())) {
+      if (columnElement != null && fieldName.equals(columnElement.getElementName())) {
         settableValueCallback.call(builder, preCodeBuilder, columnElement, lastColumnPos, columnElement.deserializedValueSetter(null, "%s", MANAGER_VARIABLE));
         lastColumnPos++;
       } else {
-        final String defaultValue = getDefaultValue(typeName(method.getReturnType()));
+        final String defaultValue = getDefaultValue(typeName(field.asType()));
         builder.add(defaultValue);
       }
     }
@@ -81,11 +84,9 @@ public class ValueCreatorWriter implements ValueWriter {
   }
 
   @Override
-  public String buildOneValueSetterFromProvidedVariable(String entityVariableName,
-                                                        String settableValueName,
-                                                        BaseColumnElement settableColumn) {
+  public String buildOneValueSetterFromProvidedVariable(String entityVariableName, String settableValueName, BaseColumnElement settableColumn) {
     return String.format("new %s(%s)",
-        environment.getValueImplementationClassNameString(abstractClassName),
+        simpleClassName,
         copyConstructorArgsWithSettingOneNewValue(entityVariableName, settableValueName, settableColumn));
   }
 
@@ -96,15 +97,15 @@ public class ValueCreatorWriter implements ValueWriter {
     final int columnsSize = allColumns.size();
     int lastColumnPos = 0;
     boolean first = true;
-    for (ExecutableElement method : allMethods) {
+    for (VariableElement field : allFields) {
       if (first) {
         first = false;
       } else {
         sb.append(", ");
       }
-      final String methodName = method.getSimpleName().toString();
+      final String fieldName = field.getSimpleName().toString();
       final BaseColumnElement columnElement = lastColumnPos < columnsSize ? allColumns.get(lastColumnPos) : null;
-      if (columnElement != null && methodName.equals(columnElement.getElementName())) {
+      if (columnElement != null && fieldName.equals(columnElement.getElementName())) {
         lastColumnPos++;
         if (columnElement.equals(settableColumn)) {
           sb.append(settableVariableName);
@@ -113,8 +114,7 @@ public class ValueCreatorWriter implements ValueWriter {
       }
       sb.append(entityVariableName)
           .append('.')
-          .append(method.getSimpleName().toString())
-          .append("()");
+          .append(columnElement != null ? columnElement.getGetterString() : getterStringForField(field, tableElement));
     }
     return sb.toString();
   }
@@ -124,22 +124,22 @@ public class ValueCreatorWriter implements ValueWriter {
     final int columnsSize = allColumns.size();
     int lastColumnPos = 0;
     boolean first = true;
-    for (ExecutableElement method : allMethods) {
+    for (VariableElement field : allFields) {
       if (first) {
         first = false;
       } else {
         sb.append(", ");
       }
-      final String methodName = method.getSimpleName().toString();
+      final String fieldName = field.getSimpleName().toString();
       final BaseColumnElement columnElement = lastColumnPos < columnsSize ? allColumns.get(lastColumnPos) : null;
-      if (columnElement != null && methodName.equals(columnElement.getElementName())) {
+      if (columnElement != null && fieldName.equals(columnElement.getElementName())) {
         lastColumnPos++;
         if (columnElement.equals(settableColumn)) {
           sb.append(settableVariableName);
           continue;
         }
       }
-      final String defaultValue = getDefaultValue(typeName(method.getReturnType()));
+      final String defaultValue = getDefaultValue(typeName(field.asType()));
       sb.append(defaultValue);
     }
     return sb.toString();

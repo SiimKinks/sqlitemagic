@@ -1,8 +1,11 @@
 package com.siimkinks.sqlitemagic.element;
 
+import android.support.annotation.Nullable;
+
 import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.Const;
 import com.siimkinks.sqlitemagic.Environment;
+import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
@@ -91,7 +94,11 @@ public class FieldColumnElement extends ColumnElement {
     return fieldName;
   }
 
-  private static String getGetterString(Column columnAnnotation, TableElement enclosingTable, String fieldName, ExtendedTypeElement deserializedType) {
+  public static String getterStringForField(VariableElement field, TableElement enclosingTable) {
+    return getGetterString(null, enclosingTable, field.getSimpleName().toString(), enclosingTable.getEnvironment().getAnyTypeElement(field));
+  }
+
+  private static String getGetterString(@Nullable Column columnAnnotation, TableElement enclosingTable, String fieldName, ExtendedTypeElement deserializedType) {
     if (useAccessMethods(columnAnnotation, enclosingTable)) {
       final boolean isPrimitiveBoolean = deserializedType.getTypeElement().asType() == Const.BOOLEAN_TYPE && deserializedType.isPrimitiveElement();
       final String methodNameForGettingField = enclosingTable.getMethodNameForGettingField(fieldName, isPrimitiveBoolean);
@@ -125,12 +132,15 @@ public class FieldColumnElement extends ColumnElement {
     return hasNullableAnnotation;
   }
 
-  public static boolean useAccessMethods(Column columnAnnotation, TableElement enclosingTable) {
-    return columnAnnotation.useAccessMethods() || enclosingTable.useAccessMethods();
+  public static boolean useAccessMethods(@Nullable Column columnAnnotation, TableElement enclosingTable) {
+    return columnAnnotation != null && columnAnnotation.useAccessMethods() || enclosingTable.useAccessMethods();
   }
 
   @Override
   public String valueSetter(String entityElementVariableName, String settableValue) {
+    if (enclosingTable.isImmutable()) {
+      return enclosingTable.getValueWriter().buildOneValueSetterFromProvidedVariable(entityElementVariableName, settableValue, this);
+    }
     if (!hasSetterMethod()) {
       return String.format("%s.%s = %s", entityElementVariableName, setterString, settableValue);
     }
@@ -139,12 +149,20 @@ public class FieldColumnElement extends ColumnElement {
 
   @Override
   public FormatData deserializedValueSetter(String entityElementVariableName, String settableValue, String managerVariableName) {
+    if (enclosingTable.isImmutable()) {
+      if (hasTransformer()) {
+        return transformer.deserializedValueSetter(settableValue);
+      } else if (getDeserializedType().isBoxedByteArray(getEnvironment())) {
+        return FormatData.create("$T.toByteArray(" + settableValue + ")", Utils.class);
+      }
+      return FormatData.create(settableValue);
+    }
     if (hasTransformer()) {
       final FormatData transformedValue = transformer.deserializedValueSetter(settableValue);
       return FormatData.create(valueSetter(entityElementVariableName, transformedValue.getFormat()),
           transformedValue.getArgs());
     } else if (getDeserializedType().isBoxedByteArray(getEnvironment())) {
-      String valueSetter = valueSetter(entityElementVariableName, "$T.toByteArray($L)");
+      final String valueSetter = valueSetter(entityElementVariableName, "$T.toByteArray($L)");
       return FormatData.create(valueSetter, UTIL, settableValue);
     }
     return FormatData.create(valueSetter(entityElementVariableName, settableValue));

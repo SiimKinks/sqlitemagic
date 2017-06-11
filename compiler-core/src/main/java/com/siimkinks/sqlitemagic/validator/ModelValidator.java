@@ -31,7 +31,7 @@ public class ModelValidator {
 
   public static final String ERR_TABLE_MISPLACEMENT = String.format("Only classes can be annotated with @%s", Table.class.getSimpleName());
   public static final String ERR_MISSING_COLUMNS = "Table objects must have at least one column";
-  public static final String ERR_VALUE_ELEMENT_MISSING_ID_COLUMN = String.format("Immutable @%s annotated objects must have @%s annotated column", Table.class.getSimpleName(), Id.class.getSimpleName());
+  public static final String ERR_VALUE_ELEMENT_MISSING_ID_COLUMN = String.format("@%s annotated objects must have @%s annotated column", Table.class.getSimpleName(), Id.class.getSimpleName());
   public static final String ERR_COLUMN_ANNOTATION_MISPLACEMENT = String.format("@%s annotation is misplaced", Column.class.getSimpleName());
   public static final String ERR_ID_COLUMN_WRONG_TYPE = String.format("@%s must be either %s or %s", Id.class.getSimpleName(), Long.class.getName(), long.class.getName());
   public static final String ERR_MISSING_NO_ARGS_CONSTRUCTOR = String.format("Mutable classes with @%s annotation must have no args constructor", Table.class.getSimpleName());

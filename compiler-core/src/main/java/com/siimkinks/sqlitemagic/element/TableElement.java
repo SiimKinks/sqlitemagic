@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.exception.DuplicateIdException;
 import com.siimkinks.sqlitemagic.exception.DuplicateNameException;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.siimkinks.sqlitemagic.util.StringUtil;
+import com.siimkinks.sqlitemagic.writer.DataClassWriter;
 import com.siimkinks.sqlitemagic.writer.EntityEnvironment;
 import com.siimkinks.sqlitemagic.writer.ValueBuilderWriter;
 import com.siimkinks.sqlitemagic.writer.ValueCreatorWriter;
@@ -21,6 +22,7 @@ import com.squareup.javapoet.TypeName;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +33,8 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.util.Types;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -40,7 +44,7 @@ import static com.siimkinks.sqlitemagic.util.StringUtil.replaceCamelCaseWithUnde
 
 @EqualsAndHashCode(of = {"tableName"})
 public class TableElement {
-
+  @Getter
   private final Environment environment;
   private final PackageElement modelPackage;
   @Getter
@@ -72,11 +76,17 @@ public class TableElement {
   Integer graphAllColumnsCount;
   Integer graphMinimalColumnsCount;
   /**
-   * Present only for immutable tables
+   * Present only for tables that evaluate to "immutable" in constructor
    */
   @Nullable
   @Setter
   private ImmutableSet<ExecutableElement> allMethods;
+  /**
+   * Present only for tables that evaluate to "mutable" in constructor
+   */
+  @Nullable
+  @Setter
+  private ImmutableSet<VariableElement> allFields;
   /**
    * All columns except id column
    */
@@ -122,6 +132,13 @@ public class TableElement {
       valueWriter = ValueCreatorWriter.create(environment,
           allColumns,
           allMethods,
+          tableElement.getSimpleName().toString());
+    } else if (isValidDataClass()) {
+      immutable = true;
+      valueWriter = DataClassWriter.create(environment,
+          allColumns,
+          allFields,
+          this,
           tableElement.getSimpleName().toString());
     }
     addMissingColumnsIfNeeded();
@@ -307,6 +324,28 @@ public class TableElement {
     return hasAnyNonIdNotNullableColumns;
   }
 
+  private boolean isValidDataClass() {
+    for (Element enclosedElement : tableElement.getEnclosedElements()) {
+      if (enclosedElement.getKind() == ElementKind.CONSTRUCTOR) {
+        ExecutableElement constructor = (ExecutableElement) enclosedElement;
+        final List<? extends VariableElement> constructorParams = constructor.getParameters();
+        if (constructorParams.size() != allColumns.size()) {
+          return false;
+        }
+        final Types typeUtils = environment.getTypeUtils();
+        final Iterator<ColumnElement> columnsIterator = allColumns.iterator();
+        for (VariableElement param : constructorParams) {
+          final ColumnElement column = columnsIterator.next();
+          if (!typeUtils.isSameType(param.asType(), column.getDeserializedType().getTypeMirror())) {
+            return false;
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   public String getMethodNameForSettingField(String fieldName) {
     final String javaBeansMethodName = "set" + StringUtil.firstCharToUpperCase(fieldName);
     int containingMethodPos = containsAnyMethod(fieldName, javaBeansMethodName);
@@ -321,8 +360,17 @@ public class TableElement {
   }
 
   public String getMethodNameForGettingField(String fieldName, boolean isPrimitiveBoolean) {
-    final String javaBeansMethodName = (isPrimitiveBoolean ? "is" : "get") + StringUtil.firstCharToUpperCase(fieldName);
-    int containingMethodPos = containsAnyMethod(fieldName, javaBeansMethodName);
+    final String capitalizedName = StringUtil.firstCharToUpperCase(fieldName);
+    final String javaBeansMethodName = "get" + capitalizedName;
+    final String methodName = methodNameFor(fieldName, javaBeansMethodName);
+    if (methodName == null && isPrimitiveBoolean) {
+      return methodNameFor(fieldName, "is" + capitalizedName);
+    }
+    return methodName;
+  }
+
+  private String methodNameFor(String fieldName, String javaBeansMethodName) {
+    final int containingMethodPos = containsAnyMethod(fieldName, javaBeansMethodName);
     switch (containingMethodPos) {
       case 0:
         return fieldName;

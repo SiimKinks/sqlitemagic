@@ -134,16 +134,16 @@ public class TransformerValidator {
       final ReturnCallback<Boolean, Element> validator = new ReturnCallback<Boolean, Element>() {
         @Override
         public Boolean call(Element element) {
-          final boolean hasAnnotation = hasNotNullAnnotation(element);
-          if (!hasAnnotation) {
+          if (!hasNotNullAnnotation(element) && !transformer.getSerializedType().isPrimitiveElement()) {
             environment.warning(element, "When transforming %s objects the return value cannot be null in some or all cases. " +
                     "Currently transformer %s has no contract annotations fulfilling this requirement on method %s. " +
                     "Please add @NonNull or @NotNull annotation and check your code.",
                 transformer.getQualifiedDeserializedName(),
                 transformer.getClassName(),
                 element.getSimpleName().toString());
+            return false;
           }
-          return hasAnnotation;
+          return true;
         }
       };
       if (!warnTransformationsNullabilityContracts(objectToDbValue, validator)) {
