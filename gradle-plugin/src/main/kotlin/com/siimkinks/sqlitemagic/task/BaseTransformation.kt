@@ -76,8 +76,8 @@ abstract class BaseTransformation(val destinationDir: File,
   }
 
   private fun loadClassFile(pool: ClassPool, classFile: File): CtClass {
-    with(classFile.inputStream()) {
-      return pool.makeClass(this)
+    classFile.inputStream().use {
+      return pool.makeClass(it)
     }
   }
 

@@ -1,0 +1,72 @@
+apply plugin: 'com.android.application'
+apply plugin: 'sqlitemagic'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-kapt'
+
+android {
+  compileSdkVersion 25
+  buildToolsVersion "25.0.2"
+
+  defaultConfig {
+    applicationId "com.siimkinks.sqlitemagic"
+    minSdkVersion 16
+    targetSdkVersion 25
+    versionCode 1
+    versionName "1.0"
+
+    buildConfigField "int", "DB_VERSION", "3"
+    buildConfigField "String", "DB_NAME", '"db.db"'
+
+    testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+  }
+  buildTypes {
+    release {
+      buildConfigField "int", "DB_VERSION", "2"
+
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+    }
+  }
+  lintOptions {
+    abortOnError false
+  }
+  sourceSets {
+    main.java.srcDirs += 'src/main/kotlin'
+    main.java.srcDirs += 'build/generated/source/kaptKotlin/debug'
+    test.java.srcDirs += 'src/test/kotlin'
+    androidTest.java.srcDirs += 'src/androidTest/kotlin'
+  }
+}
+
+dependencies {
+  compile libraries.kotlinStdLib
+  compile libraries.supportV7
+  compile libraries.rxJava2
+  compile libraries.rxJava2Extensions
+
+  provided libraries.autoValueAnnotations
+  provided libraries.lombok
+
+  kapt libraries.autoValue
+  kapt libraries.autoValueParcel
+
+  testCompile libraries.truth
+  testCompile libraries.mockito
+
+  androidTestCompile libraries.supportAnnotationsForTesting
+  androidTestCompile libraries.supportTestRunner
+  androidTestCompile(libraries.truth) {
+    exclude group: 'junit' // Android has JUnit built in.
+  }
+}
+
+sqlitemagic {
+//  generateMagicMethods = false
+//	generateLogging = true
+//	debugBytecodeProcessor = true
+}
+
+tasks.withType(Test) {
+  scanForTestClasses = false
+  include "**/*Test.class"
+}

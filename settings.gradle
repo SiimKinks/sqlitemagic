@@ -1,1 +1,2 @@
-include ':compiler', ':gradle-plugin', ':annotations', ':runtime'
+include ':gradle-plugin', ':annotations', ':runtime',
+    ':compiler-core', 'compiler', ':compiler-magic', ':compiler-kotlin'

@@ -4,4 +4,5 @@
 .DS_Store
 /build
 /captures
-/app/db
+*/db
+/db

@@ -52,6 +52,7 @@ dependencies {
 }
 
 sqlitemagic {
+//  generateMagicMethods = false
 //	generateLogging = true
 //	debugBytecodeProcessor = true
 }

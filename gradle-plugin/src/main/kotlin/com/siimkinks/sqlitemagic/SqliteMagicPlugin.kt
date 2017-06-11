@@ -40,9 +40,29 @@ class SqliteMagicPlugin : Plugin<Project> {
 
     project.gradle.addListener(object : DependencyResolutionListener {
       override fun beforeResolve(dependencies: ResolvableDependencies?) {
+        val kotlinProject = listOf("kotlin-android", "kotlin", "org.jetbrains.kotlin.android", "org.jetbrains.kotlin.jvm")
+            .asSequence()
+            .mapNotNull { project.plugins.findPlugin(it) }
+            .firstOrNull() != null
+
+        val compilerArtifact = when {
+          !sqlitemagic.generateMagicMethods -> "sqlitemagic-compiler"
+          kotlinProject -> "sqlitemagic-compiler-kotlin"
+          else -> "sqlitemagic-compiler-magic"
+        }
+
+        if (kotlinProject) {
+          val hasKpt = project.plugins.findPlugin("kotlin-kapt") != null || project.plugins.findPlugin("org.jetbrains.kotlin.kapt") != null
+          if (!hasKpt) {
+            throw IllegalStateException("Missing kotlin kapt plugin!")
+          }
+          project.getConfigurationDependency("kapt")
+        } else {
+          aptDeps
+        }.addDependency(project, "com.siimkinks.sqlitemagic:$compilerArtifact:$VERSION")
+
         providedDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$VERSION")
         compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic:$VERSION")
-        aptDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-compiler:$VERSION")
 
         project.gradle.removeListener(this)
       }

@@ -1,0 +1,38 @@
+apply plugin: 'java'
+apply from: '../buildsystem/maven-push.gradle'
+apply from: '../buildsystem/bintray-push.gradle'
+
+targetCompatibility = JavaVersion.VERSION_1_7
+sourceCompatibility = JavaVersion.VERSION_1_7
+
+dependencies {
+  compile project(':runtime')
+
+  compile files("${System.properties['java.home']}/../lib/tools.jar")
+
+  compile libraries.autoCommon
+  compile libraries.guava
+  compile libraries.javapoet
+  compile libraries.rxJava2
+  compile libraries.dagger
+  compile libraries.jackson
+
+  compileOnly libraries.daggerCompiler
+  compileOnly libraries.lombok
+
+  testCompile libraries.googleCompileTesting
+  testCompile libraries.junit
+}
+
+tasks.withType(Test) {
+  scanForTestClasses = false
+  include "**/*Test.class"
+}
+
+task(setupTestsEnv) {
+  doFirst {
+    System.setProperty('SQLITE_MAGIC_AUTO_LIB', 'com.google.auto.value.AutoValue')
+  }
+}
+
+test.dependsOn setupTestsEnv
