@@ -38,7 +38,7 @@ class ModelExtensionsWriter @Inject constructor() {
       .builder(method.funName)
       .addModifiers(KModifier.INLINE)
       .addAnnotation(NOTHING_TO_INLINE)
-      .receiver(tableElement.tableElement.toTypeName())
+      .receiver(tableElement.tableElement.asTypeName())
       .returns(method.returnType)
       .addStatement("return %T.create(this)",
           getHandlerInnerClassName(entityEnvironment, method.invocationClassName))
@@ -47,7 +47,7 @@ class ModelExtensionsWriter @Inject constructor() {
   private fun generateBulkMethod(tableElement: TableElement,
                                  entityEnvironment: EntityEnvironment,
                                  method: BulkMethod): FunSpec {
-    val tableElementType = tableElement.tableElement.toTypeName()
+    val tableElementType = tableElement.tableElement.asTypeName()
     return FunSpec
         .builder(method.funName)
         .addModifiers(KModifier.INLINE)

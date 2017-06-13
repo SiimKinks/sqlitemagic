@@ -9,7 +9,7 @@ dependencies {
   compile project(':annotations')
 
   compile libraries.android
-  compile libraries.supportAnnotations
+  compile libraries.supportAnnotationsForTesting
   compileOnly libraries.rxJava2
 
   testCompile libraries.junit

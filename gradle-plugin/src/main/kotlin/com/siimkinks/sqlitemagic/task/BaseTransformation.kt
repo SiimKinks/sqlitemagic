@@ -76,8 +76,12 @@ abstract class BaseTransformation(val destinationDir: File,
   }
 
   private fun loadClassFile(pool: ClassPool, classFile: File): CtClass {
-    classFile.inputStream().use {
-      return pool.makeClass(it)
+    try {
+      classFile.inputStream().use {
+        return pool.makeClass(it)
+      }
+    } catch(e: Throwable) {
+      throw GradleException("Error loading class file $classFile", e)
     }
   }
 

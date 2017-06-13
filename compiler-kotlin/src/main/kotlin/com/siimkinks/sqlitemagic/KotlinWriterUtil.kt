@@ -43,10 +43,11 @@ fun File.writeSource(packageName: String = PACKAGE_ROOT, fileName: String, fileB
 fun getHandlerInnerClassName(entityEnvironment: EntityEnvironment, className: String): ClassName =
     ClassName.invoke(PACKAGE_ROOT, entityEnvironment.handlerClassNameString, className)
 
-// FIXME remove when kotlinpoet 0.3.0 is released
+// FIXME remove when kotlinpoet correctly implements extension functions
 fun <T : Any> KClass<T>.asClassName(): ClassName {
   qualifiedName?.let { return ClassName.bestGuess(it) }
   throw IllegalArgumentException("$this cannot be represented as a TypeName")
 }
 
-fun TypeElement.toTypeName(): TypeName = TypeName.get(this.asType(), mutableMapOf())
+// FIXME remove when kotlinpoet correctly implements extension functions
+fun TypeElement.asTypeName(): TypeName = KotlinWriterUtil.get(this.asType())
