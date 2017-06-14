@@ -1,5 +1,14 @@
 Change Log
-========
+==========
+
+Version 0.12.0 _(2017-06-14)_
+---------------------------------
+
+* Better kotlin support (support data classes, generate extension functions instead of magic functions).
+
+#### Breaking changes:
+
+* Port to RxJava 2 (RxJava 1 support coming back in next release).
 
 Version 0.11.0 _(2016-12-18)_
 ---------------------------------

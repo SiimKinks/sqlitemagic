@@ -8,6 +8,7 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 * Minimal [setup](https://github.com/SiimKinks/sqlitemagic/wiki/Setup) needed
 * Built in [RxJava support](https://github.com/SiimKinks/sqlitemagic/wiki/RxJava-Support) with reactive stream semantics on queries and operations
 * Built in [AutoValue](https://github.com/SiimKinks/sqlitemagic/wiki/Immutable-Objects) immutable objects support
+* Built in kotlin support
 * Full support for [complex columns](https://github.com/SiimKinks/sqlitemagic/wiki/User-Defined-Objects-as-Columns)
 * Support for [SQLite views](https://github.com/SiimKinks/sqlitemagic/wiki/Views)
 * Persist any third party object with fully customizable [object transformers](https://github.com/SiimKinks/sqlitemagic/wiki/Object-Transformers)
@@ -19,7 +20,7 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 Getting Started
 -----------------
 
-#### Install IntelliJ Plugin:
+#### Install IntelliJ Plugin (for non-kotlin project):
 
 The Intellij plugin can be installed from Android Studio by navigating
 Android Studio -> Preferences -> Plugins -> Browse repositories -> Search for SqliteMagic
@@ -33,7 +34,7 @@ buildscript {
   }
   dependencies {
     classpath 'com.android.tools.build:gradle:<latest version>'
-    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.11.0'
+    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.12.0'
   }
 }
 
