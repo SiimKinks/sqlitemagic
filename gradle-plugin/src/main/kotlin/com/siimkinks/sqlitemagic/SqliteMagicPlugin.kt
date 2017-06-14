@@ -74,6 +74,7 @@ class SqliteMagicPlugin : Plugin<Project> {
     project.afterEvaluate {
       System.setProperty("SQLITE_MAGIC_GENERATE_LOGGING", sqlitemagic.generateLogging.toString())
       System.setProperty("SQLITE_MAGIC_AUTO_LIB", sqlitemagic.autoValueAnnotation)
+      System.setProperty("SQLITE_MAGIC_K_PUBLIC_EXTENSIONS", sqlitemagic.publicKotlinExtensionFunctions.toString())
       System.setProperty("PROJECT_DIR", project.projectDir.toString())
     }
   }

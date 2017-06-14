@@ -7,6 +7,8 @@ import com.siimkinks.sqlitemagic.Table;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.model.immutable.BuilderMagazine;
 import com.siimkinks.sqlitemagic.model.immutable.CreatorMagazine;
+import com.siimkinks.sqlitemagic.model.immutable.DataClassWithFields;
+import com.siimkinks.sqlitemagic.model.immutable.DataClassWithMethods;
 import com.siimkinks.sqlitemagic.model.immutable.ImmutableEquals;
 import com.siimkinks.sqlitemagic.model.immutable.SimpleValueWithBuilder;
 import com.siimkinks.sqlitemagic.model.immutable.SimpleValueWithBuilderAndNullableFields;
@@ -28,6 +30,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.BuilderMagazineTable.BUILDER_MAGAZINE;
 import static com.siimkinks.sqlitemagic.CreatorMagazineTable.CREATOR_MAGAZINE;
+import static com.siimkinks.sqlitemagic.DataClassWithFieldsTable.DATA_CLASS_WITH_FIELDS;
+import static com.siimkinks.sqlitemagic.DataClassWithMethodsTable.DATA_CLASS_WITH_METHODS;
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderAndNullableFieldsTable.SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS;
 import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER;
@@ -49,6 +53,8 @@ public final class SynchronousOperationTest {
     CreatorMagazine.deleteTable().execute();
     SimpleValueWithBuilderAndNullableFields.deleteTable().execute();
     SimpleValueWithCreatorAndNullableFields.deleteTable().execute();
+    DataClassWithMethods.deleteTable().execute();
+    DataClassWithFields.deleteTable().execute();
   }
 
   @Test
@@ -78,6 +84,24 @@ public final class SynchronousOperationTest {
 
     assertThat(id).isNotEqualTo(-1);
     assertImmutableValue(val, SIMPLE_VALUE_WITH_CREATOR);
+  }
+
+  @Test
+  public void simpleDataClassWithMethodsInsert() {
+    DataClassWithMethods val = DataClassWithMethods.newRandom();
+    final long id = val.insert().execute();
+
+    assertThat(id).isNotEqualTo(-1);
+    assertImmutableValue(val, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void simpleDataClassWithFieldsInsert() {
+    DataClassWithFields val = DataClassWithFields.newRandom();
+    final long id = val.insert().execute();
+
+    assertThat(id).isNotEqualTo(-1);
+    assertImmutableValue(val, DATA_CLASS_WITH_FIELDS);
   }
 
   @Test
@@ -208,6 +232,32 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     assertImmutableValue(val, SIMPLE_VALUE_WITH_CREATOR);
+  }
+
+  @Test
+  public void simpleDataClassWithMethodsUpdate() {
+    DataClassWithMethods val = DataClassWithMethods.newRandom();
+    final long id = val.insert().execute();
+    assertThat(id).isNotEqualTo(-1);
+
+    val = DataClassWithMethods.newRandom(id);
+    final boolean success = val.update().execute();
+    assertThat(success).isTrue();
+
+    assertImmutableValue(val, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void simpleDataClassWithFieldsUpdate() {
+    DataClassWithFields val = DataClassWithFields.newRandom();
+    final long id = val.insert().execute();
+    assertThat(id).isNotEqualTo(-1);
+
+    val = DataClassWithFields.newRandom(id);
+    final boolean success = val.update().execute();
+    assertThat(success).isTrue();
+
+    assertImmutableValue(val, DATA_CLASS_WITH_FIELDS);
   }
 
   @Test
@@ -413,6 +463,24 @@ public final class SynchronousOperationTest {
   }
 
   @Test
+  public void dataClassWithMethodsPersistWithInsert() {
+    DataClassWithMethods val = DataClassWithMethods.newRandom();
+    final long id = val.persist().execute();
+
+    assertThat(id).isNotEqualTo(-1);
+    assertImmutableValue(val, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void dataClassWithFieldsPersistWithInsert() {
+    DataClassWithFields val = DataClassWithFields.newRandom();
+    final long id = val.persist().execute();
+
+    assertThat(id).isNotEqualTo(-1);
+    assertImmutableValue(val, DATA_CLASS_WITH_FIELDS);
+  }
+
+  @Test
   public void complexMutablePersistWithInsert() {
     final Magazine val = Magazine.newRandom();
     final long id = val.persist().execute();
@@ -482,6 +550,32 @@ public final class SynchronousOperationTest {
     assertThat(persistId).isEqualTo(id);
 
     assertImmutableValue(val, SIMPLE_VALUE_WITH_CREATOR);
+  }
+
+  @Test
+  public void dataClassWithMethodsPersistWithUpdate() {
+    DataClassWithMethods val = DataClassWithMethods.newRandom();
+    final long id = val.insert().execute();
+    assertThat(id).isNotEqualTo(-1);
+
+    val = DataClassWithMethods.newRandom(id);
+    final long persistId = val.persist().execute();
+    assertThat(persistId).isEqualTo(id);
+
+    assertImmutableValue(val, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void dataClassWithFieldsPersistWithUpdate() {
+    DataClassWithFields val = DataClassWithFields.newRandom();
+    final long id = val.insert().execute();
+    assertThat(id).isNotEqualTo(-1);
+
+    val = DataClassWithFields.newRandom(id);
+    final long persistId = val.persist().execute();
+    assertThat(persistId).isEqualTo(id);
+
+    assertImmutableValue(val, DATA_CLASS_WITH_FIELDS);
   }
 
   @Test
@@ -966,6 +1060,34 @@ public final class SynchronousOperationTest {
   }
 
   @Test
+  public void dataClassWithMethodsBulkInsert() {
+    final List<DataClassWithMethods> vals = createVals(new Function<Integer, DataClassWithMethods>() {
+      @Override
+      public DataClassWithMethods apply(Integer integer) {
+        return DataClassWithMethods.newRandom();
+      }
+    });
+    final boolean success = DataClassWithMethods.insert(vals).execute();
+
+    assertThat(success).isTrue();
+    assertImmutableValue(vals, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void dataClassWithFieldsBulkInsert() {
+    final List<DataClassWithFields> vals = createVals(new Function<Integer, DataClassWithFields>() {
+      @Override
+      public DataClassWithFields apply(Integer integer) {
+        return DataClassWithFields.newRandom();
+      }
+    });
+    final boolean success = DataClassWithFields.insert(vals).execute();
+
+    assertThat(success).isTrue();
+    assertImmutableValue(vals, DATA_CLASS_WITH_FIELDS);
+  }
+
+  @Test
   public void complexMutableBulkInsert() {
     final List<Magazine> val = createVals(new Function<Integer, Magazine>() {
       @Override
@@ -1081,6 +1203,54 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     assertImmutableValue(vals, SIMPLE_VALUE_WITH_CREATOR);
+  }
+
+  @Test
+  public void dataClassWithMethodsBulkUpdate() {
+    List<DataClassWithMethods> vals = createVals(new Function<Integer, DataClassWithMethods>() {
+      @Override
+      public DataClassWithMethods apply(Integer integer) {
+        return DataClassWithMethods.newRandom();
+      }
+    });
+    boolean success = DataClassWithMethods.insert(vals).execute();
+    assertThat(success).isTrue();
+
+    vals = updateVals(Select.from(DATA_CLASS_WITH_METHODS).execute(), new Function<DataClassWithMethods, DataClassWithMethods>() {
+      @Override
+      public DataClassWithMethods apply(DataClassWithMethods val) {
+        return DataClassWithMethods.newRandom(val.getId());
+      }
+    });
+
+    success = DataClassWithMethods.update(vals).execute();
+    assertThat(success).isTrue();
+
+    assertImmutableValue(vals, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void dataClassWithFieldsBulkUpdate() {
+    List<DataClassWithFields> vals = createVals(new Function<Integer, DataClassWithFields>() {
+      @Override
+      public DataClassWithFields apply(Integer integer) {
+        return DataClassWithFields.newRandom();
+      }
+    });
+    boolean success = DataClassWithFields.insert(vals).execute();
+    assertThat(success).isTrue();
+
+    vals = updateVals(Select.from(DATA_CLASS_WITH_FIELDS).execute(), new Function<DataClassWithFields, DataClassWithFields>() {
+      @Override
+      public DataClassWithFields apply(DataClassWithFields val) {
+        return DataClassWithFields.newRandom(val.id);
+      }
+    });
+
+    success = DataClassWithFields.update(vals).execute();
+    assertThat(success).isTrue();
+
+    assertImmutableValue(vals, DATA_CLASS_WITH_FIELDS);
   }
 
   @Test
@@ -1221,6 +1391,34 @@ public final class SynchronousOperationTest {
   }
 
   @Test
+  public void dataClassWithMethodsBulkPersistWithInsert() {
+    final List<DataClassWithMethods> vals = createVals(new Function<Integer, DataClassWithMethods>() {
+      @Override
+      public DataClassWithMethods apply(Integer integer) {
+        return DataClassWithMethods.newRandom();
+      }
+    });
+    final boolean success = DataClassWithMethods.persist(vals).execute();
+
+    assertThat(success).isTrue();
+    assertImmutableValue(vals, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void DataClassWithFieldsBulkPersistWithInsert() {
+    final List<DataClassWithFields> vals = createVals(new Function<Integer, DataClassWithFields>() {
+      @Override
+      public DataClassWithFields apply(Integer integer) {
+        return DataClassWithFields.newRandom();
+      }
+    });
+    final boolean success = DataClassWithFields.persist(vals).execute();
+
+    assertThat(success).isTrue();
+    assertImmutableValue(vals, DATA_CLASS_WITH_FIELDS);
+  }
+
+  @Test
   public void complexMutableBulkPersistWithInsert() {
     final List<Magazine> val = createVals(new Function<Integer, Magazine>() {
       @Override
@@ -1336,6 +1534,54 @@ public final class SynchronousOperationTest {
     assertThat(success).isTrue();
 
     assertImmutableValue(vals, SIMPLE_VALUE_WITH_CREATOR);
+  }
+
+  @Test
+  public void dataClassWithMethodsBulkPersistWithUpdate() {
+    List<DataClassWithMethods> vals = createVals(new Function<Integer, DataClassWithMethods>() {
+      @Override
+      public DataClassWithMethods apply(Integer integer) {
+        return DataClassWithMethods.newRandom();
+      }
+    });
+    boolean success = DataClassWithMethods.insert(vals).execute();
+    assertThat(success).isTrue();
+
+    vals = updateVals(Select.from(DATA_CLASS_WITH_METHODS).execute(), new Function<DataClassWithMethods, DataClassWithMethods>() {
+      @Override
+      public DataClassWithMethods apply(DataClassWithMethods val) {
+        return DataClassWithMethods.newRandom(val.getId());
+      }
+    });
+
+    success = DataClassWithMethods.persist(vals).execute();
+    assertThat(success).isTrue();
+
+    assertImmutableValue(vals, DATA_CLASS_WITH_METHODS);
+  }
+
+  @Test
+  public void dataClassWithFieldsBulkPersistWithUpdate() {
+    List<DataClassWithFields> vals = createVals(new Function<Integer, DataClassWithFields>() {
+      @Override
+      public DataClassWithFields apply(Integer integer) {
+        return DataClassWithFields.newRandom();
+      }
+    });
+    boolean success = DataClassWithFields.insert(vals).execute();
+    assertThat(success).isTrue();
+
+    vals = updateVals(Select.from(DATA_CLASS_WITH_FIELDS).execute(), new Function<DataClassWithFields, DataClassWithFields>() {
+      @Override
+      public DataClassWithFields apply(DataClassWithFields val) {
+        return DataClassWithFields.newRandom(val.id);
+      }
+    });
+
+    success = DataClassWithFields.persist(vals).execute();
+    assertThat(success).isTrue();
+
+    assertImmutableValue(vals, DATA_CLASS_WITH_FIELDS);
   }
 
   @Test

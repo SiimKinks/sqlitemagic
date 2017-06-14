@@ -1,12 +1,10 @@
 package com.siimkinks.sqlitemagic
 
+import com.siimkinks.sqlitemagic.BaseProcessor.PUBLIC_EXTENSIONS
 import com.siimkinks.sqlitemagic.entity.*
 import com.siimkinks.sqlitemagic.util.NameConst.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.writer.EntityEnvironment
-import com.squareup.kotlinpoet.AnnotationSpec
-import com.squareup.kotlinpoet.ClassName
-import com.squareup.kotlinpoet.KotlinFile
-import com.squareup.kotlinpoet.TypeName
+import com.squareup.kotlinpoet.*
 import java.io.File
 import javax.lang.model.element.TypeElement
 import kotlin.reflect.KClass
@@ -31,6 +29,8 @@ val NOTHING_TO_INLINE = AnnotationSpec
     .builder(SUPPRESS)
     .addMember("value", "%S", "NOTHING_TO_INLINE")
     .build()
+
+val EXTENSION_FUN_MODIFIERS = if (PUBLIC_EXTENSIONS) listOf(KModifier.INLINE) else listOf(KModifier.INLINE, KModifier.INTERNAL)
 
 fun File.writeSource(packageName: String = PACKAGE_ROOT, fileName: String, fileBuilder: (fileBuilder: KotlinFile.Builder) -> Unit) {
   val builder = KotlinFile.builder(packageName = packageName, fileName = fileName)

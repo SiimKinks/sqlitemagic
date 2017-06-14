@@ -31,9 +31,11 @@ import dagger.ObjectGraph;
 public class BaseProcessor extends AbstractProcessor {
   public static final String KEY_SQLITE_MAGIC_AUTO_LIB = "SQLITE_MAGIC_AUTO_LIB";
   public static final String KEY_SQLITE_MAGIC_GENERATE_LOGGING = "SQLITE_MAGIC_GENERATE_LOGGING";
+  public static final String KEY_SQLITE_MAGIC_K_PUBLIC_EXTENSIONS = "SQLITE_MAGIC_K_PUBLIC_EXTENSIONS";
   public static final String KEY_SQLITE_MAGIC_DB_VERSION = "SQLITE_MAGIC_DB_VERSION";
   public static final String KEY_SQLITE_MAGIC_DB_NAME = "SQLITE_MAGIC_DB_NAME";
   public static boolean GENERATE_LOGGING = false;
+  public static boolean PUBLIC_EXTENSIONS = false;
   static ObjectGraph objectGraph;
   private Environment environment;
   private ImmutableSet<? extends ProcessingStep> processingSteps;
@@ -80,6 +82,10 @@ public class BaseProcessor extends AbstractProcessor {
   }
 
   private void initSettingsFromGradlePlugin(Environment environment) {
+    String publicExtensions = System.getProperty(KEY_SQLITE_MAGIC_K_PUBLIC_EXTENSIONS);
+    if (publicExtensions != null) {
+      PUBLIC_EXTENSIONS = Boolean.valueOf(publicExtensions);
+    }
     String generateLogging = System.getProperty(KEY_SQLITE_MAGIC_GENERATE_LOGGING);
     if (generateLogging != null) {
       GENERATE_LOGGING = Boolean.valueOf(generateLogging);

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.writer
 
 import com.siimkinks.sqlitemagic.*
+import com.siimkinks.sqlitemagic.BaseProcessor.PUBLIC_EXTENSIONS
 import com.siimkinks.sqlitemagic.element.TableElement
 import com.siimkinks.sqlitemagic.util.NameConst.*
 import com.squareup.kotlinpoet.*
@@ -18,16 +19,17 @@ class ModelExtensionsWriter @Inject constructor() {
           .forEach {
             fileBuilder.addFun(generateMethod(tableElement, entityEnvironment, it))
           }
-      fileBuilder.addType(TypeSpec.classBuilder("${className}s")
-          .companionObject(TypeSpec.companionObjectBuilder()
-              .also { companionBuilder ->
-                companionBuilder.addFun(generateDeleteTable(entityEnvironment))
-                BulkMethod.values()
-                    .forEach {
-                      companionBuilder.addFun(generateBulkMethod(tableElement, entityEnvironment, it))
-                    }
-              }
-              .build())
+      fileBuilder.addType(TypeSpec.objectBuilder("${className}s")
+          .also { objectBuilder ->
+            if (!PUBLIC_EXTENSIONS) {
+              objectBuilder.addModifiers(KModifier.INTERNAL)
+            }
+            objectBuilder.addFun(generateDeleteTable(entityEnvironment))
+            BulkMethod.values()
+                .forEach {
+                  objectBuilder.addFun(generateBulkMethod(tableElement, entityEnvironment, it))
+                }
+          }
           .build())
     }
   }
@@ -36,7 +38,7 @@ class ModelExtensionsWriter @Inject constructor() {
                              entityEnvironment: EntityEnvironment,
                              method: Method): FunSpec = FunSpec
       .builder(method.funName)
-      .addModifiers(KModifier.INLINE)
+      .addModifiers(EXTENSION_FUN_MODIFIERS)
       .addAnnotation(NOTHING_TO_INLINE)
       .receiver(tableElement.tableElement.asTypeName())
       .returns(method.returnType)
@@ -50,7 +52,7 @@ class ModelExtensionsWriter @Inject constructor() {
     val tableElementType = tableElement.tableElement.asTypeName()
     return FunSpec
         .builder(method.funName)
-        .addModifiers(KModifier.INLINE)
+        .addModifiers(EXTENSION_FUN_MODIFIERS)
         .addAnnotation(NOTHING_TO_INLINE)
         .returns(if (method.returnTypeWithGenerics) ParameterizedTypeName.get(method.returnType, tableElementType) else method.returnType)
         .addParameter("o", ParameterizedTypeName.get(method.parameterType, tableElementType))
@@ -61,7 +63,7 @@ class ModelExtensionsWriter @Inject constructor() {
 
   private fun generateDeleteTable(entityEnvironment: EntityEnvironment): FunSpec = FunSpec
       .builder(METHOD_DELETE_TABLE)
-      .addModifiers(KModifier.INLINE)
+      .addModifiers(EXTENSION_FUN_MODIFIERS)
       .addAnnotation(NOTHING_TO_INLINE)
       .returns(ENTITY_DELETE_TABLE_BUILDER)
       .addStatement("return %T.create()",
