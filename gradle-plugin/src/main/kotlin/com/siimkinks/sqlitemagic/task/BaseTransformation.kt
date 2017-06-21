@@ -10,6 +10,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.file.FileCollection
 import org.gradle.api.logging.Logging
 import java.io.File
+import java.io.IOException
 import java.util.*
 
 abstract class BaseTransformation(val destinationDir: File,
@@ -53,7 +54,7 @@ abstract class BaseTransformation(val destinationDir: File,
     // add the files to process
     for (f in sources) {
       if (!f.isDirectory) {
-        loadedClasses.add(loadClassFile(pool, f))
+        loadClassFile(pool, f)?.let(loadedClasses::add)
       }
     }
 
@@ -75,11 +76,14 @@ abstract class BaseTransformation(val destinationDir: File,
     }
   }
 
-  private fun loadClassFile(pool: ClassPool, classFile: File): CtClass {
+  private fun loadClassFile(pool: ClassPool, classFile: File): CtClass? {
     try {
       classFile.inputStream().use {
         return pool.makeClass(it)
       }
+    } catch (e: IOException) {
+      logInfo("Not loading class file $classFile due to error=${e.message}")
+      return null
     } catch(e: Throwable) {
       throw GradleException("Error loading class file $classFile", e)
     }
