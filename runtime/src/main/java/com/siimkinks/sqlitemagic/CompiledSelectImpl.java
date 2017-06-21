@@ -197,13 +197,7 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
     @Nullable
     private final String[] args;
     @NonNull
-    private final Table<T> table;
-    @NonNull
     private final String[] observedTables;
-    @Nullable
-    private final SimpleArrayMap<String, Integer> columns;
-    @Nullable
-    private final SimpleArrayMap<String, String> tableGraphNodeNames;
     private final boolean queryDeep;
 
     CompiledCursorSelectImpl(@NonNull CompiledSelectImpl<T, S> compiledSelect,
@@ -211,10 +205,7 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
       super(dbConnection, compiledSelect.mapper);
       this.sql = compiledSelect.sql;
       this.args = compiledSelect.args;
-      this.table = compiledSelect.table;
       this.observedTables = compiledSelect.observedTables;
-      this.columns = compiledSelect.columns;
-      this.tableGraphNodeNames = compiledSelect.tableGraphNodeNames;
       this.queryDeep = compiledSelect.queryDeep;
     }
 
