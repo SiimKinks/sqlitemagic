@@ -1,6 +1,15 @@
 Change Log
 ==========
 
+Version 0.13.0 _(2017-06-25)_
+---------------------------------
+
+* New: Kotlin extensions module - adds useful extension functions and LINQ style SQL DSL
+* New: Add ability to create raw queries without providing observed table(s)
+* New: Add `DbConnection#clearData` method which clears all data in tables
+* Fix: Generate correct code for complex data classes
+* Fix: Do not fail bytecode transformation when IOE happens during class file loading
+
 Version 0.12.0 _(2017-06-14)_
 ---------------------------------
 
@@ -8,7 +17,7 @@ Version 0.12.0 _(2017-06-14)_
 
 #### Breaking changes:
 
-* Port to RxJava 2 (RxJava 1 support coming back in next release).
+* Port to RxJava 2 (RxJava 1 support coming back in future release).
 
 Version 0.11.0 _(2016-12-18)_
 ---------------------------------
