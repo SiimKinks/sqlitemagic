@@ -144,6 +144,20 @@ public class TableElement {
     addMissingColumnsIfNeeded();
   }
 
+  public void collectColumnsMetadata() {
+    for (ColumnElement columnElement : allColumns) {
+      if (columnElement.isReferencedColumn()) {
+        this.complexColumnCount++;
+      }
+      if (columnElement.isHandledRecursively()) {
+        this.persistedComplexColumnCount++;
+        if (columnElement.isReferencedTableImmutable()) {
+          this.persistedImmutableComplexColumnCount++;
+        }
+      }
+    }
+  }
+
   @NonNull
   public static String determineTableName(String rawTableElementName, String tableAnnotationValue) {
     if (Strings.isNullOrEmpty(tableAnnotationValue)) {
@@ -166,15 +180,6 @@ public class TableElement {
       columnsExceptId.add(columnElement);
     }
     allColumns.add(columnElement);
-    if (columnElement.isReferencedColumn()) {
-      this.complexColumnCount++;
-    }
-    if (columnElement.isHandledRecursively()) {
-      this.persistedComplexColumnCount++;
-      if (columnElement.isReferencedTableImmutable()) {
-        this.persistedImmutableComplexColumnCount++;
-      }
-    }
     if (columnElement.hasTransformer() && !columnElement.isNullable()) {
       columnElement.getTransformer().markAsCannotTransformNullValues();
     }

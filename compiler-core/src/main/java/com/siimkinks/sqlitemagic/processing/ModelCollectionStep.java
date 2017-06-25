@@ -73,6 +73,9 @@ public class ModelCollectionStep implements ProcessingStep {
           return false;
         }
       }
+      for (TableElement collectedTable : environment.getTableElements()) {
+        collectedTable.collectColumnsMetadata();
+      }
       final StrongComponentsFinder strongComponentsFinder = new StrongComponentsFinder(environment.getAllTableElements(), environment.getAllTableNames());
       if (strongComponentsFinder.strongComponentsCount() > 0) {
         strongComponentsFinder.printStrongComponents(environment.getMessager());
