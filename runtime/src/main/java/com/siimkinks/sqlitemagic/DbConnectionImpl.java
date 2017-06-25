@@ -131,6 +131,14 @@ public class DbConnectionImpl implements DbConnection {
     return this.transaction;
   }
 
+  @Override
+  public final void clearData() {
+    final String[] triggers = SqlUtil.clearData(getWritableDatabase());
+    if (triggers != null) {
+      sendTableTriggers(triggers);
+    }
+  }
+
   SQLiteDatabase getReadableDatabase() {
     SQLiteDatabase db = readableDatabase;
     if (db == null) {

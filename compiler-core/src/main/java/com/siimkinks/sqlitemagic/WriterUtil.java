@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
@@ -71,10 +72,8 @@ import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.STATEMENT_VARIABLE;
-import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
-import static javax.lang.model.element.Modifier.STATIC;
 
 public class WriterUtil {
 
@@ -102,6 +101,7 @@ public class WriterUtil {
 
   public static final ClassName UTIL = ClassName.get(Utils.class);
   public static final ClassName LOG_UTIL = ClassName.get(LogUtil.class);
+  public static final ClassName SQL_UTIL = ClassName.get(SqlUtil.class);
   public static final ClassName SQLITE_MAGIC = ClassName.get(SqliteMagic.class);
   public static final ClassName DB_CONNECTION = ClassName.get(DbConnection.class);
   public static final ClassName DB_CONNECTION_IMPL = ClassName.get(DbConnectionImpl.class);
@@ -178,31 +178,6 @@ public class WriterUtil {
     return MethodSpec.methodBuilder(methodName);
   }
 
-  public static MethodSpec buildSqlTransactionMethod(String methodName, CodeBlock sqlTransactionBody) {
-    return buildSqlTransactionMethod(MethodSpec.methodBuilder(methodName), sqlTransactionBody);
-  }
-
-  public static void addSingleton(TypeSpec.Builder classBuilder, ClassName className) {
-    MethodSpec noArgsConstructor = MethodSpec.constructorBuilder()
-        .addModifiers(PRIVATE)
-        .build();
-    classBuilder.addMethod(noArgsConstructor);
-    TypeSpec singletonHolder = TypeSpec.classBuilder("SingletonHolder")
-        .addModifiers(PRIVATE, STATIC)
-        .addField(FieldSpec.builder(className, "instance", PUBLIC, STATIC, FINAL)
-            .initializer("new $T()", className)
-            .build())
-        .build();
-    classBuilder.addType(singletonHolder);
-    ClassName singletonHolderClass = ClassName.bestGuess("SingletonHolder");
-    MethodSpec instanceGetter = MethodSpec.methodBuilder("getInstance")
-        .addModifiers(Const.STATIC_METHOD_MODIFIERS)
-        .addStatement("return $T.instance", singletonHolderClass)
-        .returns(className)
-        .build();
-    classBuilder.addMethod(instanceGetter);
-  }
-
   public static void addTableTriggersSendingStatement(MethodSpec.Builder builder, Set<TableElement> allTableTriggers) {
     if (allTableTriggers.size() > 1) {
       final List<Object> args = new ArrayList<>();
@@ -224,15 +199,25 @@ public class WriterUtil {
     }
   }
 
-  public static MethodSpec buildSqlTransactionMethod(MethodSpec.Builder methodBuilder, CodeBlock sqlTransactionBody) {
-    return methodBuilder
+  public static MethodSpec buildSqlTransactionMethod(MethodSpec.Builder methodBuilder,
+                                                     CodeBlock sqlTransactionBody) {
+    return buildSqlTransactionMethod(methodBuilder, sqlTransactionBody, null);
+  }
+
+  public static MethodSpec buildSqlTransactionMethod(MethodSpec.Builder methodBuilder,
+                                                     CodeBlock sqlTransactionBody,
+                                                     @Nullable CodeBlock returnBody) {
+    methodBuilder
         .addModifiers(Const.STATIC_METHOD_MODIFIERS)
         .addParameter(SQLITE_DATABASE, "db")
         .addStatement("db.beginTransaction()")
         .beginControlFlow("try")
         .addCode(sqlTransactionBody)
-        .addStatement("db.setTransactionSuccessful()")
-        .nextControlFlow("catch (Exception e)")
+        .addStatement("db.setTransactionSuccessful()");
+    if (returnBody != null) {
+      methodBuilder.addCode(returnBody);
+    }
+    return methodBuilder.nextControlFlow("catch (Exception e)")
         .addStatement("$L $T.logError(e, \"Error while executing db transaction\")", IF_LOGGING_ENABLED, LOG_UTIL)
         .nextControlFlow("finally")
         .addStatement("db.endTransaction()")

@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.support.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.model.Author;
+import com.siimkinks.sqlitemagic.model.Magazine;
 
 import org.junit.After;
 import org.junit.Before;
@@ -13,6 +14,7 @@ import org.junit.runner.RunWith;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.observers.TestObserver;
 import io.reactivex.schedulers.Schedulers;
@@ -20,7 +22,9 @@ import io.reactivex.schedulers.Schedulers;
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.InternalTester.assertTriggersHaveNoObservers;
+import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
+import static com.siimkinks.sqlitemagic.model.TestUtil.insertMagazines;
 
 @RunWith(AndroidJUnit4.class)
 public final class DbDefaultConnectionTest {
@@ -104,6 +108,30 @@ public final class DbDefaultConnectionTest {
     tsAfter.assertComplete();
     tsAfter.assertNoErrors();
     assertTriggersHaveNoObservers();
+  }
+
+  @Test
+  public void clearData() {
+    insertMagazines(10);
+    assertThat(Select.from(MAGAZINE).count().execute()).isGreaterThan(0L);
+    assertThat(Select.from(AUTHOR).count().execute()).isGreaterThan(0L);
+
+    final TestObserver<List<Magazine>> ts = Select
+        .from(MAGAZINE)
+        .observe()
+        .runQuery()
+        .skip(1)
+        .take(1)
+        .test();
+
+    SqliteMagic.getDefaultConnection().clearData();
+
+    ts.awaitTerminalEvent(2, TimeUnit.SECONDS);
+    ts.assertNoErrors()
+        .assertValue(Collections.<Magazine>emptyList());
+
+    assertThat(Select.from(MAGAZINE).execute()).isEmpty();
+    assertThat(Select.from(AUTHOR).execute()).isEmpty();
   }
 
   private void initDbWithNewConnection() {

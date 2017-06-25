@@ -36,6 +36,15 @@ public final class SqliteMagic {
     return getDefaultDbConnection().newTransaction();
   }
 
+  /**
+   * @return Default DB connection.
+   */
+  @NonNull
+  @CheckResult
+  public static DbConnection getDefaultConnection() {
+    return getDefaultDbConnection();
+  }
+
   @NonNull
   static DbConnectionImpl getDefaultDbConnection() {
     final DbConnectionImpl defaultConnection = SingletonHolder.instance.defaultConnection;

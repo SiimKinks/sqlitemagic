@@ -37,6 +37,7 @@ import javax.tools.Diagnostic;
 import static com.siimkinks.sqlitemagic.Const.CLASS_MODIFIERS;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_GENERATED_CLASSES_MANAGER;
+import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CLEAR_DATA;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_COLUMN_FOR_VALUE;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CONFIGURE_DATABASE;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CREATE_TABLES;
@@ -44,8 +45,6 @@ import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_NAME;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_NR_OF_TABLES;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
-import static com.siimkinks.sqlitemagic.WriterUtil.COMPILED_N_COLUMNS_SELECT;
-import static com.siimkinks.sqlitemagic.WriterUtil.COMPILED_N_COLUMNS_SELECT_IMPL;
 import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
 import static com.siimkinks.sqlitemagic.WriterUtil.FROM;
 import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
@@ -53,6 +52,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SIMPLE_ARRAY_MAP;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
+import static com.siimkinks.sqlitemagic.WriterUtil.SQL_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING_ARRAY_SET;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
@@ -62,7 +62,6 @@ import static com.siimkinks.sqlitemagic.WriterUtil.createMagicInvokableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.notNullParameter;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_TABLE_SCHEMA;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_VIEW_QUERY;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CREATE_VIEW;
 import static com.siimkinks.sqlitemagic.util.NameConst.PACKAGE_ROOT;
 import static com.siimkinks.sqlitemagic.writer.ColumnClassWriter.VAL_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.EntityEnvironment.getGeneratedHandlerClassName;
@@ -80,12 +79,11 @@ public class GenClassesManagerWriter {
   public void writeSource(Environment environment, GenClassesManagerStep managerStep) throws IOException {
     if (!environment.getAllTableElements().isEmpty()) {
       Filer filer = environment.getFiler();
-      final MethodSpec executeViewCreate = executeViewCreate();
       TypeSpec.Builder classBuilder = TypeSpec.classBuilder(CLASS_NAME_GENERATED_CLASSES_MANAGER)
           .addModifiers(CLASS_MODIFIERS)
           .addMethod(databaseConfigurator(environment))
-          .addMethod(databaseSchemaCreator(environment, managerStep, executeViewCreate))
-          .addMethod(executeViewCreate)
+          .addMethod(databaseSchemaCreator(environment, managerStep))
+          .addMethod(clearData(environment))
           .addMethod(nrOfTables(environment))
           .addMethod(dbVersion(environment))
           .addMethod(dbName(environment))
@@ -139,44 +137,27 @@ public class GenClassesManagerWriter {
     return false;
   }
 
-  private MethodSpec databaseSchemaCreator(Environment environment, GenClassesManagerStep managerStep, MethodSpec executeViewCreate) {
-    MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CREATE_TABLES);
+  private MethodSpec databaseSchemaCreator(Environment environment, GenClassesManagerStep managerStep) {
+    final MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CREATE_TABLES);
     final CodeBlock.Builder sqlTransactionBody = CodeBlock.builder();
     sqlTransactionBody.add(buildSchemaCreations(environment));
-    sqlTransactionBody.add(buildViewSchemaCreations(managerStep, executeViewCreate));
+    sqlTransactionBody.add(buildViewSchemaCreations(managerStep));
     return WriterUtil.buildSqlTransactionMethod(method, sqlTransactionBody.build());
   }
 
-  private CodeBlock buildViewSchemaCreations(GenClassesManagerStep managerStep, MethodSpec executeViewCreate) {
+  private CodeBlock buildViewSchemaCreations(GenClassesManagerStep managerStep) {
     final CodeBlock.Builder builder = CodeBlock.builder();
     WriterUtil.addDebugLogging(builder, "Creating views");
     final List<ViewElement> allViewElements = managerStep.getAllViewElements();
     for (ViewElement viewElement : allViewElements) {
       final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
-      builder.addStatement("$N(db, $T.$L, $S)",
-          executeViewCreate,
+      builder.addStatement("$T.createView(db, $T.$L, $S)",
+          SQL_UTIL,
           viewDao,
           FIELD_VIEW_QUERY,
           viewElement.getViewName());
     }
     return builder.build();
-  }
-
-  private MethodSpec executeViewCreate() {
-    return MethodSpec.methodBuilder(METHOD_CREATE_VIEW)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(notNullParameter(SQLITE_DATABASE, "db"))
-        .addParameter(notNullParameter(COMPILED_N_COLUMNS_SELECT, "query"))
-        .addParameter(notNullParameter(STRING, "viewName"))
-        .addStatement("final $1T queryImpl = ($1T) query",
-            COMPILED_N_COLUMNS_SELECT_IMPL)
-        .addStatement("final String[] args = queryImpl.args")
-        .beginControlFlow("if (args != null)")
-        .addStatement("db.execSQL(\"CREATE VIEW IF NOT EXISTS \" + viewName + \" AS \" + queryImpl.sql, args)")
-        .nextControlFlow("else")
-        .addStatement("db.execSQL(\"CREATE VIEW IF NOT EXISTS \" + viewName + \" AS \" + queryImpl.sql)")
-        .endControlFlow()
-        .build();
   }
 
   private CodeBlock buildSchemaCreations(Environment environment) {
@@ -187,6 +168,32 @@ public class GenClassesManagerWriter {
       builder.addStatement("db.execSQL($T.$L)", modelHandler, FIELD_TABLE_SCHEMA);
     }
     return builder.build();
+  }
+
+  private MethodSpec clearData(Environment environment) {
+    final MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CLEAR_DATA)
+        .returns(String[].class)
+        .addAnnotation(NULLABLE);
+    final CodeBlock.Builder body = CodeBlock.builder();
+    WriterUtil.addDebugLogging(body, "Clearing data");
+    final CodeBlock.Builder resultBuilder = CodeBlock.builder()
+        .add("return new String[]{");
+    boolean firstTime = true;
+    for (TableElement tableElement : environment.getAllTableElements()) {
+      final String tableName = tableElement.getTableName();
+      body.addStatement("db.execSQL($S)", "DELETE FROM " + tableName);
+      if (firstTime) {
+        firstTime = false;
+      } else {
+        resultBuilder.add(", ");
+      }
+      resultBuilder.add("$S", tableName);
+    }
+    resultBuilder.add("};\n");
+    return WriterUtil.buildSqlTransactionMethod(method, body.build(), resultBuilder.build())
+        .toBuilder()
+        .addStatement("return null")
+        .build();
   }
 
   private MethodSpec nrOfTables(Environment environment) {

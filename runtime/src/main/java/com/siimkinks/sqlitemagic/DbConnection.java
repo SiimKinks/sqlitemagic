@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic;
 
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
+import android.support.annotation.WorkerThread;
 
 import java.io.Closeable;
 
@@ -12,6 +13,7 @@ public interface DbConnection extends Closeable {
   /**
    * Close the underlying SQLite connection and release all cached resources.
    */
+  @Override
   void close();
 
   /**
@@ -53,4 +55,10 @@ public interface DbConnection extends Closeable {
   @NonNull
   @CheckResult
   Transaction newTransaction();
+
+  /**
+   * Clear all data in tables.
+   */
+  @WorkerThread
+  void clearData();
 }
