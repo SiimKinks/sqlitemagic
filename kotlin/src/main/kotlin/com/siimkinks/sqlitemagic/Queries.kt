@@ -201,6 +201,10 @@ inline infix fun <T : Table<*>> RawSelect.FROM(tables: Collection<T>) = this.fro
 @CheckResult
 inline infix fun RawSelect.From.WITH_ARGS(args: Array<String>) = this.withArgs(*args)
 
+/** @see RawSelect.From.withArgs */
+@CheckResult
+inline infix fun RawSelect.WITH_ARGS(args: Array<String>) = this.withArgs(*args)
+
 /** @see Select.val */
 inline val <T : Number> T.value
   @CheckResult get() = Select.`val`(this)

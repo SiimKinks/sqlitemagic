@@ -29,9 +29,13 @@ fun UpdateSqlNode.isEqualTo(expectedSql: String, expectedNodeCount: Int, vararg 
   assertThat(updateBuilder.args).containsExactly(*expectedArgs)
 }
 
-fun CompiledRawSelect.isEqualTo(expectedSql: String) {
+fun CompiledRawSelect.isEqualTo(expectedSql: String,
+                                expectedObservedTables: Array<String> = emptyArray(),
+                                expectedArgs: Array<String>? = null) {
   val select = this as RawSelect.CompiledRawSelectImpl
   assertThat(select.sql).isEqualTo(expectedSql)
+  assertThat(select.observedTables).isEqualTo(expectedObservedTables)
+  assertThat(select.args).isEqualTo(expectedArgs)
 }
 
 fun SelectSqlNode<*>.isEqualTo(expectedOutput: String) {

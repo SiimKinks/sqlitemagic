@@ -17,22 +17,67 @@ class SelectSqlBuilderTest : DSLTest {
   @Test
   fun rawSelect() {
     (SELECT
+        RAW "SELECT * FROM author")
+        .compile()
+        .isEqualTo("SELECT * FROM author")
+  }
+
+  @Test
+  fun rawSelectWithArgs() {
+    (SELECT
+        RAW "SELECT * FROM author WHERE author.name=?"
+        WITH_ARGS arrayOf("foo"))
+        .compile()
+        .isEqualTo(
+            expectedSql = "SELECT * FROM author WHERE author.name=?",
+            expectedArgs = arrayOf("foo"))
+
+    (SELECT
+        RAW "SELECT * FROM author WHERE author.name=?"
+        WITH_ARGS arrayOf("foo")
+        FROM AUTHOR)
+        .compile()
+        .isEqualTo(
+            expectedSql = "SELECT * FROM author WHERE author.name=?",
+            expectedObservedTables = arrayOf("author"),
+            expectedArgs = arrayOf("foo"))
+
+    (SELECT
+        RAW "SELECT * FROM author WHERE author.name=?"
+        FROM AUTHOR
+        WITH_ARGS arrayOf("foo"))
+        .compile()
+        .isEqualTo(
+            expectedSql = "SELECT * FROM author WHERE author.name=?",
+            expectedObservedTables = arrayOf("author"),
+            expectedArgs = arrayOf("foo"))
+  }
+
+  @Test
+  fun rawSelectWithObservedTable() {
+    (SELECT
         RAW "SELECT * FROM author"
         FROM AUTHOR)
         .compile()
-        .isEqualTo("SELECT * FROM author")
+        .isEqualTo(
+            expectedSql = "SELECT * FROM author",
+            expectedObservedTables = arrayOf("author"))
 
     (SELECT
         RAW "SELECT * FROM magazine, author"
         FROM arrayOf(MAGAZINE, AUTHOR))
         .compile()
-        .isEqualTo("SELECT * FROM magazine, author")
+        .isEqualTo(
+            expectedSql = "SELECT * FROM magazine, author",
+            expectedObservedTables = arrayOf("magazine", "author"))
 
     (SELECT
         RAW "SELECT * FROM author"
         FROM listOf(AUTHOR))
         .compile()
-        .isEqualTo("SELECT * FROM author")
+        .isEqualTo(
+            expectedSql = "SELECT * FROM author",
+            expectedObservedTables = arrayOf("author"))
   }
 
   @Test

@@ -12,6 +12,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -52,6 +53,68 @@ public final class SelectSqlBuilderTest {
   public void setUp() {
     final SqliteMagic instance = SqliteMagic.SingletonHolder.instance;
     instance.defaultConnection = mock(DbConnectionImpl.class);
+  }
+
+  private static final String[] EMPTY_STRINGS = new String[0];
+
+  @Test
+  public void rawSelect() {
+    final String sql = "SELECT * FROM author";
+    assertRawSql(Select
+            .raw(sql)
+            .compile(),
+        sql, EMPTY_STRINGS, null);
+  }
+
+  @Test
+  public void rawSelectWithArgs() {
+    final String sql = "SELECT * FROM author WHERE author.name=?";
+    final String[] expectedArgs = {"foo"};
+    final String[] expectedObservedTables = {"author"};
+
+    assertRawSql(Select
+            .raw(sql)
+            .withArgs("foo")
+            .compile(),
+        sql, EMPTY_STRINGS, expectedArgs);
+
+    assertRawSql(Select
+            .raw(sql)
+            .withArgs("foo")
+            .from(AUTHOR)
+            .compile(),
+        sql, expectedObservedTables, expectedArgs);
+
+    assertRawSql(Select
+            .raw(sql)
+            .from(AUTHOR)
+            .withArgs("foo")
+            .compile(),
+        sql, expectedObservedTables, expectedArgs);
+  }
+
+  @Test
+  public void rawSelectWithObservedTable() {
+    final String sql = "SELECT * FROM author";
+    final String[] expectedObservedTables = new String[]{"magazine", "author"};
+
+    assertRawSql(Select
+            .raw(sql)
+            .from(AUTHOR)
+            .compile(),
+        sql, new String[]{"author"}, null);
+
+    assertRawSql(Select
+            .raw(sql)
+            .from(MAGAZINE, AUTHOR)
+            .compile(),
+        sql, expectedObservedTables, null);
+
+    assertRawSql(Select
+            .raw(sql)
+            .from(Arrays.asList(MAGAZINE, AUTHOR))
+            .compile(),
+        sql, expectedObservedTables, null);
   }
 
   @Test
@@ -1983,6 +2046,16 @@ public final class SelectSqlBuilderTest {
             .from(SIMPLE_ALL_VALUES_MUTABLE)
             .where(distinctFunc.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT).greaterOrEqual(888)),
         expected);
+  }
+
+  private void assertRawSql(CompiledRawSelect rawSelect,
+                            String expectedSql,
+                            String[] expectedObservedTables,
+                            String[] expectedArgs) {
+    final RawSelect.CompiledRawSelectImpl select = (RawSelect.CompiledRawSelectImpl) rawSelect;
+    assertThat(select.sql).isEqualTo(expectedSql);
+    assertThat(select.observedTables).isEqualTo(expectedObservedTables);
+    assertThat(select.args).isEqualTo(expectedArgs);
   }
 
   private void assertSql(SelectSqlNode sqlNode, String expectedOutput) {

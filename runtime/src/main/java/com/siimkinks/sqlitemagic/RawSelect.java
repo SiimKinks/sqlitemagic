@@ -6,25 +6,20 @@ import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Size;
-import android.support.annotation.WorkerThread;
-
-import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation;
 
 import java.util.Collection;
 
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.createQueryObservable;
+import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_STRINGS;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * Builder for raw SQL SELECT statement.
  */
-public final class RawSelect {
-  @NonNull
-  final String sql;
-
+public final class RawSelect extends RawSelectNode<RawSelect, CompiledRawSelect> {
   RawSelect(@NonNull String sql) {
-    this.sql = sql;
+    super(new Builder(sql));
   }
 
   /**
@@ -76,67 +71,10 @@ public final class RawSelect {
   /**
    * Builder for raw SQL SELECT statement.
    */
-  public static final class From implements ConnectionProvidedOperation<From> {
-    @NonNull
-    final RawSelect select;
-    @NonNull
-    final String[] observedTables;
-    @Nullable
-    String[] args;
-    @NonNull
-    DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
-
+  public static final class From extends RawSelectNode<From, CompiledObservableRawSelect> {
     From(@NonNull RawSelect select, @NonNull String[] observedTables) {
-      this.select = select;
-      this.observedTables = observedTables;
-    }
-
-    @NonNull
-    @Override
-    public From usingConnection(@NonNull DbConnection connection) {
-      dbConnection = (DbConnectionImpl) connection;
-      return this;
-    }
-
-    /**
-     * Define SQL arguments.
-     *
-     * @param args
-     *     Arguments for the created SQL
-     * @return A builder for raw SQL SELECT statement
-     */
-    @CheckResult
-    public From withArgs(@NonNull @Size(min = 1) String... args) {
-      this.args = args;
-      return this;
-    }
-
-    /**
-     * Compiles this SQL SELECT statement.
-     * <p>
-     * Result object is immutable and can be shared between threads without any side effects.
-     * <p>
-     * Note: This method does not compile underlying SQL statement.
-     *
-     * @return Immutable compiled raw SQL SELECT statement
-     */
-    @CheckResult
-    public CompiledRawSelect compile() {
-      return new CompiledRawSelectImpl(this, dbConnection);
-    }
-
-    /**
-     * Compile and execute this raw SELECT statement against a database.
-     * <p>
-     * This method runs synchronously in the calling thread.
-     *
-     * @return {@link Cursor} over the result set
-     */
-    @NonNull
-    @CheckResult
-    @WorkerThread
-    public Cursor execute() {
-      return new CompiledRawSelectImpl(this, dbConnection).execute();
+      super(select.rawSelectBuilder);
+      rawSelectBuilder.observedTables = observedTables;
     }
 
     /**
@@ -166,24 +104,38 @@ public final class RawSelect {
     @NonNull
     @CheckResult
     public SingleItemQueryObservable<Cursor> observe() {
-      return new CompiledRawSelectImpl(this, dbConnection).observe();
+      return new CompiledRawSelectImpl(rawSelectBuilder).observe();
     }
   }
 
-  static final class CompiledRawSelectImpl extends Query.DatabaseQuery<Cursor, Cursor> implements CompiledRawSelect {
+  static final class Builder {
     @NonNull
     final String sql;
+    @Nullable
+    String[] args;
     @NonNull
-    final String[] observedTables;
+    String[] observedTables = EMPTY_STRINGS;
+    @NonNull
+    DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
+
+    Builder(@NonNull String sql) {
+      this.sql = sql;
+    }
+  }
+
+  static final class CompiledRawSelectImpl extends Query.DatabaseQuery<Cursor, Cursor> implements CompiledObservableRawSelect {
+    @NonNull
+    final String sql;
     @Nullable
     final String[] args;
+    @NonNull
+    final String[] observedTables;
 
-    CompiledRawSelectImpl(@NonNull From from,
-                          @NonNull DbConnectionImpl dbConnection) {
-      super(dbConnection, null);
-      this.sql = from.select.sql;
-      this.observedTables = from.observedTables;
-      this.args = from.args;
+    CompiledRawSelectImpl(@NonNull Builder builder) {
+      super(builder.dbConnection, null);
+      this.sql = builder.sql;
+      this.args = builder.args;
+      this.observedTables = builder.observedTables;
     }
 
     @NonNull
@@ -214,7 +166,7 @@ public final class RawSelect {
     @NonNull
     @Override
     public SingleItemQueryObservable<Cursor> observe() {
-      return new SingleItemQueryObservable<>(createQueryObservable(observedTables,this));
+      return new SingleItemQueryObservable<>(createQueryObservable(observedTables, this));
     }
 
     @Override
