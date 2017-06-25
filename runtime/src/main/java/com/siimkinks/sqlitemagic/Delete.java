@@ -44,7 +44,7 @@ public final class Delete extends DeleteSqlNode {
   /**
    * Builder for SQL DELETE statement.
    */
-  public static final class From<T> extends ExecutableNode {
+  public static final class From<T> extends DeleteNode {
     @NonNull
     final Table<T> table;
 
@@ -75,7 +75,7 @@ public final class Delete extends DeleteSqlNode {
   /**
    * Builder for SQL DELETE statement.
    */
-  public static final class Where extends ExecutableNode {
+  public static final class Where extends DeleteNode {
     @NonNull
     private final Expr expr;
 

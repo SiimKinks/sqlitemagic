@@ -7,6 +7,7 @@ public final class ContainerHelpers {
 
   public static final byte[] EMPTY_PRIMITIVE_BYTES = new byte[0];
   public static final Byte[] EMPTY_BYTES = new Byte[0];
+  public static final String[] EMPTY_STRINGS = new String[0];
   static final int[] EMPTY_INTS = new int[0];
   static final Object[] EMPTY_OBJECTS = new Object[0];
 

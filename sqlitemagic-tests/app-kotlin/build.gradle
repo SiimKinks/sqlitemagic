@@ -50,8 +50,10 @@ dependencies {
   kapt libraries.autoValue
   kapt libraries.autoValueParcel
 
-  testCompile libraries.truth
+  testCompile libraries.kotlinStdLib
   testCompile libraries.mockito
+  testCompile libraries.mockitoKotlin
+  testCompile libraries.truth
 
   androidTestCompile libraries.supportAnnotationsForTesting
   androidTestCompile libraries.supportTestRunner

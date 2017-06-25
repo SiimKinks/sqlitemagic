@@ -19,7 +19,7 @@ import java.util.Iterator;
  * @param <ET> Equivalent type
  * @param <P>  Parent table type
  */
-class ComplexColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
+public class ComplexColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
   ComplexColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
                 @NonNull ValueParser<?> valueParser, boolean nullable, @Nullable String alias) {
     super(table, name, allFromTable, valueParser, nullable, alias);

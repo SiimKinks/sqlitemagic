@@ -36,7 +36,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   public interface SelectN {
   }
 
-  private static final Column<?, ?, ?, ?>[] ALL = new Column<?, ?, ?, ?>[0];
+  static final Column<?, ?, ?, ?>[] ALL = new Column<?, ?, ?, ?>[0];
 
   @NonNull
   private final String stmt;

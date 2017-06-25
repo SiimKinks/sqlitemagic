@@ -218,7 +218,7 @@ public final class Update extends UpdateSqlNode {
    *
    * @param <T> Updated table object type
    */
-  public static final class Set<T> extends ExecutableNode {
+  public static final class Set<T> extends UpdateNode {
     private final ArrayList<Expr> updates = new ArrayList<>(1);
 
     Set(@NonNull UpdateSqlNode parent, @NonNull Expr firstUpdate) {
@@ -341,7 +341,7 @@ public final class Update extends UpdateSqlNode {
   /**
    * Builder for SQL UPDATE statement.
    */
-  public static final class Where extends ExecutableNode {
+  public static final class Where extends UpdateNode {
     @NonNull
     private final Expr expr;
 

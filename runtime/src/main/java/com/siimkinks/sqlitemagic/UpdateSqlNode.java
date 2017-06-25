@@ -12,7 +12,7 @@ import java.util.LinkedList;
 
 import io.reactivex.Single;
 
-abstract class UpdateSqlNode extends SqlNode {
+public abstract class UpdateSqlNode extends SqlNode {
   @NonNull
   final CompiledUpdate.Builder updateBuilder;
 
@@ -34,14 +34,14 @@ abstract class UpdateSqlNode extends SqlNode {
     throw new UnsupportedOperationException();
   }
 
-  public static abstract class ExecutableNode extends UpdateSqlNode implements ConnectionProvidedOperation<ExecutableNode> {
-    ExecutableNode(@NonNull UpdateSqlNode parent) {
+  public static abstract class UpdateNode extends UpdateSqlNode implements ConnectionProvidedOperation<UpdateNode> {
+    UpdateNode(@NonNull UpdateSqlNode parent) {
       super(parent);
     }
 
     @NonNull
     @Override
-    public final ExecutableNode usingConnection(@NonNull DbConnection connection) {
+    public final UpdateNode usingConnection(@NonNull DbConnection connection) {
       updateBuilder.dbConnection = (DbConnectionImpl) connection;
       return this;
     }

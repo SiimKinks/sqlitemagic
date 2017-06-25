@@ -63,6 +63,9 @@ class SqliteMagicPlugin : Plugin<Project> {
 
         providedDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$VERSION")
         compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic:$VERSION")
+        if (kotlinProject) {
+          compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-kotlin:$VERSION")
+        }
 
         project.gradle.removeListener(this)
       }

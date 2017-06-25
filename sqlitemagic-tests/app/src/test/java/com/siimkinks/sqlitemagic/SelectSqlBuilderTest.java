@@ -63,6 +63,12 @@ public final class SelectSqlBuilderTest {
 
     sqlNode = Select.all().from(BOOK);
     assertSql(sqlNode, expected);
+
+    final String expectedDistinct = "SELECT DISTINCT * FROM book ";
+    sqlNode = Select
+        .distinct()
+        .from(BOOK);
+    assertSql(sqlNode, expectedDistinct);
   }
 
   @Test
@@ -89,12 +95,6 @@ public final class SelectSqlBuilderTest {
     String expectedDistinct = "SELECT DISTINCT book.author,book.title,book.nr_of_releases FROM book ";
     sqlNode = Select
         .distinct(BOOK.AUTHOR, BOOK.TITLE, BOOK.NR_OF_RELEASES)
-        .from(BOOK);
-    assertSql(sqlNode, expectedDistinct);
-
-    expectedDistinct = "SELECT DISTINCT * FROM book ";
-    sqlNode = Select
-        .distinct()
         .from(BOOK);
     assertSql(sqlNode, expectedDistinct);
   }

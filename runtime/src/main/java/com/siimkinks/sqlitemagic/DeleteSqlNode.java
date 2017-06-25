@@ -12,7 +12,7 @@ import java.util.LinkedList;
 
 import io.reactivex.Single;
 
-abstract class DeleteSqlNode extends SqlNode {
+public abstract class DeleteSqlNode extends SqlNode {
   @NonNull
   final CompiledDelete.Builder deleteBuilder;
 
@@ -34,14 +34,14 @@ abstract class DeleteSqlNode extends SqlNode {
     throw new UnsupportedOperationException();
   }
 
-  public static abstract class ExecutableNode extends DeleteSqlNode implements ConnectionProvidedOperation<ExecutableNode> {
-    ExecutableNode(@NonNull DeleteSqlNode parent) {
+  public static abstract class DeleteNode extends DeleteSqlNode implements ConnectionProvidedOperation<DeleteNode> {
+    DeleteNode(@NonNull DeleteSqlNode parent) {
       super(parent);
     }
 
     @NonNull
     @Override
-    public ExecutableNode usingConnection(@NonNull DbConnection connection) {
+    public DeleteNode usingConnection(@NonNull DbConnection connection) {
       deleteBuilder.dbConnection = (DbConnectionImpl) connection;
       return this;
     }

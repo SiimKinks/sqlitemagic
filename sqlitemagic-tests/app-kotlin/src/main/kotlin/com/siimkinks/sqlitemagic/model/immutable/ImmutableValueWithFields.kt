@@ -15,5 +15,9 @@ data class ImmutableValueWithFields(
     @JvmField
     val integer: Int,
     @JvmField
+    val aDouble: Double,
+    @JvmField
+    val aShort: Short,
+    @JvmField
     val transformableObject: TransformableObject
 )
