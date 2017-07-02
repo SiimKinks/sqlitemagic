@@ -47,7 +47,7 @@ class SqliteMagicPlugin : Plugin<Project> {
 
         val compilerArtifact = when {
           !sqlitemagic.generateMagicMethods -> "sqlitemagic-compiler"
-          kotlinProject -> "sqlitemagic-compiler-kotlin"
+          !sqlitemagic.doNotGenerateKotlin && kotlinProject -> "sqlitemagic-compiler-kotlin"
           else -> "sqlitemagic-compiler-magic"
         }
 
