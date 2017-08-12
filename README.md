@@ -8,7 +8,7 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 * Minimal [setup](https://github.com/SiimKinks/sqlitemagic/wiki/Setup) needed
 * Built in [RxJava support](https://github.com/SiimKinks/sqlitemagic/wiki/RxJava-Support) with reactive stream semantics on queries and operations
 * Built in [AutoValue](https://github.com/SiimKinks/sqlitemagic/wiki/Immutable-Objects) immutable objects support
-* Built in kotlin support
+* Built in [kotlin](https://kotlinlang.org/) support
 * Full support for [complex columns](https://github.com/SiimKinks/sqlitemagic/wiki/User-Defined-Objects-as-Columns)
 * Support for [SQLite views](https://github.com/SiimKinks/sqlitemagic/wiki/Views)
 * Persist any third party object with fully customizable [object transformers](https://github.com/SiimKinks/sqlitemagic/wiki/Object-Transformers)
@@ -132,9 +132,39 @@ public abstract class Book {
 
 </td>
 </tr>
+<tr>
+<th>Kotlin</th>
+</tr>
+<tr style="background: none">
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```kotlin
+
+@Table(persistAll = true, useAccessMethods = true)
+data class Author(
+  @Id(autoIncrement = false) val id: Long,
+  val firstName: String,
+  val lastName: String
+)
+
+
+
+@Table(persistAll = true, useAccessMethods = true)
+data class Book(
+  @Id(autoIncrement = false) val id: Long,
+  val title: String,
+  val author: Author
+)
+
+```
+
+</td>
+</tr>
 </table>
 
-**Database operation builder methods are "automagically" [generated](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations) during compile time on objects with `@Table` annotation using bytecode manipulation and AST transformations. These methods may seem like "magic", but actually they are only glue methods that call corresponding table generated class methods. This way one can still see human readable code during debugging - just press "step into" when magic method is encountered.**
+**Database operation builder methods for Java are "automagically" [generated](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations) during compile time on objects with `@Table` annotation using bytecode manipulation and AST transformations. These methods may seem like "magic", but actually they are only glue methods that call corresponding table generated class methods. This way one can still see human readable code during debugging - just press "step into" when magic method is encountered.**
+
+**For kotlin, database operation builder methods are generated as [extensions functions](https://kotlinlang.org/docs/reference/extensions.html).**
  
 #### [Do Operations With Objects](https://github.com/SiimKinks/sqlitemagic/wiki/Database-Operations):
 
