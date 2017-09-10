@@ -7,18 +7,20 @@ import com.android.build.gradle.BaseExtension
 import com.android.build.gradle.api.BaseVariant
 import com.siimkinks.sqlitemagic.task.InvokeTransformation
 import org.gradle.api.Project
+import org.gradle.api.ProjectConfigurationException
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.compile.AbstractCompile
 import org.zeroturnaround.zip.ZipUtil
 import java.io.File
 import java.util.*
 
-class SqliteMagicTransform(val project: Project,
-                           val sqlitemagic: SqliteMagicPluginExtension,
-                           val androidExtension: BaseExtension) : Transform() {
+class SqliteMagicTransform(private val project: Project,
+                           private val sqlitemagic: SqliteMagicPluginExtension,
+                           private val androidExtension: BaseExtension) : Transform() {
   private val javaCompileTasks: HashMap<Pair<String, String>, AbstractCompile> = HashMap()
-  val jarContentType = setOf(CLASSES)
-  val jarScope = mutableSetOf(EXTERNAL_LIBRARIES)
+  private val jarContentType = setOf(CLASSES)
+  private val jarScope = mutableSetOf(EXTERNAL_LIBRARIES)
+  private val variants = ArrayList<BaseVariant>()
 
   override fun transform(transformInvocation: TransformInvocation) {
     super.transform(transformInvocation)
@@ -38,7 +40,7 @@ class SqliteMagicTransform(val project: Project,
                                     transformInvocation: TransformInvocation) {
     val incremental = transformInvocation.isIncremental
     input.directoryInputs.forEach {
-      val classpath = transformInvocation.classpath(it.file)
+      val classpath = transformInvocation.classpath(projectFilesOutput)
           .plus(project.files(it.file))
       val sources =
           if (incremental) {
@@ -79,7 +81,7 @@ class SqliteMagicTransform(val project: Project,
       it.from(project.zipTree(file))
       it.into(project.file(extractDir))
     }
-    val classpath = transformInvocation.classpath(jarOutput)
+    val classpath = transformInvocation.classpath(projectFilesOutput)
         .plus(project.files(projectFilesOutput))
     val anyTransformations = InvokeTransformation(
         destinationDir = outputDir,
@@ -118,7 +120,7 @@ class SqliteMagicTransform(val project: Project,
 
   private fun TransformInvocation.jarOutput(name: String) = outputProvider.getContentLocation(name, jarContentType, jarScope, Format.JAR)
 
-  private fun TransformInvocation.classpath(inputFile: File): FileCollection = classpath(inputFile, referencedInputs)
+  private fun TransformInvocation.classpath(outputDir: File): FileCollection = classpath(context, outputDir, referencedInputs)
 
   private fun JarInput.copyToOutput(transformInvocation: TransformInvocation) {
     val destination = transformInvocation.jarOutput(name)
@@ -148,31 +150,59 @@ class SqliteMagicTransform(val project: Project,
   /**
    * Classpath getting from Retrolambda
    */
-  private fun classpath(inputFile: File, referencedInputs: Collection<TransformInput>): FileCollection {
-    var buildName = inputFile.name
-    var flavorName = inputFile.parentFile.name
+  private fun classpath(context: Context, outputDir: File, referencedInputs: Collection<TransformInput>): FileCollection {
+    val variant = getVariant(context, outputDir) ?: throw ProjectConfigurationException("Missing variant for output dir: $outputDir", null)
 
-    // If either one starts with a number or is 'folders', it's probably the result of a transform, keep moving
-    // up the dir structure until we find the right folders.
-    // Yes I know this is bad, but hopefully per-variant transforms will land soon.
-    var current = inputFile
-    while (buildName[0].isDigit() || flavorName[0].isDigit()
-        || buildName == "folders" || flavorName == "folders"
-        || buildName == "jars" || flavorName == "jars") {
-      current = current.parentFile
-      buildName = current.name
-      flavorName = current.parentFile.name
+    var classpathFiles = variant.javaCompile.classpath
+    for (input in referencedInputs) {
+      classpathFiles += project.files(*input.directoryInputs.map(DirectoryInput::getFile).toTypedArray())
     }
 
-    val compileTask = javaCompileTasks[Pair(flavorName, buildName)] ?: javaCompileTasks[Pair("", buildName)]!!
-    var classPathFiles = compileTask.classpath
-        .plus(project.files(androidExtension.bootClasspath))
-    referencedInputs.forEach { classPathFiles = classPathFiles.plus(project.files(it.directoryInputs.forEach { it.file })) }
+    // bootClasspath isn't set until the last possible moment because it's expensive to look
+    // up the android sdk path.
+    val bootClasspath = variant.javaCompile.options.bootClasspath
+    if (bootClasspath != null) {
+      classpathFiles += project.files(*bootClasspath.split(File.pathSeparator).toTypedArray())
+    } else {
+      // If this is null it means the javaCompile task didn't need to run, however, we still
+      // need to run but can't without the bootClasspath. Just fail and ask the user to rebuild.
+      throw ProjectConfigurationException ("Unable to obtain the bootClasspath. This may happen if " +
+          "your javaCompile tasks didn't run but sqlitemagic did. You must rebuild your project or " +
+          "otherwise force javaCompile to run.", null)
+    }
 
-    return classPathFiles
+    return classpathFiles
+  }
+
+  private fun getVariant(context: Context, outputDir: File): BaseVariant? {
+    try {
+      val variantName = context.variantName
+      for (variant in variants) {
+        if (variant.name == variantName) {
+          return variant
+        }
+      }
+    } catch (e: NoSuchMethodError) {
+      // Extract the variant from the output path assuming it's in the form like:
+      // - '*/intermediates/transforms/sqlitemagic/<VARIANT>
+      // - '*/intermediates/transforms/sqlitemagic/<VARIANT>/folders/1/1/sqlitemagic
+      // This will no longer be needed when the transform api supports per-variant transforms
+      val parts = outputDir.toURI().path.split("/intermediates/transforms/$name/|/folders/[0-9]+".toRegex())
+      if (parts.size < 2) {
+        throw ProjectConfigurationException("Could not extract variant from output dir: $outputDir", null)
+      }
+      val variantPath = parts[1]
+      for (variant in variants) {
+        if (variant.dirName == variantPath) {
+          return variant
+        }
+      }
+    }
+    return null
   }
 
   fun putJavaCompileTask(variant: BaseVariant) {
+    variants.add(variant)
     javaCompileTasks.put(Pair(variant.flavorName, variant.buildType.name), variant.javaCompile)
   }
 

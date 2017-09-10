@@ -3,13 +3,13 @@ apply plugin: 'kotlin-android'
 apply plugin: 'sqlitemagic'
 
 android {
-  compileSdkVersion 26
-  buildToolsVersion "26.0.1"
+  compileSdkVersion rootProject.ext.compileSdkVersion
+  buildToolsVersion rootProject.ext.buildToolsVersion
 
   defaultConfig {
     applicationId "com.siimkinks.sqlitemagic"
-    minSdkVersion 16
-    targetSdkVersion 26
+    minSdkVersion rootProject.ext.minSdkVersion
+    targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 1
     versionName "1.0"
 
@@ -39,30 +39,34 @@ android {
 }
 
 dependencies {
-  compile libraries.kotlinStdLib
-  compile libraries.kotlinReflect
-  compile libraries.sqlitemagicRuntime
-  compile libraries.supportV7
-  compile libraries.rxJava2
-  compile libraries.rxJava2Extensions
+  implementation libraries.kotlinStdLib
+  implementation libraries.kotlinReflect
+  implementation libraries.sqlitemagicRuntime
+  implementation libraries.supportV7
+  implementation libraries.rxJava2
+  implementation libraries.rxJava2Extensions
 
-  provided libraries.autoValueAnnotations
-  provided libraries.lombok
-  provided libraries.sqlitemagicAnnotations
+  compileOnly libraries.autoValueAnnotations
+  compileOnly libraries.lombok
+  compileOnly libraries.sqlitemagicAnnotations
 
   annotationProcessor libraries.autoValue
   annotationProcessor libraries.autoValueParcel
   annotationProcessor libraries.sqlitemagicProcessorMagic
 
-  testCompile libraries.kotlinJunit
-  testCompile libraries.kotlinStdLib
-  testCompile libraries.kotlinReflect
-  testCompile libraries.mockito
-  testCompile libraries.truth
+  testImplementation libraries.kotlinJunit
+  testImplementation libraries.kotlinStdLib
+  testImplementation libraries.kotlinReflect
+  testImplementation libraries.mockito
+  testImplementation libraries.truth
 
-  androidTestCompile libraries.supportAnnotationsForTesting
-  androidTestCompile libraries.supportTestRunner
-  androidTestCompile(libraries.truth) {
+  testCompileOnly libraries.lombok
+
+  testAnnotationProcessor libraries.lombok
+
+  androidTestImplementation libraries.supportAnnotationsForTesting
+  androidTestImplementation libraries.supportTestRunner
+  androidTestImplementation(libraries.truth) {
     exclude group: 'junit' // Android has JUnit built in.
   }
 }

@@ -12,7 +12,7 @@ class InvokeTransformation(destinationDir: File,
                            sources: FileCollection,
                            classpath: FileCollection,
                            debug: Boolean = false) : BaseTransformation(destinationDir, sources, classpath, debug) {
-  val METHOD_ANNOTATIONS = setOf<String>(Invokes::class.java.canonicalName)
+  private val METHOD_ANNOTATIONS = setOf<String>(Invokes::class.java.canonicalName)
   override val LOG = Logging.getLogger(InvokeTransformation::class.java)
 
   override fun shouldTransform(candidateClass: CtClass): Boolean {
@@ -45,7 +45,7 @@ class InvokeTransformation(destinationDir: File,
       body.append('.')
       body.append(targetMethod)
       body.append('(')
-      if (invokesAnnotation.getAnnotationElementValue("useThisAsOnlyParam")?.toBoolean() ?: false) {
+      if (invokesAnnotation.getAnnotationElementValue("useThisAsOnlyParam")?.toBoolean() == true) {
         body.append("this")
       } else {
         body.append("$$")

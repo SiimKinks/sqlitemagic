@@ -18,7 +18,5 @@ class SqliteMagicProcessor : BaseProcessor() {
         .plus(KotlinModule(generatedSourceTargetDir = File(generatedSourceTargetDir)))
   }
 
-  override fun processingSteps(): Set<ProcessingStep> {
-    return setOf(ModelExtensionsGenerationStep())
-  }
+  override fun processingSteps(): Set<ProcessingStep> = setOf(ModelExtensionsGenerationStep())
 }

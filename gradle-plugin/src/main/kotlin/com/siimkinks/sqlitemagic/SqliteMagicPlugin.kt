@@ -41,8 +41,8 @@ class SqliteMagicPlugin : Plugin<Project> {
           return
         }
 
-        val compileDeps = project.getConfigurationDependency("compile")
-        val providedDeps = project.getConfigurationDependency("provided")
+        val compileDeps = project.getConfigurationDependency(depName = "implementation", fallback = "compile")
+        val providedDeps = project.getConfigurationDependency(depName = "compileOnly", fallback = "provided")
 
         val kotlinProject = project.hasAnyPlugin("kotlin-android", "kotlin", "org.jetbrains.kotlin.android", "org.jetbrains.kotlin.jvm")
 
@@ -87,26 +87,29 @@ class SqliteMagicPlugin : Plugin<Project> {
       ensureJavaVersion(androidExtension.compileOptions.targetCompatibility)
     }
 
-    val transform: SqliteMagicTransform?
     if (androidExtension is AppExtension) {
-      transform = SqliteMagicTransform(project, sqlitemagic, androidExtension)
+      val transform = SqliteMagicTransform(project, sqlitemagic, androidExtension)
       androidExtension.registerTransform(transform)
-    } else {
-      transform = null
+      variants.all {
+        it.configureVariant(transform, project)
+      }
+      androidExtension.testVariants.all {
+        it.configureVariant(transform, project)
+      }
     }
+  }
 
-    variants.all {
-      transform?.putJavaCompileTask(it)
-      addConfigVariantDbTask(project, it)
-      addMigrationTask(project, it)
-    }
+  private fun <T : BaseVariant> T.configureVariant(transform: SqliteMagicTransform, project: Project) {
+    transform.putJavaCompileTask(this)
+    addConfigVariantDbTask(project, this)
+    addMigrationTask(project, this)
   }
 
   private fun addConfigVariantDbTask(project: Project, variant: BaseVariant) {
     val configTask = project.task("config${variant.name.capitalize()}Db").doFirst {
       var dbVersion = "1"
       var dbName = "\"database.db\""
-      val variantData = variant.javaClass.getMethod("getVariantData").invoke(variant) as BaseVariantData<*>
+      val variantData = variant.javaClass.getMethod("getVariantData").invoke(variant) as BaseVariantData
       variantData.variantConfiguration.buildConfigItems.forEach {
         if (it is ClassField) {
           var gotValue = false
@@ -140,8 +143,12 @@ class SqliteMagicPlugin : Plugin<Project> {
   }
 }
 
-fun Project.getConfigurationDependency(depName: String): DependencySet {
-  return configurations.getByName(depName).dependencies
+fun Project.getConfigurationDependency(depName: String, fallback: String = ""): DependencySet {
+  try {
+    return configurations.getByName(depName).dependencies
+  } catch (e: Exception) {
+    return configurations.getByName(fallback).dependencies
+  }
 }
 
 fun DependencySet.addDependency(project: Project, dependency: String) {

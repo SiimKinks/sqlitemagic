@@ -4,13 +4,13 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
 
 android {
-  compileSdkVersion 26
-  buildToolsVersion "25.0.3"
+  compileSdkVersion rootProject.ext.compileSdkVersion
+  buildToolsVersion rootProject.ext.buildToolsVersion
 
   defaultConfig {
     applicationId "com.siimkinks.sqlitemagic"
-    minSdkVersion 16
-    targetSdkVersion 26
+    minSdkVersion rootProject.ext.minSdkVersion
+    targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 1
     versionName "1.0"
 
@@ -39,25 +39,19 @@ android {
 }
 
 dependencies {
-  compile libraries.kotlinStdLib
-  compile libraries.supportV7
-  compile libraries.rxJava2
-  compile libraries.rxJava2Extensions
+  implementation libraries.kotlinStdLib
+  implementation libraries.supportV7
+  implementation libraries.rxJava2
+  implementation libraries.rxJava2Extensions
 
-  provided libraries.autoValueAnnotations
-  provided libraries.lombok
+  testImplementation libraries.kotlinStdLib
+  testImplementation libraries.mockito
+  testImplementation libraries.mockitoKotlin
+  testImplementation libraries.truth
 
-  kapt libraries.autoValue
-  kapt libraries.autoValueParcel
-
-  testCompile libraries.kotlinStdLib
-  testCompile libraries.mockito
-  testCompile libraries.mockitoKotlin
-  testCompile libraries.truth
-
-  androidTestCompile libraries.supportAnnotationsForTesting
-  androidTestCompile libraries.supportTestRunner
-  androidTestCompile(libraries.truth) {
+  androidTestImplementation libraries.supportAnnotationsForTesting
+  androidTestImplementation libraries.supportTestRunner
+  androidTestImplementation(libraries.truth) {
     exclude group: 'junit' // Android has JUnit built in.
   }
 }
