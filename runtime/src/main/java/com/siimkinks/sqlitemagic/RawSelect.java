@@ -57,7 +57,7 @@ public final class RawSelect extends RawSelectNode<RawSelect, CompiledRawSelect>
    * @return A builder for raw SQL SELECT statement
    */
   @CheckResult
-  public From from(@NonNull @Size(min = 1) Collection<Table<?>> tables) {
+  public <T extends Table<?>> From from(@NonNull @Size(min = 1) Collection<T> tables) {
     final int len = tables.size();
     final String[] observedTables = new String[len];
     int i = 0;

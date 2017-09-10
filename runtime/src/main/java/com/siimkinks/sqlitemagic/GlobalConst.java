@@ -22,9 +22,9 @@ public final class GlobalConst {
 
   public static final String ERROR_PROCESSOR_DID_NOT_RUN = "Looks like SqliteMagic gradle plugin processor did not run. Please make sure that project is configured correctly";
   public static final String ERROR_UNSUBSCRIBED_UNEXPECTEDLY = "Subscriber unsubscribed unexpectedly";
-  public static final String FAILED_TO_INSERT_ERR_MSG = "Failed to insert";
-  public static final String FAILED_TO_PERSIST_ERR_MSG = "Failed to persist";
-  public static final String FAILED_TO_UPDATE_ERR_MSG = "Failed to update";
+  public static final String FAILED_TO_INSERT_ERR_MSG = "Failed to insert ";
+  public static final String FAILED_TO_PERSIST_ERR_MSG = "Failed to persist ";
+  public static final String FAILED_TO_UPDATE_ERR_MSG = "Failed to update ";
 
   private GlobalConst() {
     throw new AssertionError("no instances");

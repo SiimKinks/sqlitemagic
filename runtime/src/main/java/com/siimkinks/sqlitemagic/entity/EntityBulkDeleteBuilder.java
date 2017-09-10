@@ -7,10 +7,8 @@ import io.reactivex.Single;
 
 /**
  * Builder for bulk delete operation.
- *
- * @param <T> Operation target type
  */
-public interface EntityBulkDeleteBuilder<T> extends ConnectionProvidedOperation<EntityBulkDeleteBuilder<T>> {
+public interface EntityBulkDeleteBuilder extends ConnectionProvidedOperation<EntityBulkDeleteBuilder> {
   /**
    * Execute this configured bulk delete operation against a database.
    *

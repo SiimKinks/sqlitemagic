@@ -22,6 +22,7 @@ import com.siimkinks.sqlitemagic.util.Callback;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.siimkinks.sqlitemagic.util.StringUtil;
 import com.siimkinks.sqlitemagic.writer.EntityEnvironment;
+import com.siimkinks.sqlitemagic.writer.Operation;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -38,11 +39,9 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.AnnotationMirror;
@@ -71,22 +70,18 @@ import static com.siimkinks.sqlitemagic.writer.ModelWriter.DISPOSABLE_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
-import static com.siimkinks.sqlitemagic.writer.ModelWriter.STATEMENT_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
 public class WriterUtil {
 
   public static final ClassName SQLITE_DATABASE = ClassName.get("android.database.sqlite", "SQLiteDatabase");
-  public static final ClassName CONTENT_VALUES = ClassName.get("android.content", "ContentValues");
-  public static final ClassName CURSOR = ClassName.get("android.database", "Cursor");
   public static final ClassName SQLITE_STATEMENT = ClassName.get("android.database.sqlite", "SQLiteStatement");
   public static final ClassName SQL_EXCEPTION = ClassName.get("android.database", "SQLException");
   public static final ClassName CHECK_RESULT = ClassName.get("android.support.annotation", "CheckResult");
   public static final ClassName NON_NULL = ClassName.get("android.support.annotation", "NonNull");
   public static final ClassName NULLABLE = ClassName.get("android.support.annotation", "Nullable");
-
-  public static final TypeName ATOMIC_SQLITE_STATEMENT = ParameterizedTypeName.get(ClassName.get(AtomicReference.class), SQLITE_STATEMENT);
 
   public static final ClassName ITERABLE = ClassName.get(Iterable.class);
   public static final ClassName COLLECTION = ClassName.get(Collection.class);
@@ -121,6 +116,8 @@ public class WriterUtil {
   public static final ClassName STRING_ARRAY_SET = ClassName.get(StringArraySet.class);
   public static final ClassName COMPILED_N_COLUMNS_SELECT_IMPL = ClassName.get(CompiledSelectImpl.class);
   public static final ClassName COMPILED_N_COLUMNS_SELECT = ClassName.get(CompiledSelect.class);
+  public static final ClassName OPERATION_HELPER = ClassName.get(OperationHelper.class);
+  public static final ClassName VARIABLE_ARGS_OPERATION_HELPER = ClassName.get(VariableArgsOperationHelper.class);
   public static final ClassName ENTITY_DB_MANAGER = ClassName.get(EntityDbManager.class);
   public static final ClassName ENTITY_DELETE_BUILDER = ClassName.get(EntityDeleteBuilder.class);
   public static final ClassName ENTITY_INSERT_BUILDER = ClassName.get(EntityInsertBuilder.class);
@@ -132,8 +129,7 @@ public class WriterUtil {
   public static final ClassName ENTITY_BULK_PERSIST_BUILDER = ClassName.get(EntityBulkPersistBuilder.class);
   public static final ClassName ENTITY_BULK_DELETE_BUILDER = ClassName.get(EntityBulkDeleteBuilder.class);
   public static final ParameterizedTypeName LIST_JOIN_CLAUSE_TYPE_NAME = ParameterizedTypeName.get(ArrayList.class, JoinClause.class);
-  public static final ParameterizedTypeName SYSTEM_RENAMED_TABLES_TYPE_NAME =
-      ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, ClassName.get(String.class), ParameterizedTypeName.get(LinkedList.class, String.class));
+  public static final ParameterizedTypeName BIND_VALUES_MAP = ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, ClassName.get(String.class), TypeName.OBJECT);
 
   public static final ClassName SINGLE = ClassName.get("io.reactivex", "Single");
   public static final ClassName COMPLETABLE = ClassName.get("io.reactivex", "Completable");
@@ -274,24 +270,8 @@ public class WriterUtil {
     return "if (" + DISPOSABLE_VARIABLE + ".isDisposed())";
   }
 
-  public static String ifNotDisposableDisposed() {
-    return "if (!" + DISPOSABLE_VARIABLE + ".isDisposed())";
-  }
-
-  public static String subscriberOnSuccess(String variableName) {
-    return String.format("subscriber.onSuccess(%s)", variableName);
-  }
-
   public static String emitterOnComplete() {
-    return String.format(EMITTER_VARIABLE + ".onComplete()");
-  }
-
-  public static String subscriberOnCompleted() {
-    return "subscriber.onComplete()";
-  }
-
-  public static String subscriberOnError() {
-    return "subscriber.onError(e)";
+    return EMITTER_VARIABLE + ".onComplete()";
   }
 
   public static CodeBlock emitterOnError() {
@@ -439,6 +419,35 @@ public class WriterUtil {
         .build();
   }
 
+  public static CodeBlock opHelperVariable(Operation op) {
+    return CodeBlock.builder()
+        .addStatement("final $1T $2L = new $1T($3L, $4L)",
+            OPERATION_HELPER,
+            OPERATION_HELPER_VARIABLE,
+            CONFLICT_ALGORITHM_VARIABLE,
+            op.ordinal())
+        .build();
+  }
+
+  public static CodeBlock variableArgsOpHelperVariable() {
+    return CodeBlock.builder()
+        .addStatement("final $T $L = new $T($L)",
+            VARIABLE_ARGS_OPERATION_HELPER,
+            OPERATION_HELPER_VARIABLE,
+            VARIABLE_ARGS_OPERATION_HELPER,
+            CONFLICT_ALGORITHM_VARIABLE)
+        .build();
+  }
+
+  public static CodeBlock bindValuesVariable(@NonNull TableElement tableElement) {
+    return CodeBlock.builder()
+        .addStatement("final $T values = new $T($L)",
+            BIND_VALUES_MAP,
+            BIND_VALUES_MAP,
+            optimalArrayMapSize(tableElement.getAllColumnsCount()))
+        .build();
+  }
+
   public static CodeBlock dbVariableFromPresentConnectionVariable() {
     return CodeBlock.builder()
         .addStatement("final $T db = $L.getWritableDatabase()",
@@ -447,33 +456,31 @@ public class WriterUtil {
         .build();
   }
 
-  public static CodeBlock insertStatementVariable() {
-    return insertStatementVariable(STATEMENT_VARIABLE);
-  }
-
-  public static CodeBlock insertStatementVariable(@NonNull String variableName) {
+  public static CodeBlock insertStatementVariableFromOpHelper(@NonNull TableElement tableElement,
+                                                              @NonNull String variableName) {
     return CodeBlock.builder()
-        .addStatement("final $T $L = $L.$L($L)",
+        .addStatement("final $T $L = $L.$L($S, $L, $L)",
             SQLITE_STATEMENT,
             variableName,
-            MANAGER_VARIABLE,
+            OPERATION_HELPER_VARIABLE,
             METHOD_GET_INSERT_STATEMENT,
-            FIELD_INSERT_SQL)
+            tableElement.getTableName(),
+            FIELD_INSERT_SQL,
+            MANAGER_VARIABLE)
         .build();
   }
 
-  public static CodeBlock updateStatementVariable() {
-    return updateStatementVariable(STATEMENT_VARIABLE);
-  }
-
-  public static CodeBlock updateStatementVariable(@NonNull String variableName) {
+  public static CodeBlock updateStatementVariableFromOpHelper(@NonNull TableElement tableElement,
+                                                              @NonNull String variableName) {
     return CodeBlock.builder()
-        .addStatement("final $T $L = $L.$L($L)",
+        .addStatement("final $T $L = $L.$L($S, $L, $L)",
             SQLITE_STATEMENT,
             variableName,
-            MANAGER_VARIABLE,
+            OPERATION_HELPER_VARIABLE,
             METHOD_GET_UPDATE_STATEMENT,
-            FIELD_UPDATE_SQL)
+            tableElement.getTableName(),
+            FIELD_UPDATE_SQL,
+            MANAGER_VARIABLE)
         .build();
   }
 
@@ -485,14 +492,12 @@ public class WriterUtil {
     return notNullParameter(ENTITY_DB_MANAGER, MANAGER_VARIABLE);
   }
 
-  public static ParameterSpec connectionImplParameter() {
-    return notNullParameter(DB_CONNECTION_IMPL, DB_CONNECTION_VARIABLE);
+  public static ParameterSpec operationHelperParameter() {
+    return notNullParameter(OPERATION_HELPER, OPERATION_HELPER_VARIABLE);
   }
 
-  public static ParameterSpec conflictAlgorithmParameter() {
-    return ParameterSpec.builder(TypeName.INT, "conflictAlgorithm")
-        .addAnnotation(ConflictAlgorithm.class)
-        .build();
+  public static ParameterSpec connectionImplParameter() {
+    return notNullParameter(DB_CONNECTION_IMPL, DB_CONNECTION_VARIABLE);
   }
 
   public static String codeBlockEnd() {
@@ -550,6 +555,17 @@ public class WriterUtil {
         .addFileComment(Const.GENERATION_COMMENT)
         .build()
         .writeTo(filer);
+  }
+
+  public static int optimalArrayMapSize(int tableElementGraphNodeCount) {
+    // 8 so that we could hit cached base array
+    if (tableElementGraphNodeCount > SimpleArrayMap.BASE_SIZE * 2) {
+      return tableElementGraphNodeCount;
+    } else if (tableElementGraphNodeCount > SimpleArrayMap.BASE_SIZE) {
+      return SimpleArrayMap.BASE_SIZE * 2;
+    } else {
+      return SimpleArrayMap.BASE_SIZE;
+    }
   }
 
   public static String nameWithoutJavaBeansPrefix(ExecutableElement element) {

@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.model;
 
+import com.siimkinks.sqlitemagic.CompiledCountSelect;
 import com.siimkinks.sqlitemagic.CompiledFirstSelect;
-import com.siimkinks.sqlitemagic.Func1;
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Select.SelectN;
 import com.siimkinks.sqlitemagic.SelectSqlNode;
@@ -12,6 +12,7 @@ import com.siimkinks.sqlitemagic.Transaction;
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder;
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder;
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder;
+import com.siimkinks.sqlitemagic.model.immutable.ImmutableEquals;
 import com.siimkinks.sqlitemagic.model.immutable.SimpleValueWithBuilder;
 import com.siimkinks.sqlitemagic.model.immutable.SimpleValueWithBuilderAndNullableFields;
 import com.siimkinks.sqlitemagic.model.immutable.SimpleValueWithCreator;
@@ -21,18 +22,24 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
 import io.reactivex.Observable;
 import io.reactivex.functions.Function;
 import io.reactivex.observers.TestObserver;
-import io.reactivex.subscribers.TestSubscriber;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
+import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class TestUtil {
+  public static final CompiledFirstSelect<Author, SelectN> SELECT_FIRST_AUTHOR = Select.from(AUTHOR).takeFirst();
+  public static final CompiledCountSelect COUNT_AUTHORS = Select.from(AUTHOR).count();
+  public static final CompiledFirstSelect<SimpleValueWithBuilder, SelectN> SELECT_FIRST_VAL = Select.from(SIMPLE_VALUE_WITH_BUILDER).takeFirst();
+  public static final CompiledCountSelect COUNT_VALS = Select.from(SIMPLE_VALUE_WITH_BUILDER).count();
 
   public static <T> void testMutableObjectWithDefinedIdPersistAndRetrieve(boolean queryDeep,
                                                                           Class<T> testObjectClass,
@@ -223,7 +230,7 @@ public final class TestUtil {
       final ArrayList<Author> authors = new ArrayList<>(count);
       for (int i = 0; i < count; i++) {
         Author a = Author.newRandom();
-        assertThat(a.persist().execute()).isNotEqualTo(-1);
+        assertThat(a.insert().execute()).isNotEqualTo(-1);
         authors.add(a);
       }
       transaction.markSuccessful();
@@ -239,7 +246,7 @@ public final class TestUtil {
       final ArrayList<Magazine> magazines = new ArrayList<>(count);
       for (int i = 0; i < count; i++) {
         Magazine m = Magazine.newRandom();
-        assertThat(m.persist().execute()).isNotEqualTo(-1);
+        assertThat(m.insert().execute()).isNotEqualTo(-1);
         magazines.add(m);
       }
       transaction.markSuccessful();
@@ -327,6 +334,43 @@ public final class TestUtil {
         .map(updateFunc)
         .toList()
         .blockingGet();
+  }
+
+  public static void assertTableCount(long count, Table<?> table) {
+    assertThat(count).isEqualTo(Select.from(table).count().execute());
+  }
+
+  public static <T> void assertValueEqualsWithDb(T val, Table<T> table) {
+    assertThat(val).isEqualTo(getDbValue(table));
+  }
+
+  public static <T> T getDbValue(Table<T> table) {
+    return Select.from(table).queryDeep().takeFirst().execute();
+  }
+
+  public static <T> void assertValuesEqualWithDb(List<T> vals, Table<T> table) {
+    assertThat(vals).containsExactlyElementsIn(Select.from(table).queryDeep().execute()).inOrder();
+  }
+
+  @Deprecated
+  public static <T extends ImmutableEquals> void assertImmutableValue(T val, Table<T> table) {
+    assertThat(val.equalsWithoutId(Select.from(table).queryDeep().takeFirst().execute())).isTrue();
+  }
+
+  public static <T extends ImmutableEquals> void assertValueEqualsWithoutIdWithDb(T val, Table<T> table) {
+    assertThat(val.equalsWithoutId(Select.from(table).queryDeep().takeFirst().execute())).isTrue();
+  }
+
+  public static <T extends ImmutableEquals> void assertValuesEqualWithoutIdWithDb(List<T> val, Table<T> table) {
+    final List<T> expected = Select.from(table).queryDeep().execute();
+
+    assertThat(val.size()).isEqualTo(expected.size());
+
+    final Iterator<T> valIter = val.iterator();
+    final Iterator<T> expectedIter = expected.iterator();
+    while (valIter.hasNext()) {
+      assertThat(valIter.next().equalsWithoutId(expectedIter.next())).isTrue();
+    }
   }
 
   public static void awaitTerminalEvent(TestObserver<?> ts) {

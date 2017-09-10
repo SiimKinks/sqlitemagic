@@ -24,7 +24,6 @@ import java.util.Random;
 
 import io.reactivex.Observable;
 import io.reactivex.functions.Function;
-import lombok.Cleanup;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -783,9 +782,13 @@ public final class SynchronousMutableQueryTest {
         .queryDeep()
         .toCursor();
     final List<Magazine> queriedMagazines = new ArrayList<>(testSize);
-    @Cleanup final Cursor cursor = cursorSelect.execute();
-    while (cursor.moveToNext()) {
-      queriedMagazines.add(cursorSelect.getFromCurrentPosition(cursor));
+    final Cursor cursor = cursorSelect.execute();
+    try {
+      while (cursor.moveToNext()) {
+        queriedMagazines.add(cursorSelect.getFromCurrentPosition(cursor));
+      }
+    } finally {
+      cursor.close();
     }
     assertThat(magazines).containsExactlyElementsIn(queriedMagazines);
   }

@@ -31,7 +31,7 @@ public abstract class SimpleValueWithBuilderAndNullableFields implements Immutab
   @Nullable
   public abstract Integer boxedInteger();
 
-  public static SimpleValueWithBuilderAndNullableFields.Builder builder() {
+  public static Builder builder() {
     return new AutoValue_SimpleValueWithBuilderAndNullableFields.Builder();
   }
 
@@ -48,11 +48,11 @@ public abstract class SimpleValueWithBuilderAndNullableFields implements Immutab
     public abstract SimpleValueWithBuilderAndNullableFields build();
   }
 
-  public SimpleValueWithBuilderAndNullableFields.Builder copy() {
+  public Builder copy() {
     return new AutoValue_SimpleValueWithBuilderAndNullableFields.Builder(this);
   }
 
-  public static SimpleValueWithBuilderAndNullableFields.Builder newRandom() {
+  public static Builder newRandom() {
     final Random r = new Random();
     return builder()
         .id(r.nextLong())
@@ -72,5 +72,10 @@ public abstract class SimpleValueWithBuilderAndNullableFields implements Immutab
           && ((this.boxedInteger() == null) ? (that.boxedInteger() == null) : this.boxedInteger().equals(that.boxedInteger()));
     }
     return false;
+  }
+
+  @Override
+  public Long provideId() {
+    return id();
   }
 }

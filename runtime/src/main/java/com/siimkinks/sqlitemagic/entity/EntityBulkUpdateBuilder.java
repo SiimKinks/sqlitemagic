@@ -9,7 +9,7 @@ import io.reactivex.Completable;
  * Builder for bulk update operation.
  *
  */
-public interface EntityBulkUpdateBuilder extends ConnectionProvidedOperation<EntityBulkUpdateBuilder> {
+public interface EntityBulkUpdateBuilder extends EntityOperationBuilder<EntityBulkUpdateBuilder> {
   /**
    * Execute this configured bulk update operation against a database.
    * Operation will be executed inside a transaction.

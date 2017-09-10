@@ -89,4 +89,9 @@ public final class DataClassWithMethods implements ImmutableEquals {
     }
     return false;
   }
+
+  @Override
+  public Long provideId() {
+    return id;
+  }
 }

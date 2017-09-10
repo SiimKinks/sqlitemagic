@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.support.v7.app.ActionBarActivity
+import android.app.Activity
 
-class MainActivity : ActionBarActivity() {
+class MainActivity : Activity() {
 }

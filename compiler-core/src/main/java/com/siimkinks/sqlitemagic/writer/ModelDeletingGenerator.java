@@ -7,7 +7,6 @@ import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
@@ -102,7 +101,7 @@ public class ModelDeletingGenerator implements ModelPartGenerator {
   private TypeSpec bulkDelete(EntityEnvironment entityEnvironment) {
     final TypeName tableElementTypeName = entityEnvironment.getTableElementTypeName();
     final TypeName collection = typedCollection(tableElementTypeName);
-    final ParameterizedTypeName interfaceType = ParameterizedTypeName.get(ENTITY_BULK_DELETE_BUILDER, tableElementTypeName);
+    final TypeName interfaceType = ENTITY_BULK_DELETE_BUILDER;
     final MethodSpec bulkDeleteExecute = bulkDeleteExecute(entityEnvironment);
     final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_BULK_DELETE, interfaceType, collection, OBJECTS_VARIABLE);
     return builder

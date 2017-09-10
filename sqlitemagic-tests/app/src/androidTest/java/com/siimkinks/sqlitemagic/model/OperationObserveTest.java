@@ -4,7 +4,6 @@ import android.support.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.CompiledCountSelect;
 import com.siimkinks.sqlitemagic.CompiledDelete;
-import com.siimkinks.sqlitemagic.CompiledFirstSelect;
 import com.siimkinks.sqlitemagic.Delete;
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Update;
@@ -36,6 +35,10 @@ import static com.siimkinks.sqlitemagic.BookTable.BOOK;
 import static com.siimkinks.sqlitemagic.BuilderMagazineTable.BUILDER_MAGAZINE;
 import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderAndNullableFieldsTable.SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS;
 import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER;
+import static com.siimkinks.sqlitemagic.model.TestUtil.COUNT_AUTHORS;
+import static com.siimkinks.sqlitemagic.model.TestUtil.COUNT_VALS;
+import static com.siimkinks.sqlitemagic.model.TestUtil.SELECT_FIRST_AUTHOR;
+import static com.siimkinks.sqlitemagic.model.TestUtil.SELECT_FIRST_VAL;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertBuilderSimpleValues;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertBuilderSimpleValuesAndNullableFields;
@@ -43,11 +46,6 @@ import static com.siimkinks.sqlitemagic.model.TestUtil.updateVals;
 
 @RunWith(AndroidJUnit4.class)
 public final class OperationObserveTest {
-  private final CompiledFirstSelect<Author, Select.SelectN> selectFirstAuthor = Select.from(AUTHOR).takeFirst();
-  private final CompiledCountSelect countAuthors = Select.from(AUTHOR).count();
-  private final CompiledFirstSelect<SimpleValueWithBuilder, Select.SelectN> selectFirstVal = Select.from(SIMPLE_VALUE_WITH_BUILDER).takeFirst();
-  private final CompiledCountSelect countVals = Select.from(SIMPLE_VALUE_WITH_BUILDER).count();
-
   @Before
   public void setUp() {
     Author.deleteTable().execute();
@@ -65,10 +63,10 @@ public final class OperationObserveTest {
         .insert()
         .observe()
         .blockingGet();
-    assertThat(countAuthors.execute()).isEqualTo(1L);
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isEqualTo(author.id);
-    assertThat(author).isEqualTo(selectFirstAuthor.execute());
+    assertThat(author).isEqualTo(SELECT_FIRST_AUTHOR.execute());
   }
 
   @Test
@@ -77,10 +75,10 @@ public final class OperationObserveTest {
     final Long insertedId = val.insert()
         .observe()
         .blockingGet();
-    assertThat(countVals.execute()).isEqualTo(1L);
+    assertThat(COUNT_VALS.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isNotEqualTo(val.id());
-    assertThat(val.equalsWithoutId(selectFirstVal.execute())).isTrue();
+    assertThat(val.equalsWithoutId(SELECT_FIRST_VAL.execute())).isTrue();
   }
 
   @Test
@@ -93,9 +91,9 @@ public final class OperationObserveTest {
         .observe()
         .blockingGet();
 
-    assertThat(countAuthors.execute()).isEqualTo(1L);
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(1L);
     assertThat(e).isNull();
-    assertThat(author).isEqualTo(selectFirstAuthor.execute());
+    assertThat(author).isEqualTo(SELECT_FIRST_AUTHOR.execute());
   }
 
   @Test
@@ -109,9 +107,9 @@ public final class OperationObserveTest {
         .observe()
         .blockingGet();
 
-    assertThat(countVals.execute()).isEqualTo(1L);
+    assertThat(COUNT_VALS.execute()).isEqualTo(1L);
     assertThat(e).isNull();
-    assertThat(updatedVal).isEqualTo(selectFirstVal.execute());
+    assertThat(updatedVal).isEqualTo(SELECT_FIRST_VAL.execute());
   }
 
   @Test
@@ -120,10 +118,10 @@ public final class OperationObserveTest {
     final Long insertedId = author.persist()
         .observe()
         .blockingGet();
-    assertThat(countAuthors.execute()).isEqualTo(1L);
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isEqualTo(author.id);
-    assertThat(author).isEqualTo(selectFirstAuthor.execute());
+    assertThat(author).isEqualTo(SELECT_FIRST_AUTHOR.execute());
 
     author = Author.newRandom();
     author.id = insertedId;
@@ -134,8 +132,8 @@ public final class OperationObserveTest {
 
     assertThat(author.id).isEqualTo(insertedId);
     assertThat(insertedId).isEqualTo(updatedId);
-    assertThat(author).isEqualTo(selectFirstAuthor.execute());
-    assertThat(countAuthors.execute()).isEqualTo(1L);
+    assertThat(author).isEqualTo(SELECT_FIRST_AUTHOR.execute());
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(1L);
   }
 
   @Test
@@ -144,10 +142,10 @@ public final class OperationObserveTest {
     final Long insertedId = val.persist()
         .observe()
         .blockingGet();
-    assertThat(countVals.execute()).isEqualTo(1L);
+    assertThat(COUNT_VALS.execute()).isEqualTo(1L);
     assertThat(insertedId).isNotEqualTo(-1);
     assertThat(insertedId).isNotEqualTo(val.id());
-    assertThat(val.equalsWithoutId(selectFirstVal.execute())).isTrue();
+    assertThat(val.equalsWithoutId(SELECT_FIRST_VAL.execute())).isTrue();
 
     final SimpleValueWithBuilder updatedVal = SimpleValueWithBuilder.newRandom()
         .id(insertedId)
@@ -159,8 +157,8 @@ public final class OperationObserveTest {
 
     assertThat(updatedVal.id()).isEqualTo(insertedId);
     assertThat(insertedId).isEqualTo(updatedId);
-    assertThat(updatedVal).isEqualTo(selectFirstVal.execute());
-    assertThat(countVals.execute()).isEqualTo(1L);
+    assertThat(updatedVal).isEqualTo(SELECT_FIRST_VAL.execute());
+    assertThat(COUNT_VALS.execute()).isEqualTo(1L);
   }
 
   @Test
@@ -183,8 +181,8 @@ public final class OperationObserveTest {
     assertThat(author.id).isEqualTo(updatedAuthor.id);
     assertThat(updatedAuthor.id).isEqualTo(insertedId);
     assertThat(insertedId).isEqualTo(updatedId);
-    assertThat(author).isEqualTo(selectFirstAuthor.execute());
-    assertThat(countAuthors.execute()).isEqualTo(1L);
+    assertThat(author).isEqualTo(SELECT_FIRST_AUTHOR.execute());
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(1L);
   }
 
   @Test
@@ -527,7 +525,7 @@ public final class OperationObserveTest {
   public void deleteObserve() {
     final int testCount = 10;
     final List<Author> list = TestUtil.insertAuthors(testCount);
-    assertThat(countAuthors.execute()).isEqualTo(testCount);
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(testCount);
 
     final Author randAuthor = list.get(new Random().nextInt(testCount));
     final int affectedRows = randAuthor.delete()
@@ -535,20 +533,20 @@ public final class OperationObserveTest {
         .blockingGet();
 
     assertThat(affectedRows).isEqualTo(1);
-    assertThat(countAuthors.execute()).isEqualTo(testCount - 1);
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(testCount - 1);
   }
 
   @Test
   public void deleteTableObserve() {
     final int testCount = 10;
     TestUtil.insertAuthors(testCount);
-    assertThat(countAuthors.execute()).isEqualTo(testCount);
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(testCount);
 
     final int affectedRows = Author.deleteTable()
         .observe()
         .blockingGet();
     assertThat(affectedRows).isEqualTo(testCount);
-    assertThat(countAuthors.execute()).isEqualTo(0);
+    assertThat(COUNT_AUTHORS.execute()).isEqualTo(0);
   }
 
   @Test

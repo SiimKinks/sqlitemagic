@@ -4,7 +4,6 @@ import android.util.Log;
 
 import com.siimkinks.sqlitemagic.Query;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;

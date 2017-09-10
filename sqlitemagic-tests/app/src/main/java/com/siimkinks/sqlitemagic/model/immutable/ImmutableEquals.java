@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.model.immutable;
 
-public interface ImmutableEquals {
+import com.siimkinks.sqlitemagic.model.ProvidesId;
+
+public interface ImmutableEquals extends ProvidesId {
   boolean equalsWithoutId(Object o);
 }

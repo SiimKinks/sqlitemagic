@@ -1,8 +1,9 @@
 package com.siimkinks.sqlitemagic
 
 open class SqliteMagicPluginExtension {
+  var configureAutomatically = true
   var generateMagicMethods = true
-  var doNotGenerateKotlin = false
+  var useKotlin = true
   var publicKotlinExtensionFunctions = false
   var debugBytecodeProcessor = false
   var generateLogging = true

@@ -236,4 +236,9 @@ public class Table<T> {
   public int hashCode() {
     return nameInQuery.hashCode();
   }
+
+  @Override
+  public String toString() {
+    return name;
+  }
 }

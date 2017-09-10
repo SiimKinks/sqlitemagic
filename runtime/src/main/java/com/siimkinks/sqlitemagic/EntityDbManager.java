@@ -46,7 +46,7 @@ final class EntityDbManager {
       if (dbConnection == null) {
         throw new IllegalStateException("DB connection closed");
       }
-      stm = dbConnection.compileStatement(insertSql);
+      stm = dbConnection.compileStatement(String.format(insertSql, ""));
       insertStatement.set(stm);
       return stm;
     }
@@ -61,10 +61,30 @@ final class EntityDbManager {
       if (dbConnection == null) {
         throw new IllegalStateException("DB connection closed");
       }
-      stm = dbConnection.compileStatement(updateSql);
+      stm = dbConnection.compileStatement(String.format(updateSql, ""));
       updateStatement.set(stm);
       return stm;
     }
     return stm;
+  }
+
+  @NonNull
+  @CheckResult
+  SQLiteStatement compileStatement(@NonNull String sql) {
+    final DbConnectionImpl dbConnection = this.dbConnection;
+    if (dbConnection == null) {
+      throw new IllegalStateException("DB connection closed");
+    }
+    return dbConnection.compileStatement(sql);
+  }
+
+  @NonNull
+  @CheckResult
+  SQLiteStatement compileStatement(@NonNull String sql, @ConflictAlgorithm int conflictAlgorithm) {
+    final DbConnectionImpl dbConnection = this.dbConnection;
+    if (dbConnection == null) {
+      throw new IllegalStateException("DB connection closed");
+    }
+    return dbConnection.compileStatement(String.format(sql, ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm]));
   }
 }

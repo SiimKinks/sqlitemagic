@@ -102,6 +102,38 @@ public abstract class CreatorWithColumnOptions extends ParentAbstractClass imple
         0L);
   }
 
+  public CreatorWithColumnOptions setId(long id) {
+    return new AutoValue_CreatorWithColumnOptions(
+        interfaceParentClassColumn(),
+        abstractParentClassColumn(),
+        id,
+        ignoreAuthor(),
+        notPersistedAuthor(),
+        inlineRenamedInt(),
+        constantRenamedInt(),
+        uniqueColumn(),
+        ignoreTransformerObject(),
+        ignoreNotPersistedModel(),
+        ignorePrimVal()
+    );
+  }
+
+  public CreatorWithColumnOptions setUniqueColumn(int uniqueColumn) {
+    return new AutoValue_CreatorWithColumnOptions(
+        interfaceParentClassColumn(),
+        abstractParentClassColumn(),
+        id(),
+        ignoreAuthor(),
+        notPersistedAuthor(),
+        inlineRenamedInt(),
+        constantRenamedInt(),
+        uniqueColumn,
+        ignoreTransformerObject(),
+        ignoreNotPersistedModel(),
+        ignorePrimVal()
+    );
+  }
+
   @Override
   public boolean implementThisInterfaceMethod() {
     return false;

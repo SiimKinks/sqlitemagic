@@ -97,9 +97,14 @@ public class EntityEnvironment {
   }
 
   public CodeBlock getFinalIdVariable() {
+    return getFinalIdVariable("id");
+  }
+
+  public CodeBlock getFinalIdVariable(String idVariableName) {
     return CodeBlock.builder()
-        .addStatement("final $T id = $L.$N($L)",
+        .addStatement("final $T $L = $L.$N($L)",
             tableElement.getIdColumn().getDeserializedTypeName(),
+            idVariableName,
             daoClassNameString,
             getEntityIdGetter(),
             ENTITY_VARIABLE)

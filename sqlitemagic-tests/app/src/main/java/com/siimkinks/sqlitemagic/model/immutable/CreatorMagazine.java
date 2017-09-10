@@ -64,4 +64,9 @@ public abstract class CreatorMagazine implements ImmutableEquals {
         SimpleValueWithCreator.newRandom()
     );
   }
+
+  @Override
+  public Long provideId() {
+    return id();
+  }
 }

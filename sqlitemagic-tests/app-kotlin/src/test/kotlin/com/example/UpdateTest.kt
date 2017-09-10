@@ -32,7 +32,7 @@ class UpdateTest : DSLTest {
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd"))
         .isEqualTo(
-            expectedSql = "UPDATE OR IGNORE author SET name=? ",
+            expectedSql = "UPDATE  OR IGNORE author SET name=? ",
             expectedNodeCount = 4,
             expectedArgs = "asd")
 
@@ -44,7 +44,7 @@ class UpdateTest : DSLTest {
         SET (AUTHOR._ID to 2L)
         SET (AUTHOR.PRIMITIVE_BOOLEAN to false))
         .isEqualTo(
-            expectedSql = "UPDATE OR ROLLBACK author SET name=?,boxed_boolean=?,_id=?,primitive_boolean=? ",
+            expectedSql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,_id=?,primitive_boolean=? ",
             expectedNodeCount = 4,
             expectedArgs = *arrayOf("asd", "1", "2", "0"))
 
@@ -54,7 +54,7 @@ class UpdateTest : DSLTest {
         SET (AUTHOR.NAME to "asd")
         SET (AUTHOR.BOXED_BOOLEAN to true))
         .isEqualTo(
-            expectedSql = "UPDATE OR ROLLBACK author SET name=?,boxed_boolean=? ",
+            expectedSql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ",
             expectedNodeCount = 4,
             expectedArgs = *arrayOf("asd", "1"))
   }
@@ -77,7 +77,7 @@ class UpdateTest : DSLTest {
         SET (AUTHOR.BOXED_BOOLEAN to false)
         WHERE ((AUTHOR._ID IS 2) AND (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
-            expectedSql = "UPDATE OR IGNORE author SET name=?,boxed_boolean=? WHERE (author._id=? AND author.name!=?) ",
+            expectedSql = "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author._id=? AND author.name!=?) ",
             expectedNodeCount = 5,
             expectedArgs = *arrayOf("asd", "0", "2", "asd"))
 
@@ -97,7 +97,7 @@ class UpdateTest : DSLTest {
         SET (AUTHOR.NAME to "asd")
         WHERE ((AUTHOR._ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
-            expectedSql = "UPDATE OR FAIL author SET name=? WHERE (author._id=? OR author.name!=?) ",
+            expectedSql = "UPDATE  OR FAIL author SET name=? WHERE (author._id=? OR author.name!=?) ",
             expectedNodeCount = 5,
             expectedArgs = *arrayOf("asd", "2", "asd"))
 
@@ -112,7 +112,7 @@ class UpdateTest : DSLTest {
             AND (AUTHOR.PRIMITIVE_BOOLEAN IS false)
         ))
         .isEqualTo(
-            expectedSql = "UPDATE OR FAIL author SET name=? WHERE (((author._id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ",
+            expectedSql = "UPDATE  OR FAIL author SET name=? WHERE (((author._id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ",
             expectedNodeCount = 5,
             expectedArgs = *arrayOf("asd", "2", "asd", "0"))
 
@@ -127,7 +127,7 @@ class UpdateTest : DSLTest {
             OR ((AUTHOR.PRIMITIVE_BOOLEAN IS false) AND AUTHOR.BOXED_BOOLEAN.isNotNull))
         ))
         .isEqualTo(
-            expectedSql = "UPDATE OR FAIL author SET name=? WHERE (((author._id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ",
+            expectedSql = "UPDATE  OR FAIL author SET name=? WHERE (((author._id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ",
             expectedNodeCount = 5,
             expectedArgs = *arrayOf("asd", "2", "asd", "0"))
   }

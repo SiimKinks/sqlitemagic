@@ -10,10 +10,8 @@ import io.reactivex.Completable;
  * <p>
  * Persist is an operation that first tries to update and if that fails then inserts
  * the provided entity.
- *
- * @param <T> Operation target type
  */
-public interface EntityBulkPersistBuilder<T> extends ConnectionProvidedOperation<EntityBulkPersistBuilder<T>> {
+public interface EntityBulkPersistBuilder extends EntityOperationBuilder<EntityBulkPersistBuilder> {
   /**
    * Configure this operation to ignore {@code null} values inside entities while
    * persisting provided objects.
@@ -22,7 +20,7 @@ public interface EntityBulkPersistBuilder<T> extends ConnectionProvidedOperation
    */
   @NonNull
   @CheckResult
-  EntityBulkPersistBuilder<T> ignoreNullValues();
+  EntityBulkPersistBuilder ignoreNullValues();
 
   /**
    * Execute this configured bulk persist operation against a database.

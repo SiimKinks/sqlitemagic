@@ -54,7 +54,7 @@ class ModelExtensionsWriter @Inject constructor() {
         .builder(method.funName)
         .addModifiers(EXTENSION_FUN_MODIFIERS)
         .addAnnotation(NOTHING_TO_INLINE)
-        .returns(if (method.returnTypeWithGenerics) ParameterizedTypeName.get(method.returnType, tableElementType) else method.returnType)
+        .returns(method.returnType)
         .addParameter("o", ParameterizedTypeName.get(method.parameterType, tableElementType))
         .addStatement("return %T.create(o)",
             getHandlerInnerClassName(entityEnvironment, method.invocationClassName))
@@ -82,10 +82,9 @@ class ModelExtensionsWriter @Inject constructor() {
   private enum class BulkMethod(val funName: String,
                                 val returnType: ClassName,
                                 val invocationClassName: String,
-                                val parameterType: ClassName,
-                                val returnTypeWithGenerics: Boolean = true) {
+                                val parameterType: ClassName) {
     BULK_INSERT(funName = METHOD_INSERT, returnType = ENTITY_BULK_INSERT_BUILDER, invocationClassName = CLASS_BULK_INSERT, parameterType = ITERABLE),
-    BULK_UPDATE(funName = METHOD_UPDATE, returnType = ENTITY_BULK_UPDATE_BUILDER, invocationClassName = CLASS_BULK_UPDATE, parameterType = ITERABLE, returnTypeWithGenerics = false),
+    BULK_UPDATE(funName = METHOD_UPDATE, returnType = ENTITY_BULK_UPDATE_BUILDER, invocationClassName = CLASS_BULK_UPDATE, parameterType = ITERABLE),
     BULK_PERSIST(funName = METHOD_PERSIST, returnType = ENTITY_BULK_PERSIST_BUILDER, invocationClassName = CLASS_BULK_PERSIST, parameterType = ITERABLE),
     BULK_DELETE(funName = METHOD_DELETE, returnType = ENTITY_BULK_DELETE_BUILDER, invocationClassName = CLASS_BULK_DELETE, parameterType = COLLECTION)
   }

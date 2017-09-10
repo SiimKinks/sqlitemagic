@@ -2,8 +2,8 @@
 apply from: 'buildsystem/dependencies.gradle'
 
 allprojects {
-  group = 'com.siimkinks.sqlitemagic'
-  version = '0.14.0-SNAPSHOT'
+  group = rootProject.ext.GROUP
+  version = rootProject.ext.VERSION_NAME
 
   buildscript {
     repositories {
@@ -24,13 +24,11 @@ allprojects {
     maven {
       url "${System.getenv("ANDROID_HOME")}/extras/android/m2repository/"
     }
-    maven {
-      url "https://maven.google.com"
-    }
+    google()
   }
 }
 
 task wrapper(type: Wrapper) {
-  gradleVersion = '3.5'
-  distributionUrl = 'https://services.gradle.org/distributions/gradle-3.5-all.zip'
+  gradleVersion = '4.1'
+  distributionUrl = 'https://services.gradle.org/distributions/gradle-4.1-all.zip'
 }

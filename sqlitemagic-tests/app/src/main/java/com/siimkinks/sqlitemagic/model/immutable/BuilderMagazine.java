@@ -39,7 +39,7 @@ public abstract class BuilderMagazine implements ImmutableEquals {
     return new AutoValue_BuilderMagazine.Builder();
   }
 
-  public BuilderMagazine.Builder copy() {
+  public Builder copy() {
     return new AutoValue_BuilderMagazine.Builder(this);
   }
 
@@ -72,7 +72,7 @@ public abstract class BuilderMagazine implements ImmutableEquals {
     public abstract BuilderMagazine build();
   }
 
-  public static BuilderMagazine.Builder newRandom() {
+  public static Builder newRandom() {
     final Random r = new Random();
     return builder()
         .id(r.nextLong())
@@ -80,5 +80,10 @@ public abstract class BuilderMagazine implements ImmutableEquals {
         .author(Author.newRandom())
         .simpleValueWithBuilder(SimpleValueWithBuilder.newRandom().build())
         .simpleValueWithCreator(SimpleValueWithCreator.newRandom());
+  }
+
+  @Override
+  public Long provideId() {
+    return id();
   }
 }

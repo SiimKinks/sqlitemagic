@@ -11,12 +11,16 @@ import java.util.Date;
 import java.util.Random;
 
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 @EqualsAndHashCode
 @ToString
 @NoArgsConstructor
+@Getter
+@Setter
 @Table(persistAll = true)
 public class SimpleAllValuesMutable {
   @Id

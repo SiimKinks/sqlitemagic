@@ -81,7 +81,7 @@ public abstract class SimpleAllValuesImmutableWithCreator {
                                                                  boolean primitiveBoolean,
                                                                  Boolean boxedBoolean,
                                                                  Calendar calendar,
-                                                                 java.util.Date utilDate) {
+                                                                 Date utilDate) {
     return new AutoValue_SimpleAllValuesImmutableWithCreator(id, string, primitiveShort, boxedShort, primitiveLong, boxedLong, primitiveInt, boxedInteger, primitiveFloat, boxedFloat, primitiveDouble, boxedDouble, primitiveByte, boxedByte, primitiveByteArray, primitiveBoolean, boxedBoolean, calendar, utilDate);
   }
 
@@ -102,7 +102,7 @@ public abstract class SimpleAllValuesImmutableWithCreator {
                                                            boolean primitiveBoolean,
                                                            Boolean boxedBoolean,
                                                            Calendar calendar,
-                                                           java.util.Date utilDate) {
+                                                           Date utilDate) {
     return new AutoValue_SimpleAllValuesImmutableWithCreator(0L, string, primitiveShort, boxedShort, primitiveLong, boxedLong, primitiveInt, boxedInteger, primitiveFloat, boxedFloat, primitiveDouble, boxedDouble, primitiveByte, boxedByte, primitiveByteArray, primitiveBoolean, boxedBoolean, calendar, utilDate);
   }
 }

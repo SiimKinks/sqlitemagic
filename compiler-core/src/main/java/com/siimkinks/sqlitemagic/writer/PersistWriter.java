@@ -1,18 +1,14 @@
 package com.siimkinks.sqlitemagic.writer;
 
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.BaseProcessor;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.util.Callback;
-import com.siimkinks.sqlitemagic.util.FormatData;
 import com.siimkinks.sqlitemagic.util.ReturnCallback;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
@@ -25,11 +21,11 @@ import lombok.AllArgsConstructor;
 import lombok.experimental.Builder;
 
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
-import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_UNSUBSCRIBED_UNEXPECTEDLY;
 import static com.siimkinks.sqlitemagic.GlobalConst.FAILED_TO_INSERT_ERR_MSG;
 import static com.siimkinks.sqlitemagic.GlobalConst.FAILED_TO_PERSIST_ERR_MSG;
+import static com.siimkinks.sqlitemagic.WriterUtil.BIND_VALUES_MAP;
 import static com.siimkinks.sqlitemagic.WriterUtil.CHECK_RESULT;
-import static com.siimkinks.sqlitemagic.WriterUtil.CONTENT_VALUES;
+import static com.siimkinks.sqlitemagic.WriterUtil.DB_CONNECTION_IMPL;
 import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_BULK_PERSIST_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_PERSIST_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
@@ -37,55 +33,71 @@ import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
+import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
+import static com.siimkinks.sqlitemagic.WriterUtil.VARIABLE_ARGS_OPERATION_HELPER;
 import static com.siimkinks.sqlitemagic.WriterUtil.addCallableToType;
+import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableCreateFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleCreateFromCallableParentClass;
+import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
+import static com.siimkinks.sqlitemagic.WriterUtil.bindValuesVariable;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
 import static com.siimkinks.sqlitemagic.WriterUtil.connectionImplParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.dbConnectionVariable;
-import static com.siimkinks.sqlitemagic.WriterUtil.dbVariableFromPresentConnectionVariable;
+import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnComplete;
+import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnError;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerVariableFromDbConnection;
+import static com.siimkinks.sqlitemagic.WriterUtil.entityDbVariablesForOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityParameter;
-import static com.siimkinks.sqlitemagic.WriterUtil.ifDisposed;
-import static com.siimkinks.sqlitemagic.WriterUtil.insertStatementVariable;
+import static com.siimkinks.sqlitemagic.WriterUtil.insertStatementVariableFromOpHelper;
+import static com.siimkinks.sqlitemagic.WriterUtil.opHelperVariable;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationBuilderInnerClassSkeleton;
+import static com.siimkinks.sqlitemagic.WriterUtil.operationHelperParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationRxCompletableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationRxSingleMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.typedIterable;
-import static com.siimkinks.sqlitemagic.WriterUtil.updateStatementVariable;
+import static com.siimkinks.sqlitemagic.WriterUtil.updateStatementVariableFromOpHelper;
+import static com.siimkinks.sqlitemagic.WriterUtil.variableArgsOpHelperVariable;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_PERSIST;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_PERSIST;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_NOT_NULL_CONTENT_VALUES;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_NOT_NULL;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_UPDATE_STATEMENT;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CALL_INTERNAL_PERSIST_IGNORING_NULL_VALUES_ON_COMPLEX_COLUMNS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CALL_INTERNAL_PERSIST_ON_COMPLEX_COLUMNS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_EXECUTE;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_PERSIST_IGNORE_NULL_INTERNAL;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_PERSIST_INTERNAL;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_INTERNAL_PERSIST;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_INTERNAL_PERSIST_IGNORING_NULL_VALUES;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SET_IGNORE_NULL_VALUES;
+import static com.siimkinks.sqlitemagic.writer.InsertWriter.addAfterInsertLoggingStatement;
 import static com.siimkinks.sqlitemagic.writer.InsertWriter.addBindToInsertStatement;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.COMPLEX_COLUMN_PARAM_TO_ENTITY_DB_MANAGER;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addCallToComplexColumnsOperationWithContentValuesIfNeeded;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addCallToComplexColumnsOperationWithVariableValuesIfNeeded;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addCheckIdValidity;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addContentValuesAndDbVariables;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addInlineExecuteInsertWithCheckIdValidity;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addDisposableForEmitter;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addIdValidityRespectingConflictAbort;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addMethodInternalCallOnComplexColumnsIfNeeded;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addOperationFailedWhenDisposed;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxCompletableEmitterTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addSetIdStatementIfNeeded;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addDisposableForEmitter;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addThrowOperationFailedExceptionWithEntityVariable;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTopMethodEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTopMethodStartBlock;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionStartBlock;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.isIdSettingNeeded;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.statementWithImmutableIdsIfNeeded;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.INSERT_STATEMENT_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.OBJECTS_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.TRANSACTION_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.UPDATE_STATEMENT_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.Operation.INSERT;
+import static com.siimkinks.sqlitemagic.writer.Operation.PERSIST;
+import static com.siimkinks.sqlitemagic.writer.Operation.UPDATE;
+import static com.squareup.javapoet.TypeName.BOOLEAN;
+import static com.squareup.javapoet.TypeName.LONG;
 
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -123,10 +135,11 @@ public class PersistWriter implements OperationWriter {
 
   @Override
   public void writeHandler(TypeSpec.Builder classBuilder) {
-    final MethodSpec internalPersist = persistInternal();
-    final MethodSpec internalPersistIgnoringNull = persistIgnoringNullInternal();
-    classBuilder.addMethod(internalPersistIgnoringNull)
-        .addMethod(internalPersist)
+    final MethodSpec internalPersist = internalPersist();
+    final MethodSpec internalPersistIgnoringNull = internalPersistIgnoringNull();
+    classBuilder
+        .addMethod(internalPersistIgnoringNull)
+        .addMethod(internalPersist())
         .addType(persist(internalPersist, internalPersistIgnoringNull))
         .addType(bulkPersist());
   }
@@ -137,14 +150,16 @@ public class PersistWriter implements OperationWriter {
 
   private void addPersistIgnoringNullValuesMethodInternalCallOnComplexColumnsIdNeeded(TypeSpec.Builder daoClassBuilder) {
     addMethodInternalCallOnComplexColumnsIfNeeded(daoClassBuilder, entityEnvironment, METHOD_CALL_INTERNAL_PERSIST_IGNORING_NULL_VALUES_ON_COMPLEX_COLUMNS,
+        COMPLEX_COLUMN_PARAM_TO_ENTITY_DB_MANAGER,
         new ReturnCallback<String, ColumnElement>() {
           @Override
           public String call(ColumnElement obj) {
-            return METHOD_PERSIST_IGNORE_NULL_INTERNAL;
+            return METHOD_INTERNAL_PERSIST_IGNORING_NULL_VALUES;
           }
         },
-        ParameterSpec.builder(CONTENT_VALUES, "values").build(),
-        ParameterSpec.builder(SQLITE_DATABASE, "db").build());
+        ParameterSpec.builder(BIND_VALUES_MAP, "values").build(),
+        ParameterSpec.builder(DB_CONNECTION_IMPL, DB_CONNECTION_VARIABLE).build(),
+        ParameterSpec.builder(VARIABLE_ARGS_OPERATION_HELPER, OPERATION_HELPER_VARIABLE).build());
   }
 
   private void addPersistMethodInternalCallOnComplexColumnsIdNeeded(TypeSpec.Builder daoClassBuilder) {
@@ -153,10 +168,11 @@ public class PersistWriter implements OperationWriter {
         new ReturnCallback<String, ColumnElement>() {
           @Override
           public String call(ColumnElement obj) {
-            return METHOD_PERSIST_INTERNAL;
+            return METHOD_INTERNAL_PERSIST;
           }
         },
-        connectionImplParameter());
+        connectionImplParameter(),
+        operationHelperParameter());
   }
 
   // -------------------------------------------
@@ -164,12 +180,14 @@ public class PersistWriter implements OperationWriter {
   // -------------------------------------------
 
   private TypeSpec persist(MethodSpec persist, MethodSpec persistIgnoringNull) {
+    final ClassName interfaceType = ENTITY_PERSIST_BUILDER;
     final MethodSpec persistExecute = persistExecute(persist, persistIgnoringNull);
-    final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_PERSIST, ENTITY_PERSIST_BUILDER, tableElementTypeName, ENTITY_VARIABLE);
+    final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_PERSIST, interfaceType, tableElementTypeName, ENTITY_VARIABLE);
+    addConflictAlgorithmToOperationBuilder(builder, interfaceType);
     return builder
-        .addSuperinterface(ENTITY_PERSIST_BUILDER)
-        .addField(boolean.class, IGNORE_NULL_VALUES_VARIABLE, Modifier.PRIVATE)
-        .addMethod(setIgnoreNullValues(ENTITY_PERSIST_BUILDER))
+        .addSuperinterface(interfaceType)
+        .addField(TypeName.BOOLEAN, IGNORE_NULL_VALUES_VARIABLE, Modifier.PRIVATE)
+        .addMethod(setIgnoreNullValues(interfaceType))
         .addMethod(persistExecute)
         .addMethod(persistObserve(builder, persistExecute))
         .build();
@@ -179,45 +197,53 @@ public class PersistWriter implements OperationWriter {
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_EXECUTE)
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
-        .returns(TypeName.LONG)
+        .returns(LONG)
         .addCode(dbConnectionVariable());
     final boolean hasComplexColumns = tableElement.hasAnyPersistedComplexColumns();
     addTopMethodStartBlock(builder, hasComplexColumns);
 
-    builder.addStatement("final $T id", TypeName.LONG)
+    builder.addStatement("final $T id", LONG)
+        .addCode(entityDbManagerVariableFromDbConnection(tableElement))
         .beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE)
-        .addStatement("final $T values = new $T()", CONTENT_VALUES, CONTENT_VALUES)
-        .addCode(dbVariableFromPresentConnectionVariable())
-        .addStatement("id = $N($L, values, db)", persistIgnoringNull, ENTITY_VARIABLE);
+        .addCode(variableArgsOpHelperVariable())
+        .addCode(bindValuesVariable(tableElement))
+        .addStatement("id = $N($L, values, $L, $L)",
+            persistIgnoringNull, ENTITY_VARIABLE, MANAGER_VARIABLE, OPERATION_HELPER_VARIABLE);
 
     builder.nextControlFlow("else");
 
-    builder.addCode(entityDbManagerVariableFromDbConnection(tableElement));
-    if (tableElement.isImmutable()) {
-      builder.addStatement("id = $N($L, $L)", persist, ENTITY_VARIABLE, MANAGER_VARIABLE);
-    } else {
-      builder.addStatement("$N($L, $L)", persist, ENTITY_VARIABLE, MANAGER_VARIABLE)
-          .addStatement("id = $T.$N($L)", daoClassName, entityEnvironment.getEntityIdGetter(), ENTITY_VARIABLE);
-    }
+    builder
+        .addCode(opHelperVariable(PERSIST))
+        .beginControlFlow("try")
+        .addStatement("id = $N($L, $L, $L)", persist, ENTITY_VARIABLE, MANAGER_VARIABLE, OPERATION_HELPER_VARIABLE)
+        .nextControlFlow("finally")
+        .addStatement("$L.close()", OPERATION_HELPER_VARIABLE)
+        .endControlFlow();
 
     builder.endControlFlow();
 
     final String returnStatement = "return id";
     final String failReturnStatement = "return -1";
-    addTopMethodEndBlock(builder, allTableTriggers, hasComplexColumns, returnStatement, failReturnStatement);
+    ModelPersistingGenerator.addTopMethodEndBlock(builder,
+        allTableTriggers,
+        hasComplexColumns,
+        returnStatement,
+        failReturnStatement,
+        false);
     return builder.build();
   }
 
   private MethodSpec persistObserve(TypeSpec.Builder typeBuilder, final MethodSpec persistExecute) {
-    final TypeName entityTypeName = TypeName.LONG.box();
+    final TypeName entityTypeName = LONG.box();
     final MethodSpec.Builder builder = operationRxSingleMethod(entityTypeName)
         .addAnnotation(Override.class);
     addCallableToType(typeBuilder, entityTypeName, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
-        builder.addStatement("final $T id = $N()", TypeName.LONG, persistExecute)
-            .beginControlFlow("if (id == -1)")
-            .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, FAILED_TO_PERSIST_ERR_MSG)
+        builder.addStatement("final $T id = $N()", LONG, persistExecute)
+            .beginControlFlow("if (id == -1 && conflictAlgorithm != $T.CONFLICT_IGNORE)", SQLITE_DATABASE)
+            .addStatement("throw new $T($S + $L)",
+                OPERATION_FAILED_EXCEPTION, FAILED_TO_PERSIST_ERR_MSG, ENTITY_VARIABLE)
             .endControlFlow()
             .addStatement("return id");
       }
@@ -238,106 +264,170 @@ public class PersistWriter implements OperationWriter {
         .build();
   }
 
-  private MethodSpec persistInternal() {
-    final MethodSpec executeInsert = insertWriter.getExecuteInsert();
+  private MethodSpec internalPersist() {
+    final String updateStm = "updateStm";
+    final String insertStm = "insertStm";
+    final String presetId = "presetId";
     final boolean idColumnNullable = tableElement.getIdColumn().isNullable();
-    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_PERSIST_INTERNAL)
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_INTERNAL_PERSIST)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(entityParameter(tableElementTypeName))
-        .addParameter(entityDbManagerParameter());
-    final String returnStatement;
-    if (tableElement.isImmutable()) {
-      returnStatement = "return ";
-      builder.returns(TypeName.LONG);
-    } else {
-      returnStatement = "";
-    }
+        .addParameter(entityDbManagerParameter())
+        .addParameter(operationHelperParameter())
+        .returns(LONG);
     addCallToComplexColumnsPersistIfNeeded(builder);
     addPersistLoggingStatement(builder);
     builder.addStatement("int rowsAffected = 0");
     if (idColumnNullable) {
-      builder.addCode(entityEnvironment.getFinalIdVariable())
-          .beginControlFlow("if (id != null)");
+      builder.addCode(entityEnvironment.getFinalIdVariable(presetId))
+          .beginControlFlow("if ($L != null)", presetId);
     }
-    builder.addCode(updateStatementVariable());
-    builder.beginControlFlow("synchronized (stm)");
-    addBindToUpdateStatement(builder, "stm");
-    builder.addStatement("rowsAffected = stm.executeUpdateDelete()");
+    builder.addCode(updateStatementVariableFromOpHelper(tableElement, updateStm))
+        .beginControlFlow("synchronized ($L)", updateStm);
+    addBindToUpdateStatement(builder, updateStm, presetId);
+    builder.addStatement("rowsAffected = $L.executeUpdateDelete()", updateStm);
     builder.endControlFlow();
     if (idColumnNullable) {
       builder.endControlFlow();
     }
     builder.beginControlFlow("if (rowsAffected <= 0)");
     addPersistUpdateFailedLoggingStatement(builder);
-    builder.addCode(statementWithImmutableIdsIfNeeded(tableElement, returnStatement + "$T.$N($L, $L", entityEnvironment.getHandlerClassName(), executeInsert, ENTITY_VARIABLE, MANAGER_VARIABLE))
+
+    builder.addStatement("final long id")
+        .addCode(insertStatementVariableFromOpHelper(tableElement, insertStm))
+        .beginControlFlow("synchronized ($L)", insertStm);
+    addBindToInsertStatement(builder, tableElement, daoClassName, insertStm);
+    builder.addStatement("id = $L.executeInsert()", insertStm)
         .endControlFlow();
-    if (tableElement.isImmutable()) {
+    addAfterInsertLoggingStatement(builder);
+    addCheckIdValidity(builder, FAILED_TO_INSERT_ERR_MSG);
+    addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
+    builder.addStatement("return id");
+
+    builder.endControlFlow();
+    if (idColumnNullable) {
+      builder.addStatement("return $L", presetId);
+    } else {
       builder.addStatement("return $T.$N($L)", daoClassName, entityEnvironment.getEntityIdGetter(), ENTITY_VARIABLE);
     }
     return builder.build();
   }
 
-  private void addBindToUpdateStatement(MethodSpec.Builder builder, String updateStmVariableName) {
+  private void addBindToUpdateStatement(MethodSpec.Builder builder,
+                                        String updateStmVariableName,
+                                        String idVariableName) {
     final String bindMethodName = tableElement.hasAnyPersistedImmutableComplexColumns() ? METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS : METHOD_BIND_TO_UPDATE_STATEMENT;
     builder.addCode(statementWithImmutableIdsIfNeeded(tableElement,
         "$T.$L($L, $L$L", daoClassName, bindMethodName, updateStmVariableName, ENTITY_VARIABLE,
-        tableElement.getIdColumn().isNullable() ? ", id" : ""));
+        tableElement.getIdColumn().isNullable() ? ", " + idVariableName : ""));
   }
 
   private void addCallToComplexColumnsPersistIfNeeded(MethodSpec.Builder builder) {
-    addCallToComplexColumnsOperationWithContentValuesIfNeeded(builder, entityEnvironment, METHOD_CALL_INTERNAL_PERSIST_ON_COMPLEX_COLUMNS, MANAGER_VARIABLE + ".getDbConnection()");
+    addCallToComplexColumnsOperationWithVariableValuesIfNeeded(
+        builder,
+        entityEnvironment,
+        METHOD_CALL_INTERNAL_PERSIST_ON_COMPLEX_COLUMNS,
+        MANAGER_VARIABLE + ".getDbConnection()",
+        OPERATION_HELPER_VARIABLE);
   }
 
-  private MethodSpec persistIgnoringNullInternal() {
-    final String tableName = tableElement.getTableName();
-    final ColumnElement idColumn = tableElement.getIdColumn();
-    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_PERSIST_IGNORE_NULL_INTERNAL)
+  private MethodSpec internalPersistIgnoringNull() {
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_INTERNAL_PERSIST_IGNORING_NULL_VALUES)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(tableElementTypeName, ENTITY_VARIABLE)
-        .addParameter(CONTENT_VALUES, "values")
-        .addParameter(SQLITE_DATABASE, "db")
-        .returns(TypeName.LONG);
-    addCallToComplexColumnsPersistIgnoringNullIfNeeded(builder);
+        .addParameter(BIND_VALUES_MAP, "values")
+        .addParameter(entityDbManagerParameter())
+        .addParameter(VARIABLE_ARGS_OPERATION_HELPER, OPERATION_HELPER_VARIABLE)
+        .returns(LONG);
+
     addPersistLoggingStatement(builder);
-    final FormatData whereIdStatementPart = entityEnvironment.getWhereIdStatementPartWithProvidedIdVariable("id");
+    addInternalPersistIgnoringNullMainBody(builder, new Callback<MethodSpec.Builder>() {
+      @Override
+      public void call(MethodSpec.Builder builder) {
+        addCheckIdValidity(builder, FAILED_TO_PERSIST_ERR_MSG);
+        addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
+      }
+    });
+
+    return builder
+        .addStatement("return id")
+        .build();
+  }
+
+  private void addInternalPersistIgnoringNullMainBody(MethodSpec.Builder builder, Callback<MethodSpec.Builder> insertValidityCheck) {
+    final String tableName = tableElement.getTableName();
+    final ColumnElement idColumn = tableElement.getIdColumn();
+    addCallToComplexColumnsPersistIgnoringNullIfNeeded(builder);
     addBindToNotNullValues(builder);
-    builder.addCode(entityEnvironment.getIdVariable());
-    addUpdateExecuteInControlFlow(tableName, idColumn, builder, whereIdStatementPart);
+    builder.addCode(entityEnvironment.getIdVariable())
+        .addStatement("int rowsAffected = 0");
+    if (idColumn.isNullable()) {
+      builder.beginControlFlow("if (id != null)");
+    }
+    builder.addStatement("rowsAffected = $L.compileStatement($L, $S, $L, values, $S, id, $L).executeUpdateDelete()",
+        OPERATION_HELPER_VARIABLE,
+        UPDATE.ordinal(),
+        tableName,
+        tableElement.getAllColumnsCount(),
+        idColumn.getColumnName(),
+        MANAGER_VARIABLE);
+    if (idColumn.isNullable()) {
+      builder.endControlFlow();
+    }
+    builder.beginControlFlow("if (rowsAffected <= 0)");
     addPersistUpdateFailedLoggingStatement(builder);
     if (idColumn.isAutoincrementId()) {
       builder.addStatement("values.remove($S)", idColumn.getColumnName());
     }
-    builder.addStatement("id = db.insertWithOnConflict($S, null, values, SQLiteDatabase.CONFLICT_ABORT)", tableName);
+    builder.addStatement("id = $L.compileStatement($L, $S, $L, values, $S, null, $L).executeInsert()",
+        OPERATION_HELPER_VARIABLE,
+        INSERT.ordinal(),
+        tableName,
+        tableElement.getAllColumnsCount(),
+        idColumn.getColumnName(),
+        MANAGER_VARIABLE);
     addPersistAfterInsertLoggingStatement(builder);
-    addCheckIdValidity(builder, FAILED_TO_PERSIST_ERR_MSG);
-    addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
-    builder.endControlFlow()
-        .addStatement("return id");
-    return builder.build();
+
+    insertValidityCheck.call(builder);
+
+    builder.endControlFlow();
   }
 
   private void addCallToComplexColumnsPersistIgnoringNullIfNeeded(MethodSpec.Builder builder) {
-    addCallToComplexColumnsOperationWithContentValuesIfNeeded(builder, entityEnvironment, METHOD_CALL_INTERNAL_PERSIST_IGNORING_NULL_VALUES_ON_COMPLEX_COLUMNS, "values", "db");
+    final TableElement tableElement = entityEnvironment.getTableElement();
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      final CodeBlock.Builder statementBuilder = CodeBlock.builder();
+      if (tableElement.hasAnyPersistedImmutableComplexColumns()) {
+        statementBuilder.add("final long[] ids = ");
+      }
+      statementBuilder.add("$T.$L($L, $L, $L.getDbConnection(), $L)",
+          entityEnvironment.getDaoClassName(),
+          METHOD_CALL_INTERNAL_PERSIST_IGNORING_NULL_VALUES_ON_COMPLEX_COLUMNS,
+          ENTITY_VARIABLE,
+          "values",
+          MANAGER_VARIABLE,
+          OPERATION_HELPER_VARIABLE);
+      statementBuilder.add(codeBlockEnd());
+      builder.addCode(statementBuilder.build());
+    }
   }
 
-  @NonNull
-  private MethodSpec.Builder addBindToNotNullValues(MethodSpec.Builder builder) {
-    return builder.addCode(statementWithImmutableIdsIfNeeded(tableElement, "$T.$L($L, values", daoClassName, METHOD_BIND_TO_NOT_NULL_CONTENT_VALUES, ENTITY_VARIABLE));
-  }
-
-  private void addUpdateExecuteInControlFlow(String tableName, ColumnElement idColumn, MethodSpec.Builder builder, FormatData whereIdStatementPart) {
-    builder.beginControlFlow(String.format("if ($Ldb.updateWithOnConflict($S, values, %s, SQLiteDatabase.CONFLICT_ABORT) <= 0)", whereIdStatementPart.getFormat()),
-        whereIdStatementPart.getWithOtherArgsBefore(
-            idColumn.isNullable() ? "id == null || " : "",
-            tableName));
+  private void addBindToNotNullValues(MethodSpec.Builder builder) {
+    builder.addCode(statementWithImmutableIdsIfNeeded(
+        tableElement,
+        "$T.$L($L, values",
+        daoClassName,
+        METHOD_BIND_TO_NOT_NULL,
+        ENTITY_VARIABLE));
   }
 
   private TypeSpec bulkPersist() {
-    final ParameterizedTypeName interfaceType = ParameterizedTypeName.get(ENTITY_BULK_PERSIST_BUILDER, tableElementTypeName);
+    final TypeName interfaceType = ENTITY_BULK_PERSIST_BUILDER;
     final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_BULK_PERSIST, interfaceType, iterable, OBJECTS_VARIABLE);
+    addConflictAlgorithmToOperationBuilder(builder, interfaceType);
     return builder
         .addSuperinterface(interfaceType)
-        .addField(boolean.class, IGNORE_NULL_VALUES_VARIABLE, Modifier.PRIVATE)
+        .addField(TypeName.BOOLEAN, IGNORE_NULL_VALUES_VARIABLE, Modifier.PRIVATE)
         .addMethod(setIgnoreNullValues(interfaceType))
         .addMethod(bulkPersistExecute())
         .addMethod(bulkPersistObserve(builder))
@@ -349,48 +439,46 @@ public class PersistWriter implements OperationWriter {
         .addAnnotation(Override.class);
     addRxCompletableCreateFromParentClass(builder);
     addRxCompletableFromEmitterToType(typeBuilder, new Callback<MethodSpec.Builder>() {
-
       @Override
       public void call(MethodSpec.Builder builder) {
-        builder.addCode(dbConnectionVariable());
+        builder.addCode(entityDbVariablesForOperationBuilder(tableElement));
         addDisposableForEmitter(builder);
-        addTransactionStartBlock(builder);
 
         builder.beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE);
-        addBulkPersistIgnoreNullTopBlock(builder, true);
-        addBulkPersistIgnoreNullInsertBlock(builder, false);
-        builder.endControlFlow();
-        addBulkPersistOnNext(builder);
-        builder.endControlFlow();
+
+        addBulkPersistObserveForNullableColumns(builder);
 
         builder.nextControlFlow("else");
-        final boolean idColumnNullable = tableElement.getIdColumn().isNullable();
-        builder.addCode(entityDbManagerVariableFromDbConnection(tableElement))
-            .addCode(updateStatementVariable("updateStm"))
-            .addCode(insertStatementVariable("insertStm"))
-            .beginControlFlow("synchronized (updateStm)")
-            .beginControlFlow("synchronized (insertStm)")
-            .beginControlFlow("for ($T $L : $L)", tableElementTypeName, ENTITY_VARIABLE, OBJECTS_VARIABLE);
-        addBulkPersistTopBlock(idColumnNullable, builder);
-        addBulkPersistMainInsertExecuteBlock(idColumnNullable, builder);
-        builder.endControlFlow();
-        addBulkPersistOnNext(builder);
-        builder.endControlFlow()
-            .endControlFlow()
-            .endControlFlow();
+
+        addBulkPersistObserveForFixedColumns(builder);
 
         builder.endControlFlow();
-
-        addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers);
       }
     });
     return builder.build();
   }
 
-  private void addBulkPersistOnNext(MethodSpec.Builder builder) {
-    builder.beginControlFlow(ifDisposed())
-        .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, ERROR_UNSUBSCRIBED_UNEXPECTEDLY)
-        .endControlFlow();
+  private void addBulkPersistObserveForNullableColumns(MethodSpec.Builder builder) {
+    addBulkPersistTopBlockForNullableColumns(builder, false);
+    addBulkPersistBottomBlockForObserve(builder);
+  }
+
+  private void addBulkPersistObserveForFixedColumns(MethodSpec.Builder builder) {
+    addBulkPersistTopBlockForFixedColumns(builder, false);
+    addBulkPersistBottomBlockForObserve(builder);
+    builder.addStatement("$L.close()", OPERATION_HELPER_VARIABLE);
+  }
+
+  private void addBulkPersistBottomBlockForObserve(MethodSpec.Builder builder) {
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers);
+      builder.endControlFlow(); // .ignoreConflict
+    } else {
+      addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers,
+          CodeBlock.builder()
+              .addStatement("success = atLeastOneSuccess")
+              .build());
+    }
   }
 
   private MethodSpec bulkPersistExecute() {
@@ -398,110 +486,308 @@ public class PersistWriter implements OperationWriter {
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
         .returns(TypeName.BOOLEAN)
-        .addCode(dbConnectionVariable());
-
-    final boolean idNullable = tableElement.getIdColumn().isNullable();
-    addTransactionStartBlock(builder);
+        .addCode(entityDbVariablesForOperationBuilder(tableElement));
 
     builder.beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE);
-    addBulkPersistIgnoreNullTopBlock(builder, idNullable);
-    if (isIdSettingNeeded(tableElement)) {
-      addBulkPersistIgnoreNullInsertBlock(builder, !idNullable);
-    } else {
-      builder.beginControlFlow("if (db.insertWithOnConflict($S, null, values, SQLiteDatabase.CONFLICT_ABORT) == -1)", tableElement.getTableName());
-      addThrowOperationFailedExceptionWithEntityVariable(builder, FAILED_TO_PERSIST_ERR_MSG);
-      builder.endControlFlow();
-    }
-    builder.endControlFlow()
-        .endControlFlow();
+
+    addBulkPersistExecuteForNullableColumns(builder);
 
     builder.nextControlFlow("else");
 
-    builder.addCode(entityDbManagerVariableFromDbConnection(tableElement))
-        .addCode(updateStatementVariable("updateStm"))
-        .addCode(insertStatementVariable("insertStm"))
-        .beginControlFlow("synchronized (updateStm)")
-        .beginControlFlow("synchronized (insertStm)")
-        .beginControlFlow("for ($T $L : $L)", tableElementTypeName, ENTITY_VARIABLE, OBJECTS_VARIABLE);
-    addBulkPersistTopBlock(idNullable, builder);
-    if (isIdSettingNeeded(tableElement)) {
-      addBulkPersistMainInsertExecuteBlock(idNullable, builder);
-    } else {
-      addInlineExecuteInsertWithCheckIdValidity(builder, "insertStm", FAILED_TO_PERSIST_ERR_MSG);
-    }
-    builder.endControlFlow()
-        .endControlFlow()
-        .endControlFlow()
-        .endControlFlow();
+    addBulkPersistExecuteForFixedColumns(builder);
 
     builder.endControlFlow();
-
-    addTransactionEndBlock(builder, allTableTriggers, "return true", "return false");
     return builder.build();
   }
 
-  private void addBulkPersistIgnoreNullInsertBlock(MethodSpec.Builder builder, boolean idInSeparateVariable) {
-    CodeBlock.Builder insertBuilder = CodeBlock.builder();
-    if (idInSeparateVariable) {
-      insertBuilder.add("final long ");
-    }
-    insertBuilder.add("id = db.insertWithOnConflict($S, null, values, SQLiteDatabase.CONFLICT_ABORT)", tableElement.getTableName())
-        .add(codeBlockEnd());
-    builder.addCode(insertBuilder.build());
-    addPersistAfterInsertLoggingStatement(builder);
-    addCheckIdValidity(builder, FAILED_TO_PERSIST_ERR_MSG);
-    addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
-  }
+  private void addBulkPersistExecuteForNullableColumns(MethodSpec.Builder builder) {
+    addBulkPersistTopBlockForNullableColumns(builder, true);
 
-  private void addBulkPersistIgnoreNullTopBlock(MethodSpec.Builder builder, boolean idInSeparateVariable) {
-    final ColumnElement idColumn = tableElement.getIdColumn();
-    addContentValuesAndDbVariables(builder);
-    builder.beginControlFlow("for ($T $L : $L)", tableElementTypeName, ENTITY_VARIABLE, OBJECTS_VARIABLE);
-    addCallToComplexColumnsPersistIgnoringNullIfNeeded(builder);
-    addPersistLoggingStatement(builder);
-    addBindToNotNullValues(builder);
-    final FormatData whereIdStatementPart;
-    if (idInSeparateVariable) {
-      builder.addCode(entityEnvironment.getIdVariable());
-      whereIdStatementPart = entityEnvironment.getWhereIdStatementPartWithProvidedIdVariable("id");
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      ModelPersistingGenerator.addTransactionEndBlock(builder,
+          allTableTriggers,
+          CodeBlock.builder()
+              .addStatement("success = true")
+              .build(),
+          CodeBlock.builder()
+              .addStatement("return true")
+              .build(),
+          "return false",
+          false);
+      builder.endControlFlow(); // .ignoreConflict
     } else {
-      whereIdStatementPart = entityEnvironment.getWhereIdStatementPart();
-    }
-    addUpdateExecuteInControlFlow(tableElement.getTableName(), idColumn, builder, whereIdStatementPart);
-    addPersistUpdateFailedLoggingStatement(builder);
-    if (idColumn.isAutoincrementId()) {
-      builder.addStatement("values.remove($S)", idColumn.getColumnName());
+      ModelPersistingGenerator.addTransactionEndBlock(builder,
+          allTableTriggers,
+          CodeBlock.builder()
+              .addStatement("success = atLeastOneSuccess")
+              .build(),
+          CodeBlock.builder()
+              .addStatement("return atLeastOneSuccess")
+              .build(),
+          "return false",
+          false);
     }
   }
 
-  private void addBulkPersistMainInsertExecuteBlock(boolean idColumnNullable, MethodSpec.Builder builder) {
-    if (idColumnNullable) {
-      builder.addStatement("id = insertStm.executeInsert()");
+  private void addBulkPersistTopBlockForNullableColumns(MethodSpec.Builder builder,
+                                                        final boolean forExecuteMethod) {
+    builder
+        .addCode(variableArgsOpHelperVariable())
+        .addCode(bindValuesVariable(tableElement));
+
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      builder.beginControlFlow("if ($L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
+
+      builder.addStatement("$T atLeastOneSuccess = false", BOOLEAN);
+      if (!forExecuteMethod) {
+        builder.beginControlFlow("try");
+      }
+      addBulkPersistLoop(builder, new Callback<MethodSpec.Builder>() {
+        @Override
+        public void call(MethodSpec.Builder builder) {
+          if (!forExecuteMethod) {
+            addOperationFailedWhenDisposed(builder);
+          }
+          builder.addStatement("final $T $L = $L.newTransaction()",
+              TRANSACTION, TRANSACTION_VARIABLE, DB_CONNECTION_VARIABLE)
+              .beginControlFlow("try")
+              .addStatement("$L($L, values, $L, $L)",
+                  METHOD_INTERNAL_PERSIST_IGNORING_NULL_VALUES,
+                  ENTITY_VARIABLE,
+                  MANAGER_VARIABLE,
+                  OPERATION_HELPER_VARIABLE)
+              .addStatement("atLeastOneSuccess = true")
+              .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
+              .nextControlFlow("catch ($T e)", OPERATION_FAILED_EXCEPTION)
+              .addStatement("continue")
+              .nextControlFlow("finally")
+              .addStatement("$L.end()", TRANSACTION_VARIABLE)
+              .endControlFlow();
+        }
+      });
+
+      if (forExecuteMethod) {
+        builder.beginControlFlow("if (atLeastOneSuccess)");
+        addTableTriggersSendingStatement(builder, allTableTriggers);
+        builder.endControlFlow();
+        builder.addStatement("return atLeastOneSuccess");
+      } else {
+        builder.nextControlFlow("catch ($T e)", Throwable.class)
+            .addCode(emitterOnError())
+            .nextControlFlow("finally");
+        builder.beginControlFlow("if (atLeastOneSuccess)");
+        addTableTriggersSendingStatement(builder, allTableTriggers);
+        builder.endControlFlow()
+            .addStatement(emitterOnComplete())
+            .endControlFlow();
+      }
+
+      builder.nextControlFlow("else");
     } else {
-      builder.addStatement("final $T id = insertStm.executeInsert()", TypeName.LONG);
+      builder.addStatement("$T atLeastOneSuccess = false", BOOLEAN);
     }
-    addCheckIdValidity(builder, FAILED_TO_INSERT_ERR_MSG);
-    addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
+
+    addTransactionStartBlock(builder);
+    addBulkPersistLoop(builder, new Callback<MethodSpec.Builder>() {
+      @Override
+      public void call(MethodSpec.Builder builder) {
+        if (!forExecuteMethod) {
+          addOperationFailedWhenDisposed(builder);
+        }
+        if (tableElement.hasAnyPersistedComplexColumns()) {
+          builder.addStatement("$L($L, values, $L, $L)",
+              METHOD_INTERNAL_PERSIST_IGNORING_NULL_VALUES,
+              ENTITY_VARIABLE,
+              MANAGER_VARIABLE,
+              OPERATION_HELPER_VARIABLE);
+        } else {
+          addInternalPersistIgnoringNullMainBody(builder, new Callback<MethodSpec.Builder>() {
+            @Override
+            public void call(MethodSpec.Builder builder) {
+              addNormalLoopBodyValidityCheck(builder);
+            }
+          });
+        }
+      }
+    });
   }
 
-  private void addBulkPersistTopBlock(boolean idColumnNullable, MethodSpec.Builder builder) {
+  private void addBulkPersistExecuteForFixedColumns(MethodSpec.Builder builder) {
+    addBulkPersistTopBlockForFixedColumns(builder, true);
+
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      ModelPersistingGenerator.addTransactionEndBlock(builder,
+          allTableTriggers,
+          "return true",
+          "return false",
+          true);
+      builder.endControlFlow(); // .ignoreConflict
+    } else {
+      ModelPersistingGenerator.addTransactionEndBlock(builder,
+          allTableTriggers,
+          CodeBlock.builder()
+              .addStatement("success = atLeastOneSuccess")
+              .build(),
+          CodeBlock.builder()
+              .addStatement("return atLeastOneSuccess")
+              .build(),
+          "return false",
+          true);
+    }
+  }
+
+  private void addBulkPersistTopBlockForFixedColumns(MethodSpec.Builder builder,
+                                                     final boolean forExecuteMethod) {
+    builder.addCode(opHelperVariable(PERSIST))
+        .addCode(updateStatementVariableFromOpHelper(tableElement, UPDATE_STATEMENT_VARIABLE))
+        .addCode(insertStatementVariableFromOpHelper(tableElement, INSERT_STATEMENT_VARIABLE));
+
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      builder.beginControlFlow("if ($L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
+
+      builder
+          .addStatement("$T atLeastOneSuccess = false", BOOLEAN)
+          .beginControlFlow("try");
+      addBulkPersistLoopWithCompiledStatements(builder, new Callback<MethodSpec.Builder>() {
+        @Override
+        public void call(MethodSpec.Builder builder) {
+          if (!forExecuteMethod) {
+            addOperationFailedWhenDisposed(builder);
+          }
+          addBulkPersistComplexColumnIgnoreConflictLoopBody(builder);
+        }
+      });
+      if (forExecuteMethod) {
+        builder.beginControlFlow("if (atLeastOneSuccess)");
+        addTableTriggersSendingStatement(builder, allTableTriggers);
+        builder.endControlFlow()
+            .addStatement("return atLeastOneSuccess");
+      } else {
+        builder.nextControlFlow("catch ($T e)", Throwable.class)
+            .addCode(emitterOnError());
+      }
+      builder.nextControlFlow("finally");
+      if (!forExecuteMethod) {
+        builder.beginControlFlow("if (atLeastOneSuccess)");
+        addTableTriggersSendingStatement(builder, allTableTriggers);
+        builder.endControlFlow()
+            .addStatement(emitterOnComplete());
+      }
+      builder.addStatement("$L.close()", OPERATION_HELPER_VARIABLE)
+          .endControlFlow();
+
+      builder.nextControlFlow("else");
+    } else {
+      builder.addStatement("$T atLeastOneSuccess = false", BOOLEAN);
+    }
+
+    addTransactionStartBlock(builder);
+    addBulkPersistLoopWithCompiledStatements(builder, new Callback<MethodSpec.Builder>() {
+      @Override
+      public void call(MethodSpec.Builder builder) {
+        if (!forExecuteMethod) {
+          addOperationFailedWhenDisposed(builder);
+        }
+        addBulkPersistNormalLoopBody(builder);
+      }
+    });
+  }
+
+  private void addBulkPersistNormalLoopBody(MethodSpec.Builder builder) {
+    addBulkPersistExecuteMainBody(builder, new Callback<MethodSpec.Builder>() {
+      @Override
+      public void call(MethodSpec.Builder builder) {
+        addNormalLoopBodyValidityCheck(builder);
+      }
+    });
+  }
+
+  private void addNormalLoopBodyValidityCheck(MethodSpec.Builder builder) {
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      addCheckIdValidity(builder, FAILED_TO_PERSIST_ERR_MSG);
+      addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
+    } else {
+      addIdValidityRespectingConflictAbort(builder, tableElement, daoClassName, FAILED_TO_PERSIST_ERR_MSG);
+      builder
+          .nextControlFlow("else")
+          .addStatement("atLeastOneSuccess = true");
+    }
+  }
+
+  private void addBulkPersistComplexColumnIgnoreConflictLoopBody(MethodSpec.Builder builder) {
+    builder.addStatement("final $T $L = $L.newTransaction()",
+        TRANSACTION, TRANSACTION_VARIABLE, DB_CONNECTION_VARIABLE)
+        .beginControlFlow("try");
+
+    addBulkPersistExecuteMainBody(builder, new Callback<MethodSpec.Builder>() {
+      @Override
+      public void call(MethodSpec.Builder builder) {
+        builder.beginControlFlow("if (id != -1)");
+        addSetIdStatementIfNeeded(tableElement, daoClassName, builder);
+        builder.addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
+            .addStatement("atLeastOneSuccess = true")
+            .endControlFlow() // if (id != -1)
+            .nextControlFlow("else")
+            .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
+            .addStatement("atLeastOneSuccess = true");
+      }
+    });
+
+    builder.nextControlFlow("catch ($T e)", OPERATION_FAILED_EXCEPTION)
+        .addStatement("continue")
+        .nextControlFlow("finally")
+        .addStatement("$L.end()", TRANSACTION_VARIABLE)
+        .endControlFlow();
+  }
+
+  private void addBulkPersistExecuteMainBody(MethodSpec.Builder builder, Callback<MethodSpec.Builder> insertValidityCheck) {
+    final boolean idColumnNullable = tableElement.getIdColumn().isNullable();
     addCallToComplexColumnsPersistIfNeeded(builder);
-    addPersistLoggingStatement(builder);
     if (idColumnNullable) {
       builder.addStatement("int rowsAffected = 0")
           .addCode(entityEnvironment.getIdVariable())
           .beginControlFlow("if (id != null)");
     }
-    addBindToUpdateStatement(builder, "updateStm");
+    addBindToUpdateStatement(builder, UPDATE_STATEMENT_VARIABLE, "id");
     if (idColumnNullable) {
-      builder.addStatement("rowsAffected = updateStm.executeUpdateDelete()")
+      builder.addStatement("rowsAffected = $L.executeUpdateDelete()", UPDATE_STATEMENT_VARIABLE)
           .endControlFlow()
           .beginControlFlow("if (rowsAffected <= 0)");
     } else {
-      builder.beginControlFlow("if (updateStm.executeUpdateDelete() <= 0)");
+      builder.beginControlFlow("if ($L.executeUpdateDelete() <= 0)", UPDATE_STATEMENT_VARIABLE);
     }
     addPersistUpdateFailedLoggingStatement(builder);
-    addBindToInsertStatement(builder, tableElement, daoClassName, "insertStm");
+    addBindToInsertStatement(builder, tableElement, daoClassName, INSERT_STATEMENT_VARIABLE);
+    if (idColumnNullable) {
+      builder.addStatement("id = $L.executeInsert()", INSERT_STATEMENT_VARIABLE);
+    } else {
+      builder.addStatement("final $T id = $L.executeInsert()", LONG, INSERT_STATEMENT_VARIABLE);
+    }
+    addAfterInsertLoggingStatement(builder);
+
+    insertValidityCheck.call(builder);
+
+    builder.endControlFlow();
+  }
+
+  private void addBulkPersistLoopWithCompiledStatements(MethodSpec.Builder builder, Callback<MethodSpec.Builder> body) {
+    builder
+        .beginControlFlow("synchronized ($L)", UPDATE_STATEMENT_VARIABLE)
+        .beginControlFlow("synchronized ($L)", INSERT_STATEMENT_VARIABLE)
+        .beginControlFlow("for ($T $L : $L)", tableElementTypeName, ENTITY_VARIABLE, OBJECTS_VARIABLE);
+    addPersistLoggingStatement(builder);
+    body.call(builder);
+    builder
+        .endControlFlow()
+        .endControlFlow()
+        .endControlFlow();
+  }
+
+  private void addBulkPersistLoop(MethodSpec.Builder builder, Callback<MethodSpec.Builder> body) {
+    builder.beginControlFlow("for ($T $L : $L)", tableElementTypeName, ENTITY_VARIABLE, OBJECTS_VARIABLE);
+    addPersistLoggingStatement(builder);
+    body.call(builder);
+    builder.endControlFlow();
   }
 
   private void addPersistLoggingStatement(MethodSpec.Builder builder) {

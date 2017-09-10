@@ -25,8 +25,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 
-import lombok.Cleanup;
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.BookTable.BOOK;
@@ -48,66 +46,6 @@ import static org.junit.Assert.fail;
 
 @RunWith(AndroidJUnit4.class)
 public final class SynchronousImmutableObjectQueryTest {
-
-  @Test
-  public void countWithBuilder() {
-    BuilderMagazine.deleteTable().execute();
-    final int testSize = 10;
-    for (int i = 0; i < testSize; i++) {
-      final BuilderMagazine m = BuilderMagazine.newRandom()
-          .name("asd")
-          .build();
-      final long persistId = m.persist().execute();
-      assertThat(persistId).isNotEqualTo(-1);
-      assertThat(persistId).isNotEqualTo(m.id());
-    }
-    assertThat(BuilderMagazine.newRandom().build().persist().execute()).isNotEqualTo(-1);
-    assertThat(BuilderMagazine.newRandom().build().persist().execute()).isNotEqualTo(-1);
-    assertThat(BuilderMagazine.newRandom().build().persist().execute()).isNotEqualTo(-1);
-
-    assertThat(testSize).isNotEqualTo(Select
-        .from(BUILDER_MAGAZINE)
-        .count()
-        .execute());
-    assertThat(testSize).isEqualTo(Select
-        .from(BUILDER_MAGAZINE)
-        .where(BUILDER_MAGAZINE.NAME.is("asd"))
-        .count()
-        .execute());
-  }
-
-  @Test
-  public void countWithCreator() {
-    CreatorMagazine.deleteTable().execute();
-    final int testSize = 10;
-    for (int i = 0; i < testSize; i++) {
-      CreatorMagazine m = CreatorMagazine.newRandom();
-      m = CreatorMagazine.create(
-          m.id(),
-          "asd",
-          m.author(),
-          m.simpleValueWithBuilder(),
-          m.simpleValueWithCreator()
-      );
-      final long persistId = m.persist().execute();
-      assertThat(persistId).isNotEqualTo(-1);
-      assertThat(persistId).isNotEqualTo(m.id());
-    }
-    assertThat(CreatorMagazine.newRandom().persist().execute()).isNotEqualTo(-1);
-    assertThat(CreatorMagazine.newRandom().persist().execute()).isNotEqualTo(-1);
-    assertThat(CreatorMagazine.newRandom().persist().execute()).isNotEqualTo(-1);
-
-    assertThat(testSize).isNotEqualTo(Select
-        .from(CREATOR_MAGAZINE)
-        .count()
-        .execute());
-    assertThat(testSize).isEqualTo(Select
-        .from(CREATOR_MAGAZINE)
-        .where(CREATOR_MAGAZINE.NAME.is("asd"))
-        .count()
-        .execute());
-  }
-
   @Test
   public void simpleEmptyTable() {
     final CompiledSelect<SimpleValueWithBuilder, SelectN> compiledBuilderSelect = Select
@@ -1739,9 +1677,13 @@ public final class SynchronousImmutableObjectQueryTest {
         .queryDeep()
         .toCursor();
     final List<SimpleValueWithBuilder> queriedMagazines = new ArrayList<>(testSize);
-    @Cleanup final Cursor cursor = cursorSelect.execute();
-    while (cursor.moveToNext()) {
-      queriedMagazines.add(cursorSelect.getFromCurrentPosition(cursor));
+    final Cursor cursor = cursorSelect.execute();
+    try {
+      while (cursor.moveToNext()) {
+        queriedMagazines.add(cursorSelect.getFromCurrentPosition(cursor));
+      }
+    } finally {
+      cursor.close();
     }
     assertThat(values).containsExactlyElementsIn(queriedMagazines);
   }
@@ -1763,9 +1705,13 @@ public final class SynchronousImmutableObjectQueryTest {
         .queryDeep()
         .toCursor();
     final List<SimpleValueWithCreator> queriedMagazines = new ArrayList<>(testSize);
-    @Cleanup final Cursor cursor = cursorSelect.execute();
-    while (cursor.moveToNext()) {
-      queriedMagazines.add(cursorSelect.getFromCurrentPosition(cursor));
+    final Cursor cursor = cursorSelect.execute();
+    try {
+      while (cursor.moveToNext()) {
+        queriedMagazines.add(cursorSelect.getFromCurrentPosition(cursor));
+      }
+    } finally {
+      cursor.close();
     }
     assertThat(values).containsExactlyElementsIn(queriedMagazines);
   }

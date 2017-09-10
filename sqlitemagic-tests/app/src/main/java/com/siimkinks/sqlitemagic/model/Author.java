@@ -20,7 +20,7 @@ import lombok.ToString;
 @NoArgsConstructor
 @ToString
 @EqualsAndHashCode
-public class Author implements Parcelable {
+public class Author implements Parcelable, ProvidesId {
 
   public static final String TABLE = "author";
   public static final String C_ID = "author.id";
@@ -34,7 +34,7 @@ public class Author implements Parcelable {
   @Column
   public String name;
   @Column
-  Boolean boxedBoolean;
+  public Boolean boxedBoolean;
   @Column
   public boolean primitiveBoolean;
 
@@ -97,4 +97,9 @@ public class Author implements Parcelable {
       return new Author[size];
     }
   };
+
+  @Override
+  public Long provideId() {
+    return id;
+  }
 }

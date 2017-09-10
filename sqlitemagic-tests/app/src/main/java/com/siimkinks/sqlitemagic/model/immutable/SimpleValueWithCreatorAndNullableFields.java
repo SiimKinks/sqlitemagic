@@ -44,6 +44,10 @@ public abstract class SimpleValueWithCreatorAndNullableFields implements Immutab
     return new AutoValue_SimpleValueWithCreatorAndNullableFields(null, string, boxedBoolean, boxedInteger);
   }
 
+  public static SimpleValueWithCreatorAndNullableFields nullSomeColumns(Long id, Integer boxedInteger) {
+    return new AutoValue_SimpleValueWithCreatorAndNullableFields(id, null, null, boxedInteger);
+  }
+
   public static SimpleValueWithCreatorAndNullableFields newRandom() {
     final Random r = new Random();
     return createWithId(
@@ -75,5 +79,10 @@ public abstract class SimpleValueWithCreatorAndNullableFields implements Immutab
           && ((this.boxedInteger() == null) ? (that.boxedInteger() == null) : this.boxedInteger().equals(that.boxedInteger()));
     }
     return false;
+  }
+
+  @Override
+  public Long provideId() {
+    return id();
   }
 }

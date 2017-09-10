@@ -68,11 +68,11 @@ public abstract class ComplexValueWithBuilder {
   @Nullable
   abstract SimpleValueWithCreatorAndNullableFields nullableCreatorSimpleValue();
 
-  public static ComplexValueWithBuilder.Builder builder() {
+  public static Builder builder() {
     return new AutoValue_ComplexValueWithBuilder.Builder();
   }
 
-  public ComplexValueWithBuilder.Builder copy() {
+  public Builder copy() {
     return new AutoValue_ComplexValueWithBuilder.Builder(this);
   }
 
@@ -109,7 +109,7 @@ public abstract class ComplexValueWithBuilder {
     abstract ComplexValueWithBuilder build();
   }
 
-  public static ComplexValueWithBuilder.Builder newRandom() {
+  public static Builder newRandom() {
     return builder()
         .id(new Random().nextLong())
         .string(Utils.randomTableName())

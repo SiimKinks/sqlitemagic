@@ -7,16 +7,18 @@ import io.reactivex.Completable;
 
 /**
  * Builder for bulk insert operation.
- *
- * @param <T> Operation target type
  */
-public interface EntityBulkInsertBuilder<T> extends ConnectionProvidedOperation<EntityBulkInsertBuilder<T>> {
+public interface EntityBulkInsertBuilder extends EntityOperationBuilder<EntityBulkInsertBuilder> {
   /**
    * Execute this configured bulk insert operation against a database.
    * Operation will be executed inside a transaction.
    *
    * @return {@code true} if the operation was successful; {@code false} when some operation failed
    * and this operation was rolled back.
+   * <p>
+   * If {@link android.database.sqlite.SQLiteDatabase#CONFLICT_IGNORE CONFLICT_IGNORE} is used,
+   * returns {@code true} if at least one operation was successful and table change trigger(s) got
+   * sent; {@code false} when all operations failed and no table change trigger(s) got sent.
    */
   boolean execute();
 

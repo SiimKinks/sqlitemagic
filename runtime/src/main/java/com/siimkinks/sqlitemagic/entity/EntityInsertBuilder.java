@@ -3,25 +3,12 @@ package com.siimkinks.sqlitemagic.entity;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 
-import com.siimkinks.sqlitemagic.ConflictAlgorithm;
-
 import io.reactivex.Single;
 
 /**
  * Builder for insert operation.
  */
-public interface EntityInsertBuilder extends ConnectionProvidedOperation<EntityInsertBuilder> {
-  /**
-   * Configure this operation to use provided conflict algorithm.
-   *
-   * @param conflictAlgorithm One of {@link android.database.sqlite.SQLiteDatabase}
-   *                          CONFLICT_* constant values
-   * @return Operation builder
-   */
-  @NonNull
-  @CheckResult
-  EntityInsertBuilder conflictAlgorithm(@ConflictAlgorithm int conflictAlgorithm);
-
+public interface EntityInsertBuilder extends EntityOperationBuilder<EntityInsertBuilder> {
   /**
    * Execute this configured insert operation against a database.
    * Operation will be executed inside a transaction if the inserted entity has complex columns

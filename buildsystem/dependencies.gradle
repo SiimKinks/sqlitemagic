@@ -7,9 +7,12 @@ ext {
       target: "android-24"
   ]
 
+  GROUP = 'com.siimkinks.sqlitemagic'
+  VERSION_NAME = '0.14.0-SNAPSHOT'
+
   androidAptVersion = '1.8'
-  androidGradleVersion = '2.3.2'
-  androidSupportLibsVersion = '25.4.0'
+  androidGradleVersion = '2.3.3'
+  androidSupportLibsVersion = '26.0.0'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.8'
   autoServiceVersion = '1.0-rc3'
@@ -25,7 +28,7 @@ ext {
   javassistVersion = '3.21.0-GA'
   junitVersion = '4.12'
   kotlinpoetVersion = '0.3.0'
-  kotlinVersion = '1.1.2-4'
+  kotlinVersion = '1.1.4-3'
   lombokVersion = '1.14.8' // do not increment!
   mockitoVersion = '2.8.9'
   mockitoKotlinVersion = '1.5.0'
@@ -54,6 +57,7 @@ ext {
       javapoet                    : "com.squareup:javapoet:${javapoetVersion}",
       javassist                   : "org.javassist:javassist:$javassistVersion",
       kotlinGradlePlugin          : "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}",
+      kotlinJunit                 : "org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion",
       kotlinpoet                  : "com.squareup:kotlinpoet:$kotlinpoetVersion",
       kotlinReflect               : "org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}",
       kotlinStdLib                : "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}",
@@ -66,6 +70,10 @@ ext {
       supportAnnotationsForTesting: "com.android.support:support-annotations:$androidSupportLibsVersion",
       supportV7                   : "com.android.support:appcompat-v7:${androidSupportLibsVersion}",
       supportTestRunner           : "com.android.support.test:runner:${supportTestRunnerVersion}",
+      sqlitemagicAnnotations      : "$GROUP:sqlitemagic-annotations:$VERSION_NAME",
+      sqlitemagicProcessorMagic   : "$GROUP:sqlitemagic-compiler-magic:$VERSION_NAME",
+      sqlitemagicPlugin           : "$GROUP:sqlitemagic-plugin:$VERSION_NAME",
+      sqlitemagicRuntime          : "$GROUP:sqlitemagic:$VERSION_NAME",
       ztZip                       : "org.zeroturnaround:zt-zip:$ztZipVersion",
 
       // testing

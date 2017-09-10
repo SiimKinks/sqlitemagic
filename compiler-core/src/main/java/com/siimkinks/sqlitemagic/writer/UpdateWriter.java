@@ -21,12 +21,10 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.experimental.Builder;
 
+import static com.siimkinks.sqlitemagic.BaseProcessor.GENERATE_LOGGING;
 import static com.siimkinks.sqlitemagic.Const.STATEMENT_METHOD_MAP;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
-import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_UNSUBSCRIBED_UNEXPECTEDLY;
 import static com.siimkinks.sqlitemagic.GlobalConst.FAILED_TO_UPDATE_ERR_MSG;
-import static com.siimkinks.sqlitemagic.BaseProcessor.GENERATE_LOGGING;
-import static com.siimkinks.sqlitemagic.WriterUtil.CONTENT_VALUES;
 import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_BULK_UPDATE_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_UPDATE_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
@@ -34,48 +32,50 @@ import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
+import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxActionToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableCreateFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
-import static com.siimkinks.sqlitemagic.WriterUtil.conflictAlgorithmParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.connectionImplParameter;
+import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnComplete;
+import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnError;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbVariablesForOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityParameter;
-import static com.siimkinks.sqlitemagic.WriterUtil.ifDisposed;
+import static com.siimkinks.sqlitemagic.WriterUtil.opHelperVariable;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationBuilderInnerClassSkeleton;
+import static com.siimkinks.sqlitemagic.WriterUtil.operationHelperParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationRxCompletableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.typedIterable;
-import static com.siimkinks.sqlitemagic.WriterUtil.updateStatementVariable;
+import static com.siimkinks.sqlitemagic.WriterUtil.updateStatementVariableFromOpHelper;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_UPDATE;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_UPDATE;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_CONTENT_VALUES;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_UPDATE_STATEMENT;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CALL_INTERNAL_UPDATE_WITH_CONFLICT_ALGORITHM_ON_COMPLEX_COLUMNS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_EXECUTE;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_UPDATE_INTERNAL;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_UPDATE_WITH_CONFLICT_ALGORITHM_INTERNAL;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_INTERNAL_UPDATE;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.COMPLEX_COLUMN_PARAM_TO_ENTITY_DB_MANAGER;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addBindColumnFromProvidedIdsBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addBindColumnToStatementBlock;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addDisposableForEmitter;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addIdNullCheck;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addImmutableIdsParameterIfNeeded;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addOperationFailedWhenDisposed;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxCompletableEmitterTransactionEndBlock;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addDisposableForEmitter;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addThrowOperationFailedExceptionWithEntityVariable;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionStartBlock;
-import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.contentValuesAndDbVariables;
-import static com.siimkinks.sqlitemagic.writer.ModelWriter.CONFLICT_ALGORITHM_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.OBJECTS_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.STATEMENT_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.TRANSACTION_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.Operation.UPDATE;
 
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -109,16 +109,14 @@ public class UpdateWriter implements OperationWriter {
     }
 
     addUpdateMethodInternalCallOnComplexColumnsIfNeeded(classBuilder);
-    addUpdateWithConflictAlgorithmInternalCallOnComplexColumnsIfNeeded(classBuilder);
   }
 
   @Override
   public void writeHandler(TypeSpec.Builder classBuilder) {
-    final MethodSpec internalUpdateWithConflictAlgorithm = updateWithConflictAlgorithmInternal();
-    final MethodSpec internalUpdate = updateInternal();
-    classBuilder.addMethod(internalUpdateWithConflictAlgorithm)
+    final MethodSpec internalUpdate = internalUpdate();
+    classBuilder
         .addMethod(internalUpdate)
-        .addType(update(internalUpdate, internalUpdateWithConflictAlgorithm))
+        .addType(update(internalUpdate))
         .addType(bulkUpdate());
   }
 
@@ -185,27 +183,13 @@ public class UpdateWriter implements OperationWriter {
     builder.addStatement("statement.$L($L, id)", bindMethod, colPos);
   }
 
-  private void addUpdateWithConflictAlgorithmInternalCallOnComplexColumnsIfNeeded(TypeSpec.Builder daoClassBuilder) {
-    addUpdateMethodInternalCallOnComplexColumnsIfNeeded(daoClassBuilder, entityEnvironment,
-        METHOD_CALL_INTERNAL_UPDATE_WITH_CONFLICT_ALGORITHM_ON_COMPLEX_COLUMNS,
-        METHOD_UPDATE_WITH_CONFLICT_ALGORITHM_INTERNAL,
-        new ReturnCallback2<String, ParameterSpec, ColumnElement>() {
-          @Override
-          public String call(ParameterSpec param, ColumnElement o2) {
-            return param.name;
-          }
-        },
-        ParameterSpec.builder(CONTENT_VALUES, "values").build(),
-        ParameterSpec.builder(SQLITE_DATABASE, "db").build(),
-        conflictAlgorithmParameter());
-  }
-
   private void addUpdateMethodInternalCallOnComplexColumnsIfNeeded(TypeSpec.Builder daoClassBuilder) {
     addUpdateMethodInternalCallOnComplexColumnsIfNeeded(daoClassBuilder, entityEnvironment,
         METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
-        METHOD_UPDATE_INTERNAL,
+        METHOD_INTERNAL_UPDATE,
         COMPLEX_COLUMN_PARAM_TO_ENTITY_DB_MANAGER,
-        connectionImplParameter());
+        connectionImplParameter(),
+        operationHelperParameter());
   }
 
   private void addUpdateMethodInternalCallOnComplexColumnsIfNeeded(TypeSpec.Builder daoClassBuilder,
@@ -275,8 +259,8 @@ public class UpdateWriter implements OperationWriter {
   //                  Handler methods
   // -------------------------------------------
 
-  private TypeSpec update(MethodSpec update, MethodSpec updateWithConflictAlgorithm) {
-    final MethodSpec updateExecute = updateExecute(update, updateWithConflictAlgorithm);
+  private TypeSpec update(MethodSpec update) {
+    final MethodSpec updateExecute = updateExecute(update);
     final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_UPDATE, ENTITY_UPDATE_BUILDER, tableElementTypeName, ENTITY_VARIABLE);
     addConflictAlgorithmToOperationBuilder(builder, ENTITY_UPDATE_BUILDER);
     return builder.addSuperinterface(ENTITY_UPDATE_BUILDER)
@@ -285,30 +269,22 @@ public class UpdateWriter implements OperationWriter {
         .build();
   }
 
-  private MethodSpec updateExecute(MethodSpec update, MethodSpec updateWithConflictAlgorithm) {
+  private MethodSpec updateExecute(MethodSpec update) {
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_EXECUTE)
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
         .returns(TypeName.BOOLEAN)
-        .addCode(entityDbVariablesForOperationBuilder(tableElement));
+        .addCode(entityDbVariablesForOperationBuilder(tableElement))
+        .addCode(opHelperVariable(UPDATE));
     final boolean hasComplexColumns = tableElement.hasAnyPersistedComplexColumns();
     if (hasComplexColumns) {
       addTransactionStartBlock(builder);
-    }
-
-    builder.beginControlFlow("if ($N == SQLiteDatabase.CONFLICT_NONE || $N == SQLiteDatabase.CONFLICT_ABORT)",
-        CONFLICT_ALGORITHM_VARIABLE, CONFLICT_ALGORITHM_VARIABLE);
-    FormatData internalMethodCall = FormatData.create("$N($L, $L)", update, ENTITY_VARIABLE, MANAGER_VARIABLE);
-    if (hasComplexColumns) {
-      addCallToInternalUpdateWithTransactionHandling(builder, internalMethodCall);
     } else {
-      addCallToInternalUpdate(builder, allTableTriggers, internalMethodCall);
+      builder.beginControlFlow("try");
     }
 
-    builder.endControlFlow();
-
-    internalMethodCall = FormatData.create("$N($L, values, db, $L)", updateWithConflictAlgorithm, ENTITY_VARIABLE, CONFLICT_ALGORITHM_VARIABLE);
-    builder.addCode(contentValuesAndDbVariables());
+    FormatData internalMethodCall = FormatData.create("$N($L, $L, $L)",
+        update, ENTITY_VARIABLE, MANAGER_VARIABLE, OPERATION_HELPER_VARIABLE);
     if (hasComplexColumns) {
       addCallToInternalUpdateWithTransactionHandling(builder, internalMethodCall);
     } else {
@@ -317,6 +293,10 @@ public class UpdateWriter implements OperationWriter {
 
     if (hasComplexColumns) {
       addUpdateTransactionEndBlock(builder, allTableTriggers);
+    } else {
+      builder.nextControlFlow("finally")
+          .addStatement("$L.close()", OPERATION_HELPER_VARIABLE)
+          .endControlFlow();
     }
 
     return builder.build();
@@ -328,8 +308,9 @@ public class UpdateWriter implements OperationWriter {
     addRxActionToType(typeBuilder, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
-        builder.beginControlFlow("if (!$N())", updateExecute)
-            .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, FAILED_TO_UPDATE_ERR_MSG)
+        builder.beginControlFlow("if (!$N() && conflictAlgorithm != $T.CONFLICT_IGNORE)", updateExecute, SQLITE_DATABASE)
+            .addStatement("throw new $T($S + $L)",
+                OPERATION_FAILED_EXCEPTION, FAILED_TO_UPDATE_ERR_MSG, ENTITY_VARIABLE)
             .endControlFlow();
       }
     });
@@ -337,12 +318,13 @@ public class UpdateWriter implements OperationWriter {
     return builder.build();
   }
 
-  private MethodSpec updateInternal() {
+  private MethodSpec internalUpdate() {
     final boolean hasAnyPersistedComplexColumns = tableElement.hasAnyPersistedComplexColumns();
-    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_UPDATE_INTERNAL)
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_INTERNAL_UPDATE)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(entityParameter(tableElementTypeName))
         .addParameter(entityDbManagerParameter())
+        .addParameter(operationHelperParameter())
         .returns(TypeName.BOOLEAN);
     addIdColumnNullCheckIfNeeded(builder);
     addUpdateLoggingStatement(builder);
@@ -351,31 +333,45 @@ public class UpdateWriter implements OperationWriter {
       builder.addStatement("final int rowsAffected");
     }
 
-    builder.addCode(updateStatementVariable())
-        .beginControlFlow("synchronized (stm)")
-        .addStatement("$T.$L(stm, $L$L)", daoClassName, METHOD_BIND_TO_UPDATE_STATEMENT, ENTITY_VARIABLE,
+    builder.addCode(updateStatementVariableFromOpHelper(tableElement, STATEMENT_VARIABLE))
+        .beginControlFlow("synchronized ($L)", STATEMENT_VARIABLE)
+        .addStatement("$T.$L($L, $L$L)",
+            daoClassName,
+            METHOD_BIND_TO_UPDATE_STATEMENT,
+            STATEMENT_VARIABLE,
+            ENTITY_VARIABLE,
             isIdColumnNullable() ? ", id" : "");
 
     if (!hasAnyPersistedComplexColumns) {
       if (!GENERATE_LOGGING) {
-        builder.addStatement("return stm.executeUpdateDelete() > 0");
+        builder.addStatement("return $L.executeUpdateDelete() > 0", STATEMENT_VARIABLE);
       } else {
-        builder.addStatement("final int rowsAffected = stm.executeUpdateDelete()");
+        builder.addStatement("final int rowsAffected = $L.executeUpdateDelete()", STATEMENT_VARIABLE);
         addAfterUpdateLoggingStatement(builder);
         builder.addStatement("return rowsAffected > 0");
       }
     } else {
       if (!GENERATE_LOGGING) {
-        builder.beginControlFlow("if (stm.executeUpdateDelete() > 0)")
-            .addStatement("return $T.$L($L, $L.getDbConnection())", daoClassName, METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS, ENTITY_VARIABLE, MANAGER_VARIABLE)
+        builder.beginControlFlow("if ($L.executeUpdateDelete() > 0)", STATEMENT_VARIABLE)
+            .addStatement("return $T.$L($L, $L.getDbConnection(), $L)",
+                daoClassName,
+                METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
+                ENTITY_VARIABLE,
+                MANAGER_VARIABLE,
+                OPERATION_HELPER_VARIABLE)
             .endControlFlow()
             .addStatement("return false");
       } else {
-        builder.addStatement("rowsAffected = stm.executeUpdateDelete()");
+        builder.addStatement("rowsAffected = $L.executeUpdateDelete()", STATEMENT_VARIABLE);
         addAfterUpdateLoggingStatement(builder);
         builder.endControlFlow()
             .beginControlFlow("if (rowsAffected > 0)")
-            .addStatement("return $T.$L($L, $L.getDbConnection())", daoClassName, METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS, ENTITY_VARIABLE, MANAGER_VARIABLE)
+            .addStatement("return $T.$L($L, $L.getDbConnection(), $L)",
+                daoClassName,
+                METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
+                ENTITY_VARIABLE,
+                MANAGER_VARIABLE,
+                OPERATION_HELPER_VARIABLE)
             .endControlFlow()
             .addStatement("return false");
         return builder.build();
@@ -396,57 +392,13 @@ public class UpdateWriter implements OperationWriter {
     return tableElement.getIdColumn().isNullable();
   }
 
-  private MethodSpec updateWithConflictAlgorithmInternal() {
-    final boolean hasAnyComplexColumns = tableElement.hasAnyPersistedComplexColumns();
-    final boolean idColumnNullable = isIdColumnNullable();
-    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_UPDATE_WITH_CONFLICT_ALGORITHM_INTERNAL)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(tableElementTypeName, ENTITY_VARIABLE)
-        .addParameter(CONTENT_VALUES, "values")
-        .addParameter(SQLITE_DATABASE, "db")
-        .addParameter(conflictAlgorithmParameter())
-        .returns(TypeName.BOOLEAN);
-    if (idColumnNullable) {
-      builder.addCode(entityEnvironment.getFinalIdVariable());
-      addIdNullCheck(builder, "Can't execute updateWithConflictAlgorithm - id column null");
-    }
-    addUpdateLoggingStatement(builder);
-    builder.addStatement("$T.$L($L, values)", daoClassName, METHOD_BIND_TO_CONTENT_VALUES, ENTITY_VARIABLE);
-    final FormatData whereIdStatementPart = idColumnNullable ? entityEnvironment.getWhereIdStatementPartWithProvidedIdVariable("id") : entityEnvironment.getWhereIdStatementPart();
-    final FormatData updateExecutePart = FormatData.create(
-        String.format("db.updateWithOnConflict($S, values, %s, conflictAlgorithm)", whereIdStatementPart.getFormat()),
-        whereIdStatementPart.getWithOtherArgsBefore(tableElement.getTableName()));
-    if (!hasAnyComplexColumns) {
-      if (!GENERATE_LOGGING) {
-        builder.addStatement(String.format("return %s > 0", updateExecutePart.getFormat()), updateExecutePart.getArgs());
-      } else {
-        builder.addStatement(String.format("final boolean updateSuccessful = %s > 0", updateExecutePart.getFormat()), updateExecutePart.getArgs());
-        addAfterUpdateBooleanLoggingStatement(builder);
-        builder.addStatement("return updateSuccessful");
-      }
-    } else {
-      if (!GENERATE_LOGGING) {
-        builder.beginControlFlow(String.format("if (%s > 0)", updateExecutePart.getFormat()), updateExecutePart.getArgs());
-      } else {
-        builder.addStatement(String.format("final boolean updateSuccessful = %s > 0", updateExecutePart.getFormat()), updateExecutePart.getArgs());
-        addAfterUpdateBooleanLoggingStatement(builder);
-        builder.beginControlFlow("if (updateSuccessful)");
-      }
-      builder.addStatement("return $T.$L($L, values, db, conflictAlgorithm)", daoClassName, METHOD_CALL_INTERNAL_UPDATE_WITH_CONFLICT_ALGORITHM_ON_COMPLEX_COLUMNS, ENTITY_VARIABLE)
-          .endControlFlow()
-          .addStatement("return false");
-    }
-    return builder.build();
-  }
-
   private void addCallToInternalUpdateWithTransactionHandling(MethodSpec.Builder builder,
                                                               FormatData internalMethodCall) {
     builder.beginControlFlow(String.format("if (%s)", internalMethodCall.getFormat()), internalMethodCall.getArgs())
         .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
         .addStatement("success = true")
-        .addStatement("return true")
         .endControlFlow()
-        .addStatement("return false");
+        .addStatement("return success");
   }
 
   private void addCallToInternalUpdate(MethodSpec.Builder builder, Set<TableElement> allTableTriggers, FormatData internalMethodCall) {
@@ -464,12 +416,14 @@ public class UpdateWriter implements OperationWriter {
         .beginControlFlow("if (success)");
     addTableTriggersSendingStatement(builder, allTableTriggers);
     builder.endControlFlow()
+        .addStatement("$L.close()", OPERATION_HELPER_VARIABLE)
         .endControlFlow();
   }
 
   private TypeSpec bulkUpdate() {
     final TypeName interfaceType = ENTITY_BULK_UPDATE_BUILDER;
     final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_BULK_UPDATE, interfaceType, iterable, OBJECTS_VARIABLE);
+    addConflictAlgorithmToOperationBuilder(builder, interfaceType);
     return builder
         .addSuperinterface(interfaceType)
         .addMethod(bulkUpdateExecute())
@@ -484,16 +438,56 @@ public class UpdateWriter implements OperationWriter {
     addRxCompletableFromEmitterToType(typeBuilder, new Callback<MethodSpec.Builder>() {
       @Override
       public void call(MethodSpec.Builder builder) {
-        builder.addCode(entityDbVariablesForOperationBuilder(tableElement));
         addDisposableForEmitter(builder);
+        builder.addCode(entityDbVariablesForOperationBuilder(tableElement))
+            .addCode(opHelperVariable(UPDATE))
+            .addCode(updateStatementVariableFromOpHelper(tableElement, STATEMENT_VARIABLE));
+
+        if (tableElement.hasAnyPersistedComplexColumns()) {
+          builder.beginControlFlow("if ($L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
+
+          builder.addStatement("$T atLeastOneSuccess = false", TypeName.BOOLEAN)
+              .beginControlFlow("try");
+
+          addBulkUpdateLoop(builder, new Callback<MethodSpec.Builder>() {
+            @Override
+            public void call(MethodSpec.Builder builder) {
+              addOperationFailedWhenDisposed(builder);
+              addBulkUpdateComplexColumnIgnoreConflictLoopBody(builder);
+            }
+          });
+          builder.nextControlFlow("catch ($T e)", Throwable.class)
+              .addCode(emitterOnError())
+              .nextControlFlow("finally")
+              .beginControlFlow("if (atLeastOneSuccess)");
+          addTableTriggersSendingStatement(builder, allTableTriggers);
+          builder.endControlFlow()
+              .addStatement(emitterOnComplete())
+              .endControlFlow();
+
+          builder.nextControlFlow("else");
+        } else {
+          builder.addStatement("$T atLeastOneSuccess = false", TypeName.BOOLEAN);
+        }
+
         addTransactionStartBlock(builder);
-        addBulkUpdateTopBlock(builder);
-        builder.nextControlFlow("else $L", ifDisposed())
-            .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, ERROR_UNSUBSCRIBED_UNEXPECTEDLY)
-            .endControlFlow()
-            .endControlFlow()
-            .endControlFlow();
-        addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers);
+        addBulkUpdateLoop(builder, new Callback<MethodSpec.Builder>() {
+          @Override
+          public void call(MethodSpec.Builder builder) {
+            addOperationFailedWhenDisposed(builder);
+            addBulkUpdateNormalLoopBody(builder);
+          }
+        });
+        if (tableElement.hasAnyPersistedComplexColumns()) {
+          addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers);
+          builder.endControlFlow();
+        } else {
+          addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers,
+              CodeBlock.builder()
+                  .addStatement("success = atLeastOneSuccess")
+                  .build());
+        }
+        builder.addStatement("$L.close()", OPERATION_HELPER_VARIABLE);
       }
     });
     return builder.build();
@@ -504,46 +498,140 @@ public class UpdateWriter implements OperationWriter {
         .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
         .returns(TypeName.BOOLEAN)
-        .addCode(entityDbVariablesForOperationBuilder(tableElement));
+        .addCode(entityDbVariablesForOperationBuilder(tableElement))
+        .addCode(opHelperVariable(UPDATE))
+        .addCode(updateStatementVariableFromOpHelper(tableElement, STATEMENT_VARIABLE));
+
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      builder.beginControlFlow("if ($L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
+
+      builder.beginControlFlow("try")
+          .addStatement("$T atLeastOneSuccess = false", TypeName.BOOLEAN);
+      addBulkUpdateLoop(builder, new Callback<MethodSpec.Builder>() {
+        @Override
+        public void call(MethodSpec.Builder builder) {
+          addBulkUpdateComplexColumnIgnoreConflictLoopBody(builder);
+        }
+      });
+      builder.beginControlFlow("if (atLeastOneSuccess)");
+      addTableTriggersSendingStatement(builder, allTableTriggers);
+      builder.endControlFlow()
+          .addStatement("return atLeastOneSuccess")
+          .nextControlFlow("finally")
+          .addStatement("$L.close()", OPERATION_HELPER_VARIABLE)
+          .endControlFlow();
+
+      builder.nextControlFlow("else");
+    } else {
+      builder.addStatement("$T atLeastOneSuccess = false", TypeName.BOOLEAN);
+    }
+
     addTransactionStartBlock(builder);
-    addBulkUpdateTopBlock(builder);
-    builder.endControlFlow()
-        .endControlFlow()
-        .endControlFlow();
-    addTransactionEndBlock(builder, allTableTriggers, "return true", "return false");
+    addBulkUpdateLoop(builder, new Callback<MethodSpec.Builder>() {
+      @Override
+      public void call(MethodSpec.Builder builder) {
+        addBulkUpdateNormalLoopBody(builder);
+      }
+    });
+
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      ModelPersistingGenerator.addTransactionEndBlock(builder,
+          allTableTriggers,
+          "return true",
+          "return false",
+          true);
+      builder.endControlFlow();
+    } else {
+      ModelPersistingGenerator.addTransactionEndBlock(builder,
+          allTableTriggers,
+          CodeBlock.builder()
+              .addStatement("success = atLeastOneSuccess")
+              .build(),
+          CodeBlock.builder()
+              .addStatement("return atLeastOneSuccess")
+              .build(),
+          "return false",
+          true);
+    }
     return builder.build();
   }
 
-  private void addBulkUpdateTopBlock(MethodSpec.Builder builder) {
-    final boolean idColumnNullable = isIdColumnNullable();
-    builder.addCode(updateStatementVariable())
-        .beginControlFlow("synchronized (stm)")
-        .beginControlFlow("for ($T $L : $L)", tableElementTypeName, ENTITY_VARIABLE, OBJECTS_VARIABLE);
-    addUpdateLoggingStatement(builder);
-    if (idColumnNullable) {
+  private void addBulkUpdateNormalLoopBody(MethodSpec.Builder builder) {
+    addNullableIdCheckIfNeeded(builder);
+    addBindToUpdateStatement(builder);
+    if (tableElement.hasAnyPersistedComplexColumns()) {
+      builder.beginControlFlow("if ($L.executeUpdateDelete() <= 0 || !$T.$L($L, $L.getDbConnection(), $L))",
+          STATEMENT_VARIABLE,
+          daoClassName,
+          METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
+          ENTITY_VARIABLE,
+          MANAGER_VARIABLE,
+          OPERATION_HELPER_VARIABLE);
+    } else {
+      builder.beginControlFlow("if ($L.executeUpdateDelete() <= 0)", STATEMENT_VARIABLE)
+          .beginControlFlow("if (!$L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
+    }
+    addThrowOperationFailedExceptionWithEntityVariable(builder, FAILED_TO_UPDATE_ERR_MSG);
+    builder.endControlFlow();
+    if (!tableElement.hasAnyPersistedComplexColumns()) {
+      builder.nextControlFlow("else")
+          .addStatement("atLeastOneSuccess = true")
+          .endControlFlow();
+    }
+  }
+
+  private void addBulkUpdateComplexColumnIgnoreConflictLoopBody(MethodSpec.Builder builder) {
+    builder.addStatement("final $T $L = $L.newTransaction()",
+        TRANSACTION, TRANSACTION_VARIABLE, DB_CONNECTION_VARIABLE)
+        .beginControlFlow("try");
+    addNullableIdCheckIfNeeded(builder);
+    addBindToUpdateStatement(builder);
+    builder.beginControlFlow("if ($L.executeUpdateDelete() > 0 && $T.$L($L, $L.getDbConnection(), $L))",
+        STATEMENT_VARIABLE,
+        daoClassName,
+        METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
+        ENTITY_VARIABLE,
+        MANAGER_VARIABLE,
+        OPERATION_HELPER_VARIABLE)
+        .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
+        .addStatement("atLeastOneSuccess = true")
+        .endControlFlow()
+        .nextControlFlow("catch ($T e)", OPERATION_FAILED_EXCEPTION)
+        .addStatement("continue")
+        .nextControlFlow("finally")
+        .addStatement("$L.end()", TRANSACTION_VARIABLE)
+        .endControlFlow();
+  }
+
+  private void addBindToUpdateStatement(MethodSpec.Builder builder) {
+    builder.addStatement("$T.$L($L, $L$L)",
+        daoClassName,
+        METHOD_BIND_TO_UPDATE_STATEMENT,
+        STATEMENT_VARIABLE,
+        ENTITY_VARIABLE,
+        isIdColumnNullable() ? ", id" : "");
+  }
+
+  private void addNullableIdCheckIfNeeded(MethodSpec.Builder builder) {
+    if (isIdColumnNullable()) {
       builder.addCode(entityEnvironment.getFinalIdVariable());
       addIdNullCheck(builder, "Can't execute update - id column null");
     }
-    builder.addStatement("$T.$L(stm, $L$L)", daoClassName, METHOD_BIND_TO_UPDATE_STATEMENT, ENTITY_VARIABLE,
-        idColumnNullable ? ", id" : "");
-    if (tableElement.hasAnyPersistedComplexColumns()) {
-      builder.beginControlFlow("if (stm.executeUpdateDelete() <= 0 || !$T.$L($L, $L.getDbConnection()))", daoClassName, METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS, ENTITY_VARIABLE, MANAGER_VARIABLE);
-    } else {
-      builder.beginControlFlow("if (stm.executeUpdateDelete() <= 0)");
-    }
-    addThrowOperationFailedExceptionWithEntityVariable(builder, "Failed to update");
+  }
+
+  private void addBulkUpdateLoop(MethodSpec.Builder builder, Callback<MethodSpec.Builder> body) {
+    builder.beginControlFlow("synchronized ($L)", STATEMENT_VARIABLE)
+        .beginControlFlow("for ($T $L : $L)", tableElementTypeName, ENTITY_VARIABLE, OBJECTS_VARIABLE);
+    addUpdateLoggingStatement(builder);
+    body.call(builder);
+    builder.endControlFlow()
+        .endControlFlow();
   }
 
   private void addUpdateLoggingStatement(MethodSpec.Builder builder) {
     if (GENERATE_LOGGING) {
       builder.addStatement("if ($T.LOGGING_ENABLED) $T.logDebug(\"UPDATE\\n  table: $L\\n  object: %s\", $L.toString())",
           SQLITE_MAGIC, LOG_UTIL, tableElement.getTableName(), ENTITY_VARIABLE);
-    }
-  }
-
-  private void addAfterUpdateBooleanLoggingStatement(MethodSpec.Builder builder) {
-    if (GENERATE_LOGGING) {
-      builder.addStatement("if ($T.LOGGING_ENABLED) $T.logDebug(\"UPDATE successful: %s\", updateSuccessful)", SQLITE_MAGIC, LOG_UTIL);
     }
   }
 

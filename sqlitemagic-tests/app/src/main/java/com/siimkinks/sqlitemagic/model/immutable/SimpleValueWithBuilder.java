@@ -6,13 +6,14 @@ import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
+import com.siimkinks.sqlitemagic.model.ProvidesId;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
 
 import java.util.Random;
 
 @Table(persistAll = true)
 @AutoValue
-public abstract class SimpleValueWithBuilder implements ImmutableEquals {
+public abstract class SimpleValueWithBuilder implements ImmutableEquals, ProvidesId {
   public static final String TABLE = "simple_value_with_builder";
   public static final String C_ID = "simple_value_with_builder.id";
   public static final String C_STRING_VALUE = "simple_value_with_builder.string_value";
@@ -52,11 +53,11 @@ public abstract class SimpleValueWithBuilder implements ImmutableEquals {
     public abstract SimpleValueWithBuilder build();
   }
 
-  public SimpleValueWithBuilder.Builder copy() {
+  public Builder copy() {
     return new AutoValue_SimpleValueWithBuilder.Builder(this);
   }
 
-  public static SimpleValueWithBuilder.Builder newRandom() {
+  public static Builder newRandom() {
     final Random random = new Random();
     return SimpleValueWithBuilder.builder()
         .stringValue(Utils.randomTableName())
@@ -79,5 +80,10 @@ public abstract class SimpleValueWithBuilder implements ImmutableEquals {
           && (this.transformableObject().equals(that.transformableObject()));
     }
     return false;
+  }
+
+  @Override
+  public Long provideId() {
+    return id();
   }
 }

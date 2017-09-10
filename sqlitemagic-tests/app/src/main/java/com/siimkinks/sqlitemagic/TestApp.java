@@ -12,6 +12,7 @@ public class TestApp extends Application {
   public void onCreate() {
     super.onCreate();
     INSTANCE = this;
+    deleteDatabase(SqlUtil.getDbName());
     initDb(this);
   }
 

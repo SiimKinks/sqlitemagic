@@ -15,7 +15,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.BuilderMagazineTable.BUILDER_MAGAZINE;
 
 @RunWith(AndroidJUnit4.class)
-public final class UpdateTest {
+public final class UpdateBuilderTest {
   @Test
   public void updateSingle() {
     BuilderMagazine.deleteTable().execute();
@@ -150,5 +150,35 @@ public final class UpdateTest {
         .where(BUILDER_MAGAZINE.NAME.is("dsa"))
         .execute())
         .isEqualTo(0);
+  }
+
+  @Test
+  public void updateBuilderObserve() {
+    BuilderMagazine.deleteTable().execute();
+    BuilderMagazine magazine = BuilderMagazine.newRandom().build();
+    assertThat(magazine.persist().execute()).isNotEqualTo(-1);
+    magazine = Select
+        .from(BUILDER_MAGAZINE)
+        .queryDeep()
+        .takeFirst()
+        .execute();
+
+    BuilderMagazine expected = magazine.copy()
+        .name("asdasd")
+        .build();
+
+    assertThat(Update
+        .table(BUILDER_MAGAZINE)
+        .set(BUILDER_MAGAZINE.NAME, "asdasd")
+        .observe()
+        .blockingGet())
+        .isEqualTo(1);
+    assertThat(Select
+        .from(BUILDER_MAGAZINE)
+        .where(BUILDER_MAGAZINE.ID.is(expected.id()))
+        .queryDeep()
+        .takeFirst()
+        .execute())
+        .isEqualTo(expected);
   }
 }

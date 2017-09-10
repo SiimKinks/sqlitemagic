@@ -22,5 +22,5 @@ import static android.database.sqlite.SQLiteDatabase.CONFLICT_ROLLBACK;
 })
 @Retention(RetentionPolicy.SOURCE)
 public @interface ConflictAlgorithm {
-  String[] CONFLICT_VALUES = new String[]{"", "OR ROLLBACK", "OR ABORT", "OR FAIL", "OR IGNORE", "OR REPLACE"};
+  String[] CONFLICT_VALUES = new String[]{"", " OR ROLLBACK", " OR ABORT", " OR FAIL", " OR IGNORE", " OR REPLACE"};
 }

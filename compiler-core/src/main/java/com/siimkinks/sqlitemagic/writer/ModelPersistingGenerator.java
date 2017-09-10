@@ -23,11 +23,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static com.siimkinks.sqlitemagic.BaseProcessor.GENERATE_LOGGING;
 import static com.siimkinks.sqlitemagic.Const.PUBLIC_STATIC_FINAL;
 import static com.siimkinks.sqlitemagic.Const.STATEMENT_METHOD_MAP;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
-import static com.siimkinks.sqlitemagic.BaseProcessor.GENERATE_LOGGING;
-import static com.siimkinks.sqlitemagic.WriterUtil.CONTENT_VALUES;
+import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_UNSUBSCRIBED_UNEXPECTEDLY;
+import static com.siimkinks.sqlitemagic.WriterUtil.BIND_VALUES_MAP;
 import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLES;
 import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
@@ -36,20 +37,19 @@ import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
-import static com.siimkinks.sqlitemagic.WriterUtil.dbVariableFromPresentConnectionVariable;
 import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnComplete;
 import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnError;
+import static com.siimkinks.sqlitemagic.WriterUtil.ifDisposed;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_INSERT_SQL;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_TABLE_SCHEMA;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_UPDATE_SQL;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_CONTENT_VALUES;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_CONTENT_VALUES_EXCEPT_ID;
-import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_NOT_NULL_CONTENT_VALUES;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_NOT_NULL;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SET_ID;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DISPOSABLE_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.TRANSACTION_VARIABLE;
 
 // FIXME !!! check logging generation
@@ -81,14 +81,7 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
     if (tableElement.hasIdSetter()) {
       daoClassBuilder.addMethod(entityEnvironment.getEntityIdSetter());
     }
-    if (tableElement.getIdColumn().isAutoincrementId()) {
-      daoClassBuilder.addMethod(bindAllExceptIdToContentValues(entityEnvironment));
-    }
-    if (tableElement.hasAnyPersistedImmutableComplexColumns()) {
-      daoClassBuilder.addMethod(bindAllToContentValuesWithImmutableComplexColumns(entityEnvironment));
-    }
-    daoClassBuilder.addMethod(bindToNotNullContentValues(entityEnvironment))
-        .addMethod(bindAllToContentValues(entityEnvironment));
+    daoClassBuilder.addMethod(bindToNotNullContentValues(entityEnvironment));
   }
 
   public void writeHandler(TypeSpec.Builder handlerClassBuilder, EntityEnvironment entityEnvironment) {
@@ -102,81 +95,21 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   //                  DAO methods
   // -------------------------------------------
 
-  private MethodSpec bindAllToContentValues(EntityEnvironment entityEnvironment) {
-    CodeBlock.Builder valuesGatherBlock = buildAllValuesGatheringBlock(entityEnvironment.getTableElement());
-    return bindToContentValues(entityEnvironment, METHOD_BIND_TO_CONTENT_VALUES, valuesGatherBlock).build();
-  }
-
-  private MethodSpec bindAllToContentValuesWithImmutableComplexColumns(EntityEnvironment entityEnvironment) {
-    final TableElement tableElement = entityEnvironment.getTableElement();
-    CodeBlock.Builder valuesGatherBlock = buildAllValuesGatheringBlockWithImmutableComplexColumns(tableElement.getAllColumns());
-    final MethodSpec.Builder builder = bindToContentValues(entityEnvironment, METHOD_BIND_TO_CONTENT_VALUES, valuesGatherBlock);
-    addImmutableIdsParameterIfNeeded(builder, tableElement);
-    return builder.build();
-  }
-
-  private MethodSpec bindAllExceptIdToContentValues(EntityEnvironment entityEnvironment) {
-    final TableElement tableElement = entityEnvironment.getTableElement();
-    CodeBlock.Builder valuesGatherBlock = buildAllValuesGatheringBlockWithImmutableComplexColumns(tableElement.getColumnsExceptId());
-    final MethodSpec.Builder builder = bindToContentValues(entityEnvironment, METHOD_BIND_TO_CONTENT_VALUES_EXCEPT_ID, valuesGatherBlock);
-    addImmutableIdsParameterIfNeeded(builder, tableElement);
-    return builder.build();
-  }
-
   private MethodSpec bindToNotNullContentValues(EntityEnvironment entityEnvironment) {
     final CodeBlock.Builder valuesGatherBlock = buildNotNullValuesGatheringBlock(entityEnvironment.getTableElement());
-    MethodSpec.Builder builder = bindToContentValues(entityEnvironment, METHOD_BIND_TO_NOT_NULL_CONTENT_VALUES, valuesGatherBlock);
+    MethodSpec.Builder builder = bindToMap(entityEnvironment, METHOD_BIND_TO_NOT_NULL, valuesGatherBlock);
     addImmutableIdsParameterIfNeeded(builder, entityEnvironment.getTableElement());
     return builder.build();
   }
 
-  private MethodSpec.Builder bindToContentValues(EntityEnvironment entityEnvironment, String methodName, CodeBlock.Builder valuesGatherBlock) {
+  private MethodSpec.Builder bindToMap(EntityEnvironment entityEnvironment, String methodName, CodeBlock.Builder valuesGatherBlock) {
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(methodName)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(entityEnvironment.getTableElementTypeName(), ENTITY_VARIABLE)
-        .addParameter(CONTENT_VALUES, "values");
+        .addParameter(BIND_VALUES_MAP, "values");
     builder.addStatement("values.clear()")
         .addCode(valuesGatherBlock.build());
     return builder;
-  }
-
-  private CodeBlock.Builder buildAllValuesGatheringBlock(TableElement tableElement) {
-    final CodeBlock.Builder valuesGatherBlock = CodeBlock.builder();
-    for (ColumnElement columnElement : tableElement.getAllColumns()) {
-      addBindToValuesBlock(valuesGatherBlock, columnElement);
-    }
-    return valuesGatherBlock;
-  }
-
-  private CodeBlock.Builder buildAllValuesGatheringBlockWithImmutableComplexColumns(List<ColumnElement> columns) {
-    final CodeBlock.Builder valuesGatherBlock = CodeBlock.builder();
-    int immutableIdColPos = 0;
-    for (ColumnElement columnElement : columns) {
-      if (columnElement.isHandledRecursively() && columnElement.isReferencedTableImmutable()) {
-        addBindFromProvidedIdsToContentValues(valuesGatherBlock, immutableIdColPos, columnElement);
-        immutableIdColPos++;
-      } else {
-        addBindToValuesBlock(valuesGatherBlock, columnElement);
-      }
-    }
-    return valuesGatherBlock;
-  }
-
-  private void addBindToValuesBlock(CodeBlock.Builder valuesGatherBlock, ColumnElement columnElement) {
-    if (columnElement.isReferencedColumn() && columnElement.isNullable()) {
-      final String valueGetter = columnElement.valueGetter(ENTITY_VARIABLE);
-      valuesGatherBlock.beginControlFlow("if ($L != null)", valueGetter);
-      addPutToValuesBlock(valuesGatherBlock, columnElement);
-      valuesGatherBlock.endControlFlow();
-    } else {
-      addPutToValuesBlock(valuesGatherBlock, columnElement);
-    }
-  }
-
-  private void addPutToValuesBlock(CodeBlock.Builder valuesGatherBlock, ColumnElement columnElement) {
-    FormatData serializedValueGetter = columnElement.serializedValueGetterFromEntity(ENTITY_VARIABLE);
-    valuesGatherBlock.addStatement(String.format("values.put($S, %s)", serializedValueGetter.getFormat()),
-        serializedValueGetter.getWithOtherArgsBefore(columnElement.getColumnName()));
   }
 
   private CodeBlock.Builder buildNotNullValuesGatheringBlock(TableElement tableElement) {
@@ -277,7 +210,10 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   static final ReturnCallback2<String, ParameterSpec, ColumnElement> COMPLEX_COLUMN_PARAM_TO_ENTITY_DB_MANAGER = new ReturnCallback2<String, ParameterSpec, ColumnElement>() {
     @Override
     public String call(ParameterSpec param, ColumnElement columnElement) {
-      return param.name + ".getEntityDbManager(" + columnElement.getReferencedTable().getTablePos() + ")";
+      if (DB_CONNECTION_VARIABLE.equals(param.name)) {
+        return param.name + ".getEntityDbManager(" + columnElement.getReferencedTable().getTablePos() + ")";
+      }
+      return param.name;
     }
   };
 
@@ -377,12 +313,6 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
         .endControlFlow();
   }
 
-  static void addInlineNullCheck(MethodSpec.Builder builder, FormatData getter, String errMsg) {
-    builder.beginControlFlow(String.format("if (%s == null)", getter.getFormat()), getter.getArgs())
-        .addStatement("throw new NullPointerException($S)", errMsg)
-        .endControlFlow();
-  }
-
   static CodeBlock statementWithImmutableIdsIfNeeded(TableElement tableElement, String statement, Object... args) {
     return CodeBlock.builder()
         .add(statement, args)
@@ -403,22 +333,26 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
     builder.endControlFlow();
   }
 
+  static void addIdValidityRespectingConflictAbort(MethodSpec.Builder builder,
+                                                   TableElement tableElement,
+                                                   ClassName generatedModelDaoClassName,
+                                                   String errMsg) {
+    builder.beginControlFlow("if (id == -1)")
+        .beginControlFlow("if (!$L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
+    addThrowOperationFailedExceptionWithEntityVariable(builder, errMsg);
+    builder.endControlFlow()
+        .nextControlFlow("else");
+    if (isIdSettingNeeded(tableElement)) {
+      builder.addStatement("$T.$L($L, id)", generatedModelDaoClassName, METHOD_SET_ID, ENTITY_VARIABLE);
+    }
+    builder.addStatement("atLeastOneSuccess = true")
+        .endControlFlow();
+  }
+
   static void addInlineExecuteInsertWithCheckIdValidity(MethodSpec.Builder builder, String insertStmVariableName, String errMsg) {
     builder.beginControlFlow("if ($L.executeInsert() == -1)", insertStmVariableName);
     addThrowOperationFailedExceptionWithEntityVariable(builder, errMsg);
     builder.endControlFlow();
-  }
-
-  static void addContentValuesAndDbVariables(MethodSpec.Builder builder) {
-    builder.addStatement("final $T values = new $T()", CONTENT_VALUES, CONTENT_VALUES)
-        .addCode(dbVariableFromPresentConnectionVariable());
-  }
-
-  static CodeBlock contentValuesAndDbVariables() {
-    return CodeBlock.builder()
-        .addStatement("final $T values = new $T()", CONTENT_VALUES, CONTENT_VALUES)
-        .add(dbVariableFromPresentConnectionVariable())
-        .build();
   }
 
   static void addSetIdStatementIfNeeded(TableElement tableElement, ClassName generatedModelDaoClassName, MethodSpec.Builder builder) {
@@ -440,24 +374,54 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   }
 
   static void addThrowOperationFailedExceptionWithEntityVariable(MethodSpec.Builder builder, String errMsg) {
-    builder.addStatement("throw new $T(String.format(\"$L %s\", $L.toString()))", OPERATION_FAILED_EXCEPTION, errMsg, ENTITY_VARIABLE);
+    builder.addStatement("throw new $T($S + $L)",
+        OPERATION_FAILED_EXCEPTION,
+        errMsg,
+        ENTITY_VARIABLE);
   }
 
-  static void addTopMethodEndBlock(@NonNull MethodSpec.Builder builder, @NonNull Set<TableElement> allTableTriggers, boolean hasComplexColumns,
-                                   @NonNull String returnStatement, @NonNull String failReturnStatement) {
-    addTopMethodEndBlock(builder, allTableTriggers, hasComplexColumns, CodeBlock.builder().addStatement(returnStatement).build(), failReturnStatement);
+  static void addOperationFailedWhenDisposed(MethodSpec.Builder builder) {
+    builder.beginControlFlow(ifDisposed())
+        .addStatement("throw new $T($S)", OPERATION_FAILED_EXCEPTION, ERROR_UNSUBSCRIBED_UNEXPECTEDLY)
+        .endControlFlow();
   }
 
-  static void addTopMethodEndBlock(MethodSpec.Builder builder, Set<TableElement> allTableTriggers, boolean hasComplexColumns,
-                                   CodeBlock returnStatement, String failReturnStatement) {
+  static void addTopMethodEndBlock(@NonNull MethodSpec.Builder builder,
+                                   @NonNull Set<TableElement> allTableTriggers,
+                                   boolean hasComplexColumns,
+                                   @NonNull String returnStatement,
+                                   @NonNull String failReturnStatement,
+                                   boolean closeOpHelper) {
+    addTopMethodEndBlock(builder,
+        allTableTriggers,
+        hasComplexColumns,
+        CodeBlock.builder().addStatement(returnStatement).build(),
+        failReturnStatement,
+        closeOpHelper);
+  }
+
+  static void addTopMethodEndBlock(MethodSpec.Builder builder, Set<TableElement> allTableTriggers,
+                                   boolean hasComplexColumns,
+                                   CodeBlock returnStatement,
+                                   String failReturnStatement,
+                                   boolean closeOpHelper) {
     if (hasComplexColumns) {
-      addTransactionEndBlock(builder, allTableTriggers, returnStatement, failReturnStatement);
+      addTransactionEndBlock(builder,
+          allTableTriggers,
+          returnStatement,
+          failReturnStatement,
+          closeOpHelper);
     } else {
       addTableTriggersSendingStatement(builder, allTableTriggers);
       builder.addCode(returnStatement)
-          .nextControlFlow("catch ($T e)", OPERATION_FAILED_EXCEPTION)
-          .addStatement(failReturnStatement)
-          .endControlFlow();
+          .nextControlFlow("catch ($T e)", OPERATION_FAILED_EXCEPTION);
+      addOperationFailedLoggingStatement(builder);
+      builder.addStatement(failReturnStatement);
+      if (closeOpHelper) {
+        builder.nextControlFlow("finally")
+            .addStatement("$L.close()", OPERATION_HELPER_VARIABLE);
+      }
+      builder.endControlFlow();
     }
   }
 
@@ -479,15 +443,41 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
             DISPOSABLE_VARIABLE);
   }
 
-  static void addTransactionEndBlock(@NonNull MethodSpec.Builder builder, @NonNull Set<TableElement> allTableTriggers,
-                                     @NonNull String returnStatement, @NonNull String failReturnStatement) {
-    addTransactionEndBlock(builder, allTableTriggers, CodeBlock.builder().addStatement(returnStatement).build(), failReturnStatement);
+  static void addTransactionEndBlock(@NonNull MethodSpec.Builder builder,
+                                     @NonNull Set<TableElement> allTableTriggers,
+                                     @NonNull String returnStatement,
+                                     @NonNull String failReturnStatement,
+                                     boolean closeOpHelper) {
+    addTransactionEndBlock(builder,
+        allTableTriggers,
+        CodeBlock.builder().addStatement(returnStatement).build(),
+        failReturnStatement,
+        closeOpHelper);
   }
 
-  static void addTransactionEndBlock(@NonNull MethodSpec.Builder builder, @NonNull Set<TableElement> allTableTriggers,
-                                     @NonNull CodeBlock returnStatement, @NonNull String failReturnStatement) {
+  static void addTransactionEndBlock(@NonNull MethodSpec.Builder builder,
+                                     @NonNull Set<TableElement> allTableTriggers,
+                                     @NonNull CodeBlock returnStatement,
+                                     @NonNull String failReturnStatement,
+                                     boolean closeOpHelper) {
+    addTransactionEndBlock(builder,
+        allTableTriggers,
+        CodeBlock.builder()
+            .addStatement("success = true")
+            .build(),
+        returnStatement,
+        failReturnStatement,
+        closeOpHelper);
+  }
+
+  static void addTransactionEndBlock(@NonNull MethodSpec.Builder builder,
+                                     @NonNull Set<TableElement> allTableTriggers,
+                                     @NonNull CodeBlock successStatement,
+                                     @NonNull CodeBlock returnStatement,
+                                     @NonNull String failReturnStatement,
+                                     boolean closeOpHelper) {
     builder.addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
-        .addStatement("success = true")
+        .addCode(successStatement)
         .addCode(returnStatement)
         .nextControlFlow("catch ($T e)", OPERATION_FAILED_EXCEPTION);
     addOperationFailedLoggingStatement(builder);
@@ -498,40 +488,52 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
         .addStatement("$L.end()", TRANSACTION_VARIABLE)
         .beginControlFlow("if (success)");
     addTableTriggersSendingStatement(builder, allTableTriggers);
-    builder.endControlFlow()
-        .endControlFlow();
+    builder.endControlFlow();
+    if (closeOpHelper) {
+      builder.addStatement("$L.close()", OPERATION_HELPER_VARIABLE);
+    }
+    builder.endControlFlow();
   }
 
   public static void addRxCompletableEmitterTransactionEndBlock(@NonNull MethodSpec.Builder builder,
                                                                 @NonNull Set<TableElement> allTableTriggers) {
+    addRxCompletableEmitterTransactionEndBlock(builder, allTableTriggers,
+        CodeBlock.builder()
+            .addStatement("success = true")
+            .build());
+  }
+
+  public static void addRxCompletableEmitterTransactionEndBlock(@NonNull MethodSpec.Builder builder,
+                                                                @NonNull Set<TableElement> allTableTriggers,
+                                                                @NonNull CodeBlock successStatement) {
     builder
         .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
-        .addStatement("success = true")
+        .addCode(successStatement)
         .nextControlFlow("catch ($T e)", Throwable.class)
         .addCode(emitterOnError())
         .nextControlFlow("finally")
         .addStatement("$L.end()", TRANSACTION_VARIABLE)
-        .beginControlFlow("if (success)")
-        .addStatement(emitterOnComplete());
+        .beginControlFlow("if (success)");
     addTableTriggersSendingStatement(builder, allTableTriggers);
     builder.endControlFlow()
+        .addStatement(emitterOnComplete())
         .endControlFlow();
   }
 
-  static void addCallToComplexColumnsOperationWithContentValuesIfNeeded(MethodSpec.Builder builder,
-                                                                        EntityEnvironment entityEnvironment,
-                                                                        String complexColumnsOperationMethodName,
-                                                                        String... params) {
+  static void addCallToComplexColumnsOperationWithVariableValuesIfNeeded(MethodSpec.Builder builder,
+                                                                         EntityEnvironment entityEnvironment,
+                                                                         String complexColumnsOperationMethodName,
+                                                                         String... params) {
     final TableElement tableElement = entityEnvironment.getTableElement();
-    String extraParamsToInternalMethodCall = "";
-    for (String param : params) {
-      extraParamsToInternalMethodCall += ", " + param;
-    }
-    final CodeBlock.Builder statementBuilder = CodeBlock.builder();
-    if (tableElement.hasAnyPersistedImmutableComplexColumns()) {
-      statementBuilder.add("final long[] ids = ");
-    }
     if (tableElement.hasAnyPersistedComplexColumns()) {
+      String extraParamsToInternalMethodCall = "";
+      for (String param : params) {
+        extraParamsToInternalMethodCall += ", " + param;
+      }
+      final CodeBlock.Builder statementBuilder = CodeBlock.builder();
+      if (tableElement.hasAnyPersistedImmutableComplexColumns()) {
+        statementBuilder.add("final long[] ids = ");
+      }
       statementBuilder.add("$T.$L($L$L)",
           entityEnvironment.getDaoClassName(),
           complexColumnsOperationMethodName,
@@ -545,7 +547,7 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   private FieldSpec insertSqlField(TableElement tableElement) {
     final List<? extends ColumnElement> allColumns = tableElement.getAllColumns();
     final StringBuilder insertSql = new StringBuilder();
-    insertSql.append("INSERT INTO ");
+    insertSql.append("INSERT%s INTO ");
     insertSql.append(tableElement.getTableName());
     insertSql.append(" (");
     boolean firstTime = true;
@@ -574,7 +576,7 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   private FieldSpec updateSqlField(TableElement tableElement) {
     final List<ColumnElement> columnsExceptId = tableElement.getColumnsExceptId();
     final StringBuilder updateSql = new StringBuilder();
-    updateSql.append("UPDATE OR ABORT ")
+    updateSql.append("UPDATE%s ")
         .append(tableElement.getTableName())
         .append(" SET ");
     StringUtil.join(", ", columnsExceptId, updateSql, new StringUtil.AppendCallback<ColumnElement>() {

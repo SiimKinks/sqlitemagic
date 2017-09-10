@@ -6,13 +6,14 @@ import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
+import com.siimkinks.sqlitemagic.model.ProvidesId;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
 
 import java.util.Random;
 
 @Table(persistAll = true)
 @AutoValue
-public abstract class SimpleValueWithCreator implements ImmutableEquals {
+public abstract class SimpleValueWithCreator implements ImmutableEquals, ProvidesId {
   public static final String TABLE = "simple_value_with_creator";
   public static final String C_ID = "simple_value_with_creator.id";
 
@@ -67,5 +68,10 @@ public abstract class SimpleValueWithCreator implements ImmutableEquals {
           && (this.transformableObject().equals(that.transformableObject()));
     }
     return false;
+  }
+
+  @Override
+  public Long provideId() {
+    return id();
   }
 }

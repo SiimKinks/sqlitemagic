@@ -7,12 +7,14 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import java.util.Random;
 
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.ToString;
 
 @EqualsAndHashCode
 @ToString
+@Getter
 @Table(persistAll = true)
-public class Magazine {
+public class Magazine implements ProvidesId {
 
   public static final String TABLE = "magazine";
   public static final String C_ID = "magazine._id";
@@ -34,5 +36,10 @@ public class Magazine {
     magazine.name = Utils.randomTableName();
     magazine.author = Author.newRandom();
     magazine.nrOfReleases = new Random().nextInt();
+  }
+
+  @Override
+  public Long provideId() {
+    return id;
   }
 }

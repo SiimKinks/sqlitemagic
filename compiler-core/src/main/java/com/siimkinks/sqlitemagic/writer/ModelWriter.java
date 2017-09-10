@@ -28,6 +28,9 @@ public class ModelWriter {
   public static final String OBJECTS_VARIABLE = "objects";
   public static final String CONFLICT_ALGORITHM_VARIABLE = "conflictAlgorithm";
   public static final String STATEMENT_VARIABLE = "stm";
+  public static final String INSERT_STATEMENT_VARIABLE = "insertStm";
+  public static final String UPDATE_STATEMENT_VARIABLE = "updateStm";
+  public static final String OPERATION_HELPER_VARIABLE = "opHelper";
   @NonNull
   private final Environment environment;
 

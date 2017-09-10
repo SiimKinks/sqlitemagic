@@ -40,13 +40,13 @@ public final class UpdateTest {
             .withConflictAlgorithm(SQLiteDatabase.CONFLICT_FAIL)
             .table(AUTHOR)
             .set(AUTHOR.NAME, "asd"),
-        "UPDATE OR FAIL author SET name=? ", 4, "asd");
+        "UPDATE  OR FAIL author SET name=? ", 4, "asd");
 
     assertSqlBuilder(Update
             .withConflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
             .table(AUTHOR)
             .set(AUTHOR.NAME, "asd"),
-        "UPDATE OR IGNORE author SET name=? ", 4, "asd");
+        "UPDATE  OR IGNORE author SET name=? ", 4, "asd");
 
     assertSqlBuilder(Update
             .withConflictAlgorithm(SQLiteDatabase.CONFLICT_ROLLBACK)
@@ -55,7 +55,7 @@ public final class UpdateTest {
             .set(AUTHOR.BOXED_BOOLEAN, Boolean.TRUE)
             .set(AUTHOR.ID, 2L)
             .set(AUTHOR.PRIMITIVE_BOOLEAN, false),
-        "UPDATE OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ", 4,
+        "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ", 4,
         "asd", "1", "2", "0");
 
     assertSqlBuilder(Update
@@ -63,7 +63,7 @@ public final class UpdateTest {
             .table(AUTHOR)
             .set(AUTHOR.NAME, "asd")
             .set(AUTHOR.BOXED_BOOLEAN, Boolean.TRUE),
-        "UPDATE OR ROLLBACK author SET name=?,boxed_boolean=? ", 4, "asd", "1");
+        "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ", 4, "asd", "1");
   }
 
   @Test
@@ -80,7 +80,7 @@ public final class UpdateTest {
             .set(AUTHOR.NAME, "asd")
             .set(AUTHOR.BOXED_BOOLEAN, Boolean.FALSE)
             .where(AUTHOR.ID.is(2L).and(AUTHOR.NAME.isNot("asd"))),
-        "UPDATE OR IGNORE author SET name=?,boxed_boolean=? WHERE (author.id=? AND author.name!=?) ", 5,
+        "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author.id=? AND author.name!=?) ", 5,
         "asd", "0", "2", "asd");
 
     assertSqlBuilder(Update
@@ -96,7 +96,7 @@ public final class UpdateTest {
             .table(AUTHOR)
             .set(AUTHOR.NAME, "asd")
             .where(AUTHOR.ID.is(2L).and(AUTHOR.NAME.isNot("asd"))),
-        "UPDATE OR FAIL author SET name=? WHERE (author.id=? AND author.name!=?) ", 5,
+        "UPDATE  OR FAIL author SET name=? WHERE (author.id=? AND author.name!=?) ", 5,
         "asd", "2", "asd");
 
     assertSqlBuilder(Update
@@ -107,7 +107,7 @@ public final class UpdateTest {
                 .and(AUTHOR.NAME.isNotNull())
                 .and(AUTHOR.NAME.isNot("asd"))
                 .and(AUTHOR.PRIMITIVE_BOOLEAN.is(false))),
-        "UPDATE OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ", 5,
+        "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ", 5,
         "asd", "2", "asd", "0");
 
     assertSqlBuilder(Update
@@ -119,7 +119,7 @@ public final class UpdateTest {
                 .or(AUTHOR.NAME.isNot("asd"))
                 .or(AUTHOR.PRIMITIVE_BOOLEAN.is(false)
                     .and(AUTHOR.BOXED_BOOLEAN.isNotNull()))),
-        "UPDATE OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ", 5,
+        "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ", 5,
         "asd", "2", "asd", "0");
   }
 

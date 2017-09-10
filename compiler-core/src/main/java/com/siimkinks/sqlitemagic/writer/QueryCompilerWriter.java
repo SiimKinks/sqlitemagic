@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.writer;
 
 import android.support.annotation.NonNull;
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.ElementGraphWalker;
@@ -33,6 +32,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.SQL_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
+import static com.siimkinks.sqlitemagic.WriterUtil.optimalArrayMapSize;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_ADD_DEEP_QUERY_PARTS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_ADD_SHALLOW_QUERY_PARTS;
@@ -113,17 +113,6 @@ public final class QueryCompilerWriter implements OperationWriter {
         .endControlFlow()
         .addStatement("return systemRenamedTables");
     return builder.build();
-  }
-
-  private static int optimalArrayMapSize(int tableElementGraphNodeCount) {
-    // 8 so that we could hit cached base array
-    if (tableElementGraphNodeCount > SimpleArrayMap.BASE_SIZE * 2) {
-      return tableElementGraphNodeCount;
-    } else if (tableElementGraphNodeCount > SimpleArrayMap.BASE_SIZE) {
-      return SimpleArrayMap.BASE_SIZE * 2;
-    } else {
-      return SimpleArrayMap.BASE_SIZE;
-    }
   }
 
   @NonNull
