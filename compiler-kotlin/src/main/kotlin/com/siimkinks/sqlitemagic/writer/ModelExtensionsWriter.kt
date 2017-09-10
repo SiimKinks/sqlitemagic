@@ -19,7 +19,9 @@ class ModelExtensionsWriter @Inject constructor() {
           .forEach {
             fileBuilder.addFun(generateMethod(tableElement, entityEnvironment, it))
           }
-      fileBuilder.addType(TypeSpec.objectBuilder("${className}s")
+      fileBuilder
+          .addFileAnnotation(NOTHING_TO_INLINE)
+          .addType(TypeSpec.objectBuilder("${className}s")
           .also { objectBuilder ->
             if (!PUBLIC_EXTENSIONS) {
               objectBuilder.addModifiers(KModifier.INTERNAL)
@@ -39,7 +41,6 @@ class ModelExtensionsWriter @Inject constructor() {
                              method: Method): FunSpec = FunSpec
       .builder(method.funName)
       .addModifiers(EXTENSION_FUN_MODIFIERS)
-      .addAnnotation(NOTHING_TO_INLINE)
       .receiver(tableElement.tableElement.asTypeName())
       .returns(method.returnType)
       .addStatement("return %T.create(this)",
@@ -53,7 +54,6 @@ class ModelExtensionsWriter @Inject constructor() {
     return FunSpec
         .builder(method.funName)
         .addModifiers(EXTENSION_FUN_MODIFIERS)
-        .addAnnotation(NOTHING_TO_INLINE)
         .returns(method.returnType)
         .addParameter("o", ParameterizedTypeName.get(method.parameterType, tableElementType))
         .addStatement("return %T.create(o)",
@@ -64,7 +64,6 @@ class ModelExtensionsWriter @Inject constructor() {
   private fun generateDeleteTable(entityEnvironment: EntityEnvironment): FunSpec = FunSpec
       .builder(METHOD_DELETE_TABLE)
       .addModifiers(EXTENSION_FUN_MODIFIERS)
-      .addAnnotation(NOTHING_TO_INLINE)
       .returns(ENTITY_DELETE_TABLE_BUILDER)
       .addStatement("return %T.create()",
           getHandlerInnerClassName(entityEnvironment, CLASS_DELETE_TABLE))

@@ -10,9 +10,11 @@ import com.squareup.javapoet.TypeName;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
@@ -110,13 +112,28 @@ public class Const {
     }
   };
 
+  public static final Set<String> NULLABLE_CURSOR_GETTERS = new HashSet<String>() {
+    {
+      add("LONG_PARSER");
+      add("INTEGER_PARSER");
+      add("SHORT_PARSER");
+      add("BYTE_PARSER");
+    }
+  };
+
   @Nullable
-  public static String cursorParserConstantName(@NonNull ExtendedTypeElement serializedType, @NonNull Environment environment) {
+  public static String cursorParserConstantName(@NonNull ExtendedTypeElement serializedType,
+                                                @NonNull Environment environment,
+                                                boolean nullable) {
     if (serializedType.isPrimitiveByteArray(environment)) {
       return "UNBOXED_BYTE_ARRAY_PARSER";
     }
     final String qualifiedName = serializedType.getQualifiedName();
-    return Const.CURSOR_GETTER_FIELD_NAMES.get(qualifiedName);
+    final String cursorParserConstantName = CURSOR_GETTER_FIELD_NAMES.get(qualifiedName);
+    if (nullable && NULLABLE_CURSOR_GETTERS.contains(cursorParserConstantName)) {
+      return "NULLABLE_" + cursorParserConstantName;
+    }
+    return cursorParserConstantName;
   }
 
   public static final Map<String, String> CURSOR_METHOD_MAP = new HashMap<String, String>() {

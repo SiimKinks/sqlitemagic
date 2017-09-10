@@ -7,7 +7,6 @@ import com.siimkinks.sqlitemagic.writer.EntityEnvironment
 import com.squareup.kotlinpoet.*
 import java.io.File
 import javax.lang.model.element.TypeElement
-import kotlin.reflect.KClass
 import com.squareup.javapoet.ClassName as JavaClassName
 import com.squareup.javapoet.TypeName as JavaTypeName
 
@@ -41,13 +40,6 @@ fun File.writeSource(packageName: String = PACKAGE_ROOT, fileName: String, fileB
 }
 
 fun getHandlerInnerClassName(entityEnvironment: EntityEnvironment, className: String): ClassName =
-    ClassName.invoke(PACKAGE_ROOT, entityEnvironment.handlerClassNameString, className)
+    ClassName(PACKAGE_ROOT, entityEnvironment.handlerClassNameString, className)
 
-// FIXME remove when kotlinpoet correctly implements extension functions
-fun <T : Any> KClass<T>.asClassName(): ClassName {
-  qualifiedName?.let { return ClassName.bestGuess(it) }
-  throw IllegalArgumentException("$this cannot be represented as a TypeName")
-}
-
-// FIXME remove when kotlinpoet correctly implements extension functions
-fun TypeElement.asTypeName(): TypeName = KotlinWriterUtil.get(this.asType())
+fun TypeElement.asTypeName(): TypeName = asType().asTypeName()

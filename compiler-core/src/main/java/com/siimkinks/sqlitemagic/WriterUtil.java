@@ -130,6 +130,7 @@ public class WriterUtil {
   public static final ClassName ENTITY_BULK_DELETE_BUILDER = ClassName.get(EntityBulkDeleteBuilder.class);
   public static final ParameterizedTypeName LIST_JOIN_CLAUSE_TYPE_NAME = ParameterizedTypeName.get(ArrayList.class, JoinClause.class);
   public static final ParameterizedTypeName BIND_VALUES_MAP = ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, ClassName.get(String.class), TypeName.OBJECT);
+  public static final TypeName VALUE_PARSER = WildcardTypeName.get(Utils.ValueParser.class);
 
   public static final ClassName SINGLE = ClassName.get("io.reactivex", "Single");
   public static final ClassName COMPLETABLE = ClassName.get("io.reactivex", "Completable");

@@ -45,7 +45,6 @@ import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_NAME;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_NR_OF_TABLES;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
-import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
 import static com.siimkinks.sqlitemagic.WriterUtil.FROM;
 import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
@@ -257,9 +256,11 @@ public class GenClassesManagerWriter {
         switchBody.addStatement(String.format("strVal = %s.toString()", valueGetter.getFormat()),
             valueGetter.getArgs());
       }
-      switchBody.addStatement("return new $T($T.ANONYMOUS_TABLE, strVal, false, null)",
+      switchBody.addStatement("return new $T($T.ANONYMOUS_TABLE, strVal, $T.$L, false, null)",
           ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(transformer)),
-          TABLE)
+          TABLE,
+          UTIL,
+          transformer.cursorParserConstantName(environment, false))
           .unindent();
       i++;
     }
@@ -273,17 +274,6 @@ public class GenClassesManagerWriter {
     builder.addCode(switchBody.build())
         .endControlFlow();
     return builder.build();
-  }
-
-  static String loadFromCursorMethodParams() {
-    return "cursor, columns, tableGraphNodeNames, queryDeep";
-  }
-
-  static void addLoadFromCursorMethodParams(MethodSpec.Builder builder) {
-    builder.addParameter(notNullParameter(FAST_CURSOR, "cursor"))
-        .addParameter(columnsParam())
-        .addParameter(tableGraphNodeNamesParam())
-        .addParameter(boolean.class, "queryDeep");
   }
 
   static ParameterSpec columnsParam() {

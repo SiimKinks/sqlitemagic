@@ -191,7 +191,7 @@ public final class StructureWriter {
 
     for (BaseColumnElement columnElement : columns) {
       final TypeName columnImplType;
-      FormatData cursorGetter = FormatData.create("");
+      FormatData cursorGetter = FormatData.create(", $T." + columnElement.cursorParserConstantName(environment), UTIL);
       if (columnElement.hasTransformer()) {
         columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(columnElement.getTransformer())), structureElementTypeName);
       } else if (columnElement.isReferencedColumn()) {

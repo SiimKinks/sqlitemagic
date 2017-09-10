@@ -37,7 +37,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
-import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
+import static com.siimkinks.sqlitemagic.WriterUtil.VALUE_PARSER;
 import static com.siimkinks.sqlitemagic.WriterUtil.notNullParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.nullableParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.writeSource;
@@ -59,7 +59,6 @@ public final class ColumnClassWriter {
   private final CodeBlock initBlock;
   private final ExtendedTypeElement serializedType;
   private final FormatData valueGetter;
-  private final String cursorParserConstantName;
   @Nullable
   private final TransformerElement transformerElement;
   private final boolean nullable;
@@ -81,7 +80,6 @@ public final class ColumnClassWriter {
             deserializedTypeName, deserializedTypeName, deserializedTypeName, parentTableType))
         .parentTableType(parentTableType)
         .valueGetter(transformerElement.serializedValueGetter(VAL_VARIABLE))
-        .cursorParserConstantName(transformerElement.cursorParserConstantName(environment))
         .transformerElement(transformerElement)
         .nullable(!serializedType.isPrimitiveElement())
         .build();
@@ -104,7 +102,6 @@ public final class ColumnClassWriter {
         .deserializedTypeName(deserializedTypeName)
         .serializedType(idColumn.getSerializedType())
         .valueGetter(tableElement.serializedValueGetter(VAL_VARIABLE))
-        .cursorParserConstantName(idColumn.cursorParserConstantName(environment))
         .nullable(idColumn.isNullable());
     return builder.build();
   }
@@ -130,10 +127,11 @@ public final class ColumnClassWriter {
         .addParameters(Arrays.asList(
             notNullParameter(ParameterizedTypeName.get(TABLE, parentTableType), "table"),
             notNullParameter(String.class, "name"),
+            notNullParameter(VALUE_PARSER, "valueParser"),
             nullableParameter(TypeName.BOOLEAN, "nullable"),
             nullableParameter(STRING, "alias")
         ))
-        .addStatement("super(table, name, false, $T.$L, nullable, alias)", UTIL, cursorParserConstantName)
+        .addStatement("super(table, name, false, valueParser, nullable, alias)")
         .build();
   }
 
@@ -186,7 +184,7 @@ public final class ColumnClassWriter {
         .addModifiers(PUBLIC)
         .returns(classType)
         .addParameter(notNullParameter(STRING, "alias"))
-        .addStatement("return new $T(table, name, nullable, alias)", classType)
+        .addStatement("return new $T(table, name, valueParser, nullable, alias)", classType)
         .build();
   }
 

@@ -27,7 +27,7 @@ ext {
   javapoetVersion = '1.9.0'
   javassistVersion = '3.21.0-GA'
   junitVersion = '4.12'
-  kotlinpoetVersion = '0.3.0'
+  kotlinpoetVersion = '0.4.0'
   kotlinVersion = '1.1.4-3'
   lombokVersion = '1.14.8' // do not increment!
   mockitoVersion = '2.8.9'

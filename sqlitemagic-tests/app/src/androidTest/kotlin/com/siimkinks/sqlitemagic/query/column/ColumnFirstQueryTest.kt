@@ -463,7 +463,18 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
 
   @SuppressLint("CheckResult")
   @Test
-  fun firstNullableByteArray() =
+  fun firstNullablePrimitiveByteArray() =
+      QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTable(
+          nullValue = { it.primitiveByteArray = null },
+          selection = {
+            Select.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_BYTE_ARRAY)
+                .from(SIMPLE_ALL_VALUES_MUTABLE)
+          })
+          .test()
+
+  @SuppressLint("CheckResult")
+  @Test
+  fun firstNullableBoxedByteArray() =
       QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTable(
           nullValue = { it.boxedByteArray = null },
           selection = {

@@ -26,9 +26,6 @@ import lombok.ToString;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.typeNameForGenerics;
 
-/**
- * @author Siim Kinks
- */
 @ToString
 public class TransformerElement {
 
@@ -121,8 +118,8 @@ public class TransformerElement {
   }
 
   @Nullable
-  public String cursorParserConstantName(@NonNull Environment environment) {
-    return Const.cursorParserConstantName(getSerializedType(), environment);
+  public String cursorParserConstantName(@NonNull Environment environment, boolean nullable) {
+    return Const.cursorParserConstantName(getSerializedType(), environment, nullable);
   }
 
   public String getQualifiedSerializedName() {

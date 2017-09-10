@@ -169,7 +169,7 @@ public abstract class ColumnElement implements BaseColumnElement {
 
   @Nullable
   public String cursorParserConstantName(@NonNull Environment environment) {
-    return Const.cursorParserConstantName(getSerializedType(), environment);
+    return Const.cursorParserConstantName(getSerializedType(), environment, isNullable());
   }
 
   public boolean hasReferencedTable() {

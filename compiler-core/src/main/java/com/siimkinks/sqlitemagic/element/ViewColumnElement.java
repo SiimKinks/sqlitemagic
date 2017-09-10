@@ -129,7 +129,7 @@ public final class ViewColumnElement implements BaseColumnElement {
   @Override
   @Nullable
   public String cursorParserConstantName(@NonNull Environment environment) {
-    return Const.cursorParserConstantName(getSerializedType(), environment);
+    return Const.cursorParserConstantName(getSerializedType(), environment, isNullable());
   }
 
   @Override
