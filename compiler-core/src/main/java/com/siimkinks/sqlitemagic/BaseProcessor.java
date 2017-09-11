@@ -5,7 +5,8 @@ import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.View;
-import com.siimkinks.sqlitemagic.annotation.transformer.Transformer;
+import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
+import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
 import com.siimkinks.sqlitemagic.module.CompilerModule;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
 import com.siimkinks.sqlitemagic.processing.ModelCodeGenerationStep;
@@ -50,7 +51,8 @@ public class BaseProcessor extends AbstractProcessor {
     return ImmutableSet.of(
         Table.class.getCanonicalName(),
         Column.class.getCanonicalName(),
-        Transformer.class.getCanonicalName(),
+        ObjectToDbValue.class.getCanonicalName(),
+        DbValueToObject.class.getCanonicalName(),
         View.class.getCanonicalName()
     );
   }

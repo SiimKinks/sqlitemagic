@@ -49,7 +49,6 @@ public class GenClassesManagerStep implements ProcessingStep {
         e.printStackTrace();
         return false;
       }
-      transformerValidator.warnTransformationsNullabilityContracts(allTransformerElements);
     } else {
       collectGeneratedData();
     }

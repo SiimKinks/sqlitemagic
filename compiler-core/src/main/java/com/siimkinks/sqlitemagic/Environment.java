@@ -8,6 +8,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
+import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
@@ -101,8 +103,21 @@ public class Environment {
 
   private void addDefaultTransformers() {
     for (String transformerName : Const.DEFAULT_TRANSFORMERS) {
-      Element transformerElement = elementUtils.getTypeElement(transformerName);
-      TransformerElement transformer = new TransformerElement(this, transformerElement);
+      final TransformerElement transformer = new TransformerElement(this);
+      final Element transformerElement = elementUtils.getTypeElement(transformerName);
+      for (Element enclosedElement : transformerElement.getEnclosedElements()) {
+        if (enclosedElement.getKind() == ElementKind.METHOD) {
+          final ExecutableElement method = (ExecutableElement) enclosedElement;
+          Annotation annotation = method.getAnnotation(ObjectToDbValue.class);
+          if (annotation != null) {
+            transformer.addObjectToDbValueMethod(method);
+          }
+          annotation = method.getAnnotation(DbValueToObject.class);
+          if (annotation != null) {
+            transformer.addDbValueToObjectMethod(method);
+          }
+        }
+      }
       addTransformerElement(transformer);
     }
   }

@@ -4,9 +4,7 @@ import android.text.TextUtils;
 
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
-import com.siimkinks.sqlitemagic.annotation.transformer.Transformer;
 
-@Transformer
 public final class ArrayTransformer {
   @ObjectToDbValue
   public static String objectToDbValue(Integer[] javaObject) {

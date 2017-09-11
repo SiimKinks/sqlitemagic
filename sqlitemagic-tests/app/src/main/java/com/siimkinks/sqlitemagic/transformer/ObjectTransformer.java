@@ -4,13 +4,8 @@ import android.support.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
-import com.siimkinks.sqlitemagic.annotation.transformer.Transformer;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
 
-/**
- * @author Siim Kinks
- */
-@Transformer
 public class ObjectTransformer {
 
   @NonNull

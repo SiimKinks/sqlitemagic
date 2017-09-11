@@ -131,10 +131,6 @@ public abstract class ColumnElement implements BaseColumnElement {
     return typeNameForGenerics(serializedType);
   }
 
-  protected String getTransformerName() {
-    return getTransformer().getClassName();
-  }
-
   public boolean hasModifier(Modifier modifier) {
     return getModifiers().contains(modifier);
   }

@@ -9,9 +9,6 @@ import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-/**
- * @author Siim Kinks
- */
 @Singleton
 public class TransformerWriter {
 

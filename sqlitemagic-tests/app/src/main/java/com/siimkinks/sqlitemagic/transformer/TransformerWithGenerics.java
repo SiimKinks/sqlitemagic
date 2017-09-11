@@ -2,11 +2,9 @@ package com.siimkinks.sqlitemagic.transformer;
 
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
-import com.siimkinks.sqlitemagic.annotation.transformer.Transformer;
 import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.Book;
 
-@Transformer
 public final class TransformerWithGenerics<T extends Author> {
   @ObjectToDbValue
   public static Integer objectToDbValue(TransformableObject javaObject) {
@@ -18,7 +16,6 @@ public final class TransformerWithGenerics<T extends Author> {
     return new TransformableObject(dbObject);
   }
 
-  @Transformer
   public static final class InnerTransformerWithGenerics<V extends Book> {
     @ObjectToDbValue
     public static Integer objectToDbValue(TransformableObject2 javaObject) {
@@ -30,7 +27,6 @@ public final class TransformerWithGenerics<T extends Author> {
       return new TransformableObject2(dbObject);
     }
 
-    @Transformer
     public static final class DoubleInnerTransformer {
       @ObjectToDbValue
       public static Integer objectToDbValue(TransformableObject3 javaObject) {
@@ -41,10 +37,19 @@ public final class TransformerWithGenerics<T extends Author> {
       public static TransformableObject3 dbValueToObject(Integer dbObject) {
         return new TransformableObject3(dbObject);
       }
+
+      @ObjectToDbValue
+      public static Integer otherObjectToDbValue(TransformableObject4 javaObject) {
+        return javaObject.value;
+      }
+
+      @DbValueToObject
+      public static TransformableObject4 otherDbValueToObject(Integer dbObject) {
+        return new TransformableObject4(dbObject);
+      }
     }
   }
 
-  @Transformer
   public static final class TransformerForObjectWithGenerics {
     @ObjectToDbValue
     public static String objectToDbValue(TransformableObjectWithGenerics javaObject) {
@@ -77,6 +82,14 @@ public final class TransformerWithGenerics<T extends Author> {
     public int value;
 
     public TransformableObject3(int value) {
+      this.value = value;
+    }
+  }
+
+  public static final class TransformableObject4 {
+    public int value;
+
+    public TransformableObject4(int value) {
       this.value = value;
     }
   }

@@ -220,7 +220,7 @@ public final class ColumnClassWriter {
 
   @NonNull
   public static String getClassName(@NonNull TransformerElement transformerElement) {
-    return transformerElement.getClassName() + "Column";
+    return transformerElement.getTransformerName() + "Column";
   }
 
   @NonNull
