@@ -12,7 +12,7 @@ import org.gradle.api.artifacts.DependencyResolutionListener
 import org.gradle.api.artifacts.DependencySet
 import org.gradle.api.artifacts.ResolvableDependencies
 
-const val VERSION = "0.14.0"
+const val VERSION = "0.15.0-SNAPSHOT"
 
 class SqliteMagicPlugin : Plugin<Project> {
   override fun apply(project: Project) {

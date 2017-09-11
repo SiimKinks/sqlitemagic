@@ -8,7 +8,7 @@ ext {
   ]
 
   GROUP = 'com.siimkinks.sqlitemagic'
-  VERSION_NAME = '0.14.0'
+  VERSION_NAME = '0.15.0-SNAPSHOT'
 
   androidAptVersion = '1.8'
   androidGradleVersion = '2.3.3'
