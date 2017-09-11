@@ -34,7 +34,7 @@ buildscript {
   }
   dependencies {
     classpath 'com.android.tools.build:gradle:<latest version>'
-    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.13.0'
+    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.14.0'
   }
 }
 
@@ -452,7 +452,7 @@ Bugs and Feedback
 License
 --------
 
-    Copyright 2016 Siim Kinks
+    Copyright 2017 Siim Kinks
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.

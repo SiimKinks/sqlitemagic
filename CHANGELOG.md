@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Version 0.14.0 _(2017-09-11)_
+---------------------------------
+
+* New: All operations now support constraint conflict resolution
+* New: Add support for multiple object transformers in one class
+* New: More options to configure gradle plugin
+* Fix: Nullable single column queries
+
 Version 0.13.0 _(2017-06-25)_
 ---------------------------------
 
