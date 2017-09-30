@@ -87,10 +87,6 @@ public final class ViewColumnElement implements BaseColumnElement {
     return nullable;
   }
 
-  private String getTransformerName() {
-    return getTransformer().getElement().getSimpleName().toString();
-  }
-
   @Override
   public boolean hasTransformer() {
     return getTransformer() != null;

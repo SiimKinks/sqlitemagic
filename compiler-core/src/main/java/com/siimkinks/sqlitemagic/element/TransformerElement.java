@@ -5,17 +5,14 @@ import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.Const;
 import com.siimkinks.sqlitemagic.Environment;
-import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
-import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
 import com.siimkinks.sqlitemagic.util.FormatData;
-import com.siimkinks.sqlitemagic.validator.TransformerValidator;
+import com.siimkinks.sqlitemagic.util.StringUtil;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 
-import java.lang.annotation.Annotation;
+import java.util.List;
 
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -28,11 +25,12 @@ import static com.siimkinks.sqlitemagic.WriterUtil.typeNameForGenerics;
 
 @ToString
 public class TransformerElement {
+  private final Environment environment;
 
-  @Getter
-  private final TypeElement element;
-  @Getter
-  private final ClassName transformerClassName;
+  private TypeElement deserializedTypeTransformerElement;
+  private ClassName deserializedTypeTransformerClassName;
+  private TypeElement serializedTypeTransformerElement;
+  private ClassName serializedTypeTransformerClassName;
   @Getter
   private ExtendedTypeElement deserializedType;
   @Getter
@@ -42,78 +40,86 @@ public class TransformerElement {
   @Getter
   private TypeMirror rawSerializedType;
   @Getter
-  private ExecutableElement objectToDbValueStaticMethod;
+  private ExecutableElement objectToDbValueMethod;
   @Getter
-  private ExecutableElement dbValueToObjectStaticMethod;
+  private ExecutableElement dbValueToObjectMethod;
   private boolean cannotTransformNullValues = false;
 
-  @Getter
-  private boolean missingMethods = false;
+  private boolean hasObjectToDb = false;
+  private boolean hasDbToObject = false;
 
-  public TransformerElement(Environment environment, Element element) {
-    this.element = (TypeElement) element;
-    transformerClassName = ClassName.get(this.element);
-    handleStaticTransformer(environment);
+  public TransformerElement(Environment environment) {
+    this.environment = environment;
   }
 
-  private void handleStaticTransformer(Environment environment) {
-    boolean hasObjectToDb = false;
-    boolean hasDbToObject = false;
-    ExecutableElement firstTransformMethod = null;
-    for (Element enclosedElement : element.getEnclosedElements()) {
-      if (enclosedElement.getKind() == ElementKind.METHOD) {
-        ExecutableElement method = (ExecutableElement) enclosedElement;
-        Annotation annotation = method.getAnnotation(ObjectToDbValue.class);
-        if (annotation != null) {
-          hasObjectToDb = true;
-          if (!TransformerValidator.isTransformerStaticMethodValid(environment, method, firstTransformMethod)) {
-            break;
-          }
-          objectToDbValueStaticMethod = method;
-          VariableElement firstParam = method.getParameters().get(0);
-          rawDeserializedType = firstParam.asType();
-          deserializedType = environment.getAnyTypeElement(rawDeserializedType);
-          rawSerializedType = method.getReturnType();
-          serializedType = environment.getSupportedSerializedTypeElement(rawSerializedType);
-          if (firstTransformMethod == null) {
-            firstTransformMethod = method;
-          } else {
-            break; // we found all methods
-          }
-        } else {
-          annotation = method.getAnnotation(DbValueToObject.class);
-          if (annotation != null) {
-            hasDbToObject = true;
-            if (!TransformerValidator.isTransformerStaticMethodValid(environment, method, firstTransformMethod)) {
-              break;
-            }
-            dbValueToObjectStaticMethod = method;
-            if (firstTransformMethod == null) {
-              firstTransformMethod = method;
-            } else {
-              break; // we found all methods
-            }
-          }
-        }
-      }
+  public static TransformerElement fromObjectToDbValue(Environment environment,
+                                                       ExecutableElement objectToDbValue) {
+    final TransformerElement transformer = new TransformerElement(environment);
+    transformer.addObjectToDbValueMethod(objectToDbValue);
+    return transformer;
+  }
+
+  public static TransformerElement fromDbValueToObject(Environment environment,
+                                                       ExecutableElement dbValueToObject) {
+    final TransformerElement transformer = new TransformerElement(environment);
+    transformer.addDbValueToObjectMethod(dbValueToObject);
+    return transformer;
+  }
+
+  public void addObjectToDbValueMethod(ExecutableElement method) {
+    final TypeElement enclosingElement = (TypeElement) method.getEnclosingElement();
+
+    this.objectToDbValueMethod = method;
+    this.serializedTypeTransformerElement = enclosingElement;
+    this.serializedTypeTransformerClassName = ClassName.get(enclosingElement);
+
+    if (!hasDbToObject) {
+      final VariableElement firstParam = method.getParameters().get(0);
+      rawDeserializedType = firstParam.asType();
+      deserializedType = environment.getAnyTypeElement(rawDeserializedType);
+      rawSerializedType = method.getReturnType();
+      serializedType = environment.getSupportedSerializedTypeElement(rawSerializedType);
     }
-    missingMethods = !hasObjectToDb || !hasDbToObject;
+
+    hasObjectToDb = true;
+  }
+
+  public void addDbValueToObjectMethod(ExecutableElement method) {
+    final TypeElement enclosingElement = (TypeElement) method.getEnclosingElement();
+
+    this.dbValueToObjectMethod = method;
+    this.deserializedTypeTransformerElement = enclosingElement;
+    this.deserializedTypeTransformerClassName = ClassName.get(enclosingElement);
+
+    if (!hasObjectToDb) {
+      final VariableElement firstParam = method.getParameters().get(0);
+      rawSerializedType = firstParam.asType();
+      serializedType = environment.getAnyTypeElement(rawSerializedType);
+      rawDeserializedType = method.getReturnType();
+      deserializedType = environment.getSupportedSerializedTypeElement(rawDeserializedType);
+    }
+
+    hasDbToObject = true;
+  }
+
+  public boolean isMissingMethods() {
+    return !hasObjectToDb || !hasDbToObject;
   }
 
   @NonNull
   public FormatData serializedValueGetter(@NonNull String valueGetter) {
-    return FormatData.create("$T.$L($L)", transformerClassName, getSerializingMethodName(), valueGetter);
+    return FormatData.create("$T.$L($L)", serializedTypeTransformerClassName, getSerializingMethodName(), valueGetter);
   }
 
   @NonNull
   public FormatData deserializedValueGetter(@NonNull String valueGetter) {
-    return FormatData.create("$T.$L($L)", transformerClassName, getDeserializingMethodName(), valueGetter);
+    return FormatData.create("$T.$L($L)", deserializedTypeTransformerClassName, getDeserializingMethodName(), valueGetter);
   }
 
   @NonNull
   public FormatData deserializedValueSetter(@NonNull String settableValue) {
     return FormatData.create("$T.$L(" + settableValue + ")",
-        transformerClassName,
+        deserializedTypeTransformerClassName,
         getDeserializingMethodName());
   }
 
@@ -147,19 +153,20 @@ public class TransformerElement {
   }
 
   public String getDeserializingMethodName() {
-    return dbValueToObjectStaticMethod.getSimpleName().toString();
+    return dbValueToObjectMethod.getSimpleName().toString();
   }
 
   public String getSerializingMethodName() {
-    return objectToDbValueStaticMethod.getSimpleName().toString();
+    return objectToDbValueMethod.getSimpleName().toString();
   }
 
   public boolean isNumericType() {
     return Const.NUMERIC_SQL_TYPE_MAP.containsKey(getSerializedType().getQualifiedName());
   }
 
-  public String getClassName() {
-    return element.getSimpleName().toString();
+  public String getTransformerName() {
+    final List<String> simpleNames = ClassName.get(deserializedType.getTypeElement()).simpleNames();
+    return StringUtil.join("_", simpleNames);
   }
 
   public boolean cannotTransformNullValues() {
@@ -168,5 +175,12 @@ public class TransformerElement {
 
   public void markAsCannotTransformNullValues() {
     cannotTransformNullValues = true;
+  }
+
+  public Element getRandomBlameElement() {
+    if (objectToDbValueMethod != null) {
+      return objectToDbValueMethod;
+    }
+    return dbValueToObjectMethod;
   }
 }

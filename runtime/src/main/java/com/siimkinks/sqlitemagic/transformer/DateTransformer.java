@@ -2,14 +2,12 @@ package com.siimkinks.sqlitemagic.transformer;
 
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
-import com.siimkinks.sqlitemagic.annotation.transformer.Transformer;
 
 import java.util.Date;
 
 /**
  * Transformer for {@code java.util.Date} data types.
  */
-@Transformer
 public final class DateTransformer {
   @ObjectToDbValue
   public static Long objectToDbValue(Date javaObject) {

@@ -2,11 +2,9 @@ package com.siimkinks.sqlitemagic.transformer;
 
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
-import com.siimkinks.sqlitemagic.annotation.transformer.Transformer;
 
 import java.util.Calendar;
 
-@Transformer
 public final class CalendarTransformer {
   @ObjectToDbValue
   public static Long objectToDbValue(Calendar javaObject) {
