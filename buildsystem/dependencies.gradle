@@ -10,14 +10,14 @@ ext {
   GROUP = 'com.siimkinks.sqlitemagic'
   VERSION_NAME = '0.15.0-SNAPSHOT'
 
-  buildToolsVersion = '26.0.1'
+  buildToolsVersion = '26.0.2'
   minSdkVersion = 16
   compileSdkVersion = 26
   targetSdkVersion = compileSdkVersion
 
   androidAptVersion = '1.8'
-  androidGradleVersion = '3.0.0-beta5'
-  androidSupportLibsVersion = '26.0.0'
+  androidGradleVersion = '3.0.0-beta6'
+  androidSupportLibsVersion = '26.0.2'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.8'
   autoServiceVersion = '1.0-rc3'
@@ -32,8 +32,8 @@ ext {
   javapoetVersion = '1.9.0'
   javassistVersion = '3.21.0-GA'
   junitVersion = '4.12'
-  kotlinpoetVersion = '0.4.0'
-  kotlinVersion = '1.1.4-3'
+  kotlinpoetVersion = '0.5.0'
+  kotlinVersion = '1.1.51'
   lombokVersion = '1.14.8' // do not increment!
   mockitoVersion = '2.8.9'
   mockitoKotlinVersion = '1.5.0'
@@ -76,6 +76,7 @@ ext {
       supportV7                   : "com.android.support:appcompat-v7:${androidSupportLibsVersion}",
       supportTestRunner           : "com.android.support.test:runner:${supportTestRunnerVersion}",
       sqlitemagicAnnotations      : "$GROUP:sqlitemagic-annotations:$VERSION_NAME",
+      sqlitemagicProcessorKotlin  : "$GROUP:sqlitemagic-compiler-kotlin:$VERSION_NAME",
       sqlitemagicProcessorMagic   : "$GROUP:sqlitemagic-compiler-magic:$VERSION_NAME",
       sqlitemagicPlugin           : "$GROUP:sqlitemagic-plugin:$VERSION_NAME",
       sqlitemagicRuntime          : "$GROUP:sqlitemagic:$VERSION_NAME",

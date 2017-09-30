@@ -13,7 +13,7 @@ import com.siimkinks.sqlitemagic.model.immutable.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.transformer.BooleanTransformer
 import org.junit.Test
 
-class SelectSqlBuilderTest : DSLTest {
+class SelectSqlBuilderTest : DSLTests {
   @Test
   fun rawSelect() {
     (SELECT

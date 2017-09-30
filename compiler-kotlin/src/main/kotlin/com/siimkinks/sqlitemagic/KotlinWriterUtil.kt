@@ -31,10 +31,10 @@ val NOTHING_TO_INLINE = AnnotationSpec
 
 val EXTENSION_FUN_MODIFIERS = if (PUBLIC_EXTENSIONS) listOf(KModifier.INLINE) else listOf(KModifier.INLINE, KModifier.INTERNAL)
 
-fun File.writeSource(packageName: String = PACKAGE_ROOT, fileName: String, fileBuilder: (fileBuilder: KotlinFile.Builder) -> Unit) {
-  val builder = KotlinFile.builder(packageName = packageName, fileName = fileName)
+fun File.writeSource(packageName: String = PACKAGE_ROOT, fileName: String, fileBuilder: (fileBuilder: FileSpec.Builder) -> Unit) {
+  val builder = FileSpec.builder(packageName = packageName, fileName = fileName)
   fileBuilder(builder)
-  builder.addFileComment(Const.GENERATION_COMMENT)
+  builder.addComment(Const.GENERATION_COMMENT)
       .build()
       .writeTo(this)
 }

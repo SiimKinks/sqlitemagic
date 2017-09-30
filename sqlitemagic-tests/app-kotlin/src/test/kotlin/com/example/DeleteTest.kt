@@ -4,7 +4,7 @@ import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE
 import org.junit.Test
 
-class DeleteTest : DSLTest {
+class DeleteTest : DSLTests {
   @Test
   fun deleteFromBuilder() {
     (DELETE FROM MAGAZINE).isEqualTo("DELETE FROM magazine ")

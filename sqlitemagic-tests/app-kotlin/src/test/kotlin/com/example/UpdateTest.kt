@@ -8,7 +8,7 @@ import com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE
 import com.siimkinks.sqlitemagic.model.Author
 import org.junit.Test
 
-class UpdateTest : DSLTest {
+class UpdateTest : DSLTests {
   @Test
   fun updateSqlBuilder() {
     (UPDATE

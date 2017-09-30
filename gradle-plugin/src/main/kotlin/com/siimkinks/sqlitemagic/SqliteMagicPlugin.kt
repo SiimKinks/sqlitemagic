@@ -88,7 +88,7 @@ class SqliteMagicPlugin : Plugin<Project> {
     }
 
     if (androidExtension is AppExtension) {
-      val transform = SqliteMagicTransform(project, sqlitemagic, androidExtension)
+      val transform = SqliteMagicTransform(project, sqlitemagic)
       androidExtension.registerTransform(transform)
       variants.all {
         it.configureVariant(transform, project)
@@ -143,13 +143,12 @@ class SqliteMagicPlugin : Plugin<Project> {
   }
 }
 
-fun Project.getConfigurationDependency(depName: String, fallback: String = ""): DependencySet {
-  try {
-    return configurations.getByName(depName).dependencies
-  } catch (e: Exception) {
-    return configurations.getByName(fallback).dependencies
-  }
-}
+fun Project.getConfigurationDependency(depName: String, fallback: String = ""): DependencySet =
+    try {
+      configurations.getByName(depName).dependencies
+    } catch (e: Exception) {
+      configurations.getByName(fallback).dependencies
+    }
 
 fun DependencySet.addDependency(project: Project, dependency: String) {
   add(project.dependencies.create(dependency))

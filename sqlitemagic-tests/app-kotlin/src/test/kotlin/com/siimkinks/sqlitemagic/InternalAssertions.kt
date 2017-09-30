@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.Utils.*
 import org.junit.Before
 import org.mockito.Mockito
 
-interface DSLTest {
+interface DSLTests {
   @Before
   fun setUp() {
     val instance = SqliteMagic.SingletonHolder.instance

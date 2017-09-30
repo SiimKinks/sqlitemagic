@@ -74,7 +74,11 @@ public class ModelValidator {
   }
 
   private boolean isRegularTableElementValid(TypeElement rawElement) {
-    boolean hasNoArgsConstructor = rawElement.getAnnotation(NoArgsConstructor.class) != null;
+    boolean hasNoArgsConstructor = false;
+    try {
+      hasNoArgsConstructor = rawElement.getAnnotation(NoArgsConstructor.class) != null;
+    } catch (Throwable ignore) {
+    }
     if (!hasNoArgsConstructor) {
       for (Element enclosedElement : rawElement.getEnclosedElements()) {
         if (enclosedElement.getKind() == ElementKind.CONSTRUCTOR) {

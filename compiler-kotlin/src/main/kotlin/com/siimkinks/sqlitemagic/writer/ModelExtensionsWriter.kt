@@ -17,19 +17,19 @@ class ModelExtensionsWriter @Inject constructor() {
       val entityEnvironment = EntityEnvironment(tableElement, tableElement.tableElementTypeName)
       Method.values()
           .forEach {
-            fileBuilder.addFun(generateMethod(tableElement, entityEnvironment, it))
+            fileBuilder.addFunction(generateMethod(tableElement, entityEnvironment, it))
           }
       fileBuilder
-          .addFileAnnotation(NOTHING_TO_INLINE)
+          .addAnnotation(NOTHING_TO_INLINE)
           .addType(TypeSpec.objectBuilder("${className}s")
           .also { objectBuilder ->
             if (!PUBLIC_EXTENSIONS) {
               objectBuilder.addModifiers(KModifier.INTERNAL)
             }
-            objectBuilder.addFun(generateDeleteTable(entityEnvironment))
+            objectBuilder.addFunction(generateDeleteTable(entityEnvironment))
             BulkMethod.values()
                 .forEach {
-                  objectBuilder.addFun(generateBulkMethod(tableElement, entityEnvironment, it))
+                  objectBuilder.addFunction(generateBulkMethod(tableElement, entityEnvironment, it))
                 }
           }
           .build())

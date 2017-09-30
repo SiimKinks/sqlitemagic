@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
-apply plugin: 'sqlitemagic'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'sqlitemagic'
 
 android {
   compileSdkVersion rootProject.ext.compileSdkVersion
@@ -43,6 +43,8 @@ dependencies {
   implementation libraries.supportV7
   implementation libraries.rxJava2
   implementation libraries.rxJava2Extensions
+
+  kapt libraries.sqlitemagicProcessorKotlin
 
   testImplementation libraries.kotlinStdLib
   testImplementation libraries.mockito

@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic
 import com.android.build.api.transform.*
 import com.android.build.api.transform.QualifiedContent.DefaultContentType.CLASSES
 import com.android.build.api.transform.QualifiedContent.Scope.*
-import com.android.build.gradle.BaseExtension
 import com.android.build.gradle.api.BaseVariant
 import com.siimkinks.sqlitemagic.task.InvokeTransformation
 import org.gradle.api.Project
@@ -14,9 +13,10 @@ import org.zeroturnaround.zip.ZipUtil
 import java.io.File
 import java.util.*
 
-class SqliteMagicTransform(private val project: Project,
-                           private val sqlitemagic: SqliteMagicPluginExtension,
-                           private val androidExtension: BaseExtension) : Transform() {
+class SqliteMagicTransform(
+    private val project: Project,
+    private val sqlitemagic: SqliteMagicPluginExtension
+) : Transform() {
   private val javaCompileTasks: HashMap<Pair<String, String>, AbstractCompile> = HashMap()
   private val jarContentType = setOf(CLASSES)
   private val jarScope = mutableSetOf(EXTERNAL_LIBRARIES)
@@ -113,7 +113,7 @@ class SqliteMagicTransform(private val project: Project,
 
   private fun filterJarInput(input: TransformInput, transformInvocation: TransformInvocation): Collection<JarInput> {
     val incremental = transformInvocation.isIncremental
-    return if (incremental) input.jarInputs.filter { filterByStatus(it) } else input.jarInputs
+    return if (incremental) input.jarInputs.filter(this::filterByStatus) else input.jarInputs
   }
 
   private fun filterByStatus(input: JarInput) = input.status != Status.REMOVED && input.status != Status.NOTCHANGED
@@ -126,20 +126,6 @@ class SqliteMagicTransform(private val project: Project,
     val destination = transformInvocation.jarOutput(name)
     destination.delete()
     file.copyRecursively(destination)
-  }
-
-  private fun Collection<JarInput>.copyAllToOutput(transformInvocation: TransformInvocation, predicate: ((JarInput) -> Boolean)? = null) {
-    if (predicate != null) {
-      for (value in this) {
-        if (predicate(value)) {
-          value.copyToOutput(transformInvocation)
-        }
-      }
-    } else {
-      for (value in this) {
-        value.copyToOutput(transformInvocation)
-      }
-    }
   }
 
   private fun File.getAllClassFilePaths(): List<String> = walkTopDown()
@@ -166,7 +152,7 @@ class SqliteMagicTransform(private val project: Project,
     } else {
       // If this is null it means the javaCompile task didn't need to run, however, we still
       // need to run but can't without the bootClasspath. Just fail and ask the user to rebuild.
-      throw ProjectConfigurationException ("Unable to obtain the bootClasspath. This may happen if " +
+      throw ProjectConfigurationException("Unable to obtain the bootClasspath. This may happen if " +
           "your javaCompile tasks didn't run but sqlitemagic did. You must rebuild your project or " +
           "otherwise force javaCompile to run.", null)
     }
@@ -206,19 +192,12 @@ class SqliteMagicTransform(private val project: Project,
     javaCompileTasks.put(Pair(variant.flavorName, variant.buildType.name), variant.javaCompile)
   }
 
-  override fun getScopes(): MutableSet<QualifiedContent.Scope> {
-    return mutableSetOf(PROJECT, SUB_PROJECTS, EXTERNAL_LIBRARIES)
-  }
+  override fun getScopes(): MutableSet<QualifiedContent.Scope> =
+      mutableSetOf(PROJECT, SUB_PROJECTS, EXTERNAL_LIBRARIES)
 
-  override fun getInputTypes(): MutableSet<QualifiedContent.ContentType> {
-    return mutableSetOf(CLASSES)
-  }
+  override fun getInputTypes(): MutableSet<QualifiedContent.ContentType> = mutableSetOf(CLASSES)
 
-  override fun getName(): String {
-    return "sqlitemagic"
-  }
+  override fun getName(): String = "sqlitemagic"
 
-  override fun isIncremental(): Boolean {
-    return true
-  }
+  override fun isIncremental(): Boolean = true
 }
