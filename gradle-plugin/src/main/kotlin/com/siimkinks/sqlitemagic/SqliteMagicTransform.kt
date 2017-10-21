@@ -70,13 +70,13 @@ class SqliteMagicTransform(
 
   private fun JarInput.transform(transformInvocation: TransformInvocation,
                                  projectFilesOutput: File) {
-    val tmpDir = File(transformInvocation.context.temporaryDir, name)
+    val tmpDir = createTempDir(suffix = "", directory = transformInvocation.context.temporaryDir)
     if (tmpDir.exists()) {
       tmpDir.deleteRecursively()
     }
     val extractDir = File(tmpDir, "in")
     val outputDir = File(tmpDir, "out")
-    val jarOutput = transformInvocation.jarOutput(name)
+    val jarOutput = transformInvocation.jarOutput(tmpDir.name)
     project.copy {
       it.from(project.zipTree(file))
       it.into(project.file(extractDir))
@@ -91,7 +91,7 @@ class SqliteMagicTransform(
         .exec()
 
     if (!anyTransformations) {
-      copyToOutput(transformInvocation)
+      copyToOutput(outputFileName = tmpDir.name, transformInvocation = transformInvocation)
       return
     }
 
@@ -122,8 +122,8 @@ class SqliteMagicTransform(
 
   private fun TransformInvocation.classpath(outputDir: File): FileCollection = classpath(context, outputDir, referencedInputs)
 
-  private fun JarInput.copyToOutput(transformInvocation: TransformInvocation) {
-    val destination = transformInvocation.jarOutput(name)
+  private fun JarInput.copyToOutput(outputFileName: String, transformInvocation: TransformInvocation) {
+    val destination = transformInvocation.jarOutput(outputFileName)
     destination.delete()
     file.copyRecursively(destination)
   }

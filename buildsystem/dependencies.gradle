@@ -16,7 +16,7 @@ ext {
   targetSdkVersion = compileSdkVersion
 
   androidAptVersion = '1.8'
-  androidGradleVersion = '3.0.0-beta6'
+  androidGradleVersion = '3.0.0-rc2'
   androidSupportLibsVersion = '26.0.2'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.8'
