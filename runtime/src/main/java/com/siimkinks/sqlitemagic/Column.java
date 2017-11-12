@@ -5,7 +5,6 @@ import android.database.sqlite.SQLiteDoneException;
 import android.database.sqlite.SQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.annotation.Size;
 
 import com.siimkinks.sqlitemagic.Select.OrderingTerm;
@@ -32,8 +31,9 @@ import static com.siimkinks.sqlitemagic.Utils.STRING_PARSER;
  * @param <R>  Return type (when this column is queried)
  * @param <ET> Equivalent type
  * @param <P>  Parent table type
+ * @param <N>  Column nullability
  */
-public class Column<T, R, ET, P> {
+public class Column<T, R, ET, P, N> {
   @NonNull
   final Table<P> table;
   @NonNull
@@ -47,11 +47,11 @@ public class Column<T, R, ET, P> {
   /**
    * User defined alias
    */
-  @Nullable
+  @android.support.annotation.Nullable
   final String alias;
 
   Column(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-         @NonNull ValueParser<?> valueParser, boolean nullable, @Nullable String alias,
+         @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias,
          @NonNull String nameInQuery) {
     this.table = table;
     this.name = name;
@@ -63,7 +63,7 @@ public class Column<T, R, ET, P> {
   }
 
   Column(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-         @NonNull ValueParser<?> valueParser, boolean nullable, @Nullable String alias) {
+         @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias) {
     this.table = table;
     this.name = name;
     this.allFromTable = allFromTable;
@@ -228,7 +228,7 @@ public class Column<T, R, ET, P> {
   }
 
   static void putColumnPosition(@NonNull SimpleArrayMap<String, Integer> columnPositions,
-                                @Nullable String columnId,
+                                @android.support.annotation.Nullable String columnId,
                                 int pos,
                                 @NonNull Column column) {
     if (columnId != null) {
@@ -245,7 +245,7 @@ public class Column<T, R, ET, P> {
   }
 
   @SuppressWarnings("unchecked")
-  @Nullable
+  @android.support.annotation.Nullable
   <V> V getFromCursor(@NonNull FastCursor cursor) {
     if (nullable && cursor.isNull(0)) {
       return null;
@@ -254,7 +254,7 @@ public class Column<T, R, ET, P> {
   }
 
   @SuppressWarnings("unchecked")
-  @Nullable
+  @android.support.annotation.Nullable
   <V> V getFromStatement(@NonNull SQLiteStatement stm) {
     try {
       return (V) valueParser.parseFromStatement(stm);
@@ -271,22 +271,22 @@ public class Column<T, R, ET, P> {
    * Typically used in making renamed joins.
    */
   @NonNull
-  static <T, R, ET, P> Column<T, R, ET, P> internalCopy(@NonNull Table<P> newTable,
-                                                        @NonNull final Column<T, R, ET, ?> column) {
-    return new Column<T, R, ET, P>(newTable, column.name, column.allFromTable, column.valueParser, column.nullable, column.alias) {
+  static <T, R, ET, P, N> Column<T, R, ET, P, N> internalCopy(@NonNull Table<P> newTable,
+                                                              @NonNull final Column<T, R, ET, ?, N> column) {
+    return new Column<T, R, ET, P, N>(newTable, column.name, column.allFromTable, column.valueParser, column.nullable, column.alias) {
       @NonNull
       @Override
       public String toSqlArg(@NonNull T val) {
         return column.toSqlArg(val);
       }
 
-      @Nullable
+      @android.support.annotation.Nullable
       @Override
       <V> V getFromCursor(@NonNull FastCursor cursor) {
         return column.getFromCursor(cursor);
       }
 
-      @Nullable
+      @android.support.annotation.Nullable
       @Override
       <V> V getFromStatement(@NonNull SQLiteStatement stm) {
         return column.getFromStatement(stm);
@@ -309,8 +309,24 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public Column<T, R, ET, P> as(@NonNull String alias) {
+  public Column<T, R, ET, P, N> as(@NonNull String alias) {
     return new Column<>(table, name, allFromTable, valueParser, nullable, alias);
+  }
+
+  /**
+   * Convert this column to not-nullable column.
+   *
+   * @return Non-nullable column.
+   */
+  @NonNull
+  @CheckResult
+  public Column<T, R, ET, P, NotNullable> toNotNullable() {
+    if (nullable) {
+      final String errorMsg = "Converting nullable column [" + this + "] to not nullable. This might cause data inconsistencies!";
+      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logError(errorMsg, new IllegalStateException(errorMsg));
+    }
+    //noinspection unchecked
+    return (Column<T, R, ET, P, NotNullable>) this;
   }
 
   /**
@@ -350,8 +366,8 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <X extends Column<?, ?, ?, ?>> Column<String, String, CharSequence, ?> concat(@NonNull X column) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "", " || ", "", STRING_PARSER, true, null);
+  public final <X extends Column<?, ?, ?, ?, ?>> Column<String, String, CharSequence, ?, Nullable> concat(@NonNull X column) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "", " || ", "", STRING_PARSER, nullable || column.nullable, null);
   }
 
   /**
@@ -369,8 +385,8 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Column<String, String, CharSequence, ?> replace(@NonNull CharSequence target, @NonNull CharSequence replacement) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "replace(", ",'" + target + "','" + replacement + "')", STRING_PARSER, true, null);
+  public final Column<String, String, CharSequence, ?, N> replace(@NonNull CharSequence target, @NonNull CharSequence replacement) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "replace(", ",'" + target + "','" + replacement + "')", STRING_PARSER, nullable, null);
   }
 
   /**
@@ -401,8 +417,8 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Column<String, String, CharSequence, ?> substring(int beginPos) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "substr(", "," + beginPos + ")", STRING_PARSER, true, null);
+  public final Column<String, String, CharSequence, ?, N> substring(int beginPos) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "substr(", "," + beginPos + ")", STRING_PARSER, nullable, null);
   }
 
   /**
@@ -430,8 +446,8 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Column<String, String, CharSequence, ?> substring(int beginPos, int charsToReturn) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "substr(", "," + beginPos + "," + charsToReturn + ")", STRING_PARSER, true, null);
+  public final Column<String, String, CharSequence, ?, N> substring(int beginPos, int charsToReturn) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "substr(", "," + beginPos + "," + charsToReturn + ")", STRING_PARSER, nullable, null);
   }
 
   /**
@@ -442,8 +458,8 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Column<String, String, CharSequence, ?> trim() {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "trim(", ")", STRING_PARSER, true, null);
+  public final Column<String, String, CharSequence, ?, N> trim() {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "trim(", ")", STRING_PARSER, nullable, null);
   }
 
   /**
@@ -456,8 +472,8 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Column<String, String, CharSequence, ?> trim(@NonNull CharSequence trimString) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "trim(", ",'" + trimString + "')", STRING_PARSER, true, null);
+  public final Column<String, String, CharSequence, ?, N> trim(@NonNull CharSequence trimString) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "trim(", ",'" + trimString + "')", STRING_PARSER, nullable, null);
   }
 
   /**
@@ -481,7 +497,7 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends Column<?, ?, ? extends ET, ?>> Expr is(@NonNull C column) {
+  public final <C extends Column<?, ?, ? extends ET, ?, ?>> Expr is(@NonNull C column) {
     return new ExprC(this, "=", column);
   }
 
@@ -493,7 +509,7 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr is(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr is(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, "=", select);
   }
 
@@ -518,7 +534,7 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends Column<?, ?, ? extends ET, ?>> Expr isNot(@NonNull C column) {
+  public final <C extends Column<?, ?, ? extends ET, ?, ?>> Expr isNot(@NonNull C column) {
     return new ExprC(this, "!=", column);
   }
 
@@ -530,7 +546,7 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr isNot(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr isNot(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, "!=", select);
   }
 
@@ -691,7 +707,7 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr in(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr in(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, " IN ", select);
   }
 
@@ -766,7 +782,7 @@ public class Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr notIn(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr notIn(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, " NOT IN ", select);
   }
 
@@ -775,9 +791,9 @@ public class Column<T, R, ET, P> {
     if (this == o) return true;
     if (o == null) return false;
 
-    final Column<?, ?, ?, ?> column;
+    final Column<?, ?, ?, ?, ?> column;
     try {
-      column = (Column<?, ?, ?, ?>) o;
+      column = (Column<?, ?, ?, ?, ?>) o;
     } catch (ClassCastException e) {
       return false;
     }
@@ -788,5 +804,10 @@ public class Column<T, R, ET, P> {
   @Override
   public int hashCode() {
     return name.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return table + "." + name;
   }
 }

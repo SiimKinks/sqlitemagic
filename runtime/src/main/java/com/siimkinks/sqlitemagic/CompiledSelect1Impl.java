@@ -23,14 +23,14 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
   @Nullable
   final String[] args;
   @NonNull
-  final Column<?, T, ?, ?> selectedColumn;
+  final Column<?, T, ?, ?, ?> selectedColumn;
   @NonNull
   final String[] observedTables;
 
   CompiledSelect1Impl(@NonNull String sql,
                       @Nullable String[] args,
                       @NonNull DbConnectionImpl dbConnection,
-                      @NonNull final Column<?, T, ?, ?> selectedColumn,
+                      @NonNull final Column<?, T, ?, ?, ?> selectedColumn,
                       @NonNull String[] observedTables) {
     super(dbConnection, new Mapper<T>() {
       @Override
@@ -66,7 +66,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
       if (rowCount == 0) {
         return Collections.emptyList();
       }
-      final Column<?, T, ?, ?> selectedColumn = this.selectedColumn;
+      final Column<?, T, ?, ?, ?> selectedColumn = this.selectedColumn;
       final ArrayList<T> values = new ArrayList<>(rowCount);
       while (cursor.moveToNext()) {
         values.add(selectedColumn.<T>getFromCursor(cursor));
@@ -120,7 +120,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
     @Nullable
     final String[] args;
     @NonNull
-    final Column<?, T, ?, ?> selectedColumn;
+    final Column<?, T, ?, ?, ?> selectedColumn;
     @NonNull
     final String[] observedTables;
 
@@ -177,7 +177,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
     @Nullable
     private final String[] args;
     @NonNull
-    final Column<?, T, ?, ?> selectedColumn;
+    final Column<?, T, ?, ?, ?> selectedColumn;
     @NonNull
     private final String[] observedTables;
 

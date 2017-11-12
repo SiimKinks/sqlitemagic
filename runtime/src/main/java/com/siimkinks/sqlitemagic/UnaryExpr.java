@@ -7,45 +7,39 @@ import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-final class BinaryExpr extends Expr {
+final class UnaryExpr extends Expr {
   @NonNull
-  final Expr lhs;
-  @NonNull
-  final Expr rhs;
+  final Expr expr;
 
-  BinaryExpr(@NonNull String op, @NonNull Expr lhs, @NonNull Expr rhs) {
+  UnaryExpr(@NonNull String op, @NonNull Expr expr) {
     //noinspection ConstantConditions
     super(null, op); // null is ok here, we override all calls related to column
-    this.lhs = lhs;
-    this.rhs = rhs;
+    this.expr = expr;
   }
 
   @Override
   void addArgs(@NonNull ArrayList<String> args) {
-    lhs.addArgs(args);
-    rhs.addArgs(args);
+    expr.addArgs(args);
   }
 
   @Override
   void appendToSql(@NonNull StringBuilder sb) {
-    sb.append('(');
-    lhs.appendToSql(sb);
     sb.append(op);
-    rhs.appendToSql(sb);
+    sb.append('(');
+    expr.appendToSql(sb);
     sb.append(')');
   }
 
   @Override
   void appendToSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
-    sb.append('(');
-    lhs.appendToSql(sb, systemRenamedTables);
     sb.append(op);
-    rhs.appendToSql(sb, systemRenamedTables);
+    sb.append('(');
+    expr.appendToSql(sb, systemRenamedTables);
     sb.append(')');
   }
 
   @Override
   boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
-    return lhs.containsColumn(column) || rhs.containsColumn(column);
+    return expr.containsColumn(column);
   }
 }

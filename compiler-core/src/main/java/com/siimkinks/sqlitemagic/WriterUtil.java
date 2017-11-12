@@ -110,6 +110,8 @@ public class WriterUtil {
   public static final ClassName COLUMN = ClassName.get(Column.class);
   public static final ClassName NUMERIC_COLUMN = ClassName.get(NumericColumn.class);
   public static final ClassName COMPLEX_COLUMN = ClassName.get(ComplexColumn.class);
+  public static final ClassName NULLABLE_COLUMN = ClassName.get(com.siimkinks.sqlitemagic.Nullable.class);
+  public static final ClassName NOT_NULLABLE_COLUMN = ClassName.get(NotNullable.class);
   public static final ClassName JOIN_CLAUSE = ClassName.get(JoinClause.class);
   public static final ClassName FAST_CURSOR = ClassName.get("com.siimkinks.sqlitemagic", "FastCursor");
   public static final ClassName SIMPLE_ARRAY_MAP = ClassName.get(SimpleArrayMap.class);

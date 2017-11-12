@@ -12,10 +12,10 @@ final class ExprR extends Expr {
   @NonNull
   private final String[] evalArgs;
 
-  ExprR(@NonNull String expr,
+  ExprR(@NonNull String op,
         @NonNull String[] evalArgs) {
     //noinspection ConstantConditions
-    super(null, expr);
+    super(null, op);
     this.evalArgs = evalArgs;
   }
 
@@ -26,16 +26,16 @@ final class ExprR extends Expr {
 
   @Override
   void appendToSql(@NonNull StringBuilder sb) {
-    sb.append(expr);
+    sb.append(op);
   }
 
   @Override
   void appendToSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
-    sb.append(expr);
+    sb.append(op);
   }
 
   @Override
-  boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
-    return expr.contains(column.nameInQuery);
+  boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
+    return op.contains(column.nameInQuery);
   }
 }

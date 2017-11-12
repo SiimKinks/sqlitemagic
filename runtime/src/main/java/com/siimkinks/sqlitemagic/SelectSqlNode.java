@@ -31,7 +31,7 @@ public abstract class SelectSqlNode<S> extends SqlNode {
     this.selectBuilder = selectBuilder;
   }
 
-  public static abstract class SelectNode<T, S> extends SelectSqlNode<S> implements ConnectionProvidedOperation<SelectNode<T, S>> {
+  public static abstract class SelectNode<T, S, N> extends SelectSqlNode<S> implements ConnectionProvidedOperation<SelectNode<T, S, N>> {
     SelectNode(SelectSqlNode<S> parent) {
       super(parent);
     }
@@ -44,7 +44,7 @@ public abstract class SelectSqlNode<S> extends SqlNode {
      */
     @NonNull
     @CheckResult
-    public final NumericColumn<T, T, T, ?> asColumn(@NonNull String alias) {
+    public final NumericColumn<T, T, T, ?, N> asColumn(@NonNull String alias) {
       return SelectionColumn.from(selectBuilder, alias);
     }
 
@@ -67,14 +67,14 @@ public abstract class SelectSqlNode<S> extends SqlNode {
      */
     @NonNull
     @CheckResult
-    public final SelectNode<T, S> queryDeep() {
+    public final SelectNode<T, S, N> queryDeep() {
       selectBuilder.deep = true;
       return this;
     }
 
     @NonNull
     @Override
-    public final SelectNode<T, S> usingConnection(@NonNull DbConnection connection) {
+    public final SelectNode<T, S, N> usingConnection(@NonNull DbConnection connection) {
       selectBuilder.dbConnection = (DbConnectionImpl) connection;
       return this;
     }

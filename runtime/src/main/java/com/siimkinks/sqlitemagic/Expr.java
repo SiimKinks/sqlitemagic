@@ -18,13 +18,13 @@ import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_STRINGS;
  */
 public class Expr {
   @NonNull
-  private final Column<?, ?, ?, ?> column;
+  private final Column<?, ?, ?, ?, ?> column;
   @NonNull
-  final String expr;
+  final String op;
 
-  Expr(@NonNull Column<?, ?, ?, ?> column, @NonNull String expr) {
+  Expr(@NonNull Column<?, ?, ?, ?, ?> column, @NonNull String op) {
     this.column = column;
-    this.expr = expr;
+    this.op = op;
   }
 
   void addArgs(@NonNull ArrayList<String> args) {
@@ -35,15 +35,15 @@ public class Expr {
 
   void appendToSql(@NonNull StringBuilder sb) {
     column.appendSql(sb);
-    sb.append(expr);
+    sb.append(op);
   }
 
   void appendToSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
     column.appendSql(sb, systemRenamedTables);
-    sb.append(expr);
+    sb.append(op);
   }
 
-  boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
+  boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
     return column.equals(this.column);
   }
 
@@ -96,6 +96,17 @@ public class Expr {
   @CheckResult
   public final OrderingTerm desc() {
     return new OrderingTerm(null, this, DESC);
+  }
+
+  /**
+   * Negate this expression.
+   *
+   * @return Negated expression
+   */
+  @NonNull
+  @CheckResult
+  public final Expr not() {
+    return new UnaryExpr("NOT", this);
   }
 
   /**

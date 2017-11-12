@@ -14,4 +14,4 @@ inline infix fun <T> Table<T>.ON(expr: Expr) = this.on(expr)
 
 /** @see Table.using */
 @CheckResult
-inline infix fun <T, C : Column<*, *, *, *>> Table<T>.USING(columns: Array<C>) = this.using(*columns)
+inline infix fun <T, C : Column<*, *, *, *, *>> Table<T>.USING(columns: Array<C>) = this.using(*columns)

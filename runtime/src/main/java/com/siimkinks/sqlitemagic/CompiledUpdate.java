@@ -79,7 +79,15 @@ public final class CompiledUpdate {
     CompiledUpdate build() {
       final String sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount);
       final SQLiteStatement stm = dbConnection.compileStatement(sql);
-      stm.bindAllArgsAsStrings(args.toArray(new String[args.size()]));
+      final ArrayList<String> args = this.args;
+      for (int i = args.size(); i != 0; i--) {
+        final String arg = args.get(i - 1);
+        if (arg != null) {
+          stm.bindString(i, arg);
+        } else {
+          stm.bindNull(i);
+        }
+      }
       return new CompiledUpdate(stm, tableNode.table.nameInQuery, dbConnection);
     }
   }

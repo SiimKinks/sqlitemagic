@@ -48,6 +48,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.FROM;
 import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
+import static com.siimkinks.sqlitemagic.WriterUtil.NOT_NULLABLE_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SIMPLE_ARRAY_MAP;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
@@ -222,7 +223,9 @@ public class GenClassesManagerWriter {
 
   private MethodSpec columnForValue(Environment environment, GenClassesManagerStep managerStep) {
     final TypeVariableName valType = TypeVariableName.get("V");
-    final ParameterizedTypeName returnType = ParameterizedTypeName.get(COLUMN, valType, valType, valType, anyWildcardTypeName());
+    final ParameterizedTypeName returnType = ParameterizedTypeName.get(COLUMN,
+        valType, valType, valType,
+        anyWildcardTypeName(), NOT_NULLABLE_COLUMN);
     final MethodSpec.Builder builder = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_COLUMN_FOR_VALUE)
         .addTypeVariable(valType)
         .addModifiers(STATIC_METHOD_MODIFIERS)

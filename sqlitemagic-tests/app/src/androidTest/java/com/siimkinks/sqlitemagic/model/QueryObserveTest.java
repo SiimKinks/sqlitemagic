@@ -217,7 +217,7 @@ public final class QueryObserveTest {
 
     assertThat(Update
         .table(AUTHOR)
-        .set(AUTHOR.NAME, "dsa")
+        .setNullable(AUTHOR.NAME, "dsa")
         .where(AUTHOR.ID.is(author.id))
         .execute())
         .isEqualTo(1);
@@ -239,7 +239,7 @@ public final class QueryObserveTest {
 
     assertThat(Update
         .table(AUTHOR)
-        .set(AUTHOR.NAME, "dsa")
+        .setNullable(AUTHOR.NAME, "dsa")
         .where(AUTHOR.NAME.is("asd"))
         .execute())
         .isEqualTo(0);

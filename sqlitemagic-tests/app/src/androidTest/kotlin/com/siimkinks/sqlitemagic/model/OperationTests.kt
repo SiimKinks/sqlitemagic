@@ -5,6 +5,7 @@ package com.siimkinks.sqlitemagic.model
 import android.os.Build
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.Column
+import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.*
@@ -202,7 +203,7 @@ interface DualOperation<PrepType, ModelType, TestReturnType> {
 
 interface TestModel<T> {
   val table: Table<T>
-  val idColumn: Column<Long, Long, Number, *>
+  val idColumn: Column<Long, Long, Number, *, *>
 
   fun deleteTable()
   fun newRandom(): T
@@ -299,7 +300,7 @@ class ComplexTestModelWithUniqueNullableColumns<T>(
 
 data class ChildMetadata(
     val table: Table<*>,
-    val idColumn: Column<Long, Long, Number, *>
+    val idColumn: Column<Long, Long, Number, *, NotNullable>
 )
 
 fun <T> insertNewRandom(model: TestModel<T>): Pair<T, Long> {

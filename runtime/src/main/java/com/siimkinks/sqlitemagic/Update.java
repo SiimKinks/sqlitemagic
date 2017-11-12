@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
+import android.support.annotation.*;
 
 import com.siimkinks.sqlitemagic.Select.Select1;
 
@@ -118,7 +117,7 @@ public final class Update extends UpdateSqlNode {
     }
 
     /**
-     * Update a column with new value.
+     * Update a not nullable column with new not nullable value.
      *
      * @param column Column to update. This param must be one of annotation processor
      *               generated column objects that corresponds to column in a database
@@ -130,8 +129,25 @@ public final class Update extends UpdateSqlNode {
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T> column, @NonNull V value) {
+    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T, NotNullable> column, @NonNull V value) {
       return new Set<>(this, new UpdateColumn<>(column).is(value));
+    }
+
+    /**
+     * Update a nullable column with new nullable value.
+     *
+     * @param column Column to update. This param must be one of annotation processor
+     *               generated column objects that corresponds to column in a database
+     *               table
+     * @param value  A new value to set for updated column
+     * @param <V>    Value type
+     * @param <R>    Column return type
+     * @param <ET>   Column equivalent type
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public <V, R, ET> Set<T> setNullable(@NonNull Column<V, R, ET, T, Nullable> column, @android.support.annotation.Nullable V value) {
+      return new Set<>(this, new UpdateColumn<>(column).isNullable(value));
     }
 
     /**
@@ -144,10 +160,11 @@ public final class Update extends UpdateSqlNode {
      * @param <V>    Value type
      * @param <R>    Column return type
      * @param <ET>   Column equivalent type
+     * @param <N>    Column nullability
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull ComplexColumn<V, R, ET, T> column, long value) {
+    public <V, R, ET, N> Set<T> set(@NonNull ComplexColumn<V, R, ET, T, N> column, long value) {
       return new Set<>(this, new UpdateColumn<>(column).is(value));
     }
 
@@ -164,11 +181,12 @@ public final class Update extends UpdateSqlNode {
      * @param <V>              Column value type
      * @param <R>              Column return type
      * @param <ET>             Column equivalent type
+     * @param <N>              Column nullability
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T> column,
-                                 @NonNull Column<?, ?, ? extends ET, ?> assignmentColumn) {
+    public <V, R, ET, N> Set<T> set(@NonNull Column<V, R, ET, T, N> column,
+                                    @NonNull Column<?, ?, ? extends ET, ?, ? super N> assignmentColumn) {
       return new Set<>(this, new UpdateColumn<>(column).is(assignmentColumn));
     }
 
@@ -183,22 +201,28 @@ public final class Update extends UpdateSqlNode {
      * @param <V>    Column value type
      * @param <R>    Column return type
      * @param <ET>   Column equivalent type
+     * @param <N>    Column nullability
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T> column,
-                                 @NonNull SelectSqlNode.SelectNode<? extends ET, Select1> select) {
+    public <V, R, ET, N> Set<T> set(@NonNull Column<V, R, ET, T, N> column,
+                                    @NonNull SelectSqlNode.SelectNode<? extends ET, Select1, ? super N> select) {
       return new Set<>(this, new UpdateColumn<>(column).is(select));
     }
   }
 
-  private static final class UpdateColumn<T, R, ET, P> extends ComplexColumn<T, R, ET, P> {
+  private static final class UpdateColumn<T, R, ET, P, N> extends ComplexColumn<T, R, ET, P, N> {
     @NonNull
-    private final Column<T, R, ET, P> parentColumn;
+    private final Column<T, R, ET, P, N> parentColumn;
 
-    UpdateColumn(@NonNull Column<T, R, ET, P> parentColumn) {
+    UpdateColumn(@NonNull Column<T, R, ET, P, N> parentColumn) {
       super(parentColumn.table, parentColumn.name, parentColumn.allFromTable, parentColumn.valueParser, parentColumn.nullable, parentColumn.alias);
       this.parentColumn = parentColumn;
+    }
+
+    Expr isNullable(@android.support.annotation.Nullable T value) {
+      final String nullableValue = value != null ? toSqlArg(value) : null;
+      return new Expr1(this, "=?", nullableValue);
     }
 
     @NonNull
@@ -241,7 +265,7 @@ public final class Update extends UpdateSqlNode {
     }
 
     /**
-     * Update a column with new value.
+     * Update a not nullable column with new not nullable value.
      *
      * @param column Column to update. This param must be one of annotation processor
      *               generated column objects that corresponds to column in a database
@@ -253,8 +277,28 @@ public final class Update extends UpdateSqlNode {
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T> column, @NonNull V value) {
+    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T, NotNullable> column, @NonNull V value) {
       final Expr expr = new UpdateColumn<>(column).is(value);
+      updates.add(expr);
+      expr.addArgs(updateBuilder.args);
+      return this;
+    }
+
+    /**
+     * Update a nullable column with new nullable value.
+     *
+     * @param column Column to update. This param must be one of annotation processor
+     *               generated column objects that corresponds to column in a database
+     *               table
+     * @param value  A new value to set for updated column
+     * @param <V>    Value type
+     * @param <R>    Column return type
+     * @param <ET>   Column equivalent type
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public <V, R, ET> Set<T> setNullable(@NonNull Column<V, R, ET, T, Nullable> column, @android.support.annotation.Nullable V value) {
+      final Expr expr = new UpdateColumn<>(column).isNullable(value);
       updates.add(expr);
       expr.addArgs(updateBuilder.args);
       return this;
@@ -270,10 +314,11 @@ public final class Update extends UpdateSqlNode {
      * @param <V>    Value type
      * @param <R>    Column return type
      * @param <ET>   Column equivalent type
+     * @param <N>    Column nullability
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull ComplexColumn<V, R, ET, T> column, long value) {
+    public <V, R, ET, N> Set<T> set(@NonNull ComplexColumn<V, R, ET, T, N> column, long value) {
       final Expr expr = new UpdateColumn<>(column).is(value);
       updates.add(expr);
       expr.addArgs(updateBuilder.args);
@@ -293,11 +338,12 @@ public final class Update extends UpdateSqlNode {
      * @param <V>              Column value type
      * @param <R>              Column return type
      * @param <ET>             Column equivalent type
+     * @param <N>              Column nullability
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T> column,
-                                 @NonNull Column<?, ?, ? extends ET, ?> assignmentColumn) {
+    public <V, R, ET, N> Set<T> set(@NonNull Column<V, R, ET, T, N> column,
+                                    @NonNull Column<?, ?, ? extends ET, ?, ? super N> assignmentColumn) {
       final Expr expr = new UpdateColumn<>(column).is(assignmentColumn);
       updates.add(expr);
       expr.addArgs(updateBuilder.args);
@@ -315,11 +361,12 @@ public final class Update extends UpdateSqlNode {
      * @param <V>    Column value type
      * @param <R>    Column return type
      * @param <ET>   Column equivalent type
+     * @param <N>    Column nullability
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> set(@NonNull Column<V, R, ET, T> column,
-                                 @NonNull SelectSqlNode.SelectNode<? extends ET, Select1> select) {
+    public <V, R, ET, N> Set<T> set(@NonNull Column<V, R, ET, T, N> column,
+                                 @NonNull SelectSqlNode.SelectNode<? extends ET, Select1, ? super N> select) {
       final Expr expr = new UpdateColumn<>(column).is(select);
       updates.add(expr);
       expr.addArgs(updateBuilder.args);

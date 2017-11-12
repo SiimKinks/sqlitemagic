@@ -20,13 +20,13 @@ fun DeleteSqlNode.isEqualTo(expectedSql: String, vararg withArgs: String) {
   assertThat(this.deleteBuilder.args).containsExactly(*withArgs)
 }
 
-fun UpdateSqlNode.isEqualTo(expectedSql: String, expectedNodeCount: Int, vararg expectedArgs: String) {
+fun UpdateSqlNode.isEqualTo(sql: String, nodeCount: Int, vararg args: String?) {
   val updateBuilder = updateBuilder
-  val sql = SqlCreator.getSql(updateBuilder.sqlTreeRoot, updateBuilder.sqlNodeCount)
-  assertThat(sql).isEqualTo(expectedSql)
-  assertThat(updateBuilder.sqlNodeCount).isEqualTo(expectedNodeCount)
+  val actualSql = SqlCreator.getSql(updateBuilder.sqlTreeRoot, updateBuilder.sqlNodeCount)
+  assertThat(actualSql).isEqualTo(sql)
+  assertThat(updateBuilder.sqlNodeCount).isEqualTo(nodeCount)
   assertThat(updateBuilder.args).isNotNull()
-  assertThat(updateBuilder.args).containsExactly(*expectedArgs)
+  assertThat(updateBuilder.args).containsExactly(*args)
 }
 
 fun CompiledRawSelect.isEqualTo(expectedSql: String,
@@ -63,7 +63,7 @@ fun generateSql(sqlNode: SelectSqlNode<*>): String {
   return SqlCreator.getSql(sqlNode, selectBuilder.sqlNodeCount)
 }
 
-fun <T, R, ET, P> Column<T, R, ET, P>.parsesWith(valueParser: ValueParser) {
+fun <T, R, ET, P, N> Column<T, R, ET, P, N>.parsesWith(valueParser: ValueParser) {
   assertThat(this.valueParser).isEqualTo(when (valueParser) {
     ValueParser.STRING -> STRING_PARSER
     ValueParser.INTEGER -> INTEGER_PARSER

@@ -14,15 +14,15 @@ final class BetweenExpr extends Expr {
   @Nullable
   private final String secondVal;
   @Nullable
-  private final Column<?, ?, ?, ?> firstColumn;
+  private final Column<?, ?, ?, ?, ?> firstColumn;
   @Nullable
-  private final Column<?, ?, ?, ?> secondColumn;
+  private final Column<?, ?, ?, ?, ?> secondColumn;
 
-  BetweenExpr(Column<?, ?, ?, ?> column,
+  BetweenExpr(Column<?, ?, ?, ?, ?> column,
               @Nullable String firstVal,
               @Nullable String secondVal,
-              @Nullable Column<?, ?, ?, ?> firstColumn,
-              @Nullable Column<?, ?, ?, ?> secondColumn,
+              @Nullable Column<?, ?, ?, ?, ?> firstColumn,
+              @Nullable Column<?, ?, ?, ?, ?> secondColumn,
               boolean not) {
     super(column, not ? " NOT " : " ");
     this.firstVal = firstVal;
@@ -89,7 +89,7 @@ final class BetweenExpr extends Expr {
   }
 
   @Override
-  boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
+  boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
     return super.containsColumn(column)
         || firstColumn != null && column.equals(firstColumn)
         || secondColumn != null && column.equals(secondColumn);

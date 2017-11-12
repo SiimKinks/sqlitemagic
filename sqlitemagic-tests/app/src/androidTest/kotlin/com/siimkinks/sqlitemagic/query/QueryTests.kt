@@ -153,7 +153,7 @@ interface QueryOperation<PrepType, TestReturnType> {
 }
 
 class SelectListQueryOperation<PrepType, SelectReturnType, SelectType>(
-    private val selectBuilder: () -> SelectSqlNode.SelectNode<SelectReturnType, SelectType>
+    private val selectBuilder: () -> SelectSqlNode.SelectNode<SelectReturnType, SelectType, *>
 ) : QueryOperation<PrepType, List<SelectReturnType>> {
   override fun executeTest(testVal: PrepType): List<SelectReturnType> = selectBuilder()
       .execute()
@@ -165,7 +165,7 @@ class SelectListQueryOperation<PrepType, SelectReturnType, SelectType>(
 }
 
 class SelectFirstQueryOperation<PrepType, SelectReturnType, SelectType>(
-    private val selectBuilder: () -> SelectSqlNode.SelectNode<SelectReturnType, SelectType>
+    private val selectBuilder: () -> SelectSqlNode.SelectNode<SelectReturnType, SelectType, *>
 ) : QueryOperation<PrepType, SelectReturnType?> {
   override fun executeTest(testVal: PrepType): SelectReturnType? = selectBuilder()
       .takeFirst()

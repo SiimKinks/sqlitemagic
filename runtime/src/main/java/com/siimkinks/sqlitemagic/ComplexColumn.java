@@ -18,8 +18,9 @@ import java.util.Iterator;
  * @param <R>  Return type (when this column is queried)
  * @param <ET> Equivalent type
  * @param <P>  Parent table type
+ * @param <N>  Column nullability
  */
-public class ComplexColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
+public class ComplexColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N> {
   ComplexColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
                 @NonNull ValueParser<?> valueParser, boolean nullable, @Nullable String alias) {
     super(table, name, allFromTable, valueParser, nullable, alias);

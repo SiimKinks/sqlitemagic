@@ -9,10 +9,10 @@ import java.util.LinkedList;
 
 final class ExprC extends Expr {
   @NonNull
-  private final Column<?, ?, ?, ?> exprColumn;
+  private final Column<?, ?, ?, ?, ?> exprColumn;
 
-  ExprC(@NonNull Column<?, ?, ?, ?> column, @NonNull String expr1, @NonNull Column<?, ?, ?, ?> exprColumn) {
-    super(column, expr1);
+  ExprC(@NonNull Column<?, ?, ?, ?, ?> column, @NonNull String op, @NonNull Column<?, ?, ?, ?, ?> exprColumn) {
+    super(column, op);
     this.exprColumn = exprColumn;
   }
 
@@ -49,7 +49,7 @@ final class ExprC extends Expr {
   }
 
   @Override
-  boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
+  boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
     return super.containsColumn(column) || column.equals(exprColumn);
   }
 }

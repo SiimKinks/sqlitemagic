@@ -38,7 +38,9 @@ import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
 import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER;
 import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER_WITH_COLUMN_OFFSET;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
+import static com.siimkinks.sqlitemagic.WriterUtil.NOT_NULLABLE_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
+import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.SIMPLE_ARRAY_MAP;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
@@ -191,20 +193,24 @@ public final class StructureWriter {
 
     for (BaseColumnElement columnElement : columns) {
       final TypeName columnImplType;
+      final ClassName nullabilityType = columnElement.isNullable() ? NULLABLE_COLUMN : NOT_NULLABLE_COLUMN;
       FormatData cursorGetter = FormatData.create(", $T." + columnElement.cursorParserConstantName(environment), UTIL);
       if (columnElement.hasTransformer()) {
-        columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(columnElement.getTransformer())), structureElementTypeName);
+        columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(
+            columnElement.getTransformer())), structureElementTypeName, nullabilityType);
       } else if (columnElement.isReferencedColumn()) {
         if (isView)
           continue; // do not support complex columns in views -- no way to reference them in queries
 
-        columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(columnElement.getReferencedTable())), structureElementTypeName);
+        columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(
+            columnElement.getReferencedTable())), structureElementTypeName, nullabilityType);
       } else {
         final ClassName columnClass = columnElement.isNumericType() ? NUMERIC_COLUMN : COLUMN;
         final TypeName columnDeserializedType = columnElement.getDeserializedTypeNameForGenerics();
         final TypeName columnSerializedType = columnElement.getSerializedTypeNameForGenerics();
         columnImplType = ParameterizedTypeName.get(columnClass,
-            columnDeserializedType, columnSerializedType, columnElement.getEquivalentType(), structureElementTypeName);
+            columnDeserializedType, columnSerializedType, columnElement.getEquivalentType(),
+            structureElementTypeName, nullabilityType);
         cursorGetter = FormatData.create(", false, $T." + columnElement.cursorParserConstantName(environment), UTIL);
       }
       final String fieldName = columnFieldName(columnElement);

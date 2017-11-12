@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic;
 
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode;
@@ -10,6 +9,7 @@ import com.siimkinks.sqlitemagic.Utils.ValueParser;
 
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
+import static com.siimkinks.sqlitemagic.Utils.numericConstantToSqlString;
 
 /**
  * A numeric column used in queries and conditions.
@@ -18,22 +18,23 @@ import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
  * @param <R>  Return type (when this column is queried)
  * @param <ET> Equivalent type
  * @param <P>  Parent table type
+ * @param <N>  Column nullability
  */
-public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
+public class NumericColumn<T, R, ET, P, N> extends Column<T, R, ET, P, N> {
   NumericColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-                @NonNull ValueParser<?> valueParser, boolean nullable, @Nullable String alias,
+                @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias,
                 @NonNull String nameInQuery) {
     super(table, name, allFromTable, valueParser, nullable, alias, nameInQuery);
   }
 
   NumericColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-                @NonNull ValueParser<?> valueParser, boolean nullable, @Nullable String alias) {
+                @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias) {
     super(table, name, allFromTable, valueParser, nullable, alias);
   }
 
   @Override
   @NonNull
-  public NumericColumn<T, R, ET, P> as(@NonNull String alias) {
+  public NumericColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new NumericColumn<>(table, name, allFromTable, valueParser, nullable, alias);
   }
 
@@ -59,7 +60,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends NumericColumn<?, ?, ? extends ET, ?>> Expr greaterThan(@NonNull C column) {
+  public final <C extends NumericColumn<?, ?, ? extends ET, ?, ?>> Expr greaterThan(@NonNull C column) {
     return new ExprC(this, ">", column);
   }
 
@@ -71,7 +72,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr greaterThan(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr greaterThan(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, ">", select);
   }
 
@@ -97,7 +98,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends NumericColumn<?, ?, ? extends ET, ?>> Expr greaterOrEqual(@NonNull C column) {
+  public final <C extends NumericColumn<?, ?, ? extends ET, ?, ?>> Expr greaterOrEqual(@NonNull C column) {
     return new ExprC(this, ">=", column);
   }
 
@@ -109,7 +110,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr greaterOrEqual(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr greaterOrEqual(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, ">=", select);
   }
 
@@ -135,7 +136,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends NumericColumn<?, ?, ? extends ET, ?>> Expr lessThan(@NonNull C column) {
+  public final <C extends NumericColumn<?, ?, ? extends ET, ?, ?>> Expr lessThan(@NonNull C column) {
     return new ExprC(this, "<", column);
   }
 
@@ -147,7 +148,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr lessThan(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr lessThan(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, "<", select);
   }
 
@@ -173,7 +174,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends NumericColumn<?, ?, ? extends ET, ?>> Expr lessOrEqual(@NonNull C column) {
+  public final <C extends NumericColumn<?, ?, ? extends ET, ?, ?>> Expr lessOrEqual(@NonNull C column) {
     return new ExprC(this, "<=", column);
   }
 
@@ -185,7 +186,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final Expr lessOrEqual(@NonNull SelectNode<? extends ET, Select1> select) {
+  public final Expr lessOrEqual(@NonNull SelectNode<? extends ET, Select1, ?> select) {
     return new ExprS(this, "<=", select);
   }
 
@@ -211,7 +212,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends NumericColumn<?, ?, ? extends ET, ?>> Between<T, ET> between(@NonNull C column) {
+  public final <C extends NumericColumn<?, ?, ? extends ET, ?, ?>> Between<T, ET> between(@NonNull C column) {
     return new Between<>(this, null, column, false);
   }
 
@@ -237,21 +238,23 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <C extends NumericColumn<?, ?, ? extends ET, ?>> Between<T, ET> notBetween(@NonNull C column) {
+  public final <C extends NumericColumn<?, ?, ? extends ET, ?, ?>> Between<T, ET> notBetween(@NonNull C column) {
     return new Between<>(this, null, column, true);
   }
 
   public static final class Between<T, ET> {
     @NonNull
-    final Column<T, ?, ?, ?> column;
-    @Nullable
+    final Column<T, ?, ?, ?, ?> column;
+    @android.support.annotation.Nullable
     final T firstVal;
-    @Nullable
-    final Column<?, ?, ?, ?> firstColumn;
+    @android.support.annotation.Nullable
+    final Column<?, ?, ?, ?, ?> firstColumn;
     final boolean not;
 
-    Between(@NonNull Column<T, ?, ?, ?> column, @Nullable T firstVal,
-            @Nullable Column<?, ?, ?, ?> firstColumn, boolean not) {
+    Between(@NonNull Column<T, ?, ?, ?, ?> column,
+            @android.support.annotation.Nullable T firstVal,
+            @android.support.annotation.Nullable Column<?, ?, ?, ?, ?> firstColumn,
+            boolean not) {
       this.column = column;
       this.firstVal = firstVal;
       this.firstColumn = firstColumn;
@@ -267,7 +270,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
     @NonNull
     @CheckResult
     public final Expr and(@NonNull T value) {
-      final Column<T, ?, ?, ?> column = this.column;
+      final Column<T, ?, ?, ?, ?> column = this.column;
       return new BetweenExpr(column, firstVal != null ? column.toSqlArg(firstVal) : null,
           column.toSqlArg(value), firstColumn, null, not);
     }
@@ -282,11 +285,22 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
      */
     @NonNull
     @CheckResult
-    public final <C extends NumericColumn<?, ?, ? extends ET, ?>> Expr and(@NonNull C column) {
-      final Column<T, ?, ?, ?> baseColumn = this.column;
+    public final <C extends NumericColumn<?, ?, ? extends ET, ?, ?>> Expr and(@NonNull C column) {
+      final Column<T, ?, ?, ?, ?> baseColumn = this.column;
       return new BetweenExpr(baseColumn, firstVal != null ? baseColumn.toSqlArg(firstVal) : null,
           null, firstColumn, column, not);
     }
+  }
+
+  /**
+   * This -column.
+   *
+   * @return Column that is the result of changing this column positive value to negative or vice versa.
+   */
+  @NonNull
+  @CheckResult
+  public final NumericColumn<T, R, ET, P, N> unaryMinus() {
+    return new FunctionCopyColumn<>(table.internalAlias(""), this, "-(", ')', nullable, null);
   }
 
   /**
@@ -298,8 +312,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <X extends NumericColumn<?, ?, ? extends Number, ?>> NumericColumn<Double, Double, Number, ?> add(@NonNull X column) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "+", ")", DOUBLE_PARSER, true, null);
+  public final <X extends NumericColumn<?, ?, ? extends Number, ?, ?>> NumericColumn<Double, Double, Number, ?, Nullable> add(@NonNull X column) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "+", ")", DOUBLE_PARSER, nullable || column.nullable, null);
   }
 
   /**
@@ -310,8 +324,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final NumericColumn<Double, Double, Number, P> add(@NonNull T value) {
-    return new FunctionColumn<>(table.internalAlias(""), this, "(", '+' + value.toString() + ')', DOUBLE_PARSER, true, null);
+  public final NumericColumn<Double, Double, Number, P, N> add(@NonNull T value) {
+    return new FunctionColumn<>(table.internalAlias(""), this, "(", '+' + numericConstantToSqlString(((Number) value)) + ')', DOUBLE_PARSER, nullable, null);
   }
 
   /**
@@ -323,8 +337,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <X extends NumericColumn<?, ?, ? extends Number, ?>> NumericColumn<Double, Double, Number, ?> sub(@NonNull X column) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "-", ")", DOUBLE_PARSER, true, null);
+  public final <X extends NumericColumn<?, ?, ? extends Number, ?, ?>> NumericColumn<Double, Double, Number, ?, Nullable> sub(@NonNull X column) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "-", ")", DOUBLE_PARSER, nullable || column.nullable, null);
   }
 
   /**
@@ -335,8 +349,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final NumericColumn<Double, Double, Number, P> sub(@NonNull T value) {
-    return new FunctionColumn<>(table.internalAlias(""), this, "(", "-" + value.toString() + ")", DOUBLE_PARSER, true, null);
+  public final NumericColumn<Double, Double, Number, P, N> sub(@NonNull T value) {
+    return new FunctionColumn<>(table.internalAlias(""), this, "(", "-" + numericConstantToSqlString(((Number) value)) + ")", DOUBLE_PARSER, nullable, null);
   }
 
   /**
@@ -348,8 +362,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <X extends NumericColumn<?, ?, ? extends Number, ?>> NumericColumn<Double, Double, Number, ?> mul(@NonNull X column) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "*", ")", DOUBLE_PARSER, true, null);
+  public final <X extends NumericColumn<?, ?, ? extends Number, ?, ?>> NumericColumn<Double, Double, Number, ?, Nullable> mul(@NonNull X column) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "*", ")", DOUBLE_PARSER, nullable || column.nullable, null);
   }
 
   /**
@@ -360,8 +374,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final NumericColumn<Double, Double, Number, P> mul(@NonNull T value) {
-    return new FunctionColumn<>(table.internalAlias(""), this, "(", "*" + value.toString() + ")", DOUBLE_PARSER, true, null);
+  public final NumericColumn<Double, Double, Number, P, N> mul(@NonNull T value) {
+    return new FunctionColumn<>(table.internalAlias(""), this, "(", "*" + numericConstantToSqlString(((Number) value)) + ")", DOUBLE_PARSER, nullable, null);
   }
 
   /**
@@ -373,8 +387,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <X extends NumericColumn<?, ?, ? extends Number, ?>> NumericColumn<Double, Double, Number, ?> div(@NonNull X column) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "/", ")", DOUBLE_PARSER, true, null);
+  public final <X extends NumericColumn<?, ?, ? extends Number, ?, ?>> NumericColumn<Double, Double, Number, ?, Nullable> div(@NonNull X column) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "/", ")", DOUBLE_PARSER, nullable || column.nullable, null);
   }
 
   /**
@@ -385,8 +399,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final NumericColumn<Double, Double, Number, P> div(@NonNull T value) {
-    return new FunctionColumn<>(table.internalAlias(""), this, "(", "/" + value.toString() + ")", DOUBLE_PARSER, true, null);
+  public final NumericColumn<Double, Double, Number, P, N> div(@NonNull T value) {
+    return new FunctionColumn<>(table.internalAlias(""), this, "(", "/" + numericConstantToSqlString(((Number) value)) + ")", DOUBLE_PARSER, nullable, null);
   }
 
   /**
@@ -398,8 +412,8 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final <X extends NumericColumn<?, ?, ? extends Number, ?>> NumericColumn<Double, Double, Number, ?> mod(@NonNull X column) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "%", ")", DOUBLE_PARSER, true, null);
+  public final <X extends NumericColumn<?, ?, ? extends Number, ?, ?>> NumericColumn<Double, Double, Number, ?, Nullable> mod(@NonNull X column) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, new Column[]{this, column}, "(", "%", ")", DOUBLE_PARSER, nullable || column.nullable, null);
   }
 
   /**
@@ -410,7 +424,7 @@ public class NumericColumn<T, R, ET, P> extends Column<T, R, ET, P> {
    */
   @NonNull
   @CheckResult
-  public final NumericColumn<Double, Double, Number, P> mod(@NonNull T value) {
-    return new FunctionColumn<>(table.internalAlias(""), this, "(", "%" + value.toString() + ")", DOUBLE_PARSER, true, null);
+  public final NumericColumn<Double, Double, Number, P, N> mod(@NonNull T value) {
+    return new FunctionColumn<>(table.internalAlias(""), this, "(", "%" + numericConstantToSqlString(((Number) value)) + ")", DOUBLE_PARSER, nullable, null);
   }
 }

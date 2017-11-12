@@ -15,9 +15,10 @@ final class ExprS extends Expr {
   @Nullable
   private ArrayList<String> parentObservedTables;
 
-  ExprS(@NonNull Column<?, ?, ?, ?> column, @NonNull String expr,
-        @NonNull SelectSqlNode.SelectNode<?, Select1> selectNode) {
-    super(column, expr);
+  ExprS(@NonNull Column<?, ?, ?, ?, ?> column,
+        @NonNull String op,
+        @NonNull SelectSqlNode.SelectNode<?, Select1, ?> selectNode) {
+    super(column, op);
     this.selectBuilder = selectNode.selectBuilder;
   }
 

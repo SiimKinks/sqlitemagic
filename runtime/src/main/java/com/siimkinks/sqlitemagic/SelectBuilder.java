@@ -15,7 +15,7 @@ final class SelectBuilder<S> {
   int sqlNodeCount;
   Select.From from;
   Select.Columns columnsNode;
-  Select.SingleColumn<?> columnNode;
+  Select.SingleColumn<?, ?> columnNode;
   final ArrayList<String> args = new ArrayList<>();
   final ArrayList<String> observedTables = new ArrayList<>();
   boolean deep;
@@ -35,7 +35,7 @@ final class SelectBuilder<S> {
     }
     final SimpleArrayMap<String, String> tableGraphNodeNames = selectFromTables != null ? new SimpleArrayMap<String, String>(selectFromTables.size()) : null;
     //noinspection unchecked
-    final Select.From<?, ?, ?> from = this.from;
+    final Select.From<?, ?, ?, ?> from = this.from;
     final Table<?> table = from.table;
     final SimpleArrayMap<String, LinkedList<String>> systemRenamedTables;
     if (deep) {
@@ -72,7 +72,7 @@ final class SelectBuilder<S> {
     final SimpleArrayMap<String, String> tableGraphNodeNames = selectFromTables != null ? new SimpleArrayMap<String, String>(selectFromTables.size()) : new SimpleArrayMap<String, String>();
     final SimpleArrayMap<String, LinkedList<String>> systemRenamedTables;
     //noinspection unchecked
-    final Select.From<T, ?, ?> from = this.from;
+    final Select.From<T, ?, ?, ?> from = this.from;
     final Table<T> table = from.table;
 
     if (deep) {
@@ -93,7 +93,7 @@ final class SelectBuilder<S> {
           sql,
           argsSize > 0 ? args.toArray(new String[argsSize]) : null,
           dbConnection,
-          (Column<?, T, ?, ?>) columnNode.column,
+          (Column<?, T, ?, ?, ?>) columnNode.column,
           this.observedTables.toArray(new String[this.observedTables.size()])
       );
     }

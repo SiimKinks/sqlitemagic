@@ -7,6 +7,8 @@ import com.siimkinks.sqlitemagic.DataClassWithFieldsTable.DATA_CLASS_WITH_FIELDS
 import com.siimkinks.sqlitemagic.DataClassWithMethodsTable.DATA_CLASS_WITH_METHODS
 import com.siimkinks.sqlitemagic.DataClassWithNullableFieldsTable.DATA_CLASS_WITH_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.DataClassWithNullableMethodsTable.DATA_CLASS_WITH_NULLABLE_METHODS
+import com.siimkinks.sqlitemagic.NotNullable
+import com.siimkinks.sqlitemagic.Nullable
 import com.siimkinks.sqlitemagic.SimpleDataClassWithFieldsAndUniqueTable.SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleDataClassWithMethodsAndUniqueTable.SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleImmutableWithBuilderAndUniqueTable.SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE
@@ -25,7 +27,7 @@ val simpleMutableAutoIdTestModel = TestModelWithNullableColumns<Author>(
     testModel = object : TestModel<Author> {
       override val table: Table<Author>
         get() = AUTHOR
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, Nullable>
         get() = AUTHOR.ID
 
       override fun deleteTable() {
@@ -78,7 +80,7 @@ val simpleMutableAutoIdTestModel = TestModelWithNullableColumns<Author>(
 val simpleImmutableWithBuilderAutoIdTestModel = object : TestModel<SimpleValueWithBuilder> {
   override val table: Table<SimpleValueWithBuilder>
     get() = SIMPLE_VALUE_WITH_BUILDER
-  override val idColumn: Column<Long, Long, Number, *>
+  override val idColumn: Column<Long, Long, Number, *, Nullable>
     get() = SIMPLE_VALUE_WITH_BUILDER.ID
 
   override fun deleteTable() {
@@ -113,7 +115,7 @@ val simpleImmutableWithBuilderAutoIdTestModel = object : TestModel<SimpleValueWi
 val simpleImmutableWithCreatorAutoIdTestModel = object : TestModel<SimpleValueWithCreator> {
   override val table: Table<SimpleValueWithCreator>
     get() = SIMPLE_VALUE_WITH_CREATOR
-  override val idColumn: Column<Long, Long, Number, *>
+  override val idColumn: Column<Long, Long, Number, *, Nullable>
     get() = SIMPLE_VALUE_WITH_CREATOR.ID
 
   override fun deleteTable() {
@@ -146,7 +148,7 @@ val simpleImmutableWithCreatorAutoIdTestModel = object : TestModel<SimpleValueWi
 val simpleDataClassWithFieldsAutoIdTestModel = object : TestModel<DataClassWithFields> {
   override val table: Table<DataClassWithFields>
     get() = DATA_CLASS_WITH_FIELDS
-  override val idColumn: Column<Long, Long, Number, *>
+  override val idColumn: Column<Long, Long, Number, *, Nullable>
     get() = DATA_CLASS_WITH_FIELDS.ID
 
   override fun deleteTable() {
@@ -179,7 +181,7 @@ val simpleDataClassWithFieldsAutoIdTestModel = object : TestModel<DataClassWithF
 val simpleDataClassWithMethodsAutoIdTestModel = object : TestModel<DataClassWithMethods> {
   override val table: Table<DataClassWithMethods>
     get() = DATA_CLASS_WITH_METHODS
-  override val idColumn: Column<Long, Long, Number, *>
+  override val idColumn: Column<Long, Long, Number, *, Nullable>
     get() = DATA_CLASS_WITH_METHODS.ID
 
   override fun deleteTable() {
@@ -213,7 +215,7 @@ val simpleMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableCol
     testModel = object : TestModel<SimpleMutableWithUnique> {
       override val table: Table<SimpleMutableWithUnique>
         get() = SIMPLE_MUTABLE_WITH_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = SIMPLE_MUTABLE_WITH_UNIQUE.ID
 
       override fun deleteTable() {
@@ -274,7 +276,7 @@ val simpleImmutableWithBuilderFixedIdUniqueNullableTestModel = TestModelWithUniq
     testModel = object : TestModel<SimpleImmutableWithBuilderAndUnique> {
       override val table: Table<SimpleImmutableWithBuilderAndUnique>
         get() = SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE.ID
 
       override fun deleteTable() {
@@ -330,7 +332,7 @@ val simpleImmutableWithCreatorFixedIdUniqueNullableTestModel = TestModelWithUniq
     testModel = object : TestModel<SimpleImmutableWithCreatorAndUnique> {
       override val table: Table<SimpleImmutableWithCreatorAndUnique>
         get() = SIMPLE_IMMUTABLE_WITH_CREATOR_AND_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = SIMPLE_IMMUTABLE_WITH_CREATOR_AND_UNIQUE.ID
 
       override fun deleteTable() {
@@ -382,7 +384,7 @@ val simpleDataClassWithFieldsFixedIdUniqueNullableTestModel = TestModelWithUniqu
     testModel = object : TestModel<SimpleDataClassWithFieldsAndUnique> {
       override val table: Table<SimpleDataClassWithFieldsAndUnique>
         get() = SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE.ID
 
       override fun deleteTable() {
@@ -434,7 +436,7 @@ val simpleDataClassWithMethodsFixedIdUniqueNullableTestModel = TestModelWithUniq
     testModel = object : TestModel<SimpleDataClassWithMethodsAndUnique> {
       override val table: Table<SimpleDataClassWithMethodsAndUnique>
         get() = SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE.ID
 
       override fun deleteTable() {
@@ -486,7 +488,7 @@ val simpleImmutableWithBuilderNullableTestModel = TestModelWithNullableColumns<S
     testModel = object: TestModel<SimpleValueWithBuilderAndNullableFields> {
       override val table: Table<SimpleValueWithBuilderAndNullableFields>
         get() = SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, Nullable>
         get() = SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS.ID
 
       override fun deleteTable() {
@@ -536,7 +538,7 @@ val simpleImmutableWithCreatorNullableTestModel = TestModelWithNullableColumns<S
     testModel = object: TestModel<SimpleValueWithCreatorAndNullableFields> {
       override val table: Table<SimpleValueWithCreatorAndNullableFields>
         get() = SIMPLE_VALUE_WITH_CREATOR_AND_NULLABLE_FIELDS
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, Nullable>
         get() = SIMPLE_VALUE_WITH_CREATOR_AND_NULLABLE_FIELDS.ID
 
       override fun deleteTable() {
@@ -584,7 +586,7 @@ val simpleDataClassWithFieldsNullableTestModel = TestModelWithNullableColumns<Da
     testModel = object: TestModel<DataClassWithNullableFields> {
       override val table: Table<DataClassWithNullableFields>
         get() = DATA_CLASS_WITH_NULLABLE_FIELDS
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, Nullable>
         get() = DATA_CLASS_WITH_NULLABLE_FIELDS.ID
 
       override fun deleteTable() {
@@ -633,7 +635,7 @@ val simpleDataClassWithMethodsNullableTestModel = TestModelWithNullableColumns<D
     testModel = object: TestModel<DataClassWithNullableMethods> {
       override val table: Table<DataClassWithNullableMethods>
         get() = DATA_CLASS_WITH_NULLABLE_METHODS
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, Nullable>
         get() = DATA_CLASS_WITH_NULLABLE_METHODS.ID
 
       override fun deleteTable() {

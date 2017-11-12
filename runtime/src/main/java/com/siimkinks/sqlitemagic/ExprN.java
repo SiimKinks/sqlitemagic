@@ -9,8 +9,8 @@ final class ExprN extends Expr {
   @NonNull
   private final String[] evalArgs;
 
-  ExprN(@NonNull Column<?, ?, ?, ?> column, @NonNull String expr, @NonNull String[] evalArgs) {
-    super(column, expr);
+  ExprN(@NonNull Column<?, ?, ?, ?, ?> column, @NonNull String op, @NonNull String[] evalArgs) {
+    super(column, op);
     this.evalArgs = evalArgs;
   }
 

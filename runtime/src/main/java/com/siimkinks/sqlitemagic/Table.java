@@ -28,7 +28,7 @@ public class Table<T> {
   final String nameInQuery;
   final int nrOfColumns;
   final boolean hasAlias;
-  private final Column<?, ?, ?, T> selectAllColumn;
+  private final Column<?, ?, ?, T, NotNullable> selectAllColumn;
 
   Table(@NonNull String name, @Nullable String alias, int nrOfColumns) {
     this.name = name;
@@ -93,7 +93,7 @@ public class Table<T> {
    * @return Column that represents all columns in this table
    */
   @NonNull
-  public final Column<?, ?, ?, T> all() {
+  public final Column<?, ?, ?, T, NotNullable> all() {
     return selectAllColumn;
   }
 
@@ -121,7 +121,7 @@ public class Table<T> {
       }
 
       @Override
-      boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
+      boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
         return expr.containsColumn(column);
       }
 
@@ -169,7 +169,7 @@ public class Table<T> {
     sb.append(')');
     return new JoinClause(this, "", sb.toString()) {
       @Override
-      boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
+      boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
         for (int i = 0; i < colLen; i++) {
           if (columns[i].equals(column)) {
             return true;

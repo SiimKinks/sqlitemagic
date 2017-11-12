@@ -560,6 +560,19 @@ class SelectSqlBuilderTest : DSLTests {
   }
 
   @Test
+  fun unaryExpr() {
+    (SELECT
+        FROM AUTHOR
+        WHERE !(AUTHOR.PRIMITIVE_BOOLEAN.isNotNull))
+        .isEqualTo("SELECT * FROM author WHERE NOT(author.primitive_boolean IS NOT NULL) ")
+
+    (SELECT
+        FROM AUTHOR
+        WHERE !((AUTHOR.PRIMITIVE_BOOLEAN GREATER_THAN AUTHOR.BOXED_BOOLEAN) AND AUTHOR.BOXED_BOOLEAN.isNotNull))
+        .isEqualTo("SELECT * FROM author WHERE NOT((author.primitive_boolean>author.boxed_boolean AND author.boxed_boolean IS NOT NULL)) ")
+  }
+
+  @Test
   fun numericExprWithSameType() {
     assertNumericExpr("=?", (MAGAZINE.NR_OF_RELEASES IS 4))
     assertNumericExpr("!=?", (MAGAZINE.NR_OF_RELEASES IS_NOT 4))
@@ -1011,7 +1024,7 @@ class SelectSqlBuilderTest : DSLTests {
     assertSimpleSubquery(" NOT IN ") { AUTHOR.NAME NOT_IN it }
   }
 
-  private fun assertSimpleSubquery(operator: String, callback: (SelectNode<String, Select1>) -> Expr) {
+  private fun assertSimpleSubquery(operator: String, callback: (SelectNode<String, Select1, *>) -> Expr) {
     val expectedBase = "SELECT * FROM author WHERE author.name%s(SELECT immutable_value_with_fields.string_value FROM immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.STRING_VALUE
@@ -1040,7 +1053,7 @@ class SelectSqlBuilderTest : DSLTests {
     assertEquivalentTypeNumericSubquery("<=") { MAGAZINE.NR_OF_RELEASES LESS_OR_EQUAL it }
   }
 
-  private fun assertSameTypeNumericSubquery(operator: String, callback: (SelectNode<Int, Select1>) -> Expr) {
+  private fun assertSameTypeNumericSubquery(operator: String, callback: (SelectNode<Int, Select1, *>) -> Expr) {
     val expectedBase = "SELECT * FROM magazine WHERE magazine.nr_of_releases%s(SELECT immutable_value_with_fields.integer FROM immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.INTEGER
@@ -1052,7 +1065,7 @@ class SelectSqlBuilderTest : DSLTests {
         .isEqualTo(String.format(expectedBase, operator))
   }
 
-  private fun assertEquivalentTypeNumericSubquery(operator: String, callback: (SelectNode<out Number, Select1>) -> Expr) {
+  private fun assertEquivalentTypeNumericSubquery(operator: String, callback: (SelectNode<out Number, Select1, *>) -> Expr) {
     val expectedBase = "SELECT * FROM magazine WHERE magazine.nr_of_releases%s(SELECT immutable_value_with_fields.a_double FROM immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.A_DOUBLE
@@ -1096,7 +1109,7 @@ class SelectSqlBuilderTest : DSLTests {
     assertEquivalentTypeComplexSubquery("<=") { MAGAZINE.AUTHOR LESS_OR_EQUAL it }
   }
 
-  private fun assertSameTypeComplexSubquery(operator: String, callback: (SelectNode<Long, Select1>) -> Expr) {
+  private fun assertSameTypeComplexSubquery(operator: String, callback: (SelectNode<Long, Select1, *>) -> Expr) {
     val expectedBase = "SELECT * FROM magazine WHERE magazine.author%s(SELECT magazine.author FROM magazine ) "
     val subQuery = (SELECT
         COLUMN MAGAZINE.AUTHOR
@@ -1108,7 +1121,7 @@ class SelectSqlBuilderTest : DSLTests {
         .isEqualTo(String.format(expectedBase, operator))
   }
 
-  private fun assertIdTypeComplexSubquery(operator: String, callback: (SelectNode<Long, Select1>) -> Expr) {
+  private fun assertIdTypeComplexSubquery(operator: String, callback: (SelectNode<Long, Select1, *>) -> Expr) {
     val expectedBase = "SELECT * FROM magazine WHERE magazine.author%s(SELECT magazine.id FROM magazine ) "
     val subQuery = (SELECT
         COLUMN MAGAZINE.ID
@@ -1120,7 +1133,7 @@ class SelectSqlBuilderTest : DSLTests {
         .isEqualTo(String.format(expectedBase, operator))
   }
 
-  private fun assertEquivalentTypeComplexSubquery(operator: String, callback: (SelectNode<Int, Select1>) -> Expr) {
+  private fun assertEquivalentTypeComplexSubquery(operator: String, callback: (SelectNode<Int, Select1, *>) -> Expr) {
     val expectedBase = "SELECT * FROM magazine WHERE magazine.author%s(SELECT immutable_value_with_fields.integer FROM immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.INTEGER
@@ -1130,6 +1143,29 @@ class SelectSqlBuilderTest : DSLTests {
         FROM MAGAZINE
         WHERE callback(subQuery))
         .isEqualTo(String.format(expectedBase, operator))
+  }
+
+  @Test
+  fun unaryMinus() {
+    (SELECT
+        COLUMN -(MAGAZINE.NR_OF_RELEASES - 42)
+        FROM MAGAZINE)
+        .isEqualTo("SELECT -((magazine.nr_of_releases-42)) FROM magazine ")
+
+    (SELECT
+        COLUMN -(MAGAZINE.NR_OF_RELEASES - -42)
+        FROM MAGAZINE)
+        .isEqualTo("SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ")
+
+    (SELECT
+        COLUMN -(MAGAZINE.NR_OF_RELEASES - 42.value)
+        FROM MAGAZINE)
+        .isEqualTo("SELECT -((magazine.nr_of_releases-42)) FROM magazine ")
+
+    (SELECT
+        COLUMN -(MAGAZINE.NR_OF_RELEASES - (-42).value)
+        FROM MAGAZINE)
+        .isEqualTo("SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ")
   }
 
   @Test
@@ -1296,9 +1332,9 @@ class SelectSqlBuilderTest : DSLTests {
   }
 
   private fun assertArithmeticExpression(op: Char,
-                                         columnCallback: (NumericColumn<Int, Int, Number, ImmutableValueWithFields>, NumericColumn<Short, Short, Number, ImmutableValueWithFields>) -> NumericColumn<*, *, *, *>,
-                                         columnValueCallback: (NumericColumn<Int, Int, Number, ImmutableValueWithFields>, NumericColumn<Long, Long, Number, *>) -> NumericColumn<*, *, *, *>,
-                                         valueCallback: (NumericColumn<Int, Int, Number, ImmutableValueWithFields>, Int) -> NumericColumn<*, *, *, *>) {
+                                         columnCallback: (NumericColumn<Int, Int, Number, ImmutableValueWithFields, *>, NumericColumn<Short, Short, Number, ImmutableValueWithFields, *>) -> NumericColumn<*, *, *, *, *>,
+                                         columnValueCallback: (NumericColumn<Int, Int, Number, ImmutableValueWithFields, *>, NumericColumn<Long, Long, Number, *, *>) -> NumericColumn<*, *, *, *, *>,
+                                         valueCallback: (NumericColumn<Int, Int, Number, ImmutableValueWithFields, *>, Int) -> NumericColumn<*, *, *, *, *>) {
     var expected = String.format("SELECT (immutable_value_with_fields.integer%simmutable_value_with_fields.a_short) FROM immutable_value_with_fields ", op)
     (SELECT
         COLUMN columnCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, IMMUTABLE_VALUE_WITH_FIELDS.A_SHORT)
@@ -1311,9 +1347,21 @@ class SelectSqlBuilderTest : DSLTests {
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
         .isEqualTo(expected)
 
+    expected = String.format("SELECT (immutable_value_with_fields.integer%s(-5)) FROM immutable_value_with_fields ", op)
+    (SELECT
+        COLUMN columnValueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, (-5L).value)
+        FROM IMMUTABLE_VALUE_WITH_FIELDS)
+        .isEqualTo(expected)
+
     expected = String.format("SELECT (immutable_value_with_fields.integer%s5) FROM immutable_value_with_fields ", op)
     (SELECT
         COLUMN valueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, 5)
+        FROM IMMUTABLE_VALUE_WITH_FIELDS)
+        .isEqualTo(expected)
+
+    expected = String.format("SELECT (immutable_value_with_fields.integer%s(-5)) FROM immutable_value_with_fields ", op)
+    (SELECT
+        COLUMN valueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, -5)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
         .isEqualTo(expected)
   }

@@ -27,48 +27,60 @@ inline infix fun <T> UpdateConflictAlgorithm.TABLE(table: Table<T>) = this.table
 
 /** @see Update.TableNode.set */
 @CheckResult
-inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T>, V>) =
+inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, NotNullable>, V>) =
     this.set(v.first, v.second)
+
+/** @see Update.TableNode.set */
+@JvmName("setNullable")
+@CheckResult
+inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, Nullable>, V?>) =
+    this.setNullable(v.first, v.second)
 
 /** @see Update.TableNode.set */
 @JvmName("setComplexColumn")
 @CheckResult
-inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<ComplexColumn<V, R, ET, T>, Long>) =
+inline infix fun <V, R, ET, T, N> TableNode<T>.SET(v: Pair<ComplexColumn<V, R, ET, T, N>, Long>) =
     this.set(v.first, v.second)
 
 /** @see Update.TableNode.set */
 @JvmName("setColumn")
 @CheckResult
-inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T>, Column<*, *, out ET, *>>) =
+inline infix fun <V, R, ET, T, N> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, N>, Column<*, *, out ET, *, in N>>) =
     this.set(v.first, v.second)
 
 /** @see Update.TableNode.set */
 @JvmName("setSelect")
 @CheckResult
-inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T>, SelectNode<out ET, Select1>>) =
+inline infix fun <V, R, ET, T, N> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, N>, SelectNode<out ET, Select1, in N>>) =
     this.set(v.first, v.second)
 
 /** @see Update.Set.set */
 @CheckResult
-inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T>, V>) =
+inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, NotNullable>, V>) =
     this.set(v.first, v.second)
+
+/** @see Update.Set.set */
+@JvmName("setNullable")
+@CheckResult
+inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, Nullable>, V?>) =
+    this.setNullable(v.first, v.second)
 
 /** @see Update.Set.set */
 @JvmName("setComplexColumn")
 @CheckResult
-inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<ComplexColumn<V, R, ET, T>, Long>) =
+inline infix fun <V, R, ET, T, N> Update.Set<T>.SET(v: Pair<ComplexColumn<V, R, ET, T, N>, Long>) =
     this.set(v.first, v.second)
 
 /** @see Update.Set.set */
 @JvmName("setColumn")
 @CheckResult
-inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T>, Column<*, *, out ET, *>>) =
+inline infix fun <V, R, ET, T, N> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, N>, Column<*, *, out ET, *, in N>>) =
     this.set(v.first, v.second)
 
 /** @see Update.Set.set */
 @JvmName("setSelect")
 @CheckResult
-inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T>, SelectNode<out ET, Select1>>) =
+inline infix fun <V, R, ET, T, N> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, N>, SelectNode<out ET, Select1, in N>>) =
     this.set(v.first, v.second)
 
 /** @see Update.Set.where */

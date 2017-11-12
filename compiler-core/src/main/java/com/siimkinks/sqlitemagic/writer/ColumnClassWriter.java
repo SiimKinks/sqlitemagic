@@ -55,6 +55,7 @@ public final class ColumnClassWriter {
   private final TypeName superClass;
   private final TypeName deserializedTypeName;
   private final TypeVariableName parentTableType;
+  private final TypeVariableName nullabilityType;
   @Nullable
   private final CodeBlock initBlock;
   private final ExtendedTypeElement serializedType;
@@ -69,6 +70,7 @@ public final class ColumnClassWriter {
     final TypeName deserializedTypeName = transformerElement.getDeserializedTypeNameForGenerics();
     final ClassName superClassName = transformerElement.isNumericType() ? NUMERIC_COLUMN : COLUMN;
     final TypeVariableName parentTableType = TypeVariableName.get("T");
+    final TypeVariableName nullabilityType = TypeVariableName.get("N");
     final ExtendedTypeElement serializedType = transformerElement.getSerializedType();
 
     return ColumnClassWriter.builder()
@@ -77,8 +79,10 @@ public final class ColumnClassWriter {
         .deserializedTypeName(deserializedTypeName)
         .serializedType(serializedType)
         .superClass(ParameterizedTypeName.get(superClassName,
-            deserializedTypeName, deserializedTypeName, deserializedTypeName, parentTableType))
+            deserializedTypeName, deserializedTypeName, deserializedTypeName,
+            parentTableType, nullabilityType))
         .parentTableType(parentTableType)
+        .nullabilityType(nullabilityType)
         .valueGetter(transformerElement.serializedValueGetter(VAL_VARIABLE))
         .transformerElement(transformerElement)
         .nullable(!serializedType.isPrimitiveElement())
@@ -91,14 +95,17 @@ public final class ColumnClassWriter {
     final TypeName deserializedTypeName = tableElement.getTableElementTypeName();
     final TypeName serializedTypeName = idColumn.getSerializedTypeNameForGenerics();
     final TypeVariableName parentTableType = TypeVariableName.get("T");
+    final TypeVariableName nullabilityType = TypeVariableName.get("N");
     final String className = getClassName(tableElement);
 
     final ColumnClassWriterBuilder builder = ColumnClassWriter.builder()
         .environment(environment)
         .className(className)
         .superClass(ParameterizedTypeName.get(COMPLEX_COLUMN,
-            deserializedTypeName, serializedTypeName, idColumn.getEquivalentType(), parentTableType))
+            deserializedTypeName, serializedTypeName, idColumn.getEquivalentType(),
+            parentTableType, nullabilityType))
         .parentTableType(parentTableType)
+        .nullabilityType(nullabilityType)
         .deserializedTypeName(deserializedTypeName)
         .serializedType(idColumn.getSerializedType())
         .valueGetter(tableElement.serializedValueGetter(VAL_VARIABLE))
@@ -110,6 +117,7 @@ public final class ColumnClassWriter {
     final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
         .addModifiers(CLASS_MODIFIERS)
         .addTypeVariable(parentTableType)
+        .addTypeVariable(nullabilityType)
         .superclass(superClass)
         .addMethod(constructor())
         .addMethod(toSqlArg())
@@ -177,7 +185,8 @@ public final class ColumnClassWriter {
 
   @NonNull
   private MethodSpec aliasOverride() {
-    final TypeName classType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, className), parentTableType);
+    final TypeName classType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, className),
+        parentTableType, nullabilityType);
     return MethodSpec.methodBuilder("as")
         .addAnnotation(NON_NULL)
         .addAnnotation(Override.class)

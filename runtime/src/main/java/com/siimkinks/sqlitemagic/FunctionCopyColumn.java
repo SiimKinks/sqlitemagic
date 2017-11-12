@@ -18,17 +18,18 @@ import java.util.LinkedList;
  * @param <R>  Return type (when this column is queried)
  * @param <ET> Equivalent type
  * @param <P>  Parent table type
+ * @param <N>  Column nullability
  */
-final class FunctionCopyColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
+final class FunctionCopyColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N> {
   @NonNull
-  private final Column<T, R, ET, P> wrappedColumn;
+  private final Column<T, R, ET, P, N> wrappedColumn;
   @NonNull
   private final String prefix;
   private final char suffix;
   private boolean compiledToSelection = false;
 
   FunctionCopyColumn(@NonNull Table<P> table,
-                     @NonNull Column<T, R, ET, P> wrappedColumn,
+                     @NonNull Column<T, R, ET, P, N> wrappedColumn,
                      @NonNull String prefix,
                      char suffix,
                      boolean nullable,
@@ -121,7 +122,7 @@ final class FunctionCopyColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
   @Override
   @NonNull
   @CheckResult
-  public FunctionCopyColumn<T, R, ET, P> as(@NonNull String alias) {
+  public FunctionCopyColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new FunctionCopyColumn<>(table, wrappedColumn, prefix, suffix, nullable, alias);
   }
 }

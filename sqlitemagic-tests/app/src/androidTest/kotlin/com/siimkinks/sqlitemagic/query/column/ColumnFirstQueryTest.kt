@@ -32,7 +32,7 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
 
   class QueryFirstFromFilledSimpleAllValuesMutableTable<T>(
       value: (SimpleAllValuesMutable) -> T,
-      selection: () -> SelectSqlNode.SelectNode<T, Select.Select1>,
+      selection: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
       assertResults: (T, T) -> Unit = resultIsEqualToExpected()
   ) : QueryTestCase<T, T>(
       "Querying first value from table returns expected result",
@@ -51,7 +51,7 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
 
   class QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTable<T>(
       nullValue: (SimpleAllValuesMutable) -> Unit,
-      selection: () -> SelectSqlNode.SelectNode<T, Select.Select1>
+      selection: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>
   ) : QueryTestCase<Unit, T>(
       "Querying first nullable column from filled table returns null",
       setUp = {

@@ -301,7 +301,7 @@ public final class DbConnectionTest {
     assertThat(Select.from(AUTHOR).usingConnection(newConnection).count().execute()).isEqualTo(1);
 
     Update.table(AUTHOR)
-        .set(AUTHOR.NAME, "asd")
+        .setNullable(AUTHOR.NAME, "asd")
         .usingConnection(newConnection)
         .execute();
 
@@ -348,7 +348,7 @@ public final class DbConnectionTest {
     ts2.assertValue(a2.name);
 
     Update.table(AUTHOR)
-        .set(AUTHOR.NAME, "asd")
+        .setNullable(AUTHOR.NAME, "asd")
         .usingConnection(newConnection)
         .execute();
 

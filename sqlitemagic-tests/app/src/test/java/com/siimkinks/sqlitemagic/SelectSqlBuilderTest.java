@@ -439,7 +439,7 @@ public final class SelectSqlBuilderTest {
     String expected = "SELECT book.*,book.title || ' ' || book.nr_of_releases AS 'search_column' " +
         "FROM book " +
         "WHERE book.title=search_column ";
-    final Column<String, String, CharSequence, ?> searchColumn = concat(BOOK.TITLE, val(" "), BOOK.NR_OF_RELEASES).as("search_column");
+    final Column<String, String, CharSequence, ?, ?> searchColumn = concat(BOOK.TITLE, val(" "), BOOK.NR_OF_RELEASES).as("search_column");
     SelectSqlNode sqlNode = Select
         .columns(BOOK.all(), searchColumn)
         .from(BOOK)
@@ -449,7 +449,7 @@ public final class SelectSqlBuilderTest {
     expected = "SELECT trim(book.title) AS 'trimmed_title' " +
         "FROM book " +
         "WHERE trim(book.title)=trimmed_title ";
-    final Column<String, String, CharSequence, ?> trimmedTitle = BOOK.TITLE.trim().as("trimmed_title");
+    final Column<String, String, CharSequence, ?, ?> trimmedTitle = BOOK.TITLE.trim().as("trimmed_title");
     sqlNode = Select
         .column(trimmedTitle)
         .from(BOOK)
@@ -632,6 +632,21 @@ public final class SelectSqlBuilderTest {
 
     assertSql(Select.from(AUTHOR).where(expr),
         String.format(expectedBase, operator));
+  }
+
+  @Test
+  public void unaryExpr() {
+    assertSql(Select
+            .from(AUTHOR)
+            .where(AUTHOR.PRIMITIVE_BOOLEAN.isNotNull().not()),
+        "SELECT * FROM author WHERE NOT(author.primitive_boolean IS NOT NULL) ");
+
+    assertSql(Select
+            .from(AUTHOR)
+            .where(AUTHOR.PRIMITIVE_BOOLEAN.greaterThan(AUTHOR.BOXED_BOOLEAN)
+                .and(AUTHOR.BOXED_BOOLEAN.isNotNull())
+                .not()),
+        "SELECT * FROM author WHERE NOT((author.primitive_boolean>author.boxed_boolean AND author.boxed_boolean IS NOT NULL)) ");
   }
 
   @Test
@@ -1211,38 +1226,38 @@ public final class SelectSqlBuilderTest {
 
   @Test
   public void simpleSubquery() {
-    assertSimpleSubquery("=", new Func1<SelectSqlNode.SelectNode<String, Select1>, Expr>() {
+    assertSimpleSubquery("=", new Func1<SelectSqlNode.SelectNode<String, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<String, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<String, Select1, ?> selectNode) {
         return AUTHOR.NAME.is(selectNode);
       }
     });
 
-    assertSimpleSubquery("!=", new Func1<SelectSqlNode.SelectNode<String, Select1>, Expr>() {
+    assertSimpleSubquery("!=", new Func1<SelectSqlNode.SelectNode<String, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<String, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<String, Select1, ?> selectNode) {
         return AUTHOR.NAME.isNot(selectNode);
       }
     });
 
-    assertSimpleSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<String, Select1>, Expr>() {
+    assertSimpleSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<String, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<String, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<String, Select1, ?> selectNode) {
         return AUTHOR.NAME.in(selectNode);
       }
     });
 
-    assertSimpleSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<String, Select1>, Expr>() {
+    assertSimpleSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<String, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<String, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<String, Select1, ?> selectNode) {
         return AUTHOR.NAME.notIn(selectNode);
       }
     });
   }
 
-  private void assertSimpleSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<String, Select1>, Expr> callback) {
+  private void assertSimpleSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<String, Select1, ?>, Expr> callback) {
     final String expectedBase = "SELECT * FROM author WHERE author.name%s(SELECT simple_all_values_mutable.string FROM simple_all_values_mutable ) ";
-    final SelectSqlNode.SelectNode<String, Select1> subQuery = Select
+    final SelectSqlNode.SelectNode<String, Select1, ?> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.STRING)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
 
@@ -1252,84 +1267,84 @@ public final class SelectSqlBuilderTest {
 
   @Test
   public void numericSubquery() {
-    assertSameTypeNumericSubquery("=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery("=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.is(selectNode);
       }
     });
-    assertSameTypeNumericSubquery("!=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery("!=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.isNot(selectNode);
       }
     });
-    assertSameTypeNumericSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.in(selectNode);
       }
     });
-    assertSameTypeNumericSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.notIn(selectNode);
       }
     });
-    assertSameTypeNumericSubquery(">", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery(">", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.greaterThan(selectNode);
       }
     });
-    assertSameTypeNumericSubquery(">=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery(">=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.greaterOrEqual(selectNode);
       }
     });
-    assertSameTypeNumericSubquery("<", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery("<", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.lessThan(selectNode);
       }
     });
-    assertSameTypeNumericSubquery("<=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertSameTypeNumericSubquery("<=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.lessOrEqual(selectNode);
       }
     });
 
-    assertEquivalentTypeNumericSubquery(">", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1>, Expr>() {
+    assertEquivalentTypeNumericSubquery(">", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.greaterThan(selectNode);
       }
     });
-    assertEquivalentTypeNumericSubquery(">=", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1>, Expr>() {
+    assertEquivalentTypeNumericSubquery(">=", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.greaterOrEqual(selectNode);
       }
     });
-    assertEquivalentTypeNumericSubquery("<", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1>, Expr>() {
+    assertEquivalentTypeNumericSubquery("<", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.lessThan(selectNode);
       }
     });
-    assertEquivalentTypeNumericSubquery("<=", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1>, Expr>() {
+    assertEquivalentTypeNumericSubquery("<=", new Func1<SelectSqlNode.SelectNode<? extends Number, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<? extends Number, Select1, ?> selectNode) {
         return BOOK.NR_OF_RELEASES.lessOrEqual(selectNode);
       }
     });
   }
 
-  private void assertSameTypeNumericSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr> callback) {
+  private void assertSameTypeNumericSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr> callback) {
     final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%s(SELECT simple_all_values_mutable.primitive_int FROM simple_all_values_mutable ) ";
-    final SelectSqlNode.SelectNode<Integer, Select1> subQuery = Select
+    final SelectSqlNode.SelectNode<Integer, Select1, ?> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
 
@@ -1337,9 +1352,9 @@ public final class SelectSqlBuilderTest {
         String.format(expectedBase, operator));
   }
 
-  private void assertEquivalentTypeNumericSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<? extends Number, Select1>, Expr> callback) {
+  private void assertEquivalentTypeNumericSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<? extends Number, Select1, ?>, Expr> callback) {
     final String expectedBase = "SELECT * FROM book WHERE book.nr_of_releases%s(SELECT simple_all_values_mutable.boxed_double FROM simple_all_values_mutable ) ";
-    final SelectSqlNode.SelectNode<Double, Select1> subQuery = Select
+    final SelectSqlNode.SelectNode<Double, Select1, ?> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.BOXED_DOUBLE)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
 
@@ -1349,159 +1364,159 @@ public final class SelectSqlBuilderTest {
 
   @Test
   public void complexSubquery() {
-    assertSameTypeComplexSubquery("=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery("=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.is(selectNode);
       }
     });
-    assertSameTypeComplexSubquery("!=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery("!=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.isNot(selectNode);
       }
     });
-    assertSameTypeComplexSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.in(selectNode);
       }
     });
-    assertSameTypeComplexSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.notIn(selectNode);
       }
     });
-    assertSameTypeComplexSubquery(">", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery(">", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.greaterThan(selectNode);
       }
     });
-    assertSameTypeComplexSubquery(">=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery(">=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.greaterOrEqual(selectNode);
       }
     });
-    assertSameTypeComplexSubquery("<", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery("<", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.lessThan(selectNode);
       }
     });
-    assertSameTypeComplexSubquery("<=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertSameTypeComplexSubquery("<=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.lessOrEqual(selectNode);
       }
     });
 
 
-    assertIdTypeComplexSubquery("=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery("=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.is(selectNode);
       }
     });
-    assertIdTypeComplexSubquery("!=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery("!=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.isNot(selectNode);
       }
     });
-    assertIdTypeComplexSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.in(selectNode);
       }
     });
-    assertIdTypeComplexSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.notIn(selectNode);
       }
     });
-    assertIdTypeComplexSubquery(">", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery(">", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.greaterThan(selectNode);
       }
     });
-    assertIdTypeComplexSubquery(">=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery(">=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.greaterOrEqual(selectNode);
       }
     });
-    assertIdTypeComplexSubquery("<", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery("<", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.lessThan(selectNode);
       }
     });
-    assertIdTypeComplexSubquery("<=", new Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr>() {
+    assertIdTypeComplexSubquery("<=", new Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Long, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Long, Select1, ?> selectNode) {
         return BOOK.AUTHOR.lessOrEqual(selectNode);
       }
     });
 
 
-    assertEquivalentTypeComplexSubquery("=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery("=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.is(selectNode);
       }
     });
-    assertEquivalentTypeComplexSubquery("!=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery("!=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.isNot(selectNode);
       }
     });
-    assertEquivalentTypeComplexSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery(" IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.in(selectNode);
       }
     });
-    assertEquivalentTypeComplexSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery(" NOT IN ", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.notIn(selectNode);
       }
     });
-    assertEquivalentTypeComplexSubquery(">", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery(">", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.greaterThan(selectNode);
       }
     });
-    assertEquivalentTypeComplexSubquery(">=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery(">=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.greaterOrEqual(selectNode);
       }
     });
-    assertEquivalentTypeComplexSubquery("<", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery("<", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.lessThan(selectNode);
       }
     });
-    assertEquivalentTypeComplexSubquery("<=", new Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr>() {
+    assertEquivalentTypeComplexSubquery("<=", new Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr>() {
       @Override
-      public Expr call(SelectSqlNode.SelectNode<Integer, Select1> selectNode) {
+      public Expr call(SelectSqlNode.SelectNode<Integer, Select1, ?> selectNode) {
         return BOOK.AUTHOR.lessOrEqual(selectNode);
       }
     });
   }
 
-  private void assertSameTypeComplexSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr> callback) {
+  private void assertSameTypeComplexSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr> callback) {
     final String expectedBase = "SELECT * FROM book WHERE book.author%s(SELECT magazine.author FROM magazine ) ";
-    final SelectSqlNode.SelectNode<Long, Select1> subQuery = Select
+    final SelectSqlNode.SelectNode<Long, Select1, ?> subQuery = Select
         .column(MAGAZINE.AUTHOR)
         .from(MAGAZINE);
 
@@ -1509,9 +1524,9 @@ public final class SelectSqlBuilderTest {
         String.format(expectedBase, operator));
   }
 
-  private void assertIdTypeComplexSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Long, Select1>, Expr> callback) {
+  private void assertIdTypeComplexSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Long, Select1, ?>, Expr> callback) {
     final String expectedBase = "SELECT * FROM book WHERE book.author%s(SELECT magazine._id FROM magazine ) ";
-    final SelectSqlNode.SelectNode<Long, Select1> subQuery = Select
+    final SelectSqlNode.SelectNode<Long, Select1, ?> subQuery = Select
         .column(MAGAZINE._ID)
         .from(MAGAZINE);
 
@@ -1519,14 +1534,37 @@ public final class SelectSqlBuilderTest {
         String.format(expectedBase, operator));
   }
 
-  private void assertEquivalentTypeComplexSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Integer, Select1>, Expr> callback) {
+  private void assertEquivalentTypeComplexSubquery(@NonNull String operator, @NonNull Func1<SelectSqlNode.SelectNode<Integer, Select1, ?>, Expr> callback) {
     final String expectedBase = "SELECT * FROM book WHERE book.author%s(SELECT simple_all_values_mutable.primitive_int FROM simple_all_values_mutable ) ";
-    final SelectSqlNode.SelectNode<Integer, Select1> subQuery = Select
+    final SelectSqlNode.SelectNode<Integer, Select1, ?> subQuery = Select
         .column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT)
         .from(SIMPLE_ALL_VALUES_MUTABLE);
 
     assertSql(Select.from(BOOK).where(callback.call(subQuery)),
         String.format(expectedBase, operator));
+  }
+
+  @Test
+  public void unaryMinus() {
+    assertSql(Select
+            .column(MAGAZINE.NR_OF_RELEASES.sub(42).unaryMinus())
+            .from(MAGAZINE),
+        "SELECT -((magazine.nr_of_releases-42)) FROM magazine ");
+
+    assertSql(Select
+            .column(MAGAZINE.NR_OF_RELEASES.sub(-42).unaryMinus())
+            .from(MAGAZINE),
+        "SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ");
+
+    assertSql(Select
+            .column(MAGAZINE.NR_OF_RELEASES.sub(val(42)).unaryMinus())
+            .from(MAGAZINE),
+        "SELECT -((magazine.nr_of_releases-42)) FROM magazine ");
+
+    assertSql(Select
+            .column(MAGAZINE.NR_OF_RELEASES.sub(val(-42)).unaryMinus())
+            .from(MAGAZINE),
+        "SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ");
   }
 
   @Test
@@ -1749,57 +1787,103 @@ public final class SelectSqlBuilderTest {
   @Test
   public void valColumn() {
     String expected = "SELECT author.id || ' ' || author.name FROM author ";
-    final Column<String, String, CharSequence, ?> strVal = val(" ");
+    final Column<String, String, CharSequence, ?, ?> strVal = val(" ");
     assertSql(Select.column(concat(AUTHOR.ID, strVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(strVal.valueParser).isEqualTo(STRING_PARSER);
 
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Integer, Integer, Number, ?> intVal = val(3);
+    final NumericColumn<Integer, Integer, Number, ?, ?> intVal = val(3);
     assertSql(Select.column(concat(AUTHOR.ID, intVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(intVal.valueParser).isEqualTo(INTEGER_PARSER);
 
+    expected = "SELECT author.id || (-3) || author.name FROM author ";
+    final NumericColumn<Integer, Integer, Number, ?, ?> negIntVal = val(-3);
+    assertSql(Select.column(concat(AUTHOR.ID, negIntVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negIntVal.valueParser).isEqualTo(INTEGER_PARSER);
+
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Long, Long, Number, ?> longVal = val(3L);
+    final NumericColumn<Long, Long, Number, ?, ?> longVal = val(3L);
     assertSql(Select.column(concat(AUTHOR.ID, longVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(longVal.valueParser).isEqualTo(LONG_PARSER);
 
+    expected = "SELECT author.id || (-3) || author.name FROM author ";
+    final NumericColumn<Long, Long, Number, ?, ?> negLongVal = val(-3L);
+    assertSql(Select.column(concat(AUTHOR.ID, negLongVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negLongVal.valueParser).isEqualTo(LONG_PARSER);
+
     final short s = 3;
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Short, Short, Number, ?> shortVal = val(s);
+    final NumericColumn<Short, Short, Number, ?, ?> shortVal = val(s);
     assertSql(Select.column(concat(AUTHOR.ID, shortVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(shortVal.valueParser).isEqualTo(SHORT_PARSER);
 
+    final short negS = -3;
+    expected = "SELECT author.id || (-3) || author.name FROM author ";
+    final NumericColumn<Short, Short, Number, ?, ?> negShortVal = val(negS);
+    assertSql(Select.column(concat(AUTHOR.ID, negShortVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negShortVal.valueParser).isEqualTo(SHORT_PARSER);
+
     final byte b = 3;
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Byte, Byte, Number, ?> byteVal = val(b);
+    final NumericColumn<Byte, Byte, Number, ?, ?> byteVal = val(b);
     assertSql(Select.column(concat(AUTHOR.ID, byteVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(byteVal.valueParser).isEqualTo(BYTE_PARSER);
 
+    final byte nB = -3;
+    expected = "SELECT author.id || (-3) || author.name FROM author ";
+    final NumericColumn<Byte, Byte, Number, ?, ?> negByteVal = val(nB);
+    assertSql(Select.column(concat(AUTHOR.ID, negByteVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negByteVal.valueParser).isEqualTo(BYTE_PARSER);
+
     final float f = 3.3f;
     expected = "SELECT author.id || 3.3 || author.name FROM author ";
-    final NumericColumn<Float, Float, Number, ?> floatVal = val(f);
+    final NumericColumn<Float, Float, Number, ?, ?> floatVal = val(f);
     assertSql(Select.column(concat(AUTHOR.ID, floatVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(floatVal.valueParser).isEqualTo(FLOAT_PARSER);
 
+    final float nF = -3.3f;
+    expected = "SELECT author.id || (-3.3) || author.name FROM author ";
+    final NumericColumn<Float, Float, Number, ?, ?> negFloatVal = val(nF);
+    assertSql(Select.column(concat(AUTHOR.ID, negFloatVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negFloatVal.valueParser).isEqualTo(FLOAT_PARSER);
+
     final double d = 3.3;
     expected = "SELECT author.id || 3.3 || author.name FROM author ";
-    final NumericColumn<Double, Double, Number, ?> doubleVal = val(d);
+    final NumericColumn<Double, Double, Number, ?, ?> doubleVal = val(d);
     assertSql(Select.column(concat(AUTHOR.ID, doubleVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(doubleVal.valueParser).isEqualTo(DOUBLE_PARSER);
+
+    final double nD = -3.3;
+    expected = "SELECT author.id || (-3.3) || author.name FROM author ";
+    final NumericColumn<Double, Double, Number, ?, ?> negDoubleVal = val(nD);
+    assertSql(Select.column(concat(AUTHOR.ID, negDoubleVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negDoubleVal.valueParser).isEqualTo(DOUBLE_PARSER);
   }
 
   @Test
@@ -1849,21 +1933,21 @@ public final class SelectSqlBuilderTest {
   @Test
   public void addFunction() {
     assertArithmeticExpression('+',
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> v2) {
             return v1.add(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.add(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, Integer v2) {
             return v1.add(v2);
           }
         });
@@ -1872,21 +1956,21 @@ public final class SelectSqlBuilderTest {
   @Test
   public void subFunction() {
     assertArithmeticExpression('-',
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> v2) {
             return v1.sub(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.sub(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, Integer v2) {
             return v1.sub(v2);
           }
         });
@@ -1895,21 +1979,21 @@ public final class SelectSqlBuilderTest {
   @Test
   public void mulFunction() {
     assertArithmeticExpression('*',
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> v2) {
             return v1.mul(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.mul(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, Integer v2) {
             return v1.mul(v2);
           }
         });
@@ -1918,21 +2002,21 @@ public final class SelectSqlBuilderTest {
   @Test
   public void divFunction() {
     assertArithmeticExpression('/',
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> v2) {
             return v1.div(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.div(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, Integer v2) {
             return v1.div(v2);
           }
         });
@@ -1941,21 +2025,21 @@ public final class SelectSqlBuilderTest {
   @Test
   public void modFunction() {
     assertArithmeticExpression('%',
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> v2) {
             return v1.mod(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.mod(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?> v1, Integer v2) {
             return v1.mod(v2);
           }
         });
@@ -1975,9 +2059,9 @@ public final class SelectSqlBuilderTest {
   }
 
   private void assertArithmeticExpression(char op,
-                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable>, NumericColumn> columnCallback,
-                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, NumericColumn<Long, Long, Number, ?>, NumericColumn> columnValueCallback,
-                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable>, Integer, NumericColumn> valueCallback) {
+                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?>, NumericColumn> columnCallback,
+                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn> columnValueCallback,
+                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, SimpleAllValuesMutable, ?>, Integer, NumericColumn> valueCallback) {
     String expected = String.format("SELECT (simple_all_values_mutable.primitive_int%ssimple_all_values_mutable.primitive_short) FROM simple_all_values_mutable ", op);
     assertSql(Select.column(columnCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
@@ -1988,8 +2072,18 @@ public final class SelectSqlBuilderTest {
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
 
+    expected = String.format("SELECT (simple_all_values_mutable.primitive_int%s(-5)) FROM simple_all_values_mutable ", op);
+    assertSql(Select.column(columnValueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, val(-5L)))
+            .from(SIMPLE_ALL_VALUES_MUTABLE),
+        expected);
+
     expected = String.format("SELECT (simple_all_values_mutable.primitive_int%s5) FROM simple_all_values_mutable ", op);
     assertSql(Select.column(valueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, 5))
+            .from(SIMPLE_ALL_VALUES_MUTABLE),
+        expected);
+
+    expected = String.format("SELECT (simple_all_values_mutable.primitive_int%s(-5)) FROM simple_all_values_mutable ", op);
+    assertSql(Select.column(valueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, -5))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
   }

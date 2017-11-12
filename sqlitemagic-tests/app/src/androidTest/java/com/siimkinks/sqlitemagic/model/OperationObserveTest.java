@@ -566,7 +566,7 @@ public final class OperationObserveTest {
 
     assertThat(Update
         .table(BUILDER_MAGAZINE)
-        .set(BUILDER_MAGAZINE.NAME, "asdasd")
+        .setNullable(BUILDER_MAGAZINE.NAME, "asdasd")
         .observe()
         .blockingGet())
         .isEqualTo(1);

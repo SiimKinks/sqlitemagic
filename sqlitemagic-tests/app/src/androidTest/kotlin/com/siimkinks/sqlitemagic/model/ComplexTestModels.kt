@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.AuthorTable.AUTHOR
 import com.siimkinks.sqlitemagic.BuilderMagazineTable.BUILDER_MAGAZINE
-import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.ComplexDataClassWithFieldsAndUniqueTable.COMPLEX_DATA_CLASS_WITH_FIELDS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.ComplexDataClassWithFieldsTable.COMPLEX_DATA_CLASS_WITH_FIELDS
 import com.siimkinks.sqlitemagic.ComplexDataClassWithMethodsAndUniqueTable.COMPLEX_DATA_CLASS_WITH_METHODS_AND_UNIQUE
@@ -13,12 +13,9 @@ import com.siimkinks.sqlitemagic.ComplexImmutableCreatorWithUniqueTable.COMPLEX_
 import com.siimkinks.sqlitemagic.ComplexMutableWithUniqueTable.COMPLEX_MUTABLE_WITH_UNIQUE
 import com.siimkinks.sqlitemagic.CreatorMagazineTable.CREATOR_MAGAZINE
 import com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SimpleMutableWithUniqueTable.SIMPLE_MUTABLE_WITH_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER
 import com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE_WITH_CREATOR
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.Utils
 import com.siimkinks.sqlitemagic.entity.*
 import com.siimkinks.sqlitemagic.model.TestUtil.assertTableCount
 import com.siimkinks.sqlitemagic.model.immutable.*
@@ -28,7 +25,7 @@ val complexMutableAutoIdTestModel = ComplexTestModelWithNullableColumns(
     testModel = object : TestModel<Magazine> {
       override val table: Table<Magazine>
         get() = MAGAZINE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = MAGAZINE._ID
 
       override fun deleteTable() {
@@ -100,7 +97,7 @@ val complexImmutableWithBuilderAutoIdTestModel = ComplexTestModelWithNullableCol
     testModel = object : TestModel<BuilderMagazine> {
       override val table: Table<BuilderMagazine>
         get() = BUILDER_MAGAZINE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = BUILDER_MAGAZINE.ID
 
       override fun deleteTable() {
@@ -185,7 +182,7 @@ val complexImmutableWithCreatorAutoIdTestModel = ComplexTestModelWithNullableCol
     testModel = object : TestModel<CreatorMagazine> {
       override val table: Table<CreatorMagazine>
         get() = CREATOR_MAGAZINE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = CREATOR_MAGAZINE.ID
 
       override fun deleteTable() {
@@ -271,7 +268,7 @@ val complexDataClassWithFieldsAutoIdTestModel = ComplexTestModelWithNullableColu
     testModel = object : TestModel<ComplexDataClassWithFields> {
       override val table: Table<ComplexDataClassWithFields>
         get() = COMPLEX_DATA_CLASS_WITH_FIELDS
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = COMPLEX_DATA_CLASS_WITH_FIELDS.ID
 
       override fun deleteTable() {
@@ -357,7 +354,7 @@ val complexDataClassWithMethodsAutoIdTestModel = ComplexTestModelWithNullableCol
     testModel = object : TestModel<ComplexDataClassWithMethods> {
       override val table: Table<ComplexDataClassWithMethods>
         get() = COMPLEX_DATA_CLASS_WITH_METHODS
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = COMPLEX_DATA_CLASS_WITH_METHODS.ID
 
       override fun deleteTable() {
@@ -443,7 +440,7 @@ val complexMutableFixedIdUniqueNullableTestModel = ComplexTestModelWithUniqueNul
     testModel = object : TestModel<ComplexMutableWithUnique> {
       override val table: Table<ComplexMutableWithUnique>
         get() = COMPLEX_MUTABLE_WITH_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = COMPLEX_MUTABLE_WITH_UNIQUE.ID
 
       override fun deleteTable() {
@@ -537,7 +534,7 @@ val complexImmutableWithBuilderFixedIdUniqueNullableTestModel = ComplexTestModel
     testModel = object : TestModel<ComplexImmutableBuilderWithUnique> {
       override val table: Table<ComplexImmutableBuilderWithUnique>
         get() = COMPLEX_IMMUTABLE_BUILDER_WITH_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = COMPLEX_IMMUTABLE_BUILDER_WITH_UNIQUE.ID
 
       override fun deleteTable() {
@@ -643,7 +640,7 @@ val complexImmutableWithCreatorFixedIdUniqueNullableTestModel = ComplexTestModel
     testModel = object : TestModel<ComplexImmutableCreatorWithUnique> {
       override val table: Table<ComplexImmutableCreatorWithUnique>
         get() = COMPLEX_IMMUTABLE_CREATOR_WITH_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = COMPLEX_IMMUTABLE_CREATOR_WITH_UNIQUE.ID
 
       override fun deleteTable() {
@@ -750,7 +747,7 @@ val complexDataClassWithFieldsFixedIdUniqueNullableTestModel = ComplexTestModelW
     testModel = object : TestModel<ComplexDataClassWithFieldsAndUnique> {
       override val table: Table<ComplexDataClassWithFieldsAndUnique>
         get() = COMPLEX_DATA_CLASS_WITH_FIELDS_AND_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = COMPLEX_DATA_CLASS_WITH_FIELDS_AND_UNIQUE.ID
 
       override fun deleteTable() {
@@ -857,7 +854,7 @@ val complexDataClassWithMethodsFixedIdUniqueNullableTestModel = ComplexTestModel
     testModel = object : TestModel<ComplexDataClassWithMethodsAndUnique> {
       override val table: Table<ComplexDataClassWithMethodsAndUnique>
         get() = COMPLEX_DATA_CLASS_WITH_METHODS_AND_UNIQUE
-      override val idColumn: Column<Long, Long, Number, *>
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
         get() = COMPLEX_DATA_CLASS_WITH_METHODS_AND_UNIQUE.ID
 
       override fun deleteTable() {

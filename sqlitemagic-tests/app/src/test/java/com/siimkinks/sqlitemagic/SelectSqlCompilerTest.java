@@ -763,27 +763,27 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexAvgFunction() {
-    assertNumericFunction("avg(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("avg(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return avg(c);
       }
     });
-    assertNumericFunction("avg(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("avg(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return avgDistinct(c);
       }
     });
-    assertNumericFunctionWithSystemRename("avg(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("avg(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return avg(c);
       }
     });
-    assertNumericFunctionWithSystemRename("avg(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("avg(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return avgDistinct(c);
       }
     });
@@ -791,27 +791,27 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexCountFunction() {
-    assertNumericFunction("count(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("count(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return count(c);
       }
     });
-    assertNumericFunction("count(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("count(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return countDistinct(c);
       }
     });
-    assertNumericFunctionWithSystemRename("count(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("count(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return count(c);
       }
     });
-    assertNumericFunctionWithSystemRename("count(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("count(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return countDistinct(c);
       }
     });
@@ -819,51 +819,51 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexGroupConcatFunction() {
-    assertFunction("group_concat(", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("group_concat(", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return groupConcat(c);
       }
     });
-    assertFunction("group_concat(DISTINCT ", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("group_concat(DISTINCT ", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return groupConcatDistinct(c);
       }
     });
-    assertFunctionWithSystemRename("group_concat(", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("group_concat(", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return groupConcat(c);
       }
     });
-    assertFunctionWithSystemRename("group_concat(DISTINCT ", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("group_concat(DISTINCT ", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return groupConcatDistinct(c);
       }
     });
-    assertNumericFunction("group_concat(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("group_concat(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return groupConcat(c);
       }
     });
-    assertNumericFunction("group_concat(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("group_concat(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return groupConcatDistinct(c);
       }
     });
-    assertNumericFunctionWithSystemRename("group_concat(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("group_concat(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return groupConcat(c);
       }
     });
-    assertNumericFunctionWithSystemRename("group_concat(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("group_concat(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return groupConcatDistinct(c);
       }
     });
@@ -871,51 +871,51 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexMaxFunction() {
-    assertFunction("max(", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("max(", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return max(c);
       }
     });
-    assertFunction("max(DISTINCT ", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("max(DISTINCT ", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return maxDistinct(c);
       }
     });
-    assertFunctionWithSystemRename("max(", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("max(", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return max(c);
       }
     });
-    assertFunctionWithSystemRename("max(DISTINCT ", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("max(DISTINCT ", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return maxDistinct(c);
       }
     });
-    assertNumericFunction("max(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("max(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return max(c);
       }
     });
-    assertNumericFunction("max(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("max(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return maxDistinct(c);
       }
     });
-    assertNumericFunctionWithSystemRename("max(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("max(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return max(c);
       }
     });
-    assertNumericFunctionWithSystemRename("max(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("max(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return maxDistinct(c);
       }
     });
@@ -923,51 +923,51 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexMinFunction() {
-    assertFunction("min(", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("min(", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return min(c);
       }
     });
-    assertFunction("min(DISTINCT ", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("min(DISTINCT ", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return minDistinct(c);
       }
     });
-    assertFunctionWithSystemRename("min(", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("min(", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return min(c);
       }
     });
-    assertFunctionWithSystemRename("min(DISTINCT ", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("min(DISTINCT ", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return minDistinct(c);
       }
     });
-    assertNumericFunction("min(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("min(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return min(c);
       }
     });
-    assertNumericFunction("min(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("min(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return minDistinct(c);
       }
     });
-    assertNumericFunctionWithSystemRename("min(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("min(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return min(c);
       }
     });
-    assertNumericFunctionWithSystemRename("min(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("min(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return minDistinct(c);
       }
     });
@@ -975,27 +975,27 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexSumFunction() {
-    assertNumericFunction("total(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("total(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return sum(c);
       }
     });
-    assertNumericFunction("total(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("total(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return sumDistinct(c);
       }
     });
-    assertNumericFunctionWithSystemRename("total(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("total(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return sum(c);
       }
     });
-    assertNumericFunctionWithSystemRename("total(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("total(DISTINCT ", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return sumDistinct(c);
       }
     });
@@ -1028,15 +1028,15 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexAbsFunction() {
-    assertNumericFunction("abs(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("abs(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return abs(c);
       }
     });
-    assertNumericFunctionWithSystemRename("abs(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("abs(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return abs(c);
       }
     });
@@ -1044,27 +1044,27 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexLengthFunction() {
-    assertFunction("length(", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("length(", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return length(c);
       }
     });
-    assertFunctionWithSystemRename("length(", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("length(", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return length(c);
       }
     });
-    assertNumericFunction("length(", new Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>>() {
+    assertNumericFunction("length(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
-      public Column<?, ?, ?, Book> call(NumericColumn<Integer, Integer, Number, Book> c) {
+      public Column<?, ?, ?, Book, ?> call(NumericColumn<Integer, Integer, Number, Book, ?> c) {
         return length(c);
       }
     });
-    assertNumericFunctionWithSystemRename("length(", new Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertNumericFunctionWithSystemRename("length(", new Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(NumericColumn<Integer, Integer, Number, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(NumericColumn<Integer, Integer, Number, Magazine, ?> c) {
         return length(c);
       }
     });
@@ -1072,15 +1072,15 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexLowerFunction() {
-    assertFunction("lower(", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("lower(", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return lower(c);
       }
     });
-    assertFunctionWithSystemRename("lower(", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("lower(", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return lower(c);
       }
     });
@@ -1088,15 +1088,15 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void complexUpperFunction() {
-    assertFunction("upper(", new Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>>() {
+    assertFunction("upper(", new Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>>() {
       @Override
-      public Column<?, ?, ?, Author> call(Column<String, String, CharSequence, Author> c) {
+      public Column<?, ?, ?, Author, ?> call(Column<String, String, CharSequence, Author, ?> c) {
         return upper(c);
       }
     });
-    assertFunctionWithSystemRename("upper(", new Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>>() {
+    assertFunctionWithSystemRename("upper(", new Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>>() {
       @Override
-      public Column<?, ?, ?, Magazine> call(Column<String, String, CharSequence, Magazine> c) {
+      public Column<?, ?, ?, Magazine, ?> call(Column<String, String, CharSequence, Magazine, ?> c) {
         return upper(c);
       }
     });
@@ -1105,21 +1105,21 @@ public final class SelectSqlCompilerTest {
   @Test
   public void addFunction() {
     assertArithmeticExpression('+',
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Integer, Integer, Number, Book>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Integer, Integer, Number, Book, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Integer, Integer, Number, Book> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Integer, Integer, Number, Book, ?> v2) {
             return v1.add(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.add(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, Integer v2) {
             return v1.add(v2);
           }
         });
@@ -1128,21 +1128,21 @@ public final class SelectSqlCompilerTest {
   @Test
   public void subFunction() {
     assertArithmeticExpression('-',
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Integer, Integer, Number, Book>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Integer, Integer, Number, Book, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Integer, Integer, Number, Book> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Integer, Integer, Number, Book, ?> v2) {
             return v1.sub(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.sub(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, Integer v2) {
             return v1.sub(v2);
           }
         });
@@ -1151,21 +1151,21 @@ public final class SelectSqlCompilerTest {
   @Test
   public void mulFunction() {
     assertArithmeticExpression('*',
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Integer, Integer, Number, Book>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Integer, Integer, Number, Book, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Integer, Integer, Number, Book> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Integer, Integer, Number, Book, ?> v2) {
             return v1.mul(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.mul(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, Integer v2) {
             return v1.mul(v2);
           }
         });
@@ -1174,21 +1174,21 @@ public final class SelectSqlCompilerTest {
   @Test
   public void divFunction() {
     assertArithmeticExpression('/',
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Integer, Integer, Number, Book>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Integer, Integer, Number, Book, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Integer, Integer, Number, Book> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Integer, Integer, Number, Book, ?> v2) {
             return v1.div(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.div(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, Integer v2) {
             return v1.div(v2);
           }
         });
@@ -1197,21 +1197,21 @@ public final class SelectSqlCompilerTest {
   @Test
   public void modFunction() {
     assertArithmeticExpression('%',
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Integer, Integer, Number, Book>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Integer, Integer, Number, Book, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Integer, Integer, Number, Book> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Integer, Integer, Number, Book, ?> v2) {
             return v1.mod(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Long, Long, Number, ?>, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, NumericColumn<Long, Long, Number, ?> v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, NumericColumn<Long, Long, Number, ?, ?> v2) {
             return v1.mod(v2);
           }
         },
-        new Func2<NumericColumn<Integer, Integer, Number, Magazine>, Integer, NumericColumn>() {
+        new Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, Integer, NumericColumn>() {
           @Override
-          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine> v1, Integer v2) {
+          public NumericColumn call(NumericColumn<Integer, Integer, Number, Magazine, ?> v1, Integer v2) {
             return v1.mod(v2);
           }
         });
@@ -1234,9 +1234,9 @@ public final class SelectSqlCompilerTest {
 
   @SuppressWarnings("unchecked")
   private void assertArithmeticExpression(char op,
-                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Integer, Integer, Number, Book>, NumericColumn> columnCallback,
-                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine>, NumericColumn<Long, Long, Number, ?>, NumericColumn> columnValueCallback,
-                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine>, Integer, NumericColumn> valueCallback) {
+                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Integer, Integer, Number, Book, ?>, NumericColumn> columnCallback,
+                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, NumericColumn<Long, Long, Number, ?, ?>, NumericColumn> columnValueCallback,
+                                          @NonNull Func2<NumericColumn<Integer, Integer, Number, Magazine, ?>, Integer, NumericColumn> valueCallback) {
     CompiledSelectMetadata.assertThat()
         .sqlWithWildcards(String.format("SELECT (?.nr_of_releases%sbook.nr_of_releases) FROM complex_object_with_same_leafs " +
             "LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
@@ -1270,7 +1270,7 @@ public final class SelectSqlCompilerTest {
   }
 
   private void assertFunction(@NonNull String func,
-                              @NonNull Func1<Column<String, String, CharSequence, Author>, Column<?, ?, ?, Author>> funcCall) {
+                              @NonNull Func1<Column<String, String, CharSequence, Author, ?>, Column<?, ?, ?, Author, ?>> funcCall) {
     CompiledSelectMetadata.assertThat()
         .sql(String.format("SELECT %sauthor.name) FROM book LEFT JOIN author ON book.author=author.id ", func))
         .observedTables("book", "author")
@@ -1282,7 +1282,7 @@ public final class SelectSqlCompilerTest {
   }
 
   private void assertFunctionWithSystemRename(@NonNull String func,
-                                              @NonNull Func1<Column<String, String, CharSequence, Magazine>, Column<?, ?, ?, Magazine>> funcCall) {
+                                              @NonNull Func1<Column<String, String, CharSequence, Magazine, ?>, Column<?, ?, ?, Magazine, ?>> funcCall) {
     CompiledSelectMetadata.assertThat()
         .sqlWithWildcards(String.format("SELECT %s?.name) FROM complex_object_with_same_leafs LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ", func))
         .observedTables("complex_object_with_same_leafs", "magazine")
@@ -1294,7 +1294,7 @@ public final class SelectSqlCompilerTest {
   }
 
   private void assertNumericFunction(@NonNull String func,
-                                     @NonNull Func1<NumericColumn<Integer, Integer, Number, Book>, Column<?, ?, ?, Book>> funcCall) {
+                                     @NonNull Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>> funcCall) {
     CompiledSelectMetadata.assertThat()
         .sql(String.format("SELECT %sbook.nr_of_releases) FROM complex_object_with_same_leafs LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id ", func))
         .observedTables("complex_object_with_same_leafs", "book")
@@ -1306,7 +1306,7 @@ public final class SelectSqlCompilerTest {
   }
 
   private void assertNumericFunctionWithSystemRename(@NonNull String func,
-                                                     @NonNull Func1<NumericColumn<Integer, Integer, Number, Magazine>, Column<?, ?, ?, Magazine>> funcCall) {
+                                                     @NonNull Func1<NumericColumn<Integer, Integer, Number, Magazine, ?>, Column<?, ?, ?, Magazine, ?>> funcCall) {
     CompiledSelectMetadata.assertThat()
         .sqlWithWildcards(String.format("SELECT %s?.nr_of_releases) FROM complex_object_with_same_leafs LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ", func))
         .observedTables("complex_object_with_same_leafs", "magazine")
@@ -1409,7 +1409,7 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void selectionAsColumnUsedMultipleTimes() {
-    final NumericColumn<Long, Long, Long, ?> same_authors = Select
+    final NumericColumn<Long, Long, Long, ?, ?> same_authors = Select
         .column(count())
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
@@ -1475,7 +1475,7 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void selectionAsColumnWrappedInFunctionColumnUsedMultipleTimes() {
-    final Column<String, String, CharSequence, ?> mag_name = lower(Select
+    final Column<String, String, CharSequence, ?, ?> mag_name = lower(Select
         .column(MAGAZINE.NAME)
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
@@ -1540,7 +1540,7 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void selectionAsColumnWrappedInFunctionCopyColumnUsedMultipleTimes() {
-    final NumericColumn<Long, Long, Long, ?> same_authors = abs(Select
+    final NumericColumn<Long, Long, Long, ?, ?> same_authors = abs(Select
         .column(count())
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
@@ -1576,7 +1576,7 @@ public final class SelectSqlCompilerTest {
 
   @Test
   public void selectionAsColumnUsedInExpression() {
-    final NumericColumn<Long, Long, Long, ?> same_authors = Select
+    final NumericColumn<Long, Long, Long, ?, ?> same_authors = Select
         .column(count())
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))

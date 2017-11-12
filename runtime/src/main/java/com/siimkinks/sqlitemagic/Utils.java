@@ -93,6 +93,16 @@ public final class Utils {
     }
   }
 
+  @NonNull
+  @CheckResult
+  static <V extends Number> String numericConstantToSqlString(@NonNull V val) {
+    final String strVal = val.toString();
+    if (val.intValue() < 0) {
+      return '(' + strVal + ')';
+    }
+    return strVal;
+  }
+
   static <V extends Number> ValueParser parserForNumberType(V val) {
     if (val instanceof Long) {
       return LONG_PARSER;

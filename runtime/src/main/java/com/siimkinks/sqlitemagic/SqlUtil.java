@@ -47,7 +47,7 @@ public final class SqlUtil {
   }
 
   @Invokes(INVOCATION_METHOD_COLUMN_FOR_VALUE)
-  public static <V> Column<V, V, V, ?> columnForValue(@NonNull V val) {
+  public static <V> Column<V, V, V, ?, NotNullable> columnForValue(@NonNull V val) {
     // filled with magic
     throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }

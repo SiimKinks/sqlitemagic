@@ -77,7 +77,7 @@ public final class TestUtil {
                                                               UpdateObjectCallback<T> updateObjectCallback) {
     try {
       final Field idField = testObjectClass.getDeclaredField("id");
-      SelectSqlNode.SelectNode<T, SelectN> selectBuilder = Select
+      SelectSqlNode.SelectNode<T, SelectN, ?> selectBuilder = Select
           .from(table);
       if (queryDeep) {
         selectBuilder = selectBuilder.queryDeep();

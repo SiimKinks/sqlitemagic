@@ -58,7 +58,7 @@ public class JoinClause extends SqlClause {
     return table.hasAlias;
   }
 
-  boolean containsColumn(@NonNull Column<?, ?, ?, ?> column) {
+  boolean containsColumn(@NonNull Column<?, ?, ?, ?, ?> column) {
     return true;
   }
 
@@ -67,7 +67,7 @@ public class JoinClause extends SqlClause {
 
   static int indexOf(@NonNull Table<?> table,
                      @NonNull ArrayList<JoinClause> array,
-                     @NonNull Column<?, ?, ?, ?> joinedOnColumn) {
+                     @NonNull Column<?, ?, ?, ?, ?> joinedOnColumn) {
     if (array.isEmpty()) {
       return -1;
     }

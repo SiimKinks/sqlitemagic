@@ -19,8 +19,9 @@ import java.util.LinkedList;
  * @param <R>  Return type (when this column is queried)
  * @param <ET> Equivalent type
  * @param <P>  Parent table type
+ * @param <N>  Column nullability
  */
-final class FunctionColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
+final class FunctionColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N> {
   @NonNull
   private final Column[] wrappedColumns;
   @NonNull
@@ -143,7 +144,7 @@ final class FunctionColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
   @Override
   @NonNull
   @CheckResult
-  public FunctionColumn<T, R, ET, P> as(@NonNull String alias) {
+  public FunctionColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new FunctionColumn<>(table, wrappedColumns, prefix, separator, suffix, valueParser, nullable, alias);
   }
 }

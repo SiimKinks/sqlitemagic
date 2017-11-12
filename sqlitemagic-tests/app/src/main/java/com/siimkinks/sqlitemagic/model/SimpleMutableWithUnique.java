@@ -25,9 +25,21 @@ public class SimpleMutableWithUnique {
   @Nullable
   String string;
 
+  public long getId() {
+    return id;
+  }
+
   @Nullable
   public String getString() {
     return string;
+  }
+
+  public void setString(@Nullable String string) {
+    this.string = string;
+  }
+
+  public void setUniqueVal(long uniqueVal) {
+    this.uniqueVal = uniqueVal;
   }
 
   public static SimpleMutableWithUnique newRandom() {

@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.internal.StringArraySet;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
+import static com.siimkinks.sqlitemagic.Utils.numericConstantToSqlString;
 import static com.siimkinks.sqlitemagic.internal.StringArraySet.BASE_SIZE;
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
@@ -36,7 +37,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   public interface SelectN {
   }
 
-  static final Column<?, ?, ?, ?>[] ALL = new Column<?, ?, ?, ?>[0];
+  static final Column<?, ?, ?, ?, ?>[] ALL = new Column<?, ?, ?, ?, ?>[0];
 
   @NonNull
   private final String stmt;
@@ -75,10 +76,11 @@ public final class Select<S> extends SelectSqlNode<S> {
    *               generated column objects that correspond to a column in a database
    *               table
    * @param <R>    Java type that column represents
+   * @param <N>    Selection return type nullability
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  public static <R> SingleColumn<R> column(@NonNull Column<?, R, ?, ?> column) {
+  public static <R, N> SingleColumn<R, N> column(@NonNull Column<?, R, ?, ?, N> column) {
     return new SingleColumn<>(new Select<Select1>("SELECT"), column);
   }
 
@@ -91,7 +93,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  public static Columns columns(@NonNull @Size(min = 1) Column<?, ?, ?, ?>... columns) {
+  public static Columns columns(@NonNull @Size(min = 1) Column<?, ?, ?, ?, ?>... columns) {
     return new Columns(new Select<SelectN>("SELECT"), columns);
   }
 
@@ -120,10 +122,11 @@ public final class Select<S> extends SelectSqlNode<S> {
    *               generated column objects that corresponds to column in a database
    *               table
    * @param <R>    Java type that column represents
+   * @param <N>    Selection return type nullability
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  public static <R> SingleColumn<R> distinct(@NonNull Column<?, R, ?, ?> column) {
+  public static <R, N> SingleColumn<R, N> distinct(@NonNull Column<?, R, ?, ?, N> column) {
     return new SingleColumn<>(new Select<Select1>("SELECT DISTINCT"), column);
   }
 
@@ -140,7 +143,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  public static Columns distinct(@NonNull @Size(min = 1) Column<?, ?, ?, ?>... columns) {
+  public static Columns distinct(@NonNull @Size(min = 1) Column<?, ?, ?, ?, ?>... columns) {
     return new Columns(new Select<SelectN>("SELECT DISTINCT"), columns);
   }
 
@@ -155,7 +158,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  public static <T> From<T, T, SelectN> from(@NonNull Table<T> table) {
+  public static <T> From<T, T, SelectN, NotNullable> from(@NonNull Table<T> table) {
     return new From<>(all(), table);
   }
 
@@ -174,12 +177,13 @@ public final class Select<S> extends SelectSqlNode<S> {
    * Builder for SQL SELECT statement.
    *
    * @param <R> Selection return type
+   * @param <N> Selection return type nullability
    */
-  public static final class SingleColumn<R> extends SelectSqlNode<Select1> {
+  public static final class SingleColumn<R, N> extends SelectSqlNode<Select1> {
     @NonNull
-    final Column<?, R, ?, ?> column;
+    final Column<?, R, ?, ?, N> column;
 
-    SingleColumn(@Nullable SelectSqlNode<Select1> parent, @NonNull Column<?, R, ?, ?> column) {
+    SingleColumn(@Nullable SelectSqlNode<Select1> parent, @NonNull Column<?, R, ?, ?, N> column) {
       super(parent);
       this.column = column;
       selectBuilder.columnNode = this;
@@ -217,7 +221,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public <T> From<T, R, Select1> from(@NonNull Table<T> table) {
+    public <T> From<T, R, Select1, N> from(@NonNull Table<T> table) {
       return new From<>(this, table);
     }
   }
@@ -230,14 +234,14 @@ public final class Select<S> extends SelectSqlNode<S> {
     final Column[] columns;
     String compiledColumns;
 
-    Columns(@NonNull SelectSqlNode<SelectN> parent, @NonNull Column<?, ?, ?, ?>[] columns) {
+    Columns(@NonNull SelectSqlNode<SelectN> parent, @NonNull Column<?, ?, ?, ?, ?>[] columns) {
       super(parent);
       this.columns = columns;
       selectBuilder.columnsNode = this;
       final ArrayList<String> args = selectBuilder.args;
       final ArrayList<String> observedTables = selectBuilder.observedTables;
       for (int i = 0, length = columns.length; i < length; i++) {
-        final Column<?, ?, ?, ?> column = columns[i];
+        final Column<?, ?, ?, ?, ?> column = columns[i];
         column.addArgs(args);
         column.addObservedTables(observedTables);
       }
@@ -312,7 +316,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public <T> From<T, T, SelectN> from(@NonNull Table<T> table) {
+    public <T> From<T, T, SelectN, NotNullable> from(@NonNull Table<T> table) {
       return new From<>(this, table);
     }
   }
@@ -323,8 +327,9 @@ public final class Select<S> extends SelectSqlNode<S> {
    * @param <T> Selected table type
    * @param <R> Selection return type
    * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
    */
-  public static final class From<T, R, S> extends SelectNode<R, S> {
+  public static final class From<T, R, S, N> extends SelectNode<R, S, N> {
     private static final String COMMA_JOIN = ",";
     static final String LEFT_JOIN = "LEFT JOIN";
     private static final String LEFT_OUTER_JOIN = "LEFT OUTER JOIN";
@@ -379,7 +384,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> join(@NonNull Table table) {
+    public From<T, R, S, N> join(@NonNull Table table) {
       joins.add(new JoinClause(table, COMMA_JOIN, null));
       return this;
     }
@@ -398,7 +403,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> join(@NonNull JoinClause joinClause) {
+    public From<T, R, S, N> join(@NonNull JoinClause joinClause) {
       joinClause.operator = COMMA_JOIN;
       joins.add(joinClause);
       joinClause.addArgs(selectBuilder.args);
@@ -416,7 +421,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> leftJoin(@NonNull Table table) {
+    public From<T, R, S, N> leftJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, LEFT_JOIN, null));
       return this;
     }
@@ -434,7 +439,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> leftJoin(@NonNull JoinClause joinClause) {
+    public From<T, R, S, N> leftJoin(@NonNull JoinClause joinClause) {
       joinClause.operator = LEFT_JOIN;
       joins.add(joinClause);
       joinClause.addArgs(selectBuilder.args);
@@ -452,7 +457,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> leftOuterJoin(@NonNull Table table) {
+    public From<T, R, S, N> leftOuterJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, LEFT_OUTER_JOIN, null));
       return this;
     }
@@ -470,7 +475,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> leftOuterJoin(@NonNull JoinClause joinClause) {
+    public From<T, R, S, N> leftOuterJoin(@NonNull JoinClause joinClause) {
       joinClause.operator = LEFT_OUTER_JOIN;
       joins.add(joinClause);
       joinClause.addArgs(selectBuilder.args);
@@ -488,7 +493,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> innerJoin(@NonNull Table table) {
+    public From<T, R, S, N> innerJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, INNER_JOIN, null));
       return this;
     }
@@ -506,7 +511,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> innerJoin(@NonNull JoinClause joinClause) {
+    public From<T, R, S, N> innerJoin(@NonNull JoinClause joinClause) {
       joinClause.operator = INNER_JOIN;
       joins.add(joinClause);
       joinClause.addArgs(selectBuilder.args);
@@ -524,7 +529,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> crossJoin(@NonNull Table table) {
+    public From<T, R, S, N> crossJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, CROSS_JOIN, null));
       return this;
     }
@@ -543,7 +548,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      */
 
     @CheckResult
-    public From<T, R, S> crossJoin(@NonNull JoinClause joinClause) {
+    public From<T, R, S, N> crossJoin(@NonNull JoinClause joinClause) {
       joinClause.operator = CROSS_JOIN;
       joins.add(joinClause);
       joinClause.addArgs(selectBuilder.args);
@@ -567,7 +572,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> naturalJoin(@NonNull Table table) {
+    public From<T, R, S, N> naturalJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, NATURAL_JOIN, null));
       return this;
     }
@@ -589,7 +594,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> naturalLeftJoin(@NonNull Table table) {
+    public From<T, R, S, N> naturalLeftJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, NATURAL_LEFT_JOIN, null));
       return this;
     }
@@ -611,7 +616,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> naturalLeftOuterJoin(@NonNull Table table) {
+    public From<T, R, S, N> naturalLeftOuterJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, NATURAL_LEFT_OUTER_JOIN, null));
       return this;
     }
@@ -633,7 +638,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> naturalInnerJoin(@NonNull Table table) {
+    public From<T, R, S, N> naturalInnerJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, NATURAL_INNER_JOIN, null));
       return this;
     }
@@ -655,7 +660,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public From<T, R, S> naturalCrossJoin(@NonNull Table table) {
+    public From<T, R, S, N> naturalCrossJoin(@NonNull Table table) {
       joins.add(new JoinClause(table, NATURAL_CROSS_JOIN, null));
       return this;
     }
@@ -667,7 +672,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Where<R, S> where(@NonNull Expr expr) {
+    public Where<R, S, N> where(@NonNull Expr expr) {
       return new Where<>(this, expr);
     }
 
@@ -680,7 +685,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public GroupBy<R, S> groupBy(@NonNull @Size(min = 1) Column... columns) {
+    public GroupBy<R, S, N> groupBy(@NonNull @Size(min = 1) Column... columns) {
       return new GroupBy<>(this, columns);
     }
 
@@ -691,7 +696,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<R, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+    public OrderBy<R, S, N> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
       return new OrderBy<>(this, orderingTerms);
     }
 
@@ -703,7 +708,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Limit<R, S> limit(int nrOfRows) {
+    public Limit<R, S, N> limit(int nrOfRows) {
       return new Limit<>(this, Integer.toString(nrOfRows));
     }
   }
@@ -713,12 +718,13 @@ public final class Select<S> extends SelectSqlNode<S> {
    *
    * @param <T> Selection return type
    * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
    */
-  public static final class Where<T, S> extends SelectNode<T, S> {
+  public static final class Where<T, S, N> extends SelectNode<T, S, N> {
     @NonNull
     private final Expr expr;
 
-    Where(@NonNull SelectNode<T, S> parent, @NonNull Expr expr) {
+    Where(@NonNull SelectNode<T, S, N> parent, @NonNull Expr expr) {
       super(parent);
       this.expr = expr;
       expr.addArgs(selectBuilder.args);
@@ -746,7 +752,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public GroupBy<T, S> groupBy(@NonNull @Size(min = 1) Column... columns) {
+    public GroupBy<T, S, N> groupBy(@NonNull @Size(min = 1) Column... columns) {
       return new GroupBy<>(this, columns);
     }
 
@@ -757,7 +763,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<T, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+    public OrderBy<T, S, N> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
       return new OrderBy<>(this, orderingTerms);
     }
 
@@ -769,7 +775,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Limit<T, S> limit(int nrOfRows) {
+    public Limit<T, S, N> limit(int nrOfRows) {
       return new Limit<>(this, Integer.toString(nrOfRows));
     }
   }
@@ -779,12 +785,13 @@ public final class Select<S> extends SelectSqlNode<S> {
    *
    * @param <T> Selection return type
    * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
    */
-  public static final class GroupBy<T, S> extends SelectNode<T, S> {
+  public static final class GroupBy<T, S, N> extends SelectNode<T, S, N> {
     @NonNull
     private final Column[] columns;
 
-    GroupBy(@NonNull SelectNode<T, S> parent, @NonNull Column[] columns) {
+    GroupBy(@NonNull SelectNode<T, S, N> parent, @NonNull Column[] columns) {
       super(parent);
       this.columns = columns;
     }
@@ -808,7 +815,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Having<T, S> having(@NonNull Expr expr) {
+    public Having<T, S, N> having(@NonNull Expr expr) {
       return new Having<>(this, expr);
     }
 
@@ -819,7 +826,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<T, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+    public OrderBy<T, S, N> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
       return new OrderBy<>(this, orderingTerms);
     }
 
@@ -831,7 +838,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Limit<T, S> limit(int nrOfRows) {
+    public Limit<T, S, N> limit(int nrOfRows) {
       return new Limit<>(this, Integer.toString(nrOfRows));
     }
   }
@@ -841,12 +848,13 @@ public final class Select<S> extends SelectSqlNode<S> {
    *
    * @param <T> Selection return type
    * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
    */
-  public static final class Having<T, S> extends SelectNode<T, S> {
+  public static final class Having<T, S, N> extends SelectNode<T, S, N> {
     @NonNull
     private final Expr expr;
 
-    Having(@NonNull SelectNode<T, S> parent, @NonNull Expr expr) {
+    Having(@NonNull SelectNode<T, S, N> parent, @NonNull Expr expr) {
       super(parent);
       this.expr = expr;
       expr.addArgs(selectBuilder.args);
@@ -872,7 +880,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public OrderBy<T, S> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+    public OrderBy<T, S, N> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
       return new OrderBy<>(this, orderingTerms);
     }
 
@@ -884,7 +892,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Limit<T, S> limit(int nrOfRows) {
+    public Limit<T, S, N> limit(int nrOfRows) {
       return new Limit<>(this, Integer.toString(nrOfRows));
     }
   }
@@ -945,12 +953,13 @@ public final class Select<S> extends SelectSqlNode<S> {
    *
    * @param <T> Selection return type
    * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
    */
-  public static final class OrderBy<T, S> extends SelectNode<T, S> {
+  public static final class OrderBy<T, S, N> extends SelectNode<T, S, N> {
     @NonNull
     private final OrderingTerm[] orderingTerms;
 
-    OrderBy(@NonNull SelectNode<T, S> parent,
+    OrderBy(@NonNull SelectNode<T, S, N> parent,
             @NonNull @Size(min = 1) OrderingTerm[] orderingTerms) {
       super(parent);
       this.orderingTerms = orderingTerms;
@@ -988,7 +997,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Limit<T, S> limit(int nrOfRows) {
+    public Limit<T, S, N> limit(int nrOfRows) {
       return new Limit<>(this, Integer.toString(nrOfRows));
     }
   }
@@ -998,11 +1007,12 @@ public final class Select<S> extends SelectSqlNode<S> {
    *
    * @param <T> Selection return type
    * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
    */
-  public static final class Limit<T, S> extends SelectNode<T, S> {
+  public static final class Limit<T, S, N> extends SelectNode<T, S, N> {
     private final String limitClause;
 
-    Limit(@NonNull SelectNode<T, S> parent, @NonNull String limitClause) {
+    Limit(@NonNull SelectNode<T, S, N> parent, @NonNull String limitClause) {
       super(parent);
       this.limitClause = limitClause;
     }
@@ -1028,7 +1038,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      * @return SQL SELECT statement builder
      */
     @CheckResult
-    public Offset<T, S> offset(int m) {
+    public Offset<T, S, N> offset(int m) {
       return new Offset<>(this, String.valueOf(m));
     }
   }
@@ -1038,11 +1048,12 @@ public final class Select<S> extends SelectSqlNode<S> {
    *
    * @param <T> Selection return type
    * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
    */
-  public static final class Offset<T, S> extends SelectNode<T, S> {
+  public static final class Offset<T, S, N> extends SelectNode<T, S, N> {
     private final String offsetClause;
 
-    Offset(@NonNull SelectNode<T, S> parent, @NonNull String offsetClause) {
+    Offset(@NonNull SelectNode<T, S, N> parent, @NonNull String offsetClause) {
       super(parent);
       this.offsetClause = offsetClause;
     }
@@ -1083,7 +1094,7 @@ public final class Select<S> extends SelectSqlNode<S> {
 	 * ###############################################################################
 	 */
 
-  private static final NumericColumn<Long, Long, Number, ?> COUNT = new NumericColumn<>(ANONYMOUS_TABLE, "count(*)", false, LONG_PARSER, false, null);
+  private static final NumericColumn<Long, Long, Number, ?, NotNullable> COUNT = new NumericColumn<>(ANONYMOUS_TABLE, "count(*)", false, LONG_PARSER, false, null);
 
   /**
    * <p>
@@ -1100,8 +1111,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends NumericColumn<?, ?, ? extends Number, P>> NumericColumn<Double, Double, Number, P> avg(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "avg(", ")", DOUBLE_PARSER, true, null);
+  public static <P, N, X extends NumericColumn<?, ?, ? extends Number, P, N>> NumericColumn<Double, Double, Number, P, N> avg(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "avg(", ")", DOUBLE_PARSER, column.nullable, null);
   }
 
   /**
@@ -1122,8 +1133,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends NumericColumn<?, ?, ? extends Number, P>> NumericColumn<Double, Double, Number, P> avgDistinct(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "avg(DISTINCT ", ")", DOUBLE_PARSER, true, null);
+  public static <P, N, X extends NumericColumn<?, ?, ? extends Number, P, N>> NumericColumn<Double, Double, Number, P, N> avgDistinct(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "avg(DISTINCT ", ")", DOUBLE_PARSER, column.nullable, null);
   }
 
   /**
@@ -1134,7 +1145,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static NumericColumn<Long, Long, Number, ?> count() {
+  public static NumericColumn<Long, Long, Number, ?, NotNullable> count() {
     return COUNT;
   }
 
@@ -1147,7 +1158,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ?, P>> NumericColumn<Long, Long, Number, P> count(@NonNull X column) {
+  public static <P, X extends Column<?, ?, ?, P, ?>> NumericColumn<Long, Long, Number, P, NotNullable> count(@NonNull X column) {
     return new FunctionColumn<>(column.table.internalAlias(""), column, "count(", ")", LONG_PARSER, false, null);
   }
 
@@ -1160,7 +1171,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ?, P>> NumericColumn<Long, Long, Number, P> countDistinct(@NonNull X column) {
+  public static <P, X extends Column<?, ?, ?, P, ?>> NumericColumn<Long, Long, Number, P, NotNullable> countDistinct(@NonNull X column) {
     return new FunctionColumn<>(column.table.internalAlias(""), column, "count(DISTINCT ", ")", LONG_PARSER, false, null);
   }
 
@@ -1174,8 +1185,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ?, P>> Column<String, String, CharSequence, P> groupConcat(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(", ")", STRING_PARSER, false, null);
+  public static <P, N, X extends Column<?, ?, ?, P, N>> Column<String, String, CharSequence, P, N> groupConcat(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(", ")", STRING_PARSER, column.nullable, null);
   }
 
   /**
@@ -1190,8 +1201,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ?, P>> Column<String, String, CharSequence, P> groupConcat(@NonNull X column, @NonNull String separator) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(", ",'" + separator + "')", STRING_PARSER, false, null);
+  public static <P, N, X extends Column<?, ?, ?, P, N>> Column<String, String, CharSequence, P, N> groupConcat(@NonNull X column, @NonNull String separator) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(", ",'" + separator + "')", STRING_PARSER, column.nullable, null);
   }
 
   /**
@@ -1204,8 +1215,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ?, P>> Column<String, String, CharSequence, P> groupConcatDistinct(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(DISTINCT ", ")", STRING_PARSER, false, null);
+  public static <P, N, X extends Column<?, ?, ?, P, N>> Column<String, String, CharSequence, P, N> groupConcatDistinct(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(DISTINCT ", ")", STRING_PARSER, column.nullable, null);
   }
 
   /**
@@ -1219,8 +1230,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ?, P>> Column<String, String, CharSequence, P> groupConcatDistinct(@NonNull X column, @NonNull String separator) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(DISTINCT ", ",'" + separator + "')", STRING_PARSER, false, null);
+  public static <P, N, X extends Column<?, ?, ?, P, N>> Column<String, String, CharSequence, P, N> groupConcatDistinct(@NonNull X column, @NonNull String separator) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(DISTINCT ", ",'" + separator + "')", STRING_PARSER, column.nullable, null);
   }
 
   /**
@@ -1234,8 +1245,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends Column<T, R, ET, P>> Column<T, R, ET, P> max(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(", ')', true, null);
+  public static <P, T, R, ET, N, X extends Column<T, R, ET, P, N>> Column<T, R, ET, P, N> max(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(", ')', column.nullable, null);
   }
 
   /**
@@ -1249,8 +1260,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends NumericColumn<T, R, ET, P>> NumericColumn<T, R, ET, P> max(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(", ')', true, null);
+  public static <P, T, R, ET, N, X extends NumericColumn<T, R, ET, P, N>> NumericColumn<T, R, ET, P, N> max(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(", ')', column.nullable, null);
   }
 
   /**
@@ -1264,8 +1275,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends Column<T, R, ET, P>> Column<T, R, ET, P> maxDistinct(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(DISTINCT ", ')', true, null);
+  public static <P, T, R, ET, N, X extends Column<T, R, ET, P, N>> Column<T, R, ET, P, N> maxDistinct(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(DISTINCT ", ')', column.nullable, null);
   }
 
   /**
@@ -1279,8 +1290,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends NumericColumn<T, R, ET, P>> NumericColumn<T, R, ET, P> maxDistinct(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(DISTINCT ", ')', true, null);
+  public static <P, T, R, ET, N, X extends NumericColumn<T, R, ET, P, N>> NumericColumn<T, R, ET, P, N> maxDistinct(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "max(DISTINCT ", ')', column.nullable, null);
   }
 
   /**
@@ -1294,8 +1305,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends Column<T, R, ET, P>> Column<T, R, ET, P> min(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(", ')', true, null);
+  public static <P, T, R, ET, N, X extends Column<T, R, ET, P, N>> Column<T, R, ET, P, N> min(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(", ')', column.nullable, null);
   }
 
   /**
@@ -1309,8 +1320,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends NumericColumn<T, R, ET, P>> NumericColumn<T, R, ET, P> min(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(", ')', true, null);
+  public static <P, T, R, ET, N, X extends NumericColumn<T, R, ET, P, N>> NumericColumn<T, R, ET, P, N> min(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(", ')', column.nullable, null);
   }
 
   /**
@@ -1324,8 +1335,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends Column<T, R, ET, P>> Column<T, R, ET, P> minDistinct(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(DISTINCT ", ')', true, null);
+  public static <P, T, R, ET, N, X extends Column<T, R, ET, P, N>> Column<T, R, ET, P, N> minDistinct(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(DISTINCT ", ')', column.nullable, null);
   }
 
   /**
@@ -1339,8 +1350,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET, X extends NumericColumn<T, R, ET, P>> NumericColumn<T, R, ET, P> minDistinct(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(DISTINCT ", ')', true, null);
+  public static <P, T, R, ET, N, X extends NumericColumn<T, R, ET, P, N>> NumericColumn<T, R, ET, P, N> minDistinct(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "min(DISTINCT ", ')', column.nullable, null);
   }
 
   /**
@@ -1357,8 +1368,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends NumericColumn<?, ?, ? extends Number, P>> NumericColumn<Double, Double, Number, P> sum(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "total(", ")", DOUBLE_PARSER, false, null);
+  public static <P, N, X extends NumericColumn<?, ?, ? extends Number, P, N>> NumericColumn<Double, Double, Number, P, N> sum(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "total(", ")", DOUBLE_PARSER, column.nullable, null);
   }
 
   /**
@@ -1375,12 +1386,12 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends NumericColumn<?, ?, ? extends Number, P>> NumericColumn<Double, Double, Number, P> sumDistinct(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "total(DISTINCT ", ")", DOUBLE_PARSER, false, null);
+  public static <P, N, X extends NumericColumn<?, ?, ? extends Number, P, N>> NumericColumn<Double, Double, Number, P, N> sumDistinct(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "total(DISTINCT ", ")", DOUBLE_PARSER, column.nullable, null);
   }
 
   /**
-   * Join column.
+   * Join columns.
    * This operator always evaluates to either NULL or a text value.
    *
    * @param columns Columns to concatenate
@@ -1390,7 +1401,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   @SafeVarargs
   @NonNull
   @CheckResult
-  public static <X extends Column<?, ?, ?, ?>> Column<String, String, CharSequence, ?> concat(@NonNull @Size(min = 2) X... columns) {
+  public static <X extends Column<?, ?, ?, ?, ?>> Column<String, String, CharSequence, ?, com.siimkinks.sqlitemagic.Nullable> concat(@NonNull @Size(min = 2) X... columns) {
     return new FunctionColumn<>(ANONYMOUS_TABLE, columns, "", " || ", "", STRING_PARSER, true, null);
   }
 
@@ -1402,8 +1413,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <V extends Number> NumericColumn<V, V, Number, ?> val(@NonNull V val) {
-    return new NumericColumn<>(ANONYMOUS_TABLE, val.toString(), false, parserForNumberType(val), false, null);
+  public static <V extends Number> NumericColumn<V, V, Number, ?, NotNullable> val(@NonNull V val) {
+    return new NumericColumn<>(ANONYMOUS_TABLE, numericConstantToSqlString(val), false, parserForNumberType(val), false, null);
   }
 
   /**
@@ -1414,7 +1425,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <V extends CharSequence> Column<V, V, CharSequence, ?> val(@NonNull V val) {
+  public static <V extends CharSequence> Column<V, V, CharSequence, ?, NotNullable> val(@NonNull V val) {
     return new Column<>(ANONYMOUS_TABLE, "'" + val.toString() + "'", false, STRING_PARSER, false, null);
   }
 
@@ -1426,7 +1437,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <V> Column<V, V, V, ?> val(@NonNull V val) {
+  public static <V> Column<V, V, V, ?, NotNullable> val(@NonNull V val) {
     return SqlUtil.columnForValue(val);
   }
 
@@ -1441,8 +1452,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, T, R, ET extends Number, X extends NumericColumn<T, R, ET, P>> NumericColumn<T, R, ET, P> abs(@NonNull X column) {
-    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "abs(", ')', true, null);
+  public static <P, T, R, N, ET extends Number, X extends NumericColumn<T, R, ET, P, N>> NumericColumn<T, R, ET, P, N> abs(@NonNull X column) {
+    return new FunctionCopyColumn<>(column.table.internalAlias(""), column, "abs(", ')', column.nullable, null);
   }
 
   /**
@@ -1459,8 +1470,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ?, P>> NumericColumn<Long, Long, Number, P> length(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "length(", ")", LONG_PARSER, true, null);
+  public static <P, N, X extends Column<?, ?, ?, P, N>> NumericColumn<Long, Long, Number, P, N> length(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "length(", ")", LONG_PARSER, column.nullable, null);
   }
 
   // FIXME: 8.03.16 add more informative javadoc
@@ -1476,8 +1487,8 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ? extends CharSequence, P>> Column<String, String, CharSequence, P> lower(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "lower(", ")", STRING_PARSER, true, null);
+  public static <P, N, X extends Column<?, ?, ? extends CharSequence, P, N>> Column<String, String, CharSequence, P, N> lower(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "lower(", ")", STRING_PARSER, column.nullable, null);
   }
 
   /**
@@ -1490,7 +1501,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <P, X extends Column<?, ?, ? extends CharSequence, P>> Column<String, String, CharSequence, P> upper(@NonNull X column) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "upper(", ")", STRING_PARSER, true, null);
+  public static <P, N, X extends Column<?, ?, ? extends CharSequence, P, N>> Column<String, String, CharSequence, P, N> upper(@NonNull X column) {
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "upper(", ")", STRING_PARSER, column.nullable, null);
   }
 }

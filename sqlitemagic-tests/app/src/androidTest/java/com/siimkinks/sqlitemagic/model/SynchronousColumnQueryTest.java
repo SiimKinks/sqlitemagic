@@ -539,7 +539,7 @@ public final class SynchronousColumnQueryTest {
     final List<SimpleAllValuesMutable> vals = insertSimpleAllValues(7);
     assertArithmeticExpression(vals, new ArithmeticExpressionEvaluator() {
       @Override
-      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c2) {
+      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c2) {
         return c1.add(c2);
       }
 
@@ -551,7 +551,7 @@ public final class SynchronousColumnQueryTest {
 
     assertArithmeticExpression(vals, new ArithmeticExpressionEvaluator() {
       @Override
-      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c2) {
+      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c2) {
         return c1.sub(c2);
       }
 
@@ -563,7 +563,7 @@ public final class SynchronousColumnQueryTest {
 
     assertArithmeticExpression(vals, new ArithmeticExpressionEvaluator() {
       @Override
-      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c2) {
+      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c2) {
         return c1.mul(c2);
       }
 
@@ -575,7 +575,7 @@ public final class SynchronousColumnQueryTest {
 
     assertArithmeticExpression(vals, new ArithmeticExpressionEvaluator() {
       @Override
-      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c2) {
+      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c2) {
         return c1.mod(c2);
       }
 
@@ -587,7 +587,7 @@ public final class SynchronousColumnQueryTest {
 
     assertArithmeticExpression(vals, new ArithmeticExpressionEvaluator() {
       @Override
-      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c2) {
+      public NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c2) {
         return c1.div(c2);
       }
 
@@ -619,7 +619,7 @@ public final class SynchronousColumnQueryTest {
   }
 
   public interface ArithmeticExpressionEvaluator {
-    NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable> c2);
+    NumericColumn column(@NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c1, @NonNull NumericColumn<Short, Short, Number, SimpleAllValuesMutable, ?> c2);
 
     Double func(@NonNull Short v1, @NonNull Short v2);
   }

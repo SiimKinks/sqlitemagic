@@ -18,8 +18,9 @@ import java.util.LinkedList;
  * @param <R>  Return type (when this column is queried)
  * @param <ET> Equivalent type
  * @param <P>  Parent table type
+ * @param <N>  Column nullability
  */
-final class SelectionColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
+final class SelectionColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N> {
   @NonNull
   private final SelectBuilder<?> selectBuilder;
   @Nullable
@@ -36,14 +37,14 @@ final class SelectionColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
 
   @SuppressWarnings("unchecked")
   @NonNull
-  static <T> SelectionColumn<T, T, T, ?> from(@NonNull SelectBuilder<?> selectBuilder,
-                                              @NonNull String alias) {
-    final Select.SingleColumn<?> columnNode = selectBuilder.columnNode;
+  static <T, N> SelectionColumn<T, T, T, ?, N> from(@NonNull SelectBuilder<?> selectBuilder,
+                                                    @NonNull String alias) {
+    final Select.SingleColumn<?, ?> columnNode = selectBuilder.columnNode;
     if (selectBuilder.columnsNode != null || columnNode == null) {
       throw new SQLException("Only a single result allowed for a SELECT that is part of a column");
     }
     final Table table = selectBuilder.from.table;
-    final Column<?, ?, ?, ?> column = columnNode.column;
+    final Column<?, ?, ?, ?, ?> column = columnNode.column;
     return new SelectionColumn<>(table, alias, false, column.valueParser, column.nullable, alias, alias, selectBuilder);
   }
 
@@ -112,7 +113,7 @@ final class SelectionColumn<T, R, ET, P> extends NumericColumn<T, R, ET, P> {
 
   @NonNull
   @Override
-  public NumericColumn<T, R, ET, P> as(@NonNull String alias) {
+  public NumericColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new SelectionColumn<>(table, name, allFromTable, valueParser, nullable, alias, nameInQuery, selectBuilder);
   }
 }
