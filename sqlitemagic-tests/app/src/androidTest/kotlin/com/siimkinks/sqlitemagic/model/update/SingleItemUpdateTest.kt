@@ -15,7 +15,7 @@ class SingleItemUpdateTest : DefaultConnectionTest {
   class SuccessfulOperation<T>(
       forModel: TestModel<T>,
       setUp: (TestModel<T>) -> T = newUpdatableRandom(),
-      operation: DualOperation<T, T, Boolean> = UpdateDualOperation(),
+      operation: DualOperation<T, T, Boolean> = UpdateDualOperation(TestModel<T>::updateBuilder),
       assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccess()
   ) : DualOperationTestCase<T, T, Boolean>(
       "Simple update succeeds",
@@ -68,7 +68,7 @@ class SingleItemUpdateTest : DefaultConnectionTest {
         val (v1) = insertNewRandom(it)
         val (v2) = insertNewRandom(it)
         val model = it as ComplexTestModelWithUniqueColumn
-        model.transferComplexUniqueVal(v1, v2)
+        model.transferComplexColumnUniqueVal(v1, v2)
       },
       test = test,
       assertResults = { model, testVal, ts ->
@@ -125,15 +125,85 @@ class SingleItemUpdateTest : DefaultConnectionTest {
     }
   }
 
-  class UpdateDualOperation<T> : DualOperation<T, T, Boolean> {
-    override fun executeTest(model: TestModel<T>, testVal: T): Boolean = model
-        .updateBuilder(testVal)
-        .execute()
+  class OperationByUniqueColumn<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> T = {
+        val (newRandom, id) = insertNewRandom(it)
+        val updatedVal = it.updateAllVals(newRandom, id)
+        (it as TestModelWithUniqueColumn).transferUniqueVal(newRandom, updatedVal)
+      },
+      operation: DualOperation<T, T, Boolean> = UpdateDualOperation { model, testVal ->
+        model.updateBuilder(testVal)
+            .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+      },
+      assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccess()
+  ) : DualOperationTestCase<T, T, Boolean>(
+      "Update by unique column succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
 
-    override fun observeTest(model: TestModel<T>, testVal: T): Boolean = model
-        .updateBuilder(testVal)
-        .observe()
-        .blockingGet(1, TimeUnit.SECONDS) == null
+  @Test
+  fun updateByUniqueColumn() {
+    assertThatDual {
+      testCase { OperationByUniqueColumn(forModel = it) }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  class OperationByComplexUniqueColumn<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> T = {
+        val (newRandom, id) = insertNewRandom(it)
+        val updatedVal = it.updateAllVals(newRandom, id)
+        (it as ComplexTestModelWithUniqueColumn).transferComplexColumnUniqueVal(newRandom, updatedVal)
+      },
+      operation: DualOperation<T, T, Boolean> = UpdateDualOperation { model, testVal ->
+        model.updateBuilder(testVal)
+            .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+      },
+      assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccess()
+  ) : DualOperationTestCase<T, T, Boolean>(
+      "Update by complex unique column succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun updateByComplexUniqueColumn() {
+    assertThatDual {
+      testCase { OperationByComplexUniqueColumn(forModel = it) }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  class OperationByComplexColumnUniqueColumn<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> T = {
+        val (newRandom, id) = insertNewRandom(it)
+        val updatedVal = it.updateAllVals(newRandom, id)
+        (it as ComplexTestModelWithUniqueColumn).transferAllComplexUniqueVals(newRandom, updatedVal)
+      },
+      operation: DualOperation<T, T, Boolean> = UpdateDualOperation { model, testVal ->
+        model.updateBuilder(testVal)
+            .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+      },
+      assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccess()
+  ) : DualOperationTestCase<T, T, Boolean>(
+      "Update complex column by its unique column succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun updateByComplexColumnUniqueColumn() {
+    assertThatDual {
+      testCase { OperationByComplexColumnUniqueColumn(forModel = it) }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
   }
 
   class ObserveUpdate<T> : SingleOperation<T, T, TestObserver<Long>> {

@@ -1,14 +1,12 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.AuthorTable.AUTHOR
-import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.DataClassWithFieldsTable.DATA_CLASS_WITH_FIELDS
 import com.siimkinks.sqlitemagic.DataClassWithMethodsTable.DATA_CLASS_WITH_METHODS
 import com.siimkinks.sqlitemagic.DataClassWithNullableFieldsTable.DATA_CLASS_WITH_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.DataClassWithNullableMethodsTable.DATA_CLASS_WITH_NULLABLE_METHODS
-import com.siimkinks.sqlitemagic.NotNullable
-import com.siimkinks.sqlitemagic.Nullable
 import com.siimkinks.sqlitemagic.SimpleDataClassWithFieldsAndUniqueTable.SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleDataClassWithMethodsAndUniqueTable.SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleImmutableWithBuilderAndUniqueTable.SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE
@@ -18,7 +16,6 @@ import com.siimkinks.sqlitemagic.SimpleValueWithBuilderAndNullableFieldsTable.SI
 import com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER
 import com.siimkinks.sqlitemagic.SimpleValueWithCreatorAndNullableFieldsTable.SIMPLE_VALUE_WITH_CREATOR_AND_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE_WITH_CREATOR
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.*
 import com.siimkinks.sqlitemagic.model.TestUtil.assertTableCount
 import com.siimkinks.sqlitemagic.model.immutable.*
@@ -252,6 +249,9 @@ val simpleMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableCol
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleMutableWithUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE.UNIQUE_VAL
+
       override fun transferUniqueVal(src: SimpleMutableWithUnique, target: SimpleMutableWithUnique): SimpleMutableWithUnique {
         target.uniqueVal = src.uniqueVal
         return target
@@ -310,6 +310,9 @@ val simpleImmutableWithBuilderFixedIdUniqueNullableTestModel = TestModelWithUniq
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleImmutableWithBuilderAndUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE.UNIQUE_VAL
+
       override fun transferUniqueVal(src: SimpleImmutableWithBuilderAndUnique, target: SimpleImmutableWithBuilderAndUnique): SimpleImmutableWithBuilderAndUnique =
           target.copy()
               .uniqueVal(src.uniqueVal())
@@ -364,6 +367,9 @@ val simpleImmutableWithCreatorFixedIdUniqueNullableTestModel = TestModelWithUniq
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_IMMUTABLE_WITH_CREATOR_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleImmutableWithCreatorAndUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_IMMUTABLE_WITH_CREATOR_AND_UNIQUE.UNIQUE_VAL
+
       override fun transferUniqueVal(src: SimpleImmutableWithCreatorAndUnique, target: SimpleImmutableWithCreatorAndUnique): SimpleImmutableWithCreatorAndUnique =
           target.setUniqueVal(src.uniqueVal())
     },
@@ -416,6 +422,9 @@ val simpleDataClassWithFieldsFixedIdUniqueNullableTestModel = TestModelWithUniqu
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleDataClassWithFieldsAndUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE.UNIQUE_VAL
+
       override fun transferUniqueVal(src: SimpleDataClassWithFieldsAndUnique, target: SimpleDataClassWithFieldsAndUnique): SimpleDataClassWithFieldsAndUnique =
           target.setUniqueVal(src.uniqueVal)
     },
@@ -468,6 +477,9 @@ val simpleDataClassWithMethodsFixedIdUniqueNullableTestModel = TestModelWithUniq
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleDataClassWithMethodsAndUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE.UNIQUE_VAL
+
       override fun transferUniqueVal(src: SimpleDataClassWithMethodsAndUnique, target: SimpleDataClassWithMethodsAndUnique): SimpleDataClassWithMethodsAndUnique =
           target.setUniqueVal(src.uniqueVal)
     },

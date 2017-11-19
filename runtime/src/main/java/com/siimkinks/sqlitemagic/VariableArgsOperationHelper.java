@@ -28,7 +28,6 @@ public final class VariableArgsOperationHelper {
                                    int maxColumns,
                                    @NonNull SimpleArrayMap<String, Object> values,
                                    @NonNull String resolutionColumn,
-                                   @Nullable Object resolutionColumnValue,
                                    @NonNull EntityDbManager manager) {
     StringBuilder sqlBuilder = this.sqlBuilder;
     if (sqlBuilder == null) {
@@ -46,7 +45,6 @@ public final class VariableArgsOperationHelper {
         tableName,
         values,
         resolutionColumn,
-        resolutionColumnValue,
         manager);
   }
 
@@ -59,7 +57,6 @@ public final class VariableArgsOperationHelper {
                                                   @NonNull String tableName,
                                                   @NonNull SimpleArrayMap<String, Object> values,
                                                   @Nullable String resolutionColumn,
-                                                  @Nullable Object resolutionColumnValue,
                                                   @NonNull EntityDbManager manager) {
     final int valuesSize = values.size();
     if (operation == OperationHelper.Op.INSERT) {
@@ -126,7 +123,11 @@ public final class VariableArgsOperationHelper {
       bindValue(statement, i + 1, value);
     }
     if (operation == OperationHelper.Op.UPDATE) {
-      bindValue(statement, i + 1, resolutionColumnValue);
+      final Object value = values.get(resolutionColumn);
+      if (value == null) {
+        throw new NullPointerException("Column \"" + resolutionColumn + "\" is null");
+      }
+      bindValue(statement, i + 1, value);
     }
     return statement;
   }

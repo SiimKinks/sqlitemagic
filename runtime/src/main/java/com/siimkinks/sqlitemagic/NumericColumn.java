@@ -32,8 +32,8 @@ public class NumericColumn<T, R, ET, P, N> extends Column<T, R, ET, P, N> {
     super(table, name, allFromTable, valueParser, nullable, alias);
   }
 
-  @Override
   @NonNull
+  @Override
   public NumericColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new NumericColumn<>(table, name, allFromTable, valueParser, nullable, alias);
   }

@@ -70,6 +70,9 @@ public class TableElement {
   private int persistedComplexColumnCount = 0;
   @Getter
   private int persistedImmutableComplexColumnCount = 0;
+  @Getter
+  private boolean anyUniqueColumnNullable;
+  private boolean hasUniqueColumnsOtherThanId = false;
   private Boolean hasAnyNonIdNotNullableColumns;
   private Boolean isQueryPartNeededForShallowQuery;
   Integer graphNodeCount;
@@ -145,6 +148,7 @@ public class TableElement {
   }
 
   public void collectColumnsMetadata() {
+    boolean anyUniqueColumnNullable = false;
     for (ColumnElement columnElement : allColumns) {
       if (columnElement.isReferencedColumn()) {
         this.complexColumnCount++;
@@ -155,7 +159,14 @@ public class TableElement {
           this.persistedImmutableComplexColumnCount++;
         }
       }
+      if (columnElement.isUnique()) {
+        hasUniqueColumnsOtherThanId = true;
+        if (columnElement.isNullable()) {
+          anyUniqueColumnNullable = true;
+        }
+      }
     }
+    this.anyUniqueColumnNullable = anyUniqueColumnNullable || idColumn.isNullable();
   }
 
   @NonNull
@@ -247,6 +258,10 @@ public class TableElement {
 
   public boolean useAccessMethods() {
     return tableAnnotation.useAccessMethods();
+  }
+
+  public boolean hasUniqueColumnsOtherThanId() {
+    return hasUniqueColumnsOtherThanId;
   }
 
   public boolean hasAnyComplexColumns() {

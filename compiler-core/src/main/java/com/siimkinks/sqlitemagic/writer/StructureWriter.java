@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.BaseColumnElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
+import com.siimkinks.sqlitemagic.element.TransformerElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
 import com.siimkinks.sqlitemagic.util.Callback;
 import com.siimkinks.sqlitemagic.util.FormatData;
@@ -45,6 +46,8 @@ import static com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.SIMPLE_ARRAY_MAP;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
+import static com.siimkinks.sqlitemagic.WriterUtil.UNIQUE_COLUMN;
+import static com.siimkinks.sqlitemagic.WriterUtil.UNIQUE_NUMERIC_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.notNullParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.nullableParameter;
@@ -144,7 +147,7 @@ public final class StructureWriter {
         .superclass(ParameterizedTypeName.get(TABLE, structureElementTypeName))
         .addMethod(constructor())
         .addField(structureField())
-        .addFields(columnFields())
+        .addFields(columnFields(filer))
         .addMethod(aliasOverride())
         .addMethod(mapper());
     if (hasAnyPersistedComplexColumns && !isView) {
@@ -186,7 +189,7 @@ public final class StructureWriter {
     return structureFieldName(tableElement.getTableElementName());
   }
 
-  private Iterable<FieldSpec> columnFields() {
+  private Iterable<FieldSpec> columnFields(@NonNull Filer filer) {
     final TypeName structureElementTypeName = this.structureElementTypeName;
     final ArrayList<FieldSpec> columnFields = new ArrayList<>(columnsCount);
     final HashSet<String> generatedColumnNames = new HashSet<>();
@@ -196,16 +199,53 @@ public final class StructureWriter {
       final ClassName nullabilityType = columnElement.isNullable() ? NULLABLE_COLUMN : NOT_NULLABLE_COLUMN;
       FormatData cursorGetter = FormatData.create(", $T." + columnElement.cursorParserConstantName(environment), UTIL);
       if (columnElement.hasTransformer()) {
-        columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(
-            columnElement.getTransformer())), structureElementTypeName, nullabilityType);
+        final TransformerElement transformer = columnElement.getTransformer();
+        if (columnElement.isUnique()) {
+          String uniqueClassName;
+          try {
+            uniqueClassName = ColumnClassWriter
+                .from(transformer, environment, true)
+                .write(filer)
+                .name;
+          } catch (IOException e) {
+            uniqueClassName = ColumnClassWriter.getUniqueClassName(transformer);
+          }
+          columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, uniqueClassName), structureElementTypeName, nullabilityType);
+        } else {
+          columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(
+              transformer)), structureElementTypeName, nullabilityType);
+        }
       } else if (columnElement.isReferencedColumn()) {
         if (isView)
           continue; // do not support complex columns in views -- no way to reference them in queries
 
-        columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(
-            columnElement.getReferencedTable())), structureElementTypeName, nullabilityType);
+        final TableElement referencedTable = columnElement.getReferencedTable();
+        if (columnElement.isUnique()) {
+          String uniqueClassName;
+          try {
+            uniqueClassName = ColumnClassWriter
+                .from(referencedTable, environment, true)
+                .write(filer)
+                .name;
+          } catch (IOException e) {
+            uniqueClassName = ColumnClassWriter.getUniqueClassName(referencedTable);
+          }
+          columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, uniqueClassName), structureElementTypeName, nullabilityType);
+        } else {
+          columnImplType = ParameterizedTypeName.get(ClassName.get(PACKAGE_ROOT, ColumnClassWriter.getClassName(
+              referencedTable)), structureElementTypeName, nullabilityType);
+        }
       } else {
-        final ClassName columnClass = columnElement.isNumericType() ? NUMERIC_COLUMN : COLUMN;
+        final ClassName columnClass;
+        if (columnElement.isId()) {
+          columnClass = UNIQUE_NUMERIC_COLUMN;
+        } else {
+          if (columnElement.isNumericType()) {
+            columnClass = columnElement.isUnique() ? UNIQUE_NUMERIC_COLUMN : NUMERIC_COLUMN;
+          } else {
+            columnClass = columnElement.isUnique() ? UNIQUE_COLUMN : COLUMN;
+          }
+        }
         final TypeName columnDeserializedType = columnElement.getDeserializedTypeNameForGenerics();
         final TypeName columnSerializedType = columnElement.getSerializedTypeNameForGenerics();
         columnImplType = ParameterizedTypeName.get(columnClass,

@@ -252,6 +252,54 @@ class BulkItemsPersistWithConflictsTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun bulkPersistWithUpdateByUniqueColumnAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByUniqueColumn(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkPersistWithUpdateByComplexUniqueColumnAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByComplexUniqueColumn(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkPersistWithUpdateByComplexColumnUniqueColumnAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByComplexColumnUniqueColumn(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
   class BulkPersistForInsertWithIgnoreConflictDualOperation<T>(private val ignoreNullValues: Boolean = false) : DualOperation<List<T>, T, Boolean> {
     override fun executeTest(model: TestModel<T>, testVal: List<T>): Boolean = model
         .bulkPersistBuilder(testVal)

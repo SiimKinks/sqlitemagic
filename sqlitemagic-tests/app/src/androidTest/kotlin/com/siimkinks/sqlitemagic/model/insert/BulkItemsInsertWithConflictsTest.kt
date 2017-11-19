@@ -114,7 +114,7 @@ class BulkItemsInsertWithConflictsTest : DefaultConnectionTest {
         val testVals = createVals {
           val (newRandom, _) = insertNewRandom(model)
           val newVal = model.newRandom()
-          model.transferComplexUniqueVal(newRandom, newVal)
+          model.transferComplexColumnUniqueVal(newRandom, newVal)
         }
         for (i in 0..10) {
           testVals.add(it.newRandom())
@@ -154,7 +154,7 @@ class BulkItemsInsertWithConflictsTest : DefaultConnectionTest {
         createVals {
           val (newRandom) = insertNewRandom(it)
           val newVal = it.newRandom()
-          model.transferComplexUniqueVal(newRandom, newVal)
+          model.transferComplexColumnUniqueVal(newRandom, newVal)
         }
       },
       operation: DualOperation<List<T>, T, Boolean> = BulkInsertWithIgnoreConflictWhereAllFailDualOperation()

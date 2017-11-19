@@ -17,6 +17,7 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
 import java.util.ArrayList;
@@ -29,11 +30,15 @@ import static com.siimkinks.sqlitemagic.Const.STATEMENT_METHOD_MAP;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_UNSUBSCRIBED_UNEXPECTEDLY;
 import static com.siimkinks.sqlitemagic.WriterUtil.BIND_VALUES_MAP;
+import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLES;
 import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
+import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
+import static com.siimkinks.sqlitemagic.WriterUtil.SQL_UTIL;
+import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
@@ -44,13 +49,17 @@ import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_INSERT_SQL;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_TABLE_SCHEMA;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_UPDATE_SQL;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_NOT_NULL;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_UNIQUE_COLUMN;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_IS_UNIQUE_COLUMN_NULL;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SET_ID;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DISPOSABLE_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_BY_COLUMNS_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.TRANSACTION_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.UPDATE_BY_COLUMN_VARIABLE;
 
 // FIXME !!! check logging generation
 public class ModelPersistingGenerator implements ModelPartGenerator {
@@ -82,6 +91,13 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
       daoClassBuilder.addMethod(entityEnvironment.getEntityIdSetter());
     }
     daoClassBuilder.addMethod(bindToNotNullContentValues(entityEnvironment));
+    if (tableElement.hasUniqueColumnsOtherThanId()) {
+      final TypeName tableElementTypeName = entityEnvironment.getTableElementTypeName();
+      daoClassBuilder.addMethod(bindUniqueColumn(tableElement, tableElementTypeName));
+      if (tableElement.isAnyUniqueColumnNullable()) {
+        daoClassBuilder.addMethod(isUniqueColumnNull(tableElement, tableElementTypeName));
+      }
+    }
   }
 
   public void writeHandler(TypeSpec.Builder handlerClassBuilder, EntityEnvironment entityEnvironment) {
@@ -94,6 +110,63 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   // -------------------------------------------
   //                  DAO methods
   // -------------------------------------------
+
+  private MethodSpec isUniqueColumnNull(TableElement tableElement, TypeName tableElementTypeName) {
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_IS_UNIQUE_COLUMN_NULL)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addParameter(STRING, "columnName")
+        .addParameter(tableElementTypeName, ENTITY_VARIABLE)
+        .returns(TypeName.BOOLEAN)
+        .beginControlFlow("switch (columnName)");
+    for (ColumnElement column : tableElement.getAllColumns()) {
+      if (column.isUnique() || column.isId()) {
+        builder.addCode("case $S:\n", column.getColumnName());
+        final boolean columnNullable = column.isNullable();
+        if (columnNullable) {
+          if (column.isReferencedColumn() && column.getReferencedTable().getIdColumn().isNullable()) {
+            final TableElement referencedTable = column.getReferencedTable();
+            final String valueGetter = column.valueGetter(ENTITY_VARIABLE);
+            final String variableName = column.getElementName();
+            builder.addStatement("final $T $L = $L",
+                referencedTable.getTableElementTypeName(),
+                variableName,
+                valueGetter);
+            final FormatData idGetterFromDao = EntityEnvironment.idGetterFromDaoIfNeeded(column, variableName);
+            builder.beginControlFlow(idGetterFromDao.formatInto("return $L == null || %s == null"),
+                idGetterFromDao.getWithOtherArgsBefore(variableName));
+          } else {
+            final String valueGetter = column.valueGetter(ENTITY_VARIABLE);
+            builder.addStatement("return $L == null", valueGetter);
+          }
+        } else {
+          builder.addStatement("return false");
+        }
+      }
+    }
+    builder.endControlFlow();
+    builder.addStatement("throw new $T(\"Column \" + columnName + \" is not unique\")", IllegalStateException.class);
+    return builder.build();
+  }
+
+  private MethodSpec bindUniqueColumn(TableElement tableElement, TypeName tableElementTypeName) {
+    final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_BIND_UNIQUE_COLUMN)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addParameter(SQLITE_STATEMENT, "statement")
+        .addParameter(TypeName.INT, "index")
+        .addParameter(STRING, "columnName")
+        .addParameter(tableElementTypeName, ENTITY_VARIABLE)
+        .beginControlFlow("switch (columnName)");
+    for (ColumnElement column : tableElement.getAllColumns()) {
+      if (column.isUnique() || column.isId()) {
+        builder
+            .addCode("case $S:\n", column.getColumnName())
+            .addCode(createBindColumnToStatement("index", column))
+            .addStatement("break");
+      }
+    }
+    builder.endControlFlow();
+    return builder.build();
+  }
 
   private MethodSpec bindToNotNullContentValues(EntityEnvironment entityEnvironment) {
     final CodeBlock.Builder valuesGatherBlock = buildNotNullValuesGatheringBlock(entityEnvironment.getTableElement());
@@ -188,7 +261,6 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
           builder.beginControlFlow("if ($L != null)", variableName);
         } else {
           builder.beginControlFlow(idGetterFromDao.formatInto("if (%s != null)"), idGetterFromDao.getArgs());
-
         }
         realBindAddingCallback.call(builder, idGetterFromDao);
         builder.endControlFlow();
@@ -205,6 +277,78 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
       }
     }
     return builder;
+  }
+
+  static CodeBlock createBindColumnToStatement(final String columnIndexVariable,
+                                               final ColumnElement columnElement) {
+    final Callback2<CodeBlock.Builder, FormatData> bindFunction = new Callback2<CodeBlock.Builder, FormatData>() {
+      @Override
+      public void call(CodeBlock.Builder builder, FormatData serializedValueGetter) {
+        final String bindMethod = STATEMENT_METHOD_MAP.get(columnElement.getSerializedType().getQualifiedName());
+        builder.addStatement(String.format("statement.$L($L, %s)", serializedValueGetter.getFormat()),
+            serializedValueGetter.getWithOtherArgsBefore(bindMethod, columnIndexVariable));
+      }
+    };
+
+    final CodeBlock.Builder builder = CodeBlock.builder();
+    final boolean columnNullable = columnElement.isNullable();
+    if (columnElement.isReferencedColumn()) {
+      final TableElement referencedTable = columnElement.getReferencedTable();
+      final ColumnElement referencedTableIdColumn = referencedTable.getIdColumn();
+      final boolean referencedIdColumnNullable = referencedTableIdColumn.isNullable();
+      if (!columnNullable && !referencedIdColumnNullable) {
+        bindFunction.call(builder, columnElement.serializedValueGetterFromEntity(ENTITY_VARIABLE));
+      } else {
+        final String valueGetter = columnElement.valueGetter(ENTITY_VARIABLE);
+        final String variableName = columnElement.getElementName();
+        builder.addStatement("final $T $L = $L",
+            referencedTable.getTableElementTypeName(),
+            variableName,
+            valueGetter);
+        final FormatData idGetterFromDao = EntityEnvironment.idGetterFromDaoIfNeeded(columnElement, variableName);
+        if (columnNullable && referencedIdColumnNullable) {
+          builder.beginControlFlow(idGetterFromDao.formatInto("if ($L == null || %s == null)"),
+              idGetterFromDao.getWithOtherArgsBefore(variableName));
+        } else if (columnNullable) {
+          builder.beginControlFlow("if ($L == null)", variableName);
+        } else {
+          builder.beginControlFlow(idGetterFromDao.formatInto("if (%s == null)"), idGetterFromDao.getArgs());
+        }
+        builder.addStatement("throw new $T(\"$L column is null\")",
+            NullPointerException.class, columnElement.getColumnName());
+        builder.endControlFlow();
+        bindFunction.call(builder, idGetterFromDao);
+      }
+    } else {
+      final FormatData serializedValueGetter = columnElement.serializedValueGetterFromEntity(ENTITY_VARIABLE);
+      if (!columnNullable) {
+        bindFunction.call(builder, serializedValueGetter);
+      } else {
+        final String valueGetter = columnElement.valueGetter(ENTITY_VARIABLE);
+        builder.beginControlFlow("if ($L == null)", valueGetter)
+            .addStatement("throw new $T(\"$L column is null\")",
+                NullPointerException.class, columnElement.getColumnName())
+            .endControlFlow();
+        bindFunction.call(builder, serializedValueGetter);
+      }
+    }
+    return builder.build();
+  }
+
+  static CodeBlock updateByColumnVariable(TableElement tableElement) {
+    return CodeBlock.builder()
+        .addStatement("final $T column = $T.firstColumnForTable($S, $L)",
+            COLUMN,
+            SQL_UTIL,
+            tableElement.getTableName(),
+            OPERATION_BY_COLUMNS_VARIABLE)
+        .addStatement("final $T $L", STRING, UPDATE_BY_COLUMN_VARIABLE)
+        .beginControlFlow("if (column != null)")
+        .addStatement("$L = column.name", UPDATE_BY_COLUMN_VARIABLE)
+        .nextControlFlow("else")
+        .addStatement("$L = $S", UPDATE_BY_COLUMN_VARIABLE, tableElement.getIdColumn().getColumnName())
+        .endControlFlow()
+        .build();
   }
 
   static final ReturnCallback2<String, ParameterSpec, ColumnElement> COMPLEX_COLUMN_PARAM_TO_ENTITY_DB_MANAGER = new ReturnCallback2<String, ParameterSpec, ColumnElement>() {

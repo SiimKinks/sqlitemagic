@@ -138,6 +138,54 @@ class SingleItemPersistWithConflictsTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun persistWithUpdateByUniqueColumnAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByUniqueColumn(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun persistWithUpdateByComplexUniqueColumnAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByComplexUniqueColumn(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun persistWithUpdateByComplexColumnUniqueColumnAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByComplexColumnUniqueColumn(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
   class PersistForInsertWithConflictAlgorithmDualOperation<T>(
       private val algorithm: Int = CONFLICT_IGNORE,
       private val ignoreNullValues: Boolean = false

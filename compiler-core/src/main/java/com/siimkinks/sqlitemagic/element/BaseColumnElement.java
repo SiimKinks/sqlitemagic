@@ -31,6 +31,8 @@ public interface BaseColumnElement {
 
   TransformerElement getTransformer();
 
+  boolean isId();
+
   boolean hasTransformer();
 
   boolean isReferencedColumn();
@@ -42,6 +44,8 @@ public interface BaseColumnElement {
   boolean isNumericType();
 
   boolean isNullable();
+
+  boolean isUnique();
 
   boolean hasNullableAnnotation();
 

@@ -349,7 +349,7 @@ public final class TestUtil {
   }
 
   public static <T> void assertValuesEqualWithDb(List<T> vals, Table<T> table) {
-    assertThat(vals).containsExactlyElementsIn(Select.from(table).queryDeep().execute()).inOrder();
+    assertThat(vals).containsExactlyElementsIn(Select.from(table).queryDeep().execute());
   }
 
   @Deprecated

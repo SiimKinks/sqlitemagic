@@ -98,7 +98,7 @@ class SingleItemInsertWithConflictsTest : DefaultConnectionTest {
         val model = it as ComplexTestModelWithUniqueColumn
         val (v1) = insertNewRandom(model)
         val newRandom = model.newRandom()
-        model.transferComplexUniqueVal(v1, newRandom)
+        model.transferComplexColumnUniqueVal(v1, newRandom)
       },
       operation = operation,
       assertResults = { model, testVal, id ->

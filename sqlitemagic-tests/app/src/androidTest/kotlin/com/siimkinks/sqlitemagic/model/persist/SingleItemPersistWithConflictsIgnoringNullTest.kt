@@ -185,4 +185,52 @@ class SingleItemPersistWithConflictsIgnoringNullTest : DefaultConnectionTest {
       isSuccessfulFor(*ALL_AUTO_ID_MODELS)
     }
   }
+
+  @Test
+  fun persistWithUpdateByUniqueColumnAndIgnoreConflictIgnoringNull() {
+    assertThatDual {
+      testCase {
+        SingleItemPersistIgnoringNullTest.OperationByUniqueColumnIgnoringNull(
+            forModel = it,
+            operation = PersistForUpdateDualOperation(ignoreNullValues = true) { model, testVal ->
+              model.persistBuilder(testVal)
+                  .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun persistWithUpdateByComplexUniqueColumnAndIgnoreConflictIgnoringNull() {
+    assertThatDual {
+      testCase {
+        SingleItemPersistIgnoringNullTest.OperationByComplexUniqueColumnIgnoringNull(
+            forModel = it,
+            operation = PersistForUpdateDualOperation(ignoreNullValues = true) { model, testVal ->
+              model.persistBuilder(testVal)
+                  .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun persistWithUpdateByComplexColumnUniqueColumnAndIgnoreConflictIgnoringNull() {
+    assertThatDual {
+      testCase {
+        SingleItemPersistIgnoringNullTest.OperationByComplexColumnUniqueColumnIgnoringNull(
+            forModel = it,
+            operation = PersistForUpdateDualOperation(ignoreNullValues = true) { model, testVal ->
+              model.persistBuilder(testVal)
+                  .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
 }

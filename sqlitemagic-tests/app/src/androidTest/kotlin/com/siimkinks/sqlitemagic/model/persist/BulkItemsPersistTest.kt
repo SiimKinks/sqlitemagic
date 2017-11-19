@@ -13,7 +13,6 @@ import io.reactivex.observers.TestObserver
 import io.reactivex.schedulers.Schedulers
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(AndroidJUnit4::class)
@@ -24,7 +23,7 @@ class BulkItemsPersistTest : DefaultConnectionTest {
       testCase {
         BulkItemsInsertTest.SuccessfulBulkOperation(
             forModel = it,
-            operation = BulkPersistDualOperation())
+            operation = BulkPersistDualOperation(persistBuilderCallback = TestModel<Any>::bulkPersistBuilder))
       }
       isSuccessfulFor(*ALL_AUTO_ID_MODELS)
     }
@@ -36,7 +35,7 @@ class BulkItemsPersistTest : DefaultConnectionTest {
       testCase {
         BulkItemsUpdateTest.SuccessfulBulkOperation(
             forModel = it,
-            operation = BulkPersistDualOperation())
+            operation = BulkPersistDualOperation(persistBuilderCallback = TestModel<Any>::bulkPersistBuilder))
       }
       isSuccessfulFor(*ALL_AUTO_ID_MODELS)
     }
@@ -48,7 +47,7 @@ class BulkItemsPersistTest : DefaultConnectionTest {
       testCase {
         BulkItemsInsertTest.MutableModelBulkOperationSetsIds(
             forModel = it,
-            operation = BulkPersistDualOperation())
+            operation = BulkPersistDualOperation(persistBuilderCallback = TestModel<Any>::bulkPersistBuilder))
       }
       isSuccessfulFor(
           simpleMutableAutoIdTestModel,
@@ -132,17 +131,49 @@ class BulkItemsPersistTest : DefaultConnectionTest {
     }
   }
 
-  class BulkPersistDualOperation<T>(private val ignoreNullValues: Boolean = false) : DualOperation<List<T>, T, Boolean> {
-    override fun executeTest(model: TestModel<T>, testVal: List<T>): Boolean = model
-        .bulkPersistBuilder(testVal)
-        .also { if (ignoreNullValues) it.ignoreNullValues() }
-        .execute()
+  @Test
+  fun bulkPersistWithUpdateByUniqueColumn() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByUniqueColumn(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
 
-    override fun observeTest(model: TestModel<T>, testVal: List<T>): Boolean = model
-        .bulkPersistBuilder(testVal)
-        .also { if (ignoreNullValues) it.ignoreNullValues() }
-        .observe()
-        .blockingGet(1, TimeUnit.SECONDS) == null
+  @Test
+  fun bulkPersistWithUpdateByComplexUniqueColumn() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByComplexUniqueColumn(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkPersistWithUpdateByComplexColumnUniqueColumn() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByComplexColumnUniqueColumn(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
   }
 
   class EarlyUnsubscribe<T>(private val ignoreNullValues: Boolean = false) : SingleOperation<List<T>, T, AtomicInteger> {

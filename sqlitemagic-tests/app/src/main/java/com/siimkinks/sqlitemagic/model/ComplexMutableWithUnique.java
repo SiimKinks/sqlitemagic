@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.model;
 
+import android.support.annotation.NonNull;
+
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
@@ -22,6 +24,8 @@ public class ComplexMutableWithUnique {
   long uniqueVal;
   String string;
   SimpleMutableWithUnique complexVal;
+  @Unique
+  @NonNull
   SimpleMutableWithUnique complexVal2;
 
   public static ComplexMutableWithUnique newRandom() {

@@ -34,7 +34,7 @@ class SingleItemPersistTest : DefaultConnectionTest {
       testCase {
         SingleItemUpdateTest.SuccessfulOperation(
             forModel = it,
-            operation = PersistForUpdateDualOperation())
+            operation = PersistForUpdateDualOperation(persistBuilderCallback = TestModel<Any>::persistBuilder))
       }
       isSuccessfulFor(*ALL_AUTO_ID_MODELS)
     }
@@ -112,6 +112,51 @@ class SingleItemPersistTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun persistWithUpdateByUniqueColumn() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByUniqueColumn(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun persistWithUpdateByComplexUniqueColumn() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByComplexUniqueColumn(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun persistWithUpdateByComplexColumnUniqueColumn() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByComplexColumnUniqueColumn(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
   class PersistForInsertDualOperation<T>(private val ignoreNullValues: Boolean = false) : DualOperation<T, T, Long> {
     override fun executeTest(model: TestModel<T>, testVal: T): Long = model
         .persistBuilder(testVal)
@@ -123,19 +168,6 @@ class SingleItemPersistTest : DefaultConnectionTest {
         .also { if (ignoreNullValues) it.ignoreNullValues() }
         .observe()
         .blockingGet()
-  }
-
-  class PersistForUpdateDualOperation<T>(private val ignoreNullValues: Boolean = false) : DualOperation<T, T, Boolean> {
-    override fun executeTest(model: TestModel<T>, testVal: T): Boolean = model
-        .persistBuilder(testVal)
-        .also { if (ignoreNullValues) it.ignoreNullValues() }
-        .execute() != -1L
-
-    override fun observeTest(model: TestModel<T>, testVal: T): Boolean = model
-        .persistBuilder(testVal)
-        .also { if (ignoreNullValues) it.ignoreNullValues() }
-        .observe()
-        .blockingGet() != -1L
   }
 
   class ObservePersist<T>(private val ignoreNullValues: Boolean = false) : SingleOperation<T, T, TestObserver<Long>> {

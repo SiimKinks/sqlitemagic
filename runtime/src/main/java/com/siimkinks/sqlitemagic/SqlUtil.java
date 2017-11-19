@@ -1,10 +1,13 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.sqlite.SQLiteDatabase;
+import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.annotation.internal.Invokes;
+
+import java.util.ArrayList;
 
 import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_PROCESSOR_DID_NOT_RUN;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CLEAR_DATA;
@@ -62,5 +65,40 @@ public final class SqlUtil {
     } else {
       db.execSQL("CREATE VIEW IF NOT EXISTS " + viewName + " AS " + queryImpl.sql);
     }
+  }
+
+  @NonNull
+  @CheckResult
+  static String opByColumnSql(@NonNull String sql,
+                              @NonNull String tableName,
+                              @Nullable ArrayList<Column> byColumns) {
+    if (byColumns == null) {
+      return sql;
+    }
+    Column column = firstColumnForTable(tableName, byColumns);
+    if (column == null) {
+      return sql;
+    }
+    final int whereClauseEndIndex = sql.indexOf("WHERE") + 6;
+    return new StringBuilder(whereClauseEndIndex + 20)
+        .append(sql, 0, whereClauseEndIndex)
+        .append(column.name)
+        .append("=?")
+        .toString();
+  }
+
+  @Nullable
+  static Column firstColumnForTable(@NonNull String tableName,
+                                    @NonNull ArrayList<Column> columns) {
+    Column column = null;
+    final int size = columns.size();
+    for (int i = 0; i < size; i++) {
+      final Column c = columns.get(i);
+      if (c.table.name.equals(tableName)) {
+        column = c;
+        break;
+      }
+    }
+    return column;
   }
 }

@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.siimkinks.sqlitemagic.model.persist
 
 import android.support.test.runner.AndroidJUnit4
@@ -35,7 +37,8 @@ class SingleItemPersistIgnoringNullTest : DefaultConnectionTest {
             forModel = it,
             setUp = newUpdatableRandomWithNulledColumns(),
             operation = PersistForUpdateDualOperation(
-                ignoreNullValues = true),
+                ignoreNullValues = true,
+                persistBuilderCallback = TestModel<Any>::persistBuilder),
             assertResults = assertUpdateSuccessForNullableColumns())
       }
       isSuccessfulFor(*ALL_NULLABLE_FIXED_ID_MODELS)
@@ -64,7 +67,8 @@ class SingleItemPersistIgnoringNullTest : DefaultConnectionTest {
             forModel = it,
             setUp = newComplexUpdatableRandomWithNulledColumns(),
             operation = PersistForUpdateDualOperation(
-                ignoreNullValues = true),
+                ignoreNullValues = true,
+                persistBuilderCallback = TestModel<Any>::persistBuilder),
             assertResults = assertUpdateSuccessForComplexNullableColumns())
       }
       isSuccessfulFor(*COMPLEX_NULLABLE_FIXED_ID_MODELS)
@@ -146,6 +150,90 @@ class SingleItemPersistIgnoringNullTest : DefaultConnectionTest {
                 ignoreNullValues = true))
       }
       isSuccessfulFor(*ALL_AUTO_ID_MODELS)
+    }
+  }
+
+  class OperationByUniqueColumnIgnoringNull<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> T = {
+        val (newRandom, id) = insertNewRandom(it)
+        var updatedVal = it.updateAllVals(newRandom, id)
+        updatedVal = (it as NullableColumns<T>).nullSomeColumns(updatedVal)
+        (it as TestModelWithUniqueColumn).transferUniqueVal(newRandom, updatedVal)
+      },
+      operation: DualOperation<T, T, Boolean> = PersistForUpdateDualOperation(ignoreNullValues = true) { model, testVal ->
+        model.persistBuilder(testVal)
+            .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+      },
+      assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccessForNullableColumns()
+  ) : DualOperationTestCase<T, T, Boolean>(
+      "Update by unique column ignoring null succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun persistWithUpdateByUniqueColumnIgnoringNull() {
+    assertThatDual {
+      testCase { OperationByUniqueColumnIgnoringNull(forModel = it) }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  class OperationByComplexUniqueColumnIgnoringNull<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> T = {
+        val (newRandom, id) = insertNewRandom(it)
+        var updatedVal = it.updateAllVals(newRandom, id)
+        updatedVal = (it as NullableColumns<T>).nullSomeColumns(updatedVal)
+        (it as ComplexTestModelWithUniqueColumn).transferComplexColumnUniqueVal(newRandom, updatedVal)
+      },
+      operation: DualOperation<T, T, Boolean> = PersistForUpdateDualOperation(ignoreNullValues = true) { model, testVal ->
+        model.persistBuilder(testVal)
+            .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+      },
+      assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccessForNullableColumns()
+  ) : DualOperationTestCase<T, T, Boolean>(
+      "Update by complex unique column ignoring null succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun persistWithUpdateByComplexUniqueColumnIgnoringNull() {
+    assertThatDual {
+      testCase { OperationByComplexUniqueColumnIgnoringNull(forModel = it) }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  class OperationByComplexColumnUniqueColumnIgnoringNull<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> T = {
+        val (newRandom, id) = insertNewRandom(it)
+        var updatedVal = it.updateAllVals(newRandom, id)
+        updatedVal = (it as NullableColumns<T>).nullSomeColumns(updatedVal)
+        (it as ComplexTestModelWithUniqueColumn).transferAllComplexUniqueVals(newRandom, updatedVal)
+      },
+      operation: DualOperation<T, T, Boolean> = PersistForUpdateDualOperation(ignoreNullValues = true) { model, testVal ->
+        model.persistBuilder(testVal)
+            .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+      },
+      assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccessForNullableColumns()
+  ) : DualOperationTestCase<T, T, Boolean>(
+      "Update complex column by its unique column ignoring null succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun persistWithUpdateByComplexColumnUniqueColumnIgnoringNull() {
+    assertThatDual {
+      testCase { OperationByComplexColumnUniqueColumnIgnoringNull(forModel = it) }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
     }
   }
 }

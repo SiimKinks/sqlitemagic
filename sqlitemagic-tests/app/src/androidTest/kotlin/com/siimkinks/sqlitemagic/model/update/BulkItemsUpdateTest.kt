@@ -9,12 +9,10 @@ import com.siimkinks.sqlitemagic.DefaultConnectionTest
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.createVals
 import com.siimkinks.sqlitemagic.model.*
-import com.siimkinks.sqlitemagic.model.TestUtil.assertValuesEqualWithDb
 import io.reactivex.observers.TestObserver
 import io.reactivex.schedulers.Schedulers
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(AndroidJUnit4::class)
@@ -27,11 +25,8 @@ class BulkItemsUpdateTest : DefaultConnectionTest {
           model.updateAllVals(v, id)
         }
       },
-      operation: DualOperation<List<T>, T, Boolean> = BulkUpdateDualOperation(),
-      assertResults: (TestModel<T>, List<T>, Boolean) -> Unit = { model, testVals, success ->
-        assertThat(success).isTrue()
-        assertValuesEqualWithDb(testVals, model.table)
-      }
+      operation: DualOperation<List<T>, T, Boolean> = BulkUpdateDualOperation(TestModel<T>::bulkUpdateBuilder),
+      assertResults: (TestModel<T>, List<T>, Boolean) -> Unit = assertBulkUpdateSuccess()
   ) : DualOperationTestCase<List<T>, T, Boolean>(
       "Simple bulk update succeeds",
       model = forModel,
@@ -157,15 +152,94 @@ class BulkItemsUpdateTest : DefaultConnectionTest {
     }
   }
 
-  class BulkUpdateDualOperation<T> : DualOperation<List<T>, T, Boolean> {
-    override fun executeTest(model: TestModel<T>, testVal: List<T>): Boolean = model
-        .bulkUpdateBuilder(testVal)
-        .execute()
+  class BulkOperationByUniqueColumn<T>(
+      forModel: TestModel<T>,
+      before: (TestModel<T>) -> List<T> = {
+        val model = it as TestModelWithUniqueColumn
+        createVals {
+          val (v, id) = insertNewRandom(model)
+          val updatedVal = model.updateAllVals(v, id)
+          model.transferUniqueVal(v, updatedVal)
+        }
+      },
+      operation: DualOperation<List<T>, T, Boolean> = BulkUpdateDualOperation { model, testVal ->
+        model.bulkUpdateBuilder(testVal)
+            .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+      },
+      assertResults: (TestModel<T>, List<T>, Boolean) -> Unit = assertBulkUpdateSuccess()
+  ) : DualOperationTestCase<List<T>, T, Boolean>(
+      "Bulk update by unique column succeeds",
+      model = forModel,
+      setUp = before,
+      operation = operation,
+      assertResults = assertResults)
 
-    override fun observeTest(model: TestModel<T>, testVal: List<T>): Boolean = model
-        .bulkUpdateBuilder(testVal)
-        .observe()
-        .blockingGet(1, TimeUnit.SECONDS) == null
+  @Test
+  fun bulkUpdateByUniqueColumn() {
+    assertThatDual {
+      testCase { BulkOperationByUniqueColumn(it) }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  class BulkOperationByComplexUniqueColumn<T>(
+      forModel: TestModel<T>,
+      before: (TestModel<T>) -> List<T> = {
+        val model = it as ComplexTestModelWithUniqueColumn
+        createVals {
+          val (v, id) = insertNewRandom(model)
+          val updatedVal = model.updateAllVals(v, id)
+          model.transferComplexColumnUniqueVal(v, updatedVal)
+        }
+      },
+      operation: DualOperation<List<T>, T, Boolean> = BulkUpdateDualOperation { model, testVal ->
+        model.bulkUpdateBuilder(testVal)
+            .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+      },
+      assertResults: (TestModel<T>, List<T>, Boolean) -> Unit = assertBulkUpdateSuccess()
+  ) : DualOperationTestCase<List<T>, T, Boolean>(
+      "Bulk update by complex unique column succeeds",
+      model = forModel,
+      setUp = before,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun bulkUpdateByComplexUniqueColumn() {
+    assertThatDual {
+      testCase { BulkOperationByComplexUniqueColumn(it) }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  class BulkOperationByComplexColumnUniqueColumn<T>(
+      forModel: TestModel<T>,
+      before: (TestModel<T>) -> List<T> = {
+        val model = it as ComplexTestModelWithUniqueColumn
+        createVals {
+          val (v, id) = insertNewRandom(model)
+          val updatedVal = model.updateAllVals(v, id)
+          model.transferAllComplexUniqueVals(v, updatedVal)
+        }
+      },
+      operation: DualOperation<List<T>, T, Boolean> = BulkUpdateDualOperation { model, testVal ->
+        model.bulkUpdateBuilder(testVal)
+            .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+      },
+      assertResults: (TestModel<T>, List<T>, Boolean) -> Unit = assertBulkUpdateSuccess()
+  ) : DualOperationTestCase<List<T>, T, Boolean>(
+      "Bulk update complex column by its unique column succeeds",
+      model = forModel,
+      setUp = before,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun bulkUpdateByComplexColumnUniqueColumn() {
+    assertThatDual {
+      testCase { BulkOperationByComplexColumnUniqueColumn(it) }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
   }
 
   class ObserveBulkUpdate<T> : SingleOperation<List<T>, T, TestObserver<Long>> {

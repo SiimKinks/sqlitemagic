@@ -11,7 +11,8 @@ import io.reactivex.Single;
  * Persist is an operation that first tries to update and if that fails then inserts
  * the provided entity.
  */
-public interface EntityPersistBuilder extends EntityOperationBuilder<EntityPersistBuilder> {
+public interface EntityPersistBuilder extends EntityOperationBuilder<EntityPersistBuilder>,
+    EntityUpdateByColumnBuilder<EntityPersistBuilder> {
   /**
    * Configure this operation to ignore {@code null} values inside entity when
    * persisting provided object.

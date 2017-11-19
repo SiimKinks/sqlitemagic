@@ -479,7 +479,14 @@ val complexMutableFixedIdUniqueNullableTestModel = ComplexTestModelWithUniqueNul
       }
     },
     uniqueValue = object: ComplexUniqueValued<ComplexMutableWithUnique> {
-      override fun getChildren(src: ComplexMutableWithUnique): Map<ChildMetadata, List<Long>> =
+      override val uniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_MUTABLE_WITH_UNIQUE.UNIQUE_VAL
+      override val complexUniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_MUTABLE_WITH_UNIQUE.COMPLEX_VAL2
+      override val complexColumnUniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE.UNIQUE_VAL
+
+          override fun getChildren(src: ComplexMutableWithUnique): Map<ChildMetadata, List<Long>> =
           mapOf(
               ChildMetadata(SIMPLE_MUTABLE_WITH_UNIQUE, SIMPLE_MUTABLE_WITH_UNIQUE.ID) to listOf(
                   src.complexVal.id,
@@ -488,12 +495,23 @@ val complexMutableFixedIdUniqueNullableTestModel = ComplexTestModelWithUniqueNul
           )
 
       override fun transferUniqueVal(src: ComplexMutableWithUnique, target: ComplexMutableWithUnique): ComplexMutableWithUnique {
-        target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
+        target.uniqueVal = src.uniqueVal
         return target
       }
 
       override fun transferComplexUniqueVal(src: ComplexMutableWithUnique, target: ComplexMutableWithUnique): ComplexMutableWithUnique {
-        target.uniqueVal = src.uniqueVal
+        target.complexVal2 = src.complexVal2
+        return target
+      }
+
+      override fun transferComplexColumnUniqueVal(src: ComplexMutableWithUnique, target: ComplexMutableWithUnique): ComplexMutableWithUnique {
+        target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
+        return target
+      }
+
+      override fun transferAllComplexUniqueVals(src: ComplexMutableWithUnique, target: ComplexMutableWithUnique): ComplexMutableWithUnique {
+        target.complexVal.uniqueVal = src.complexVal.uniqueVal
+        target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
         return target
       }
     },
@@ -585,6 +603,13 @@ val complexImmutableWithBuilderFixedIdUniqueNullableTestModel = ComplexTestModel
       }
     },
     uniqueValue = object: ComplexUniqueValued<ComplexImmutableBuilderWithUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_IMMUTABLE_BUILDER_WITH_UNIQUE.UNIQUE_VAL
+      override val complexUniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_IMMUTABLE_BUILDER_WITH_UNIQUE.COMPLEX_VAL2
+      override val complexColumnUniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE.UNIQUE_VAL
+
       override fun getChildren(src: ComplexImmutableBuilderWithUnique): Map<ChildMetadata, List<Long>> =
           mapOf(
               ChildMetadata(SIMPLE_MUTABLE_WITH_UNIQUE, SIMPLE_MUTABLE_WITH_UNIQUE.ID) to listOf(
@@ -598,7 +623,18 @@ val complexImmutableWithBuilderFixedIdUniqueNullableTestModel = ComplexTestModel
               .uniqueVal(src.uniqueVal())
               .build()
 
-      override fun transferComplexUniqueVal(src: ComplexImmutableBuilderWithUnique, target: ComplexImmutableBuilderWithUnique): ComplexImmutableBuilderWithUnique {
+      override fun transferComplexUniqueVal(src: ComplexImmutableBuilderWithUnique, target: ComplexImmutableBuilderWithUnique): ComplexImmutableBuilderWithUnique =
+          target.copy()
+              .complexVal2(src.complexVal2())
+              .build()
+
+      override fun transferComplexColumnUniqueVal(src: ComplexImmutableBuilderWithUnique, target: ComplexImmutableBuilderWithUnique): ComplexImmutableBuilderWithUnique {
+        target.complexVal2().uniqueVal = src.complexVal2().uniqueVal
+        return target
+      }
+
+      override fun transferAllComplexUniqueVals(src: ComplexImmutableBuilderWithUnique, target: ComplexImmutableBuilderWithUnique): ComplexImmutableBuilderWithUnique {
+        target.complexVal()!!.uniqueVal = src.complexVal()!!.uniqueVal
         target.complexVal2().uniqueVal = src.complexVal2().uniqueVal
         return target
       }
@@ -694,6 +730,13 @@ val complexImmutableWithCreatorFixedIdUniqueNullableTestModel = ComplexTestModel
       }
     },
     uniqueValue = object: ComplexUniqueValued<ComplexImmutableCreatorWithUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_IMMUTABLE_CREATOR_WITH_UNIQUE.UNIQUE_VAL
+      override val complexUniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_IMMUTABLE_CREATOR_WITH_UNIQUE.COMPLEX_VAL2
+      override val complexColumnUniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE.UNIQUE_VAL
+
       override fun getChildren(src: ComplexImmutableCreatorWithUnique): Map<ChildMetadata, List<Long>> =
           mapOf(
               ChildMetadata(SIMPLE_MUTABLE_WITH_UNIQUE, SIMPLE_MUTABLE_WITH_UNIQUE.ID) to listOf(
@@ -710,7 +753,21 @@ val complexImmutableWithCreatorFixedIdUniqueNullableTestModel = ComplexTestModel
               target.complexVal(),
               target.complexVal2())
 
-      override fun transferComplexUniqueVal(src: ComplexImmutableCreatorWithUnique, target: ComplexImmutableCreatorWithUnique): ComplexImmutableCreatorWithUnique {
+      override fun transferComplexUniqueVal(src: ComplexImmutableCreatorWithUnique, target: ComplexImmutableCreatorWithUnique): ComplexImmutableCreatorWithUnique =
+          ComplexImmutableCreatorWithUnique.create(
+              target.id(),
+              target.uniqueVal(),
+              target.string(),
+              target.complexVal(),
+              src.complexVal2())
+
+      override fun transferComplexColumnUniqueVal(src: ComplexImmutableCreatorWithUnique, target: ComplexImmutableCreatorWithUnique): ComplexImmutableCreatorWithUnique {
+        target.complexVal2().uniqueVal = src.complexVal2().uniqueVal
+        return target
+      }
+
+      override fun transferAllComplexUniqueVals(src: ComplexImmutableCreatorWithUnique, target: ComplexImmutableCreatorWithUnique): ComplexImmutableCreatorWithUnique {
+        target.complexVal()!!.uniqueVal = src.complexVal()!!.uniqueVal
         target.complexVal2().uniqueVal = src.complexVal2().uniqueVal
         return target
       }
@@ -801,6 +858,13 @@ val complexDataClassWithFieldsFixedIdUniqueNullableTestModel = ComplexTestModelW
       }
     },
     uniqueValue = object: ComplexUniqueValued<ComplexDataClassWithFieldsAndUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_DATA_CLASS_WITH_FIELDS_AND_UNIQUE.UNIQUE_VAL
+      override val complexUniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_DATA_CLASS_WITH_FIELDS_AND_UNIQUE.COMPLEX_VAL2
+      override val complexColumnUniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE.UNIQUE_VAL
+
       override fun getChildren(src: ComplexDataClassWithFieldsAndUnique): Map<ChildMetadata, List<Long>> =
           mapOf(
               ChildMetadata(SIMPLE_MUTABLE_WITH_UNIQUE, SIMPLE_MUTABLE_WITH_UNIQUE.ID) to listOf(
@@ -817,7 +881,21 @@ val complexDataClassWithFieldsFixedIdUniqueNullableTestModel = ComplexTestModelW
               target.complexVal,
               target.complexVal2)
 
-      override fun transferComplexUniqueVal(src: ComplexDataClassWithFieldsAndUnique, target: ComplexDataClassWithFieldsAndUnique): ComplexDataClassWithFieldsAndUnique {
+      override fun transferComplexUniqueVal(src: ComplexDataClassWithFieldsAndUnique, target: ComplexDataClassWithFieldsAndUnique): ComplexDataClassWithFieldsAndUnique =
+          ComplexDataClassWithFieldsAndUnique.create(
+              target.id,
+              target.uniqueVal,
+              target.string,
+              target.complexVal,
+              src.complexVal2)
+
+      override fun transferComplexColumnUniqueVal(src: ComplexDataClassWithFieldsAndUnique, target: ComplexDataClassWithFieldsAndUnique): ComplexDataClassWithFieldsAndUnique {
+        target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
+        return target
+      }
+
+      override fun transferAllComplexUniqueVals(src: ComplexDataClassWithFieldsAndUnique, target: ComplexDataClassWithFieldsAndUnique): ComplexDataClassWithFieldsAndUnique {
+        target.complexVal.uniqueVal = src.complexVal.uniqueVal
         target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
         return target
       }
@@ -908,6 +986,13 @@ val complexDataClassWithMethodsFixedIdUniqueNullableTestModel = ComplexTestModel
       }
     },
     uniqueValue = object: ComplexUniqueValued<ComplexDataClassWithMethodsAndUnique> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_DATA_CLASS_WITH_METHODS_AND_UNIQUE.UNIQUE_VAL
+      override val complexUniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_DATA_CLASS_WITH_METHODS_AND_UNIQUE.COMPLEX_VAL2
+      override val complexColumnUniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE.UNIQUE_VAL
+
       override fun getChildren(src: ComplexDataClassWithMethodsAndUnique): Map<ChildMetadata, List<Long>> =
           mapOf(
               ChildMetadata(SIMPLE_MUTABLE_WITH_UNIQUE, SIMPLE_MUTABLE_WITH_UNIQUE.ID) to listOf(
@@ -924,7 +1009,21 @@ val complexDataClassWithMethodsFixedIdUniqueNullableTestModel = ComplexTestModel
               target.complexVal,
               target.complexVal2)
 
-      override fun transferComplexUniqueVal(src: ComplexDataClassWithMethodsAndUnique, target: ComplexDataClassWithMethodsAndUnique): ComplexDataClassWithMethodsAndUnique {
+      override fun transferComplexUniqueVal(src: ComplexDataClassWithMethodsAndUnique, target: ComplexDataClassWithMethodsAndUnique): ComplexDataClassWithMethodsAndUnique =
+          ComplexDataClassWithMethodsAndUnique.create(
+              target.id,
+              target.uniqueVal,
+              target.string,
+              target.complexVal,
+              src.complexVal2)
+
+      override fun transferComplexColumnUniqueVal(src: ComplexDataClassWithMethodsAndUnique, target: ComplexDataClassWithMethodsAndUnique): ComplexDataClassWithMethodsAndUnique {
+        target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
+        return target
+      }
+
+      override fun transferAllComplexUniqueVals(src: ComplexDataClassWithMethodsAndUnique, target: ComplexDataClassWithMethodsAndUnique): ComplexDataClassWithMethodsAndUnique {
+        target.complexVal.uniqueVal = src.complexVal.uniqueVal
         target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
         return target
       }

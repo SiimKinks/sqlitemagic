@@ -4,16 +4,19 @@ import android.database.sqlite.SQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.io.Closeable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.ArrayList;
 
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT;
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE;
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_NONE;
+import static com.siimkinks.sqlitemagic.SqlUtil.opByColumnSql;
 
 public final class OperationHelper implements Closeable {
   @IntDef({
@@ -30,16 +33,23 @@ public final class OperationHelper implements Closeable {
 
   @ConflictAlgorithm
   private final int conflictAlgorithm;
-  private final boolean useAlgorithm;
+  private final boolean customSqlNeededForConflictAlgorithm;
+  private final boolean customSqlNeededForUpdates;
   private SimpleArrayMap<String, SQLiteStatement> inserts;
   private SimpleArrayMap<String, SQLiteStatement> updates;
   final boolean ignoreConflict;
+  @Nullable
+  private final ArrayList<Column> operationByColumns;
 
   OperationHelper(@ConflictAlgorithm int conflictAlgorithm,
-                  @Op int op) {
+                  @Op int op,
+                  @Nullable ArrayList<Column> operationByColumns) {
     this.conflictAlgorithm = conflictAlgorithm;
-    ignoreConflict = conflictAlgorithm == CONFLICT_IGNORE;
-    if (this.useAlgorithm = conflictAlgorithm != CONFLICT_NONE && conflictAlgorithm != CONFLICT_ABORT) {
+    this.ignoreConflict = conflictAlgorithm == CONFLICT_IGNORE;
+    this.operationByColumns = operationByColumns;
+    this.customSqlNeededForConflictAlgorithm = conflictAlgorithm != CONFLICT_NONE && conflictAlgorithm != CONFLICT_ABORT;
+    this.customSqlNeededForUpdates = op != Op.INSERT && operationByColumns != null && !operationByColumns.isEmpty();
+    if (customSqlNeededForConflictAlgorithm) {
       switch (op) {
         case 0:
           inserts = new SimpleArrayMap<>(SimpleArrayMap.BASE_SIZE);
@@ -55,6 +65,9 @@ public final class OperationHelper implements Closeable {
           break;
       }
     }
+    if (!customSqlNeededForConflictAlgorithm && customSqlNeededForUpdates) {
+      updates = new SimpleArrayMap<>(SimpleArrayMap.BASE_SIZE);
+    }
   }
 
   @NonNull
@@ -62,7 +75,7 @@ public final class OperationHelper implements Closeable {
   SQLiteStatement getInsertStatement(@NonNull String tableName,
                                      @NonNull String sql,
                                      @NonNull EntityDbManager manager) {
-    if (useAlgorithm) {
+    if (customSqlNeededForConflictAlgorithm) {
       SQLiteStatement insert = inserts.get(tableName);
       if (insert == null) {
         insert = manager.compileStatement(sql, conflictAlgorithm);
@@ -78,10 +91,10 @@ public final class OperationHelper implements Closeable {
   SQLiteStatement getUpdateStatement(@NonNull String tableName,
                                      @NonNull String sql,
                                      @NonNull EntityDbManager manager) {
-    if (useAlgorithm) {
+    if (customSqlNeededForConflictAlgorithm || customSqlNeededForUpdates) {
       SQLiteStatement update = updates.get(tableName);
       if (update == null) {
-        update = manager.compileStatement(sql, conflictAlgorithm);
+        update = manager.compileStatement(opByColumnSql(sql, tableName, operationByColumns), conflictAlgorithm);
         updates.put(tableName, update);
       }
       return update;

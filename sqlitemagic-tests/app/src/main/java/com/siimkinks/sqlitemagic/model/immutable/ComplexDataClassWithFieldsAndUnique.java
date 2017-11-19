@@ -29,6 +29,8 @@ public final class ComplexDataClassWithFieldsAndUnique {
 
   public final SimpleMutableWithUnique complexVal;
 
+  @Unique
+  @NonNull
   public final SimpleMutableWithUnique complexVal2;
 
   public ComplexDataClassWithFieldsAndUnique(long id,

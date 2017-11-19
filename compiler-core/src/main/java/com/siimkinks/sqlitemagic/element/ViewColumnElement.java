@@ -129,8 +129,18 @@ public final class ViewColumnElement implements BaseColumnElement {
   }
 
   @Override
+  public boolean isId() {
+    return false;
+  }
+
+  @Override
   public boolean isNumericType() {
     return Const.NUMERIC_SQL_TYPE_MAP.containsKey(getSerializedType().getQualifiedName());
+  }
+
+  @Override
+  public boolean isUnique() {
+    return false;
   }
 
   @Override

@@ -28,6 +28,8 @@ public abstract class ComplexImmutableBuilderWithUnique {
   public abstract String string();
   @Nullable
   public abstract SimpleMutableWithUnique complexVal();
+  @Unique
+  @NonNull
   public abstract SimpleMutableWithUnique complexVal2();
 
   @NonNull
@@ -48,7 +50,7 @@ public abstract class ComplexImmutableBuilderWithUnique {
     public abstract Builder uniqueVal(long uniqueVal);
     public abstract Builder string(@Nullable String string);
     public abstract Builder complexVal(@Nullable SimpleMutableWithUnique complexVal);
-    public abstract Builder complexVal2(SimpleMutableWithUnique complexVal2);
+    public abstract Builder complexVal2(@NonNull SimpleMutableWithUnique complexVal2);
     @CheckResult
     public abstract ComplexImmutableBuilderWithUnique build();
   }

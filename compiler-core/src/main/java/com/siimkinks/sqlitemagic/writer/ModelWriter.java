@@ -27,6 +27,8 @@ public class ModelWriter {
   public static final String DISPOSABLE_VARIABLE = "disposable";
   public static final String OBJECTS_VARIABLE = "objects";
   public static final String CONFLICT_ALGORITHM_VARIABLE = "conflictAlgorithm";
+  public static final String OPERATION_BY_COLUMNS_VARIABLE = "operationByColumns";
+  public static final String UPDATE_BY_COLUMN_VARIABLE = "updateByColumn";
   public static final String STATEMENT_VARIABLE = "stm";
   public static final String INSERT_STATEMENT_VARIABLE = "insertStm";
   public static final String UPDATE_STATEMENT_VARIABLE = "updateStm";
@@ -60,7 +62,7 @@ public class ModelWriter {
     WriterUtil.writeSource(filer, daoClassBuilder.build(), tableElement.getPackageName());
     WriterUtil.writeSource(filer, handlerClassBuilder.build());
 
-    ColumnClassWriter.from(tableElement, environment).write(filer);
+    ColumnClassWriter.from(tableElement, environment, false).write(filer);
     StructureWriter.from(entityEnvironment, environment).write(filer);
   }
 }

@@ -15,7 +15,10 @@ class SingleItemUpdateWithConflictsTest : DefaultConnectionTest {
   class SuccessfulOperationWithConflictAlgorithm<T>(
       forModel: TestModel<T>,
       setUp: (TestModel<T>) -> T = newUpdatableRandom(),
-      operation: DualOperation<T, T, Boolean> = UpdateWithConflictAlgorithmDualOperation(CONFLICT_FAIL),
+      operation: DualOperation<T, T, Boolean> = UpdateDualOperation { model, testVal ->
+        model.updateBuilder(testVal)
+            .conflictAlgorithm(CONFLICT_FAIL)
+      },
       assertResults: (TestModel<T>, T, Boolean) -> Unit = assertUpdateSuccess()
   ) : DualOperationTestCase<T, T, Boolean>(
       "Update with arbitrary conflict algorithm succeeds",
@@ -97,7 +100,7 @@ class SingleItemUpdateWithConflictsTest : DefaultConnectionTest {
         val (v1, id1) = insertNewRandom(model)
         val (v2) = insertNewRandom(model)
         val result = model.updateAllVals(v1, id1)
-        model.transferComplexUniqueVal(v2, result)
+        model.transferComplexColumnUniqueVal(v2, result)
       },
       operation = operation,
       assertResults = { model, testVal, success ->
@@ -113,19 +116,52 @@ class SingleItemUpdateWithConflictsTest : DefaultConnectionTest {
     }
   }
 
-  class UpdateWithConflictAlgorithmDualOperation<T>(
-      private val algorithm: Int = CONFLICT_IGNORE
-  ) : DualOperation<T, T, Boolean> {
-    override fun executeTest(model: TestModel<T>, testVal: T): Boolean = model
-        .updateBuilder(testVal)
-        .conflictAlgorithm(algorithm)
-        .execute()
+  @Test
+  fun updateByUniqueColumnWithConflictAlgorithm() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByUniqueColumn(
+            forModel = it,
+            operation = UpdateDualOperation { model, testVal ->
+              model.updateBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
 
-    override fun observeTest(model: TestModel<T>, testVal: T): Boolean = model
-        .updateBuilder(testVal)
-        .conflictAlgorithm(algorithm)
-        .observe()
-        .blockingGet(1, TimeUnit.SECONDS) == null
+  @Test
+  fun updateByComplexUniqueColumnWithConflictAlgorithm() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByComplexUniqueColumn(
+            forModel = it,
+            operation = UpdateDualOperation { model, testVal ->
+              model.updateBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun updateByComplexColumnUniqueColumnWithConflictAlgorithm() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByComplexColumnUniqueColumn(
+            forModel = it,
+            operation = UpdateDualOperation { model, testVal ->
+              model.updateBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
   }
 
   class FailingUpdateWithConflictIgnoreDualOperation<T>(

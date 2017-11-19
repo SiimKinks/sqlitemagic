@@ -32,6 +32,8 @@ public abstract class ComplexImmutableCreatorWithUnique {
   @Nullable
   public abstract SimpleMutableWithUnique complexVal();
 
+  @Unique
+  @NonNull
   public abstract SimpleMutableWithUnique complexVal2();
 
   @NonNull

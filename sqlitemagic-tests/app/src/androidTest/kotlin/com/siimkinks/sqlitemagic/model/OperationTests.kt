@@ -4,10 +4,7 @@ package com.siimkinks.sqlitemagic.model
 
 import android.os.Build
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Column
-import com.siimkinks.sqlitemagic.NotNullable
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
+import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.entity.*
 import io.reactivex.observers.TestObserver
 import java.util.concurrent.TimeUnit
@@ -224,11 +221,16 @@ interface TestModel<T> {
 }
 
 interface UniqueValued<T> {
+  val uniqueColumn: Unique<NotNullable>
   fun transferUniqueVal(src: T, target: T): T
 }
 interface ComplexUniqueValued<T> : UniqueValued<T> {
+  val complexUniqueColumn: Unique<NotNullable>
+  val complexColumnUniqueColumn: Unique<NotNullable>
   fun getChildren(src: T): Map<ChildMetadata, List<Long>>
   fun transferComplexUniqueVal(src: T, target: T): T
+  fun transferComplexColumnUniqueVal(src: T, target: T): T
+  fun transferAllComplexUniqueVals(src: T, target: T): T
   fun assertNoChildrenInDb(testVal: T) {
     getChildren(testVal)
         .forEach { (child, childIds) ->

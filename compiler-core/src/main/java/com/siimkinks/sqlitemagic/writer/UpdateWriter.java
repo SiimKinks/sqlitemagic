@@ -34,6 +34,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
+import static com.siimkinks.sqlitemagic.WriterUtil.addOperationByColumnToOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxActionToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableCreateFromParentClass;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxCompletableFromEmitterToType;
@@ -45,8 +46,9 @@ import static com.siimkinks.sqlitemagic.WriterUtil.emitterOnError;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbManagerParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityDbVariablesForOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.entityParameter;
-import static com.siimkinks.sqlitemagic.WriterUtil.opHelperVariable;
+import static com.siimkinks.sqlitemagic.WriterUtil.opByColumnHelperVariable;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationBuilderInnerClassSkeleton;
+import static com.siimkinks.sqlitemagic.WriterUtil.operationByColumnsParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationHelperParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.operationRxCompletableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.typedIterable;
@@ -55,6 +57,7 @@ import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_BULK_UPDATE;
 import static com.siimkinks.sqlitemagic.util.NameConst.CLASS_UPDATE;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_UPDATE_STATEMENT;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BIND_UNIQUE_COLUMN;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_EXECUTE;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_INTERNAL_UPDATE;
@@ -68,10 +71,12 @@ import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addOpera
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addRxCompletableEmitterTransactionEndBlock;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addThrowOperationFailedExceptionWithEntityVariable;
 import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.addTransactionStartBlock;
+import static com.siimkinks.sqlitemagic.writer.ModelPersistingGenerator.updateByColumnVariable;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.OBJECTS_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_BY_COLUMNS_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.STATEMENT_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.TRANSACTION_VARIABLE;
@@ -125,24 +130,15 @@ public class UpdateWriter implements OperationWriter {
   // -------------------------------------------
 
   private MethodSpec bindToUpdateStatement() {
-    final boolean idColumnNullable = isIdColumnNullable();
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_BIND_TO_UPDATE_STATEMENT)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(SQLITE_STATEMENT, "statement")
         .addParameter(tableElementTypeName, ENTITY_VARIABLE)
         .addStatement("statement.clearBindings()");
-    if (idColumnNullable) {
-      builder.addParameter(TypeName.LONG.box(), "id");
-    }
     int colPos = 1;
     for (ColumnElement columnElement : tableElement.getColumnsExceptId()) {
       addBindColumnToStatementBlock(builder, colPos, columnElement);
       colPos++;
-    }
-    if (idColumnNullable) {
-      addBindIdColumnToStatementBlock(builder, colPos);
-    } else {
-      addBindColumnToStatementBlock(builder, colPos, tableElement.getIdColumn());
     }
     return builder.build();
   }
@@ -189,7 +185,8 @@ public class UpdateWriter implements OperationWriter {
         METHOD_INTERNAL_UPDATE,
         COMPLEX_COLUMN_PARAM_TO_ENTITY_DB_MANAGER,
         connectionImplParameter(),
-        operationHelperParameter());
+        operationHelperParameter(),
+        operationByColumnsParameter());
   }
 
   private void addUpdateMethodInternalCallOnComplexColumnsIfNeeded(TypeSpec.Builder daoClassBuilder,
@@ -263,6 +260,7 @@ public class UpdateWriter implements OperationWriter {
     final MethodSpec updateExecute = updateExecute(update);
     final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_UPDATE, ENTITY_UPDATE_BUILDER, tableElementTypeName, ENTITY_VARIABLE);
     addConflictAlgorithmToOperationBuilder(builder, ENTITY_UPDATE_BUILDER);
+    addOperationByColumnToOperationBuilder(builder, ENTITY_UPDATE_BUILDER);
     return builder.addSuperinterface(ENTITY_UPDATE_BUILDER)
         .addMethod(updateExecute)
         .addMethod(updateObserve(builder, updateExecute))
@@ -275,7 +273,7 @@ public class UpdateWriter implements OperationWriter {
         .addModifiers(Modifier.PUBLIC)
         .returns(TypeName.BOOLEAN)
         .addCode(entityDbVariablesForOperationBuilder(tableElement))
-        .addCode(opHelperVariable(UPDATE));
+        .addCode(opByColumnHelperVariable(UPDATE));
     final boolean hasComplexColumns = tableElement.hasAnyPersistedComplexColumns();
     if (hasComplexColumns) {
       addTransactionStartBlock(builder);
@@ -283,8 +281,12 @@ public class UpdateWriter implements OperationWriter {
       builder.beginControlFlow("try");
     }
 
-    FormatData internalMethodCall = FormatData.create("$N($L, $L, $L)",
-        update, ENTITY_VARIABLE, MANAGER_VARIABLE, OPERATION_HELPER_VARIABLE);
+    final FormatData internalMethodCall = FormatData.create("$N($L, $L, $L, $L)",
+        update,
+        ENTITY_VARIABLE,
+        MANAGER_VARIABLE,
+        OPERATION_HELPER_VARIABLE,
+        OPERATION_BY_COLUMNS_VARIABLE);
     if (hasComplexColumns) {
       addCallToInternalUpdateWithTransactionHandling(builder, internalMethodCall);
     } else {
@@ -320,27 +322,28 @@ public class UpdateWriter implements OperationWriter {
 
   private MethodSpec internalUpdate() {
     final boolean hasAnyPersistedComplexColumns = tableElement.hasAnyPersistedComplexColumns();
+    final boolean hasUniqueColumnsOtherThanId = tableElement.hasUniqueColumnsOtherThanId();
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_INTERNAL_UPDATE)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(entityParameter(tableElementTypeName))
         .addParameter(entityDbManagerParameter())
         .addParameter(operationHelperParameter())
+        .addParameter(operationByColumnsParameter())
         .returns(TypeName.BOOLEAN);
-    addIdColumnNullCheckIfNeeded(builder);
     addUpdateLoggingStatement(builder);
 
     if (hasAnyPersistedComplexColumns && GENERATE_LOGGING) {
       builder.addStatement("final int rowsAffected");
     }
+    if (hasUniqueColumnsOtherThanId) {
+      builder.addCode(updateByColumnVariable(tableElement));
+    } else {
+      addIdColumnNullCheckIfNeeded(builder);
+    }
 
     builder.addCode(updateStatementVariableFromOpHelper(tableElement, STATEMENT_VARIABLE))
-        .beginControlFlow("synchronized ($L)", STATEMENT_VARIABLE)
-        .addStatement("$T.$L($L, $L$L)",
-            daoClassName,
-            METHOD_BIND_TO_UPDATE_STATEMENT,
-            STATEMENT_VARIABLE,
-            ENTITY_VARIABLE,
-            isIdColumnNullable() ? ", id" : "");
+        .beginControlFlow("synchronized ($L)", STATEMENT_VARIABLE);
+    addBindToUpdateStatement(builder, hasUniqueColumnsOtherThanId);
 
     if (!hasAnyPersistedComplexColumns) {
       if (!GENERATE_LOGGING) {
@@ -353,12 +356,13 @@ public class UpdateWriter implements OperationWriter {
     } else {
       if (!GENERATE_LOGGING) {
         builder.beginControlFlow("if ($L.executeUpdateDelete() > 0)", STATEMENT_VARIABLE)
-            .addStatement("return $T.$L($L, $L.getDbConnection(), $L)",
+            .addStatement("return $T.$L($L, $L.getDbConnection(), $L, $L)",
                 daoClassName,
                 METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
                 ENTITY_VARIABLE,
                 MANAGER_VARIABLE,
-                OPERATION_HELPER_VARIABLE)
+                OPERATION_HELPER_VARIABLE,
+                OPERATION_BY_COLUMNS_VARIABLE)
             .endControlFlow()
             .addStatement("return false");
       } else {
@@ -366,12 +370,13 @@ public class UpdateWriter implements OperationWriter {
         addAfterUpdateLoggingStatement(builder);
         builder.endControlFlow()
             .beginControlFlow("if (rowsAffected > 0)")
-            .addStatement("return $T.$L($L, $L.getDbConnection(), $L)",
+            .addStatement("return $T.$L($L, $L.getDbConnection(), $L, $L)",
                 daoClassName,
                 METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
                 ENTITY_VARIABLE,
                 MANAGER_VARIABLE,
-                OPERATION_HELPER_VARIABLE)
+                OPERATION_HELPER_VARIABLE,
+                OPERATION_BY_COLUMNS_VARIABLE)
             .endControlFlow()
             .addStatement("return false");
         return builder.build();
@@ -424,6 +429,7 @@ public class UpdateWriter implements OperationWriter {
     final TypeName interfaceType = ENTITY_BULK_UPDATE_BUILDER;
     final TypeSpec.Builder builder = operationBuilderInnerClassSkeleton(entityEnvironment, CLASS_BULK_UPDATE, interfaceType, iterable, OBJECTS_VARIABLE);
     addConflictAlgorithmToOperationBuilder(builder, interfaceType);
+    addOperationByColumnToOperationBuilder(builder, interfaceType);
     return builder
         .addSuperinterface(interfaceType)
         .addMethod(bulkUpdateExecute())
@@ -440,8 +446,11 @@ public class UpdateWriter implements OperationWriter {
       public void call(MethodSpec.Builder builder) {
         addDisposableForEmitter(builder);
         builder.addCode(entityDbVariablesForOperationBuilder(tableElement))
-            .addCode(opHelperVariable(UPDATE))
+            .addCode(opByColumnHelperVariable(UPDATE))
             .addCode(updateStatementVariableFromOpHelper(tableElement, STATEMENT_VARIABLE));
+        if (tableElement.hasUniqueColumnsOtherThanId()) {
+          builder.addCode(updateByColumnVariable(tableElement));
+        }
 
         if (tableElement.hasAnyPersistedComplexColumns()) {
           builder.beginControlFlow("if ($L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
@@ -499,8 +508,12 @@ public class UpdateWriter implements OperationWriter {
         .addModifiers(Modifier.PUBLIC)
         .returns(TypeName.BOOLEAN)
         .addCode(entityDbVariablesForOperationBuilder(tableElement))
-        .addCode(opHelperVariable(UPDATE))
+        .addCode(opByColumnHelperVariable(UPDATE))
         .addCode(updateStatementVariableFromOpHelper(tableElement, STATEMENT_VARIABLE));
+
+    if (tableElement.hasUniqueColumnsOtherThanId()) {
+      builder.addCode(updateByColumnVariable(tableElement));
+    }
 
     if (tableElement.hasAnyPersistedComplexColumns()) {
       builder.beginControlFlow("if ($L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
@@ -558,15 +571,16 @@ public class UpdateWriter implements OperationWriter {
 
   private void addBulkUpdateNormalLoopBody(MethodSpec.Builder builder) {
     addNullableIdCheckIfNeeded(builder);
-    addBindToUpdateStatement(builder);
+    addBindToUpdateStatement(builder, tableElement.hasUniqueColumnsOtherThanId());
     if (tableElement.hasAnyPersistedComplexColumns()) {
-      builder.beginControlFlow("if ($L.executeUpdateDelete() <= 0 || !$T.$L($L, $L.getDbConnection(), $L))",
+      builder.beginControlFlow("if ($L.executeUpdateDelete() <= 0 || !$T.$L($L, $L.getDbConnection(), $L, $L))",
           STATEMENT_VARIABLE,
           daoClassName,
           METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
           ENTITY_VARIABLE,
           MANAGER_VARIABLE,
-          OPERATION_HELPER_VARIABLE);
+          OPERATION_HELPER_VARIABLE,
+          OPERATION_BY_COLUMNS_VARIABLE);
     } else {
       builder.beginControlFlow("if ($L.executeUpdateDelete() <= 0)", STATEMENT_VARIABLE)
           .beginControlFlow("if (!$L.ignoreConflict)", OPERATION_HELPER_VARIABLE);
@@ -585,14 +599,15 @@ public class UpdateWriter implements OperationWriter {
         TRANSACTION, TRANSACTION_VARIABLE, DB_CONNECTION_VARIABLE)
         .beginControlFlow("try");
     addNullableIdCheckIfNeeded(builder);
-    addBindToUpdateStatement(builder);
-    builder.beginControlFlow("if ($L.executeUpdateDelete() > 0 && $T.$L($L, $L.getDbConnection(), $L))",
+    addBindToUpdateStatement(builder, tableElement.hasUniqueColumnsOtherThanId());
+    builder.beginControlFlow("if ($L.executeUpdateDelete() > 0 && $T.$L($L, $L.getDbConnection(), $L, $L))",
         STATEMENT_VARIABLE,
         daoClassName,
         METHOD_CALL_INTERNAL_UPDATE_ON_COMPLEX_COLUMNS,
         ENTITY_VARIABLE,
         MANAGER_VARIABLE,
-        OPERATION_HELPER_VARIABLE)
+        OPERATION_HELPER_VARIABLE,
+        OPERATION_BY_COLUMNS_VARIABLE)
         .addStatement("$L.markSuccessful()", TRANSACTION_VARIABLE)
         .addStatement("atLeastOneSuccess = true")
         .endControlFlow()
@@ -603,13 +618,32 @@ public class UpdateWriter implements OperationWriter {
         .endControlFlow();
   }
 
-  private void addBindToUpdateStatement(MethodSpec.Builder builder) {
-    builder.addStatement("$T.$L($L, $L$L)",
+  private void addBindToUpdateStatement(MethodSpec.Builder builder, boolean hasUniqueColumnsOtherThanId) {
+    builder.addStatement("$T.$L($L, $L)",
         daoClassName,
         METHOD_BIND_TO_UPDATE_STATEMENT,
         STATEMENT_VARIABLE,
-        ENTITY_VARIABLE,
-        isIdColumnNullable() ? ", id" : "");
+        ENTITY_VARIABLE);
+    if (hasUniqueColumnsOtherThanId) {
+      builder.addStatement("$T.$L($L, $L, updateByColumn, $L)",
+          daoClassName,
+          METHOD_BIND_UNIQUE_COLUMN,
+          STATEMENT_VARIABLE,
+          tableElement.getAllColumnsCount(),
+          ENTITY_VARIABLE);
+    } else {
+      final CodeBlock.Builder bindIdBuilder = CodeBlock.builder()
+          .add("$L.bindLong($L, ",
+              STATEMENT_VARIABLE,
+              tableElement.getAllColumnsCount());
+      if (!tableElement.getIdColumn().isNullable()) {
+        entityEnvironment.addInlineIdVariable(bindIdBuilder);
+      } else {
+        bindIdBuilder.add("id");
+      }
+      bindIdBuilder.add(");\n");
+      builder.addCode(bindIdBuilder.build());
+    }
   }
 
   private void addNullableIdCheckIfNeeded(MethodSpec.Builder builder) {

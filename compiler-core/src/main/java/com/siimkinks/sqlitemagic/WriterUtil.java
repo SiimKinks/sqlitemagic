@@ -32,6 +32,7 @@ import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 
 import java.io.IOException;
@@ -56,6 +57,7 @@ import static com.siimkinks.sqlitemagic.Const.PUBLIC_STATIC_FINAL;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_INSERT_SQL;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_UPDATE_SQL;
+import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_BY_COLUMN;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CONNECTION_PROVIDER;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_CREATE;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_GET_INSERT_STATEMENT;
@@ -64,6 +66,7 @@ import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_OBSERVE;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SET_CONFLICT_ALGORITHM;
 import static com.siimkinks.sqlitemagic.util.NameConst.PACKAGE_ROOT;
 import static com.siimkinks.sqlitemagic.writer.EntityEnvironment.tableNameFromStructureConstant;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_BY_COLUMNS_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.CONFLICT_ALGORITHM_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DISPOSABLE_VARIABLE;
@@ -71,6 +74,7 @@ import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
+import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
@@ -109,7 +113,10 @@ public class WriterUtil {
   public static final ClassName TABLE = ClassName.get(Table.class);
   public static final ClassName COLUMN = ClassName.get(Column.class);
   public static final ClassName NUMERIC_COLUMN = ClassName.get(NumericColumn.class);
+  public static final ClassName UNIQUE_COLUMN = ClassName.get(UniqueColumn.class);
+  public static final ClassName UNIQUE_NUMERIC_COLUMN = ClassName.get(UniqueNumericColumn.class);
   public static final ClassName COMPLEX_COLUMN = ClassName.get(ComplexColumn.class);
+  public static final ClassName UNIQUE = ClassName.get(Unique.class);
   public static final ClassName NULLABLE_COLUMN = ClassName.get(com.siimkinks.sqlitemagic.Nullable.class);
   public static final ClassName NOT_NULLABLE_COLUMN = ClassName.get(NotNullable.class);
   public static final ClassName JOIN_CLAUSE = ClassName.get(JoinClause.class);
@@ -133,6 +140,7 @@ public class WriterUtil {
   public static final ParameterizedTypeName LIST_JOIN_CLAUSE_TYPE_NAME = ParameterizedTypeName.get(ArrayList.class, JoinClause.class);
   public static final ParameterizedTypeName BIND_VALUES_MAP = ParameterizedTypeName.get(SIMPLE_ARRAY_MAP, ClassName.get(String.class), TypeName.OBJECT);
   public static final TypeName VALUE_PARSER = WildcardTypeName.get(Utils.ValueParser.class);
+  public static final TypeName OPERATION_BY_COLUMNS = ParameterizedTypeName.get(ARRAY_LIST, COLUMN);
 
   public static final ClassName SINGLE = ClassName.get("io.reactivex", "Single");
   public static final ClassName COMPLETABLE = ClassName.get("io.reactivex", "Completable");
@@ -424,11 +432,22 @@ public class WriterUtil {
 
   public static CodeBlock opHelperVariable(Operation op) {
     return CodeBlock.builder()
-        .addStatement("final $1T $2L = new $1T($3L, $4L)",
+        .addStatement("final $1T $2L = new $1T($3L, $4L, null)",
             OPERATION_HELPER,
             OPERATION_HELPER_VARIABLE,
             CONFLICT_ALGORITHM_VARIABLE,
             op.ordinal())
+        .build();
+  }
+
+  public static CodeBlock opByColumnHelperVariable(Operation op) {
+    return CodeBlock.builder()
+        .addStatement("final $1T $2L = new $1T($3L, $4L, $5L)",
+            OPERATION_HELPER,
+            OPERATION_HELPER_VARIABLE,
+            CONFLICT_ALGORITHM_VARIABLE,
+            op.ordinal(),
+            OPERATION_BY_COLUMNS_VARIABLE)
         .build();
   }
 
@@ -503,8 +522,37 @@ public class WriterUtil {
     return notNullParameter(DB_CONNECTION_IMPL, DB_CONNECTION_VARIABLE);
   }
 
+  public static ParameterSpec operationByColumnsParameter() {
+    return notNullParameter(OPERATION_BY_COLUMNS, OPERATION_BY_COLUMNS_VARIABLE);
+  }
+
   public static String codeBlockEnd() {
     return ";\n";
+  }
+
+  public static void addOperationByColumnToOperationBuilder(TypeSpec.Builder builder,
+                                                            TypeName interfaceName) {
+    final TypeVariableName inputColumnType = TypeVariableName.get("C", ParameterizedTypeName.get(UNIQUE, NOT_NULLABLE_COLUMN));
+
+    builder
+        .addField(FieldSpec
+            .builder(OPERATION_BY_COLUMNS, OPERATION_BY_COLUMNS_VARIABLE, PRIVATE, FINAL)
+            .addAnnotation(NON_NULL)
+            .initializer("new $T<>(2)", ARRAY_LIST)
+            .build())
+        .addMethod(MethodSpec
+            .methodBuilder(METHOD_BY_COLUMN)
+            .addModifiers(Modifier.PUBLIC)
+            .addAnnotation(Override.class)
+            .addAnnotation(NON_NULL)
+            .addAnnotation(CHECK_RESULT)
+            .addTypeVariable(inputColumnType)
+            .addParameter(ParameterSpec.builder(inputColumnType, "column").build())
+            .returns(interfaceName)
+            .addStatement("this.$L.add(($T) column)",
+                OPERATION_BY_COLUMNS_VARIABLE, COLUMN)
+            .addStatement("return this")
+            .build());
   }
 
   public static void addConflictAlgorithmToOperationBuilder(TypeSpec.Builder builder,
@@ -517,8 +565,8 @@ public class WriterUtil {
 
   public static MethodSpec setConflictAlgorithm(TypeName interfaceName) {
     return MethodSpec.methodBuilder(METHOD_SET_CONFLICT_ALGORITHM)
-        .addAnnotation(Override.class)
         .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
         .addAnnotation(NON_NULL)
         .addAnnotation(CHECK_RESULT)
         .addParameter(ParameterSpec.builder(TypeName.INT, CONFLICT_ALGORITHM_VARIABLE)

@@ -65,10 +65,6 @@ public class RetrieveWriter implements OperationWriter {
   public void writeHandler(TypeSpec.Builder handlerClassBuilder) {
   }
 
-  // -------------------------------------------
-  //                  DAO methods
-  // -------------------------------------------
-
   private MethodSpec newInstanceWithOnlyId(TableElement tableElement) {
     final ColumnElement idColumn = tableElement.getIdColumn();
     final TypeName tableElementTypeName = tableElement.getTableElementTypeName();

@@ -37,7 +37,10 @@ public final class NameConst {
   public static final String METHOD_SET_ID = "setId";
   public static final String METHOD_GET_ID = "getId";
   public static final String METHOD_SET_CONFLICT_ALGORITHM = "conflictAlgorithm";
+  public static final String METHOD_BY_COLUMN = "byColumn";
   public static final String METHOD_SET_IGNORE_NULL_VALUES = "ignoreNullValues";
+  public static final String METHOD_IS_UNIQUE_COLUMN_NULL = "isUniqueColumnNull";
+  public static final String METHOD_BIND_UNIQUE_COLUMN = "bindUniqueColumn";
   public static final String METHOD_BIND_TO_UPDATE_STATEMENT = "bindToUpdateStatement";
   public static final String METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS = "bindToUpdateStatementWithComplexColumns";
   public static final String METHOD_BIND_TO_INSERT_STATEMENT = "bindToInsertStatement";

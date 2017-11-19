@@ -2,6 +2,7 @@
 
 package com.siimkinks.sqlitemagic.model.persist
 
+import android.database.sqlite.SQLiteDatabase
 import android.support.test.runner.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
@@ -146,7 +147,7 @@ class BulkItemsPersistWithConflictsIgnoringNullTest : DefaultConnectionTest {
               val testVals = createVals {
                 val (newRandom, _) = insertNewRandom(model)
                 val newVal = nullableModel.nullSomeColumns(model.newRandom())
-                model.transferComplexUniqueVal(newRandom, newVal)
+                model.transferComplexColumnUniqueVal(newRandom, newVal)
               }
               for (i in 0..10) {
                 testVals.add(nullableModel.nullSomeColumns(it.newRandom()))
@@ -172,7 +173,7 @@ class BulkItemsPersistWithConflictsIgnoringNullTest : DefaultConnectionTest {
                   model = it as ComplexTestModelWithUniqueColumn,
                   nullSomeColumns = true,
                   transferUniqueVal = { model, src, target ->
-                    (model as ComplexTestModelWithUniqueColumn).transferComplexUniqueVal(src, target)
+                    (model as ComplexTestModelWithUniqueColumn).transferComplexColumnUniqueVal(src, target)
                   })
             },
             operation = BulkPersistForUpdateWithIgnoreConflictDualOperation(
@@ -194,7 +195,7 @@ class BulkItemsPersistWithConflictsIgnoringNullTest : DefaultConnectionTest {
               createVals {
                 val (newRandom) = insertNewRandom(it)
                 val newVal = nullableModel.nullSomeColumns(it.newRandom())
-                model.transferComplexUniqueVal(newRandom, newVal)
+                model.transferComplexColumnUniqueVal(newRandom, newVal)
               }
             },
             operation = BulkPersistForInsertWithIgnoreConflictWhereAllFailDualOperation(
@@ -215,7 +216,7 @@ class BulkItemsPersistWithConflictsIgnoringNullTest : DefaultConnectionTest {
                   model = it as ComplexTestModelWithUniqueColumn,
                   nullSomeColumns = true,
                   transferUniqueVal = { model, src, target ->
-                    (model as ComplexTestModelWithUniqueColumn).transferComplexUniqueVal(src, target)
+                    (model as ComplexTestModelWithUniqueColumn).transferComplexColumnUniqueVal(src, target)
                   })
             },
             operation = BulkPersistForUpdateWithIgnoreConflictWhereAllFailDualOperation(
@@ -366,6 +367,54 @@ class BulkItemsPersistWithConflictsIgnoringNullTest : DefaultConnectionTest {
                 ignoreNullValues = true))
       }
       isSuccessfulFor(*ALL_AUTO_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkPersistWithUpdateByUniqueColumnAndIgnoreConflictIgnoringNull() {
+    assertThatDual {
+      testCase {
+        BulkItemsPersistIgnoringNullTest.BulkOperationByUniqueColumnIgnoringNull(
+            forModel = it,
+            operation = BulkPersistDualOperation(ignoreNullValues = true) { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkPersistWithUpdateByComplexUniqueColumnAndIgnoreConflictIgnoringNull() {
+    assertThatDual {
+      testCase {
+        BulkItemsPersistIgnoringNullTest.BulkOperationByComplexUniqueColumnIgnoringNull(
+            forModel = it,
+            operation = BulkPersistDualOperation(ignoreNullValues = true) { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkPersistWithUpdateByComplexColumnUniqueColumnAndIgnoreConflictIgnoringNull() {
+    assertThatDual {
+      testCase {
+        BulkItemsPersistIgnoringNullTest.BulkOperationByComplexColumnUniqueColumnIgnoringNull(
+            forModel = it,
+            operation = BulkPersistDualOperation(ignoreNullValues = true) { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
     }
   }
 }

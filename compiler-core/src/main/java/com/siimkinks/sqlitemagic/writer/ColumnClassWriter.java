@@ -37,6 +37,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
+import static com.siimkinks.sqlitemagic.WriterUtil.UNIQUE;
 import static com.siimkinks.sqlitemagic.WriterUtil.VALUE_PARSER;
 import static com.siimkinks.sqlitemagic.WriterUtil.notNullParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.nullableParameter;
@@ -63,15 +64,17 @@ public final class ColumnClassWriter {
   @Nullable
   private final TransformerElement transformerElement;
   private final boolean nullable;
+  private final boolean unique;
 
   public static ColumnClassWriter from(@NonNull TransformerElement transformerElement,
-                                       @NonNull Environment environment) {
-    final String className = getClassName(transformerElement);
+                                       @NonNull Environment environment,
+                                       boolean createUniqueClass) {
     final TypeName deserializedTypeName = transformerElement.getDeserializedTypeNameForGenerics();
     final ClassName superClassName = transformerElement.isNumericType() ? NUMERIC_COLUMN : COLUMN;
     final TypeVariableName parentTableType = TypeVariableName.get("T");
     final TypeVariableName nullabilityType = TypeVariableName.get("N");
     final ExtendedTypeElement serializedType = transformerElement.getSerializedType();
+    final String className = createUniqueClass ? getUniqueClassName(transformerElement) : getClassName(transformerElement);
 
     return ColumnClassWriter.builder()
         .environment(environment)
@@ -86,17 +89,19 @@ public final class ColumnClassWriter {
         .valueGetter(transformerElement.serializedValueGetter(VAL_VARIABLE))
         .transformerElement(transformerElement)
         .nullable(!serializedType.isPrimitiveElement())
+        .unique(createUniqueClass)
         .build();
   }
 
   public static ColumnClassWriter from(@NonNull TableElement tableElement,
-                                       @NonNull Environment environment) {
+                                       @NonNull Environment environment,
+                                       boolean createUniqueClass) {
     final ColumnElement idColumn = tableElement.getIdColumn();
     final TypeName deserializedTypeName = tableElement.getTableElementTypeName();
     final TypeName serializedTypeName = idColumn.getSerializedTypeNameForGenerics();
     final TypeVariableName parentTableType = TypeVariableName.get("T");
     final TypeVariableName nullabilityType = TypeVariableName.get("N");
-    final String className = getClassName(tableElement);
+    final String className = createUniqueClass ? getUniqueClassName(tableElement) : getClassName(tableElement);
 
     final ColumnClassWriterBuilder builder = ColumnClassWriter.builder()
         .environment(environment)
@@ -109,11 +114,12 @@ public final class ColumnClassWriter {
         .deserializedTypeName(deserializedTypeName)
         .serializedType(idColumn.getSerializedType())
         .valueGetter(tableElement.serializedValueGetter(VAL_VARIABLE))
-        .nullable(idColumn.isNullable());
+        .nullable(idColumn.isNullable())
+        .unique(createUniqueClass);
     return builder.build();
   }
 
-  public void write(@NonNull Filer filer) throws IOException {
+  public TypeSpec write(@NonNull Filer filer) throws IOException {
     final TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
         .addModifiers(CLASS_MODIFIERS)
         .addTypeVariable(parentTableType)
@@ -126,7 +132,12 @@ public final class ColumnClassWriter {
       classBuilder.addMethod(cursorParserOverride(transformerElement))
           .addMethod(statementParserOverride(transformerElement));
     }
-    writeSource(filer, classBuilder.build());
+    if (unique) {
+      classBuilder.addSuperinterface(ParameterizedTypeName.get(UNIQUE, nullabilityType));
+    }
+    final TypeSpec type = classBuilder.build();
+    writeSource(filer, type);
+    return type;
   }
 
   @NonNull
@@ -233,7 +244,17 @@ public final class ColumnClassWriter {
   }
 
   @NonNull
+  public static String getUniqueClassName(@NonNull TransformerElement transformerElement) {
+    return "Unique" + getClassName(transformerElement);
+  }
+
+  @NonNull
   public static String getClassName(@NonNull TableElement tableElement) {
     return tableElement.getTableElementName() + "Column";
+  }
+
+  @NonNull
+  public static String getUniqueClassName(@NonNull TableElement tableElement) {
+    return "Unique" + getClassName(tableElement);
   }
 }

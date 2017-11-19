@@ -24,7 +24,7 @@ public class TransformerWriter {
     final Filer filer = environment.getFiler();
     for (TransformerElement transformerElement : environment.getTransformerElements().values()) {
       ColumnClassWriter
-          .from(transformerElement, environment)
+          .from(transformerElement, environment, false)
           .write(filer);
     }
   }

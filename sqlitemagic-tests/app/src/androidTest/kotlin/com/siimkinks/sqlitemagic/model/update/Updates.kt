@@ -4,11 +4,11 @@ package com.siimkinks.sqlitemagic.model.update
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.model.ComplexNullableColumns
-import com.siimkinks.sqlitemagic.model.NullableColumns
-import com.siimkinks.sqlitemagic.model.TestModel
+import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateBuilder
+import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
+import com.siimkinks.sqlitemagic.model.*
 import com.siimkinks.sqlitemagic.model.TestUtil.*
-import com.siimkinks.sqlitemagic.model.insertNewRandom
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 private fun <T> assertBasicUpdateSuccess(success: Boolean, model: TestModel<T>) {
@@ -19,6 +19,11 @@ private fun <T> assertBasicUpdateSuccess(success: Boolean, model: TestModel<T>) 
 fun <T> assertUpdateSuccess(): (TestModel<T>, T, Boolean) -> Unit = { model, testVal, success ->
   assertBasicUpdateSuccess(success, model)
   assertValueEqualsWithDb<T>(testVal, model.table)
+}
+
+fun <T> assertBulkUpdateSuccess(): (TestModel<T>, List<T>, Boolean) -> Unit = { model, testVals, success ->
+  assertThat(success).isTrue()
+  assertValuesEqualWithDb(testVals, model.table)
 }
 
 fun <T> assertUpdateSuccessForNullableColumns(): (TestModel<T>, T, Boolean) -> Unit = { model, testVal, success ->
@@ -84,4 +89,29 @@ fun <T> assertEarlyUnsubscribeFromUpdateStoppedAnyFurtherWork(): (TestModel<T>, 
 fun <T> newUpdatableRandom(): (TestModel<T>) -> T = {
   val (newRandom, id) = insertNewRandom(it)
   it.updateAllVals(newRandom, id)
+}
+
+class UpdateDualOperation<T>(
+    private val updateBuilderCallback: (model: TestModel<T>, testVal: T) -> EntityUpdateBuilder
+) : DualOperation<T, T, Boolean> {
+  override fun executeTest(model: TestModel<T>, testVal: T): Boolean =
+      updateBuilderCallback(model, testVal).execute()
+
+  override fun observeTest(model: TestModel<T>, testVal: T): Boolean =
+      updateBuilderCallback(model, testVal)
+          .observe()
+          .blockingGet(1, TimeUnit.SECONDS) == null
+}
+
+class BulkUpdateDualOperation<T>(
+    private val updateBuilderCallback: (model: TestModel<T>, testVal: List<T>) -> EntityBulkUpdateBuilder
+) : DualOperation<List<T>, T, Boolean> {
+  override fun executeTest(model: TestModel<T>, testVal: List<T>): Boolean =
+      updateBuilderCallback(model, testVal)
+          .execute()
+
+  override fun observeTest(model: TestModel<T>, testVal: List<T>): Boolean =
+      updateBuilderCallback(model, testVal)
+          .observe()
+          .blockingGet(1, TimeUnit.SECONDS) == null
 }

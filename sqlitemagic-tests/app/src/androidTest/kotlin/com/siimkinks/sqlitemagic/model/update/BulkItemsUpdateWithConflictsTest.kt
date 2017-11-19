@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic.model.update
 
-import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.support.test.runner.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
@@ -151,7 +151,7 @@ class BulkItemsUpdateWithConflictsTest : DefaultConnectionTest {
       forModel: ComplexTestModelWithUniqueColumn<T>,
       setUp: (TestModel<T>) -> BulkUpdateWithIgnoreConflictTestVals<T> = {
         BulkUpdateWithIgnoreConflictTestVals(it as ComplexTestModelWithUniqueColumn) { model, src, target ->
-          (model as ComplexTestModelWithUniqueColumn).transferComplexUniqueVal(src, target)
+          (model as ComplexTestModelWithUniqueColumn).transferComplexColumnUniqueVal(src, target)
         }
       },
       operation: DualOperation<BulkUpdateWithIgnoreConflictTestVals<T>, T, Boolean> = BulkUpdateWithConflictIgnoreDualOperation()
@@ -222,7 +222,7 @@ class BulkItemsUpdateWithConflictsTest : DefaultConnectionTest {
       forModel: ComplexTestModelWithUniqueColumn<T>,
       setUp: (TestModel<T>) -> BulkUpdateWithIgnoreConflictWhereAllFailTestVals<T> = {
         BulkUpdateWithIgnoreConflictWhereAllFailTestVals(it as ComplexTestModelWithUniqueColumn) { model, src, target ->
-          (model as ComplexTestModelWithUniqueColumn).transferComplexUniqueVal(src, target)
+          (model as ComplexTestModelWithUniqueColumn).transferComplexColumnUniqueVal(src, target)
         }
       },
       operation: DualOperation<BulkUpdateWithIgnoreConflictWhereAllFailTestVals<T>, T, Boolean> = BulkUpdateWithIgnoreConflictWhereAllFailDualOperation()
@@ -283,7 +283,7 @@ class BulkItemsUpdateWithConflictsTest : DefaultConnectionTest {
       test: (TestModel<T>, List<T>) -> AtomicInteger = { model, testValues ->
         val eventsCount = AtomicInteger(0)
         val disposable = model.bulkUpdateBuilder(testValues)
-            .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+            .conflictAlgorithm(CONFLICT_IGNORE)
             .observe()
             .subscribeOn(Schedulers.io())
             .subscribe({ eventsCount.incrementAndGet() }, { eventsCount.incrementAndGet() })
@@ -328,15 +328,63 @@ class BulkItemsUpdateWithConflictsTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun bulkUpdateByUniqueColumnWithIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByUniqueColumn(
+            forModel = it,
+            operation = BulkUpdateDualOperation { model, testVal ->
+              model.bulkUpdateBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkUpdateByComplexUniqueColumnWithIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByComplexUniqueColumn(
+            forModel = it,
+            operation = BulkUpdateDualOperation { model, testVal ->
+              model.bulkUpdateBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun bulkUpdateByComplexColumnUniqueColumnWithIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByComplexColumnUniqueColumn(
+            forModel = it,
+            operation = BulkUpdateDualOperation { model, testVal ->
+              model.bulkUpdateBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as ComplexTestModelWithUniqueColumn).complexColumnUniqueColumn)
+            })
+      }
+      isSuccessfulFor(*COMPLEX_FIXED_ID_MODELS)
+    }
+  }
+
   class BulkUpdateWithConflictIgnoreDualOperation<T> : DualOperation<BulkUpdateWithIgnoreConflictTestVals<T>, T, Boolean> {
     override fun executeTest(model: TestModel<T>, testVal: BulkItemsUpdateWithConflictsTest.BulkUpdateWithIgnoreConflictTestVals<T>): Boolean = model
         .bulkUpdateBuilder(testVal.allTestVals)
-        .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+        .conflictAlgorithm(CONFLICT_IGNORE)
         .execute()
 
     override fun observeTest(model: TestModel<T>, testVal: BulkUpdateWithIgnoreConflictTestVals<T>): Boolean = model
         .bulkUpdateBuilder(testVal.allTestVals)
-        .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+        .conflictAlgorithm(CONFLICT_IGNORE)
         .observe()
         .blockingGet(1, TimeUnit.SECONDS) == null
   }
@@ -345,12 +393,12 @@ class BulkItemsUpdateWithConflictsTest : DefaultConnectionTest {
     override fun executeTest(model: TestModel<T>, testVal: BulkUpdateWithIgnoreConflictWhereAllFailTestVals<T>): Boolean =
         // we expect false result indicating all operations failure
         !model.bulkUpdateBuilder(testVal.testVals)
-            .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+            .conflictAlgorithm(CONFLICT_IGNORE)
             .execute()
 
     override fun observeTest(model: TestModel<T>, testVal: BulkUpdateWithIgnoreConflictWhereAllFailTestVals<T>): Boolean = model
         .bulkUpdateBuilder(testVal.testVals)
-        .conflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
+        .conflictAlgorithm(CONFLICT_IGNORE)
         .observe()
         .blockingGet(1, TimeUnit.SECONDS) == null
   }

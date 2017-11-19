@@ -42,7 +42,6 @@ class ModelExtensionsWriter @Inject constructor() {
       .builder(method.funName)
       .addModifiers(EXTENSION_FUN_MODIFIERS)
       .receiver(tableElement.tableElement.asTypeName())
-      .returns(method.returnType)
       .addStatement("return %T.create(this)",
           getHandlerInnerClassName(entityEnvironment, method.invocationClassName))
       .build()
@@ -54,7 +53,6 @@ class ModelExtensionsWriter @Inject constructor() {
     return FunSpec
         .builder(method.funName)
         .addModifiers(EXTENSION_FUN_MODIFIERS)
-        .returns(method.returnType)
         .addParameter("o", ParameterizedTypeName.get(method.parameterType, tableElementType))
         .addStatement("return %T.create(o)",
             getHandlerInnerClassName(entityEnvironment, method.invocationClassName))
@@ -70,21 +68,19 @@ class ModelExtensionsWriter @Inject constructor() {
       .build()
 
   private enum class Method(val funName: String,
-                            val returnType: ClassName,
                             val invocationClassName: String) {
-    INSERT(funName = METHOD_INSERT, returnType = ENTITY_INSERT_BUILDER, invocationClassName = CLASS_INSERT),
-    UPDATE(funName = METHOD_UPDATE, returnType = ENTITY_UPDATE_BUILDER, invocationClassName = CLASS_UPDATE),
-    PERSIST(funName = METHOD_PERSIST, returnType = ENTITY_PERSIST_BUILDER, invocationClassName = CLASS_PERSIST),
-    DELETE(funName = METHOD_DELETE, returnType = ENTITY_DELETE_BUILDER, invocationClassName = CLASS_DELETE)
+    INSERT(funName = METHOD_INSERT, invocationClassName = CLASS_INSERT),
+    UPDATE(funName = METHOD_UPDATE, invocationClassName = CLASS_UPDATE),
+    PERSIST(funName = METHOD_PERSIST, invocationClassName = CLASS_PERSIST),
+    DELETE(funName = METHOD_DELETE, invocationClassName = CLASS_DELETE)
   }
 
   private enum class BulkMethod(val funName: String,
-                                val returnType: ClassName,
                                 val invocationClassName: String,
                                 val parameterType: ClassName) {
-    BULK_INSERT(funName = METHOD_INSERT, returnType = ENTITY_BULK_INSERT_BUILDER, invocationClassName = CLASS_BULK_INSERT, parameterType = ITERABLE),
-    BULK_UPDATE(funName = METHOD_UPDATE, returnType = ENTITY_BULK_UPDATE_BUILDER, invocationClassName = CLASS_BULK_UPDATE, parameterType = ITERABLE),
-    BULK_PERSIST(funName = METHOD_PERSIST, returnType = ENTITY_BULK_PERSIST_BUILDER, invocationClassName = CLASS_BULK_PERSIST, parameterType = ITERABLE),
-    BULK_DELETE(funName = METHOD_DELETE, returnType = ENTITY_BULK_DELETE_BUILDER, invocationClassName = CLASS_BULK_DELETE, parameterType = COLLECTION)
+    BULK_INSERT(funName = METHOD_INSERT, invocationClassName = CLASS_BULK_INSERT, parameterType = ITERABLE),
+    BULK_UPDATE(funName = METHOD_UPDATE, invocationClassName = CLASS_BULK_UPDATE, parameterType = ITERABLE),
+    BULK_PERSIST(funName = METHOD_PERSIST, invocationClassName = CLASS_BULK_PERSIST, parameterType = ITERABLE),
+    BULK_DELETE(funName = METHOD_DELETE, invocationClassName = CLASS_BULK_DELETE, parameterType = COLLECTION)
   }
 }

@@ -8,7 +8,8 @@ import io.reactivex.Completable;
 /**
  * Builder for update operation.
  */
-public interface EntityUpdateBuilder extends EntityOperationBuilder<EntityUpdateBuilder> {
+public interface EntityUpdateBuilder extends EntityOperationBuilder<EntityUpdateBuilder>,
+    EntityUpdateByColumnBuilder<EntityUpdateBuilder> {
   /**
    * Execute this configured update operation against a database.
    * Operation will be executed inside a transaction if the updated entity has complex columns

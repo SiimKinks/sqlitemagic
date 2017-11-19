@@ -65,7 +65,7 @@ class SingleItemInsertTest : DefaultConnectionTest {
         val model = it as ComplexTestModelWithUniqueColumn
         val (v1) = insertNewRandom(model)
         val newRandom = model.newRandom()
-        model.transferComplexUniqueVal(v1, newRandom)
+        model.transferComplexColumnUniqueVal(v1, newRandom)
       },
       test = test,
       assertResults = { model, testVal, ts ->
