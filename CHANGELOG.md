@@ -1,6 +1,15 @@
 Change Log
 ==========
 
+Version 0.16.0 _(2017-11-19)_
+---------------------------------
+
+* New: Add nullability metadata to column types
+    - Now every column has metadata about their nullability which makes the whole API even more type safe
+* New: Add support for object(s) update/persist operations with custom WHERE clause by unique column
+* New: Add `unaryMinus` method to numeric columns which changes positive values to negative and vice versa
+* New: Add `not` method to expressions which negates the expression.
+
 Version 0.15.2 _(2017-10-21)_
 ---------------------------------
 
