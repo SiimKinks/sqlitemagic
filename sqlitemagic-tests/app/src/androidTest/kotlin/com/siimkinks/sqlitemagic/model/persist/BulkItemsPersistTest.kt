@@ -176,6 +176,21 @@ class BulkItemsPersistTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun bulkPersistWithUpdateByUniqueColumnWithNullId() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByUniqueColumnWithNullId(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS)
+    }
+  }
+
   class EarlyUnsubscribe<T>(private val ignoreNullValues: Boolean = false) : SingleOperation<List<T>, T, AtomicInteger> {
     override fun invoke(model: TestModel<T>, testVal: List<T>): AtomicInteger {
       val eventsCount = AtomicInteger(0)

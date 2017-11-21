@@ -75,6 +75,7 @@ public class TableElement {
   private boolean hasUniqueColumnsOtherThanId = false;
   private Boolean hasAnyNonIdNotNullableColumns;
   private Boolean isQueryPartNeededForShallowQuery;
+  private Boolean hasComplexColumnWithAnyUniqueColumnAndNullableId;
   Integer graphNodeCount;
   Integer graphAllColumnsCount;
   Integer graphMinimalColumnsCount;
@@ -450,5 +451,40 @@ public class TableElement {
         traverseAllComplexColumnsAndCollectTableTriggers(triggers, referencedTable);
       }
     }
+  }
+
+  public boolean hasComplexColumnWithAnyUniqueColumnAndNullableId() {
+    if (hasComplexColumnWithAnyUniqueColumnAndNullableId != null) {
+      return hasComplexColumnWithAnyUniqueColumnAndNullableId;
+    }
+    for (ColumnElement column : columnsExceptId) {
+      if (column.isHandledRecursively()) {
+        TableElement referencedTable = column.getReferencedTable();
+        if (hasComplexColumnWithAnyUniqueColumnAndNullableId(referencedTable)) {
+          hasComplexColumnWithAnyUniqueColumnAndNullableId = true;
+          return true;
+        }
+      }
+    }
+    hasComplexColumnWithAnyUniqueColumnAndNullableId = false;
+    return false;
+  }
+
+  private static boolean hasComplexColumnWithAnyUniqueColumnAndNullableId(TableElement table) {
+    if (table.idColumn.isNullable() && table.hasUniqueColumnsOtherThanId) {
+      return true;
+    }
+    if (!table.hasAnyPersistedComplexColumns()) {
+      return false; // we have reached bottom
+    }
+    for (ColumnElement column : table.getColumnsExceptId()) {
+      if (column.isHandledRecursively()) {
+        TableElement referencedTable = column.getReferencedTable();
+        if (hasComplexColumnWithAnyUniqueColumnAndNullableId(referencedTable)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 }

@@ -2,8 +2,8 @@ package com.siimkinks.sqlitemagic.writer;
 
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
-import com.siimkinks.sqlitemagic.element.ViewElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
+import com.siimkinks.sqlitemagic.element.ViewElement;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.siimkinks.sqlitemagic.util.NameConst;
 import com.squareup.javapoet.ClassName;
@@ -94,6 +94,14 @@ public class EntityEnvironment {
         daoClassNameString,
         getEntityIdGetter(),
         ENTITY_VARIABLE);
+  }
+
+  public CodeBlock returnIdFromEntity() {
+    final CodeBlock.Builder builder = CodeBlock.builder();
+    builder.add("return ");
+    addInlineIdVariable(builder);
+    builder.add(";\n");
+    return builder.build();
   }
 
   public CodeBlock getFinalIdVariable() {

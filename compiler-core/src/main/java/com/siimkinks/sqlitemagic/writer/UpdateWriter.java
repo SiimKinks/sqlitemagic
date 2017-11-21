@@ -343,7 +343,7 @@ public class UpdateWriter implements OperationWriter {
 
     builder.addCode(updateStatementVariableFromOpHelper(tableElement, STATEMENT_VARIABLE))
         .beginControlFlow("synchronized ($L)", STATEMENT_VARIABLE);
-    addBindToUpdateStatement(builder, hasUniqueColumnsOtherThanId);
+    addBindToUpdateStatement(builder);
 
     if (!hasAnyPersistedComplexColumns) {
       if (!GENERATE_LOGGING) {
@@ -571,7 +571,7 @@ public class UpdateWriter implements OperationWriter {
 
   private void addBulkUpdateNormalLoopBody(MethodSpec.Builder builder) {
     addNullableIdCheckIfNeeded(builder);
-    addBindToUpdateStatement(builder, tableElement.hasUniqueColumnsOtherThanId());
+    addBindToUpdateStatement(builder);
     if (tableElement.hasAnyPersistedComplexColumns()) {
       builder.beginControlFlow("if ($L.executeUpdateDelete() <= 0 || !$T.$L($L, $L.getDbConnection(), $L, $L))",
           STATEMENT_VARIABLE,
@@ -599,7 +599,7 @@ public class UpdateWriter implements OperationWriter {
         TRANSACTION, TRANSACTION_VARIABLE, DB_CONNECTION_VARIABLE)
         .beginControlFlow("try");
     addNullableIdCheckIfNeeded(builder);
-    addBindToUpdateStatement(builder, tableElement.hasUniqueColumnsOtherThanId());
+    addBindToUpdateStatement(builder);
     builder.beginControlFlow("if ($L.executeUpdateDelete() > 0 && $T.$L($L, $L.getDbConnection(), $L, $L))",
         STATEMENT_VARIABLE,
         daoClassName,
@@ -618,13 +618,13 @@ public class UpdateWriter implements OperationWriter {
         .endControlFlow();
   }
 
-  private void addBindToUpdateStatement(MethodSpec.Builder builder, boolean hasUniqueColumnsOtherThanId) {
+  private void addBindToUpdateStatement(MethodSpec.Builder builder) {
     builder.addStatement("$T.$L($L, $L)",
         daoClassName,
         METHOD_BIND_TO_UPDATE_STATEMENT,
         STATEMENT_VARIABLE,
         ENTITY_VARIABLE);
-    if (hasUniqueColumnsOtherThanId) {
+    if (tableElement.hasUniqueColumnsOtherThanId()) {
       builder.addStatement("$T.$L($L, $L, updateByColumn, $L)",
           daoClassName,
           METHOD_BIND_UNIQUE_COLUMN,
@@ -647,7 +647,7 @@ public class UpdateWriter implements OperationWriter {
   }
 
   private void addNullableIdCheckIfNeeded(MethodSpec.Builder builder) {
-    if (isIdColumnNullable()) {
+    if (isIdColumnNullable() && !tableElement.hasUniqueColumnsOtherThanId()) {
       builder.addCode(entityEnvironment.getFinalIdVariable());
       addIdNullCheck(builder, "Can't execute update - id column null");
     }

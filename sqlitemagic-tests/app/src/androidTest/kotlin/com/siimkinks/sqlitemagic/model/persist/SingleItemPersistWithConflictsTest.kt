@@ -186,6 +186,22 @@ class SingleItemPersistWithConflictsTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun persistWithUpdateByUniqueColumnWithNullIdAndConflictAlgorithm() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByUniqueColumnWithNullId(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS)
+    }
+  }
+
   class PersistForInsertWithConflictAlgorithmDualOperation<T>(
       private val algorithm: Int = CONFLICT_IGNORE,
       private val ignoreNullValues: Boolean = false

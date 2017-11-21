@@ -376,6 +376,22 @@ class BulkItemsUpdateWithConflictsTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun bulkUpdateByUniqueColumnWithNullIdAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByUniqueColumnWithNullId(
+            forModel = it,
+            operation = BulkUpdateDualOperation { model, testVal ->
+              model.bulkUpdateBuilder(testVal)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS)
+    }
+  }
+
   class BulkUpdateWithConflictIgnoreDualOperation<T> : DualOperation<BulkUpdateWithIgnoreConflictTestVals<T>, T, Boolean> {
     override fun executeTest(model: TestModel<T>, testVal: BulkItemsUpdateWithConflictsTest.BulkUpdateWithIgnoreConflictTestVals<T>): Boolean = model
         .bulkUpdateBuilder(testVal.allTestVals)

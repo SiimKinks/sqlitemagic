@@ -213,9 +213,9 @@ public class PersistWriter implements OperationWriter {
     addTopMethodStartBlock(builder, hasComplexColumns);
 
     builder.addStatement("final $T id", LONG)
-        .addCode(entityDbManagerVariableFromDbConnection(tableElement))
-        .beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE)
-        .addCode(variableArgsOpHelperVariable())
+        .addCode(entityDbManagerVariableFromDbConnection(tableElement));
+    addIgnoreNullValuesControlFlowStart(builder);
+    builder.addCode(variableArgsOpHelperVariable())
         .addCode(bindValuesVariable(tableElement))
         .addStatement("id = $N($L, values, $L, $L, $L)",
             persistIgnoringNull,
@@ -250,6 +250,15 @@ public class PersistWriter implements OperationWriter {
         failReturnStatement,
         false);
     return builder.build();
+  }
+
+  private void addIgnoreNullValuesControlFlowStart(MethodSpec.Builder builder) {
+    if (tableElement.hasAnyComplexColumns() && tableElement.hasComplexColumnWithAnyUniqueColumnAndNullableId()) {
+      builder.beginControlFlow("if ($N || !$L.isEmpty())",
+          IGNORE_NULL_VALUES_VARIABLE, OPERATION_BY_COLUMNS_VARIABLE);
+    } else {
+      builder.beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE);
+    }
   }
 
   private MethodSpec persistObserve(TypeSpec.Builder typeBuilder, final MethodSpec persistExecute) {
@@ -339,7 +348,16 @@ public class PersistWriter implements OperationWriter {
     if (!hasUniqueColumnsOtherThanId && idColumnNullable) {
       builder.addStatement("return $L", presetId);
     } else {
-      builder.addStatement("return $T.$N($L)", daoClassName, entityEnvironment.getEntityIdGetter(), ENTITY_VARIABLE);
+      if (idColumnNullable) {
+        builder
+            .addCode(entityEnvironment.getFinalIdVariable())
+            .beginControlFlow("if (id != null)")
+            .addStatement("return id")
+            .endControlFlow()
+            .addStatement("return -2");
+      } else {
+        builder.addCode(entityEnvironment.returnIdFromEntity());
+      }
     }
     return builder.build();
   }
@@ -348,28 +366,31 @@ public class PersistWriter implements OperationWriter {
                                         String updateStmVariableName,
                                         String idVariableName,
                                         boolean hasUniqueColumnsOtherThanId) {
-    final String bindMethodName = tableElement.hasAnyPersistedImmutableComplexColumns() ? METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS : METHOD_BIND_TO_UPDATE_STATEMENT;
+    final boolean hasAnyPersistedImmutableComplexColumns = tableElement.hasAnyPersistedImmutableComplexColumns();
+    final String bindMethodName = hasAnyPersistedImmutableComplexColumns ? METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS : METHOD_BIND_TO_UPDATE_STATEMENT;
     builder.addCode(statementWithImmutableIdsIfNeeded(tableElement,
         "$T.$L($L, $L", daoClassName, bindMethodName, updateStmVariableName, ENTITY_VARIABLE));
-    if (hasUniqueColumnsOtherThanId) {
-      builder.addStatement("$T.$L($L, $L, updateByColumn, $L)",
-          daoClassName,
-          METHOD_BIND_UNIQUE_COLUMN,
-          updateStmVariableName,
-          tableElement.getAllColumnsCount(),
-          ENTITY_VARIABLE);
-    } else {
-      final CodeBlock.Builder bindIdBuilder = CodeBlock.builder()
-          .add("$L.bindLong($L, ",
-              updateStmVariableName,
-              tableElement.getAllColumnsCount());
-      if (!tableElement.getIdColumn().isNullable()) {
-        entityEnvironment.addInlineIdVariable(bindIdBuilder);
+    if (!hasAnyPersistedImmutableComplexColumns) {
+      if (hasUniqueColumnsOtherThanId) {
+        builder.addStatement("$T.$L($L, $L, updateByColumn, $L)",
+            daoClassName,
+            METHOD_BIND_UNIQUE_COLUMN,
+            updateStmVariableName,
+            tableElement.getAllColumnsCount(),
+            ENTITY_VARIABLE);
       } else {
-        bindIdBuilder.add("$L", idVariableName);
+        final CodeBlock.Builder bindIdBuilder = CodeBlock.builder()
+            .add("$L.bindLong($L, ",
+                updateStmVariableName,
+                tableElement.getAllColumnsCount());
+        if (!tableElement.getIdColumn().isNullable()) {
+          entityEnvironment.addInlineIdVariable(bindIdBuilder);
+        } else {
+          bindIdBuilder.add("$L", idVariableName);
+        }
+        bindIdBuilder.add(");\n");
+        builder.addCode(bindIdBuilder.build());
       }
-      bindIdBuilder.add(");\n");
-      builder.addCode(bindIdBuilder.build());
     }
   }
 
@@ -402,9 +423,22 @@ public class PersistWriter implements OperationWriter {
       }
     });
 
-    return builder
-        .addStatement("return id")
-        .build();
+    if (tableElement.hasUniqueColumnsOtherThanId()) {
+      if (tableElement.getIdColumn().isNullable()) {
+        builder
+            .addCode(entityEnvironment.getFinalIdVariable())
+            .beginControlFlow("if (id != null)")
+            .addStatement("return id")
+            .endControlFlow()
+            .addStatement("return -2");
+      } else {
+        builder.addCode(entityEnvironment.returnIdFromEntity());
+      }
+    } else {
+      builder.addStatement("return id");
+    }
+
+    return builder.build();
   }
 
   private void addInternalPersistIgnoringNullMainBody(MethodSpec.Builder builder, Callback<MethodSpec.Builder> insertValidityCheck) {
@@ -415,12 +449,14 @@ public class PersistWriter implements OperationWriter {
 
     addCallToComplexColumnsPersistIgnoringNullIfNeeded(builder);
     addBindToNotNullValues(builder);
-    builder.addCode(entityEnvironment.getIdVariable())
-        .addStatement("int rowsAffected = 0");
+    builder.addStatement("int rowsAffected = 0");
     if (hasUniqueColumnsOtherThanId) {
       builder.addCode(updateByColumnVariable(tableElement));
-    } else if (idColumnNullable) {
-      builder.beginControlFlow("if (id != null)");
+    } else {
+      builder.addCode(entityEnvironment.getIdVariable());
+      if (idColumnNullable) {
+        builder.beginControlFlow("if (id != null)");
+      }
     }
     builder.addStatement("rowsAffected = $L.compileStatement($L, $S, $L, values, $L, $L).executeUpdateDelete()",
         OPERATION_HELPER_VARIABLE,
@@ -436,6 +472,9 @@ public class PersistWriter implements OperationWriter {
     addPersistUpdateFailedLoggingStatement(builder);
     if (idColumn.isAutoincrementId()) {
       builder.addStatement("values.remove($S)", idColumn.getColumnName());
+    }
+    if (hasUniqueColumnsOtherThanId) {
+      builder.addStatement("long id");
     }
     builder.addStatement("id = $L.compileStatement($L, $S, $L, values, $S, $L).executeInsert()",
         OPERATION_HELPER_VARIABLE,
@@ -504,7 +543,7 @@ public class PersistWriter implements OperationWriter {
         builder.addCode(entityDbVariablesForOperationBuilder(tableElement));
         addDisposableForEmitter(builder);
 
-        builder.beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE);
+        addIgnoreNullValuesControlFlowStart(builder);
 
         addBulkPersistObserveForNullableColumns(builder);
 
@@ -548,7 +587,7 @@ public class PersistWriter implements OperationWriter {
         .returns(TypeName.BOOLEAN)
         .addCode(entityDbVariablesForOperationBuilder(tableElement));
 
-    builder.beginControlFlow("if ($N)", IGNORE_NULL_VALUES_VARIABLE);
+    addIgnoreNullValuesControlFlowStart(builder);
 
     addBulkPersistExecuteForNullableColumns(builder);
 
@@ -806,13 +845,23 @@ public class PersistWriter implements OperationWriter {
 
   private void addBulkPersistExecuteMainBody(MethodSpec.Builder builder, Callback<MethodSpec.Builder> insertValidityCheck) {
     final boolean idColumnNullable = tableElement.getIdColumn().isNullable();
+    final boolean hasUniqueColumnsOtherThanId = tableElement.hasUniqueColumnsOtherThanId();
+    final boolean anyUniqueColumnNullable = tableElement.isAnyUniqueColumnNullable();
     addCallToComplexColumnsPersistIfNeeded(builder);
     if (idColumnNullable) {
-      builder.addStatement("int rowsAffected = 0")
-          .addCode(entityEnvironment.getIdVariable())
-          .beginControlFlow("if (id != null)");
+      builder.addStatement("int rowsAffected = 0");
+      if (!hasUniqueColumnsOtherThanId) {
+        builder.addCode(entityEnvironment.getIdVariable())
+            .beginControlFlow("if (id != null)");
+      } else if (anyUniqueColumnNullable) {
+        builder.beginControlFlow("if (!$T.$L($L, $L))",
+            daoClassName,
+            METHOD_IS_UNIQUE_COLUMN_NULL,
+            UPDATE_BY_COLUMN_VARIABLE,
+            ENTITY_VARIABLE);
+      }
     }
-    addBindToUpdateStatement(builder, UPDATE_STATEMENT_VARIABLE, "id", tableElement.hasUniqueColumnsOtherThanId());
+    addBindToUpdateStatement(builder, UPDATE_STATEMENT_VARIABLE, "id", hasUniqueColumnsOtherThanId);
     if (idColumnNullable) {
       builder.addStatement("rowsAffected = $L.executeUpdateDelete()", UPDATE_STATEMENT_VARIABLE)
           .endControlFlow()
@@ -822,7 +871,7 @@ public class PersistWriter implements OperationWriter {
     }
     addPersistUpdateFailedLoggingStatement(builder);
     addBindToInsertStatement(builder, tableElement, daoClassName, INSERT_STATEMENT_VARIABLE);
-    if (idColumnNullable) {
+    if (idColumnNullable && !hasUniqueColumnsOtherThanId) {
       builder.addStatement("id = $L.executeInsert()", INSERT_STATEMENT_VARIABLE);
     } else {
       builder.addStatement("final $T id = $L.executeInsert()", LONG, INSERT_STATEMENT_VARIABLE);

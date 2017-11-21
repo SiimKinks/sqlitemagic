@@ -10,9 +10,11 @@ import com.siimkinks.sqlitemagic.ComplexDataClassWithMethodsAndUniqueTable.COMPL
 import com.siimkinks.sqlitemagic.ComplexDataClassWithMethodsTable.COMPLEX_DATA_CLASS_WITH_METHODS
 import com.siimkinks.sqlitemagic.ComplexImmutableBuilderWithUniqueTable.COMPLEX_IMMUTABLE_BUILDER_WITH_UNIQUE
 import com.siimkinks.sqlitemagic.ComplexImmutableCreatorWithUniqueTable.COMPLEX_IMMUTABLE_CREATOR_WITH_UNIQUE
+import com.siimkinks.sqlitemagic.ComplexMutableWithUniqueAndNullableIdTable.COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID
 import com.siimkinks.sqlitemagic.ComplexMutableWithUniqueTable.COMPLEX_MUTABLE_WITH_UNIQUE
 import com.siimkinks.sqlitemagic.CreatorMagazineTable.CREATOR_MAGAZINE
 import com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE
+import com.siimkinks.sqlitemagic.SimpleMutableWithUniqueAndNullableIdTable.SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID
 import com.siimkinks.sqlitemagic.SimpleMutableWithUniqueTable.SIMPLE_MUTABLE_WITH_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER
 import com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE_WITH_CREATOR
@@ -34,8 +36,8 @@ val complexMutableAutoIdTestModel = ComplexTestModelWithNullableColumns(
       }
 
       override fun newRandom(): Magazine = Magazine.newRandom()
-      override fun setId(v: Magazine, id: Long): Magazine {
-        SqliteMagic_Magazine_Dao.setId(v, id)
+      override fun setId(v: Magazine, id: Long?): Magazine {
+        SqliteMagic_Magazine_Dao.setId(v, id!!)
         return v
       }
 
@@ -108,7 +110,7 @@ val complexImmutableWithBuilderAutoIdTestModel = ComplexTestModelWithNullableCol
       }
 
       override fun newRandom(): BuilderMagazine = BuilderMagazine.newRandom().build()
-      override fun setId(v: BuilderMagazine, id: Long): BuilderMagazine = SqliteMagic_BuilderMagazine_Dao.setId(v, id)
+      override fun setId(v: BuilderMagazine, id: Long?): BuilderMagazine = SqliteMagic_BuilderMagazine_Dao.setId(v, id!!)
       override fun getId(v: BuilderMagazine): Long? = v.id()
       override fun valsAreEqual(v1: BuilderMagazine, v2: BuilderMagazine): Boolean = v1.equalsWithoutId(v2)
       override fun updateAllVals(v: BuilderMagazine, id: Long): BuilderMagazine {
@@ -193,8 +195,8 @@ val complexImmutableWithCreatorAutoIdTestModel = ComplexTestModelWithNullableCol
       }
 
       override fun newRandom(): CreatorMagazine = CreatorMagazine.newRandom()
-      override fun setId(v: CreatorMagazine, id: Long): CreatorMagazine =
-          SqliteMagic_CreatorMagazine_Dao.setId(v, id)
+      override fun setId(v: CreatorMagazine, id: Long?): CreatorMagazine =
+          SqliteMagic_CreatorMagazine_Dao.setId(v, id!!)
       override fun getId(v: CreatorMagazine): Long? = v.id()
       override fun valsAreEqual(v1: CreatorMagazine, v2: CreatorMagazine): Boolean = v1.equalsWithoutId(v2)
       override fun updateAllVals(v: CreatorMagazine, id: Long): CreatorMagazine {
@@ -279,8 +281,8 @@ val complexDataClassWithFieldsAutoIdTestModel = ComplexTestModelWithNullableColu
       }
 
       override fun newRandom(): ComplexDataClassWithFields = ComplexDataClassWithFields.newRandom()
-      override fun setId(v: ComplexDataClassWithFields, id: Long): ComplexDataClassWithFields =
-          SqliteMagic_ComplexDataClassWithFields_Dao.setId(v, id)
+      override fun setId(v: ComplexDataClassWithFields, id: Long?): ComplexDataClassWithFields =
+          SqliteMagic_ComplexDataClassWithFields_Dao.setId(v, id!!)
       override fun getId(v: ComplexDataClassWithFields): Long? = v.id
       override fun valsAreEqual(v1: ComplexDataClassWithFields, v2: ComplexDataClassWithFields): Boolean = v1.equalsWithoutId(v2)
       override fun updateAllVals(v: ComplexDataClassWithFields, id: Long): ComplexDataClassWithFields {
@@ -365,8 +367,8 @@ val complexDataClassWithMethodsAutoIdTestModel = ComplexTestModelWithNullableCol
       }
 
       override fun newRandom(): ComplexDataClassWithMethods = ComplexDataClassWithMethods.newRandom()
-      override fun setId(v: ComplexDataClassWithMethods, id: Long): ComplexDataClassWithMethods =
-          SqliteMagic_ComplexDataClassWithMethods_Dao.setId(v, id)
+      override fun setId(v: ComplexDataClassWithMethods, id: Long?): ComplexDataClassWithMethods =
+          SqliteMagic_ComplexDataClassWithMethods_Dao.setId(v, id!!)
       override fun getId(v: ComplexDataClassWithMethods): Long? = v.id
       override fun valsAreEqual(v1: ComplexDataClassWithMethods, v2: ComplexDataClassWithMethods): Boolean = v1.equalsWithoutId(v2)
       override fun updateAllVals(v: ComplexDataClassWithMethods, id: Long): ComplexDataClassWithMethods {
@@ -449,8 +451,8 @@ val complexMutableFixedIdUniqueNullableTestModel = ComplexTestModelWithUniqueNul
       }
 
       override fun newRandom(): ComplexMutableWithUnique = ComplexMutableWithUnique.newRandom()
-      override fun setId(v: ComplexMutableWithUnique, id: Long): ComplexMutableWithUnique {
-        SqliteMagic_ComplexMutableWithUnique_Dao.setId(v, id)
+      override fun setId(v: ComplexMutableWithUnique, id: Long?): ComplexMutableWithUnique {
+        SqliteMagic_ComplexMutableWithUnique_Dao.setId(v, id!!)
         return v
       }
 
@@ -561,9 +563,9 @@ val complexImmutableWithBuilderFixedIdUniqueNullableTestModel = ComplexTestModel
       }
 
       override fun newRandom(): ComplexImmutableBuilderWithUnique = ComplexImmutableBuilderWithUnique.newRandom()
-      override fun setId(v: ComplexImmutableBuilderWithUnique, id: Long): ComplexImmutableBuilderWithUnique =
+      override fun setId(v: ComplexImmutableBuilderWithUnique, id: Long?): ComplexImmutableBuilderWithUnique =
           v.copy()
-              .id(id)
+              .id(id!!)
               .build()
 
       override fun getId(v: ComplexImmutableBuilderWithUnique): Long? = v.id()
@@ -685,9 +687,9 @@ val complexImmutableWithCreatorFixedIdUniqueNullableTestModel = ComplexTestModel
       }
 
       override fun newRandom(): ComplexImmutableCreatorWithUnique = ComplexImmutableCreatorWithUnique.newRandom()
-      override fun setId(v: ComplexImmutableCreatorWithUnique, id: Long): ComplexImmutableCreatorWithUnique =
+      override fun setId(v: ComplexImmutableCreatorWithUnique, id: Long?): ComplexImmutableCreatorWithUnique =
           ComplexImmutableCreatorWithUnique.create(
-              id,
+              id!!,
               v.uniqueVal(),
               v.string(),
               v.complexVal(),
@@ -813,9 +815,9 @@ val complexDataClassWithFieldsFixedIdUniqueNullableTestModel = ComplexTestModelW
       }
 
       override fun newRandom(): ComplexDataClassWithFieldsAndUnique = ComplexDataClassWithFieldsAndUnique.newRandom()
-      override fun setId(v: ComplexDataClassWithFieldsAndUnique, id: Long): ComplexDataClassWithFieldsAndUnique =
+      override fun setId(v: ComplexDataClassWithFieldsAndUnique, id: Long?): ComplexDataClassWithFieldsAndUnique =
           ComplexDataClassWithFieldsAndUnique.create(
-              id,
+              id!!,
               v.uniqueVal,
               v.string,
               v.complexVal,
@@ -941,9 +943,9 @@ val complexDataClassWithMethodsFixedIdUniqueNullableTestModel = ComplexTestModel
       }
 
       override fun newRandom(): ComplexDataClassWithMethodsAndUnique = ComplexDataClassWithMethodsAndUnique.newRandom()
-      override fun setId(v: ComplexDataClassWithMethodsAndUnique, id: Long): ComplexDataClassWithMethodsAndUnique =
+      override fun setId(v: ComplexDataClassWithMethodsAndUnique, id: Long?): ComplexDataClassWithMethodsAndUnique =
           ComplexDataClassWithMethodsAndUnique.create(
-              id,
+              id!!,
               v.uniqueVal,
               v.string,
               v.complexVal,
@@ -1056,6 +1058,118 @@ val complexDataClassWithMethodsFixedIdUniqueNullableTestModel = ComplexTestModel
     }
 )
 
+val complexMutableAutoIdUniqueNullableTestModel = ComplexTestModelWithUniqueNullableColumns(
+    testModel = object : TestModel<ComplexMutableWithUniqueAndNullableId> {
+      override val table: Table<ComplexMutableWithUniqueAndNullableId>
+        get() = COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID
+      override val idColumn: Column<Long, Long, Number, *, Nullable>
+        get() = COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.ID
+
+      override fun deleteTable() {
+        ComplexMutableWithUniqueAndNullableId.deleteTable().execute()
+        SimpleMutableWithUnique.deleteTable().execute()
+      }
+
+      override fun newRandom(): ComplexMutableWithUniqueAndNullableId = ComplexMutableWithUniqueAndNullableId.newRandom()
+      override fun setId(v: ComplexMutableWithUniqueAndNullableId, id: Long?): ComplexMutableWithUniqueAndNullableId {
+        SqliteMagic_ComplexMutableWithUniqueAndNullableId_Dao.setId(v, id)
+        return v
+      }
+
+      override fun getId(v: ComplexMutableWithUniqueAndNullableId): Long? = v.id
+      override fun valsAreEqual(v1: ComplexMutableWithUniqueAndNullableId, v2: ComplexMutableWithUniqueAndNullableId): Boolean = v1 == v2
+      override fun updateAllVals(v: ComplexMutableWithUniqueAndNullableId, id: Long): ComplexMutableWithUniqueAndNullableId {
+        val newRandom = ComplexMutableWithUniqueAndNullableId.newRandom()
+        newRandom.id = id
+        newRandom.complexVal.id = v.complexVal.id
+        newRandom.complexVal2.id = v.complexVal2.id
+        return newRandom
+      }
+
+      override fun insertBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityInsertBuilder = v.insert()
+      override fun bulkInsertBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkInsertBuilder = ComplexMutableWithUniqueAndNullableId.insert(v)
+      override fun updateBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityUpdateBuilder = v.update()
+      override fun bulkUpdateBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkUpdateBuilder = ComplexMutableWithUniqueAndNullableId.update(v)
+      override fun persistBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityPersistBuilder = v.persist()
+      override fun bulkPersistBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkPersistBuilder = ComplexMutableWithUniqueAndNullableId.persist(v)
+      override fun deleteBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityDeleteBuilder = v.delete()
+      override fun bulkDeleteBuilder(v: Collection<ComplexMutableWithUniqueAndNullableId>): EntityBulkDeleteBuilder = ComplexMutableWithUniqueAndNullableId.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexMutableWithUniqueAndNullableId.deleteTable()
+      override fun assertNoValsInTables() {
+        assertTableCount(0, COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID)
+        assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID)
+      }
+    },
+    uniqueValue = object: ComplexUniqueValued<ComplexMutableWithUniqueAndNullableId> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.UNIQUE_VAL
+      override val complexUniqueColumn: Unique<NotNullable>
+        get() = COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.COMPLEX_VAL2
+      override val complexColumnUniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.UNIQUE_VAL
+
+      override fun getChildren(src: ComplexMutableWithUniqueAndNullableId): Map<ChildMetadata, List<Long>> =
+          mapOf(
+              ChildMetadata(SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID, SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.ID as Column<Long, Long, Number, *, NotNullable>) to listOf(
+                  src.complexVal.id!!,
+                  src.complexVal2.id!!
+              )
+          )
+
+      override fun transferUniqueVal(src: ComplexMutableWithUniqueAndNullableId, target: ComplexMutableWithUniqueAndNullableId): ComplexMutableWithUniqueAndNullableId {
+        target.uniqueVal = src.uniqueVal
+        return target
+      }
+
+      override fun transferComplexUniqueVal(src: ComplexMutableWithUniqueAndNullableId, target: ComplexMutableWithUniqueAndNullableId): ComplexMutableWithUniqueAndNullableId {
+        target.complexVal2 = src.complexVal2
+        return target
+      }
+
+      override fun transferComplexColumnUniqueVal(src: ComplexMutableWithUniqueAndNullableId, target: ComplexMutableWithUniqueAndNullableId): ComplexMutableWithUniqueAndNullableId {
+        target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
+        return target
+      }
+
+      override fun transferAllComplexUniqueVals(src: ComplexMutableWithUniqueAndNullableId, target: ComplexMutableWithUniqueAndNullableId): ComplexMutableWithUniqueAndNullableId {
+        target.complexVal.uniqueVal = src.complexVal.uniqueVal
+        target.complexVal2.uniqueVal = src.complexVal2.uniqueVal
+        return target
+      }
+    },
+    nullableColumns = object: ComplexNullableColumns<ComplexMutableWithUniqueAndNullableId> {
+      override fun nullSomeColumns(target: ComplexMutableWithUniqueAndNullableId): ComplexMutableWithUniqueAndNullableId {
+        target.string = null
+        return target
+      }
+
+      override fun assertAllExceptNulledColumnsAreUpdated(target: ComplexMutableWithUniqueAndNullableId, nulledVal: ComplexMutableWithUniqueAndNullableId) {
+        assertThat(target.id).isEqualTo(nulledVal.id)
+        assertThat(target.uniqueVal).isEqualTo(nulledVal.uniqueVal)
+        assertThat(target.complexVal).isEqualTo(nulledVal.complexVal)
+        assertThat(target.complexVal2).isEqualTo(nulledVal.complexVal2)
+        assertThat(target.string).isNotEqualTo(nulledVal.string)
+        assertThat(target.string).isNotNull()
+      }
+
+      override fun nullSomeComplexColumns(target: ComplexMutableWithUniqueAndNullableId): ComplexMutableWithUniqueAndNullableId {
+        target.string = null
+        target.complexVal = null
+        return target
+      }
+
+      override fun assertAllExceptNulledComplexColumnsAreUpdated(target: ComplexMutableWithUniqueAndNullableId, nulledVal: ComplexMutableWithUniqueAndNullableId) {
+        assertThat(target.id).isEqualTo(nulledVal.id)
+        assertThat(target.uniqueVal).isEqualTo(nulledVal.uniqueVal)
+        assertThat(target.complexVal2).isEqualTo(nulledVal.complexVal2)
+        assertThat(target.complexVal).isNotEqualTo(nulledVal.complexVal)
+        assertThat(target.complexVal).isNotNull()
+        assertThat(target.string).isNotEqualTo(nulledVal.string)
+        assertThat(target.string).isNotNull()
+      }
+    }
+)
+
 val COMPLEX_FIXED_ID_MODELS = arrayOf(
     complexMutableFixedIdUniqueNullableTestModel,
     complexImmutableWithBuilderFixedIdUniqueNullableTestModel,
@@ -1083,3 +1197,6 @@ val COMPLEX_NULLABLE_AUTO_ID_MODELS = arrayOf(
     complexImmutableWithCreatorAutoIdTestModel,
     complexDataClassWithFieldsAutoIdTestModel,
     complexDataClassWithMethodsAutoIdTestModel)
+
+val COMPLEX_NULLABLE_UNIQUE_AUTO_ID_MODELS = arrayOf(
+    complexMutableAutoIdUniqueNullableTestModel)

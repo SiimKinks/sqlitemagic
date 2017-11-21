@@ -11,7 +11,7 @@ import com.siimkinks.sqlitemagic.model.TestUtil.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-private fun <T> assertBasicUpdateSuccess(success: Boolean, model: TestModel<T>) {
+fun <T> assertBasicUpdateSuccess(success: Boolean, model: TestModel<T>) {
   assertThat(success).isTrue()
   assertTableCount(1L, model.table)
 }

@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.SimpleDataClassWithFieldsAndUniqueTable.SIMPLE_
 import com.siimkinks.sqlitemagic.SimpleDataClassWithMethodsAndUniqueTable.SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleImmutableWithBuilderAndUniqueTable.SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleImmutableWithCreatorAndUniqueTable.SIMPLE_IMMUTABLE_WITH_CREATOR_AND_UNIQUE
+import com.siimkinks.sqlitemagic.SimpleMutableWithUniqueAndNullableIdTable.SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID
 import com.siimkinks.sqlitemagic.SimpleMutableWithUniqueTable.SIMPLE_MUTABLE_WITH_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleValueWithBuilderAndNullableFieldsTable.SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER
@@ -32,7 +33,7 @@ val simpleMutableAutoIdTestModel = TestModelWithNullableColumns<Author>(
       }
 
       override fun newRandom(): Author = Author.newRandom()
-      override fun setId(v: Author, id: Long): Author {
+      override fun setId(v: Author, id: Long?): Author {
         v.id = id
         return v
       }
@@ -85,7 +86,7 @@ val simpleImmutableWithBuilderAutoIdTestModel = object : TestModel<SimpleValueWi
   }
 
   override fun newRandom(): SimpleValueWithBuilder = SimpleValueWithBuilder.newRandom().build()
-  override fun setId(v: SimpleValueWithBuilder, id: Long): SimpleValueWithBuilder =
+  override fun setId(v: SimpleValueWithBuilder, id: Long?): SimpleValueWithBuilder =
       SqliteMagic_SimpleValueWithBuilder_Dao.setId(v, id)
 
   override fun getId(v: SimpleValueWithBuilder): Long? = v.id()
@@ -120,7 +121,7 @@ val simpleImmutableWithCreatorAutoIdTestModel = object : TestModel<SimpleValueWi
   }
 
   override fun newRandom(): SimpleValueWithCreator = SimpleValueWithCreator.newRandom()
-  override fun setId(v: SimpleValueWithCreator, id: Long): SimpleValueWithCreator =
+  override fun setId(v: SimpleValueWithCreator, id: Long?): SimpleValueWithCreator =
       SqliteMagic_SimpleValueWithCreator_Dao.setId(v, id)
 
   override fun getId(v: SimpleValueWithCreator): Long? = v.id()
@@ -153,7 +154,7 @@ val simpleDataClassWithFieldsAutoIdTestModel = object : TestModel<DataClassWithF
   }
 
   override fun newRandom(): DataClassWithFields = DataClassWithFields.newRandom()
-  override fun setId(v: DataClassWithFields, id: Long): DataClassWithFields =
+  override fun setId(v: DataClassWithFields, id: Long?): DataClassWithFields =
       SqliteMagic_DataClassWithFields_Dao.setId(v, id)
 
   override fun getId(v: DataClassWithFields): Long? = v.id
@@ -186,7 +187,7 @@ val simpleDataClassWithMethodsAutoIdTestModel = object : TestModel<DataClassWith
   }
 
   override fun newRandom(): DataClassWithMethods = DataClassWithMethods.newRandom()
-  override fun setId(v: DataClassWithMethods, id: Long): DataClassWithMethods =
+  override fun setId(v: DataClassWithMethods, id: Long?): DataClassWithMethods =
       SqliteMagic_DataClassWithMethods_Dao.setId(v, id)
 
   override fun getId(v: DataClassWithMethods): Long? = v.id
@@ -222,8 +223,8 @@ val simpleMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableCol
       override fun newRandom(): SimpleMutableWithUnique =
           SimpleMutableWithUnique.newRandom()
 
-      override fun setId(v: SimpleMutableWithUnique, id: Long): SimpleMutableWithUnique {
-        SqliteMagic_SimpleMutableWithUnique_Dao.setId(v, id)
+      override fun setId(v: SimpleMutableWithUnique, id: Long?): SimpleMutableWithUnique {
+        SqliteMagic_SimpleMutableWithUnique_Dao.setId(v, id!!)
         return v
       }
 
@@ -286,9 +287,9 @@ val simpleImmutableWithBuilderFixedIdUniqueNullableTestModel = TestModelWithUniq
       override fun newRandom(): SimpleImmutableWithBuilderAndUnique =
           SimpleImmutableWithBuilderAndUnique.newRandom()
 
-      override fun setId(v: SimpleImmutableWithBuilderAndUnique, id: Long): SimpleImmutableWithBuilderAndUnique =
+      override fun setId(v: SimpleImmutableWithBuilderAndUnique, id: Long?): SimpleImmutableWithBuilderAndUnique =
           v.copy()
-              .id(id)
+              .id(id!!)
               .build()
 
       override fun getId(v: SimpleImmutableWithBuilderAndUnique): Long? = v.id()
@@ -345,8 +346,8 @@ val simpleImmutableWithCreatorFixedIdUniqueNullableTestModel = TestModelWithUniq
       override fun newRandom(): SimpleImmutableWithCreatorAndUnique =
           SimpleImmutableWithCreatorAndUnique.newRandom()
 
-      override fun setId(v: SimpleImmutableWithCreatorAndUnique, id: Long): SimpleImmutableWithCreatorAndUnique =
-          v.setId(id)
+      override fun setId(v: SimpleImmutableWithCreatorAndUnique, id: Long?): SimpleImmutableWithCreatorAndUnique =
+          v.setId(id!!)
 
       override fun getId(v: SimpleImmutableWithCreatorAndUnique): Long? = v.id()
 
@@ -400,8 +401,8 @@ val simpleDataClassWithFieldsFixedIdUniqueNullableTestModel = TestModelWithUniqu
       override fun newRandom(): SimpleDataClassWithFieldsAndUnique =
           SimpleDataClassWithFieldsAndUnique.newRandom()
 
-      override fun setId(v: SimpleDataClassWithFieldsAndUnique, id: Long): SimpleDataClassWithFieldsAndUnique =
-          v.setId(id)
+      override fun setId(v: SimpleDataClassWithFieldsAndUnique, id: Long?): SimpleDataClassWithFieldsAndUnique =
+          v.setId(id!!)
 
       override fun getId(v: SimpleDataClassWithFieldsAndUnique): Long? = v.id
 
@@ -455,8 +456,8 @@ val simpleDataClassWithMethodsFixedIdUniqueNullableTestModel = TestModelWithUniq
       override fun newRandom(): SimpleDataClassWithMethodsAndUnique =
           SimpleDataClassWithMethodsAndUnique.newRandom()
 
-      override fun setId(v: SimpleDataClassWithMethodsAndUnique, id: Long): SimpleDataClassWithMethodsAndUnique =
-          v.setId(id)
+      override fun setId(v: SimpleDataClassWithMethodsAndUnique, id: Long?): SimpleDataClassWithMethodsAndUnique =
+          v.setId(id!!)
 
       override fun getId(v: SimpleDataClassWithMethodsAndUnique): Long? = v.id
 
@@ -508,7 +509,7 @@ val simpleImmutableWithBuilderNullableTestModel = TestModelWithNullableColumns<S
       }
 
       override fun newRandom(): SimpleValueWithBuilderAndNullableFields = SimpleValueWithBuilderAndNullableFields.newRandom().build()
-      override fun setId(v: SimpleValueWithBuilderAndNullableFields, id: Long): SimpleValueWithBuilderAndNullableFields =
+      override fun setId(v: SimpleValueWithBuilderAndNullableFields, id: Long?): SimpleValueWithBuilderAndNullableFields =
           SqliteMagic_SimpleValueWithBuilderAndNullableFields_Dao.setId(v, id)
 
       override fun getId(v: SimpleValueWithBuilderAndNullableFields): Long? = v.id()
@@ -558,7 +559,7 @@ val simpleImmutableWithCreatorNullableTestModel = TestModelWithNullableColumns<S
       }
 
       override fun newRandom(): SimpleValueWithCreatorAndNullableFields = SimpleValueWithCreatorAndNullableFields.newRandom()
-      override fun setId(v: SimpleValueWithCreatorAndNullableFields, id: Long): SimpleValueWithCreatorAndNullableFields =
+      override fun setId(v: SimpleValueWithCreatorAndNullableFields, id: Long?): SimpleValueWithCreatorAndNullableFields =
           SqliteMagic_SimpleValueWithCreatorAndNullableFields_Dao.setId(v, id)
 
       override fun getId(v: SimpleValueWithCreatorAndNullableFields): Long? = v.id()
@@ -606,7 +607,7 @@ val simpleDataClassWithFieldsNullableTestModel = TestModelWithNullableColumns<Da
       }
 
       override fun newRandom(): DataClassWithNullableFields = DataClassWithNullableFields.newRandom()
-      override fun setId(v: DataClassWithNullableFields, id: Long): DataClassWithNullableFields =
+      override fun setId(v: DataClassWithNullableFields, id: Long?): DataClassWithNullableFields =
           SqliteMagic_DataClassWithNullableFields_Dao.setId(v, id)
 
       override fun getId(v: DataClassWithNullableFields): Long? = v.id
@@ -655,7 +656,7 @@ val simpleDataClassWithMethodsNullableTestModel = TestModelWithNullableColumns<D
       }
 
       override fun newRandom(): DataClassWithNullableMethods = DataClassWithNullableMethods.newRandom()
-      override fun setId(v: DataClassWithNullableMethods, id: Long): DataClassWithNullableMethods =
+      override fun setId(v: DataClassWithNullableMethods, id: Long?): DataClassWithNullableMethods =
           SqliteMagic_DataClassWithNullableMethods_Dao.setId(v, id)
 
       override fun getId(v: DataClassWithNullableMethods): Long? = v.id
@@ -692,6 +693,70 @@ val simpleDataClassWithMethodsNullableTestModel = TestModelWithNullableColumns<D
     }
 )
 
+val simpleMutableAutoIdUniqueNullableTestModel = TestModelWithUniqueNullableColumns<SimpleMutableWithUniqueAndNullableId>(
+    testModel = object : TestModel<SimpleMutableWithUniqueAndNullableId> {
+      override val table: Table<SimpleMutableWithUniqueAndNullableId>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID
+      override val idColumn: Column<Long, Long, Number, *, Nullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.ID
+
+      override fun deleteTable() {
+        SimpleMutableWithUniqueAndNullableId.deleteTable().execute()
+      }
+
+      override fun newRandom(): SimpleMutableWithUniqueAndNullableId =
+          SimpleMutableWithUniqueAndNullableId.newRandom()
+
+      override fun setId(v: SimpleMutableWithUniqueAndNullableId, id: Long?): SimpleMutableWithUniqueAndNullableId {
+        SqliteMagic_SimpleMutableWithUniqueAndNullableId_Dao.setId(v, id)
+        return v
+      }
+
+      override fun getId(v: SimpleMutableWithUniqueAndNullableId): Long? = v.id
+
+      override fun valsAreEqual(v1: SimpleMutableWithUniqueAndNullableId, v2: SimpleMutableWithUniqueAndNullableId): Boolean = v1 == v2
+
+      override fun updateAllVals(v: SimpleMutableWithUniqueAndNullableId, id: Long): SimpleMutableWithUniqueAndNullableId {
+        val newRandom = SimpleMutableWithUniqueAndNullableId.newRandom()
+        newRandom.id = id
+        return newRandom
+      }
+
+      override fun insertBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityInsertBuilder = v.insert()
+      override fun bulkInsertBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkInsertBuilder = SimpleMutableWithUniqueAndNullableId.insert(v)
+      override fun updateBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityUpdateBuilder = v.update()
+      override fun bulkUpdateBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkUpdateBuilder = SimpleMutableWithUniqueAndNullableId.update(v)
+      override fun persistBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityPersistBuilder = v.persist()
+      override fun bulkPersistBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkPersistBuilder = SimpleMutableWithUniqueAndNullableId.persist(v)
+      override fun deleteBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityDeleteBuilder = v.delete()
+      override fun bulkDeleteBuilder(v: Collection<SimpleMutableWithUniqueAndNullableId>): EntityBulkDeleteBuilder = SimpleMutableWithUniqueAndNullableId.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleMutableWithUniqueAndNullableId.deleteTable()
+      override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID)
+    },
+    uniqueValue = object : UniqueValued<SimpleMutableWithUniqueAndNullableId> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.UNIQUE_VAL
+
+      override fun transferUniqueVal(src: SimpleMutableWithUniqueAndNullableId, target: SimpleMutableWithUniqueAndNullableId): SimpleMutableWithUniqueAndNullableId {
+        target.uniqueVal = src.uniqueVal
+        return target
+      }
+    },
+    nullableColumns = object: NullableColumns<SimpleMutableWithUniqueAndNullableId> {
+      override fun nullSomeColumns(target: SimpleMutableWithUniqueAndNullableId): SimpleMutableWithUniqueAndNullableId {
+        target.string = null
+        return target
+      }
+
+      override fun assertAllExceptNulledColumnsAreUpdated(target: SimpleMutableWithUniqueAndNullableId, nulledVal: SimpleMutableWithUniqueAndNullableId) {
+        assertThat(target.id).isEqualTo(nulledVal.id)
+        assertThat(target.uniqueVal).isEqualTo(nulledVal.uniqueVal)
+        assertThat(target.string).isNotEqualTo(nulledVal.string)
+        assertThat(target.string).isNotNull()
+      }
+    }
+)
+
 val SIMPLE_FIXED_ID_MODELS = arrayOf(
     simpleMutableFixedIdUniqueNullableTestModel,
     simpleImmutableWithBuilderFixedIdUniqueNullableTestModel,
@@ -719,3 +784,6 @@ val SIMPLE_NULLABLE_AUTO_ID_MODELS = arrayOf(
     simpleImmutableWithCreatorNullableTestModel,
     simpleDataClassWithFieldsNullableTestModel,
     simpleDataClassWithMethodsNullableTestModel)
+
+val SIMPLE_NULLABLE_UNIQUE_AUTO_ID_MODELS = arrayOf(
+    simpleMutableAutoIdUniqueNullableTestModel)

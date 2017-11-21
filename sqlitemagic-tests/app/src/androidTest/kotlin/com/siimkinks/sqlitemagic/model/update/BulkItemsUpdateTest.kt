@@ -242,6 +242,47 @@ class BulkItemsUpdateTest : DefaultConnectionTest {
     }
   }
 
+  class BulkOperationByUniqueColumnWithNullId<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> List<T> = {
+        createVals {
+          val (newRandom, id) = insertNewRandom(it)
+          var updatedVal = it.updateAllVals(newRandom, id)
+          updatedVal = it.setId(updatedVal, null)
+          (it as TestModelWithUniqueColumn).transferUniqueVal(newRandom, updatedVal)
+        }
+      },
+      operation: DualOperation<List<T>, T, Boolean> = BulkUpdateDualOperation { model, testVal ->
+        model.bulkUpdateBuilder(testVal)
+            .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+      },
+      assertResults: (TestModel<T>, List<T>, Boolean) -> Unit = { model, testVals, success ->
+        assertThat(success).isTrue()
+
+        val expected = testVals.map { model.setId(it, null) }
+        val actual = Select
+            .from(model.table)
+            .queryDeep()
+            .execute()
+            .map { model.setId(it, null) }
+
+        assertThat(actual).isEqualTo(expected)
+      }
+  ) : DualOperationTestCase<List<T>, T, Boolean>(
+      "Bulk update entity with null id by unique column succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun bulkUpdateByUniqueColumnWithNullId() {
+    assertThatDual {
+      testCase { BulkOperationByUniqueColumnWithNullId(forModel = it) }
+      isSuccessfulFor(*ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS)
+    }
+  }
+
   class ObserveBulkUpdate<T> : SingleOperation<List<T>, T, TestObserver<Long>> {
     override fun invoke(model: TestModel<T>, testVal: List<T>): TestObserver<Long> = model
         .bulkUpdateBuilder(testVal)

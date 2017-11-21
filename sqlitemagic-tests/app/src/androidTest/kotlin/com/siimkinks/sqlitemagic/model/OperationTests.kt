@@ -204,7 +204,7 @@ interface TestModel<T> {
 
   fun deleteTable()
   fun newRandom(): T
-  fun setId(v: T, id: Long): T
+  fun setId(v: T, id: Long?): T
   fun getId(v: T): Long?
   fun valsAreEqual(v1: T, v2: T): Boolean
   fun updateAllVals(v: T, id: Long): T
@@ -328,7 +328,7 @@ fun <T> assertTableDoesNotHaveValue(v: T, model: TestModel<T>) {
   assertThat(tableValues).doesNotContain(v)
 }
 
-fun assertSingleError(ts: TestObserver<Long>) {
+fun assertSingleError(ts: TestObserver<*>) {
   ts.awaitTerminalEvent(1, TimeUnit.SECONDS)
   ts.assertNoValues()
   val errors = ts.errors()
@@ -350,3 +350,7 @@ val ALL_AUTO_ID_MODELS = arrayOf<TestModel<*>>(
 val ALL_NULLABLE_AUTO_ID_MODELS = arrayOf<TestModel<*>>(
     *SIMPLE_NULLABLE_AUTO_ID_MODELS,
     *COMPLEX_NULLABLE_AUTO_ID_MODELS)
+
+val ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS: Array<TestModel<*>> = arrayOf(
+    *SIMPLE_NULLABLE_UNIQUE_AUTO_ID_MODELS,
+    *COMPLEX_NULLABLE_UNIQUE_AUTO_ID_MODELS)

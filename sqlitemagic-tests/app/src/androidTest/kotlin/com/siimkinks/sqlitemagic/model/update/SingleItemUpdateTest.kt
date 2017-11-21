@@ -4,6 +4,7 @@ import android.support.test.runner.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
 import com.siimkinks.sqlitemagic.model.*
+import com.siimkinks.sqlitemagic.model.TestUtil.getDbValue
 import io.reactivex.observers.TestObserver
 import io.reactivex.schedulers.Schedulers
 import org.junit.Test
@@ -34,8 +35,8 @@ class SingleItemUpdateTest : DefaultConnectionTest {
 
   class OperationFailEmitsError<T>(
       forModel: TestModelWithUniqueColumn<T>,
-      test: SingleOperation<T, T, TestObserver<Long>> = ObserveUpdate()
-  ) : SingleOperationTestCase<T, T, TestObserver<Long>>(
+      test: SingleOperation<T, T, TestObserver<*>> = ObserveUpdate()
+  ) : SingleOperationTestCase<T, T, TestObserver<*>>(
       "When update fails it emits error and rolls back values",
       model = forModel,
       setUp = {
@@ -60,8 +61,8 @@ class SingleItemUpdateTest : DefaultConnectionTest {
 
   class OperationFailOnComplexModelChildEmitsError<T>(
       forModel: ComplexTestModelWithUniqueColumn<T>,
-      test: SingleOperation<T, T, TestObserver<Long>> = ObserveUpdate()
-  ) : SingleOperationTestCase<T, T, TestObserver<Long>>(
+      test: SingleOperation<T, T, TestObserver<*>> = ObserveUpdate()
+  ) : SingleOperationTestCase<T, T, TestObserver<*>>(
       "When complex model update fails it emits error and rolls back all values",
       model = forModel,
       setUp = {
@@ -206,13 +207,43 @@ class SingleItemUpdateTest : DefaultConnectionTest {
     }
   }
 
-  class ObserveUpdate<T> : SingleOperation<T, T, TestObserver<Long>> {
-    override fun invoke(model: TestModel<T>, testVal: T): TestObserver<Long> {
-      val ts = TestObserver<Long>()
-      model.updateBuilder(testVal)
+  class OperationByUniqueColumnWithNullId<T>(
+      forModel: TestModel<T>,
+      setUp: (TestModel<T>) -> T = {
+        val (newRandom, id) = insertNewRandom(it)
+        var updatedVal = it.updateAllVals(newRandom, id)
+        updatedVal = it.setId(updatedVal, null)
+        (it as TestModelWithUniqueColumn).transferUniqueVal(newRandom, updatedVal)
+      },
+      operation: DualOperation<T, T, Boolean> = UpdateDualOperation { model, testVal ->
+        model.updateBuilder(testVal)
+            .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+      },
+      assertResults: (TestModel<T>, T, Boolean) -> Unit = { model, testVal, success ->
+        assertBasicUpdateSuccess(success, model)
+        assertThat(model.setId(testVal, null))
+            .isEqualTo(model.setId(getDbValue(model.table), null))
+      }
+  ) : DualOperationTestCase<T, T, Boolean>(
+      "Update entity with null id by unique column succeeds",
+      model = forModel,
+      setUp = setUp,
+      operation = operation,
+      assertResults = assertResults)
+
+  @Test
+  fun updateByUniqueColumnWithNullId() {
+    assertThatDual {
+      testCase { OperationByUniqueColumnWithNullId(forModel = it) }
+      isSuccessfulFor(*ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS)
+    }
+  }
+
+  class ObserveUpdate<T> : SingleOperation<T, T, TestObserver<*>> {
+    override fun invoke(model: TestModel<T>, testVal: T): TestObserver<*> {
+      return model.updateBuilder(testVal)
           .observe()
-          .subscribe(ts)
-      return ts
+          .test()
     }
   }
 }

@@ -29,7 +29,8 @@ public interface EntityPersistBuilder extends EntityOperationBuilder<EntityPersi
    * which also need to be persisted.
    *
    * @return the row ID of the updated or newly inserted row, or -1 if insert operation was
-   * performed and an error occurred
+   * performed and an error occurred, or -2 if update by column was performed successfully but
+   * entity id was null
    */
   long execute();
 

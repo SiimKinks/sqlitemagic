@@ -34,8 +34,8 @@ class SingleItemInsertTest : DefaultConnectionTest {
   class OperationFailEmitsError<T>(
       forModel: TestModelWithUniqueColumn<T>,
       setUp: (TestModel<T>) -> T = newFailingByUniqueConstraint(),
-      test: SingleOperation<T, T, TestObserver<Long>> = ObserveInsert()
-  ) : SingleOperationTestCase<T, T, TestObserver<Long>>(
+      test: SingleOperation<T, T, TestObserver<*>> = ObserveInsert()
+  ) : SingleOperationTestCase<T, T, TestObserver<*>>(
       "When insert fails observed stream emits error",
       model = forModel,
       setUp = setUp,
@@ -57,8 +57,8 @@ class SingleItemInsertTest : DefaultConnectionTest {
 
   class OperationFailOnComplexModelChildEmitsError<T>(
       forModel: ComplexTestModelWithUniqueColumn<T>,
-      test: SingleOperation<T, T, TestObserver<Long>> = ObserveInsert()
-  ) : SingleOperationTestCase<T, T, TestObserver<Long>>(
+      test: SingleOperation<T, T, TestObserver<*>> = ObserveInsert()
+  ) : SingleOperationTestCase<T, T, TestObserver<*>>(
       "When complex model insert fails it emits error and rolls back all values",
       model = forModel,
       setUp = {
@@ -83,7 +83,7 @@ class SingleItemInsertTest : DefaultConnectionTest {
 
   class StreamedOperation<T>(
       forModel: TestModel<T>,
-      test: SingleOperation<T, T, TestObserver<Long>> = { model, testVal ->
+      test: SingleOperation<T, T, TestObserver<*>> = { model, testVal ->
         model.insertBuilder(testVal)
             .observe()
             .flatMap { id ->
@@ -95,7 +95,7 @@ class SingleItemInsertTest : DefaultConnectionTest {
             .subscribeOn(Schedulers.io())
             .test()
       }
-  ) : SingleOperationTestCase<T, T, TestObserver<Long>>(
+  ) : SingleOperationTestCase<T, T, TestObserver<*>>(
       "Two streamed insert operations work as expected",
       model = forModel,
       setUp = {

@@ -300,6 +300,22 @@ class BulkItemsPersistWithConflictsTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun bulkPersistWithUpdateByUniqueColumnWithNullIdAndIgnoreConflict() {
+    assertThatDual {
+      testCase {
+        BulkItemsUpdateTest.BulkOperationByUniqueColumnWithNullId(
+            forModel = it,
+            operation = BulkPersistDualOperation { model, testVals ->
+              model.bulkPersistBuilder(testVals)
+                  .conflictAlgorithm(CONFLICT_IGNORE)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS)
+    }
+  }
+
   class BulkPersistForInsertWithIgnoreConflictDualOperation<T>(private val ignoreNullValues: Boolean = false) : DualOperation<List<T>, T, Boolean> {
     override fun executeTest(model: TestModel<T>, testVal: List<T>): Boolean = model
         .bulkPersistBuilder(testVal)

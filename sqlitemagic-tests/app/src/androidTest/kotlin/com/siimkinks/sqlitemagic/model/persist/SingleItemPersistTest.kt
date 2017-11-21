@@ -157,6 +157,21 @@ class SingleItemPersistTest : DefaultConnectionTest {
     }
   }
 
+  @Test
+  fun persistWithUpdateByUniqueColumnWithNullId() {
+    assertThatDual {
+      testCase {
+        SingleItemUpdateTest.OperationByUniqueColumnWithNullId(
+            forModel = it,
+            operation = PersistForUpdateDualOperation { model, testVal ->
+              model.persistBuilder(testVal)
+                  .byColumn((model as TestModelWithUniqueColumn).uniqueColumn)
+            })
+      }
+      isSuccessfulFor(*ALL_NULLABLE_UNIQUE_AUTO_ID_MODELS)
+    }
+  }
+
   class PersistForInsertDualOperation<T>(private val ignoreNullValues: Boolean = false) : DualOperation<T, T, Long> {
     override fun executeTest(model: TestModel<T>, testVal: T): Long = model
         .persistBuilder(testVal)
