@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+Version 0.16.1 _(2017-11-28)_
+---------------------------------
+
+* Fix: Bugs related to support for object(s) update/persist operations with custom WHERE clause by unique column
+
 Version 0.16.0 _(2017-11-19)_
 ---------------------------------
 
