@@ -88,7 +88,7 @@ public final class CompiledUpdate {
           stm.bindNull(i);
         }
       }
-      return new CompiledUpdate(stm, tableNode.table.nameInQuery, dbConnection);
+      return new CompiledUpdate(stm, tableNode.tableName, dbConnection);
     }
   }
 }

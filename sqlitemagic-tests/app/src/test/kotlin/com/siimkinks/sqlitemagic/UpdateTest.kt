@@ -24,6 +24,17 @@ class UpdateTest {
   }
 
   @Test
+  fun setRawValue() {
+    Update
+        .table("book")
+        .set("nr_of_releases", "1")
+        .assertProduces(
+            sql = "UPDATE book SET nr_of_releases=? ",
+            nodeCount = 3,
+            args = "1")
+  }
+
+  @Test
   fun setValue() {
     Update
         .table(BOOK)
@@ -79,6 +90,18 @@ class UpdateTest {
   }
 
   @Test
+  fun rawWithCustomConflictAlgorithm() {
+    Update
+        .withConflictAlgorithm(SQLiteDatabase.CONFLICT_FAIL)
+        .table("author")
+        .set("name", "asd")
+        .assertProduces(
+            sql = "UPDATE  OR FAIL author SET name=? ",
+            nodeCount = 4,
+            args = "asd")
+  }
+
+  @Test
   fun withCustomConflictAlgorithm() {
     Update
         .withConflictAlgorithm(SQLiteDatabase.CONFLICT_FAIL)
@@ -100,6 +123,18 @@ class UpdateTest {
             sql = "UPDATE  OR IGNORE author SET name=? ",
             nodeCount = 4,
             args = "asd")
+  }
+
+  @Test
+  fun setRawChainedValue() {
+    Update
+        .table("simple_all_primitive_builder")
+        .set("bool", "1")
+        .set("integer", "1")
+        .assertProduces(
+            sql = "UPDATE simple_all_primitive_builder SET bool=?,integer=? ",
+            nodeCount = 3,
+            args = *arrayOf("1", "1"))
   }
 
   @Test
@@ -165,6 +200,21 @@ class UpdateTest {
   }
 
   @Test
+  fun setRawChainedValuesWithConflictAlgorithm() {
+    Update
+        .withConflictAlgorithm(SQLiteDatabase.CONFLICT_ROLLBACK)
+        .table("author")
+        .set("name", "asd")
+        .set("boxed_boolean", "1")
+        .set("id", "2")
+        .set("primitive_boolean", "0")
+        .assertProduces(
+            sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
+            nodeCount = 4,
+            args = *arrayOf("asd", "1", "2", "0"))
+  }
+
+  @Test
   fun setChainedValuesWithConflictAlgorithm() {
     Update
         .withConflictAlgorithm(SQLiteDatabase.CONFLICT_ROLLBACK)
@@ -177,6 +227,18 @@ class UpdateTest {
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
             nodeCount = 4,
             args = *arrayOf("asd", "1", "2", "0"))
+  }
+
+  @Test
+  fun rawUpdateWithWhereClause() {
+    Update
+        .table("author")
+        .set("name", "asd")
+        .where("author.id=?", "2")
+        .assertProduces(
+            sql = "UPDATE author SET name=? WHERE author.id=? ",
+            nodeCount = 4,
+            args = *arrayOf("asd", "2"))
   }
 
   @Test

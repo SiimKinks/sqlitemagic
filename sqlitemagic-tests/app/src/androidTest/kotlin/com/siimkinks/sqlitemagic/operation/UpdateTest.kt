@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.siimkinks.sqlitemagic.operation
 
 import android.support.test.runner.AndroidJUnit4
@@ -12,6 +14,34 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class UpdateTest : DefaultConnectionTest {
+  @Test
+  fun updateSingleRawColumn() {
+    assertThatDual {
+      testCase {
+        DualOperationTestCase(
+            "Single raw column update is successful",
+            model = simpleMutableFixedIdUniqueNullableTestModel,
+            setUp = { insertNewRandom(it).first },
+            operation = UpdateBuilderOperation {
+              Update
+                  .table("simple_mutable_with_unique")
+                  .set("unique_val", "42") as Update.Set<SimpleMutableWithUnique>
+            },
+            assertResults = { model, insertedValue, updateCount ->
+              assertThat(updateCount).isEqualTo(1)
+              insertedValue.setUniqueVal(42)
+              assertThat(Select
+                  .from(model.table)
+                  .takeFirst()
+                  .execute())
+                  .isEqualTo(insertedValue)
+            }
+        )
+      }
+      isSuccessfulFor(simpleMutableFixedIdUniqueNullableTestModel)
+    }
+  }
+
   @Test
   fun updateSingleNotNullableColumn() {
     assertThatDual {
@@ -122,6 +152,55 @@ class UpdateTest : DefaultConnectionTest {
                   .execute()
                   .forEach {
                     assertThat(it.string).isEqualTo("foo")
+                  }
+            }
+        )
+      }
+      isSuccessfulFor(simpleMutableFixedIdUniqueNullableTestModel)
+    }
+  }
+
+  @Test
+  fun updateRawWithWhereClause() {
+    assertThatDual {
+      testCase {
+        DualOperationTestCase(
+            "Raw update single row with where clause is successful",
+            model = simpleMutableFixedIdUniqueNullableTestModel,
+            setUp = { model ->
+              (0 until 5)
+                  .map { insertNewRandom(model).first }
+                  .last()
+            },
+            operation = object: DualOperation<SimpleMutableWithUnique, SimpleMutableWithUnique, Int> {
+              override fun executeTest(model: TestModel<SimpleMutableWithUnique>, testVal: SimpleMutableWithUnique): Int =
+                  Update
+                      .table("simple_mutable_with_unique")
+                      .set("string", "foo")
+                      .where("id=?", testVal.id.toString())
+                      .execute()
+
+              override fun observeTest(model: TestModel<SimpleMutableWithUnique>, testVal: SimpleMutableWithUnique): Int =
+                  Update
+                      .table("simple_mutable_with_unique")
+                      .set("string", "foo")
+                      .where("id=?", testVal.id.toString())
+                      .observe()
+                      .blockingGet()
+
+            },
+            assertResults = { model, updatedValue, updateCount ->
+              assertThat(updateCount).isEqualTo(1)
+              val updatedValueId = updatedValue.id
+              Select
+                  .from(model.table)
+                  .execute()
+                  .forEach {
+                    if (it.id == updatedValueId) {
+                      assertThat(it.string).isEqualTo("foo")
+                    } else {
+                      assertThat(it.string).isNotEqualTo("foo")
+                    }
                   }
             }
         )

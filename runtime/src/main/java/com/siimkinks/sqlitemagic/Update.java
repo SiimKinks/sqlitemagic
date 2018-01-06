@@ -5,6 +5,7 @@ import android.support.annotation.*;
 import com.siimkinks.sqlitemagic.Select.Select1;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * Builder for SQL UPDATE statement.
@@ -51,7 +52,23 @@ public final class Update extends UpdateSqlNode {
    */
   @CheckResult
   public static <T> TableNode<T> table(@NonNull Table<T> table) {
-    return new TableNode<>(new Update(), table);
+    return new TableNode<>(new Update(), table.name);
+  }
+
+  /**
+   * Create a new builder for SQL UPDATE statement.
+   * <p>
+   * Example:
+   * <pre>{@code
+   * Update.table("author")...
+   * }</pre>
+   *
+   * @param tableName Table to update
+   * @return A new builder for SQL UPDATE statement
+   */
+  @CheckResult
+  public static TableNode<?> table(@NonNull String tableName) {
+    return new TableNode<>(new Update(), tableName);
   }
 
   /**
@@ -88,11 +105,27 @@ public final class Update extends UpdateSqlNode {
      * @param table Table to update. This param must be one of annotation processor
      *              generated table objects that corresponds to table in a database
      * @param <T>   Table object type
-     * @return A new builder for SQL UPDATE statement
+     * @return SQL UPDATE statement builder
      */
     @CheckResult
     public <T> TableNode<T> table(@NonNull Table<T> table) {
-      return new TableNode<>(this, table);
+      return new TableNode<>(this, table.name);
+    }
+
+    /**
+     * Define a table to update.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * Update.table("author")...
+     * }</pre>
+     *
+     * @param tableName Table to update
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public TableNode<?> table(@NonNull String tableName) {
+      return new TableNode<>(this, tableName);
     }
   }
 
@@ -103,17 +136,17 @@ public final class Update extends UpdateSqlNode {
    */
   public static final class TableNode<T> extends UpdateSqlNode {
     @NonNull
-    final Table<T> table;
+    final String tableName;
 
-    TableNode(@NonNull UpdateSqlNode parent, @NonNull Table<T> table) {
+    TableNode(@NonNull UpdateSqlNode parent, @NonNull String tableName) {
       super(parent);
-      this.table = table;
+      this.tableName = tableName;
       updateBuilder.tableNode = this;
     }
 
     @Override
     protected void appendSql(@NonNull StringBuilder sb) {
-      table.appendToSqlFromClause(sb);
+      sb.append(tableName);
     }
 
     /**
@@ -209,6 +242,18 @@ public final class Update extends UpdateSqlNode {
                                     @NonNull SelectSqlNode.SelectNode<? extends ET, Select1, ? super N> select) {
       return new Set<>(this, new UpdateColumn<>(column).is(select));
     }
+
+    /**
+     * Update a column with new value.
+     *
+     * @param columnName Column to update
+     * @param value  A new value to set for updated column
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public Set<T> set(@NonNull String columnName, @android.support.annotation.Nullable String value) {
+      return new Set<>(this, columnName, value);
+    }
   }
 
   private static final class UpdateColumn<T, R, ET, P, N> extends ComplexColumn<T, R, ET, P, N> {
@@ -244,11 +289,18 @@ public final class Update extends UpdateSqlNode {
    */
   public static final class Set<T> extends UpdateNode {
     private final ArrayList<Expr> updates = new ArrayList<>(1);
+    private final ArrayList<String> rawUpdates = new ArrayList<>();
 
     Set(@NonNull UpdateSqlNode parent, @NonNull Expr firstUpdate) {
       super(parent);
       updates.add(firstUpdate);
       firstUpdate.addArgs(updateBuilder.args);
+    }
+
+    Set(@NonNull UpdateSqlNode parent, @NonNull String columnName, @android.support.annotation.Nullable String value) {
+      super(parent);
+      rawUpdates.add(columnName);
+      updateBuilder.args.add(value);
     }
 
     @Override
@@ -261,6 +313,15 @@ public final class Update extends UpdateSqlNode {
           sb.append(',');
         }
         updates.get(i).appendToSql(sb);
+      }
+      final ArrayList<String> rawUpdates = this.rawUpdates;
+      size = rawUpdates.size();
+      for (int i = 0; i < size; i++) {
+        if (i != 0) {
+          sb.append(',');
+        }
+        sb.append(rawUpdates.get(i));
+        sb.append("=?");
       }
     }
 
@@ -366,10 +427,24 @@ public final class Update extends UpdateSqlNode {
      */
     @CheckResult
     public <V, R, ET, N> Set<T> set(@NonNull Column<V, R, ET, T, N> column,
-                                 @NonNull SelectSqlNode.SelectNode<? extends ET, Select1, ? super N> select) {
+                                    @NonNull SelectSqlNode.SelectNode<? extends ET, Select1, ? super N> select) {
       final Expr expr = new UpdateColumn<>(column).is(select);
       updates.add(expr);
       expr.addArgs(updateBuilder.args);
+      return this;
+    }
+
+    /**
+     * Update a column with new value.
+     *
+     * @param columnName Column to update
+     * @param value  A new value to set for updated column
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public Set<T> set(@NonNull String columnName, @android.support.annotation.Nullable String value) {
+      rawUpdates.add(columnName);
+      updateBuilder.args.add(value);
       return this;
     }
 
@@ -382,6 +457,18 @@ public final class Update extends UpdateSqlNode {
     @CheckResult
     public Where where(@NonNull Expr expr) {
       return new Where(this, expr);
+    }
+
+    /**
+     * Define SQL UPDATE statement WHERE clause.
+     *
+     * @param whereClause WHERE clause
+     * @param whereArgs   WHERE clause arguments
+     * @return SQL UPDATE statement builder
+     */
+    @CheckResult
+    public RawWhere where(@NonNull String whereClause, @android.support.annotation.Nullable String... whereArgs) {
+      return new RawWhere(this, whereClause, whereArgs);
     }
   }
 
@@ -402,6 +489,28 @@ public final class Update extends UpdateSqlNode {
     protected void appendSql(@NonNull StringBuilder sb) {
       sb.append("WHERE ");
       expr.appendToSql(sb);
+    }
+  }
+
+  /**
+   * Builder for SQL UPDATE statement.
+   */
+  public static final class RawWhere extends UpdateNode {
+    @NonNull
+    private final String clause;
+
+    RawWhere(@NonNull UpdateSqlNode parent, @NonNull String clause, @android.support.annotation.Nullable String[] args) {
+      super(parent);
+      this.clause = clause;
+      if (args != null && args.length > 0) {
+        Collections.addAll(updateBuilder.args, args);
+      }
+    }
+
+    @Override
+    protected void appendSql(@NonNull StringBuilder sb) {
+      sb.append("WHERE ");
+      sb.append(clause);
     }
   }
 }

@@ -13,6 +13,17 @@ import org.junit.Test
 
 class UpdateTest : DSLTests {
   @Test
+  fun setRawValue() {
+    (UPDATE
+        TABLE "book"
+        SET ("nr_of_releases" to "1"))
+        .isEqualTo(
+            sql = "UPDATE book SET nr_of_releases=? ",
+            nodeCount = 3,
+            args = "1")
+  }
+
+  @Test
   fun setValue() {
     (UPDATE
         TABLE MAGAZINE
@@ -68,6 +79,18 @@ class UpdateTest : DSLTests {
   }
 
   @Test
+  fun rawWithDefaultConflictAlgorithm() {
+    (UPDATE
+        WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_IGNORE
+        TABLE "author"
+        SET ("name" to "asd"))
+        .isEqualTo(
+            sql = "UPDATE  OR IGNORE author SET name=? ",
+            nodeCount = 4,
+            args = "asd")
+  }
+
+  @Test
   fun withDefaultConflictAlgorithm() {
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_IGNORE
@@ -89,6 +112,18 @@ class UpdateTest : DSLTests {
             sql = "UPDATE  OR FAIL author SET name=? ",
             nodeCount = 4,
             args = "asd")
+  }
+
+  @Test
+  fun setRawChainedValue() {
+    (UPDATE
+        TABLE "immutable_value_with_fields"
+        SET ("a_boolean" to "1")
+        SET ("integer" to "1"))
+        .isEqualTo(
+            sql = "UPDATE immutable_value_with_fields SET a_boolean=?,integer=? ",
+            nodeCount = 3,
+            args = *arrayOf("1", "1"))
   }
 
   @Test
@@ -154,6 +189,31 @@ class UpdateTest : DSLTests {
   }
 
   @Test
+  fun setRawChainedValuesWithConflictAlgorithm() {
+    (UPDATE
+        WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_ROLLBACK
+        TABLE "author"
+        SET ("name" to "asd")
+        SET ("boxed_boolean" to "1")
+        SET ("_id" to "2")
+        SET ("primitive_boolean" to "0"))
+        .isEqualTo(
+            sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,_id=?,primitive_boolean=? ",
+            nodeCount = 4,
+            args = *arrayOf("asd", "1", "2", "0"))
+
+    (UPDATE
+        WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_ROLLBACK
+        TABLE "author"
+        SET ("name" to "asd")
+        SET ("boxed_boolean" to "1"))
+        .isEqualTo(
+            sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ",
+            nodeCount = 4,
+            args = *arrayOf("asd", "1"))
+  }
+
+  @Test
   fun setChainedValuesWithConflictAlgorithm() {
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_ROLLBACK
@@ -176,6 +236,18 @@ class UpdateTest : DSLTests {
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ",
             nodeCount = 4,
             args = *arrayOf("asd", "1"))
+  }
+
+  @Test
+  fun rawUpdateWithWhereClause() {
+    (UPDATE
+        TABLE "author"
+        SET ("name" to "asd")
+        WHERE ("author.id=?" to arrayOf("2")))
+        .isEqualTo(
+            sql = "UPDATE author SET name=? WHERE author.id=? ",
+            nodeCount = 4,
+            args = *arrayOf("asd", "2"))
   }
 
   @Test
