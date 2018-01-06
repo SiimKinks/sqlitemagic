@@ -9,8 +9,13 @@ import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 import lombok.AllArgsConstructor;
@@ -19,9 +24,6 @@ import lombok.ToString;
 
 import static com.siimkinks.sqlitemagic.Const.STRING_TYPE;
 
-/**
- * @author Siim Kinks
- */
 @Data
 @ToString(doNotUseGetters = true)
 @AllArgsConstructor(suppressConstructorProperties = true)
@@ -29,8 +31,9 @@ public class ExtendedTypeElement {
   private final Dual<TypeElement, Boolean> typeElement;
   private final TypeMirror typeMirror;
   private final boolean isArrayElement;
+  private final boolean isGenericElement;
 
-  public static final ExtendedTypeElement EMPTY = new ExtendedTypeElement(null, null, false);
+  public static final ExtendedTypeElement EMPTY = new ExtendedTypeElement(null, null, false, false);
   private static ExtendedTypeElement LONG;
   private static ExtendedTypeElement PRIMITIVE_LONG;
 
@@ -52,6 +55,14 @@ public class ExtendedTypeElement {
     this.typeElement = element;
     this.typeMirror = getTypeMirror(element);
     this.isArrayElement = false;
+    this.isGenericElement = false;
+  }
+
+  public String getTypeKey() {
+    if (isGenericElement) {
+      return typeMirror.toString();
+    }
+    return getQualifiedName();
   }
 
   public String getQualifiedName() {
@@ -101,5 +112,21 @@ public class ExtendedTypeElement {
   public boolean isPrimitiveByteArray(Environment environment) {
     return environment.getTypeUtils().isSameType(getTypeElement().asType(), Const.BYTE_TYPE)
         && isPrimitiveElement() && isArrayElement();
+  }
+
+  public List<TypeElement> getAllGenericTypeElements(Elements elementUtils) {
+    if (!isGenericElement) {
+      return Collections.emptyList();
+    }
+    final String type = this.typeMirror.toString();
+    final String[] rawTypes = type
+        .replace(">", "")
+        .split("[<,]");
+    final ArrayList<TypeElement> output = new ArrayList<>();
+    for (int i = 0, length = rawTypes.length; i < length; i++) {
+      final TypeElement typeElement = elementUtils.getTypeElement(rawTypes[i]);
+      output.add(typeElement);
+    }
+    return output;
   }
 }

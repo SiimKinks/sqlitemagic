@@ -172,10 +172,6 @@ public class Environment {
     tableElement.setTablePos(tableElementsSoFar);
   }
 
-  public void addTransformerElement(TransformerElement transformerElement) {
-    transformerElements.put(transformerElement.getQualifiedDeserializedName(), transformerElement);
-  }
-
   public ViewElement getViewElementFor(String qualifiedTypeName) {
     return viewElements.get(qualifiedTypeName);
   }
@@ -190,16 +186,16 @@ public class Environment {
     viewElements.put(tableQualifiedTypeName, viewElement);
   }
 
-  public boolean hasTransformerFor(TypeElement element) {
-    return transformerElements.containsKey(getQualifiedName(element));
+  public void addTransformerElement(TransformerElement transformerElement) {
+    transformerElements.put(transformerElement.getTypeKey(), transformerElement);
   }
 
   public boolean hasTransformerFor(ExtendedTypeElement element) {
-    return transformerElements.containsKey(element.getQualifiedName());
+    return transformerElements.containsKey(element.getTypeKey());
   }
 
   public TransformerElement getTransformerFor(ExtendedTypeElement element) {
-    return transformerElements.get(element.getQualifiedName());
+    return transformerElements.get(element.getTypeKey());
   }
 
   public TypeElement getTypeElement(Element element) {
@@ -225,6 +221,13 @@ public class Environment {
     return Dual.create(typeElement, isPrimitive);
   }
 
+  private TypeElement getGenericTypeElement(TypeMirror elementType) {
+    final String fullElementTypeName = elementType.toString();
+    final int firstGenericStart = fullElementTypeName.indexOf('<');
+    final String name = fullElementTypeName.substring(0, firstGenericStart);
+    return elementUtils.getTypeElement(name);
+  }
+
   public TypeElement getTypeElement(Class<?> cls) {
     return elementUtils.getTypeElement(cls.getCanonicalName());
   }
@@ -235,32 +238,44 @@ public class Environment {
 
   public ExtendedTypeElement getAnyTypeElement(TypeMirror typeMirror) {
     boolean isArrayElement = false;
+    boolean isGenericElement = false;
     Dual<TypeElement, Boolean> typeElement = getTypeElement(typeMirror);
     if (typeElement == null) {
-      try {
-        ArrayType arrayType = (ArrayType) typeMirror;
-        typeElement = getTypeElement(arrayType.getComponentType());
-        isArrayElement = true;
-      } catch (Exception e) {
+      if (typeMirror instanceof ArrayType) {
+        try {
+          ArrayType arrayType = (ArrayType) typeMirror;
+          typeElement = getTypeElement(arrayType.getComponentType());
+          isArrayElement = true;
+        } catch (Exception e) {
+        }
+      } else {
+        typeElement = Dual.create(getGenericTypeElement(typeMirror), false);
+        isGenericElement = true;
       }
     }
-    return new ExtendedTypeElement(typeElement, typeMirror, isArrayElement);
+    return new ExtendedTypeElement(typeElement, typeMirror, isArrayElement, isGenericElement);
   }
 
   public ExtendedTypeElement getSupportedSerializedTypeElement(TypeMirror typeMirror) {
     boolean isArrayElement = false;
+    boolean isGenericElement = false;
     Dual<TypeElement, Boolean> typeElement = getTypeElement(typeMirror);
     if (typeElement == null) {
-      ArrayType arrayType = (ArrayType) typeMirror;
-      final TypeMirror arrayComponentType = arrayType.getComponentType();
-      if (typeUtils.isSameType(arrayComponentType, Const.BYTE_TYPE)) {
-        typeElement = getTypeElement(arrayComponentType);
-        isArrayElement = true;
+      if (typeMirror instanceof ArrayType) {
+        ArrayType arrayType = (ArrayType) typeMirror;
+        final TypeMirror arrayComponentType = arrayType.getComponentType();
+        if (typeUtils.isSameType(arrayComponentType, Const.BYTE_TYPE)) {
+          typeElement = getTypeElement(arrayComponentType);
+          isArrayElement = true;
+        } else {
+          return ExtendedTypeElement.EMPTY;
+        }
       } else {
-        return ExtendedTypeElement.EMPTY;
+        typeElement = Dual.create(getGenericTypeElement(typeMirror), false);
+        isGenericElement = true;
       }
     }
-    return new ExtendedTypeElement(typeElement, typeMirror, isArrayElement);
+    return new ExtendedTypeElement(typeElement, typeMirror, isArrayElement, isGenericElement);
   }
 
   public static PackageElement getPackage(Element element) {

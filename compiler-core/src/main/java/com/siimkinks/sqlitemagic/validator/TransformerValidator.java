@@ -37,9 +37,11 @@ public class TransformerValidator {
     if (transformerElement.isMissingMethods()) {
       environment.error(blameElement, "There must be 2 static annotated transform methods -- " +
               "@%s annotated method which transforms Java objects to SQLite compatible objects and " +
-              "@%s annotated method which transforms database values to Java objects",
+              "@%s annotated method which transforms database values to Java objects.\n" +
+              "%s",
           ObjectToDbValue.class.getSimpleName(),
-          DbValueToObject.class.getSimpleName());
+          DbValueToObject.class.getSimpleName(),
+          transformerElement.missingMethodsErrorInfo());
       return false;
     }
     if (!isTransformerMethodValid(environment, transformerElement.getObjectToDbValueMethod(), transformerElement.getDbValueToObjectMethod())) {
@@ -67,9 +69,8 @@ public class TransformerValidator {
     final String serializedTypeQualifiedName = Environment.getQualifiedName(serializedType);
     if (SQL_TYPE_MAP.get(serializedTypeQualifiedName) == null) {
       environment.error(blameElement,
-          "Provided serialization type was %s, but serialized type in %s must be one of supported SQLite types - %s",
+          "Provided serialization type was %s, but serialized type must be one of supported SQLite types - %s",
           serializedTypeQualifiedName,
-          Transformer.class.getSimpleName(),
           Joiner.on(", ").join(SUPPORTED_SQL_BOXED_TYPES));
       return false;
     }

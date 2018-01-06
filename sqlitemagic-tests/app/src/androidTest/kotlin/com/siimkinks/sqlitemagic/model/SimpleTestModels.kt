@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.DataClassWithFieldsTable.DATA_CLASS_WITH_FIELDS
 import com.siimkinks.sqlitemagic.DataClassWithMethodsTable.DATA_CLASS_WITH_METHODS
 import com.siimkinks.sqlitemagic.DataClassWithNullableFieldsTable.DATA_CLASS_WITH_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.DataClassWithNullableMethodsTable.DATA_CLASS_WITH_NULLABLE_METHODS
+import com.siimkinks.sqlitemagic.GenericsMutableTable.GENERICS_MUTABLE
 import com.siimkinks.sqlitemagic.SimpleDataClassWithFieldsAndUniqueTable.SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleDataClassWithMethodsAndUniqueTable.SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE
 import com.siimkinks.sqlitemagic.SimpleImmutableWithBuilderAndUniqueTable.SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE
@@ -208,6 +209,72 @@ val simpleDataClassWithMethodsAutoIdTestModel = object : TestModel<DataClassWith
   override fun assertNoValsInTables() = assertTableCount(0, DATA_CLASS_WITH_METHODS)
   override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithMethods.deleteTable()
 }
+
+val simpleGenericsMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableColumns<GenericsMutable>(
+    testModel = object : TestModel<GenericsMutable> {
+      override val table: Table<GenericsMutable>
+        get() = GENERICS_MUTABLE
+      override val idColumn: Column<Long, Long, Number, *, NotNullable>
+        get() = GENERICS_MUTABLE.ID
+
+      override fun deleteTable() {
+        GenericsMutable.deleteTable().execute()
+      }
+
+      override fun newRandom(): GenericsMutable =
+          GenericsMutable.newRandom()
+
+      override fun setId(v: GenericsMutable, id: Long?): GenericsMutable {
+        SqliteMagic_GenericsMutable_Dao.setId(v, id!!)
+        return v
+      }
+
+      override fun getId(v: GenericsMutable): Long? = v.id
+
+      override fun valsAreEqual(v1: GenericsMutable, v2: GenericsMutable): Boolean = v1 == v2
+
+      override fun updateAllVals(v: GenericsMutable, id: Long): GenericsMutable {
+        val newRandom = GenericsMutable.newRandom()
+        newRandom.id = id
+        return newRandom
+      }
+
+      override fun insertBuilder(v: GenericsMutable): EntityInsertBuilder = v.insert()
+      override fun bulkInsertBuilder(v: Iterable<GenericsMutable>): EntityBulkInsertBuilder = GenericsMutable.insert(v)
+      override fun updateBuilder(v: GenericsMutable): EntityUpdateBuilder = v.update()
+      override fun bulkUpdateBuilder(v: Iterable<GenericsMutable>): EntityBulkUpdateBuilder = GenericsMutable.update(v)
+      override fun persistBuilder(v: GenericsMutable): EntityPersistBuilder = v.persist()
+      override fun bulkPersistBuilder(v: Iterable<GenericsMutable>): EntityBulkPersistBuilder = GenericsMutable.persist(v)
+      override fun deleteBuilder(v: GenericsMutable): EntityDeleteBuilder = v.delete()
+      override fun bulkDeleteBuilder(v: Collection<GenericsMutable>): EntityBulkDeleteBuilder = GenericsMutable.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = GenericsMutable.deleteTable()
+      override fun assertNoValsInTables() = assertTableCount(0, GENERICS_MUTABLE)
+    },
+    uniqueValue = object : UniqueValued<GenericsMutable> {
+      override val uniqueColumn: Unique<NotNullable>
+        get() = GENERICS_MUTABLE.UNIQUE_VAL
+
+      override fun transferUniqueVal(src: GenericsMutable, target: GenericsMutable): GenericsMutable {
+        target.uniqueVal = src.uniqueVal
+        return target
+      }
+    },
+    nullableColumns = object: NullableColumns<GenericsMutable> {
+      override fun nullSomeColumns(target: GenericsMutable): GenericsMutable {
+        target.listOfStrings = null
+        return target
+      }
+
+      override fun assertAllExceptNulledColumnsAreUpdated(target: GenericsMutable, nulledVal: GenericsMutable) {
+        assertThat(target.id).isEqualTo(nulledVal.id)
+        assertThat(target.uniqueVal).isEqualTo(nulledVal.uniqueVal)
+        assertThat(target.listOfInts).isEqualTo(nulledVal.listOfInts)
+        assertThat(target.map).isEqualTo(nulledVal.map)
+        assertThat(target.listOfStrings).isNotEqualTo(nulledVal.listOfStrings)
+        assertThat(target.listOfStrings).isNotNull()
+      }
+    }
+)
 
 val simpleMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableColumns<SimpleMutableWithUnique>(
     testModel = object : TestModel<SimpleMutableWithUnique> {
@@ -762,14 +829,16 @@ val SIMPLE_FIXED_ID_MODELS = arrayOf(
     simpleImmutableWithBuilderFixedIdUniqueNullableTestModel,
     simpleImmutableWithCreatorFixedIdUniqueNullableTestModel,
     simpleDataClassWithFieldsFixedIdUniqueNullableTestModel,
-    simpleDataClassWithMethodsFixedIdUniqueNullableTestModel)
+    simpleDataClassWithMethodsFixedIdUniqueNullableTestModel,
+    simpleGenericsMutableFixedIdUniqueNullableTestModel)
 
 val SIMPLE_NULLABLE_FIXED_ID_MODELS = arrayOf(
     simpleMutableFixedIdUniqueNullableTestModel,
     simpleImmutableWithBuilderFixedIdUniqueNullableTestModel,
     simpleImmutableWithCreatorFixedIdUniqueNullableTestModel,
     simpleDataClassWithFieldsFixedIdUniqueNullableTestModel,
-    simpleDataClassWithMethodsFixedIdUniqueNullableTestModel)
+    simpleDataClassWithMethodsFixedIdUniqueNullableTestModel,
+    simpleGenericsMutableFixedIdUniqueNullableTestModel)
 
 val SIMPLE_AUTO_ID_MODELS = arrayOf(
     simpleMutableAutoIdTestModel,

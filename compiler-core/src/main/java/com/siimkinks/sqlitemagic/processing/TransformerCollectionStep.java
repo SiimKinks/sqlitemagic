@@ -32,23 +32,23 @@ public class TransformerCollectionStep implements ProcessingStep {
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     boolean isSuccessfulProcessing = true;
-    final Map<TypeMirror, TransformerElement> transformers = new HashMap<>();
+    final Map<String, TransformerElement> transformers = new HashMap<>();
 
     for (Element element : roundEnv.getElementsAnnotatedWith(ObjectToDbValue.class)) {
       final ExecutableElement objectToDbValue = (ExecutableElement) element;
       final TransformerElement transformerElement = TransformerElement.fromObjectToDbValue(environment, objectToDbValue);
-      transformers.put(transformerElement.getRawDeserializedType(), transformerElement);
+      transformers.put(transformerElement.getRawDeserializedType().toString(), transformerElement);
     }
 
     for (Element element : roundEnv.getElementsAnnotatedWith(DbValueToObject.class)) {
       final ExecutableElement dbValueToObject = (ExecutableElement) element;
       final TypeMirror rawDeserializedType = dbValueToObject.getReturnType();
-      final TransformerElement transformer = transformers.get(rawDeserializedType);
+      final TransformerElement transformer = transformers.get(rawDeserializedType.toString());
       if (transformer != null) {
         transformer.addDbValueToObjectMethod(dbValueToObject);
       } else {
         final TransformerElement incompleteTransformer = TransformerElement.fromDbValueToObject(environment, dbValueToObject);
-        transformers.put(incompleteTransformer.getRawDeserializedType(), incompleteTransformer);
+        transformers.put(incompleteTransformer.getRawDeserializedType().toString(), incompleteTransformer);
       }
     }
 

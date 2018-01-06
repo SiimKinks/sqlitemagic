@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.util.StringUtil;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.lang.model.element.Element;
@@ -19,11 +20,9 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
 import lombok.Getter;
-import lombok.ToString;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.typeNameForGenerics;
 
-@ToString
 public class TransformerElement {
   private final Environment environment;
 
@@ -94,9 +93,9 @@ public class TransformerElement {
     if (!hasObjectToDb) {
       final VariableElement firstParam = method.getParameters().get(0);
       rawSerializedType = firstParam.asType();
-      serializedType = environment.getAnyTypeElement(rawSerializedType);
+      serializedType = environment.getSupportedSerializedTypeElement(rawSerializedType);
       rawDeserializedType = method.getReturnType();
-      deserializedType = environment.getSupportedSerializedTypeElement(rawDeserializedType);
+      deserializedType = environment.getAnyTypeElement(rawDeserializedType);
     }
 
     hasDbToObject = true;
@@ -104,6 +103,12 @@ public class TransformerElement {
 
   public boolean isMissingMethods() {
     return !hasObjectToDb || !hasDbToObject;
+  }
+
+  public String missingMethodsErrorInfo() {
+    return String.format("For [%s] there is missing %s method",
+        rawDeserializedType,
+        !hasObjectToDb ? "object-to-database-value" : !hasDbToObject ? "database-value-to-object" : "every");
   }
 
   @NonNull
@@ -126,6 +131,10 @@ public class TransformerElement {
   @Nullable
   public String cursorParserConstantName(@NonNull Environment environment, boolean nullable) {
     return Const.cursorParserConstantName(getSerializedType(), environment, nullable);
+  }
+
+  public String getTypeKey() {
+    return deserializedType.getTypeKey();
   }
 
   public String getQualifiedSerializedName() {
@@ -165,8 +174,21 @@ public class TransformerElement {
   }
 
   public String getTransformerName() {
-    final List<String> simpleNames = ClassName.get(deserializedType.getTypeElement()).simpleNames();
+    final ExtendedTypeElement deserializedType = this.deserializedType;
+    if (deserializedType.isGenericElement()) {
+      final List<TypeElement> genericTypeElements = deserializedType.getAllGenericTypeElements(environment.getElementUtils());
+      final ArrayList<String> allSimpleNames = new ArrayList<>(genericTypeElements.size());
+      for (TypeElement typeElement : genericTypeElements) {
+        allSimpleNames.addAll(getTypeSimpleNames(typeElement));
+      }
+      return StringUtil.join("_", allSimpleNames);
+    }
+    final List<String> simpleNames = getTypeSimpleNames(deserializedType.getTypeElement());
     return StringUtil.join("_", simpleNames);
+  }
+
+  private static List<String> getTypeSimpleNames(TypeElement typeElement) {
+    return ClassName.get(typeElement).simpleNames();
   }
 
   public boolean cannotTransformNullValues() {

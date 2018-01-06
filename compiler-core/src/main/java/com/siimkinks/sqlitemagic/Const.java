@@ -213,5 +213,5 @@ public class Const {
   }
 
   public static final String ERR_TRANSFORM_TYPES_NOT_MATCHING = "One transformer method's return type must be the same as other method's first parameter and vice versa";
-  public static final String ERR_MULTIPLE_TRANSFORMERS = "Multiple transformers for ";
+  public static final String ERR_MULTIPLE_TRANSFORMERS = "Multiple transformers defined for ";
 }

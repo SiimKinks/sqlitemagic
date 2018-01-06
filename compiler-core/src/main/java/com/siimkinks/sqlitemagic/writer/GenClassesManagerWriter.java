@@ -25,8 +25,12 @@ import com.squareup.javapoet.TypeVariableName;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
@@ -239,14 +243,30 @@ public class GenClassesManagerWriter {
         .beginControlFlow("switch (className)");
     final CodeBlock.Builder switchBody = CodeBlock.builder();
     int i = 0;
-    for (TransformerElement transformer : managerStep.getAllTransformerElements().values()) {
+    final Collection<TransformerElement> transformers = managerStep.getAllTransformerElements().values();
+    final Map<String, Integer> transformerRepetitions = findTransformerRepetitions(transformers);
+    final Set<String> handledTransformers = new HashSet<>(transformers.size());
+    for (TransformerElement transformer : transformers) {
+      final String qualifiedDeserializedName = transformer.getQualifiedDeserializedName();
+      if (handledTransformers.contains(qualifiedDeserializedName)) {
+        continue;
+      }
+      handledTransformers.add(qualifiedDeserializedName);
+      switchBody.add("case $S:\n", qualifiedDeserializedName)
+          .indent();
+      final Integer repetitionCount = transformerRepetitions.get(qualifiedDeserializedName);
+      if (repetitionCount > 1) {
+        switchBody.addStatement("throw new $T($S)",
+            UnsupportedOperationException.class,
+            "Unable to disambiguate transformer for " + qualifiedDeserializedName)
+            .unindent();
+        continue;
+      }
       final String objValName = "objVal" + i;
-      switchBody.add("case $S:\n", transformer.getQualifiedDeserializedName())
-          .indent()
-          .addStatement("final $1T $2L = ($1T) $3L",
-              transformer.getDeserializedType().asTypeName(),
-              objValName,
-              VAL_VARIABLE);
+      switchBody.addStatement("final $1T $2L = ($1T) $3L",
+          transformer.getDeserializedType().asTypeName(),
+          objValName,
+          VAL_VARIABLE);
       final ExtendedTypeElement serializedType = transformer.getSerializedType();
       final FormatData valueGetter = transformer.serializedValueGetter(objValName);
       if (serializedType.isPrimitiveElement()) {
@@ -277,6 +297,20 @@ public class GenClassesManagerWriter {
     builder.addCode(switchBody.build())
         .endControlFlow();
     return builder.build();
+  }
+
+  private static Map<String, Integer> findTransformerRepetitions(Collection<TransformerElement> transformers) {
+    final HashMap<String, Integer> transformerRepetitions = new HashMap<>(transformers.size());
+    for (TransformerElement transformer : transformers) {
+      final String qualifiedDeserializedName = transformer.getQualifiedDeserializedName();
+      final Integer repetitionCount = transformerRepetitions.get(qualifiedDeserializedName);
+      if (repetitionCount != null) {
+        transformerRepetitions.put(qualifiedDeserializedName, repetitionCount + 1);
+      } else {
+        transformerRepetitions.put(qualifiedDeserializedName, 1);
+      }
+    }
+    return transformerRepetitions;
   }
 
   static ParameterSpec columnsParam() {
