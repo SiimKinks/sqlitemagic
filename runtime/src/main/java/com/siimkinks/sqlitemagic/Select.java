@@ -1413,7 +1413,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <V extends Number> NumericColumn<V, V, Number, ?, NotNullable> val(@NonNull V val) {
+  public static <V extends Number> NumericColumn<V, V, Number, ?, NotNullable> asColumn(@NonNull V val) {
     return new NumericColumn<>(ANONYMOUS_TABLE, numericConstantToSqlString(val), false, parserForNumberType(val), false, null);
   }
 
@@ -1425,7 +1425,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <V extends CharSequence> Column<V, V, CharSequence, ?, NotNullable> val(@NonNull V val) {
+  public static <V extends CharSequence> Column<V, V, CharSequence, ?, NotNullable> asColumn(@NonNull V val) {
     return new Column<>(ANONYMOUS_TABLE, "'" + val.toString() + "'", false, STRING_PARSER, false, null);
   }
 
@@ -1437,7 +1437,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @NonNull
   @CheckResult
-  public static <V> Column<V, V, V, ?, NotNullable> val(@NonNull V val) {
+  public static <V> Column<V, V, V, ?, NotNullable> asColumn(@NonNull V val) {
     return SqlUtil.columnForValue(val);
   }
 

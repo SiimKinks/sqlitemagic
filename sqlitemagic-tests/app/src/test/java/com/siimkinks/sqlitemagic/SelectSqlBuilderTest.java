@@ -21,6 +21,7 @@ import static com.siimkinks.sqlitemagic.BookTable.BOOK;
 import static com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.COMPLEX_OBJECT_WITH_SAME_LEAFS;
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.Select.abs;
+import static com.siimkinks.sqlitemagic.Select.asColumn;
 import static com.siimkinks.sqlitemagic.Select.avg;
 import static com.siimkinks.sqlitemagic.Select.avgDistinct;
 import static com.siimkinks.sqlitemagic.Select.concat;
@@ -37,7 +38,6 @@ import static com.siimkinks.sqlitemagic.Select.minDistinct;
 import static com.siimkinks.sqlitemagic.Select.sum;
 import static com.siimkinks.sqlitemagic.Select.sumDistinct;
 import static com.siimkinks.sqlitemagic.Select.upper;
-import static com.siimkinks.sqlitemagic.Select.val;
 import static com.siimkinks.sqlitemagic.SimpleAllValuesMutableTable.SIMPLE_ALL_VALUES_MUTABLE;
 import static com.siimkinks.sqlitemagic.Utils.BYTE_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
@@ -439,7 +439,7 @@ public final class SelectSqlBuilderTest {
     String expected = "SELECT book.*,book.title || ' ' || book.nr_of_releases AS 'search_column' " +
         "FROM book " +
         "WHERE book.title=search_column ";
-    final Column<String, String, CharSequence, ?, ?> searchColumn = concat(BOOK.TITLE, val(" "), BOOK.NR_OF_RELEASES).as("search_column");
+    final Column<String, String, CharSequence, ?, ?> searchColumn = concat(BOOK.TITLE, asColumn(" "), BOOK.NR_OF_RELEASES).as("search_column");
     SelectSqlNode sqlNode = Select
         .columns(BOOK.all(), searchColumn)
         .from(BOOK)
@@ -1161,7 +1161,7 @@ public final class SelectSqlBuilderTest {
 
     expected = expectedBase + "ORDER BY book.nr_of_releases || ' ' || book.title ASC ";
     sqlNode = Select.from(BOOK)
-        .orderBy(BOOK.NR_OF_RELEASES.concat(val(" ")).concat(BOOK.TITLE).asc());
+        .orderBy(BOOK.NR_OF_RELEASES.concat(asColumn(" ")).concat(BOOK.TITLE).asc());
     assertSql(sqlNode, expected);
   }
 
@@ -1207,7 +1207,7 @@ public final class SelectSqlBuilderTest {
 
     expected = expectedBase + "ORDER BY b.nr_of_releases || ' ' || b.title ASC ";
     sqlNode = Select.from(b)
-        .orderBy(b.NR_OF_RELEASES.concat(val(" ")).concat(b.TITLE).asc());
+        .orderBy(b.NR_OF_RELEASES.concat(asColumn(" ")).concat(b.TITLE).asc());
     assertSql(sqlNode, expected);
   }
 
@@ -1557,12 +1557,12 @@ public final class SelectSqlBuilderTest {
         "SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ");
 
     assertSql(Select
-            .column(MAGAZINE.NR_OF_RELEASES.sub(val(42)).unaryMinus())
+            .column(MAGAZINE.NR_OF_RELEASES.sub(asColumn(42)).unaryMinus())
             .from(MAGAZINE),
         "SELECT -((magazine.nr_of_releases-42)) FROM magazine ");
 
     assertSql(Select
-            .column(MAGAZINE.NR_OF_RELEASES.sub(val(-42)).unaryMinus())
+            .column(MAGAZINE.NR_OF_RELEASES.sub(asColumn(-42)).unaryMinus())
             .from(MAGAZINE),
         "SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ");
   }
@@ -1787,35 +1787,35 @@ public final class SelectSqlBuilderTest {
   @Test
   public void valColumn() {
     String expected = "SELECT author.id || ' ' || author.name FROM author ";
-    final Column<String, String, CharSequence, ?, ?> strVal = val(" ");
+    final Column<String, String, CharSequence, ?, ?> strVal = asColumn(" ");
     assertSql(Select.column(concat(AUTHOR.ID, strVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(strVal.valueParser).isEqualTo(STRING_PARSER);
 
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Integer, Integer, Number, ?, ?> intVal = val(3);
+    final NumericColumn<Integer, Integer, Number, ?, ?> intVal = asColumn(3);
     assertSql(Select.column(concat(AUTHOR.ID, intVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(intVal.valueParser).isEqualTo(INTEGER_PARSER);
 
     expected = "SELECT author.id || (-3) || author.name FROM author ";
-    final NumericColumn<Integer, Integer, Number, ?, ?> negIntVal = val(-3);
+    final NumericColumn<Integer, Integer, Number, ?, ?> negIntVal = asColumn(-3);
     assertSql(Select.column(concat(AUTHOR.ID, negIntVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(negIntVal.valueParser).isEqualTo(INTEGER_PARSER);
 
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Long, Long, Number, ?, ?> longVal = val(3L);
+    final NumericColumn<Long, Long, Number, ?, ?> longVal = asColumn(3L);
     assertSql(Select.column(concat(AUTHOR.ID, longVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
     assertThat(longVal.valueParser).isEqualTo(LONG_PARSER);
 
     expected = "SELECT author.id || (-3) || author.name FROM author ";
-    final NumericColumn<Long, Long, Number, ?, ?> negLongVal = val(-3L);
+    final NumericColumn<Long, Long, Number, ?, ?> negLongVal = asColumn(-3L);
     assertSql(Select.column(concat(AUTHOR.ID, negLongVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1823,7 +1823,7 @@ public final class SelectSqlBuilderTest {
 
     final short s = 3;
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Short, Short, Number, ?, ?> shortVal = val(s);
+    final NumericColumn<Short, Short, Number, ?, ?> shortVal = asColumn(s);
     assertSql(Select.column(concat(AUTHOR.ID, shortVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1831,7 +1831,7 @@ public final class SelectSqlBuilderTest {
 
     final short negS = -3;
     expected = "SELECT author.id || (-3) || author.name FROM author ";
-    final NumericColumn<Short, Short, Number, ?, ?> negShortVal = val(negS);
+    final NumericColumn<Short, Short, Number, ?, ?> negShortVal = asColumn(negS);
     assertSql(Select.column(concat(AUTHOR.ID, negShortVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1839,7 +1839,7 @@ public final class SelectSqlBuilderTest {
 
     final byte b = 3;
     expected = "SELECT author.id || 3 || author.name FROM author ";
-    final NumericColumn<Byte, Byte, Number, ?, ?> byteVal = val(b);
+    final NumericColumn<Byte, Byte, Number, ?, ?> byteVal = asColumn(b);
     assertSql(Select.column(concat(AUTHOR.ID, byteVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1847,7 +1847,7 @@ public final class SelectSqlBuilderTest {
 
     final byte nB = -3;
     expected = "SELECT author.id || (-3) || author.name FROM author ";
-    final NumericColumn<Byte, Byte, Number, ?, ?> negByteVal = val(nB);
+    final NumericColumn<Byte, Byte, Number, ?, ?> negByteVal = asColumn(nB);
     assertSql(Select.column(concat(AUTHOR.ID, negByteVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1855,7 +1855,7 @@ public final class SelectSqlBuilderTest {
 
     final float f = 3.3f;
     expected = "SELECT author.id || 3.3 || author.name FROM author ";
-    final NumericColumn<Float, Float, Number, ?, ?> floatVal = val(f);
+    final NumericColumn<Float, Float, Number, ?, ?> floatVal = asColumn(f);
     assertSql(Select.column(concat(AUTHOR.ID, floatVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1863,7 +1863,7 @@ public final class SelectSqlBuilderTest {
 
     final float nF = -3.3f;
     expected = "SELECT author.id || (-3.3) || author.name FROM author ";
-    final NumericColumn<Float, Float, Number, ?, ?> negFloatVal = val(nF);
+    final NumericColumn<Float, Float, Number, ?, ?> negFloatVal = asColumn(nF);
     assertSql(Select.column(concat(AUTHOR.ID, negFloatVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1871,7 +1871,7 @@ public final class SelectSqlBuilderTest {
 
     final double d = 3.3;
     expected = "SELECT author.id || 3.3 || author.name FROM author ";
-    final NumericColumn<Double, Double, Number, ?, ?> doubleVal = val(d);
+    final NumericColumn<Double, Double, Number, ?, ?> doubleVal = asColumn(d);
     assertSql(Select.column(concat(AUTHOR.ID, doubleVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -1879,7 +1879,7 @@ public final class SelectSqlBuilderTest {
 
     final double nD = -3.3;
     expected = "SELECT author.id || (-3.3) || author.name FROM author ";
-    final NumericColumn<Double, Double, Number, ?, ?> negDoubleVal = val(nD);
+    final NumericColumn<Double, Double, Number, ?, ?> negDoubleVal = asColumn(nD);
     assertSql(Select.column(concat(AUTHOR.ID, negDoubleVal, AUTHOR.NAME))
             .from(AUTHOR),
         expected);
@@ -2048,12 +2048,12 @@ public final class SelectSqlBuilderTest {
   @Test
   public void numericArithmeticExpressionsChained() {
     String expected = "SELECT ((((1+2)*(5-3))/2.0)%10.0) FROM simple_all_values_mutable ";
-    assertSql(Select.column(val(1).add(2).mul(val(5).sub(3)).div(2.0).mod(10.0))
+    assertSql(Select.column(asColumn(1).add(2).mul(asColumn(5).sub(3)).div(2.0).mod(10.0))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
 
     expected = "SELECT ((((simple_all_values_mutable.primitive_int+2)*(5-3))/2.0)%10.0) FROM simple_all_values_mutable ";
-    assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT.add(2).mul(val(5).sub(3)).div(2.0).mod(10.0))
+    assertSql(Select.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT.add(2).mul(asColumn(5).sub(3)).div(2.0).mod(10.0))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
   }
@@ -2068,12 +2068,12 @@ public final class SelectSqlBuilderTest {
         expected);
 
     expected = String.format("SELECT (simple_all_values_mutable.primitive_int%s5) FROM simple_all_values_mutable ", op);
-    assertSql(Select.column(columnValueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, val(5L)))
+    assertSql(Select.column(columnValueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, asColumn(5L)))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
 
     expected = String.format("SELECT (simple_all_values_mutable.primitive_int%s(-5)) FROM simple_all_values_mutable ", op);
-    assertSql(Select.column(columnValueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, val(-5L)))
+    assertSql(Select.column(columnValueCallback.call(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_INT, asColumn(-5L)))
             .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
 

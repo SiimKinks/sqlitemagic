@@ -361,7 +361,7 @@ class SelectSqlBuilderTest : DSLTests {
     var expected = "SELECT magazine.*,magazine.name || ' ' || magazine.nr_of_releases AS 'search_column' " +
         "FROM magazine " +
         "WHERE magazine.name=search_column "
-    val searchColumn = concat(MAGAZINE.NAME, " ".value, MAGAZINE.NR_OF_RELEASES) AS "search_column"
+    val searchColumn = concat(MAGAZINE.NAME, " ".asColumn, MAGAZINE.NR_OF_RELEASES) AS "search_column"
     (SELECT
         COLUMNS arrayOf(MAGAZINE.all(), searchColumn)
         FROM MAGAZINE
@@ -993,7 +993,7 @@ class SelectSqlBuilderTest : DSLTests {
     expected = expectedBase + "ORDER BY magazine.nr_of_releases || ' ' || magazine.name ASC "
     (SELECT
         FROM MAGAZINE
-        ORDER_BY ((MAGAZINE.NR_OF_RELEASES concat " ".value) concat MAGAZINE.NAME).asc())
+        ORDER_BY ((MAGAZINE.NR_OF_RELEASES concat " ".asColumn) concat MAGAZINE.NAME).asc())
         .isEqualTo(expected)
   }
 
@@ -1158,12 +1158,12 @@ class SelectSqlBuilderTest : DSLTests {
         .isEqualTo("SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ")
 
     (SELECT
-        COLUMN -(MAGAZINE.NR_OF_RELEASES - 42.value)
+        COLUMN -(MAGAZINE.NR_OF_RELEASES - 42.asColumn)
         FROM MAGAZINE)
         .isEqualTo("SELECT -((magazine.nr_of_releases-42)) FROM magazine ")
 
     (SELECT
-        COLUMN -(MAGAZINE.NR_OF_RELEASES - (-42).value)
+        COLUMN -(MAGAZINE.NR_OF_RELEASES - (-42).asColumn)
         FROM MAGAZINE)
         .isEqualTo("SELECT -((magazine.nr_of_releases-(-42))) FROM magazine ")
   }
@@ -1216,7 +1216,7 @@ class SelectSqlBuilderTest : DSLTests {
   @Test
   fun valColumn() {
     var expected = "SELECT author._id || ' ' || author.name FROM author "
-    val strVal = " ".value
+    val strVal = " ".asColumn
     (SELECT
         COLUMN concat(AUTHOR._ID, strVal, AUTHOR.NAME)
         FROM AUTHOR)
@@ -1224,7 +1224,7 @@ class SelectSqlBuilderTest : DSLTests {
     strVal.parsesWith(STRING)
 
     expected = "SELECT author._id || 3 || author.name FROM author "
-    val intVal = 3.value
+    val intVal = 3.asColumn
     (SELECT
         COLUMN concat(AUTHOR._ID, intVal, AUTHOR.NAME)
         FROM AUTHOR)
@@ -1232,7 +1232,7 @@ class SelectSqlBuilderTest : DSLTests {
     intVal.parsesWith(INTEGER)
 
     expected = "SELECT author._id || 3 || author.name FROM author "
-    val longVal = 3L.value
+    val longVal = 3L.asColumn
     (SELECT
         COLUMN concat(AUTHOR._ID, longVal, AUTHOR.NAME)
         FROM AUTHOR)
@@ -1241,7 +1241,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     val s: Short = 3
     expected = "SELECT author._id || 3 || author.name FROM author "
-    val shortVal = s.value
+    val shortVal = s.asColumn
     (SELECT
         COLUMN concat(AUTHOR._ID, shortVal, AUTHOR.NAME)
         FROM AUTHOR)
@@ -1250,7 +1250,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     val b: Byte = 3
     expected = "SELECT author._id || 3 || author.name FROM author "
-    val byteVal = b.value
+    val byteVal = b.asColumn
     (SELECT
         COLUMN concat(AUTHOR._ID, byteVal, AUTHOR.NAME)
         FROM AUTHOR)
@@ -1259,7 +1259,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     val f = 3.3f
     expected = "SELECT author._id || 3.3 || author.name FROM author "
-    val floatVal = f.value
+    val floatVal = f.asColumn
     (SELECT
         COLUMN concat(AUTHOR._ID, floatVal, AUTHOR.NAME)
         FROM AUTHOR)
@@ -1268,7 +1268,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     val d = 3.3
     expected = "SELECT author._id || 3.3 || author.name FROM author "
-    val doubleVal = d.value
+    val doubleVal = d.asColumn
     (SELECT
         COLUMN concat(AUTHOR._ID, doubleVal, AUTHOR.NAME)
         FROM AUTHOR)
@@ -1320,13 +1320,13 @@ class SelectSqlBuilderTest : DSLTests {
   fun numericArithmeticExpressionsChained() {
     var expected = "SELECT ((((1+2)*(5-3))/2.0)%10.0) FROM immutable_value_with_fields "
     (SELECT
-        COLUMN ((((1.value + 2) * (5.value - 3)) / 2.0) % 10.0)
+        COLUMN ((((1.asColumn + 2) * (5.asColumn - 3)) / 2.0) % 10.0)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
         .isEqualTo(expected)
 
     expected = "SELECT ((((immutable_value_with_fields.integer+2)*(5-3))/2.0)%10.0) FROM immutable_value_with_fields "
     (SELECT
-        COLUMN ((((IMMUTABLE_VALUE_WITH_FIELDS.INTEGER + 2) * (5.value - 3)) / 2.0) % 10.0)
+        COLUMN ((((IMMUTABLE_VALUE_WITH_FIELDS.INTEGER + 2) * (5.asColumn - 3)) / 2.0) % 10.0)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
         .isEqualTo(expected)
   }
@@ -1343,13 +1343,13 @@ class SelectSqlBuilderTest : DSLTests {
 
     expected = String.format("SELECT (immutable_value_with_fields.integer%s5) FROM immutable_value_with_fields ", op)
     (SELECT
-        COLUMN columnValueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, 5L.value)
+        COLUMN columnValueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, 5L.asColumn)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
         .isEqualTo(expected)
 
     expected = String.format("SELECT (immutable_value_with_fields.integer%s(-5)) FROM immutable_value_with_fields ", op)
     (SELECT
-        COLUMN columnValueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, (-5L).value)
+        COLUMN columnValueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, (-5L).asColumn)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
         .isEqualTo(expected)
 

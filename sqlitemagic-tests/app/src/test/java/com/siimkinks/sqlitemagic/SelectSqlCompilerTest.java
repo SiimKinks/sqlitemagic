@@ -32,6 +32,7 @@ import static com.siimkinks.sqlitemagic.ComplexValueWithCreatorTable.COMPLEX_VAL
 import static com.siimkinks.sqlitemagic.ComplexViewTable.COMPLEX_VIEW;
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.Select.abs;
+import static com.siimkinks.sqlitemagic.Select.asColumn;
 import static com.siimkinks.sqlitemagic.Select.avg;
 import static com.siimkinks.sqlitemagic.Select.avgDistinct;
 import static com.siimkinks.sqlitemagic.Select.concat;
@@ -48,7 +49,6 @@ import static com.siimkinks.sqlitemagic.Select.minDistinct;
 import static com.siimkinks.sqlitemagic.Select.sum;
 import static com.siimkinks.sqlitemagic.Select.sumDistinct;
 import static com.siimkinks.sqlitemagic.Select.upper;
-import static com.siimkinks.sqlitemagic.Select.val;
 import static com.siimkinks.sqlitemagic.SimpleValueWithBuilderTable.SIMPLE_VALUE_WITH_BUILDER;
 import static com.siimkinks.sqlitemagic.SimpleValueWithCreatorTable.SIMPLE_VALUE_WITH_CREATOR;
 import static com.siimkinks.sqlitemagic.UnitTestUtil.assertSimpleArrayMapsAreEqualWithWildcardInKey;
@@ -1227,7 +1227,7 @@ public final class SelectSqlCompilerTest {
         .build()
         .isEqualToColumnSelect(Select
             .column(MAGAZINE.NR_OF_RELEASES.add(BOOK.NR_OF_RELEASES.mul(MAGAZINE.NR_OF_RELEASES))
-                .div(val(8).mod(BOOK.NR_OF_RELEASES)).sub(MAGAZINE.NR_OF_RELEASES))
+                .div(asColumn(8).mod(BOOK.NR_OF_RELEASES)).sub(MAGAZINE.NR_OF_RELEASES))
             .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
             .compile());
   }
@@ -1254,7 +1254,7 @@ public final class SelectSqlCompilerTest {
         .observedTables("complex_object_with_same_leafs", "magazine")
         .build()
         .isEqualToColumnSelect(Select
-            .column(columnValueCallback.call(MAGAZINE.NR_OF_RELEASES, val(5L)))
+            .column(columnValueCallback.call(MAGAZINE.NR_OF_RELEASES, asColumn(5L)))
             .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
             .compile());
 

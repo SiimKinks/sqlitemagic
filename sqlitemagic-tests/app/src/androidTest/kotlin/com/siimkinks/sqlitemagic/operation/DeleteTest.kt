@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.Delete
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.createVals
 import com.siimkinks.sqlitemagic.model.*
+import io.reactivex.observers.TestObserver
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -33,6 +34,48 @@ class DeleteTest : DefaultConnectionTest {
   fun deleteSingle() {
     assertThatDual {
       testCase { SuccessfulSingleObjectOperation(it) }
+      isSuccessfulFor(
+          simpleMutableAutoIdTestModel,
+          complexMutableAutoIdTestModel)
+    }
+  }
+
+  class SingleObjectOperationNotifiesSubscribers<T>(
+      forModel: TestModel<T>,
+      operation: DualOperation<T, T, Int> = DeleteSingleOperation()
+  ) : DualOperationTestCase<Pair<T, TestObserver<Long>>, T, Int>(
+      "Delete single object notifies subscribers",
+      model = forModel,
+      setUp = { model ->
+        val obj = insertNewRandom(model).first
+        val ts = Select
+            .from(model.table)
+            .where(model.idColumn.`is`(model.getId(obj)!!))
+            .count()
+            .observe()
+            .runQuery()
+            .take(2)
+            .test()
+        obj to ts
+      },
+      operation = object : DualOperation<Pair<T, TestObserver<Long>>, T, Int> {
+        override fun executeTest(model: TestModel<T>, testVal: Pair<T, TestObserver<Long>>): Int =
+            operation.executeTest(model, testVal.first)
+
+        override fun observeTest(model: TestModel<T>, testVal: Pair<T, TestObserver<Long>>): Int =
+            operation.observeTest(model, testVal.first)
+      },
+      assertResults = { _, (_, ts), _ ->
+        ts.awaitTerminalEvent()
+        ts.assertNoErrors()
+            .assertComplete()
+            .assertValues(1, 0)
+      })
+
+  @Test
+  fun deleteSingleNotifiesSubscribers() {
+    assertThatDual {
+      testCase { SingleObjectOperationNotifiesSubscribers(it) }
       isSuccessfulFor(
           simpleMutableAutoIdTestModel,
           complexMutableAutoIdTestModel)
@@ -95,6 +138,45 @@ class DeleteTest : DefaultConnectionTest {
     }
   }
 
+  class WholeTableOperationNotifiesSubscribers<T>(
+      forModel: TestModel<T>,
+      operation: DualOperation<Int, T, Int> = DeleteTableOperation()
+  ) : DualOperationTestCase<TestObserver<Long>, T, Int>(
+      "Delete table notifies subscribers",
+      model = forModel,
+      setUp = {
+        createVals { insertNewRandom(it) }
+        Select
+            .from(it.table)
+            .count()
+            .observe()
+            .runQuery()
+            .skip(1)
+            .take(1)
+            .test()
+      },
+      operation = object : DualOperation<TestObserver<Long>, T, Int> {
+        override fun executeTest(model: TestModel<T>, testVal: TestObserver<Long>): Int =
+            operation.executeTest(model, 0)
+
+        override fun observeTest(model: TestModel<T>, testVal: TestObserver<Long>): Int =
+            operation.observeTest(model, 0)
+      },
+      assertResults = { _, ts, _ ->
+        ts.awaitTerminalEvent()
+        ts.assertNoErrors()
+            .assertComplete()
+            .assertValue(0)
+      })
+
+  @Test
+  fun deleteTableNotifiesSubscribers() {
+    assertThatDual {
+      testCase { WholeTableOperationNotifiesSubscribers(it) }
+      isSuccessfulFor(*ALL_AUTO_ID_MODELS)
+    }
+  }
+
   class SuccessfulDeleteAllWithBuilderOperation<T>(
       forModel: TestModel<T>,
       operation: DualOperation<Int, T, Int> = DeleteAllWithBuilderOperation()
@@ -116,6 +198,30 @@ class DeleteTest : DefaultConnectionTest {
   fun deleteAllWithBuilder() {
     assertThatDual {
       testCase { SuccessfulDeleteAllWithBuilderOperation(it) }
+      isSuccessfulFor(*ALL_AUTO_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun deleteAllWithBuilderAndAlias() {
+    assertThatDual {
+      testCase {
+        SuccessfulDeleteAllWithBuilderOperation(
+            forModel = it,
+            operation = DeleteAllWithBuilderOperation(alias = "foo"))
+      }
+      isSuccessfulFor(*ALL_AUTO_ID_MODELS)
+    }
+  }
+
+  @Test
+  fun deleteAllWithRawBuilder() {
+    assertThatDual {
+      testCase {
+        SuccessfulDeleteAllWithBuilderOperation(
+            forModel = it,
+            operation = DeleteAllWithRawBuilderOperation())
+      }
       isSuccessfulFor(*ALL_AUTO_ID_MODELS)
     }
   }
@@ -145,6 +251,20 @@ class DeleteTest : DefaultConnectionTest {
   fun deleteAllWithBuilderAndWhereClause() {
     assertThatDual {
       testCase { SuccessfulDeleteAllWithBuilderAndWhereClauseOperation(it) }
+      isSuccessfulFor(
+          simpleMutableAutoIdTestModel,
+          complexMutableAutoIdTestModel)
+    }
+  }
+
+  @Test
+  fun deleteAllWithRawBuilderAndWhereClause() {
+    assertThatDual {
+      testCase {
+        SuccessfulDeleteAllWithBuilderAndWhereClauseOperation(
+            forModel = it,
+            operation = DeleteAllWithRawBuilderAndWhereClauseOperation())
+      }
       isSuccessfulFor(
           simpleMutableAutoIdTestModel,
           complexMutableAutoIdTestModel)
@@ -184,13 +304,24 @@ class DeleteTest : DefaultConnectionTest {
         .blockingGet()
   }
 
-  class DeleteAllWithBuilderOperation<T> : DualOperation<Int, T, Int> {
+  class DeleteAllWithBuilderOperation<T>(val alias: String? = null) : DualOperation<Int, T, Int> {
     override fun executeTest(model: TestModel<T>, testVal: Int): Int = Delete
-        .from(model.table)
+        .from(if (alias != null) model.table.`as`(alias) else model.table)
         .execute()
 
     override fun observeTest(model: TestModel<T>, testVal: Int): Int = Delete
-        .from(model.table)
+        .from(if (alias != null) model.table.`as`(alias) else model.table)
+        .observe()
+        .blockingGet()
+  }
+
+  class DeleteAllWithRawBuilderOperation<T> : DualOperation<Int, T, Int> {
+    override fun executeTest(model: TestModel<T>, testVal: Int): Int = Delete
+        .from(model.table.toString())
+        .execute()
+
+    override fun observeTest(model: TestModel<T>, testVal: Int): Int = Delete
+        .from(model.table.toString())
         .observe()
         .blockingGet()
   }
@@ -204,6 +335,19 @@ class DeleteTest : DefaultConnectionTest {
     override fun observeTest(model: TestModel<T>, testVal: Pair<Long, Int>): Int = Delete
         .from(model.table)
         .where(model.idColumn.`is`(testVal.first))
+        .observe()
+        .blockingGet()
+  }
+
+  class DeleteAllWithRawBuilderAndWhereClauseOperation<T> : DualOperation<Pair<Long, Int>, T, Int> {
+    override fun executeTest(model: TestModel<T>, testVal: Pair<Long, Int>): Int = Delete
+        .from(model.table.toString())
+        .where(model.idColumn.toString() + "=?", testVal.first.toString())
+        .execute()
+
+    override fun observeTest(model: TestModel<T>, testVal: Pair<Long, Int>): Int = Delete
+        .from(model.table.toString())
+        .where(model.idColumn.toString() + "=?", testVal.first.toString())
         .observe()
         .blockingGet()
   }

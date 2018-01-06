@@ -70,7 +70,7 @@ public final class CompiledDelete {
   static final class Builder {
     DeleteSqlNode sqlTreeRoot;
     int sqlNodeCount;
-    Delete.From<?> from;
+    Delete.From from;
     final ArrayList<String> args = new ArrayList<>();
     DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
 
@@ -80,7 +80,7 @@ public final class CompiledDelete {
       final String sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount);
       final SQLiteStatement stm = dbConnection.compileStatement(sql);
       stm.bindAllArgsAsStrings(args.toArray(new String[args.size()]));
-      return new CompiledDelete(stm, from.table.nameInQuery, dbConnection);
+      return new CompiledDelete(stm, from.tableName, dbConnection);
     }
   }
 }

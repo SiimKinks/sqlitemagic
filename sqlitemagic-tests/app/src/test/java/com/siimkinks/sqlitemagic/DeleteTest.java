@@ -23,6 +23,18 @@ public final class DeleteTest {
   }
 
   @Test
+  public void deleteFromBuilderWithAlias() {
+    String expected = "DELETE FROM book ";
+    assertSqlBuilder(Delete.from(BOOK.as("foo")), expected);
+  }
+
+  @Test
+  public void deleteRawFromBuilder() {
+    String expected = "DELETE FROM book ";
+    assertSqlBuilder(Delete.from("book"), expected);
+  }
+
+  @Test
   public void deleteWhereBuilder() {
     final String expectedBase = "DELETE FROM book ";
 
@@ -51,6 +63,20 @@ public final class DeleteTest {
         "AND ((book.base_id=? OR book.author IS NOT NULL) OR book.nr_of_releases<?)) " +
         "OR ((book.base_id>? AND book.author IS NULL) AND book.nr_of_releases!=?)) ";
     assertSqlBuilder(sqlNode, expected, "asd", "2", "2", "55", "2", "55");
+  }
+
+  @Test
+  public void deleteRawWhereBuilder() {
+    final String expected = "DELETE FROM book WHERE book.title IS NOT NULL ";
+    final Delete.RawWhere sqlNode = Delete.from("book").where("book.title IS NOT NULL");
+    assertSqlBuilder(sqlNode, expected);
+  }
+
+  @Test
+  public void deleteRawWhereWithArgsBuilder() {
+    final String expected = "DELETE FROM book WHERE book.title=? ";
+    final Delete.RawWhere sqlNode = Delete.from("book").where("book.title=?", "asd");
+    assertSqlBuilder(sqlNode, expected, "asd");
   }
 
   private void assertSqlBuilder(DeleteSqlNode sqlNode, String expected, @Nullable String... expectedArgs) {

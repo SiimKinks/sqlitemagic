@@ -27,12 +27,12 @@ import io.reactivex.functions.Function;
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.Select.abs;
+import static com.siimkinks.sqlitemagic.Select.asColumn;
 import static com.siimkinks.sqlitemagic.Select.avg;
 import static com.siimkinks.sqlitemagic.Select.groupConcat;
 import static com.siimkinks.sqlitemagic.Select.length;
 import static com.siimkinks.sqlitemagic.Select.lower;
 import static com.siimkinks.sqlitemagic.Select.upper;
-import static com.siimkinks.sqlitemagic.Select.val;
 import static com.siimkinks.sqlitemagic.SimpleAllValuesMutableTable.SIMPLE_ALL_VALUES_MUTABLE;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertSimpleAllValues;
@@ -81,7 +81,7 @@ public final class SynchronousColumnQueryTest {
 
     assertThat(Select
         .from(AUTHOR)
-        .where(AUTHOR.PRIMITIVE_BOOLEAN.is(val(true)).and(AUTHOR.BOXED_BOOLEAN.is(val(false))))
+        .where(AUTHOR.PRIMITIVE_BOOLEAN.is(asColumn(true)).and(AUTHOR.BOXED_BOOLEAN.is(asColumn(false))))
         .takeFirst()
         .execute())
         .isEqualTo(expected);
@@ -299,7 +299,7 @@ public final class SynchronousColumnQueryTest {
         .blockingGet();
 
     assertThat(Select
-        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(" - ").concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(asColumn(" - ").concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
         .from(SIMPLE_ALL_VALUES_MUTABLE)
         .execute())
         .isEqualTo(expected);
@@ -315,7 +315,7 @@ public final class SynchronousColumnQueryTest {
         .blockingGet();
 
     assertThat(Select
-        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(8).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(asColumn(8).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
         .from(SIMPLE_ALL_VALUES_MUTABLE)
         .execute())
         .isEqualTo(expected);
@@ -331,7 +331,7 @@ public final class SynchronousColumnQueryTest {
         .blockingGet();
 
     assertThat(Select
-        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(new Cls()).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(asColumn(new Cls()).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
         .from(SIMPLE_ALL_VALUES_MUTABLE)
         .execute())
         .isEqualTo(expected);
@@ -347,7 +347,7 @@ public final class SynchronousColumnQueryTest {
         .blockingGet();
 
     assertThat(Select
-        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(val(true).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING.concat(asColumn(true).concat(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT)))
         .from(SIMPLE_ALL_VALUES_MUTABLE)
         .execute())
         .isEqualTo(expected);

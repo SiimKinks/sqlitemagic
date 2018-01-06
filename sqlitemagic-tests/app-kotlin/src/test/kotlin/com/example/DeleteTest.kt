@@ -11,6 +11,16 @@ class DeleteTest : DSLTests {
   }
 
   @Test
+  fun deleteFromBuilderWithAlias() {
+    (DELETE FROM (MAGAZINE AS "foo")).isEqualTo("DELETE FROM magazine ")
+  }
+
+  @Test
+  fun deleteRawFromBuilder() {
+    (DELETE FROM "magazine").isEqualTo("DELETE FROM magazine ")
+  }
+
+  @Test
   fun deleteWhereBuilder() {
     (DELETE
         FROM MAGAZINE
@@ -56,5 +66,21 @@ class DeleteTest : DSLTests {
             "AND ((magazine.id=? OR magazine.author IS NOT NULL) OR magazine.nr_of_releases<?)) " +
             "OR ((magazine.id>? AND magazine.author IS NULL) AND magazine.nr_of_releases!=?)) ",
             "asd", "2", "2", "55", "2", "55")
+  }
+
+  @Test
+  fun deleteRawWhereBuilder() {
+    (DELETE
+        FROM "book"
+        WHERE "book.title IS NOT NULL")
+        .isEqualTo("DELETE FROM book WHERE book.title IS NOT NULL ")
+  }
+
+  @Test
+  fun deleteRawWhereWithArgsBuilder() {
+    (DELETE
+        FROM "book"
+        WHERE ("book.title=?" to arrayOf("foo")))
+        .isEqualTo("DELETE FROM book WHERE book.title=? ", "foo")
   }
 }

@@ -206,13 +206,13 @@ inline infix fun RawSelect.From.WITH_ARGS(args: Array<String>) = this.withArgs(*
 inline infix fun RawSelect.WITH_ARGS(args: Array<String>) = this.withArgs(*args)
 
 /** @see Select.val */
-inline val <T : Number> T.value
-  @CheckResult get() = Select.`val`(this)
+inline val <T : Number> T.asColumn
+  @CheckResult get() = Select.asColumn(this)
 
 /** @see Select.val */
-inline val CharSequence.value
-  @CheckResult get() = Select.`val`(this)
+inline val CharSequence.asColumn
+  @CheckResult get() = Select.asColumn(this)
 
 /** @see Select.val */
-inline val Any.value
-  @CheckResult get() = Select.`val`(this)
+inline val Any.asColumn
+  @CheckResult get() = Select.asColumn(this)
