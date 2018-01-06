@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 0.17.0 _(2018-01-06)_
+---------------------------------
+
+* Breaking: Rename `Select#val` to `Select#asColumn` as it was conflicting with kotlin reserved keywords
+* New: Add support for raw UPDATE and DELETE statements
+* Fix: Generic types parsing for transformers
+
 Version 0.16.1 _(2017-11-28)_
 ---------------------------------
 
