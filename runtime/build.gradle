@@ -8,8 +8,11 @@ sourceCompatibility = JavaVersion.VERSION_1_7
 dependencies {
   compile project(':annotations')
 
+  compile fileTree(dir: 'libs', include: ['*.jar'])
+
   compile libraries.android
-  compile libraries.supportAnnotationsForTesting
+  compile libraries.supportAnnotations
+  compile libraries.supportSqlite
   compileOnly libraries.rxJava2
 
   testCompile libraries.junit

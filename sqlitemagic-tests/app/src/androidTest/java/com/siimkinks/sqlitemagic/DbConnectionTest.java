@@ -1,7 +1,8 @@
 package com.siimkinks.sqlitemagic;
 
+import android.arch.persistence.db.SupportSQLiteDatabase;
+import android.arch.persistence.db.framework.FrameworkSQLiteOpenHelperFactory;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.support.annotation.NonNull;
 import android.support.test.runner.AndroidJUnit4;
 
@@ -61,7 +62,7 @@ public final class DbConnectionTest {
         .observe()
         .runQuery()
         .test();
-    final SQLiteDatabase writableDatabase = newConnection.getWritableDatabase();
+    final SupportSQLiteDatabase writableDatabase = newConnection.getWritableDatabase();
     assertThat(writableDatabase.isOpen()).isTrue();
     newConnection.close();
     assertThat(writableDatabase.isOpen()).isFalse();
@@ -724,8 +725,9 @@ public final class DbConnectionTest {
   @NonNull
   private DbConnection openNewConnection() {
     return SqliteMagic
-        .setup(TestApp.INSTANCE)
-        .withName("newConnection.db")
+        .builder(TestApp.INSTANCE)
+        .name("newConnection.db")
+        .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
         .scheduleRxQueriesOn(Schedulers.trampoline())
         .openNewConnection();
   }

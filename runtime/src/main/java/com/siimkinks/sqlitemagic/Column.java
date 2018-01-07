@@ -1,8 +1,9 @@
 package com.siimkinks.sqlitemagic;
 
+import android.arch.persistence.db.SupportSQLiteStatement;
+import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDoneException;
-import android.database.sqlite.SQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Size;
@@ -246,7 +247,7 @@ public class Column<T, R, ET, P, N> {
 
   @SuppressWarnings("unchecked")
   @android.support.annotation.Nullable
-  <V> V getFromCursor(@NonNull FastCursor cursor) {
+  <V> V getFromCursor(@NonNull Cursor cursor) {
     if (nullable && cursor.isNull(0)) {
       return null;
     }
@@ -255,7 +256,7 @@ public class Column<T, R, ET, P, N> {
 
   @SuppressWarnings("unchecked")
   @android.support.annotation.Nullable
-  <V> V getFromStatement(@NonNull SQLiteStatement stm) {
+  <V> V getFromStatement(@NonNull SupportSQLiteStatement stm) {
     try {
       return (V) valueParser.parseFromStatement(stm);
     } catch (SQLiteDoneException e) {
@@ -282,13 +283,13 @@ public class Column<T, R, ET, P, N> {
 
       @android.support.annotation.Nullable
       @Override
-      <V> V getFromCursor(@NonNull FastCursor cursor) {
+      <V> V getFromCursor(@NonNull Cursor cursor) {
         return column.getFromCursor(cursor);
       }
 
       @android.support.annotation.Nullable
       @Override
-      <V> V getFromStatement(@NonNull SQLiteStatement stm) {
+      <V> V getFromStatement(@NonNull SupportSQLiteStatement stm) {
         return column.getFromStatement(stm);
       }
 

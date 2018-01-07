@@ -22,7 +22,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_BULK_DELETE_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_DELETE_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_DELETE_TABLE_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
-import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING_BUILDER;
 import static com.siimkinks.sqlitemagic.WriterUtil.addCallableToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addRxSingleCreateFromCallableParentClass;
@@ -137,7 +137,7 @@ public class ModelDeletingGenerator implements ModelPartGenerator {
         .endControlFlow()
         .endControlFlow()
         .addStatement("sb.append(\")\")")
-        .addStatement("final $T stm = db.compileStatement(sb.toString())", SQLITE_STATEMENT)
+        .addStatement("final $T stm = db.compileStatement(sb.toString())", SUPPORT_SQLITE_STATEMENT)
         .addStatement("int i = 1")
         .beginControlFlow("for ($T $L : $L)", entityEnvironment.getTableElementTypeName(), ENTITY_VARIABLE, OBJECTS_VARIABLE);
     final CodeBlock.Builder bindIdsBuilder = CodeBlock.builder()

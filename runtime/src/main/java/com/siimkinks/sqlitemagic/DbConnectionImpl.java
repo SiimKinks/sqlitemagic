@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteStatement;
+import android.arch.persistence.db.SupportSQLiteDatabase;
+import android.arch.persistence.db.SupportSQLiteOpenHelper;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.sqlite.SQLiteTransactionListener;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
@@ -25,15 +25,9 @@ import static com.siimkinks.sqlitemagic.SqlUtil.getNrOfTables;
  */
 public class DbConnectionImpl implements DbConnection {
   @NonNull
-  final DbHelper dbHelper;
+  final SupportSQLiteOpenHelper dbHelper;
   @NonNull
   final Scheduler queryScheduler;
-
-  @Nullable
-  private volatile SQLiteDatabase readableDatabase;
-  @Nullable
-  private volatile SQLiteDatabase writableDatabase;
-  private final Object databaseLock = new Object();
 
   final EntityDbManager[] entityDbManagers;
   final ThreadLocal<SqliteTransaction> transactions = new ThreadLocal<>();
@@ -90,7 +84,7 @@ public class DbConnectionImpl implements DbConnection {
     }
   };
 
-  DbConnectionImpl(@NonNull DbHelper dbHelper, @NonNull Scheduler queryScheduler) {
+  DbConnectionImpl(@NonNull SupportSQLiteOpenHelper dbHelper, @NonNull Scheduler queryScheduler) {
     this.dbHelper = dbHelper;
     this.queryScheduler = queryScheduler;
     final int nrOfTables = getNrOfTables();
@@ -107,16 +101,12 @@ public class DbConnectionImpl implements DbConnection {
       return;
     }
     triggers.onComplete();
-    synchronized (databaseLock) {
-      final EntityDbManager[] cachedEntityData = this.entityDbManagers;
-      for (int i = 0, length = cachedEntityData.length; i < length; i++) {
-        cachedEntityData[i].close();
-        cachedEntityData[i] = null;
-      }
-      readableDatabase = null;
-      writableDatabase = null;
-      dbHelper.close();
+    final EntityDbManager[] cachedEntityData = this.entityDbManagers;
+    for (int i = 0, length = cachedEntityData.length; i < length; i++) {
+      cachedEntityData[i].close();
+      cachedEntityData[i] = null;
     }
+    dbHelper.close();
     LogUtil.logInfo("Closed database [name=%s]", dbHelper.getDatabaseName());
   }
 
@@ -139,32 +129,12 @@ public class DbConnectionImpl implements DbConnection {
     }
   }
 
-  SQLiteDatabase getReadableDatabase() {
-    SQLiteDatabase db = readableDatabase;
-    if (db == null) {
-      synchronized (databaseLock) {
-        db = readableDatabase;
-        if (db == null) {
-          if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("Creating readable database");
-          db = readableDatabase = dbHelper.getReadableDatabase();
-        }
-      }
-    }
-    return db;
+  SupportSQLiteDatabase getReadableDatabase() {
+    return dbHelper.getReadableDatabase();
   }
 
-  SQLiteDatabase getWritableDatabase() {
-    SQLiteDatabase db = writableDatabase;
-    if (db == null) {
-      synchronized (databaseLock) {
-        db = writableDatabase;
-        if (db == null) {
-          if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("Creating writable database");
-          db = writableDatabase = dbHelper.getWritableDatabase();
-        }
-      }
-    }
-    return db;
+  SupportSQLiteDatabase getWritableDatabase() {
+    return dbHelper.getWritableDatabase();
   }
 
   @NonNull
@@ -173,7 +143,7 @@ public class DbConnectionImpl implements DbConnection {
     return entityDbManagers[tablePos];
   }
 
-  SQLiteStatement compileStatement(@NonNull final String sql) {
+  SupportSQLiteStatement compileStatement(@NonNull final String sql) {
     return getWritableDatabase().compileStatement(sql);
   }
 

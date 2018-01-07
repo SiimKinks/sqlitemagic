@@ -35,7 +35,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.ARRAY_LIST;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLLECTIONS;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.COMPILED_N_COLUMNS_SELECT_IMPL;
-import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
+import static com.siimkinks.sqlitemagic.WriterUtil.CURSOR;
 import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER;
 import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER_WITH_COLUMN_OFFSET;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
@@ -371,7 +371,7 @@ public final class StructureWriter {
         .addMethod(MethodSpec.methodBuilder("apply")
             .addAnnotation(Override.class)
             .addModifiers(PUBLIC)
-            .addParameter(FAST_CURSOR, "cursor")
+            .addParameter(CURSOR, "cursor")
             .returns(structureElementTypeName)
             .addCode(functionBody)
             .build())

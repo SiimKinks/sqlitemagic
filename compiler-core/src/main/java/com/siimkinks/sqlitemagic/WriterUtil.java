@@ -81,7 +81,8 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 public class WriterUtil {
 
   public static final ClassName SQLITE_DATABASE = ClassName.get("android.database.sqlite", "SQLiteDatabase");
-  public static final ClassName SQLITE_STATEMENT = ClassName.get("android.database.sqlite", "SQLiteStatement");
+  public static final ClassName SUPPORT_SQLITE_DATABASE = ClassName.get("android.arch.persistence.db", "SupportSQLiteDatabase");
+  public static final ClassName SUPPORT_SQLITE_STATEMENT = ClassName.get("android.arch.persistence.db", "SupportSQLiteStatement");
   public static final ClassName SQL_EXCEPTION = ClassName.get("android.database", "SQLException");
   public static final ClassName CHECK_RESULT = ClassName.get("android.support.annotation", "CheckResult");
   public static final ClassName NON_NULL = ClassName.get("android.support.annotation", "NonNull");
@@ -120,7 +121,7 @@ public class WriterUtil {
   public static final ClassName NULLABLE_COLUMN = ClassName.get(com.siimkinks.sqlitemagic.Nullable.class);
   public static final ClassName NOT_NULLABLE_COLUMN = ClassName.get(NotNullable.class);
   public static final ClassName JOIN_CLAUSE = ClassName.get(JoinClause.class);
-  public static final ClassName FAST_CURSOR = ClassName.get("com.siimkinks.sqlitemagic", "FastCursor");
+  public static final ClassName CURSOR = ClassName.get("android.database", "Cursor");
   public static final ClassName SIMPLE_ARRAY_MAP = ClassName.get(SimpleArrayMap.class);
   public static final ClassName STRING_ARRAY_SET = ClassName.get(StringArraySet.class);
   public static final ClassName COMPILED_N_COLUMNS_SELECT_IMPL = ClassName.get(CompiledSelectImpl.class);
@@ -216,7 +217,7 @@ public class WriterUtil {
                                                      @Nullable CodeBlock returnBody) {
     methodBuilder
         .addModifiers(Const.STATIC_METHOD_MODIFIERS)
-        .addParameter(SQLITE_DATABASE, "db")
+        .addParameter(SUPPORT_SQLITE_DATABASE, "db")
         .addStatement("db.beginTransaction()")
         .beginControlFlow("try")
         .addCode(sqlTransactionBody)
@@ -473,7 +474,7 @@ public class WriterUtil {
   public static CodeBlock dbVariableFromPresentConnectionVariable() {
     return CodeBlock.builder()
         .addStatement("final $T db = $L.getWritableDatabase()",
-            SQLITE_DATABASE,
+            SUPPORT_SQLITE_DATABASE,
             DB_CONNECTION_VARIABLE)
         .build();
   }
@@ -482,7 +483,7 @@ public class WriterUtil {
                                                               @NonNull String variableName) {
     return CodeBlock.builder()
         .addStatement("final $T $L = $L.$L($S, $L, $L)",
-            SQLITE_STATEMENT,
+            SUPPORT_SQLITE_STATEMENT,
             variableName,
             OPERATION_HELPER_VARIABLE,
             METHOD_GET_INSERT_STATEMENT,
@@ -496,7 +497,7 @@ public class WriterUtil {
                                                               @NonNull String variableName) {
     return CodeBlock.builder()
         .addStatement("final $T $L = $L.$L($S, $L, $L)",
-            SQLITE_STATEMENT,
+            SUPPORT_SQLITE_STATEMENT,
             variableName,
             OPERATION_HELPER_VARIABLE,
             METHOD_GET_UPDATE_STATEMENT,

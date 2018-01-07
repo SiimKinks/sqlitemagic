@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
+import android.database.Cursor;
 import android.support.annotation.CallSuper;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
@@ -63,8 +64,8 @@ public abstract class Query<T> {
   public final Observable<T> run() {
     return Observable.create(new ObservableOnSubscribe<T>() {
       @Override
-      public void subscribe(ObservableEmitter<T> emitter) throws Exception {
-        final SqliteMagicCursor cursor = rawQuery(true);
+      public void subscribe(ObservableEmitter<T> emitter) {
+        final Cursor cursor = rawQuery(true);
         if (emitter.isDisposed()) {
           return;
         }
@@ -85,14 +86,14 @@ public abstract class Query<T> {
    * @return Query result, maybe {@code null}
    */
   @CallSuper
-  SqliteMagicCursor rawQuery(boolean inStream) {
+  Cursor rawQuery(boolean inStream) {
     if (inStream && dbConnection.transactions.get() != null) {
       throw new IllegalStateException("Cannot execute observable query in a transaction.");
     }
     return null;
   }
 
-  abstract T map(SqliteMagicCursor cursor);
+  abstract T map(Cursor cursor);
 
   static abstract class DatabaseQuery<T, E> extends Query<T> implements Function<Set<String>, Query<T>> {
     @Nullable
@@ -104,13 +105,13 @@ public abstract class Query<T> {
     }
 
     @Override
-    public Query<T> apply(Set<String> __) throws Exception {
+    public Query<T> apply(Set<String> __) {
       return this;
     }
   }
 
   interface Mapper<R> {
-    R apply(@NonNull FastCursor cursor);
+    R apply(@NonNull Cursor cursor);
   }
 
   static abstract class MapperWithColumnOffset<R> implements Mapper<R> {

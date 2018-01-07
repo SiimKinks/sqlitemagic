@@ -31,7 +31,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
-import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
 import static com.siimkinks.sqlitemagic.WriterUtil.addOperationByColumnToOperationBuilder;
@@ -132,7 +132,7 @@ public class UpdateWriter implements OperationWriter {
   private MethodSpec bindToUpdateStatement() {
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_BIND_TO_UPDATE_STATEMENT)
         .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(SQLITE_STATEMENT, "statement")
+        .addParameter(SUPPORT_SQLITE_STATEMENT, "statement")
         .addParameter(tableElementTypeName, ENTITY_VARIABLE)
         .addStatement("statement.clearBindings()");
     int colPos = 1;
@@ -147,7 +147,7 @@ public class UpdateWriter implements OperationWriter {
     final boolean idColumnNullable = isIdColumnNullable();
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS)
         .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(SQLITE_STATEMENT, "statement")
+        .addParameter(SUPPORT_SQLITE_STATEMENT, "statement")
         .addParameter(tableElementTypeName, ENTITY_VARIABLE)
         .addStatement("statement.clearBindings()");
     if (idColumnNullable) {

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
+import android.database.Cursor;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 
@@ -46,13 +47,12 @@ final class OperatorRunListQuery<T> implements ObservableOperator<List<T>, Query
     @Override
     public void onNext(Query<List<T>> query) {
       try {
-        final SqliteMagicCursor androidCursor = query.rawQuery(true);
-        if (androidCursor == null || isDisposed()) {
+        final Cursor cursor = query.rawQuery(true);
+        if (cursor == null || isDisposed()) {
           return;
         }
         final List<T> items;
         try {
-          final FastCursor cursor = androidCursor.getFastCursor();
           final int rowCount = cursor.getCount();
           if (rowCount == 0) {
             items = Collections.emptyList();
@@ -67,7 +67,7 @@ final class OperatorRunListQuery<T> implements ObservableOperator<List<T>, Query
             }
           }
         } finally {
-          androidCursor.close();
+          cursor.close();
         }
         if (!isDisposed()) {
           downstream.onNext(items);

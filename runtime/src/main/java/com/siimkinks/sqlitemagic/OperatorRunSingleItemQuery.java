@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
+import android.database.Cursor;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -63,7 +64,7 @@ final class OperatorRunSingleItemQuery<T> implements ObservableOperator<T, Query
     public void onNext(Query<T> query) {
       try {
         // null cursor here is valid
-        final SqliteMagicCursor cursor = query.rawQuery(true);
+        final Cursor cursor = query.rawQuery(true);
         final T item = query.map(cursor);
         if (!isDisposed()) {
           if (item != null) {

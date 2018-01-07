@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteStatement;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -8,8 +8,8 @@ import android.support.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicReference;
 
 final class EntityDbManager {
-  private final AtomicReference<SQLiteStatement> insertStatement = new AtomicReference<>();
-  private final AtomicReference<SQLiteStatement> updateStatement = new AtomicReference<>();
+  private final AtomicReference<SupportSQLiteStatement> insertStatement = new AtomicReference<>();
+  private final AtomicReference<SupportSQLiteStatement> updateStatement = new AtomicReference<>();
   @Nullable
   private DbConnectionImpl dbConnection;
 
@@ -18,13 +18,17 @@ final class EntityDbManager {
   }
 
   void close() {
-    final SQLiteStatement insertStm = insertStatement.getAndSet(null);
+    final SupportSQLiteStatement insertStm = insertStatement.getAndSet(null);
     if (insertStm != null) {
-      insertStm.close();
+      try {
+        insertStm.close();
+      } catch (Exception ignore) {}
     }
-    final SQLiteStatement updateStm = updateStatement.getAndSet(null);
+    final SupportSQLiteStatement updateStm = updateStatement.getAndSet(null);
     if (updateStm != null) {
-      updateStm.close();
+      try {
+        updateStm.close();
+      } catch (Exception ignore) {}
     }
     dbConnection = null;
   }
@@ -40,8 +44,8 @@ final class EntityDbManager {
 
   @NonNull
   @CheckResult
-  SQLiteStatement getInsertStatement(@NonNull String insertSql) {
-    SQLiteStatement stm = insertStatement.get();
+  SupportSQLiteStatement getInsertStatement(@NonNull String insertSql) {
+    SupportSQLiteStatement stm = insertStatement.get();
     if (stm == null) {
       if (dbConnection == null) {
         throw new IllegalStateException("DB connection closed");
@@ -55,8 +59,8 @@ final class EntityDbManager {
 
   @NonNull
   @CheckResult
-  SQLiteStatement getUpdateStatement(@NonNull String updateSql) {
-    SQLiteStatement stm = updateStatement.get();
+  SupportSQLiteStatement getUpdateStatement(@NonNull String updateSql) {
+    SupportSQLiteStatement stm = updateStatement.get();
     if (stm == null) {
       if (dbConnection == null) {
         throw new IllegalStateException("DB connection closed");
@@ -70,7 +74,7 @@ final class EntityDbManager {
 
   @NonNull
   @CheckResult
-  SQLiteStatement compileStatement(@NonNull String sql) {
+  SupportSQLiteStatement compileStatement(@NonNull String sql) {
     final DbConnectionImpl dbConnection = this.dbConnection;
     if (dbConnection == null) {
       throw new IllegalStateException("DB connection closed");
@@ -80,7 +84,7 @@ final class EntityDbManager {
 
   @NonNull
   @CheckResult
-  SQLiteStatement compileStatement(@NonNull String sql, @ConflictAlgorithm int conflictAlgorithm) {
+  SupportSQLiteStatement compileStatement(@NonNull String sql, @ConflictAlgorithm int conflictAlgorithm) {
     final DbConnectionImpl dbConnection = this.dbConnection;
     if (dbConnection == null) {
       throw new IllegalStateException("DB connection closed");

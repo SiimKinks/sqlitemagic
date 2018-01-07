@@ -1,6 +1,9 @@
 package com.siimkinks.sqlitemagic;
 
 import android.app.Application;
+import android.arch.persistence.db.SupportSQLiteOpenHelper;
+import android.arch.persistence.db.SupportSQLiteOpenHelper.Configuration;
+import android.arch.persistence.db.SupportSQLiteOpenHelper.Factory;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -65,40 +68,38 @@ public final class SqliteMagic {
   }
 
   /**
-   * Initialize library with default configuration.
-   * <p>
-   * This will create and open the default DB connection; creates tables on the first
-   * initialization; runs any upgrade scripts if needed.
-   *
-   * @param context Application context
-   */
-  public static void init(@NonNull Application context) {
-    new DatabaseSetupBuilder(context).init();
-  }
-
-  /**
    * Create a new database connection configuration builder.
    *
    * @return A new database connection configuration builder
    */
   @NonNull
   @CheckResult
-  public static DatabaseSetupBuilder setup(@NonNull Application context) {
+  public static DatabaseSetupBuilder builder(@NonNull Application context) {
     return new DatabaseSetupBuilder(context);
   }
 
-  private static DbConnectionImpl openConnection(@NonNull Application context,
-                                                 @NonNull DatabaseSetupBuilder databaseSetupBuilder) {
+  static DbConnectionImpl openConnection(@NonNull Application context,
+                                         @NonNull DatabaseSetupBuilder databaseSetupBuilder) {
+    final Factory sqliteFactory = databaseSetupBuilder.sqliteFactory;
+    if (sqliteFactory == null) {
+      throw new NullPointerException("SQLite Factory cannot be null");
+    }
     try {
       String name = databaseSetupBuilder.name;
       if (name == null || name.isEmpty()) {
         name = getDbName();
       }
       final int version = getDbVersion();
-      final DbHelper dbHelper = new DbHelper(context, name, version);
+      final DbCallback dbCallback = new DbCallback(context, version);
+      final Configuration configuration = Configuration
+          .builder(context)
+          .name(name)
+          .callback(dbCallback)
+          .build();
+      final SupportSQLiteOpenHelper helper = sqliteFactory.create(configuration);
       LogUtil.logInfo("Initializing database with [name=%s, version=%s, logging=%s]",
           name, version, LOGGING_ENABLED);
-      return new DbConnectionImpl(dbHelper, databaseSetupBuilder.queryScheduler);
+      return new DbConnectionImpl(helper, databaseSetupBuilder.queryScheduler);
     } catch (Exception e) {
       throw new IllegalStateException("Error initializing database. " +
           "Make sure there is at least one model annotated with @Table", e);
@@ -125,6 +126,8 @@ public final class SqliteMagic {
     private final Application context;
     @Nullable
     String name;
+    @Nullable
+    Factory sqliteFactory;
     @NonNull
     Scheduler queryScheduler = Schedulers.io();
 
@@ -146,8 +149,20 @@ public final class SqliteMagic {
      * @return Database connection configuration builder
      */
     @CheckResult
-    public DatabaseSetupBuilder withName(@Nullable String name) {
+    public DatabaseSetupBuilder name(@Nullable String name) {
       this.name = name;
+      return this;
+    }
+
+    /**
+     * Define a Factory class to create instances of {@link SupportSQLiteOpenHelper}
+     *
+     * @param factory The factory to use while creating the open helper.
+     * @return Database connection configuration builder
+     */
+    @CheckResult
+    public DatabaseSetupBuilder sqliteFactory(@NonNull Factory factory) {
+      this.sqliteFactory = factory;
       return this;
     }
 
@@ -175,7 +190,7 @@ public final class SqliteMagic {
      * This will create and open the default DB connection; creates tables on the first
      * initialization; runs any upgrade scripts if needed.
      */
-    public void init() {
+    public void openDefaultConnection() {
       final SqliteMagic sqliteMagic = SingletonHolder.instance;
       if (sqliteMagic.defaultConnection != null) {
         sqliteMagic.defaultConnection.close();

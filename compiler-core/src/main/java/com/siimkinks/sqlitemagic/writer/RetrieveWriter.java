@@ -16,7 +16,7 @@ import lombok.AllArgsConstructor;
 import lombok.experimental.Builder;
 
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
-import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
+import static com.siimkinks.sqlitemagic.WriterUtil.CURSOR;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_NEW_INSTANCE_WITH_ONLY_ID;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION;
@@ -103,7 +103,7 @@ public class RetrieveWriter implements OperationWriter {
   private static MethodSpec.Builder objectFromCursorPositionBaseMethodBuilder(String methodName, TypeName tableElementTypeName) {
     return MethodSpec.methodBuilder(methodName)
         .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(FAST_CURSOR, "cursor")
+        .addParameter(CURSOR, "cursor")
         .returns(tableElementTypeName);
   }
 

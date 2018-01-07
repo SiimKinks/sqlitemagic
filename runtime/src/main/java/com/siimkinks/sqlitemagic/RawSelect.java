@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
+import android.arch.persistence.db.SupportSQLiteDatabase;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -29,9 +29,8 @@ public final class RawSelect extends RawSelectNode<RawSelect, CompiledRawSelect>
    * an immediate notification for initial data as well as subsequent
    * notifications for when the supplied {@code table}'s data changes.
    *
-   * @param tables
-   *     Tables to select from. This param must be one of annotation processor
-   *     generated table objects that corresponds to table in a database
+   * @param tables Tables to select from. This param must be one of annotation processor
+   *               generated table objects that corresponds to table in a database
    * @return A builder for raw SQL SELECT statement
    */
   @CheckResult
@@ -51,9 +50,8 @@ public final class RawSelect extends RawSelectNode<RawSelect, CompiledRawSelect>
    * an immediate notification for initial data as well as subsequent
    * notifications for when the supplied {@code table}'s data changes.
    *
-   * @param tables
-   *     Tables to select from. This param must be one of annotation processor
-   *     generated table objects that corresponds to table in a database
+   * @param tables Tables to select from. This param must be one of annotation processor
+   *               generated table objects that corresponds to table in a database
    * @return A builder for raw SQL SELECT statement
    */
   @CheckResult
@@ -140,20 +138,20 @@ public final class RawSelect extends RawSelectNode<RawSelect, CompiledRawSelect>
 
     @NonNull
     @Override
-    SqliteMagicCursor rawQuery(boolean inStream) {
+    Cursor rawQuery(boolean inStream) {
       super.rawQuery(inStream);
-      final SQLiteDatabase db = dbConnection.getReadableDatabase();
+      final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+      final Cursor cursor = db.query(sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
       }
-      return cursor;
+      return FastCursor.tryCreate(cursor);
     }
 
     @Override
-    Cursor map(@NonNull SqliteMagicCursor cursor) {
+    Cursor map(@NonNull Cursor cursor) {
       return cursor;
     }
 

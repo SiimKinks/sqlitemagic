@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteDatabase;
+import android.arch.persistence.db.SupportSQLiteDatabase;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -26,7 +27,7 @@ public final class SqlUtil {
 
   @Invokes(INVOCATION_METHOD_CLEAR_DATA)
   @Nullable
-  public static String[] clearData(SQLiteDatabase db) {
+  public static String[] clearData(SupportSQLiteDatabase db) {
     // filled with magic
     throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }
@@ -55,7 +56,7 @@ public final class SqlUtil {
     throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }
 
-  static void createView(@NonNull SQLiteDatabase db,
+  static void createView(@NonNull SupportSQLiteDatabase db,
                          @NonNull CompiledSelect query,
                          @NonNull String viewName) {
     final CompiledSelectImpl queryImpl = (CompiledSelectImpl) query;
@@ -100,5 +101,13 @@ public final class SqlUtil {
       }
     }
     return column;
+  }
+
+  static void bindAllArgsAsStrings(@NonNull SupportSQLiteStatement statement, @Nullable String[] args) {
+    if (args != null) {
+      for (int i = args.length; i != 0; i--) {
+        statement.bindString(i, args[i - 1]);
+      }
+    }
   }
 }

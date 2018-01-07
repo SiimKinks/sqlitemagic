@@ -30,11 +30,11 @@ import lombok.experimental.Builder;
 import static com.siimkinks.sqlitemagic.Const.CLASS_MODIFIERS;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.COMPLEX_COLUMN;
-import static com.siimkinks.sqlitemagic.WriterUtil.FAST_CURSOR;
+import static com.siimkinks.sqlitemagic.WriterUtil.CURSOR;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN;
-import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.UNIQUE;
@@ -214,7 +214,7 @@ public final class ColumnClassWriter {
     final MethodSpec.Builder builder = MethodSpec.methodBuilder("getFromCursor")
         .addAnnotation(NULLABLE)
         .addAnnotation(Override.class)
-        .addParameter(notNullParameter(FAST_CURSOR, "cursor"))
+        .addParameter(notNullParameter(CURSOR, "cursor"))
         .addTypeVariable(returnType)
         .returns(returnType)
         .addStatement("final $T dbVal = super.getFromCursor(cursor)", transformerElement.getSerializedTypeName());
@@ -229,7 +229,7 @@ public final class ColumnClassWriter {
     final MethodSpec.Builder builder = MethodSpec.methodBuilder("getFromStatement")
         .addAnnotation(NULLABLE)
         .addAnnotation(Override.class)
-        .addParameter(notNullParameter(SQLITE_STATEMENT, "stm"))
+        .addParameter(notNullParameter(SUPPORT_SQLITE_STATEMENT, "stm"))
         .addTypeVariable(returnType)
         .returns(returnType)
         .addStatement("final $T dbVal = super.getFromStatement(stm)", transformerElement.getSerializedTypeName());

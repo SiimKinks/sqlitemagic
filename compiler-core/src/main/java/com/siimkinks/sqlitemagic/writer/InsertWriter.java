@@ -27,7 +27,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
-import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addCallableToType;
 import static com.siimkinks.sqlitemagic.WriterUtil.addConflictAlgorithmToOperationBuilder;
@@ -128,7 +128,7 @@ public class InsertWriter implements OperationWriter {
   private MethodSpec bindToInsertStatement() {
     MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_BIND_TO_INSERT_STATEMENT)
         .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(SQLITE_STATEMENT, "statement")
+        .addParameter(SUPPORT_SQLITE_STATEMENT, "statement")
         .addParameter(entityParameter(tableElementTypeName))
         .addStatement("statement.clearBindings()");
     addImmutableIdsParameterIfNeeded(builder, tableElement);

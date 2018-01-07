@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteStatement;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
@@ -35,8 +35,8 @@ public final class OperationHelper implements Closeable {
   private final int conflictAlgorithm;
   private final boolean customSqlNeededForConflictAlgorithm;
   private final boolean customSqlNeededForUpdates;
-  private SimpleArrayMap<String, SQLiteStatement> inserts;
-  private SimpleArrayMap<String, SQLiteStatement> updates;
+  private SimpleArrayMap<String, SupportSQLiteStatement> inserts;
+  private SimpleArrayMap<String, SupportSQLiteStatement> updates;
   final boolean ignoreConflict;
   @Nullable
   private final ArrayList<Column> operationByColumns;
@@ -72,11 +72,11 @@ public final class OperationHelper implements Closeable {
 
   @NonNull
   @CheckResult
-  SQLiteStatement getInsertStatement(@NonNull String tableName,
-                                     @NonNull String sql,
-                                     @NonNull EntityDbManager manager) {
+  SupportSQLiteStatement getInsertStatement(@NonNull String tableName,
+                                            @NonNull String sql,
+                                            @NonNull EntityDbManager manager) {
     if (customSqlNeededForConflictAlgorithm) {
-      SQLiteStatement insert = inserts.get(tableName);
+      SupportSQLiteStatement insert = inserts.get(tableName);
       if (insert == null) {
         insert = manager.compileStatement(sql, conflictAlgorithm);
         inserts.put(tableName, insert);
@@ -88,11 +88,11 @@ public final class OperationHelper implements Closeable {
 
   @NonNull
   @CheckResult
-  SQLiteStatement getUpdateStatement(@NonNull String tableName,
-                                     @NonNull String sql,
-                                     @NonNull EntityDbManager manager) {
+  SupportSQLiteStatement getUpdateStatement(@NonNull String tableName,
+                                            @NonNull String sql,
+                                            @NonNull EntityDbManager manager) {
     if (customSqlNeededForConflictAlgorithm || customSqlNeededForUpdates) {
-      SQLiteStatement update = updates.get(tableName);
+      SupportSQLiteStatement update = updates.get(tableName);
       if (update == null) {
         update = manager.compileStatement(opByColumnSql(sql, tableName, operationByColumns), conflictAlgorithm);
         updates.put(tableName, update);
@@ -104,22 +104,24 @@ public final class OperationHelper implements Closeable {
 
   @Override
   public void close() {
-    final SimpleArrayMap<String, SQLiteStatement> inserts = this.inserts;
+    final SimpleArrayMap<String, SupportSQLiteStatement> inserts = this.inserts;
     if (inserts != null) {
       this.inserts = null;
       closeStatements(inserts);
     }
-    final SimpleArrayMap<String, SQLiteStatement> updates = this.updates;
+    final SimpleArrayMap<String, SupportSQLiteStatement> updates = this.updates;
     if (updates != null) {
       this.updates = null;
       closeStatements(updates);
     }
   }
 
-  private static void closeStatements(@NonNull SimpleArrayMap<String, SQLiteStatement> statements) {
-    final int size = statements.size();
-    for (int i = 0; i < size; i++) {
-      statements.valueAt(i).close();
-    }
+  private static void closeStatements(@NonNull SimpleArrayMap<String, SupportSQLiteStatement> statements) {
+    try {
+      final int size = statements.size();
+      for (int i = 0; i < size; i++) {
+        statements.valueAt(i).close();
+      }
+    } catch (Exception ignore) {}
   }
 }

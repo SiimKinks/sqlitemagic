@@ -36,7 +36,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLES;
 import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
-import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_STATEMENT;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQL_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
@@ -151,7 +151,7 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   private MethodSpec bindUniqueColumn(TableElement tableElement, TypeName tableElementTypeName) {
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_BIND_UNIQUE_COLUMN)
         .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(SQLITE_STATEMENT, "statement")
+        .addParameter(SUPPORT_SQLITE_STATEMENT, "statement")
         .addParameter(TypeName.INT, "index")
         .addParameter(STRING, "columnName")
         .addParameter(tableElementTypeName, ENTITY_VARIABLE)

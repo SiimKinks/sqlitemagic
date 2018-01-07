@@ -178,8 +178,41 @@ class SelectFirstQueryOperation<PrepType, SelectReturnType, SelectType>(
       .blockingGet()
 }
 
+class SelectFirstQueryOperationThrows<PrepType, SelectType>(
+    private val selectBuilder: () -> SelectSqlNode.SelectNode<*, SelectType, *>
+) : QueryOperation<PrepType, Exception> {
+  override fun executeTest(testVal: PrepType): Exception {
+    try {
+      selectBuilder()
+          .takeFirst()
+          .execute()
+    } catch (e: Exception) {
+      return e
+    }
+    throw AssertionError("Selecting first did not throw")
+  }
+
+  override fun observeTest(testVal: PrepType): Exception {
+    try {
+      selectBuilder()
+          .takeFirst()
+          .observe()
+          .runQueryOnce()
+          .blockingGet()
+    } catch (e: Exception) {
+      return e
+    }
+    throw AssertionError("Selecting first did not throw")
+  }
+}
+
 fun <T> resultIsEqualToExpected(): (T, T) -> Unit = { expected, result ->
   assertThat(result).isEqualTo(expected)
 }
 
 fun <T> resultIsNull(): (T, T) -> Unit = { _, result -> assertThat(result).isNull() }
+
+fun <T> resultIsUnsupportedOperationException(): (T, T) -> Unit = { _, e ->
+  assertThat(e).isInstanceOf(UnsupportedOperationException::class.java)
+  assertThat((e as UnsupportedOperationException).message).isNotEmpty()
+}

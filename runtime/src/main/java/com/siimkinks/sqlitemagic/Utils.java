@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteStatement;
-import android.os.ParcelFileDescriptor;
-import android.os.ParcelFileDescriptor.AutoCloseInputStream;
+import android.arch.persistence.db.SupportSQLiteStatement;
+import android.database.Cursor;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -10,8 +9,6 @@ import android.support.annotation.VisibleForTesting;
 
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Random;
 
@@ -122,36 +119,36 @@ public final class Utils {
 
   static final ValueParser<String> STRING_PARSER = new ValueParser<String>() {
     @Override
-    public String parseFromCursor(@NonNull FastCursor fastCursor) {
+    public String parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getString(0);
     }
 
     @Override
-    public String parseFromStatement(@NonNull SQLiteStatement statement) {
+    public String parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       return statement.simpleQueryForString();
     }
   };
 
   static final ValueParser<Long> LONG_PARSER = new ValueParser<Long>() {
     @Override
-    public Long parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Long parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getLong(0);
     }
 
     @Override
-    public Long parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Long parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       return statement.simpleQueryForLong();
     }
   };
 
   static final ValueParser<Long> NULLABLE_LONG_PARSER = new ValueParser<Long>() {
     @Override
-    public Long parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Long parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getLong(0);
     }
 
     @Override
-    public Long parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Long parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       final String rawVal = statement.simpleQueryForString();
       if (rawVal != null) {
         return Long.valueOf(rawVal);
@@ -162,24 +159,24 @@ public final class Utils {
 
   static final ValueParser<Integer> INTEGER_PARSER = new ValueParser<Integer>() {
     @Override
-    public Integer parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Integer parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getInt(0);
     }
 
     @Override
-    public Integer parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Integer parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       return (int) statement.simpleQueryForLong();
     }
   };
 
   static final ValueParser<Integer> NULLABLE_INTEGER_PARSER = new ValueParser<Integer>() {
     @Override
-    public Integer parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Integer parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getInt(0);
     }
 
     @Override
-    public Integer parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Integer parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       final String rawVal = statement.simpleQueryForString();
       if (rawVal != null) {
         return Integer.valueOf(rawVal);
@@ -190,24 +187,24 @@ public final class Utils {
 
   static final ValueParser<Short> SHORT_PARSER = new ValueParser<Short>() {
     @Override
-    public Short parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Short parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getShort(0);
     }
 
     @Override
-    public Short parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Short parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       return (short) statement.simpleQueryForLong();
     }
   };
 
   static final ValueParser<Short> NULLABLE_SHORT_PARSER = new ValueParser<Short>() {
     @Override
-    public Short parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Short parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getShort(0);
     }
 
     @Override
-    public Short parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Short parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       final String rawVal = statement.simpleQueryForString();
       if (rawVal != null) {
         return Short.valueOf(rawVal);
@@ -218,12 +215,12 @@ public final class Utils {
 
   static final ValueParser<Double> DOUBLE_PARSER = new ValueParser<Double>() {
     @Override
-    public Double parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Double parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getDouble(0);
     }
 
     @Override
-    public Double parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Double parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       final String rawVal = statement.simpleQueryForString();
       if (rawVal != null) {
         return Double.parseDouble(rawVal);
@@ -234,12 +231,12 @@ public final class Utils {
 
   static final ValueParser<Float> FLOAT_PARSER = new ValueParser<Float>() {
     @Override
-    public Float parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Float parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getFloat(0);
     }
 
     @Override
-    public Float parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Float parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       final String rawVal = statement.simpleQueryForString();
       if (rawVal != null) {
         return Float.parseFloat(rawVal);
@@ -250,24 +247,24 @@ public final class Utils {
 
   static final ValueParser<Byte> BYTE_PARSER = new ValueParser<Byte>() {
     @Override
-    public Byte parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Byte parseFromCursor(@NonNull Cursor fastCursor) {
       return (byte) fastCursor.getLong(0);
     }
 
     @Override
-    public Byte parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Byte parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       return (byte) statement.simpleQueryForLong();
     }
   };
 
   static final ValueParser<Byte> NULLABLE_BYTE_PARSER = new ValueParser<Byte>() {
     @Override
-    public Byte parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Byte parseFromCursor(@NonNull Cursor fastCursor) {
       return (byte) fastCursor.getLong(0);
     }
 
     @Override
-    public Byte parseFromStatement(@NonNull SQLiteStatement statement) {
+    public Byte parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       final String rawVal = statement.simpleQueryForString();
       if (rawVal != null) {
         return Byte.valueOf(rawVal);
@@ -278,74 +275,31 @@ public final class Utils {
 
   static final ValueParser<byte[]> UNBOXED_BYTE_ARRAY_PARSER = new ValueParser<byte[]>() {
     @Override
-    public byte[] parseFromCursor(@NonNull FastCursor fastCursor) {
+    public byte[] parseFromCursor(@NonNull Cursor fastCursor) {
       return fastCursor.getBlob(0);
     }
 
     @Override
-    public byte[] parseFromStatement(@NonNull SQLiteStatement statement) {
-      final ParcelFileDescriptor pfd = statement.simpleQueryForBlobFileDescriptor();
-      if (pfd == null) {
-        return null;
-      }
-      final AutoCloseInputStream in = new AutoCloseInputStream(pfd);
-      final ByteArrayOutputStream out = new ByteArrayOutputStream();
-      try {
-        final byte[] buffer = new byte[4096];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-          out.write(buffer, 0, read);
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      } finally {
-        try {
-          in.close();
-        } catch (IOException e) {
-          // ignore
-        }
-      }
-      return out.toByteArray();
+    public byte[] parseFromStatement(@NonNull SupportSQLiteStatement statement) {
+      throw new UnsupportedOperationException("Querying byte array as column is not supported");
     }
   };
 
   static final ValueParser<Byte[]> BOXED_BYTE_ARRAY_PARSER = new ValueParser<Byte[]>() {
     @Override
-    public Byte[] parseFromCursor(@NonNull FastCursor fastCursor) {
+    public Byte[] parseFromCursor(@NonNull Cursor fastCursor) {
       return toByteArray(fastCursor.getBlob(0));
     }
 
     @Override
-    public Byte[] parseFromStatement(@NonNull SQLiteStatement statement) {
-      final ParcelFileDescriptor pfd = statement.simpleQueryForBlobFileDescriptor();
-      if (pfd == null) {
-        return null;
-      }
-      final AutoCloseInputStream in = new AutoCloseInputStream(pfd);
-      final ByteArrayOutputStream out = new ByteArrayOutputStream();
-      try {
-        final byte[] buffer = new byte[4096];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-          out.write(buffer, 0, read);
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      } finally {
-        try {
-          in.close();
-        } catch (IOException e) {
-          // ignore
-        }
-      }
-      // this is bad, mkay
-      return toByteArray(out.toByteArray());
+    public Byte[] parseFromStatement(@NonNull SupportSQLiteStatement statement) {
+      throw new UnsupportedOperationException("Querying byte array as column is not supported");
     }
   };
 
   interface ValueParser<T> {
-    T parseFromCursor(@NonNull FastCursor fastCursor);
+    T parseFromCursor(@NonNull Cursor fastCursor);
 
-    T parseFromStatement(@NonNull SQLiteStatement statement);
+    T parseFromStatement(@NonNull SupportSQLiteStatement statement);
   }
 }

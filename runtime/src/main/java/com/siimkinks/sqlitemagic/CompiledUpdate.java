@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteStatement;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.WorkerThread;
@@ -15,13 +15,13 @@ import io.reactivex.Single;
  */
 public final class CompiledUpdate {
   @NonNull
-  private final SQLiteStatement updateStm;
+  private final SupportSQLiteStatement updateStm;
   @NonNull
   private final String tableName;
   @NonNull
   private final DbConnectionImpl dbConnection;
 
-  CompiledUpdate(@NonNull SQLiteStatement updateStm,
+  CompiledUpdate(@NonNull SupportSQLiteStatement updateStm,
                  @NonNull String tableName,
                  @NonNull DbConnectionImpl dbConnection) {
     this.updateStm = updateStm;
@@ -78,7 +78,7 @@ public final class CompiledUpdate {
     @CheckResult
     CompiledUpdate build() {
       final String sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount);
-      final SQLiteStatement stm = dbConnection.compileStatement(sql);
+      final SupportSQLiteStatement stm = dbConnection.compileStatement(sql);
       final ArrayList<String> args = this.args;
       for (int i = args.size(); i != 0; i--) {
         final String arg = args.get(i - 1);

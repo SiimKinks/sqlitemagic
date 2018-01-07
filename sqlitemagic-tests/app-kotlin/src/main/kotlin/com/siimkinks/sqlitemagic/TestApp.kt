@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import android.app.Application
+import android.arch.persistence.db.framework.FrameworkSQLiteOpenHelperFactory
 import io.reactivex.schedulers.Schedulers
 
 class TestApp : Application() {
@@ -14,8 +15,9 @@ class TestApp : Application() {
 
   fun initDb(app: Application) {
     SqliteMagic.setLoggingEnabled(true)
-    SqliteMagic.setup(app)
+    SqliteMagic.builder(app)
+        .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
         .scheduleRxQueriesOn(Schedulers.trampoline())
-        .init()
+        .openDefaultConnection()
   }
 }

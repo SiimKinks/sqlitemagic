@@ -55,7 +55,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.NOT_NULLABLE_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SIMPLE_ARRAY_MAP;
-import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_DATABASE;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQL_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING_ARRAY_SET;
@@ -123,7 +123,7 @@ public class GenClassesManagerWriter {
   private MethodSpec databaseConfigurator(Environment environment) {
     MethodSpec.Builder method = createMagicInvokableMethod(CLASS_NAME_GENERATED_CLASSES_MANAGER, METHOD_CONFIGURE_DATABASE)
         .addModifiers(STATIC_METHOD_MODIFIERS)
-        .addParameter(SQLITE_DATABASE, "db");
+        .addParameter(SUPPORT_SQLITE_DATABASE, "db");
     if (hasAnyForeignKeys(environment.getAllTableElements())) {
       method.addStatement("db.setForeignKeyConstraintsEnabled(true)");
     }

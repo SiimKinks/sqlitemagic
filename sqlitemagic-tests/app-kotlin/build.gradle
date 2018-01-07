@@ -40,6 +40,7 @@ android {
 
 dependencies {
   implementation libraries.kotlinStdLib
+  implementation libraries.supportSqliteFramework
   implementation libraries.supportV7
   implementation libraries.rxJava2
   implementation libraries.rxJava2Extensions
@@ -51,7 +52,7 @@ dependencies {
   testImplementation libraries.mockitoKotlin
   testImplementation libraries.truth
 
-  androidTestImplementation libraries.supportAnnotationsForTesting
+  androidTestImplementation libraries.supportAnnotations
   androidTestImplementation libraries.supportTestRunner
   androidTestImplementation(libraries.truth) {
     exclude group: 'junit' // Android has JUnit built in.

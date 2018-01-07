@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteStatement;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.WorkerThread;
@@ -10,18 +10,20 @@ import java.util.concurrent.Callable;
 
 import io.reactivex.Single;
 
+import static com.siimkinks.sqlitemagic.SqlUtil.bindAllArgsAsStrings;
+
 /**
  * Compiled SQL DELETE statement.
  */
 public final class CompiledDelete {
   @NonNull
-  private final SQLiteStatement deleteStm;
+  private final SupportSQLiteStatement deleteStm;
   @NonNull
   private final String tableName;
   @NonNull
   private final DbConnectionImpl dbConnection;
 
-  CompiledDelete(@NonNull SQLiteStatement deleteStm,
+  CompiledDelete(@NonNull SupportSQLiteStatement deleteStm,
                  @NonNull String tableName,
                  @NonNull DbConnectionImpl dbConnection) {
     this.deleteStm = deleteStm;
@@ -78,8 +80,8 @@ public final class CompiledDelete {
     @CheckResult
     CompiledDelete build() {
       final String sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount);
-      final SQLiteStatement stm = dbConnection.compileStatement(sql);
-      stm.bindAllArgsAsStrings(args.toArray(new String[args.size()]));
+      final SupportSQLiteStatement stm = dbConnection.compileStatement(sql);
+      bindAllArgsAsStrings(stm, args.toArray(new String[args.size()]));
       return new CompiledDelete(stm, from.tableName, dbConnection);
     }
   }

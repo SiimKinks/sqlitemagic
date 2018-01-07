@@ -808,11 +808,15 @@ public final class SynchronousMutableQueryTest {
     final Cursor cursor = Select.raw("SELECT * FROM author")
         .from(AUTHOR)
         .execute();
-    int i = 0;
-    while (cursor.moveToNext()) {
-      final Author author = authors.get(i);
-      assertThat(author).isEqualTo(Author.getFromCursorPosition(cursor));
-      i++;
+    try {
+      int i = 0;
+      while (cursor.moveToNext()) {
+        final Author author = authors.get(i);
+        assertThat(author).isEqualTo(Author.getFromCursorPosition(cursor));
+        i++;
+      }
+    } finally {
+      cursor.close();
     }
   }
 
@@ -835,13 +839,17 @@ public final class SynchronousMutableQueryTest {
         .from(AUTHOR)
         .withArgs("asd")
         .execute();
-    int i = 0;
-    while (cursor.moveToNext()) {
-      final Author author = authors.get(i);
-      final Author cursorObject = Author.getFromCursorPosition(cursor);
-      assertThat(cursorObject.name).isEqualTo("asd");
-      assertThat(author).isEqualTo(cursorObject);
-      i++;
+    try {
+      int i = 0;
+      while (cursor.moveToNext()) {
+        final Author author = authors.get(i);
+        final Author cursorObject = Author.getFromCursorPosition(cursor);
+        assertThat(cursorObject.name).isEqualTo("asd");
+        assertThat(author).isEqualTo(cursorObject);
+        i++;
+      }
+    } finally {
+      cursor.close();
     }
   }
 

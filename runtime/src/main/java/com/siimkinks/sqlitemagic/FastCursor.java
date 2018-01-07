@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
 import android.content.ContentResolver;
+import android.database.AbstractWindowedCursor;
 import android.database.CharArrayBuffer;
 import android.database.ContentObserver;
 import android.database.Cursor;
@@ -16,7 +17,7 @@ import android.support.annotation.NonNull;
  */
 public final class FastCursor implements Cursor {
   @NonNull
-  private final SqliteMagicCursor backingCursor;
+  private final AbstractWindowedCursor backingCursor;
 
   private CursorWindow window;
   private int windowStart;
@@ -25,7 +26,7 @@ public final class FastCursor implements Cursor {
   private int position;
   private int count;
 
-  private FastCursor(@NonNull SqliteMagicCursor cursor) {
+  private FastCursor(@NonNull AbstractWindowedCursor cursor) {
     backingCursor = cursor;
     count = cursor.getCount(); // fills cursor window
     window = cursor.getWindow();
@@ -34,11 +35,14 @@ public final class FastCursor implements Cursor {
     position = -1;
   }
 
-  static FastCursor from(@NonNull SqliteMagicCursor cursor) {
-    return new FastCursor(cursor);
+  static Cursor tryCreate(@NonNull Cursor cursor) {
+    if (cursor instanceof AbstractWindowedCursor) {
+      return new FastCursor((AbstractWindowedCursor) cursor);
+    }
+    return cursor;
   }
 
-  void syncWith(@NonNull SqliteMagicCursor cursor) {
+  void syncWith(@NonNull Cursor cursor) {
     final int position = cursor.getPosition();
     moveWindowIfNeeded(this.position, position);
     this.position = position;
@@ -46,6 +50,7 @@ public final class FastCursor implements Cursor {
 
   @Override
   public void close() {
+    backingCursor.close();
     if (window != null) {
       window.close();
       window = null;
@@ -141,37 +146,37 @@ public final class FastCursor implements Cursor {
 
   @Override
   public boolean isBeforeFirst() {
-    throw new UnsupportedOperationException();
+    return backingCursor.isBeforeFirst();
   }
 
   @Override
   public boolean isAfterLast() {
-    throw new UnsupportedOperationException();
+    return backingCursor.isAfterLast();
   }
 
   @Override
   public int getColumnIndex(String columnName) {
-    throw new UnsupportedOperationException();
+    return backingCursor.getColumnIndex(columnName);
   }
 
   @Override
   public int getColumnIndexOrThrow(String columnName) throws IllegalArgumentException {
-    throw new UnsupportedOperationException();
+    return backingCursor.getColumnIndexOrThrow(columnName);
   }
 
   @Override
   public String getColumnName(int columnIndex) {
-    throw new UnsupportedOperationException();
+    return backingCursor.getColumnName(columnIndex);
   }
 
   @Override
   public String[] getColumnNames() {
-    throw new UnsupportedOperationException();
+    return backingCursor.getColumnNames();
   }
 
   @Override
   public int getColumnCount() {
-    throw new UnsupportedOperationException();
+    return backingCursor.getColumnCount();
   }
 
   @Override
@@ -186,7 +191,7 @@ public final class FastCursor implements Cursor {
 
   @Override
   public void copyStringToBuffer(int columnIndex, CharArrayBuffer buffer) {
-    throw new UnsupportedOperationException();
+    backingCursor.copyStringToBuffer(columnIndex, buffer);
   }
 
   @Override
@@ -216,7 +221,7 @@ public final class FastCursor implements Cursor {
 
   @Override
   public int getType(int i) {
-    throw new UnsupportedOperationException();
+    return backingCursor.getType(i);
   }
 
   @Override
@@ -227,67 +232,67 @@ public final class FastCursor implements Cursor {
   @Deprecated
   @Override
   public void deactivate() {
-    throw new UnsupportedOperationException();
+    backingCursor.deactivate();
   }
 
   @Deprecated
   @Override
   public boolean requery() {
-    throw new UnsupportedOperationException();
+    return backingCursor.requery();
   }
 
   @Override
   public boolean isClosed() {
-    throw new UnsupportedOperationException();
+    return backingCursor.isClosed();
   }
 
   @Override
   public void registerContentObserver(ContentObserver observer) {
-    throw new UnsupportedOperationException();
+    backingCursor.registerContentObserver(observer);
   }
 
   @Override
   public void unregisterContentObserver(ContentObserver observer) {
-    throw new UnsupportedOperationException();
+    backingCursor.unregisterContentObserver(observer);
   }
 
   @Override
   public void registerDataSetObserver(DataSetObserver observer) {
-    throw new UnsupportedOperationException();
+    backingCursor.registerDataSetObserver(observer);
   }
 
   @Override
   public void unregisterDataSetObserver(DataSetObserver observer) {
-    throw new UnsupportedOperationException();
+    backingCursor.unregisterDataSetObserver(observer);
   }
 
   @Override
   public void setNotificationUri(ContentResolver cr, Uri uri) {
-    throw new UnsupportedOperationException();
+    backingCursor.setNotificationUri(cr, uri);
   }
 
   @Override
   public Uri getNotificationUri() {
-    throw new UnsupportedOperationException();
+    return backingCursor.getNotificationUri();
   }
 
   @Override
   public boolean getWantsAllOnMoveCalls() {
-    throw new UnsupportedOperationException();
+    return backingCursor.getWantsAllOnMoveCalls();
   }
 
   @Override
   public void setExtras(Bundle bundle) {
-    throw new UnsupportedOperationException();
+    backingCursor.setExtras(bundle);
   }
 
   @Override
   public Bundle getExtras() {
-    throw new UnsupportedOperationException();
+    return backingCursor.getExtras();
   }
 
   @Override
   public Bundle respond(Bundle extras) {
-    throw new UnsupportedOperationException();
+    return backingCursor.respond(extras);
   }
 }

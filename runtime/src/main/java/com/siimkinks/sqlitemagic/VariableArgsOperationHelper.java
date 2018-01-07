@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteStatement;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -23,12 +23,12 @@ public final class VariableArgsOperationHelper {
 
   @NonNull
   @CheckResult
-  SQLiteStatement compileStatement(@OperationHelper.Op int operation,
-                                   @NonNull String tableName,
-                                   int maxColumns,
-                                   @NonNull SimpleArrayMap<String, Object> values,
-                                   @NonNull String resolutionColumn,
-                                   @NonNull EntityDbManager manager) {
+  SupportSQLiteStatement compileStatement(@OperationHelper.Op int operation,
+                                          @NonNull String tableName,
+                                          int maxColumns,
+                                          @NonNull SimpleArrayMap<String, Object> values,
+                                          @NonNull String resolutionColumn,
+                                          @NonNull EntityDbManager manager) {
     StringBuilder sqlBuilder = this.sqlBuilder;
     if (sqlBuilder == null) {
       sqlBuilder = new StringBuilder(7 + conflictAlgorithm.length() + maxColumns * 22);
@@ -50,14 +50,14 @@ public final class VariableArgsOperationHelper {
 
   @NonNull
   @CheckResult
-  private static SQLiteStatement compileStatement(boolean reuseOperation,
-                                                  @OperationHelper.Op int operation,
-                                                  @NonNull StringBuilder sqlBuilder,
-                                                  @NonNull String conflictAlgorithm,
-                                                  @NonNull String tableName,
-                                                  @NonNull SimpleArrayMap<String, Object> values,
-                                                  @Nullable String resolutionColumn,
-                                                  @NonNull EntityDbManager manager) {
+  private static SupportSQLiteStatement compileStatement(boolean reuseOperation,
+                                                         @OperationHelper.Op int operation,
+                                                         @NonNull StringBuilder sqlBuilder,
+                                                         @NonNull String conflictAlgorithm,
+                                                         @NonNull String tableName,
+                                                         @NonNull SimpleArrayMap<String, Object> values,
+                                                         @Nullable String resolutionColumn,
+                                                         @NonNull EntityDbManager manager) {
     final int valuesSize = values.size();
     if (operation == OperationHelper.Op.INSERT) {
       if (reuseOperation) {
@@ -116,7 +116,7 @@ public final class VariableArgsOperationHelper {
           .append("=?");
     }
 
-    final SQLiteStatement statement = manager.compileStatement(sqlBuilder.toString());
+    final SupportSQLiteStatement statement = manager.compileStatement(sqlBuilder.toString());
     int i;
     for (i = 0; i < valuesSize; i++) {
       final Object value = values.valueAt(i);
@@ -132,7 +132,7 @@ public final class VariableArgsOperationHelper {
     return statement;
   }
 
-  private static void bindValue(@NonNull SQLiteStatement statement, int pos, Object value) {
+  private static void bindValue(@NonNull SupportSQLiteStatement statement, int pos, Object value) {
     if (value instanceof String) {
       statement.bindString(pos, (String) value);
     } else if (value instanceof Number) {

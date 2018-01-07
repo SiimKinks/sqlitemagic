@@ -30,6 +30,14 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
       operation = operation,
       assertResults = resultIsNull())
 
+  class QueryEmptyFirstThrows<TestReturnType>(
+      operation: QueryOperation<Unit, TestReturnType>
+  ) : QueryTestCase<Unit, TestReturnType>(
+      "Querying first column from empty table throws UnsupportedOperationException",
+      setUp = {},
+      operation = operation,
+      assertResults = resultIsUnsupportedOperationException())
+
   class QueryFirstFromFilledSimpleAllValuesMutableTable<T>(
       value: (SimpleAllValuesMutable) -> T,
       selection: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
@@ -49,6 +57,24 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
       operation = SelectFirstQueryOperation<T, T, Select.Select1>(selection) as QueryOperation<T, T>,
       assertResults = assertResults)
 
+  class QueryFirstFromFilledSimpleAllValuesMutableTableThrows<T>(
+      value: (SimpleAllValuesMutable) -> T,
+      selection: () -> SelectSqlNode.SelectNode<*, Select.Select1, *>
+  ) : QueryTestCase<T, T>(
+      "Querying first value from table throws UnsupportedOperationException",
+      setUp = {
+        val firstVal = createVals {
+          val v = SimpleAllValuesMutable.newRandom()
+          assertThat(v.insert()
+              .execute())
+              .isNotEqualTo(-1)
+          return@createVals v
+        }.first()
+        value(firstVal)
+      },
+      operation = SelectFirstQueryOperationThrows<T, Select.Select1>(selection) as QueryOperation<T, T>,
+      assertResults = resultIsUnsupportedOperationException())
+
   class QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTable<T>(
       nullValue: (SimpleAllValuesMutable) -> Unit,
       selection: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>
@@ -66,6 +92,24 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
       },
       operation = SelectFirstQueryOperation<Unit, T, Select.Select1>(selection) as QueryOperation<Unit, T>,
       assertResults = resultIsNull())
+
+  class QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTableThrows<T>(
+      nullValue: (SimpleAllValuesMutable) -> Unit,
+      selection: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>
+  ) : QueryTestCase<Unit, T>(
+      "Querying first nullable column from filled table throws UnsupportedOperationException",
+      setUp = {
+        createVals {
+          val v = SimpleAllValuesMutable.newRandom()
+          nullValue(v)
+          assertThat(v.insert()
+              .execute())
+              .isNotEqualTo(-1)
+          return@createVals v
+        }.first()
+      },
+      operation = SelectFirstQueryOperationThrows<Unit, Select.Select1>(selection) as QueryOperation<Unit, T>,
+      assertResults = resultIsUnsupportedOperationException())
 
   @SuppressLint("CheckResult")
   @Test
@@ -440,31 +484,29 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
   @SuppressLint("CheckResult")
   @Test
   fun firstPrimitiveByteArray() =
-      QueryFirstFromFilledSimpleAllValuesMutableTable(
+      QueryFirstFromFilledSimpleAllValuesMutableTableThrows(
           value = { it.primitiveByteArray },
           selection = {
             Select.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_BYTE_ARRAY)
                 .from(SIMPLE_ALL_VALUES_MUTABLE)
-          },
-          assertResults = { expected, result -> assertThat(result).isEqualTo(expected) })
+          })
           .test()
 
   @SuppressLint("CheckResult")
   @Test
   fun firstBoxedByteArray() =
-      QueryFirstFromFilledSimpleAllValuesMutableTable(
+      QueryFirstFromFilledSimpleAllValuesMutableTableThrows(
           value = { it.boxedByteArray },
           selection = {
             Select.column(SIMPLE_ALL_VALUES_MUTABLE.BOXED_BYTE_ARRAY)
                 .from(SIMPLE_ALL_VALUES_MUTABLE)
-          },
-          assertResults = { expected, result -> assertThat(result).isEqualTo(expected) })
+          })
           .test()
 
   @SuppressLint("CheckResult")
   @Test
   fun firstNullablePrimitiveByteArray() =
-      QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTable(
+      QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTableThrows(
           nullValue = { it.primitiveByteArray = null },
           selection = {
             Select.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_BYTE_ARRAY)
@@ -475,7 +517,7 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
   @SuppressLint("CheckResult")
   @Test
   fun firstNullableBoxedByteArray() =
-      QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTable(
+      QueryFirstNullableColumnFromFilledSimpleAllValuesMutableTableThrows(
           nullValue = { it.boxedByteArray = null },
           selection = {
             Select.column(SIMPLE_ALL_VALUES_MUTABLE.BOXED_BYTE_ARRAY)
@@ -486,8 +528,8 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
   @SuppressLint("CheckResult")
   @Test
   fun firstNotNullableByteArrayFromEmptyTable() =
-      QueryEmptyFirst(
-          operation = SelectFirstQueryOperation {
+      QueryEmptyFirstThrows(
+          operation = SelectFirstQueryOperationThrows {
             Select.column(SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_BYTE_ARRAY)
                 .from(SIMPLE_ALL_VALUES_MUTABLE)
           })
@@ -496,8 +538,8 @@ class ColumnFirstQueryTest : DefaultConnectionTest {
   @SuppressLint("CheckResult")
   @Test
   fun firstNullableByteArrayFromEmptyTable() =
-      QueryEmptyFirst(
-          operation = SelectFirstQueryOperation {
+      QueryEmptyFirstThrows(
+          operation = SelectFirstQueryOperationThrows {
             Select.column(SIMPLE_ALL_VALUES_MUTABLE.BOXED_BYTE_ARRAY)
                 .from(SIMPLE_ALL_VALUES_MUTABLE)
           })

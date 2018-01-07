@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic;
 
+import android.arch.persistence.db.SupportSQLiteDatabase;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteStatement;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -14,6 +14,7 @@ import java.util.List;
 
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.CompiledFirstSelectImpl.addTakeFirstLimitClauseIfNeeded;
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.createQueryObservable;
+import static com.siimkinks.sqlitemagic.SqlUtil.bindAllArgsAsStrings;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -34,7 +35,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
                       @NonNull String[] observedTables) {
     super(dbConnection, new Mapper<T>() {
       @Override
-      public T apply(@NonNull FastCursor cursor) {
+      public T apply(@NonNull Cursor cursor) {
         return selectedColumn.getFromCursor(cursor);
       }
     });
@@ -46,22 +47,21 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
 
   @NonNull
   @Override
-  SqliteMagicCursor rawQuery(boolean inStream) {
+  Cursor rawQuery(boolean inStream) {
     super.rawQuery(inStream);
-    final SQLiteDatabase db = dbConnection.getReadableDatabase();
+    final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
     final long startNanos = nanoTime();
-    final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+    final Cursor cursor = db.query(sql, args);
     if (SqliteMagic.LOGGING_ENABLED) {
       final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
       LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
     }
-    return cursor;
+    return FastCursor.tryCreate(cursor);
   }
 
   @Override
-  List<T> map(@NonNull SqliteMagicCursor androidCursor) {
+  List<T> map(@NonNull Cursor cursor) {
     try {
-      final FastCursor cursor = androidCursor.getFastCursor();
       final int rowCount = cursor.getCount();
       if (rowCount == 0) {
         return Collections.emptyList();
@@ -73,7 +73,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
       }
       return values;
     } finally {
-      androidCursor.close();
+      cursor.close();
     }
   }
 
@@ -114,7 +114,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
 
   static final class CompiledFirstSelect1Impl<T, S> extends DatabaseQuery<T, T> implements CompiledFirstSelect<T, S> {
     @NonNull
-    private final SQLiteStatement selectStm;
+    private final SupportSQLiteStatement selectStm;
     @NonNull
     final String sql;
     @Nullable
@@ -129,8 +129,8 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
       super(dbConnection, null);
       final String sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql);
       final String[] args = compiledSelect.args;
-      final SQLiteStatement selectStm = dbConnection.compileStatement(sql);
-      selectStm.bindAllArgsAsStrings(args);
+      final SupportSQLiteStatement selectStm = dbConnection.compileStatement(sql);
+      bindAllArgsAsStrings(selectStm, args);
       this.selectStm = selectStm;
       this.sql = sql;
       this.args = args;
@@ -139,7 +139,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
     }
 
     @Override
-    T map(@Nullable SqliteMagicCursor __) {
+    T map(@Nullable Cursor __) {
       return execute();
     }
 
@@ -193,26 +193,30 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
     @Nullable
     @Override
     public T getFromCurrentPosition(@NonNull Cursor cursor) {
-      final FastCursor fastCursor = ((SqliteMagicCursor) cursor).getFastCursorAndSync();
-      return selectedColumn.getFromCursor(fastCursor);
+      if (cursor instanceof FastCursor) {
+        final FastCursor fastCursor = (FastCursor) cursor;
+        fastCursor.syncWith(cursor);
+        return selectedColumn.getFromCursor(fastCursor);
+      }
+      return selectedColumn.getFromCursor(cursor);
     }
 
     @NonNull
     @Override
-    SqliteMagicCursor rawQuery(boolean inStream) {
+    Cursor rawQuery(boolean inStream) {
       super.rawQuery(inStream);
-      final SQLiteDatabase db = dbConnection.getReadableDatabase();
+      final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+      final Cursor cursor = db.query(sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
       }
-      return cursor;
+      return FastCursor.tryCreate(cursor);
     }
 
     @Override
-    Cursor map(@NonNull SqliteMagicCursor cursor) {
+    Cursor map(@NonNull Cursor cursor) {
       return cursor;
     }
 

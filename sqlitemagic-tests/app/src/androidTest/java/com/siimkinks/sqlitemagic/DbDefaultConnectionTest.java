@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteDatabase;
+import android.arch.persistence.db.SupportSQLiteDatabase;
+import android.arch.persistence.db.SupportSQLiteOpenHelper;
+import android.arch.persistence.db.framework.FrameworkSQLiteOpenHelperFactory;
 import android.support.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.model.Author;
@@ -25,6 +27,7 @@ import static com.siimkinks.sqlitemagic.InternalTester.assertTriggersHaveNoObser
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertMagazines;
+import static org.junit.Assert.fail;
 
 @RunWith(AndroidJUnit4.class)
 public final class DbDefaultConnectionTest {
@@ -40,11 +43,56 @@ public final class DbDefaultConnectionTest {
   }
 
   @Test
+  public void missingContextThrows() {
+    try {
+      SqliteMagic.builder(null);
+      fail("Creating new connection without context did not throw");
+    } catch (NullPointerException e) {
+      assertThat(e.getMessage()).isNotEmpty();
+    }
+  }
+
+  @Test
+  public void missingSchedulerThrows() {
+    try {
+      SqliteMagic.builder(TestApp.INSTANCE)
+          .scheduleRxQueriesOn(null);
+      fail("Creating new connection without scheduler did not throw");
+    } catch (NullPointerException e) {
+      assertThat(e.getMessage()).isNotEmpty();
+    }
+  }
+
+  @Test
+  public void missingFactoryThrowsWhenBuildingDefaultConnection() {
+    try {
+      SqliteMagic
+          .builder(TestApp.INSTANCE)
+          .openDefaultConnection();
+      fail("Creating new connection without factory did not throw");
+    } catch (NullPointerException e) {
+      assertThat(e.getMessage()).isNotEmpty();
+    }
+  }
+
+  @Test
+  public void missingFactoryThrowsWhenBuildingNewConnection() {
+    try {
+      SqliteMagic
+          .builder(TestApp.INSTANCE)
+          .openNewConnection();
+      fail("Creating new connection without factory did not throw");
+    } catch (NullPointerException e) {
+      assertThat(e.getMessage()).isNotEmpty();
+    }
+  }
+
+  @Test
   public void reInitClosesPrev() {
     final DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
-    final DbHelper dbHelper = dbConnection.dbHelper;
-    final SQLiteDatabase readableDatabase = dbHelper.getReadableDatabase();
-    final SQLiteDatabase writableDatabase = dbHelper.getWritableDatabase();
+    final SupportSQLiteOpenHelper dbHelper = dbConnection.dbHelper;
+    final SupportSQLiteDatabase readableDatabase = dbHelper.getReadableDatabase();
+    final SupportSQLiteDatabase writableDatabase = dbHelper.getWritableDatabase();
 
     initDbWithNewConnection();
 
@@ -135,9 +183,10 @@ public final class DbDefaultConnectionTest {
   }
 
   private void initDbWithNewConnection() {
-    SqliteMagic.setup(TestApp.INSTANCE)
-        .withName("new.db")
+    SqliteMagic.builder(TestApp.INSTANCE)
+        .name("new.db")
+        .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
         .scheduleRxQueriesOn(Schedulers.trampoline())
-        .init();
+        .openDefaultConnection();
   }
 }

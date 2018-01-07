@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic;
 
+import android.arch.persistence.db.SupportSQLiteDatabase;
+import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
 import android.database.SQLException;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteStatement;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -19,6 +19,7 @@ import java.util.Set;
 import io.reactivex.Observable;
 import io.reactivex.functions.Predicate;
 
+import static com.siimkinks.sqlitemagic.SqlUtil.bindAllArgsAsStrings;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -57,31 +58,30 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
 
   @NonNull
   @Override
-  SqliteMagicCursor rawQuery(boolean inStream) {
+  Cursor rawQuery(boolean inStream) {
     super.rawQuery(inStream);
-    final SQLiteDatabase db = dbConnection.getReadableDatabase();
+    final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
     final long startNanos = nanoTime();
-    final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+    final Cursor cursor = db.query(sql, args);
     if (SqliteMagic.LOGGING_ENABLED) {
       final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
       LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
     }
-    return cursor;
+    return FastCursor.tryCreate(cursor);
   }
 
   @Override
-  List<T> map(@NonNull SqliteMagicCursor cursor) {
+  List<T> map(@NonNull Cursor cursor) {
     try {
-      final FastCursor fastCursor = cursor.getFastCursor();
-      final int rowCount = fastCursor.getCount();
+      final int rowCount = cursor.getCount();
       if (rowCount == 0) {
         return Collections.emptyList();
       }
       final Mapper<T> mapper = this.mapper;
       final ArrayList<T> values = new ArrayList<>(rowCount);
-      while (fastCursor.moveToNext()) {
+      while (cursor.moveToNext()) {
         //noinspection ConstantConditions -- mapper is not null here
-        values.add(mapper.apply(fastCursor));
+        values.add(mapper.apply(cursor));
       }
       return values;
     } finally {
@@ -126,7 +126,7 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
 
   static final class CompiledCountSelectImpl<S> extends DatabaseQuery<Long, Long> implements CompiledCountSelect<S> {
     @NonNull
-    private final SQLiteStatement countStm;
+    private final SupportSQLiteStatement countStm;
     @NonNull
     private final String sql;
     @NonNull
@@ -140,8 +140,8 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
                             @NonNull String[] observedTables) {
       super(dbConnection, null);
       final String sql = addCountFunction(parentSql);
-      final SQLiteStatement countStm = dbConnection.compileStatement(sql);
-      countStm.bindAllArgsAsStrings(args);
+      final SupportSQLiteStatement countStm = dbConnection.compileStatement(sql);
+      bindAllArgsAsStrings(countStm, args);
       this.countStm = countStm;
       this.sql = sql;
       this.observedTables = observedTables;
@@ -160,7 +160,7 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
     }
 
     @Override
-    Long map(SqliteMagicCursor __) {
+    Long map(Cursor __) {
       return execute();
     }
 
@@ -209,30 +209,34 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
       this.queryDeep = compiledSelect.queryDeep;
     }
 
+    @SuppressWarnings("ConstantConditions") // -- mapper is not null here
     @Nullable
     @Override
     public T getFromCurrentPosition(@NonNull Cursor cursor) {
-      final FastCursor fastCursor = ((SqliteMagicCursor) cursor).getFastCursorAndSync();
-      //noinspection ConstantConditions -- mapper is not null here
-      return mapper.apply(fastCursor);
+      if (cursor instanceof FastCursor) {
+        final FastCursor fastCursor = (FastCursor) cursor;
+        fastCursor.syncWith(cursor);
+        return mapper.apply(fastCursor);
+      }
+      return mapper.apply(cursor);
     }
 
     @NonNull
     @Override
-    SqliteMagicCursor rawQuery(boolean inStream) {
+    Cursor rawQuery(boolean inStream) {
       super.rawQuery(inStream);
-      final SQLiteDatabase db = dbConnection.getReadableDatabase();
+      final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+      final Cursor cursor = db.query(sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
       }
-      return cursor;
+      return FastCursor.tryCreate(cursor);
     }
 
     @Override
-    Cursor map(@NonNull SqliteMagicCursor cursor) {
+    Cursor map(@NonNull Cursor cursor) {
       return cursor;
     }
 
@@ -296,25 +300,24 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
 
     @NonNull
     @Override
-    SqliteMagicCursor rawQuery(boolean inStream) {
+    Cursor rawQuery(boolean inStream) {
       super.rawQuery(inStream);
-      final SQLiteDatabase db = dbConnection.getReadableDatabase();
+      final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final SqliteMagicCursor cursor = (SqliteMagicCursor) db.rawQueryWithFactory(null, sql, args, null, null);
+      final Cursor cursor = db.query(sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
       }
-      return cursor;
+      return FastCursor.tryCreate(cursor);
     }
 
     @Override
-    T map(@NonNull SqliteMagicCursor cursor) {
+    T map(@NonNull Cursor cursor) {
       try {
-        final FastCursor fastCursor = cursor.getFastCursor();
-        if (fastCursor.moveToNext()) {
+        if (cursor.moveToNext()) {
           //noinspection ConstantConditions -- mapper is not null here
-          return mapper.apply(fastCursor);
+          return mapper.apply(cursor);
         }
         return null;
       } finally {

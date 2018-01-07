@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.sqlite.SQLiteStatement;
+import android.arch.persistence.db.SupportSQLiteStatement;
+import android.database.Cursor;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -49,13 +50,13 @@ final class FunctionCopyColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P
 
   @Nullable
   @Override
-  <V> V getFromCursor(@NonNull FastCursor cursor) {
+  <V> V getFromCursor(@NonNull Cursor cursor) {
     return wrappedColumn.getFromCursor(cursor);
   }
 
   @Nullable
   @Override
-  <V> V getFromStatement(@NonNull SQLiteStatement stm) {
+  <V> V getFromStatement(@NonNull SupportSQLiteStatement stm) {
     return wrappedColumn.getFromStatement(stm);
   }
 
