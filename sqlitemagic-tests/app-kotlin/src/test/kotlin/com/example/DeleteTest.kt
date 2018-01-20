@@ -27,7 +27,7 @@ class DeleteTest : DSLTests {
         WHERE (MAGAZINE.NAME IS "asd"))
         .isEqualTo(
             expectedSql = "DELETE FROM magazine WHERE magazine.name=? ",
-            withArgs = "asd")
+            withArgs = *arrayOf("asd"))
 
     (DELETE
         FROM MAGAZINE

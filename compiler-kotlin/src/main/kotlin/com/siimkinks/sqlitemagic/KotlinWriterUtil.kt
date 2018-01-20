@@ -26,7 +26,7 @@ val ENTITY_BULK_DELETE_BUILDER = EntityBulkDeleteBuilder::class.asClassName()
 
 val NOTHING_TO_INLINE = AnnotationSpec
     .builder(SUPPRESS)
-    .addMember("value", "%S", "NOTHING_TO_INLINE")
+    .addMember("%S", "NOTHING_TO_INLINE")
     .build()
 
 val EXTENSION_FUN_MODIFIERS = if (PUBLIC_EXTENSIONS) listOf(KModifier.INLINE) else listOf(KModifier.INLINE, KModifier.INTERNAL)

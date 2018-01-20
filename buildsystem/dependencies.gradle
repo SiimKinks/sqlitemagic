@@ -10,45 +10,42 @@ ext {
   GROUP = 'com.siimkinks.sqlitemagic'
   VERSION_NAME = '0.18.0-SNAPSHOT'
 
-  buildToolsVersion = '26.0.2'
+  buildToolsVersion = '27.0.3'
   minSdkVersion = 16
-  compileSdkVersion = 26
+  compileSdkVersion = 27
   targetSdkVersion = compileSdkVersion
 
-  androidAptVersion = '1.8'
-  androidGradleVersion = '3.0.0'
-  androidSupportLibsVersion = '26.0.2'
+  androidGradleVersion = '3.0.1'
+  androidSupportLibsVersion = '27.0.2'
   androidVersion = '4.0.1.2' // do not increment!
-  autoCommonVersion = '0.8'
-  autoServiceVersion = '1.0-rc3'
+  autoCommonVersion = '0.10'
+  autoServiceVersion = '1.0-rc4'
   autoValueVersion = '1.3'
   autoValueAnnotationsVersion = '1.3'
-  autoValueParcelVersion = '0.2.4-rc2'
+  autoValueParcelVersion = '0.2.5'
   bintrayGradlePluginVersion = '1.3.1'
   daggerVersion = '1.2.5'
   googleCompileTestingVersion = '0.6'
-  guavaVersion = '22.0'
+  guavaVersion = '23.6-jre'
   jacksonVersion = '2.6.2'
   javapoetVersion = '1.9.0'
-  javassistVersion = '3.21.0-GA'
+  javassistVersion = '3.22.0-GA'
   junitVersion = '4.12'
-  kotlinpoetVersion = '0.5.0'
-  kotlinVersion = '1.1.51'
+  kotlinpoetVersion = '0.6.0'
+  kotlinVersion = '1.2.20'
   lombokVersion = '1.14.8' // do not increment!
   mockitoVersion = '2.8.9'
   mockitoKotlinVersion = '1.5.0'
   rxJavaMathVersion = '1.0.0'
-  rxJavaVersion = '1.3.0'
-  rxJava2Version = '2.1.0'
-  rxJava2ExtensionsVersion = '0.17.0'
+  rxJava2Version = '2.1.8'
+  rxJava2ExtensionsVersion = '0.18.4'
   supportSqliteVersion = '1.0.0'
-  supportTestRunnerVersion = '0.5'
+  supportTestRunnerVersion = '1.0.1'
   truthVersion = '0.33'
   ztZipVersion = '1.9'
 
   libraries = [
       android                   : files("${android.sdk}/platforms/${android.target}/android.jar"),
-      androidApt                : "com.neenbedankt.gradle.plugins:android-apt:${androidAptVersion}",
       androidGradle             : "com.android.tools.build:gradle:${androidGradleVersion}",
       autoCommon                : "com.google.auto:auto-common:${autoCommonVersion}",
       autoService               : "com.google.auto.service:auto-service:${autoServiceVersion}",
@@ -68,7 +65,6 @@ ext {
       kotlinReflect             : "org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}",
       kotlinStdLib              : "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}",
       lombok                    : "org.projectlombok:lombok:${lombokVersion}",
-      rxJava                    : "io.reactivex:rxjava:${rxJavaVersion}",
       rxJava2                   : "io.reactivex.rxjava2:rxjava:${rxJava2Version}",
       rxJava2Extensions         : "com.github.akarnokd:rxjava2-extensions:${rxJava2ExtensionsVersion}",
       rxJavaMath                : "io.reactivex:rxjava-math:${rxJavaMathVersion}",

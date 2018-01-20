@@ -48,6 +48,7 @@ dependencies {
   kapt libraries.sqlitemagicProcessorKotlin
 
   testImplementation libraries.kotlinStdLib
+  testImplementation libraries.kotlinReflect
   testImplementation libraries.mockito
   testImplementation libraries.mockitoKotlin
   testImplementation libraries.truth

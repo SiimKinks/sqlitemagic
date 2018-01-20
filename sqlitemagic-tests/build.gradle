@@ -28,3 +28,8 @@ task wrapper(type: Wrapper) {
   gradleVersion = '4.2'
   distributionUrl = 'https://services.gradle.org/distributions/gradle-4.2-all.zip'
 }
+
+task runUnitTests(dependsOn: [
+    'app:testDebugUnitTest',
+    'app-kotlin:testDebugUnitTest'
+])

@@ -20,7 +20,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE book SET nr_of_releases=? ",
             nodeCount = 3,
-            args = "1")
+            args = *arrayOf("1"))
   }
 
   @Test
@@ -31,7 +31,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE magazine SET nr_of_releases=? ",
             nodeCount = 3,
-            args = "1")
+            args = *arrayOf("1"))
   }
 
   @Test
@@ -42,7 +42,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET name=? ",
             nodeCount = 3,
-            args = "asd")
+            args = *arrayOf("asd"))
   }
 
   @Test
@@ -53,7 +53,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET name=? ",
             nodeCount = 3,
-            args = null)
+            args = *arrayOf<String?>(null))
   }
 
   @Test
@@ -64,7 +64,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET primitive_boolean=? ",
             nodeCount = 3,
-            args = "1")
+            args = *arrayOf("1"))
   }
 
   @Test
@@ -75,7 +75,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET boxed_boolean=? ",
             nodeCount = 3,
-            args = "1")
+            args = *arrayOf("1"))
   }
 
   @Test
@@ -87,7 +87,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR IGNORE author SET name=? ",
             nodeCount = 4,
-            args = "asd")
+            args = *arrayOf("asd"))
   }
 
   @Test
@@ -99,7 +99,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR IGNORE author SET name=? ",
             nodeCount = 4,
-            args = "asd")
+            args = *arrayOf("asd"))
   }
 
   @Test
@@ -111,7 +111,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR FAIL author SET name=? ",
             nodeCount = 4,
-            args = "asd")
+            args = *arrayOf("asd"))
   }
 
   @Test
