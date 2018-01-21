@@ -13,7 +13,7 @@ dependencies {
   compile libraries.android
   compile libraries.supportAnnotations
   compile libraries.supportSqlite
-  compileOnly libraries.rxJava2
+  compile libraries.rxJava2
 
   testCompile libraries.junit
   testCompile libraries.truth

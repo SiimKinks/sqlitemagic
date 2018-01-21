@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 0.18.0 _(2018-01-21)_
+---------------------------------
+
+* Breaking: Build on top of the Android architecture components Sqlite support library. This allows swapping out the underlying Sqlite implementation to that of your choosing
+* Breaking: Remove `java.util.Date` transformer
+* New: Add support for multi module builds where database models are located across modules
+
 Version 0.17.0 _(2018-01-06)_
 ---------------------------------
 
