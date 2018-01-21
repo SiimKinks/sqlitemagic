@@ -45,7 +45,9 @@ apply plugin: 'com.siimkinks.sqlitemagic'
 #### Initialize Library:
 
 ```java
-SqliteMagic.init(applicationContext);
+SqliteMagic.builder(applicationContext)
+  .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
+  .openDefaultConnection();
 ```
 **Note**: any place with a reference to Application context is ok to use for initialization, but it must happen before a database is accessed. During initialization default db connection is opened, db schema is created and migration scripts are executed - no other hidden runtime performance costs.
  
@@ -452,7 +454,7 @@ Bugs and Feedback
 License
 --------
 
-    Copyright 2017 Siim Kinks
+    Copyright 2018 Siim Kinks
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
