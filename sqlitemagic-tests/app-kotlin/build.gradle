@@ -40,10 +40,10 @@ android {
 
 dependencies {
   implementation libraries.kotlinStdLib
-  implementation libraries.supportSqliteFramework
-  implementation libraries.supportV7
   implementation libraries.rxJava2
   implementation libraries.rxJava2Extensions
+  implementation libraries.supportSqliteFramework
+  implementation libraries.supportV7
 
   kapt libraries.sqlitemagicProcessorKotlin
 

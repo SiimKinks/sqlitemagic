@@ -7,6 +7,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.annotation.internal.Invokes;
+import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 
@@ -16,6 +17,7 @@ import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_COLUMN_FOR
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_NAME;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_NR_OF_TABLES;
+import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_SUBMODULE_NAMES;
 
 /**
  * Internal utility functions.
@@ -25,15 +27,22 @@ public final class SqlUtil {
     throw new AssertionError("no instances");
   }
 
+  @NonNull
   @Invokes(INVOCATION_METHOD_CLEAR_DATA)
+  public static StringArraySet clearData(SupportSQLiteDatabase db) {
+    // filled with magic
+    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
+  }
+
   @Nullable
-  public static String[] clearData(SupportSQLiteDatabase db) {
+  @Invokes(INVOCATION_METHOD_GET_SUBMODULE_NAMES)
+  public static String[] getSubmoduleNames() {
     // filled with magic
     throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }
 
   @Invokes(INVOCATION_METHOD_GET_NR_OF_TABLES)
-  public static int getNrOfTables() {
+  public static int getNrOfTables(@Nullable String moduleName) {
     // filled with magic
     throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }

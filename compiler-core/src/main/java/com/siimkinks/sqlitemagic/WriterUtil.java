@@ -209,12 +209,13 @@ public class WriterUtil {
 
   public static MethodSpec buildSqlTransactionMethod(MethodSpec.Builder methodBuilder,
                                                      CodeBlock sqlTransactionBody) {
-    return buildSqlTransactionMethod(methodBuilder, sqlTransactionBody, null);
+    return buildSqlTransactionMethod(methodBuilder, sqlTransactionBody, null, false);
   }
 
   public static MethodSpec buildSqlTransactionMethod(MethodSpec.Builder methodBuilder,
                                                      CodeBlock sqlTransactionBody,
-                                                     @Nullable CodeBlock returnBody) {
+                                                     @Nullable CodeBlock returnBody,
+                                                     boolean throwError) {
     methodBuilder
         .addModifiers(Const.STATIC_METHOD_MODIFIERS)
         .addParameter(SUPPORT_SQLITE_DATABASE, "db")
@@ -225,8 +226,12 @@ public class WriterUtil {
     if (returnBody != null) {
       methodBuilder.addCode(returnBody);
     }
-    return methodBuilder.nextControlFlow("catch (Exception e)")
-        .addStatement("$L $T.logError(e, \"Error while executing db transaction\")", IF_LOGGING_ENABLED, LOG_UTIL)
+    methodBuilder.nextControlFlow("catch (Exception e)");
+    methodBuilder.addStatement("$L $T.logError(e, \"Error while executing db transaction\")", IF_LOGGING_ENABLED, LOG_UTIL);
+    if (throwError) {
+      methodBuilder.addStatement("throw e");
+    }
+    return methodBuilder
         .nextControlFlow("finally")
         .addStatement("db.endTransaction()")
         .endControlFlow()
@@ -416,10 +421,11 @@ public class WriterUtil {
 
   public static CodeBlock entityDbManagerVariableFromDbConnection(TableElement tableElement) {
     return CodeBlock.builder()
-        .addStatement("final $T $L = $L.getEntityDbManager($L)",
+        .addStatement("final $T $L = $L.getEntityDbManager($S, $L)",
             ENTITY_DB_MANAGER,
             MANAGER_VARIABLE,
             DB_CONNECTION_VARIABLE,
+            tableElement.getEnvironment().getModuleName(),
             tableElement.getTablePos())
         .build();
   }

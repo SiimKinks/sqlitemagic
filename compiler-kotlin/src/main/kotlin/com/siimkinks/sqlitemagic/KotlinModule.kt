@@ -6,7 +6,7 @@ import dagger.Provides
 import java.io.File
 import javax.inject.Singleton
 
-@Module(injects = arrayOf(ModelExtensionsGenerationStep::class), complete = false)
+@Module(injects = [ModelExtensionsGenerationStep::class], complete = false)
 open class KotlinModule(private val generatedSourceTargetDir: File) {
   @Provides
   @Singleton

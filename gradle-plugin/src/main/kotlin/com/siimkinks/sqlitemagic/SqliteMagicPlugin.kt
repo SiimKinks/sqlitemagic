@@ -11,6 +11,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.DependencyResolutionListener
 import org.gradle.api.artifacts.DependencySet
 import org.gradle.api.artifacts.ResolvableDependencies
+import org.gradle.api.tasks.compile.JavaCompile
 
 const val VERSION = "0.18.0-SNAPSHOT"
 
@@ -23,11 +24,15 @@ class SqliteMagicPlugin : Plugin<Project> {
       when (it) {
         is AppPlugin -> {
           val androidExtension = project.extensions.getByType(AppExtension::class.java)
-          configureAndroid(project, sqlitemagic, androidExtension, androidExtension.applicationVariants)
+          val variants = androidExtension.applicationVariants
+          configureAptArgs(project, sqlitemagic, variants)
+          configureAndroid(project, sqlitemagic, androidExtension, variants)
         }
         is LibraryPlugin -> {
           val androidExtension = project.extensions.getByType(LibraryExtension::class.java)
-          configureAndroid(project, sqlitemagic, androidExtension, androidExtension.libraryVariants)
+          val variants = androidExtension.libraryVariants
+          configureAptArgs(project, sqlitemagic, variants)
+          configureAndroid(project, sqlitemagic, androidExtension, variants)
         }
       }
     }
@@ -69,13 +74,22 @@ class SqliteMagicPlugin : Plugin<Project> {
       override fun afterResolve(dependencies: ResolvableDependencies?) {
       }
     })
+  }
 
-    project.afterEvaluate {
-      System.setProperty("SQLITE_MAGIC_GENERATE_LOGGING", sqlitemagic.generateLogging.toString())
-      System.setProperty("SQLITE_MAGIC_AUTO_LIB", sqlitemagic.autoValueAnnotation)
-      System.setProperty("SQLITE_MAGIC_K_PUBLIC_EXTENSIONS", sqlitemagic.publicKotlinExtensionFunctions.toString())
-      System.setProperty("PROJECT_DIR", project.projectDir.toString())
+  private fun <T : BaseVariant> configureAptArgs(project: Project,
+                                                 sqlitemagic: SqliteMagicPluginExtension,
+                                                 variants: DomainObjectSet<T>) {
+    variants.all {
+      it.addAptArg("sqlitemagic.generate.logging", sqlitemagic.generateLogging)
+      it.addAptArg("sqlitemagic.auto.lib", sqlitemagic.autoValueAnnotation)
+      it.addAptArg("sqlitemagic.kotlin.public.extensions", sqlitemagic.publicKotlinExtensionFunctions)
+      it.addAptArg("sqlitemagic.project.dir", project.projectDir)
     }
+  }
+
+  private fun BaseVariant.addAptArg(name: String, value: Any) {
+    javaCompileOptions.annotationProcessorOptions.arguments[name] = value.toString()
+    javaCompile().options.compilerArgs.add("-A$name=$value")
   }
 
   private fun <T : BaseVariant> configureAndroid(project: Project,
@@ -126,8 +140,8 @@ class SqliteMagicPlugin : Plugin<Project> {
           }
         }
       }
-      System.setProperty("SQLITE_MAGIC_DB_VERSION", dbVersion)
-      System.setProperty("SQLITE_MAGIC_DB_NAME", dbName)
+      variant.addAptArg("sqlitemagic.db.version", dbVersion)
+      variant.addAptArg("sqlitemagic.db.name", dbName)
     }
     variant.javaCompiler.dependsOn(configTask)
   }
@@ -158,3 +172,8 @@ fun Project.hasAnyPlugin(vararg pluginIds: String): Boolean = pluginIds
     .asSequence()
     .mapNotNull(this.plugins::findPlugin)
     .firstOrNull() != null
+
+fun BaseVariant.javaCompile(): JavaCompile {
+  val javaCompiler = javaCompiler
+  return javaCompiler as? JavaCompile ?: javaCompile
+}

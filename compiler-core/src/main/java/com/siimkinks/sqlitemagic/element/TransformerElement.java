@@ -21,6 +21,7 @@ import javax.lang.model.type.TypeMirror;
 
 import lombok.Getter;
 
+import static com.siimkinks.sqlitemagic.Const.DEFAULT_TRANSFORMERS;
 import static com.siimkinks.sqlitemagic.WriterUtil.typeNameForGenerics;
 
 public class TransformerElement {
@@ -135,6 +136,10 @@ public class TransformerElement {
 
   public String getTypeKey() {
     return deserializedType.getTypeKey();
+  }
+
+  public boolean isDefaultTransformer() {
+    return DEFAULT_TRANSFORMERS.contains(serializedTypeTransformerClassName.toString());
   }
 
   public String getQualifiedSerializedName() {

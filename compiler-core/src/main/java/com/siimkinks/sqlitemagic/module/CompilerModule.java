@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.module;
 
 import com.siimkinks.sqlitemagic.Environment;
+import com.siimkinks.sqlitemagic.processing.DatabaseConfigurationCollectionStep;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
 import com.siimkinks.sqlitemagic.processing.ModelCodeGenerationStep;
 import com.siimkinks.sqlitemagic.processing.ModelCollectionStep;
@@ -16,6 +17,7 @@ import dagger.Provides;
 
 @Module(
     injects = {
+        DatabaseConfigurationCollectionStep.class,
         TransformerCollectionStep.class,
         TransformerCodeGenerationStep.class,
         ModelCollectionStep.class,

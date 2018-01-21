@@ -56,6 +56,7 @@ public final class NameConst {
   public static final String METHOD_PERSIST = "persist";
   public static final String METHOD_INTERNAL_PERSIST = "internalPersist";
   public static final String METHOD_INTERNAL_PERSIST_IGNORING_NULL_VALUES = "internalPersistIgnoringNullValues";
+  public static final String METHOD_COLUMN_FOR_VALUE_OR_NULL = "columnForValueOrNull";
   public static final String METHOD_CALL_INTERNAL_PERSIST_ON_COMPLEX_COLUMNS = "callInternalPersistsOnComplexColumns";
   public static final String METHOD_CALL_INTERNAL_PERSIST_IGNORING_NULL_VALUES_ON_COMPLEX_COLUMNS = "callInternalPersistsIgnoringNullValuesOnComplexColumns";
   public static final String METHOD_CALL_INTERNAL_INSERT_ON_COMPLEX_COLUMNS = "callInternalInsertsOnComplexColumns";

@@ -31,5 +31,12 @@ task wrapper(type: Wrapper) {
 
 task runUnitTests(dependsOn: [
     'app:testDebugUnitTest',
-    'app-kotlin:testDebugUnitTest'
+    'app-kotlin:testDebugUnitTest',
+    'multimodule-app:testDebugUnitTest',
+    'submodule:testDebugUnitTest'
+])
+
+task runAndroidTests(dependsOn: [
+    'app:connectedDebugAndroidTest',
+    'multimodule-app:connectedDebugAndroidTest'
 ])

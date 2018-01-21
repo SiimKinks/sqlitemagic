@@ -12,6 +12,7 @@ import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -147,7 +148,7 @@ public final class ColumnClassWriter {
             notNullParameter(ParameterizedTypeName.get(TABLE, parentTableType), "table"),
             notNullParameter(String.class, "name"),
             notNullParameter(VALUE_PARSER, "valueParser"),
-            nullableParameter(TypeName.BOOLEAN, "nullable"),
+            ParameterSpec.builder(TypeName.BOOLEAN, "nullable").build(),
             nullableParameter(STRING, "alias")
         ))
         .addStatement("super(table, name, false, valueParser, nullable, alias)")

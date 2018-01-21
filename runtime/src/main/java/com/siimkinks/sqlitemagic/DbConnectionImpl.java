@@ -6,7 +6,9 @@ import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.sqlite.SQLiteTransactionListener;
 import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.Collections;
@@ -18,6 +20,7 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
 
 import static com.siimkinks.sqlitemagic.SqlUtil.getNrOfTables;
+import static com.siimkinks.sqlitemagic.SqlUtil.getSubmoduleNames;
 
 /**
  * Note: some parts are forked from <a href="https://github.com/square/sqlbrite">sqlbrite</a>
@@ -30,6 +33,8 @@ public class DbConnectionImpl implements DbConnection {
   final Scheduler queryScheduler;
 
   final EntityDbManager[] entityDbManagers;
+  @Nullable
+  final SimpleArrayMap<String, EntityDbManager[]> submoduleEntityDbManagers;
   final ThreadLocal<SqliteTransaction> transactions = new ThreadLocal<>();
   /**
    * Publishes sets of tables which have changed.
@@ -87,7 +92,24 @@ public class DbConnectionImpl implements DbConnection {
   DbConnectionImpl(@NonNull SupportSQLiteOpenHelper dbHelper, @NonNull Scheduler queryScheduler) {
     this.dbHelper = dbHelper;
     this.queryScheduler = queryScheduler;
-    final int nrOfTables = getNrOfTables();
+    final String[] submoduleNames = getSubmoduleNames();
+    if (submoduleNames != null) {
+      final int submodulesCount = submoduleNames.length;
+      final SimpleArrayMap<String, EntityDbManager[]> submoduleEntityDbManagers = new SimpleArrayMap<>(submodulesCount);
+      for (int i = 0; i < submodulesCount; i++) {
+        final String submoduleName = submoduleNames[i];
+        final int nrOfTables = getNrOfTables(submoduleName);
+        final EntityDbManager[] cachedEntityData = new EntityDbManager[nrOfTables];
+        for (int j = 0; j < nrOfTables; j++) {
+          cachedEntityData[j] = new EntityDbManager(this);
+        }
+        submoduleEntityDbManagers.put(submoduleName, cachedEntityData);
+      }
+      this.submoduleEntityDbManagers = submoduleEntityDbManagers;
+    } else {
+      this.submoduleEntityDbManagers = null;
+    }
+    final int nrOfTables = getNrOfTables("");
     final EntityDbManager[] cachedEntityData = new EntityDbManager[nrOfTables];
     for (int i = 0; i < nrOfTables; i++) {
       cachedEntityData[i] = new EntityDbManager(this);
@@ -123,7 +145,7 @@ public class DbConnectionImpl implements DbConnection {
 
   @Override
   public final void clearData() {
-    final String[] triggers = SqlUtil.clearData(getWritableDatabase());
+    final StringArraySet triggers = SqlUtil.clearData(getWritableDatabase());
     if (triggers != null) {
       sendTableTriggers(triggers);
     }
@@ -139,8 +161,15 @@ public class DbConnectionImpl implements DbConnection {
 
   @NonNull
   @CheckResult
-  public final EntityDbManager getEntityDbManager(int tablePos) {
-    return entityDbManagers[tablePos];
+  public final EntityDbManager getEntityDbManager(@Nullable String moduleName, int tablePos) {
+    if (moduleName == null) {
+      return entityDbManagers[tablePos];
+    }
+    final SimpleArrayMap<String, EntityDbManager[]> submoduleEntityDbManagers = this.submoduleEntityDbManagers;
+    if (submoduleEntityDbManagers == null) {
+      throw new IllegalStateException("No submodules configured");
+    }
+    return submoduleEntityDbManagers.get(moduleName)[tablePos];
   }
 
   SupportSQLiteStatement compileStatement(@NonNull final String sql) {

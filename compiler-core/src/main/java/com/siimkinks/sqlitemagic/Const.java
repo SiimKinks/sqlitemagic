@@ -5,7 +5,6 @@ import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
 import com.siimkinks.sqlitemagic.transformer.BooleanTransformer;
-import com.siimkinks.sqlitemagic.transformer.DateTransformer;
 import com.squareup.javapoet.TypeName;
 
 import java.util.Arrays;
@@ -191,7 +190,6 @@ public class Const {
   public static final List<String> DEFAULT_TRANSFORMERS = new LinkedList<String>() {
     {
       add(BooleanTransformer.class.getCanonicalName());
-      add(DateTransformer.class.getCanonicalName());
     }
   };
 

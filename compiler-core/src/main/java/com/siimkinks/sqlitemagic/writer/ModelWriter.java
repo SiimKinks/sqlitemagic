@@ -33,6 +33,7 @@ public class ModelWriter {
   public static final String INSERT_STATEMENT_VARIABLE = "insertStm";
   public static final String UPDATE_STATEMENT_VARIABLE = "updateStm";
   public static final String OPERATION_HELPER_VARIABLE = "opHelper";
+  public static final String MODULE_NAME_VARIABLE = "moduleName";
   @NonNull
   private final Environment environment;
 

@@ -3,11 +3,14 @@ package com.siimkinks.sqlitemagic;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.annotation.Column;
+import com.siimkinks.sqlitemagic.annotation.Database;
+import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.View;
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
 import com.siimkinks.sqlitemagic.module.CompilerModule;
+import com.siimkinks.sqlitemagic.processing.DatabaseConfigurationCollectionStep;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
 import com.siimkinks.sqlitemagic.processing.ModelCodeGenerationStep;
 import com.siimkinks.sqlitemagic.processing.ModelCollectionStep;
@@ -19,6 +22,7 @@ import com.siimkinks.sqlitemagic.processing.ViewCollectionStep;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -30,11 +34,6 @@ import javax.lang.model.element.TypeElement;
 import dagger.ObjectGraph;
 
 public class BaseProcessor extends AbstractProcessor {
-  public static final String KEY_SQLITE_MAGIC_AUTO_LIB = "SQLITE_MAGIC_AUTO_LIB";
-  public static final String KEY_SQLITE_MAGIC_GENERATE_LOGGING = "SQLITE_MAGIC_GENERATE_LOGGING";
-  public static final String KEY_SQLITE_MAGIC_K_PUBLIC_EXTENSIONS = "SQLITE_MAGIC_K_PUBLIC_EXTENSIONS";
-  public static final String KEY_SQLITE_MAGIC_DB_VERSION = "SQLITE_MAGIC_DB_VERSION";
-  public static final String KEY_SQLITE_MAGIC_DB_NAME = "SQLITE_MAGIC_DB_NAME";
   public static boolean GENERATE_LOGGING = false;
   public static boolean PUBLIC_EXTENSIONS = false;
   static ObjectGraph objectGraph;
@@ -49,6 +48,8 @@ public class BaseProcessor extends AbstractProcessor {
   @Override
   public Set<String> getSupportedAnnotationTypes() {
     return ImmutableSet.of(
+        Database.class.getCanonicalName(),
+        SubmoduleDatabase.class.getCanonicalName(),
         Table.class.getCanonicalName(),
         Column.class.getCanonicalName(),
         ObjectToDbValue.class.getCanonicalName(),
@@ -67,9 +68,10 @@ public class BaseProcessor extends AbstractProcessor {
         env.getFiler()
     );
     objectGraph = createObjectGraph(env);
-    initSettingsFromGradlePlugin(environment);
+    parseCompilerArguments(environment, env.getOptions());
     processingSteps = ImmutableSet.<ProcessingStep>builder()
         .addAll(Arrays.asList(
+            new DatabaseConfigurationCollectionStep(),
             new TransformerCollectionStep(),
             new TransformerCodeGenerationStep(),
             new ModelCollectionStep(),
@@ -83,25 +85,29 @@ public class BaseProcessor extends AbstractProcessor {
     Const.init(environment);
   }
 
-  private void initSettingsFromGradlePlugin(Environment environment) {
-    String publicExtensions = System.getProperty(KEY_SQLITE_MAGIC_K_PUBLIC_EXTENSIONS);
+  private void parseCompilerArguments(Environment environment, Map<String, String> options) {
+    String publicExtensions = options.get("sqlitemagic.kotlin.public.extensions");
     if (publicExtensions != null) {
       PUBLIC_EXTENSIONS = Boolean.valueOf(publicExtensions);
     }
-    String generateLogging = System.getProperty(KEY_SQLITE_MAGIC_GENERATE_LOGGING);
+    String generateLogging = options.get("sqlitemagic.generate.logging");
     if (generateLogging != null) {
       GENERATE_LOGGING = Boolean.valueOf(generateLogging);
     }
-    String sqliteMagicAutoLib = System.getProperty(KEY_SQLITE_MAGIC_AUTO_LIB);
+    String sqliteMagicAutoLib = options.get("sqlitemagic.auto.lib");
     if (Strings.isNullOrEmpty(sqliteMagicAutoLib)) {
       sqliteMagicAutoLib = "com.google.auto.value.AutoValue";
     }
     environment.setAutoValueLib(sqliteMagicAutoLib);
-    String dbVersion = System.getProperty(KEY_SQLITE_MAGIC_DB_VERSION);
+    final String projectDir = options.get("sqlitemagic.project.dir");
+    if (Strings.isNullOrEmpty(projectDir)) {
+      environment.setProjectDir(projectDir);
+    }
+    String dbVersion = options.get("sqlitemagic.db.version");
     if (!Strings.isNullOrEmpty(dbVersion)) {
       environment.setDbVersion(dbVersion);
     }
-    String dbName = System.getProperty(KEY_SQLITE_MAGIC_DB_NAME);
+    String dbName = options.get("sqlitemagic.db.name");
     if (!Strings.isNullOrEmpty(dbVersion)) {
       environment.setDbName(dbName);
     }

@@ -8,7 +8,16 @@ import javax.annotation.processing.ProcessingEnvironment
 import javax.annotation.processing.SupportedOptions
 import javax.tools.Diagnostic
 
-@SupportedOptions("kapt.kotlin.generated", "generate.kotlin.code")
+@SupportedOptions(
+    "kapt.kotlin.generated",
+    "generate.kotlin.code",
+    "sqlitemagic.generate.logging",
+    "sqlitemagic.auto.lib",
+    "sqlitemagic.kotlin.public.extensions",
+    "sqlitemagic.project.dir",
+    "sqlitemagic.db.version",
+    "sqlitemagic.db.name"
+)
 class SqliteMagicProcessor : BaseProcessor() {
   override fun createObjectGraph(env: ProcessingEnvironment): ObjectGraph {
     val generatedSourceTargetDir = checkNotNull(env.options["kapt.kotlin.generated"]) {

@@ -9,6 +9,7 @@ import org.gradle.api.Project
 import org.gradle.api.ProjectConfigurationException
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.compile.AbstractCompile
+import org.gradle.api.tasks.compile.CompileOptions
 import org.zeroturnaround.zip.ZipUtil
 import java.io.File
 import java.util.*
@@ -137,18 +138,19 @@ class SqliteMagicTransform(
    * Classpath getting from Retrolambda
    */
   private fun classpath(context: Context, outputDir: File, referencedInputs: Collection<TransformInput>): FileCollection {
-    val variant = getVariant(context, outputDir) ?: throw ProjectConfigurationException("Missing variant for output dir: $outputDir", null)
+    val variant = getVariant(context, outputDir)
+        ?: throw ProjectConfigurationException("Missing variant for output dir: $outputDir", null)
 
-    var classpathFiles = variant.javaCompile.classpath
+    var classpathFiles = variant.javaCompile().classpath
     for (input in referencedInputs) {
       classpathFiles += project.files(*input.directoryInputs.map(DirectoryInput::getFile).toTypedArray())
     }
 
     // bootClasspath isn't set until the last possible moment because it's expensive to look
     // up the android sdk path.
-    val bootClasspath = variant.javaCompile.options.bootClasspath
+    val bootClasspath = variant.javaCompile().options.bootClasspath(project)
     if (bootClasspath != null) {
-      classpathFiles += project.files(*bootClasspath.split(File.pathSeparator).toTypedArray())
+      classpathFiles += bootClasspath
     } else {
       // If this is null it means the javaCompile task didn't need to run, however, we still
       // need to run but can't without the bootClasspath. Just fail and ask the user to rebuild.
@@ -187,9 +189,21 @@ class SqliteMagicTransform(
     return null
   }
 
+  private fun CompileOptions.bootClasspath(project: Project): FileCollection? {
+    try {
+      bootstrapClasspath?.let { return it }
+    } catch (e: NoSuchMethodError) {
+      val bootClasspath = bootClasspath
+      if (bootClasspath != null) {
+        return project.files(*bootClasspath.split(File.pathSeparator).toTypedArray())
+      }
+    }
+    return null
+  }
+
   fun putJavaCompileTask(variant: BaseVariant) {
     variants.add(variant)
-    javaCompileTasks.put(Pair(variant.flavorName, variant.buildType.name), variant.javaCompile)
+    javaCompileTasks[variant.flavorName to variant.buildType.name] = variant.javaCompile()
   }
 
   override fun getScopes(): MutableSet<QualifiedContent.Scope> =

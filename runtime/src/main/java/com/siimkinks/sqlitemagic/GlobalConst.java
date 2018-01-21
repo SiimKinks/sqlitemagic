@@ -9,6 +9,7 @@ public final class GlobalConst {
   public static final String METHOD_GET_DB_VERSION = "getDbVersion";
   public static final String METHOD_GET_DB_NAME = "getDbName";
   public static final String METHOD_CONFIGURE_DATABASE = "configureDatabase";
+  public static final String METHOD_GET_SUBMODULE_NAMES = "getSubmoduleNames";
   public static final String METHOD_GET_NR_OF_TABLES = "getNrOfTables";
   public static final String METHOD_COLUMN_FOR_VALUE = "columnForValue";
 
@@ -17,6 +18,7 @@ public final class GlobalConst {
   public static final String INVOCATION_METHOD_GET_DB_VERSION = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_DB_VERSION;
   public static final String INVOCATION_METHOD_GET_DB_NAME = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_DB_NAME;
   public static final String INVOCATION_METHOD_CONFIGURE_DATABASE = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_CONFIGURE_DATABASE;
+  public static final String INVOCATION_METHOD_GET_SUBMODULE_NAMES = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_SUBMODULE_NAMES;
   public static final String INVOCATION_METHOD_GET_NR_OF_TABLES = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_NR_OF_TABLES;
   public static final String INVOCATION_METHOD_COLUMN_FOR_VALUE = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_COLUMN_FOR_VALUE;
 

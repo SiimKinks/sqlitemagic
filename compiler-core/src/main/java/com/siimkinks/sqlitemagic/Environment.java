@@ -1,9 +1,11 @@
 package com.siimkinks.sqlitemagic;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.common.Visibility;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
@@ -55,6 +57,8 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
+import static com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_GENERATED_CLASSES_MANAGER;
+
 @Data
 public class Environment {
 
@@ -87,9 +91,20 @@ public class Environment {
   @Setter(AccessLevel.PRIVATE)
   private Class<? extends Annotation> autoValueBuilderAnnotation;
   @Getter
+  @Setter
+  private String projectDir;
+  @Getter
   private Integer dbVersion;
   @Getter
   private String dbName;
+  @Getter
+  @Setter
+  @Nullable
+  private String moduleName = null;
+  @Getter
+  @Setter
+  @Nullable
+  private List<Dual<TypeElement, String>> submoduleDatabases = null;
 
   private boolean processingFailed = false;
 
@@ -146,6 +161,26 @@ public class Environment {
 
   public void warning(String msg, Object... args) {
     messager.printMessage(Diagnostic.Kind.WARNING, "SqliteMagic: " + String.format(msg, args));
+  }
+
+  public boolean isSubmodule() {
+    return !Strings.isNullOrEmpty(moduleName);
+  }
+
+  public boolean hasSubmodules() {
+    return submoduleDatabases != null && !submoduleDatabases.isEmpty();
+  }
+
+  public String getGenClassesManagerClassName() {
+    return getGenClassesManagerClassName(moduleName);
+  }
+
+  public static String getGenClassesManagerClassName(String moduleName) {
+    final String className = CLASS_NAME_GENERATED_CLASSES_MANAGER;
+    if (!Strings.isNullOrEmpty(moduleName)) {
+      return moduleName + className;
+    }
+    return className;
   }
 
   public TableElement getTableElementFor(String qualifiedTypeName) {

@@ -36,9 +36,9 @@ import static com.siimkinks.sqlitemagic.WriterUtil.DISPOSABLES;
 import static com.siimkinks.sqlitemagic.WriterUtil.LOG_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.OPERATION_FAILED_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQLITE_MAGIC;
-import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.SQL_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.TRANSACTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.addTableTriggersSendingStatement;
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
@@ -355,7 +355,13 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
     @Override
     public String call(ParameterSpec param, ColumnElement columnElement) {
       if (DB_CONNECTION_VARIABLE.equals(param.name)) {
-        return param.name + ".getEntityDbManager(" + columnElement.getReferencedTable().getTablePos() + ")";
+        final TableElement referencedTable = columnElement.getReferencedTable();
+        return param.name +
+            ".getEntityDbManager(" +
+            referencedTable.getEnvironment().getModuleName() +
+            ", " +
+            referencedTable.getTablePos() +
+            ")";
       }
       return param.name;
     }
