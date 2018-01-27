@@ -31,6 +31,11 @@ public class DefaultColumn implements Column {
   }
 
   @Override
+  public String belongsToIndex() {
+    return "";
+  }
+
+  @Override
   public Class<? extends Annotation> annotationType() {
     return Column.class;
   }

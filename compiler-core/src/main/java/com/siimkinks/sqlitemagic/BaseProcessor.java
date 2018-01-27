@@ -4,6 +4,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Database;
+import com.siimkinks.sqlitemagic.annotation.Index;
 import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.View;
@@ -12,6 +13,7 @@ import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
 import com.siimkinks.sqlitemagic.module.CompilerModule;
 import com.siimkinks.sqlitemagic.processing.DatabaseConfigurationCollectionStep;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
+import com.siimkinks.sqlitemagic.processing.IndexCollectionStep;
 import com.siimkinks.sqlitemagic.processing.ModelCodeGenerationStep;
 import com.siimkinks.sqlitemagic.processing.ModelCollectionStep;
 import com.siimkinks.sqlitemagic.processing.ProcessingStep;
@@ -54,7 +56,8 @@ public class BaseProcessor extends AbstractProcessor {
         Column.class.getCanonicalName(),
         ObjectToDbValue.class.getCanonicalName(),
         DbValueToObject.class.getCanonicalName(),
-        View.class.getCanonicalName()
+        View.class.getCanonicalName(),
+        Index.class.getCanonicalName()
     );
   }
 
@@ -78,6 +81,7 @@ public class BaseProcessor extends AbstractProcessor {
             new ModelCodeGenerationStep(),
             new ViewCollectionStep(),
             new ViewCodeGenerationStep(),
+            new IndexCollectionStep(),
             new GenClassesManagerStep()
         ))
         .addAll(processingSteps())

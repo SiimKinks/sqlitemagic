@@ -1,9 +1,11 @@
 package com.siimkinks.sqlitemagic.writer;
 
+import com.google.common.base.Joiner;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
+import com.siimkinks.sqlitemagic.element.IndexElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
@@ -47,7 +49,7 @@ import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CLEAR_DATA;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_COLUMN_FOR_VALUE;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CONFIGURE_DATABASE;
-import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CREATE_TABLES;
+import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CREATE_SCHEMA;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_NAME;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_NR_OF_TABLES;
@@ -163,11 +165,12 @@ public class GenClassesManagerWriter {
   }
 
   private MethodSpec databaseSchemaCreator(Environment environment, GenClassesManagerStep managerStep, String className) {
-    final MethodSpec.Builder method = createMagicInvokableMethod(className, METHOD_CREATE_TABLES);
+    final MethodSpec.Builder method = createMagicInvokableMethod(className, METHOD_CREATE_SCHEMA);
     final CodeBlock.Builder sqlTransactionBody = CodeBlock.builder();
     addSubmoduleSchemasIfNeeded(environment, sqlTransactionBody);
     sqlTransactionBody.add(buildSchemaCreations(environment));
     sqlTransactionBody.add(buildViewSchemaCreations(managerStep));
+    sqlTransactionBody.add(buildIndicesCreations(managerStep));
     return WriterUtil.buildSqlTransactionMethod(method, sqlTransactionBody.build());
   }
 
@@ -177,7 +180,7 @@ public class GenClassesManagerWriter {
       public void call(TypeMirror type, String moduleName) {
         sqlTransactionBody.addStatement("$T.$L(db)",
             type,
-            METHOD_CREATE_TABLES);
+            METHOD_CREATE_SCHEMA);
       }
     });
   }
@@ -194,15 +197,36 @@ public class GenClassesManagerWriter {
 
   private CodeBlock buildViewSchemaCreations(GenClassesManagerStep managerStep) {
     final CodeBlock.Builder builder = CodeBlock.builder();
-    addDebugLogging(builder, "Creating views");
     final List<ViewElement> allViewElements = managerStep.getAllViewElements();
-    for (ViewElement viewElement : allViewElements) {
-      final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
-      builder.addStatement("$T.createView(db, $T.$L, $S)",
-          SQL_UTIL,
-          viewDao,
-          FIELD_VIEW_QUERY,
-          viewElement.getViewName());
+    if (!allViewElements.isEmpty()) {
+      addDebugLogging(builder, "Creating views");
+      for (ViewElement viewElement : allViewElements) {
+        final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
+        builder.addStatement("$T.createView(db, $T.$L, $S)",
+            SQL_UTIL,
+            viewDao,
+            FIELD_VIEW_QUERY,
+            viewElement.getViewName());
+      }
+    }
+    return builder.build();
+  }
+
+  private CodeBlock buildIndicesCreations(GenClassesManagerStep managerStep) {
+    final CodeBlock.Builder builder = CodeBlock.builder();
+    final List<IndexElement> allIndexElements = managerStep.getAllIndexElements();
+    if (!allIndexElements.isEmpty()) {
+      addDebugLogging(builder, "Creating indices");
+      for (IndexElement indexElement : allIndexElements) {
+        builder.add("db.execSQL(\"CREATE ");
+        if (indexElement.isUnique()) {
+          builder.add("UNIQUE ");
+        }
+        builder.add("INDEX IF NOT EXISTS $L ON $L ($L)\");\n",
+            indexElement.getIndexName(),
+            indexElement.getTableName(),
+            Joiner.on(",").join(indexElement.getIndexedColumnNames()));
+      }
     }
     return builder.build();
   }

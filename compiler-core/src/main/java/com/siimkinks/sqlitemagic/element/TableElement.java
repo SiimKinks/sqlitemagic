@@ -104,7 +104,7 @@ public class TableElement {
     this.environment = environment;
     this.tableElement = (TypeElement) tableElement;
     this.tableAnnotation = tableElement.getAnnotation(Table.class);
-    this.modelPackage = environment.getPackage(tableElement);
+    this.modelPackage = Environment.getPackage(tableElement);
     this.tableName = determineTableName(tableElement.getSimpleName().toString(), tableAnnotation.value());
     tableElementTypeName = Environment.getTypeName(this.tableElement);
     collectImmutableObjectMetadataIfNeeded(environment, this.tableElement);

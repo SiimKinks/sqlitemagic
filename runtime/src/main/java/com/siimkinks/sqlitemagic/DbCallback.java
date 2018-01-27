@@ -14,7 +14,7 @@ import java.io.InputStreamReader;
 
 import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_PROCESSOR_DID_NOT_RUN;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CONFIGURE_DATABASE;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CREATE_TABLES;
+import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CREATE_SCHEMA;
 
 final class DbCallback extends SupportSQLiteOpenHelper.Callback {
 
@@ -25,7 +25,7 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
     this.context = context;
   }
 
-  @Invokes(INVOCATION_METHOD_CREATE_TABLES)
+  @Invokes(INVOCATION_METHOD_CREATE_SCHEMA)
   @Override
   public void onCreate(SupportSQLiteDatabase db) {
     // filled with magic

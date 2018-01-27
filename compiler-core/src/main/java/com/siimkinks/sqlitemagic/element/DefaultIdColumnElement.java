@@ -11,6 +11,7 @@ import com.squareup.javapoet.TypeName;
 import java.util.HashSet;
 import java.util.Set;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 
 import lombok.Data;
@@ -26,7 +27,6 @@ import static com.siimkinks.sqlitemagic.Const.DEFAULT_ID_SCHEMA;
 @Data
 @EqualsAndHashCode(of = {"columnName"}, callSuper = false)
 public final class DefaultIdColumnElement extends ColumnElement {
-
   private final TypeName typeName = TypeName.LONG;
   private final Environment environment;
   private final TableElement enclosingTable;
@@ -56,6 +56,11 @@ public final class DefaultIdColumnElement extends ColumnElement {
   private DefaultIdColumnElement(Environment environment, TableElement enclosingTable) {
     this.environment = environment;
     this.enclosingTable = enclosingTable;
+  }
+
+  @Override
+  public Element getColumnElement() {
+    return environment.getTypeElement(Long.class);
   }
 
   @Override

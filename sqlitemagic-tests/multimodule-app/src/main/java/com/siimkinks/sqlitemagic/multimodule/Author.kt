@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.multimodule
 
 import com.siimkinks.sqlitemagic.Utils
 import com.siimkinks.sqlitemagic.annotation.Id
+import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 import java.util.*
 
@@ -9,6 +10,7 @@ import java.util.*
 data class Author(
     @Id val id: Long? = null,
     val firstName: String,
+    @Index
     val lastName: String,
     val booksWritten: Int,
     val active: Boolean

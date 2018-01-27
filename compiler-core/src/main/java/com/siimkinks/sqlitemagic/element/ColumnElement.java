@@ -14,6 +14,7 @@ import com.squareup.javapoet.TypeName;
 
 import java.util.Set;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.PrimitiveType;
@@ -33,6 +34,8 @@ import static com.siimkinks.sqlitemagic.WriterUtil.typeNameForGenerics;
  * @author Siim Kinks
  */
 public abstract class ColumnElement implements BaseColumnElement {
+  public abstract Element getColumnElement();
+
   public abstract String getColumnName();
 
   public abstract TableElement getReferencedTable();

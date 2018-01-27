@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.module;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.processing.DatabaseConfigurationCollectionStep;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
+import com.siimkinks.sqlitemagic.processing.IndexCollectionStep;
 import com.siimkinks.sqlitemagic.processing.ModelCodeGenerationStep;
 import com.siimkinks.sqlitemagic.processing.ModelCollectionStep;
 import com.siimkinks.sqlitemagic.processing.TransformerCodeGenerationStep;
@@ -25,6 +26,7 @@ import dagger.Provides;
         GenClassesManagerStep.class,
         ViewCollectionStep.class,
         ViewCodeGenerationStep.class,
+        IndexCollectionStep.class,
     },
     library = true
 )

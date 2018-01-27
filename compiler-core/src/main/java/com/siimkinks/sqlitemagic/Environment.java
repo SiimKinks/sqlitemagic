@@ -13,6 +13,7 @@ import com.google.common.collect.SetMultimap;
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
+import com.siimkinks.sqlitemagic.element.IndexElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
@@ -77,6 +78,7 @@ public class Environment {
   private final Map<String, TableElement> tableElements = new HashMap<>();
   private final Map<String, TableElement> tableElementsByTableName = new HashMap<>();
   private final Map<String, ViewElement> viewElements = new HashMap<>();
+  private final List<IndexElement> indexElements = new ArrayList<>();
   private final Map<String, TransformerElement> transformerElements = new HashMap<>();
 
   @Getter
@@ -140,6 +142,7 @@ public class Environment {
   public void clear() {
     tableElements.clear();
     viewElements.clear();
+    indexElements.clear();
     transformerElements.clear();
   }
 
@@ -231,6 +234,14 @@ public class Environment {
 
   public TransformerElement getTransformerFor(ExtendedTypeElement element) {
     return transformerElements.get(element.getTypeKey());
+  }
+
+  public void addIndexElement(IndexElement indexElement) {
+    indexElements.add(indexElement);
+  }
+
+  public List<IndexElement> getIndexElements() {
+    return indexElements;
   }
 
   public TypeElement getTypeElement(Element element) {

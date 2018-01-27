@@ -1,9 +1,10 @@
 package com.siimkinks.sqlitemagic.processing;
 
-import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.BaseProcessor;
-import com.siimkinks.sqlitemagic.element.ViewElement;
+import com.siimkinks.sqlitemagic.Environment;
+import com.siimkinks.sqlitemagic.element.IndexElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
+import com.siimkinks.sqlitemagic.element.ViewElement;
 import com.siimkinks.sqlitemagic.validator.TransformerValidator;
 import com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter;
 
@@ -20,9 +21,6 @@ import javax.lang.model.element.TypeElement;
 
 import lombok.Getter;
 
-/**
- * @author Siim Kinks
- */
 public class GenClassesManagerStep implements ProcessingStep {
 
   @Inject
@@ -35,6 +33,8 @@ public class GenClassesManagerStep implements ProcessingStep {
   private final Map<String, TransformerElement> allTransformerElements = new HashMap<>();
   @Getter
   private final List<ViewElement> allViewElements = new ArrayList<>();
+  @Getter
+  private final List<IndexElement> allIndexElements = new ArrayList<>();
 
   public GenClassesManagerStep() {
     BaseProcessor.inject(this);
@@ -57,6 +57,7 @@ public class GenClassesManagerStep implements ProcessingStep {
 
   private void collectGeneratedData() {
     allViewElements.addAll(environment.getViewElements());
+    allIndexElements.addAll(environment.getIndexElements());
     allTransformerElements.putAll(environment.getTransformerElements());
   }
 }

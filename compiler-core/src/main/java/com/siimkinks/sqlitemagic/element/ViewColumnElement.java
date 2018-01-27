@@ -55,7 +55,7 @@ public final class ViewColumnElement implements BaseColumnElement {
     return builder()
         .environment(environment)
         .element(element)
-        .columnName(MethodColumnElement.getColumnName(element, annotationValue))
+        .columnName(MethodColumnElement.determineColumnName(element, annotationValue))
         .complex(allFromTable)
         .methodName(methodName)
         .getterString(methodName + "()")

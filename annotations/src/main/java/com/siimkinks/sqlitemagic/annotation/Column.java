@@ -52,4 +52,11 @@ public @interface Column {
    * @return True if system should access model fields with access methods, false if not.
    */
   boolean useAccessMethods() default false;
+
+  /**
+   * Define a composite index name where this column belongs to.
+   *
+   * @return The name of the composite index where this column belongs to
+   */
+  String belongsToIndex() default "";
 }

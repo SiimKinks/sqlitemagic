@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Define UNIQUE constraint on column.
+ * Define a UNIQUE constraint on column.
  * <p>
  * A single table may have any number of UNIQUE constraints. For each UNIQUE constraint
  * on the table, each row must contain a unique combination of values in the columns

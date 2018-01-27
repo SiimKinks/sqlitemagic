@@ -32,7 +32,6 @@ import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(of = {"columnName"}, callSuper = false)
 public class FieldColumnElement extends ColumnElement {
-
   private final Environment environment;
   private final VariableElement columnElement;
   private final Set<Modifier> modifiers;
@@ -75,7 +74,7 @@ public class FieldColumnElement extends ColumnElement {
         .transformer(transformer)
         .referencedTable(referencedTable)
         .elementName(fieldName)
-        .columnName(getColumnName(columnElement, columnAnnotation))
+        .columnName(determineColumnName(columnElement, columnAnnotation))
         .getterString(getGetterString(columnAnnotation, enclosingTable, fieldName, deserializedType))
         .setterString(getSetterString(columnAnnotation, enclosingTable, fieldName))
         .nullable(determineNullability(deserializedType, columnElement))
@@ -110,7 +109,7 @@ public class FieldColumnElement extends ColumnElement {
     return fieldName;
   }
 
-  private static String getColumnName(VariableElement columnElement, Column columnAnnotation) {
+  private static String determineColumnName(VariableElement columnElement, Column columnAnnotation) {
     String columnName = columnAnnotation.value();
     if (Strings.isNullOrEmpty(columnName)) {
       return transformColumnName(columnElement);

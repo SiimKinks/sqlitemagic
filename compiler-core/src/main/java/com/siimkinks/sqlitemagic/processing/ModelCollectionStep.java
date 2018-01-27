@@ -25,7 +25,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 public class ModelCollectionStep implements ProcessingStep {
-
   @Inject
   Environment environment;
   @Inject

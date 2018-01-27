@@ -5,7 +5,6 @@ import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
-import com.siimkinks.sqlitemagic.annotation.transformer.Transformer;
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
 
@@ -87,8 +86,8 @@ public class TransformerValidator {
   }
 
   private static boolean isTransformerMethodValid(Environment environment,
-                                                 ExecutableElement method,
-                                                 ExecutableElement otherMethod) {
+                                                  ExecutableElement method,
+                                                  ExecutableElement otherMethod) {
     if (method.getParameters().size() != 1) {
       environment.error(method, "Transformer methods must have one parameter");
       return false;

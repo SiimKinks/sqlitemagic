@@ -29,7 +29,6 @@ import lombok.experimental.Builder;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(of = {"columnName"}, callSuper = false)
 public final class MethodColumnElement extends ColumnElement {
-
   private final Environment environment;
   private final ExecutableElement columnElement;
   private final Set<Modifier> modifiers;
@@ -76,14 +75,14 @@ public final class MethodColumnElement extends ColumnElement {
         .transformer(transformer)
         .referencedTable(referencedTable)
         .elementName(methodName)
-        .columnName(getColumnName(columnElement, columnAnnotation.value()))
+        .columnName(determineColumnName(columnElement, columnAnnotation.value()))
         .getterString(methodName + "()")
         .nullable(deserializedType.isPrimitiveElement() ? false : nullableAnnotation)
         .hasNullableAnnotation(nullableAnnotation)
         .build();
   }
 
-  static String getColumnName(ExecutableElement columnElement, String userDefinedColumnName) {
+  static String determineColumnName(ExecutableElement columnElement, String userDefinedColumnName) {
     String columnName = userDefinedColumnName;
     if (Strings.isNullOrEmpty(columnName)) {
       columnName = WriterUtil.nameWithoutJavaBeansPrefix(columnElement);

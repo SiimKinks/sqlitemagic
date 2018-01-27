@@ -17,7 +17,6 @@ import lombok.ToString;
 @ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
 public class Book extends BaseModel {
-
   public static final String TABLE = "book";
   public static final String C_BASE_ID = "book.base_id";
   public static final String C_AUTHOR = "book.author";
