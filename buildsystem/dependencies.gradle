@@ -15,7 +15,7 @@ ext {
   compileSdkVersion = 27
   targetSdkVersion = compileSdkVersion
 
-  androidGradleVersion = '3.0.1'
+  androidGradleVersion = '3.1.0-alpha09'
   androidSupportLibsVersion = '27.0.2'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.10'
@@ -32,16 +32,16 @@ ext {
   javassistVersion = '3.22.0-GA'
   junitVersion = '4.12'
   kotlinpoetVersion = '0.6.0'
-  kotlinVersion = '1.2.20'
+  kotlinVersion = '1.2.21'
   lombokVersion = '1.14.8' // do not increment!
   mockitoVersion = '2.8.9'
   mockitoKotlinVersion = '1.5.0'
   rxJavaMathVersion = '1.0.0'
-  rxJava2Version = '2.1.8'
+  rxJava2Version = '2.1.9'
   rxJava2ExtensionsVersion = '0.18.4'
   supportSqliteVersion = '1.0.0'
   supportTestRunnerVersion = '1.0.1'
-  truthVersion = '0.33'
+  truthVersion = '0.39'
   ztZipVersion = '1.9'
 
   libraries = [
