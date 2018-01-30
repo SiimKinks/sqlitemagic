@@ -370,27 +370,25 @@ public class PersistWriter implements OperationWriter {
     final String bindMethodName = hasAnyPersistedImmutableComplexColumns ? METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS : METHOD_BIND_TO_UPDATE_STATEMENT;
     builder.addCode(statementWithImmutableIdsIfNeeded(tableElement,
         "$T.$L($L, $L", daoClassName, bindMethodName, updateStmVariableName, ENTITY_VARIABLE));
-    if (!hasAnyPersistedImmutableComplexColumns) {
-      if (hasUniqueColumnsOtherThanId) {
-        builder.addStatement("$T.$L($L, $L, updateByColumn, $L)",
-            daoClassName,
-            METHOD_BIND_UNIQUE_COLUMN,
-            updateStmVariableName,
-            tableElement.getAllColumnsCount(),
-            ENTITY_VARIABLE);
+    if (hasUniqueColumnsOtherThanId) {
+      builder.addStatement("$T.$L($L, $L, updateByColumn, $L)",
+          daoClassName,
+          METHOD_BIND_UNIQUE_COLUMN,
+          updateStmVariableName,
+          tableElement.getAllColumnsCount(),
+          ENTITY_VARIABLE);
+    } else {
+      final CodeBlock.Builder bindIdBuilder = CodeBlock.builder()
+          .add("$L.bindLong($L, ",
+              updateStmVariableName,
+              tableElement.getAllColumnsCount());
+      if (!tableElement.getIdColumn().isNullable()) {
+        entityEnvironment.addInlineIdVariable(bindIdBuilder);
       } else {
-        final CodeBlock.Builder bindIdBuilder = CodeBlock.builder()
-            .add("$L.bindLong($L, ",
-                updateStmVariableName,
-                tableElement.getAllColumnsCount());
-        if (!tableElement.getIdColumn().isNullable()) {
-          entityEnvironment.addInlineIdVariable(bindIdBuilder);
-        } else {
-          bindIdBuilder.add("$L", idVariableName);
-        }
-        bindIdBuilder.add(");\n");
-        builder.addCode(bindIdBuilder.build());
+        bindIdBuilder.add("$L", idVariableName);
       }
+      bindIdBuilder.add(");\n");
+      builder.addCode(bindIdBuilder.build());
     }
   }
 

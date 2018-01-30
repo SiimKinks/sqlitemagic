@@ -22,7 +22,6 @@ import lombok.AllArgsConstructor;
 import lombok.experimental.Builder;
 
 import static com.siimkinks.sqlitemagic.BaseProcessor.GENERATE_LOGGING;
-import static com.siimkinks.sqlitemagic.Const.STATEMENT_METHOD_MAP;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.GlobalConst.FAILED_TO_UPDATE_ERR_MSG;
 import static com.siimkinks.sqlitemagic.WriterUtil.ENTITY_BULK_UPDATE_BUILDER;
@@ -144,15 +143,11 @@ public class UpdateWriter implements OperationWriter {
   }
 
   private MethodSpec bindToUpdateStatementWithComplexColumns() {
-    final boolean idColumnNullable = isIdColumnNullable();
     final MethodSpec.Builder builder = MethodSpec.methodBuilder(METHOD_BIND_TO_UPDATE_STATEMENT_WITH_COMPLEX_COLUMNS)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(SUPPORT_SQLITE_STATEMENT, "statement")
         .addParameter(tableElementTypeName, ENTITY_VARIABLE)
         .addStatement("statement.clearBindings()");
-    if (idColumnNullable) {
-      builder.addParameter(TypeName.LONG.box(), "id");
-    }
     addImmutableIdsParameterIfNeeded(builder, tableElement);
     int colPos = 1;
     int immutableIdColPos = 0;
@@ -165,18 +160,7 @@ public class UpdateWriter implements OperationWriter {
       }
       colPos++;
     }
-    if (idColumnNullable) {
-      addBindIdColumnToStatementBlock(builder, colPos);
-    } else {
-      addBindColumnToStatementBlock(builder, colPos, tableElement.getIdColumn());
-    }
     return builder.build();
-  }
-
-  private void addBindIdColumnToStatementBlock(MethodSpec.Builder builder, int colPos) {
-    final ColumnElement idColumn = tableElement.getIdColumn();
-    final String bindMethod = STATEMENT_METHOD_MAP.get(idColumn.getSerializedType().getQualifiedName());
-    builder.addStatement("statement.$L($L, id)", bindMethod, colPos);
   }
 
   private void addUpdateMethodInternalCallOnComplexColumnsIfNeeded(TypeSpec.Builder daoClassBuilder) {
