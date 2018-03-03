@@ -5,7 +5,6 @@ import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.IndexElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
-import com.siimkinks.sqlitemagic.validator.TransformerValidator;
 import com.siimkinks.sqlitemagic.writer.GenClassesManagerWriter;
 
 import java.io.IOException;
@@ -27,8 +26,6 @@ public class GenClassesManagerStep implements ProcessingStep {
   Environment environment;
   @Inject
   GenClassesManagerWriter writer;
-  @Inject
-  TransformerValidator transformerValidator;
   @Getter
   private final Map<String, TransformerElement> allTransformerElements = new HashMap<>();
   @Getter

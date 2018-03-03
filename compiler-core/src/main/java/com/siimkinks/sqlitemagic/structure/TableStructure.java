@@ -17,9 +17,13 @@ import lombok.ToString;
 @NoArgsConstructor
 public final class TableStructure implements Serializable {
   String name;
+  String schema;
   ArrayList<ColumnStructure> columns;
 
   public static TableStructure create(TableElement tableElement, ArrayList<ColumnStructure> columns) {
-    return new TableStructure(tableElement.getTableName(), columns);
+    return new TableStructure(
+        tableElement.getTableName(),
+        tableElement.getSchema(),
+        columns);
   }
 }

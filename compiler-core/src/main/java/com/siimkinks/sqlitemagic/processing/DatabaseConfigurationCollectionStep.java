@@ -67,7 +67,7 @@ public class DatabaseConfigurationCollectionStep implements ProcessingStep {
         environment.setDbName("\"" + dbName + "\"");
       }
       final int version = database.version();
-      if (version >= 0) {
+      if (version >= 0 && !environment.isDebugVariant()) {
         environment.setDbVersion(Integer.toString(version));
       }
     }

@@ -25,6 +25,7 @@ import static com.siimkinks.sqlitemagic.Const.CHAR_SEQUENCE_TYPE;
 import static com.siimkinks.sqlitemagic.Const.CURSOR_GETTER_CAST_MAP;
 import static com.siimkinks.sqlitemagic.Const.CURSOR_METHOD_MAP;
 import static com.siimkinks.sqlitemagic.Const.NUMBER_TYPE;
+import static com.siimkinks.sqlitemagic.Const.SQL_TYPE_DEFAULT_VALUE_MAP;
 import static com.siimkinks.sqlitemagic.WriterUtil.CHAR_SEQUENCE;
 import static com.siimkinks.sqlitemagic.WriterUtil.NUMBER;
 import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
@@ -203,6 +204,21 @@ public abstract class ColumnElement implements BaseColumnElement {
     return isHandledRecursively() && getColumnAnnotation().onDeleteCascade();
   }
 
+  public String getColumnDefaultValue() {
+    final Column columnAnnotation = getColumnAnnotation();
+    if (columnAnnotation != null) {
+      final String defaultValue = columnAnnotation.defaultValue();
+      if (!Strings.isNullOrEmpty(defaultValue)) {
+        return defaultValue;
+      }
+    }
+    if (isNullable()) {
+      return "NULL";
+    }
+    final String sqlType = getSqlType();
+    return SQL_TYPE_DEFAULT_VALUE_MAP.get(sqlType);
+  }
+
   public String getSchema() {
     StringBuilder schema = new StringBuilder(getColumnName());
     schema.append(" ")
@@ -215,6 +231,9 @@ public abstract class ColumnElement implements BaseColumnElement {
       }
     } else if (isUnique()) {
       schema.append(" UNIQUE");
+    } else {
+      schema.append(" DEFAULT ")
+          .append(getColumnDefaultValue());
     }
     if (isOnDeleteCascade()) {
       final TableElement referencedTable = getReferencedTable();

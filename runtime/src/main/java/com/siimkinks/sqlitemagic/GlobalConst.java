@@ -12,6 +12,7 @@ public final class GlobalConst {
   public static final String METHOD_GET_SUBMODULE_NAMES = "getSubmoduleNames";
   public static final String METHOD_GET_NR_OF_TABLES = "getNrOfTables";
   public static final String METHOD_COLUMN_FOR_VALUE = "columnForValue";
+  public static final String METHOD_IS_DEBUG = "isDebug";
 
   public static final String INVOCATION_METHOD_CREATE_SCHEMA = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_CREATE_SCHEMA;
   public static final String INVOCATION_METHOD_CLEAR_DATA = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_CLEAR_DATA;
@@ -21,6 +22,7 @@ public final class GlobalConst {
   public static final String INVOCATION_METHOD_GET_SUBMODULE_NAMES = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_SUBMODULE_NAMES;
   public static final String INVOCATION_METHOD_GET_NR_OF_TABLES = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_NR_OF_TABLES;
   public static final String INVOCATION_METHOD_COLUMN_FOR_VALUE = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_COLUMN_FOR_VALUE;
+  public static final String INVOCATION_METHOD_IS_DEBUG = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_IS_DEBUG;
 
   public static final String ERROR_PROCESSOR_DID_NOT_RUN = "Looks like SqliteMagic gradle plugin processor did not run. Please make sure that project is configured correctly";
   public static final String ERROR_UNSUBSCRIBED_UNEXPECTEDLY = "Subscriber unsubscribed unexpectedly";

@@ -96,6 +96,12 @@ public class Environment {
   @Setter
   private String projectDir;
   @Getter
+  @Setter
+  private boolean debugVariant;
+  @Getter
+  @Setter
+  private String variantDirName;
+  @Getter
   private Integer dbVersion;
   @Getter
   private String dbName;
@@ -160,6 +166,10 @@ public class Environment {
 
   public void debug(Element e, String msg, Object... args) {
     messager.printMessage(Diagnostic.Kind.OTHER, String.format(msg, args), e);
+  }
+
+  public void debug(String msg, Object... args) {
+    messager.printMessage(Diagnostic.Kind.OTHER, String.format(msg, args));
   }
 
   public void warning(String msg, Object... args) {

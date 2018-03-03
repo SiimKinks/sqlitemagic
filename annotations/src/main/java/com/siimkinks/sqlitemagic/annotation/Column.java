@@ -23,6 +23,21 @@ public @interface Column {
   String value() default "";
 
   /**
+   * Column default value.<br>
+   * When not defined defaults to SQL type default value:
+   * <ul>
+   * <li>TEXT -- ""</li>
+   * <li>INTEGER -- 0</li>
+   * <li>REAL -- 0.0</li>
+   * <li>BLOB -- 0</li>
+   * </ul>
+   * Or if column is nullable then defaults to NULL.
+   *
+   * @return Column default value.
+   */
+  String defaultValue() default "";
+
+  /**
    * Define if non-primitive field should be handled recursively, meaning that its values
    * are persisted/retrieved in full extent. If set to false, only its {@link Id} annotated
    * field is persisted/retrieved.<br>

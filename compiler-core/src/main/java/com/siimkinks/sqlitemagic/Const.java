@@ -84,6 +84,15 @@ public class Const {
     }
   };
 
+  public static final Map<String, String> SQL_TYPE_DEFAULT_VALUE_MAP = new HashMap<String, String>() {
+    {
+      put("TEXT", "''");
+      put("INTEGER", "0");
+      put("REAL", "0.0");
+      put("BLOB", "0");
+    }
+  };
+
   public static final Map<String, String> CURSOR_GETTER_CAST_MAP = new HashMap<String, String>() {
     {
       put(byte.class.getCanonicalName(), "(byte)");

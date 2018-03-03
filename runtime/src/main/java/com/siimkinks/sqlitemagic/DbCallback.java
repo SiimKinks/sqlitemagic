@@ -46,15 +46,25 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
       final AssetManager assets = context.getAssets();
       for (int i = oldVersion; i < newVersion; i++) {
         final String fileName = (i + 1) + ".sql";
-        if (SqliteMagic.LOGGING_ENABLED) {
-          LogUtil.logDebug("Executing script %s", fileName);
+        BufferedReader bfr = null;
+        try {
+          bfr = new BufferedReader(new InputStreamReader(assets.open(fileName)));
+          if (SqliteMagic.LOGGING_ENABLED) {
+            LogUtil.logDebug("Executing script %s", fileName);
+          }
+          String sql;
+          while ((sql = bfr.readLine()) != null) {
+            db.execSQL(sql);
+          }
+        } catch (Throwable e) {
+          if (!SqlUtil.isDebug()) {
+            throw new IOException("Missing migration script for version " + i);
+          }
+        } finally {
+          if (bfr != null) {
+            bfr.close();
+          }
         }
-        final BufferedReader bfr = new BufferedReader(new InputStreamReader(assets.open(fileName)));
-        String sql;
-        while ((sql = bfr.readLine()) != null) {
-          db.execSQL(sql);
-        }
-        bfr.close();
       }
     } catch (IOException ioe) {
       LogUtil.logError("Error executing upgrade scripts");

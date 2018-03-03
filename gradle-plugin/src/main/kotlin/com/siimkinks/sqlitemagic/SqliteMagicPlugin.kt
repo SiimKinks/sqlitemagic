@@ -12,8 +12,10 @@ import org.gradle.api.artifacts.DependencyResolutionListener
 import org.gradle.api.artifacts.DependencySet
 import org.gradle.api.artifacts.ResolvableDependencies
 import org.gradle.api.tasks.compile.JavaCompile
+import java.io.File
 
 const val VERSION = "0.19.0-SNAPSHOT"
+const val DB_TASK_GROUP = "db"
 
 class SqliteMagicPlugin : Plugin<Project> {
   override fun apply(project: Project) {
@@ -84,12 +86,10 @@ class SqliteMagicPlugin : Plugin<Project> {
       it.addAptArg("sqlitemagic.auto.lib", sqlitemagic.autoValueAnnotation)
       it.addAptArg("sqlitemagic.kotlin.public.extensions", sqlitemagic.publicKotlinExtensionFunctions)
       it.addAptArg("sqlitemagic.project.dir", project.projectDir)
+      it.addAptArg("sqlitemagic.variant.dir.name", it.dirName)
+      it.addAptArg("sqlitemagic.variant.debug", it.debug)
+      it.addDebugDbVersion(project)
     }
-  }
-
-  private fun BaseVariant.addAptArg(name: String, value: Any) {
-    javaCompileOptions.annotationProcessorOptions.arguments[name] = value.toString()
-    javaCompile().options.compilerArgs.add("-A$name=$value")
   }
 
   private fun <T : BaseVariant> configureAndroid(project: Project,
@@ -116,9 +116,9 @@ class SqliteMagicPlugin : Plugin<Project> {
   private fun <T : BaseVariant> T.configureVariant(transform: SqliteMagicTransform, project: Project) {
     transform.putJavaCompileTask(this)
     addConfigVariantDbTask(project, this)
-    addMigrationTask(project, this)
   }
 
+  // FIXME remove?
   private fun addConfigVariantDbTask(project: Project, variant: BaseVariant) {
     val configTask = project.task("config${variant.name.capitalize()}Db").doFirst {
       var dbVersion = "1"
@@ -140,14 +140,30 @@ class SqliteMagicPlugin : Plugin<Project> {
           }
         }
       }
-      variant.addAptArg("sqlitemagic.db.version", dbVersion)
       variant.addAptArg("sqlitemagic.db.name", dbName)
+      if (!variant.debug) {
+        variant.addAptArg("sqlitemagic.db.version", dbVersion)
+      }
     }
+    configTask.group = DB_TASK_GROUP
     variant.javaCompiler.dependsOn(configTask)
   }
 
-  private fun addMigrationTask(project: Project, variant: BaseVariant) {
-    // TODO implement
+  private fun <T : BaseVariant> T.addDebugDbVersion(project: Project) {
+    if (debug) {
+      val dbDir = File(project.projectDir, "db")
+      val debugVersionFile = File(dbDir, "latest_debug.version")
+      val debugDbVersion = when {
+        debugVersionFile.exists() -> debugVersionFile.readLines().last().toInt()
+        else -> 0
+      }.inc()
+      addAptArg("sqlitemagic.db.version", debugDbVersion)
+
+      if (!dbDir.exists()) {
+        dbDir.mkdirs()
+      }
+      debugVersionFile.writeText(debugDbVersion.toString())
+    }
   }
 
   private fun ensureJavaVersion(javaVersion: JavaVersion) {
@@ -173,7 +189,15 @@ fun Project.hasAnyPlugin(vararg pluginIds: String): Boolean = pluginIds
     .mapNotNull(this.plugins::findPlugin)
     .firstOrNull() != null
 
+private fun BaseVariant.addAptArg(name: String, value: Any) {
+  javaCompileOptions.annotationProcessorOptions.arguments[name] = value.toString()
+  javaCompile().options.compilerArgs.add("-A$name=$value")
+}
+
 fun BaseVariant.javaCompile(): JavaCompile {
   val javaCompiler = javaCompiler
   return javaCompiler as? JavaCompile ?: javaCompile
 }
+
+val BaseVariant.debug: Boolean
+  get() = buildType.name == "debug"

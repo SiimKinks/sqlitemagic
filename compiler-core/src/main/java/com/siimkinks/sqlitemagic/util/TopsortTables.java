@@ -20,6 +20,12 @@ public final class TopsortTables implements Iterable<TableElement> {
   @CheckResult
   public static TopsortTables sort(@NonNull Environment environment) {
     final List<TableElement> allTableElements = environment.getAllTableElements();
+    return sort(environment, allTableElements);
+  }
+
+  @NonNull
+  @CheckResult
+  public static TopsortTables sort(@NonNull Environment environment, List<TableElement> allTableElements) {
     final Map<String, Integer> tableNamesToPositions = environment.getAllTableNames();
     final ArrayList<Node> nodes = new ArrayList<>(allTableElements.size());
     for (TableElement element : allTableElements) {

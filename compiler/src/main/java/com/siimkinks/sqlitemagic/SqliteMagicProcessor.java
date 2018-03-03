@@ -10,6 +10,8 @@ import javax.annotation.processing.SupportedOptions;
     "sqlitemagic.auto.lib",
     "sqlitemagic.kotlin.public.extensions",
     "sqlitemagic.project.dir",
+    "sqlitemagic.variant.debug",
+    "sqlitemagic.variant.dir.name",
     "sqlitemagic.db.version",
     "sqlitemagic.db.name"
 })

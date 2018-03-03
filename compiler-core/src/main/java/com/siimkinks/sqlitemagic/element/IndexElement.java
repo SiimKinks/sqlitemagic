@@ -109,4 +109,19 @@ public class IndexElement {
     }
     return null;
   }
+
+  public String indexSQL() {
+    final StringBuilder sb = new StringBuilder("CREATE ");
+    if (isUnique()) {
+      sb.append("UNIQUE ");
+    }
+    sb.append("INDEX IF NOT EXISTS ")
+        .append(getIndexName())
+        .append(" ON ")
+        .append(getTableName())
+        .append(" (");
+    Joiner.on(',').appendTo(sb, getIndexedColumnNames());
+    sb.append(")");
+    return sb.toString();
+  }
 }

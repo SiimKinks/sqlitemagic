@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.writer;
 
 import android.support.annotation.NonNull;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
@@ -20,7 +19,6 @@ import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -442,18 +440,9 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
   // -------------------------------------------
 
   private FieldSpec schema(TableElement tableElement) {
-    List<String> columnDefinitions = new ArrayList<>();
-    for (ColumnElement columnElement : tableElement.getAllColumns()) {
-      String columnSchema = columnElement.getSchema();
-      if (!Strings.isNullOrEmpty(columnSchema)) {
-        columnDefinitions.add(columnSchema);
-      }
-    }
     return FieldSpec.builder(String.class, FIELD_TABLE_SCHEMA)
         .addModifiers(PUBLIC_STATIC_FINAL)
-        .initializer("\"CREATE TABLE IF NOT EXISTS $L ($L)\"",
-            tableElement.getTableName(),
-            Joiner.on(", ").join(columnDefinitions))
+        .initializer("$S", tableElement.getSchema())
         .build();
   }
 

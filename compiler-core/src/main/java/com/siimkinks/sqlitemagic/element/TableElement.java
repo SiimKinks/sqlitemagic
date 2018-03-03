@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.element;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.Environment;
@@ -235,6 +236,22 @@ public class TableElement {
       return FormatData.create(String.format("%s.%s", valueGetter, idColumn.valueGetter(null)));
     }
     return EntityEnvironment.idGetterFromDao(this, valueGetter);
+  }
+
+  public String getSchema() {
+    List<String> columnDefinitions = new ArrayList<>();
+    for (ColumnElement columnElement : getAllColumns()) {
+      String columnSchema = columnElement.getSchema();
+      if (!Strings.isNullOrEmpty(columnSchema)) {
+        columnDefinitions.add(columnSchema);
+      }
+    }
+    final StringBuilder sb = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
+    sb.append(tableName);
+    sb.append(" (");
+    Joiner.on(", ").appendTo(sb, columnDefinitions);
+    sb.append(')');
+    return sb.toString();
   }
 
   public int getAllColumnsCount() {

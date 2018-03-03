@@ -18,6 +18,7 @@ import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_NAM
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_NR_OF_TABLES;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_SUBMODULE_NAMES;
+import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_IS_DEBUG;
 
 /**
  * Internal utility functions.
@@ -61,6 +62,12 @@ public final class SqlUtil {
 
   @Invokes(INVOCATION_METHOD_COLUMN_FOR_VALUE)
   public static <V> Column<V, V, V, ?, NotNullable> columnForValue(@NonNull V val) {
+    // filled with magic
+    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
+  }
+
+  @Invokes(INVOCATION_METHOD_IS_DEBUG)
+  public static boolean isDebug() {
     // filled with magic
     throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }

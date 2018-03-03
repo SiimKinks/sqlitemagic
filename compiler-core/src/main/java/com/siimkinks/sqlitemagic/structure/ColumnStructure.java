@@ -20,12 +20,14 @@ public final class ColumnStructure implements Serializable {
   String name;
   boolean onDeleteCascade;
   String sqlType;
+  String schema;
 
   public static ColumnStructure create(ColumnElement columnElement) {
     return new ColumnStructure(columnElement.isId(),
         columnElement.isAutoincrementId(),
         columnElement.getColumnName(),
         columnElement.isOnDeleteCascade(),
-        ColumnElement.getSqlTypeFromTypeElement(columnElement.getSerializedType()));
+        ColumnElement.getSqlTypeFromTypeElement(columnElement.getSerializedType()),
+        columnElement.getSchema());
   }
 }

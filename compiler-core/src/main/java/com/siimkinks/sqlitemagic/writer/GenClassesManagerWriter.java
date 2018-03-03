@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.writer;
 
-import com.google.common.base.Joiner;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
@@ -10,12 +9,9 @@ import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
-import com.siimkinks.sqlitemagic.structure.ColumnStructure;
-import com.siimkinks.sqlitemagic.structure.TableStructure;
 import com.siimkinks.sqlitemagic.util.Callback2;
 import com.siimkinks.sqlitemagic.util.Dual;
 import com.siimkinks.sqlitemagic.util.FormatData;
-import com.siimkinks.sqlitemagic.util.JsonConfig;
 import com.siimkinks.sqlitemagic.util.TopsortTables;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -26,9 +22,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,7 +36,6 @@ import javax.inject.Singleton;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.tools.Diagnostic;
 
 import static com.siimkinks.sqlitemagic.Const.CLASS_MODIFIERS;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
@@ -54,6 +47,7 @@ import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_NAME;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_NR_OF_TABLES;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_SUBMODULE_NAMES;
+import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_IS_DEBUG;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.FROM;
 import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
@@ -72,6 +66,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.anyWildcardTypeName;
 import static com.siimkinks.sqlitemagic.WriterUtil.createMagicInvokableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.notNullParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.nullableParameter;
+import static com.siimkinks.sqlitemagic.structure.MigrationsHandler.handleMigrations;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_TABLE_SCHEMA;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_VIEW_QUERY;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_COLUMN_FOR_VALUE_OR_NULL;
@@ -103,35 +98,13 @@ public class GenClassesManagerWriter {
             .addMethod(columnForValue(environment, managerStep, className))
             .addMethod(dbVersion(environment, className))
             .addMethod(dbName(environment, className))
-            .addMethod(submoduleNames(environment, className));
+            .addMethod(submoduleNames(environment, className))
+            .addMethod(isDebug(environment, className));
       } else {
         classBuilder.addMethod(columnForValueOrNull(environment, managerStep, className));
       }
       WriterUtil.writeSource(filer, classBuilder.build(), PACKAGE_ROOT);
-      persistLatestStructure(environment);
-    }
-  }
-
-  private void persistLatestStructure(Environment environment) {
-    final List<TableElement> allTableElements = environment.getAllTableElements();
-    final HashMap<String, TableStructure> structure = new HashMap<>(allTableElements.size());
-    for (TableElement tableElement : allTableElements) {
-      final List<ColumnElement> allColumns = tableElement.getAllColumns();
-      final ArrayList<ColumnStructure> columns = new ArrayList<>(allColumns.size());
-      for (ColumnElement columnElement : allColumns) {
-        columns.add(ColumnStructure.create(columnElement));
-      }
-      structure.put(tableElement.getTableName(), TableStructure.create(tableElement, columns));
-    }
-    try {
-      final File latestStructDir = new File(environment.getProjectDir(), "db");
-      if (!latestStructDir.exists()) {
-        latestStructDir.mkdirs();
-      }
-      final File latestStructureFile = new File(latestStructDir, "latest.struct");
-      JsonConfig.OBJECT_MAPPER.writeValue(latestStructureFile, structure);
-    } catch (IOException e) {
-      environment.getMessager().printMessage(Diagnostic.Kind.WARNING, "Error persisting latest schema graph");
+      handleMigrations(environment, managerStep);
     }
   }
 
@@ -218,14 +191,7 @@ public class GenClassesManagerWriter {
     if (!allIndexElements.isEmpty()) {
       addDebugLogging(builder, "Creating indices");
       for (IndexElement indexElement : allIndexElements) {
-        builder.add("db.execSQL(\"CREATE ");
-        if (indexElement.isUnique()) {
-          builder.add("UNIQUE ");
-        }
-        builder.add("INDEX IF NOT EXISTS $L ON $L ($L)\");\n",
-            indexElement.getIndexName(),
-            indexElement.getTableName(),
-            Joiner.on(",").join(indexElement.getIndexedColumnNames()));
+        builder.addStatement("db.execSQL($S)", indexElement.indexSQL());
       }
     }
     return builder.build();
@@ -354,6 +320,14 @@ public class GenClassesManagerWriter {
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .returns(String.class)
         .addStatement("return $L", environment.getDbName())
+        .build();
+  }
+
+  private MethodSpec isDebug(Environment environment, String className) {
+    return createMagicInvokableMethod(className, METHOD_IS_DEBUG)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .returns(TypeName.BOOLEAN)
+        .addStatement("return $L", environment.isDebugVariant())
         .build();
   }
 

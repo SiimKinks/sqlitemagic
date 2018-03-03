@@ -16,6 +16,11 @@ public class DefaultColumn implements Column {
   }
 
   @Override
+  public String defaultValue() {
+    return "";
+  }
+
+  @Override
   public boolean handleRecursively() {
     return true;
   }

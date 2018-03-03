@@ -104,8 +104,16 @@ public class BaseProcessor extends AbstractProcessor {
     }
     environment.setAutoValueLib(sqliteMagicAutoLib);
     final String projectDir = options.get("sqlitemagic.project.dir");
-    if (Strings.isNullOrEmpty(projectDir)) {
+    if (!Strings.isNullOrEmpty(projectDir)) {
       environment.setProjectDir(projectDir);
+    }
+    final String debugVariant = options.get("sqlitemagic.variant.debug");
+    if (!Strings.isNullOrEmpty(debugVariant)) {
+      environment.setDebugVariant(Boolean.valueOf(debugVariant));
+    }
+    final String variantDirName = options.get("sqlitemagic.variant.dir.name");
+    if (!Strings.isNullOrEmpty(variantDirName)) {
+      environment.setVariantDirName(variantDirName);
     }
     String dbVersion = options.get("sqlitemagic.db.version");
     if (!Strings.isNullOrEmpty(dbVersion)) {
