@@ -27,12 +27,6 @@ class GenClassesManagerTest {
   }
 
   @Test
-  fun dbVersionFromAnnotation() {
-    assertThat(getDbVersion())
-        .isEqualTo(2)
-  }
-
-  @Test
   fun tableCountIsAddedForAllTableCount() {
     assertThat(getNrOfTables(null))
         .isEqualTo(3)

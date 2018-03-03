@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 0.19.0 _(2018-03-03)_
+---------------------------------
+
+* New: Add support for indices
+* New: Add automatic schema migration for tables and indices on main modules
+* Fix: Compilation bug with persist operation by column on complex models
+
 Version 0.18.0 _(2018-01-21)_
 ---------------------------------
 
