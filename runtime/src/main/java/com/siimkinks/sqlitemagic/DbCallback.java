@@ -14,22 +14,22 @@ import java.io.InputStreamReader;
 
 import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_PROCESSOR_DID_NOT_RUN;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CONFIGURE_DATABASE;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CREATE_SCHEMA;
 
 final class DbCallback extends SupportSQLiteOpenHelper.Callback {
 
   private final Context context;
+  @NonNull
+  private final DbDowngrader downgrader;
 
-  DbCallback(@NonNull Context context, int version) {
+  DbCallback(@NonNull Context context, int version, @NonNull DbDowngrader downgrader) {
     super(version);
     this.context = context;
+    this.downgrader = downgrader;
   }
 
-  @Invokes(INVOCATION_METHOD_CREATE_SCHEMA)
   @Override
   public void onCreate(SupportSQLiteDatabase db) {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
+    SqlUtil.createSchema(db);
   }
 
   // this method already runs in transaction
@@ -70,6 +70,11 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
       LogUtil.logError("Error executing upgrade scripts");
       throw new RuntimeException(ioe);
     }
+  }
+
+  @Override
+  public void onDowngrade(SupportSQLiteDatabase db, int oldVersion, int newVersion) {
+    downgrader.onDowngrade(db, oldVersion, newVersion);
   }
 
   @Invokes(INVOCATION_METHOD_CONFIGURE_DATABASE)

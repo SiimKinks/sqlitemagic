@@ -90,7 +90,7 @@ public final class SqliteMagic {
         name = getDbName();
       }
       final int version = getDbVersion();
-      final DbCallback dbCallback = new DbCallback(context, version);
+      final DbCallback dbCallback = new DbCallback(context, version, databaseSetupBuilder.downgrader);
       final Configuration configuration = Configuration
           .builder(context)
           .name(name)
@@ -129,6 +129,8 @@ public final class SqliteMagic {
     @Nullable
     Factory sqliteFactory;
     @NonNull
+    DbDowngrader downgrader = new DefaultDbDowngrader();
+    @NonNull
     Scheduler queryScheduler = Schedulers.io();
 
     DatabaseSetupBuilder(@NonNull Application context) {
@@ -163,6 +165,21 @@ public final class SqliteMagic {
     @CheckResult
     public DatabaseSetupBuilder sqliteFactory(@NonNull Factory factory) {
       this.sqliteFactory = factory;
+      return this;
+    }
+
+    /**
+     * Define a callback for database downgrading.
+     *
+     * @param downgrader Database downgrading callback.
+     * @return Database connection configuration builder
+     */
+    @CheckResult
+    public DatabaseSetupBuilder downgrader(@NonNull DbDowngrader downgrader) {
+      if (downgrader == null) {
+        throw new NullPointerException("Database downgrading callback cannot be null");
+      }
+      this.downgrader = downgrader;
       return this;
     }
 

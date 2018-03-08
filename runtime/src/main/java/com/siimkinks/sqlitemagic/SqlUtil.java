@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_PROCESSOR_DID_NOT_RUN;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CLEAR_DATA;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_COLUMN_FOR_VALUE;
+import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CREATE_SCHEMA;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_NAME;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_NR_OF_TABLES;
@@ -26,6 +27,12 @@ import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_IS_DEBUG;
 public final class SqlUtil {
   private SqlUtil() {
     throw new AssertionError("no instances");
+  }
+
+  @Invokes(INVOCATION_METHOD_CREATE_SCHEMA)
+  public static void createSchema(SupportSQLiteDatabase db) {
+    // filled with magic
+    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }
 
   @NonNull
