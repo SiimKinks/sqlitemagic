@@ -23,6 +23,20 @@ android {
       proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
     }
   }
+
+  flavorDimensions "mode"
+  productFlavors {
+    demo {
+      dimension "mode"
+    }
+    trial {
+      dimension "mode"
+    }
+    full {
+      dimension "mode"
+    }
+  }
+  
   lintOptions {
     abortOnError false
   }

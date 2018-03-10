@@ -111,9 +111,13 @@ public class BaseProcessor extends AbstractProcessor {
     if (!Strings.isNullOrEmpty(debugVariant)) {
       environment.setDebugVariant(Boolean.valueOf(debugVariant));
     }
-    final String variantDirName = options.get("sqlitemagic.variant.dir.name");
-    if (!Strings.isNullOrEmpty(variantDirName)) {
-      environment.setVariantDirName(variantDirName);
+    final String variantName = options.get("sqlitemagic.variant.name");
+    if (!Strings.isNullOrEmpty(variantName)) {
+      environment.setVariantName(variantName);
+    }
+    final String migrateDebug = options.get("sqlitemagic.migrate.debug");
+    if (!Strings.isNullOrEmpty(migrateDebug)) {
+      environment.setMigrateDebug(Boolean.valueOf(migrateDebug));
     }
     String dbVersion = options.get("sqlitemagic.db.version");
     if (!Strings.isNullOrEmpty(dbVersion)) {

@@ -425,7 +425,7 @@ public class WriterUtil {
             ENTITY_DB_MANAGER,
             MANAGER_VARIABLE,
             DB_CONNECTION_VARIABLE,
-            tableElement.getEnvironment().getModuleName(),
+            tableElement.getEnvironment().getSubmoduleName(),
             tableElement.getTablePos())
         .build();
   }

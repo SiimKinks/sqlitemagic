@@ -81,13 +81,13 @@ public class DatabaseConfigurationCollectionStep implements ProcessingStep {
       return false;
     }
     for (Element element : submoduleDatabaseElements) {
-      if (environment.getModuleName() == null) {
+      if (environment.getSubmoduleName() == null) {
         final SubmoduleDatabase submoduleDatabase = element.getAnnotation(SubmoduleDatabase.class);
         final String moduleName = submoduleDatabase.value();
         if (Strings.isNullOrEmpty(moduleName)) {
           environment.error(element, "Submodule name cannot be empty or null");
         }
-        environment.setModuleName(firstCharToUpperCase(moduleName));
+        environment.setSubmoduleName(firstCharToUpperCase(moduleName));
       } else {
         environment.error(element, ERR_SINGLE_SUBMODULE_DB_ALLOWED);
         return false;

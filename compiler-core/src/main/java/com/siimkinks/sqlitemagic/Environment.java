@@ -100,7 +100,10 @@ public class Environment {
   private boolean debugVariant;
   @Getter
   @Setter
-  private String variantDirName;
+  private String variantName;
+  @Getter
+  @Setter
+  private boolean migrateDebug = true;
   @Getter
   private Integer dbVersion;
   @Getter
@@ -108,7 +111,7 @@ public class Environment {
   @Getter
   @Setter
   @Nullable
-  private String moduleName = null;
+  private String submoduleName = null;
   @Getter
   @Setter
   @Nullable
@@ -177,7 +180,7 @@ public class Environment {
   }
 
   public boolean isSubmodule() {
-    return !Strings.isNullOrEmpty(moduleName);
+    return !Strings.isNullOrEmpty(submoduleName);
   }
 
   public boolean hasSubmodules() {
@@ -185,7 +188,7 @@ public class Environment {
   }
 
   public String getGenClassesManagerClassName() {
-    return getGenClassesManagerClassName(moduleName);
+    return getGenClassesManagerClassName(submoduleName);
   }
 
   public static String getGenClassesManagerClassName(String moduleName) {

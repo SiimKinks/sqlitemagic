@@ -44,31 +44,41 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
         LogUtil.logDebug("Executing upgrade scripts");
       }
       final AssetManager assets = context.getAssets();
+      final String[] submoduleNames = SqlUtil.getSubmoduleNames();
       for (int i = oldVersion; i < newVersion; i++) {
-        final String fileName = (i + 1) + ".sql";
-        BufferedReader bfr = null;
-        try {
-          bfr = new BufferedReader(new InputStreamReader(assets.open(fileName)));
-          if (SqliteMagic.LOGGING_ENABLED) {
-            LogUtil.logDebug("Executing script %s", fileName);
-          }
-          String sql;
-          while ((sql = bfr.readLine()) != null) {
-            db.execSQL(sql);
-          }
-        } catch (Throwable e) {
-          if (!SqlUtil.isDebug()) {
-            throw new IOException("Missing migration script for version " + i);
-          }
-        } finally {
-          if (bfr != null) {
-            bfr.close();
+        final int version = i + 1;
+        final String fileName = version + ".sql";
+        if (submoduleNames != null) {
+          final int submodulesCount = submoduleNames.length;
+          for (int j = 0; j < submodulesCount; j++) {
+            runMigrationScript(db, assets, submoduleNames[j] + fileName);
           }
         }
+        runMigrationScript(db, assets, fileName);
       }
     } catch (IOException ioe) {
       LogUtil.logError("Error executing upgrade scripts");
       throw new RuntimeException(ioe);
+    }
+  }
+
+  private void runMigrationScript(SupportSQLiteDatabase db, AssetManager assets, String fileName) throws IOException {
+    BufferedReader bfr = null;
+    try {
+      bfr = new BufferedReader(new InputStreamReader(assets.open(fileName)));
+      if (SqliteMagic.LOGGING_ENABLED) {
+        LogUtil.logDebug("Executing script %s", fileName);
+      }
+      String sql;
+      while ((sql = bfr.readLine()) != null) {
+        db.execSQL(sql);
+      }
+    } catch (Throwable e) {
+      // ignore
+    } finally {
+      if (bfr != null) {
+        bfr.close();
+      }
     }
   }
 

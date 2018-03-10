@@ -356,7 +356,7 @@ public class ModelPersistingGenerator implements ModelPartGenerator {
         final TableElement referencedTable = columnElement.getReferencedTable();
         return param.name +
             ".getEntityDbManager(" +
-            referencedTable.getEnvironment().getModuleName() +
+            referencedTable.getEnvironment().getSubmoduleName() +
             ", " +
             referencedTable.getTablePos() +
             ")";

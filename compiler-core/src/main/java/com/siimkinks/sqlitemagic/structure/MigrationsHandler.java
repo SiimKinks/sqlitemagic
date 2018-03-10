@@ -32,7 +32,10 @@ public final class MigrationsHandler {
   private final GenClassesManagerStep managerStep;
 
   public static void handleMigrations(Environment environment, GenClassesManagerStep managerStep) {
-    new MigrationsHandler(environment, managerStep).handleMigrations();
+    if (environment.isDebugVariant() && environment.isMigrateDebug()) {
+      new MigrationsHandler(environment, managerStep).handleMigrations();
+    }
+    // TODO handle non-debug migrations
   }
 
   private void handleMigrations() {
@@ -81,12 +84,7 @@ public final class MigrationsHandler {
     createIndices(from, to, changedTables, migrationStatements);
     // TODO migrate views -- drop all views?
 
-    if (environment.isSubmodule()) {
-      // TODO persist migration statements
-    } else {
-      // TODO read submodules statements
-      persistMigrationStatements(migrationStatements);
-    }
+    persistMigrationStatements(migrationStatements);
   }
 
   private Set<String> migrateTables(DatabaseStructure from, DatabaseStructure to, ArrayList<String> migrationStatements) {
@@ -255,12 +253,16 @@ public final class MigrationsHandler {
 
     final File assetsDir = new File(environment.getProjectDir(),
         "src" + File.separatorChar +
-            environment.getVariantDirName() + File.separatorChar +
+            environment.getVariantName() + File.separatorChar +
             "assets");
     if (!assetsDir.exists()) {
       assetsDir.mkdirs();
     }
-    final File migrationFile = new File(assetsDir, dbVersion + ".sql");
+    String migrationFileName = dbVersion + ".sql";
+    if (environment.isSubmodule()) {
+      migrationFileName = environment.getSubmoduleName() + migrationFileName;
+    }
+    final File migrationFile = new File(assetsDir, migrationFileName);
     try {
       Files.asCharSink(migrationFile, Charset.forName("UTF-8"))
           .writeLines(migrationStatements);

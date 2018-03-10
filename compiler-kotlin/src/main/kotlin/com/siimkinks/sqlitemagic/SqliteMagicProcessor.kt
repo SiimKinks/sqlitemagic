@@ -16,7 +16,8 @@ import javax.tools.Diagnostic
     "sqlitemagic.kotlin.public.extensions",
     "sqlitemagic.project.dir",
     "sqlitemagic.variant.debug",
-    "sqlitemagic.variant.dir.name",
+    "sqlitemagic.variant.name",
+    "sqlitemagic.migrate.debug",
     "sqlitemagic.db.version",
     "sqlitemagic.db.name"
 )

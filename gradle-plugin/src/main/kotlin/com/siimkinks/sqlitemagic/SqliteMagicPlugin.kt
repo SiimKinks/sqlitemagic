@@ -85,10 +85,11 @@ class SqliteMagicPlugin : Plugin<Project> {
       it.addAptArg("sqlitemagic.generate.logging", sqlitemagic.generateLogging)
       it.addAptArg("sqlitemagic.auto.lib", sqlitemagic.autoValueAnnotation)
       it.addAptArg("sqlitemagic.kotlin.public.extensions", sqlitemagic.publicKotlinExtensionFunctions)
+      it.addAptArg("sqlitemagic.migrate.debug", sqlitemagic.migrateDebugDatabase)
       it.addAptArg("sqlitemagic.project.dir", project.projectDir)
-      it.addAptArg("sqlitemagic.variant.dir.name", it.dirName)
+      it.addAptArg("sqlitemagic.variant.name", it.name)
       it.addAptArg("sqlitemagic.variant.debug", it.debug)
-      it.addDebugDbVersion(project)
+      it.addDebugDbVersion(project, sqlitemagic)
     }
   }
 
@@ -149,20 +150,24 @@ class SqliteMagicPlugin : Plugin<Project> {
     variant.javaCompiler.dependsOn(configTask)
   }
 
-  private fun <T : BaseVariant> T.addDebugDbVersion(project: Project) {
+  private fun <T : BaseVariant> T.addDebugDbVersion(project: Project, sqlitemagic: SqliteMagicPluginExtension) {
     if (debug) {
-      val dbDir = File(project.projectDir, "db")
-      val debugVersionFile = File(dbDir, "latest_debug.version")
+      val mainModulePath = sqlitemagic.mainModulePath
+      val baseDir = mainModulePath?.let(::File) ?: project.projectDir
+      val dbDir = File(baseDir, "db")
+      val debugVersionFile = File(dbDir, "latest_$name.version")
       val debugDbVersion = when {
         debugVersionFile.exists() -> debugVersionFile.readLines().last().toInt()
-        else -> 0
-      }.inc()
+        else -> 1000
+      }.run { if (mainModulePath == null) inc() else this }
       addAptArg("sqlitemagic.db.version", debugDbVersion)
 
-      if (!dbDir.exists()) {
-        dbDir.mkdirs()
+      if (mainModulePath == null) {
+        if (!dbDir.exists()) {
+          dbDir.mkdirs()
+        }
+        debugVersionFile.writeText(debugDbVersion.toString())
       }
-      debugVersionFile.writeText(debugDbVersion.toString())
     }
   }
 
