@@ -49,6 +49,9 @@ final class OperatorRunListQuery<T> implements ObservableOperator<List<T>, Query
       try {
         final Cursor cursor = query.rawQuery(true);
         if (cursor == null || isDisposed()) {
+          if (cursor != null) {
+            cursor.close();
+          }
           return;
         }
         final List<T> items;

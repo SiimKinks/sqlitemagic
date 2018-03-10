@@ -11,9 +11,9 @@ import com.siimkinks.sqlitemagic.internal.MutableInt;
 
 import java.util.Set;
 
-import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.MaybeOnSubscribe;
 import io.reactivex.Scheduler;
 import io.reactivex.functions.Function;
 
@@ -46,34 +46,38 @@ public abstract class Query<T> {
   }
 
   /**
-   * Creates {@link Observable} that when subscribed to executes this query against a database
-   * and emits query result to downstream only once.
+   * Creates {@link Maybe} that when subscribed to executes the query against a database
+   * and emits query result to downstream.
    * <p>
-   * The resulting observable will be empty if query result is {@code null}.
+   * The resulting stream will be empty if query result is {@code null}.
    * <dl>
    * <dt><b>Scheduler:</b></dt>
    * <dd>{@code run} does not operate by default on a particular {@link Scheduler}.</dd>
    * </dl>
    *
-   * @return Deferred {@link Observable} that when subscribed to executes the query and emits
+   * @return Deferred {@link Maybe} that when subscribed to executes the query and emits
    * its result to downstream
    * @see #runBlocking
    */
   @NonNull
   @CheckResult
-  public final Observable<T> run() {
-    return Observable.create(new ObservableOnSubscribe<T>() {
+  public final Maybe<T> run() {
+    return Maybe.create(new MaybeOnSubscribe<T>() {
       @Override
-      public void subscribe(ObservableEmitter<T> emitter) {
+      public void subscribe(MaybeEmitter<T> emitter) {
         final Cursor cursor = rawQuery(true);
         if (emitter.isDisposed()) {
+          if (cursor != null) {
+            cursor.close();
+          }
           return;
         }
         final T result = map(cursor);
         if (result != null) {
-          emitter.onNext(result);
+          emitter.onSuccess(result);
+        } else {
+          emitter.onComplete();
         }
-        emitter.onComplete();
       }
     });
   }
@@ -81,11 +85,11 @@ public abstract class Query<T> {
   /**
    * Executes this query against a database.
    *
-   * @param inStream
-   *     Whether query is executed in observable stream or synchronously
+   * @param inStream Whether query is executed in observable stream or synchronously
    * @return Query result, maybe {@code null}
    */
   @CallSuper
+  @Nullable
   Cursor rawQuery(boolean inStream) {
     if (inStream && dbConnection.transactions.get() != null) {
       throw new IllegalStateException("Cannot execute observable query in a transaction.");

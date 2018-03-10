@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import io.reactivex.Observable;
+import io.reactivex.Maybe;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
@@ -85,9 +85,9 @@ public final class QueryObserveTest {
   public void runListQueryInFlatMap() {
     final List<Author> expected = insertAuthors(3);
     final List<Author> result = selectAuthors.observe()
-        .flatMap(new Function<Query<List<Author>>, Observable<List<Author>>>() {
+        .flatMapMaybe(new Function<Query<List<Author>>, Maybe<List<Author>>>() {
           @Override
-          public Observable<List<Author>> apply(Query<List<Author>> listQuery) {
+          public Maybe<List<Author>> apply(Query<List<Author>> listQuery) {
             return listQuery.run();
           }
         })
@@ -103,9 +103,9 @@ public final class QueryObserveTest {
         .from(AUTHOR)
         .where(AUTHOR.NAME.is("asd"))
         .observe()
-        .flatMap(new Function<Query<List<Author>>, Observable<List<Author>>>() {
+        .flatMapMaybe(new Function<Query<List<Author>>, Maybe<List<Author>>>() {
           @Override
-          public Observable<List<Author>> apply(Query<List<Author>> query) {
+          public Maybe<List<Author>> apply(Query<List<Author>> query) {
             return query.run();
           }
         })
@@ -120,9 +120,9 @@ public final class QueryObserveTest {
     final Author result = selectAuthors
         .takeFirst()
         .observe()
-        .flatMap(new Function<Query<Author>, Observable<Author>>() {
+        .flatMapMaybe(new Function<Query<Author>, Maybe<Author>>() {
           @Override
-          public Observable<Author> apply(Query<Author> query) {
+          public Maybe<Author> apply(Query<Author> query) {
             return query.run();
           }
         })
@@ -139,9 +139,9 @@ public final class QueryObserveTest {
         .takeFirst()
         .observe()
         .take(1)
-        .flatMap(new Function<Query<Author>, Observable<Author>>() {
+        .flatMapMaybe(new Function<Query<Author>, Maybe<Author>>() {
           @Override
-          public Observable<Author> apply(Query<Author> query) {
+          public Maybe<Author> apply(Query<Author> query) {
             return query.run();
           }
         })
@@ -156,9 +156,9 @@ public final class QueryObserveTest {
   public void runCountQueryInFlatMap() {
     insertAuthors(3);
     final Long result = countAuthors.observe()
-        .flatMap(new Function<Query<Long>, Observable<Long>>() {
+        .flatMapMaybe(new Function<Query<Long>, Maybe<Long>>() {
           @Override
-          public Observable<Long> apply(Query<Long> query) {
+          public Maybe<Long> apply(Query<Long> query) {
             return query.run();
           }
         })
