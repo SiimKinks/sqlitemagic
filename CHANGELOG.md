@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+Version 0.20.0 _(2018-03-11)_
+---------------------------------
+
+* Breaking: Change `Query#run` return type from `Observable` to `Maybe`
+* New: Add automatic schema migration for tables and indices on submodules
+
 Version 0.19.1 _(2018-03-08)_
 ---------------------------------
 
