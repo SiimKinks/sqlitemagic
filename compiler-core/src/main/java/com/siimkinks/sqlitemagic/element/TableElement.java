@@ -23,7 +23,6 @@ import com.squareup.javapoet.TypeName;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,7 +34,6 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.util.Types;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -138,11 +136,12 @@ public class TableElement {
           allColumns,
           allMethods,
           tableElement.getSimpleName().toString());
-    } else if (isValidDataClass()) {
+    } else if (environment.isValidDataClass(tableElement.getEnclosedElements(), allColumns)) {
       immutable = true;
       valueWriter = DataClassWriter.create(environment,
           allColumns,
           allFields,
+          tableElement,
           this,
           tableElement.getSimpleName().toString());
     }
@@ -362,31 +361,9 @@ public class TableElement {
     return hasAnyNonIdNotNullableColumns;
   }
 
-  private boolean isValidDataClass() {
-    for (Element enclosedElement : tableElement.getEnclosedElements()) {
-      if (enclosedElement.getKind() == ElementKind.CONSTRUCTOR) {
-        ExecutableElement constructor = (ExecutableElement) enclosedElement;
-        final List<? extends VariableElement> constructorParams = constructor.getParameters();
-        if (constructorParams.size() != allColumns.size()) {
-          return false;
-        }
-        final Types typeUtils = environment.getTypeUtils();
-        final Iterator<ColumnElement> columnsIterator = allColumns.iterator();
-        for (VariableElement param : constructorParams) {
-          final ColumnElement column = columnsIterator.next();
-          if (!typeUtils.isSameType(param.asType(), column.getDeserializedType().getTypeMirror())) {
-            return false;
-          }
-        }
-        return true;
-      }
-    }
-    return false;
-  }
-
   public String getMethodNameForSettingField(String fieldName) {
     final String javaBeansMethodName = "set" + StringUtil.firstCharToUpperCase(fieldName);
-    int containingMethodPos = containsAnyMethod(fieldName, javaBeansMethodName);
+    int containingMethodPos = containsAnyMethod(environment, tableElement, fieldName, javaBeansMethodName);
     switch (containingMethodPos) {
       case 0:
         return fieldName;
@@ -397,18 +374,24 @@ public class TableElement {
     }
   }
 
-  public String getMethodNameForGettingField(String fieldName, boolean isPrimitiveBoolean) {
+  public static String getMethodNameForGettingField(Environment environment,
+                                                    TypeElement enclosingElement,
+                                                    String fieldName,
+                                                    boolean isPrimitiveBoolean) {
     final String capitalizedName = StringUtil.firstCharToUpperCase(fieldName);
     final String javaBeansMethodName = "get" + capitalizedName;
-    final String methodName = methodNameFor(fieldName, javaBeansMethodName);
+    final String methodName = methodNameFor(environment, enclosingElement, fieldName, javaBeansMethodName);
     if (methodName == null && isPrimitiveBoolean) {
-      return methodNameFor(fieldName, "is" + capitalizedName);
+      return methodNameFor(environment, enclosingElement, fieldName, "is" + capitalizedName);
     }
     return methodName;
   }
 
-  private String methodNameFor(String fieldName, String javaBeansMethodName) {
-    final int containingMethodPos = containsAnyMethod(fieldName, javaBeansMethodName);
+  private static String methodNameFor(Environment environment,
+                                      TypeElement enclosingElement,
+                                      String fieldName,
+                                      String javaBeansMethodName) {
+    final int containingMethodPos = containsAnyMethod(environment, enclosingElement, fieldName, javaBeansMethodName);
     switch (containingMethodPos) {
       case 0:
         return fieldName;
@@ -419,17 +402,22 @@ public class TableElement {
     }
   }
 
-  private int containsAnyMethod(String... methods) {
+  private static int containsAnyMethod(Environment environment,
+                                       TypeElement enclosingElement,
+                                       String... methods) {
     final int methodsCount = methods.length;
-    return containsAnyMethodRecursively(tableElement, methodsCount, methods);
+    return containsAnyMethodRecursively(environment, enclosingElement, methodsCount, methods);
   }
 
-  private int containsAnyMethodRecursively(TypeElement tableElement, int methodsCount, String[] methods) {
-    if (environment.isJavaBaseObject(tableElement.asType())) {
+  private static int containsAnyMethodRecursively(Environment environment,
+                                                  TypeElement enclosingElement,
+                                                  int methodsCount,
+                                                  String[] methods) {
+    if (environment.isJavaBaseObject(enclosingElement.asType())) {
       return -1;
     }
     String elementName;
-    for (Element e : tableElement.getEnclosedElements()) {
+    for (Element e : enclosingElement.getEnclosedElements()) {
       if (e.getKind() == ElementKind.METHOD) {
         elementName = e.getSimpleName().toString();
         for (int i = 0; i < methodsCount; i++) {
@@ -439,8 +427,8 @@ public class TableElement {
         }
       }
     }
-    Element superElement = environment.getTypeUtils().asElement(tableElement.getSuperclass());
-    return containsAnyMethodRecursively((TypeElement) superElement, methodsCount, methods);
+    Element superElement = environment.getTypeUtils().asElement(enclosingElement.getSuperclass());
+    return containsAnyMethodRecursively(environment, (TypeElement) superElement, methodsCount, methods);
   }
 
   public Set<TableElement> getAllTableTriggers() {

@@ -195,10 +195,10 @@ class UpdateTest : DSLTests {
         TABLE "author"
         SET ("name" to "asd")
         SET ("boxed_boolean" to "1")
-        SET ("_id" to "2")
+        SET ("id" to "2")
         SET ("primitive_boolean" to "0"))
         .isEqualTo(
-            sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,_id=?,primitive_boolean=? ",
+            sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
             nodeCount = 4,
             args = *arrayOf("asd", "1", "2", "0"))
 
@@ -223,7 +223,7 @@ class UpdateTest : DSLTests {
         SET (AUTHOR.ID to 2L)
         SET (AUTHOR.PRIMITIVE_BOOLEAN to false))
         .isEqualTo(
-            sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,_id=?,primitive_boolean=? ",
+            sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
             nodeCount = 4,
             args = *arrayOf("asd", "1", "2", "0"))
 
@@ -257,7 +257,7 @@ class UpdateTest : DSLTests {
         SET (AUTHOR.NAME to "asd")
         WHERE (AUTHOR.ID IS 2))
         .isEqualTo(
-            sql = "UPDATE author SET name=? WHERE author._id=? ",
+            sql = "UPDATE author SET name=? WHERE author.id=? ",
             nodeCount = 4,
             args = *arrayOf("asd", "2"))
 
@@ -268,7 +268,7 @@ class UpdateTest : DSLTests {
         SET (AUTHOR.BOXED_BOOLEAN to false)
         WHERE ((AUTHOR.ID IS 2) AND (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
-            sql = "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author._id=? AND author.name!=?) ",
+            sql = "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author.id=? AND author.name!=?) ",
             nodeCount = 5,
             args = *arrayOf("asd", "0", "2", "asd"))
 
@@ -278,7 +278,7 @@ class UpdateTest : DSLTests {
         SET (AUTHOR.BOXED_BOOLEAN to false)
         WHERE ((AUTHOR.ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
-            sql = "UPDATE author SET name=?,boxed_boolean=? WHERE (author._id=? OR author.name!=?) ",
+            sql = "UPDATE author SET name=?,boxed_boolean=? WHERE (author.id=? OR author.name!=?) ",
             nodeCount = 4,
             args = *arrayOf("asd", "0", "2", "asd"))
 
@@ -288,7 +288,7 @@ class UpdateTest : DSLTests {
         SET (AUTHOR.NAME to "asd")
         WHERE ((AUTHOR.ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
-            sql = "UPDATE  OR FAIL author SET name=? WHERE (author._id=? OR author.name!=?) ",
+            sql = "UPDATE  OR FAIL author SET name=? WHERE (author.id=? OR author.name!=?) ",
             nodeCount = 5,
             args = *arrayOf("asd", "2", "asd"))
 
@@ -303,7 +303,7 @@ class UpdateTest : DSLTests {
             AND (AUTHOR.PRIMITIVE_BOOLEAN IS false)
         ))
         .isEqualTo(
-            sql = "UPDATE  OR FAIL author SET name=? WHERE (((author._id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ",
+            sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ",
             nodeCount = 5,
             args = *arrayOf("asd", "2", "asd", "0"))
 
@@ -318,7 +318,7 @@ class UpdateTest : DSLTests {
             OR ((AUTHOR.PRIMITIVE_BOOLEAN IS false) AND AUTHOR.BOXED_BOOLEAN.isNotNull))
         ))
         .isEqualTo(
-            sql = "UPDATE  OR FAIL author SET name=? WHERE (((author._id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ",
+            sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ",
             nodeCount = 5,
             args = *arrayOf("asd", "2", "asd", "0"))
   }

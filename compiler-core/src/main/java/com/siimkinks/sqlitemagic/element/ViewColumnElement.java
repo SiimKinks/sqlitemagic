@@ -11,7 +11,9 @@ import com.siimkinks.sqlitemagic.annotation.ViewColumn;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.TypeName;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
 import lombok.AccessLevel;
@@ -28,7 +30,7 @@ import static com.siimkinks.sqlitemagic.element.ColumnElement.findEquivalentType
 public final class ViewColumnElement implements BaseColumnElement {
 
   private final Environment environment;
-  private final ExecutableElement element;
+  private final Element element;
   private final String columnName;
   private final boolean complex;
   private final String methodName;
@@ -41,11 +43,24 @@ public final class ViewColumnElement implements BaseColumnElement {
   private final TypeName viewColumnTypeName;
 
   public static ViewColumnElement create(Environment environment,
-                                         ExecutableElement element,
+                                         Element element,
                                          @Nullable ViewColumn annotation) {
     final String annotationValue = annotation != null ? annotation.value() : null;
-    final TypeMirror returnType = element.getReturnType();
-    final ExtendedTypeElement deserializedType = environment.getAnyTypeElement(returnType);
+    final String columnName;
+    final TypeMirror type;
+    if (element instanceof VariableElement) {
+      final VariableElement e = (VariableElement) element;
+      type = e.asType();
+      columnName = FieldColumnElement.determineColumnName(e, annotationValue);
+    } else if (element instanceof ExecutableElement) {
+      final ExecutableElement e = (ExecutableElement) element;
+      type = e.getReturnType();
+      columnName = MethodColumnElement.determineColumnName(e, annotationValue);
+    } else {
+      throw new IllegalStateException("Unknown view column element type");
+    }
+
+    final ExtendedTypeElement deserializedType = environment.getAnyTypeElement(type);
     final TableElement referencedTable = environment.getTableElementFor(deserializedType.getQualifiedName());
     final boolean allFromTable = referencedTable != null;
     final TransformerElement transformer = environment.getTransformerFor(deserializedType);
@@ -55,7 +70,7 @@ public final class ViewColumnElement implements BaseColumnElement {
     return builder()
         .environment(environment)
         .element(element)
-        .columnName(MethodColumnElement.determineColumnName(element, annotationValue))
+        .columnName(columnName)
         .complex(allFromTable)
         .methodName(methodName)
         .getterString(methodName + "()")
@@ -64,11 +79,11 @@ public final class ViewColumnElement implements BaseColumnElement {
         .nullable(determineNullability(element))
         .transformer(transformer)
         .deserializedType(deserializedType)
-        .viewColumnTypeName(TypeName.get(returnType))
+        .viewColumnTypeName(TypeName.get(type))
         .build();
   }
 
-  private static boolean determineNullability(ExecutableElement element) {
+  private static boolean determineNullability(Element element) {
     return WriterUtil.hasNullableAnnotation(element);
   }
 

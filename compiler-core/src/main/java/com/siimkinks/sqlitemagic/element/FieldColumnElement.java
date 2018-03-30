@@ -18,6 +18,7 @@ import java.util.Set;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 import lombok.AccessLevel;
@@ -27,6 +28,7 @@ import lombok.EqualsAndHashCode;
 import lombok.experimental.Builder;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
+import static com.siimkinks.sqlitemagic.element.TableElement.getMethodNameForGettingField;
 
 @Data
 @Builder
@@ -75,8 +77,8 @@ public class FieldColumnElement extends ColumnElement {
         .transformer(transformer)
         .referencedTable(referencedTable)
         .elementName(fieldName)
-        .columnName(determineColumnName(columnElement, columnAnnotation))
-        .getterString(getGetterString(columnAnnotation, columnElement, enclosingTable, fieldName, deserializedType))
+        .columnName(determineColumnName(columnElement, columnAnnotation.value()))
+        .getterString(getGetterString(environment, columnAnnotation, columnElement, enclosingTable, enclosingTable.getTableElement(), fieldName, deserializedType))
         .setterString(getSetterString(columnAnnotation, columnElement, enclosingTable, fieldName))
         .nullable(determineNullability(deserializedType, columnElement))
         .hasNullableAnnotation(WriterUtil.hasNullableAnnotation(columnElement))
@@ -97,18 +99,24 @@ public class FieldColumnElement extends ColumnElement {
     return fieldName;
   }
 
-  public static String getterStringForField(VariableElement field, TableElement enclosingTable) {
-    return getGetterString(null, field, enclosingTable, field.getSimpleName().toString(), enclosingTable.getEnvironment().getAnyTypeElement(field));
+  public static String getterStringForField(Environment environment,
+                                            VariableElement field,
+                                            TypeElement enclosingElement,
+                                            @Nullable TableElement enclosingTable) {
+    final Column columnAnnotation = field.getAnnotation(Column.class);
+    return getGetterString(environment, columnAnnotation, field, enclosingTable, enclosingElement, field.getSimpleName().toString(), enclosingTable.getEnvironment().getAnyTypeElement(field));
   }
 
-  private static String getGetterString(@Nullable Column columnAnnotation,
+  private static String getGetterString(Environment environment,
+                                        @Nullable Column columnAnnotation,
                                         @NonNull Element columnElement,
-                                        TableElement enclosingTable,
+                                        @Nullable TableElement enclosingTable,
+                                        TypeElement enclosingElement,
                                         String fieldName,
                                         ExtendedTypeElement deserializedType) {
     if (useAccessMethods(columnAnnotation, columnElement, enclosingTable)) {
       final boolean isPrimitiveBoolean = deserializedType.getTypeElement().asType() == Const.BOOLEAN_TYPE && deserializedType.isPrimitiveElement();
-      final String methodNameForGettingField = enclosingTable.getMethodNameForGettingField(fieldName, isPrimitiveBoolean);
+      final String methodNameForGettingField = getMethodNameForGettingField(environment, enclosingElement, fieldName, isPrimitiveBoolean);
       if (methodNameForGettingField == null) {
         return null;
       }
@@ -117,12 +125,11 @@ public class FieldColumnElement extends ColumnElement {
     return fieldName;
   }
 
-  private static String determineColumnName(VariableElement columnElement, Column columnAnnotation) {
-    String columnName = columnAnnotation.value();
-    if (Strings.isNullOrEmpty(columnName)) {
+  public static String determineColumnName(VariableElement columnElement, String userDefinedColumnName) {
+    if (Strings.isNullOrEmpty(userDefinedColumnName)) {
       return transformColumnName(columnElement);
     }
-    return columnName;
+    return userDefinedColumnName;
   }
 
   private static String transformColumnName(Element element) {
@@ -141,9 +148,9 @@ public class FieldColumnElement extends ColumnElement {
 
   private static boolean useAccessMethods(@Nullable Column columnAnnotation,
                                           @NonNull Element columnElement,
-                                          TableElement enclosingTable) {
+                                          @Nullable TableElement enclosingTable) {
     return columnAnnotation != null && columnAnnotation.useAccessMethods()
-        || enclosingTable.useAccessMethods()
+        || enclosingTable != null && enclosingTable.useAccessMethods()
         || columnElement.getModifiers().contains(Modifier.PRIVATE);
   }
 

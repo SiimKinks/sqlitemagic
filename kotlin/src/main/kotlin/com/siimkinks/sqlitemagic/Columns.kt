@@ -15,6 +15,11 @@ inline infix fun <T, R, ET, P, N, C : Column<T, R, ET, P, N>> C.AS(alias: String
 @CheckResult
 inline infix fun <T, R, ET, N, C : Column<T, R, ET, *, N>> C.AS(alias: String): C = this.`as`(alias) as C
 
+/** @see Column.as */
+@JvmName("AS_FOR_ANONYMOUS_ALL_COLUMNS_TABLE")
+@CheckResult
+inline infix fun <P, N, C : Column<*, *, *, P, N>> C.AS(alias: String): C = this.`as`(alias) as C
+
 /** @see Column.concat */
 @CheckResult
 inline infix fun <T, R, ET, P, N, X : Column<*, *, *, *, *>> Column<T, R, ET, P, N>.concat(column: X) =

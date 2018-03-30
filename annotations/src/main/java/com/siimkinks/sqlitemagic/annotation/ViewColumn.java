@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 /**
  * <p>Define {@link View} column details.</p>
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.CLASS)
 public @interface ViewColumn {
   /**

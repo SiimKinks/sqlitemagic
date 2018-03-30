@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.writer;
 
+import android.support.annotation.Nullable;
+
 import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.BaseColumnElement;
@@ -8,6 +10,7 @@ import com.squareup.javapoet.CodeBlock;
 
 import java.util.List;
 
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 import lombok.AccessLevel;
@@ -28,19 +31,23 @@ public class DataClassWriter implements ValueWriter {
   private final Environment environment;
   private final List<? extends BaseColumnElement> allColumns;
   private final ImmutableSet<VariableElement> allFields;
+  @Nullable
   private final TableElement tableElement;
+  private final TypeElement enclosingElement;
   private final String simpleClassName;
 
   public static DataClassWriter create(Environment environment,
                                        List<? extends BaseColumnElement> allColumns,
                                        ImmutableSet<VariableElement> allFields,
-                                       TableElement tableElement,
+                                       TypeElement enclosingElement,
+                                       @Nullable TableElement tableElement,
                                        String simpleClassName) {
     return DataClassWriter.builder()
         .environment(environment)
         .allColumns(allColumns)
         .allFields(allFields)
         .tableElement(tableElement)
+        .enclosingElement(enclosingElement)
         .simpleClassName(simpleClassName)
         .build();
   }
@@ -114,7 +121,7 @@ public class DataClassWriter implements ValueWriter {
       }
       sb.append(entityVariableName)
           .append('.')
-          .append(columnElement != null ? columnElement.getGetterString() : getterStringForField(field, tableElement));
+          .append(columnElement != null ? columnElement.getGetterString() : getterStringForField(environment, field, enclosingElement, tableElement));
     }
     return sb.toString();
   }

@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.annotation.View;
 import com.siimkinks.sqlitemagic.annotation.ViewColumn;
 import com.siimkinks.sqlitemagic.annotation.ViewQuery;
+import com.siimkinks.sqlitemagic.writer.DataClassWriter;
 import com.siimkinks.sqlitemagic.writer.EntityEnvironment;
 import com.siimkinks.sqlitemagic.writer.ValueBuilderWriter;
 import com.siimkinks.sqlitemagic.writer.ValueCreatorWriter;
@@ -24,6 +25,7 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -46,6 +48,7 @@ public final class ViewElement {
   @Getter
   private final boolean isInterface;
   private final ImmutableSet<ExecutableElement> allMethods;
+  private final ImmutableSet<VariableElement> allFields;
   @Getter
   private final List<ViewColumnElement> columns = new ArrayList<>();
   @Getter
@@ -64,6 +67,8 @@ public final class ViewElement {
   @Getter
   private ValueWriter valueWriter;
   private TypeElement $builderElement;
+  @Getter
+  private boolean validDataClass = false;
 
   // errors
   @Getter
@@ -79,6 +84,7 @@ public final class ViewElement {
     this.isInterface = viewElement.getKind() != ElementKind.CLASS;
     this.viewClassName = ClassName.get(viewElement);
     this.allMethods = environment.getLocalAndInheritedColumnMethods(viewElement);
+    this.allFields = environment.getLocalAndInheritedColumnFields(viewElement);
     collectViewMetadata(viewElement);
     determineImplementationClassName();
     determineImmutabilityType(viewElement);
@@ -103,15 +109,15 @@ public final class ViewElement {
         queryConstant = (VariableElement) enclosedElement;
       }
     }
-    for (ExecutableElement method : allMethods) {
-      final ViewColumn viewColumnAnnotation = method.getAnnotation(ViewColumn.class);
+    for (Element element : (isProbablyAutoValueView() ? allMethods : allFields)) {
+      final ViewColumn viewColumnAnnotation = element.getAnnotation(ViewColumn.class);
       if (viewColumnAnnotation == null) {
-        environment.warning(method, "Method \"%s\" is not annotated with @%s and is therefore excluded from the view creation",
-            method.getSimpleName(),
+        environment.warning(element, "Method \"%s\" is not annotated with @%s and is therefore excluded from the view creation",
+            element.getSimpleName(),
             ViewColumn.class.getSimpleName());
         continue;
       }
-      final ViewColumnElement viewColumnElement = ViewColumnElement.create(environment, method, viewColumnAnnotation);
+      final ViewColumnElement viewColumnElement = ViewColumnElement.create(environment, element, viewColumnAnnotation);
       columns.add(viewColumnElement);
       if (!viewColumnElement.isComplex()) {
         allSimpleColumnsCount++;
@@ -139,11 +145,13 @@ public final class ViewElement {
   }
 
   private void determineImmutabilityType(TypeElement viewElement) {
-    final Class<? extends Annotation> builderAnnotation = environment.getAutoValueBuilderAnnotation();
-    for (Element e : viewElement.getEnclosedElements()) {
-      if (e.getKind() == ElementKind.CLASS && e.getAnnotation(builderAnnotation) != null) {
-        $builderElement = (TypeElement) e;
-        break;
+    if (environment.hasAutoValueLib()) {
+      final Class<? extends Annotation> builderAnnotation = environment.getAutoValueBuilderAnnotation();
+      for (Element e : viewElement.getEnclosedElements()) {
+        if (e.getKind() == ElementKind.CLASS && e.getAnnotation(builderAnnotation) != null) {
+          $builderElement = (TypeElement) e;
+          break;
+        }
       }
     }
     if (hasBuilder()) {
@@ -152,12 +160,28 @@ public final class ViewElement {
           viewElement.asType(),
           columns,
           abstractClassNameString);
+    } else if (environment.isValidDataClass(viewElement.getEnclosedElements(), columns)) {
+      validDataClass = true;
+      valueWriter = DataClassWriter.create(environment,
+          columns,
+          allFields,
+          viewElement,
+          null,
+          getViewElementName());
     } else {
       valueWriter = ValueCreatorWriter.create(environment,
           columns,
           allMethods,
           abstractClassNameString);
     }
+  }
+
+  public Set<Modifier> getModifiers() {
+    return viewElement.getModifiers();
+  }
+
+  public boolean isProbablyAutoValueView() {
+    return isInterface || getModifiers().contains(Modifier.ABSTRACT);
   }
 
   public boolean hasBuilder() {

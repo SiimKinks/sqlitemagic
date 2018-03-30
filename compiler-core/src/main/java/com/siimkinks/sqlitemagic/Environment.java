@@ -12,6 +12,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
+import com.siimkinks.sqlitemagic.element.BaseColumnElement;
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
 import com.siimkinks.sqlitemagic.element.IndexElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
@@ -364,6 +365,9 @@ public class Environment {
   }
 
   public String getValueImplementationClassNameString(String abstractClassName) {
+    if (!hasAutoValueLib) {
+      return abstractClassName;
+    }
     return String.format("%s_%s",
         autoValueAnnotation.getSimpleName(),
         abstractClassName);
@@ -533,5 +537,28 @@ public class Environment {
 
   public static TypeElement asTypeElement(TypeMirror mirror) {
     return MoreElements.asType(asElement(mirror));
+  }
+
+  public boolean isValidDataClass(@NonNull List<? extends Element> enclosedElements,
+                                  @NonNull List<? extends BaseColumnElement> allColumns) {
+    for (Element enclosedElement : enclosedElements) {
+      if (enclosedElement.getKind() == ElementKind.CONSTRUCTOR) {
+        ExecutableElement constructor = (ExecutableElement) enclosedElement;
+        final List<? extends VariableElement> constructorParams = constructor.getParameters();
+        if (constructorParams.size() != allColumns.size()) {
+          return false;
+        }
+        final Types typeUtils = getTypeUtils();
+        final Iterator<? extends BaseColumnElement> columnsIterator = allColumns.iterator();
+        for (VariableElement param : constructorParams) {
+          final BaseColumnElement column = columnsIterator.next();
+          if (!typeUtils.isSameType(param.asType(), column.getDeserializedType().getTypeMirror())) {
+            return false;
+          }
+        }
+        return true;
+      }
+    }
+    return false;
   }
 }

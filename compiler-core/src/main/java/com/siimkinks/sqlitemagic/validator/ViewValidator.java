@@ -14,6 +14,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 
 import static com.siimkinks.sqlitemagic.Const.COMPILED_SELECT;
@@ -22,9 +24,9 @@ import static com.siimkinks.sqlitemagic.Const.COMPILED_SELECT;
 public final class ViewValidator {
   private static final String ERR_MULTI_QUERY = "Views can have only one query";
   private static final String ERR_WRONG_QUERY_TYPE = String.format("View query must be instance of %s", CompiledSelect.class.getSimpleName());
-  public static final String ERR_WRONG_TYPE = String.format("@%s must be on either interface or value class (abstract class that is annotated with @%%s)",
+  public static final String ERR_WRONG_TYPE = String.format("@%s must be on either interface or value class (AutoValue abstract class or data class)",
       View.class.getSimpleName());
-  private static final String ERR_MISSING_QUERY = String.format(" view must have static query field which is an instance of %s and annotated with @%s",
+  private static final String ERR_MISSING_QUERY = String.format(" view must have public static query field which is an instance of %s and annotated with @%s",
       CompiledSelect.class.getSimpleName(), ViewQuery.class.getSimpleName());
 
   private final Environment environment;
@@ -35,31 +37,56 @@ public final class ViewValidator {
   }
 
   public boolean isViewElementValid(ViewElement viewElement) {
+    final TypeElement rawElement = viewElement.getViewElement();
     if (viewElement.getAllColumnsCount() == 0) {
-      environment.error(viewElement.getViewElement(), "Found no view columns in view class \"%s\". Each view must define at least one method with @%s annotation",
+      environment.error(rawElement, "Found no view columns in view class \"%s\". Each view must define at least one method with @%s annotation",
           viewElement.getViewElementName(),
           ViewColumn.class.getSimpleName());
       return false;
     }
     if (viewElement.isMultipleQueries()) {
-      environment.error(viewElement.getViewElement(), ERR_MULTI_QUERY);
+      environment.error(rawElement, ERR_MULTI_QUERY);
       return false;
     }
-    if (viewElement.getQueryConstant() == null) {
-      environment.error(viewElement.getViewElement(), viewElement.getViewElementName() + ERR_MISSING_QUERY);
+    final VariableElement queryConstant = viewElement.getQueryConstant();
+    if (queryConstant == null) {
+      environment.error(rawElement, viewElement.getViewElementName() + ERR_MISSING_QUERY);
+      return false;
+    }
+    if (queryConstant.getModifiers().contains(Modifier.PRIVATE)) {
+      environment.error(queryConstant, "View query must be public static field.");
       return false;
     }
     final Types typeUtils = environment.getTypeUtils();
-    if (!typeUtils.isAssignable(COMPILED_SELECT, viewElement.getQueryConstant().asType())) {
-      environment.error(viewElement.getViewElement(), ERR_WRONG_QUERY_TYPE);
+    final TypeMirror queryConstantType = queryConstant.asType();
+    if (!queryConstantType.toString().equals("error.NonExistentClass")
+        && !typeUtils.isAssignable(COMPILED_SELECT, typeUtils.erasure(queryConstantType))) {
+      environment.error(queryConstant, ERR_WRONG_QUERY_TYPE);
       return false;
     }
-    final TypeElement rawElement = viewElement.getViewElement();
-    if (!viewElement.isInterface()) {
-      final Set<Modifier> modifiers = rawElement.getModifiers();
-      final Class<? extends Annotation> autoValueAnnotation = environment.getAutoValueAnnotation();
-      if (!modifiers.contains(Modifier.ABSTRACT) || rawElement.getAnnotation(autoValueAnnotation) == null) {
-        environment.error(rawElement, String.format(ERR_WRONG_TYPE, autoValueAnnotation.getSimpleName()));
+    final Set<Modifier> modifiers = viewElement.getModifiers();
+    if (environment.hasAutoValueLib()) {
+      if (!viewElement.isInterface()) {
+        final Class<? extends Annotation> autoValueAnnotation = environment.getAutoValueAnnotation();
+        if (!modifiers.contains(Modifier.ABSTRACT) || rawElement.getAnnotation(autoValueAnnotation) == null) {
+          environment.error(rawElement, String.format(ERR_WRONG_TYPE, autoValueAnnotation.getSimpleName()));
+          return false;
+        }
+      }
+    } else {
+      if (viewElement.isInterface()) {
+        environment.error(rawElement, "No AutoValue library detected. @%s annotated interfaces are only supported with AutoValue library.",
+            View.class.getSimpleName());
+        return false;
+      }
+      if (modifiers.contains(Modifier.ABSTRACT)) {
+        environment.error(rawElement, "No AutoValue library detected. @%s annotated abstract classes are only supported with AutoValue library.",
+            View.class.getSimpleName());
+        return false;
+      }
+      if (!viewElement.isValidDataClass()) {
+        environment.error(rawElement, "@%s annotated classes must be valid data classes.",
+            View.class.getSimpleName());
         return false;
       }
     }
