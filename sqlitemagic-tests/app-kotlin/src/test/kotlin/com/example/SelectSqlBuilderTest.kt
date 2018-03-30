@@ -155,18 +155,18 @@ class SelectSqlBuilderTest : DSLTests {
     var expected = "SELECT * FROM magazine LEFT OUTER JOIN author ON magazine.author=author._id "
     var sqlNode = (SELECT
         FROM MAGAZINE
-        LEFT_OUTER_JOIN (AUTHOR ON (MAGAZINE.AUTHOR IS AUTHOR._ID)))
+        LEFT_OUTER_JOIN (AUTHOR ON (MAGAZINE.AUTHOR IS AUTHOR.ID)))
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode NATURAL_JOIN AUTHOR)
     expected += "NATURAL JOIN author "
     sqlNode.isEqualTo(expected)
 
-    sqlNode = (sqlNode INNER_JOIN (AUTHOR USING arrayOf(MAGAZINE.AUTHOR, AUTHOR._ID)))
+    sqlNode = (sqlNode INNER_JOIN (AUTHOR USING arrayOf(MAGAZINE.AUTHOR, AUTHOR.ID)))
     expected += "INNER JOIN author USING (author,_id) "
     sqlNode.isEqualTo(expected)
 
-    sqlNode = (sqlNode CROSS_JOIN (AUTHOR USING arrayOf(MAGAZINE.AUTHOR, AUTHOR._ID)))
+    sqlNode = (sqlNode CROSS_JOIN (AUTHOR USING arrayOf(MAGAZINE.AUTHOR, AUTHOR.ID)))
     expected += "CROSS JOIN author USING (author,_id) "
     sqlNode.isEqualTo(expected)
 
@@ -185,18 +185,18 @@ class SelectSqlBuilderTest : DSLTests {
     val a = AUTHOR AS "a"
     var sqlNode = (SELECT
         FROM m
-        LEFT_OUTER_JOIN (a ON (m.AUTHOR IS a._ID)))
+        LEFT_OUTER_JOIN (a ON (m.AUTHOR IS a.ID)))
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode NATURAL_JOIN a)
     expected += "NATURAL JOIN author AS a "
     sqlNode.isEqualTo(expected)
 
-    sqlNode = (sqlNode INNER_JOIN (a USING arrayOf(m.AUTHOR, a._ID)))
+    sqlNode = (sqlNode INNER_JOIN (a USING arrayOf(m.AUTHOR, a.ID)))
     expected += "INNER JOIN author AS a USING (author,_id) "
     sqlNode.isEqualTo(expected)
 
-    sqlNode = (sqlNode CROSS_JOIN (a USING arrayOf(m.AUTHOR, a._ID)))
+    sqlNode = (sqlNode CROSS_JOIN (a USING arrayOf(m.AUTHOR, a.ID)))
     expected += "CROSS JOIN author AS a USING (author,_id) "
     sqlNode.isEqualTo(expected)
 
@@ -394,19 +394,19 @@ class SelectSqlBuilderTest : DSLTests {
     expected = expectedBase + "WHERE magazine.author BETWEEN ? AND author._id "
     (SELECT
         FROM MAGAZINE
-        WHERE (MAGAZINE.AUTHOR BETWEEN (randomAuthor AND AUTHOR._ID)))
+        WHERE (MAGAZINE.AUTHOR BETWEEN (randomAuthor AND AUTHOR.ID)))
         .isEqualTo(expected, randomAuthor.id.toString())
 
     expected = expectedBase + "WHERE magazine.author BETWEEN author._id AND ? "
     (SELECT
         FROM MAGAZINE
-        WHERE (MAGAZINE.AUTHOR BETWEEN (AUTHOR._ID AND randomAuthor)))
+        WHERE (MAGAZINE.AUTHOR BETWEEN (AUTHOR.ID AND randomAuthor)))
         .isEqualTo(expected, randomAuthor.id.toString())
 
     expected = expectedBase + "WHERE magazine.author BETWEEN author._id AND magazine.id "
     (SELECT
         FROM MAGAZINE
-        WHERE (MAGAZINE.AUTHOR BETWEEN (AUTHOR._ID AND MAGAZINE.ID)))
+        WHERE (MAGAZINE.AUTHOR BETWEEN (AUTHOR.ID AND MAGAZINE.ID)))
         .isEqualTo(expected)
 
     expected = expectedBase + "WHERE magazine.author BETWEEN magazine.author AND magazine.id "
@@ -445,37 +445,37 @@ class SelectSqlBuilderTest : DSLTests {
     expected = expectedBase + "WHERE m.author BETWEEN ? AND author._id "
     (SELECT
         FROM m
-        WHERE (m.AUTHOR BETWEEN (randomAuthor AND AUTHOR._ID)))
+        WHERE (m.AUTHOR BETWEEN (randomAuthor AND AUTHOR.ID)))
         .isEqualTo(expected, randomAuthor.id.toString())
 
     expected = expectedBase + "WHERE m.author BETWEEN ? AND a._id "
     (SELECT
         FROM m
-        WHERE (m.AUTHOR BETWEEN (randomAuthor AND a._ID)))
+        WHERE (m.AUTHOR BETWEEN (randomAuthor AND a.ID)))
         .isEqualTo(expected, randomAuthor.id.toString())
 
     expected = expectedBase + "WHERE m.author BETWEEN author._id AND ? "
     (SELECT
         FROM m
-        WHERE (m.AUTHOR BETWEEN (AUTHOR._ID AND randomAuthor)))
+        WHERE (m.AUTHOR BETWEEN (AUTHOR.ID AND randomAuthor)))
         .isEqualTo(expected, randomAuthor.id.toString())
 
     expected = expectedBase + "WHERE m.author BETWEEN a._id AND ? "
     (SELECT
         FROM m
-        WHERE (m.AUTHOR BETWEEN (a._ID AND randomAuthor)))
+        WHERE (m.AUTHOR BETWEEN (a.ID AND randomAuthor)))
         .isEqualTo(expected, randomAuthor.id.toString())
 
     expected = expectedBase + "WHERE m.author BETWEEN author._id AND m.id "
     (SELECT
         FROM m
-        WHERE (m.AUTHOR BETWEEN (AUTHOR._ID AND m.ID)))
+        WHERE (m.AUTHOR BETWEEN (AUTHOR.ID AND m.ID)))
         .isEqualTo(expected)
 
     expected = expectedBase + "WHERE m.author BETWEEN a._id AND m.id "
     (SELECT
         FROM m
-        WHERE (m.AUTHOR BETWEEN (a._ID AND m.ID)))
+        WHERE (m.AUTHOR BETWEEN (a.ID AND m.ID)))
         .isEqualTo(expected)
 
     expected = expectedBase + "WHERE m.author BETWEEN magazine.author AND m.author "
@@ -1182,18 +1182,18 @@ class SelectSqlBuilderTest : DSLTests {
   fun concatFunction() {
     var expected = "SELECT author._id || author.name FROM author "
     (SELECT
-        COLUMN (AUTHOR._ID concat AUTHOR.NAME)
+        COLUMN (AUTHOR.ID concat AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
 
     expected = "SELECT author._id || author.name || author.primitive_boolean FROM author "
     (SELECT
-        COLUMN concat(AUTHOR._ID, AUTHOR.NAME, AUTHOR.PRIMITIVE_BOOLEAN)
+        COLUMN concat(AUTHOR.ID, AUTHOR.NAME, AUTHOR.PRIMITIVE_BOOLEAN)
         FROM AUTHOR)
         .isEqualTo(expected)
 
     (SELECT
-        COLUMN ((AUTHOR._ID concat AUTHOR.NAME) concat AUTHOR.PRIMITIVE_BOOLEAN)
+        COLUMN ((AUTHOR.ID concat AUTHOR.NAME) concat AUTHOR.PRIMITIVE_BOOLEAN)
         FROM AUTHOR)
         .isEqualTo(expected)
   }
@@ -1218,7 +1218,7 @@ class SelectSqlBuilderTest : DSLTests {
     var expected = "SELECT author._id || ' ' || author.name FROM author "
     val strVal = " ".asColumn
     (SELECT
-        COLUMN concat(AUTHOR._ID, strVal, AUTHOR.NAME)
+        COLUMN concat(AUTHOR.ID, strVal, AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
     strVal.parsesWith(STRING)
@@ -1226,7 +1226,7 @@ class SelectSqlBuilderTest : DSLTests {
     expected = "SELECT author._id || 3 || author.name FROM author "
     val intVal = 3.asColumn
     (SELECT
-        COLUMN concat(AUTHOR._ID, intVal, AUTHOR.NAME)
+        COLUMN concat(AUTHOR.ID, intVal, AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
     intVal.parsesWith(INTEGER)
@@ -1234,7 +1234,7 @@ class SelectSqlBuilderTest : DSLTests {
     expected = "SELECT author._id || 3 || author.name FROM author "
     val longVal = 3L.asColumn
     (SELECT
-        COLUMN concat(AUTHOR._ID, longVal, AUTHOR.NAME)
+        COLUMN concat(AUTHOR.ID, longVal, AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
     longVal.parsesWith(LONG)
@@ -1243,7 +1243,7 @@ class SelectSqlBuilderTest : DSLTests {
     expected = "SELECT author._id || 3 || author.name FROM author "
     val shortVal = s.asColumn
     (SELECT
-        COLUMN concat(AUTHOR._ID, shortVal, AUTHOR.NAME)
+        COLUMN concat(AUTHOR.ID, shortVal, AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
     shortVal.parsesWith(SHORT)
@@ -1252,7 +1252,7 @@ class SelectSqlBuilderTest : DSLTests {
     expected = "SELECT author._id || 3 || author.name FROM author "
     val byteVal = b.asColumn
     (SELECT
-        COLUMN concat(AUTHOR._ID, byteVal, AUTHOR.NAME)
+        COLUMN concat(AUTHOR.ID, byteVal, AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
     byteVal.parsesWith(BYTE)
@@ -1261,7 +1261,7 @@ class SelectSqlBuilderTest : DSLTests {
     expected = "SELECT author._id || 3.3 || author.name FROM author "
     val floatVal = f.asColumn
     (SELECT
-        COLUMN concat(AUTHOR._ID, floatVal, AUTHOR.NAME)
+        COLUMN concat(AUTHOR.ID, floatVal, AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
     floatVal.parsesWith(FLOAT)
@@ -1270,7 +1270,7 @@ class SelectSqlBuilderTest : DSLTests {
     expected = "SELECT author._id || 3.3 || author.name FROM author "
     val doubleVal = d.asColumn
     (SELECT
-        COLUMN concat(AUTHOR._ID, doubleVal, AUTHOR.NAME)
+        COLUMN concat(AUTHOR.ID, doubleVal, AUTHOR.NAME)
         FROM AUTHOR)
         .isEqualTo(expected)
     doubleVal.parsesWith(DOUBLE)

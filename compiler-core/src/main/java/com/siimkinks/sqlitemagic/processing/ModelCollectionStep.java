@@ -1,10 +1,11 @@
 package com.siimkinks.sqlitemagic.processing;
 
 import com.google.common.collect.ImmutableSet;
-import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.BaseProcessor;
+import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.DefaultColumn;
+import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
@@ -109,10 +110,10 @@ public class ModelCollectionStep implements ProcessingStep {
       }
     } else {
       for (ExecutableElement method : allMethods) {
-        final Column columnAnnotation = method.getAnnotation(Column.class);
-        if (columnAnnotation == null) {
+        if (method.getAnnotation(Column.class) == null && method.getAnnotation(Id.class) == null) {
           continue;
         }
+        final Column columnAnnotation = DefaultColumn.getColumnOrDefaultIfMissing(method);
         final ColumnElement columnElement = MethodColumnElement.create(environment, method, columnAnnotation, tableElement);
         isSuccessfulProcess = addColumn(tableElement, isSuccessfulProcess, method, columnElement);
       }
@@ -133,10 +134,10 @@ public class ModelCollectionStep implements ProcessingStep {
       }
     } else {
       for (VariableElement field : allFields) {
-        final Column columnAnnotation = field.getAnnotation(Column.class);
-        if (columnAnnotation == null) {
+        if (field.getAnnotation(Column.class) == null && field.getAnnotation(Id.class) == null) {
           continue;
         }
+        final Column columnAnnotation = DefaultColumn.getColumnOrDefaultIfMissing(field);
         final ColumnElement columnElement = FieldColumnElement.create(environment, field, columnAnnotation, tableElement);
         isSuccessfulProcess = addColumn(tableElement, isSuccessfulProcess, field, columnElement);
       }

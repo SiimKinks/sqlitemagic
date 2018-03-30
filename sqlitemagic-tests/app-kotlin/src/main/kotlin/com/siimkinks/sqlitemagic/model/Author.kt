@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 import java.util.*
 
-@Table
+@Table(persistAll = false)
 class Author {
   @Id
   @JvmField

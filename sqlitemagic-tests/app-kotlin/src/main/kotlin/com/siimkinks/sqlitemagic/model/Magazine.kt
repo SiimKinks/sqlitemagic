@@ -4,7 +4,7 @@ import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 
-@Table(persistAll = true, useAccessMethods = true)
+@Table
 class Magazine {
   @Id
   var id: Long? = null

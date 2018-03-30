@@ -42,7 +42,7 @@ public @interface Table {
    *
    * @return True if all fields should be persisted, false if not.
    */
-  boolean persistAll() default false;
+  boolean persistAll() default true;
 
   /**
    * Respect access methods when accessing model fields.<br>

@@ -9,7 +9,6 @@ import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
-import com.siimkinks.sqlitemagic.element.FieldColumnElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.util.Utils;
 
@@ -18,12 +17,10 @@ import javax.inject.Singleton;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
 import lombok.NoArgsConstructor;
 
-import static com.siimkinks.sqlitemagic.element.FieldColumnElement.useAccessMethods;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 
 @Singleton
@@ -130,13 +127,6 @@ public class ModelValidator {
         && columnElement.isReferencedTableImmutable()
         && columnElement.getReferencedTable().hasAnyNonIdNotNullableColumns()) {
       environment.error(rawElement, "Referenced column must be handled recursively - immutable object includes non ID fields which are not nullable");
-      return false;
-    }
-    if (!tableElement.isImmutable()
-        && columnElement instanceof FieldColumnElement
-        && ((FieldColumnElement) columnElement).getModifiers().contains(Modifier.PRIVATE)
-        && !useAccessMethods(columnElement.getColumnAnnotation(), tableElement)) {
-      environment.error(rawElement, "Private field column must be declared to use access methods. Set @%s(useAccessMethods = true)", Column.class.getSimpleName());
       return false;
     }
     return true;

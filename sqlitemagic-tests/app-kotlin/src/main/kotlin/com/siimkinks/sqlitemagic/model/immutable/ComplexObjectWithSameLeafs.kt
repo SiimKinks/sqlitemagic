@@ -4,7 +4,7 @@ import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.model.Magazine
 
-@Table(persistAll = true, useAccessMethods = true)
+@Table
 data class ComplexObjectWithSameLeafs(
     @Id val id: Long,
     val name: String,

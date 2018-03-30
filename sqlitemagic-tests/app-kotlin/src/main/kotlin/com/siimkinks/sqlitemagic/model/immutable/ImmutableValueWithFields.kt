@@ -4,10 +4,11 @@ import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.model.TransformableObject
 
-@Table(persistAll = true)
+@Table
 data class ImmutableValueWithFields(
     @JvmField
-    @Id val id: Long?,
+    @Id
+    val id: Long?,
     @JvmField
     val stringValue: String,
     @JvmField

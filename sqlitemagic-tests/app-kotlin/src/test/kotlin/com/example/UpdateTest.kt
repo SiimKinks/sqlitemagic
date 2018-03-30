@@ -220,7 +220,7 @@ class UpdateTest : DSLTests {
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd")
         SET (AUTHOR.BOXED_BOOLEAN to true)
-        SET (AUTHOR._ID to 2L)
+        SET (AUTHOR.ID to 2L)
         SET (AUTHOR.PRIMITIVE_BOOLEAN to false))
         .isEqualTo(
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,_id=?,primitive_boolean=? ",
@@ -255,7 +255,7 @@ class UpdateTest : DSLTests {
     (UPDATE
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd")
-        WHERE (AUTHOR._ID IS 2))
+        WHERE (AUTHOR.ID IS 2))
         .isEqualTo(
             sql = "UPDATE author SET name=? WHERE author._id=? ",
             nodeCount = 4,
@@ -266,7 +266,7 @@ class UpdateTest : DSLTests {
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd")
         SET (AUTHOR.BOXED_BOOLEAN to false)
-        WHERE ((AUTHOR._ID IS 2) AND (AUTHOR.NAME IS_NOT "asd")))
+        WHERE ((AUTHOR.ID IS 2) AND (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
             sql = "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author._id=? AND author.name!=?) ",
             nodeCount = 5,
@@ -276,7 +276,7 @@ class UpdateTest : DSLTests {
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd")
         SET (AUTHOR.BOXED_BOOLEAN to false)
-        WHERE ((AUTHOR._ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
+        WHERE ((AUTHOR.ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
             sql = "UPDATE author SET name=?,boxed_boolean=? WHERE (author._id=? OR author.name!=?) ",
             nodeCount = 4,
@@ -286,7 +286,7 @@ class UpdateTest : DSLTests {
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_FAIL
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd")
-        WHERE ((AUTHOR._ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
+        WHERE ((AUTHOR.ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
         .isEqualTo(
             sql = "UPDATE  OR FAIL author SET name=? WHERE (author._id=? OR author.name!=?) ",
             nodeCount = 5,
@@ -297,7 +297,7 @@ class UpdateTest : DSLTests {
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd")
         WHERE (
-        (((AUTHOR._ID IS 2)
+        (((AUTHOR.ID IS 2)
             AND AUTHOR.NAME.isNotNull)
             AND (AUTHOR.NAME IS_NOT "asd"))
             AND (AUTHOR.PRIMITIVE_BOOLEAN IS false)
@@ -312,7 +312,7 @@ class UpdateTest : DSLTests {
         TABLE AUTHOR
         SET (AUTHOR.NAME to "asd")
         WHERE (
-        ((((AUTHOR._ID IS 2)
+        ((((AUTHOR.ID IS 2)
             AND AUTHOR.NAME.isNotNull)
             OR (AUTHOR.NAME IS_NOT "asd"))
             OR ((AUTHOR.PRIMITIVE_BOOLEAN IS false) AND AUTHOR.BOXED_BOOLEAN.isNotNull))

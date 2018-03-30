@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.element;
 
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.google.common.base.Strings;
@@ -75,8 +76,8 @@ public class FieldColumnElement extends ColumnElement {
         .referencedTable(referencedTable)
         .elementName(fieldName)
         .columnName(determineColumnName(columnElement, columnAnnotation))
-        .getterString(getGetterString(columnAnnotation, enclosingTable, fieldName, deserializedType))
-        .setterString(getSetterString(columnAnnotation, enclosingTable, fieldName))
+        .getterString(getGetterString(columnAnnotation, columnElement, enclosingTable, fieldName, deserializedType))
+        .setterString(getSetterString(columnAnnotation, columnElement, enclosingTable, fieldName))
         .nullable(determineNullability(deserializedType, columnElement))
         .hasNullableAnnotation(WriterUtil.hasNullableAnnotation(columnElement))
         .build();
@@ -86,19 +87,26 @@ public class FieldColumnElement extends ColumnElement {
     return (!deserializedType.isPrimitiveElement() || deserializedType.isArrayElement()) && !WriterUtil.hasNotNullAnnotation(columnElement);
   }
 
-  private static String getSetterString(Column columnAnnotation, TableElement enclosingTable, String fieldName) {
-    if (useAccessMethods(columnAnnotation, enclosingTable)) {
+  private static String getSetterString(Column columnAnnotation,
+                                        @NonNull Element columnElement,
+                                        TableElement enclosingTable,
+                                        String fieldName) {
+    if (useAccessMethods(columnAnnotation, columnElement, enclosingTable)) {
       return enclosingTable.getMethodNameForSettingField(fieldName);
     }
     return fieldName;
   }
 
   public static String getterStringForField(VariableElement field, TableElement enclosingTable) {
-    return getGetterString(null, enclosingTable, field.getSimpleName().toString(), enclosingTable.getEnvironment().getAnyTypeElement(field));
+    return getGetterString(null, field, enclosingTable, field.getSimpleName().toString(), enclosingTable.getEnvironment().getAnyTypeElement(field));
   }
 
-  private static String getGetterString(@Nullable Column columnAnnotation, TableElement enclosingTable, String fieldName, ExtendedTypeElement deserializedType) {
-    if (useAccessMethods(columnAnnotation, enclosingTable)) {
+  private static String getGetterString(@Nullable Column columnAnnotation,
+                                        @NonNull Element columnElement,
+                                        TableElement enclosingTable,
+                                        String fieldName,
+                                        ExtendedTypeElement deserializedType) {
+    if (useAccessMethods(columnAnnotation, columnElement, enclosingTable)) {
       final boolean isPrimitiveBoolean = deserializedType.getTypeElement().asType() == Const.BOOLEAN_TYPE && deserializedType.isPrimitiveElement();
       final String methodNameForGettingField = enclosingTable.getMethodNameForGettingField(fieldName, isPrimitiveBoolean);
       if (methodNameForGettingField == null) {
@@ -123,7 +131,7 @@ public class FieldColumnElement extends ColumnElement {
   }
 
   private boolean hasSetterMethod() {
-    return useAccessMethods(columnAnnotation, enclosingTable);
+    return useAccessMethods(columnAnnotation, columnElement, enclosingTable);
   }
 
   @Override
@@ -131,8 +139,12 @@ public class FieldColumnElement extends ColumnElement {
     return hasNullableAnnotation;
   }
 
-  public static boolean useAccessMethods(@Nullable Column columnAnnotation, TableElement enclosingTable) {
-    return columnAnnotation != null && columnAnnotation.useAccessMethods() || enclosingTable.useAccessMethods();
+  private static boolean useAccessMethods(@Nullable Column columnAnnotation,
+                                          @NonNull Element columnElement,
+                                          TableElement enclosingTable) {
+    return columnAnnotation != null && columnAnnotation.useAccessMethods()
+        || enclosingTable.useAccessMethods()
+        || columnElement.getModifiers().contains(Modifier.PRIVATE);
   }
 
   @Override

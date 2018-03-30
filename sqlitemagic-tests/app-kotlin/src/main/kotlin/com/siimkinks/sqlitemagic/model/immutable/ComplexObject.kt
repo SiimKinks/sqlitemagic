@@ -4,14 +4,14 @@ import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.Unique
 
-@Table(persistAll = true, useAccessMethods = true)
+@Table
 data class ComplexObject(
     @Id val id: Long? = null,
     val number: String,
     val childObject: ChildObject? = null
 )
 
-@Table(persistAll = true, useAccessMethods = true)
+@Table
 data class ComplexObjectWithUniqueColumn(
     @Id val id: Long? = null,
     @Unique val externalId: String,
@@ -19,7 +19,7 @@ data class ComplexObjectWithUniqueColumn(
     val childObject: ChildObject? = null
 )
 
-@Table(persistAll = true, useAccessMethods = true)
+@Table
 data class ChildObject(
     @Id val id: Long? = null,
     val address: String? = null,

@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 import java.util.*
 
-@Table(persistAll = true, useAccessMethods = true)
+@Table
 data class Author(
     @Id val id: Long? = null,
     val firstName: String,
