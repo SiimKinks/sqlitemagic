@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.multimodule
+package com.siimkinks.sqlitemagic.another
 
 import com.siimkinks.sqlitemagic.Utils
 import com.siimkinks.sqlitemagic.annotation.Id

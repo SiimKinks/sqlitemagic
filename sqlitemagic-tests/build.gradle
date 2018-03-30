@@ -33,6 +33,7 @@ task runUnitTests(dependsOn: [
     'app:testDebugUnitTest',
     'app-kotlin:testDebugUnitTest',
     'multimodule-app:testDemoDebugUnitTest',
+    'another-submodule:testDemoDebugUnitTest',
     'submodule:testDemoDebugUnitTest'
 ])
 

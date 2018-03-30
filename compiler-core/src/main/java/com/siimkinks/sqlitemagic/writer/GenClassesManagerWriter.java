@@ -83,7 +83,8 @@ public class GenClassesManagerWriter {
   }
 
   public void writeSource(Environment environment, GenClassesManagerStep managerStep) throws IOException {
-    if (!environment.getAllTableElements().isEmpty()) {
+    final List<Dual<TypeElement, String>> submoduleDatabases = environment.getSubmoduleDatabases();
+    if (!environment.getAllTableElements().isEmpty() || (submoduleDatabases != null && !submoduleDatabases.isEmpty())) {
       final Filer filer = environment.getFiler();
       final String className = environment.getGenClassesManagerClassName();
       TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
@@ -247,9 +248,15 @@ public class GenClassesManagerWriter {
     } else {
       builder.addCode("return new String[] {");
       forEachSubmoduleDatabase(environment, new Callback2<TypeMirror, String>() {
+        int i = 0;
+
         @Override
         public void call(TypeMirror type, String moduleName) {
+          if (i > 0) {
+            builder.addCode(", ");
+          }
           builder.addCode("$S", moduleName);
+          i++;
         }
       });
       builder.addCode("};\n");

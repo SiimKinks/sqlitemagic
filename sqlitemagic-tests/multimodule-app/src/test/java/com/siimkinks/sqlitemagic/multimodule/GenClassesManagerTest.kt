@@ -4,6 +4,8 @@ import com.google.common.truth.Truth.assertThat
 import com.nhaarman.mockito_kotlin.mock
 import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.GeneratedClassesManager.*
+import com.siimkinks.sqlitemagic.another.Author
+import com.siimkinks.sqlitemagic.another.TransformableObject
 import com.siimkinks.sqlitemagic.internal.StringArraySet
 import com.siimkinks.sqlitemagic.submodule.SubmoduleTransformableObject
 import org.junit.Test
@@ -35,7 +37,7 @@ class GenClassesManagerTest {
   @Test
   fun tableCountOfNativeModule() {
     assertThat(getNrOfTables(""))
-        .isEqualTo(1)
+        .isEqualTo(0)
   }
 
   @Test
@@ -47,7 +49,7 @@ class GenClassesManagerTest {
   @Test
   fun getSubmoduleNames() {
     assertThat(GeneratedClassesManager.getSubmoduleNames())
-        .isEqualTo(arrayOf("Submodule"))
+        .isEqualTo(arrayOf("Submodule", "Another"))
   }
 
   @Test

@@ -1,4 +1,4 @@
-apply plugin: 'com.android.application'
+apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
 apply plugin: 'sqlitemagic'
@@ -8,7 +8,6 @@ android {
   buildToolsVersion rootProject.ext.buildToolsVersion
 
   defaultConfig {
-    applicationId "com.siimkinks.sqlitemagic.multimodule"
     minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion rootProject.ext.targetSdkVersion
     versionCode 1
@@ -16,12 +15,6 @@ android {
 
     testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
-  }
-  buildTypes {
-    release {
-      minifyEnabled false
-      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-    }
   }
 
   flavorDimensions "mode"
@@ -36,7 +29,7 @@ android {
       dimension "mode"
     }
   }
-  
+
   lintOptions {
     abortOnError false
   }
@@ -49,9 +42,6 @@ android {
 }
 
 dependencies {
-  implementation project(':submodule')
-  implementation project(':another-submodule')
-
   implementation libraries.kotlinStdLib
   implementation libraries.rxJava2
   implementation libraries.supportSqliteFramework
@@ -73,7 +63,7 @@ dependencies {
   }
 }
 
-tasks.withType(Test) {
-  scanForTestClasses = false
-  include "**/*Test.class"
+sqlitemagic {
+  publicKotlinExtensionFunctions = true
+  mainModulePath = "multimodule-app/"
 }

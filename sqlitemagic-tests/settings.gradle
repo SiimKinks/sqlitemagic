@@ -1,1 +1,1 @@
-include ':app', ':app-kotlin', ':multimodule-app', ':submodule'
+include ':app', ':app-kotlin', ':multimodule-app', ':submodule', ':another-submodule'

@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.FROM
 import com.siimkinks.sqlitemagic.ImmutableValueTable.IMMUTABLE_VALUE
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SqliteMagic
+import com.siimkinks.sqlitemagic.another.Author
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.submodule.ImmutableValue
 import org.junit.Before
