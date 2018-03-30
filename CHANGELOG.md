@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 0.21.0 _(2018-03-30)_
+---------------------------------
+
+* New: Change defaults to meet the most used setups
+* New: Add better support for views in kotlin
+* Fix: Multimodule builds when main module has no tables and there are more than one submodule
+
 Version 0.20.0 _(2018-03-11)_
 ---------------------------------
 
