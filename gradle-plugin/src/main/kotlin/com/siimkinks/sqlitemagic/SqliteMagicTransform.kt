@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic
 
 import com.android.build.api.transform.*
+import com.android.build.api.transform.Format.DIRECTORY
+import com.android.build.api.transform.Format.JAR
 import com.android.build.api.transform.QualifiedContent.DefaultContentType.CLASSES
 import com.android.build.api.transform.QualifiedContent.Scope.*
 import com.android.build.gradle.api.BaseVariant
@@ -19,21 +21,23 @@ class SqliteMagicTransform(
     private val sqlitemagic: SqliteMagicPluginExtension
 ) : Transform() {
   private val javaCompileTasks: HashMap<Pair<String, String>, AbstractCompile> = HashMap()
-  private val jarContentType = setOf(CLASSES)
-  private val jarScope = mutableSetOf(EXTERNAL_LIBRARIES)
   private val variants = ArrayList<BaseVariant>()
 
   override fun transform(transformInvocation: TransformInvocation) {
     super.transform(transformInvocation)
-    val projectFilesOutput = transformInvocation.outputProvider.getContentLocation(name, setOf(CLASSES), mutableSetOf(PROJECT), Format.DIRECTORY)
+    val outputProvider = transformInvocation.outputProvider
+    if (!transformInvocation.isIncremental) {
+      outputProvider.deleteAll()
+    }
 
+    val projectFilesOutput = outputProvider.getContentLocation(name, setOf(CLASSES), mutableSetOf(PROJECT), DIRECTORY)
     transformInvocation.inputs
         .filter { it.directoryInputs.isNotEmpty() }
         .forEach { transformProjectFiles(it, projectFilesOutput, transformInvocation) }
 
     transformInvocation.inputs
         .filter { it.jarInputs.isNotEmpty() }
-        .forEach { transformExternalLibraries(it, projectFilesOutput, transformInvocation) }
+        .forEach { transformExternalLibraries(it, projectFilesOutput, outputProvider, transformInvocation) }
   }
 
   private fun transformProjectFiles(input: TransformInput,
@@ -64,12 +68,14 @@ class SqliteMagicTransform(
 
   private fun transformExternalLibraries(input: TransformInput,
                                          projectFilesOutput: File,
+                                         outputProvider: TransformOutputProvider,
                                          transformInvocation: TransformInvocation) {
     filterJarInput(input, transformInvocation)
-        .forEach { it.transform(transformInvocation, projectFilesOutput) }
+        .forEach { it.transform(transformInvocation, outputProvider, projectFilesOutput) }
   }
 
   private fun JarInput.transform(transformInvocation: TransformInvocation,
+                                 outputProvider: TransformOutputProvider,
                                  projectFilesOutput: File) {
     val tmpDir = createTempDir(suffix = "", directory = transformInvocation.context.temporaryDir)
     if (tmpDir.exists()) {
@@ -77,7 +83,8 @@ class SqliteMagicTransform(
     }
     val extractDir = File(tmpDir, "in")
     val outputDir = File(tmpDir, "out")
-    val jarOutput = transformInvocation.jarOutput(tmpDir.name)
+    val jarOutput = outputProvider.jarOutput(this)
+    jarOutput.delete()
     project.copy {
       it.from(project.zipTree(file))
       it.into(project.file(extractDir))
@@ -92,7 +99,7 @@ class SqliteMagicTransform(
         .exec()
 
     if (!anyTransformations) {
-      copyToOutput(outputFileName = tmpDir.name, transformInvocation = transformInvocation)
+      file.copyRecursively(jarOutput)
       return
     }
 
@@ -119,15 +126,10 @@ class SqliteMagicTransform(
 
   private fun filterByStatus(input: JarInput) = input.status != Status.REMOVED && input.status != Status.NOTCHANGED
 
-  private fun TransformInvocation.jarOutput(name: String) = outputProvider.getContentLocation(name, jarContentType, jarScope, Format.JAR)
+  private fun TransformOutputProvider.jarOutput(input: JarInput) =
+      getContentLocation(input.name, setOf(CLASSES), input.scopes, JAR)
 
   private fun TransformInvocation.classpath(outputDir: File): FileCollection = classpath(context, outputDir, referencedInputs)
-
-  private fun JarInput.copyToOutput(outputFileName: String, transformInvocation: TransformInvocation) {
-    val destination = transformInvocation.jarOutput(outputFileName)
-    destination.delete()
-    file.copyRecursively(destination)
-  }
 
   private fun File.getAllClassFilePaths(): List<String> = walkTopDown()
       .filter { !it.isDirectory && it.name.endsWith(".class") }
@@ -214,4 +216,6 @@ class SqliteMagicTransform(
   override fun getName(): String = "sqlitemagic"
 
   override fun isIncremental(): Boolean = true
+
+  override fun isCacheable(): Boolean = true
 }

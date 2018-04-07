@@ -8,10 +8,12 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.logging.Logging
 import java.io.File
 
-class InvokeTransformation(destinationDir: File,
-                           sources: FileCollection,
-                           classpath: FileCollection,
-                           debug: Boolean = false) : BaseTransformation(destinationDir, sources, classpath, debug) {
+class InvokeTransformation(
+    destinationDir: File,
+    sources: FileCollection,
+    classpath: FileCollection,
+    debug: Boolean = false
+) : BaseTransformation(destinationDir, sources, classpath, debug) {
   private val METHOD_ANNOTATIONS = setOf<String>(Invokes::class.java.canonicalName)
   override val LOG = Logging.getLogger(InvokeTransformation::class.java)
 

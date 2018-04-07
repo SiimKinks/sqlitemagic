@@ -4,13 +4,8 @@ import com.android.build.gradle.*
 import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.internal.variant.BaseVariantData
 import com.android.builder.model.ClassField
-import org.gradle.api.DomainObjectSet
-import org.gradle.api.JavaVersion
-import org.gradle.api.Plugin
-import org.gradle.api.Project
-import org.gradle.api.artifacts.DependencyResolutionListener
-import org.gradle.api.artifacts.DependencySet
-import org.gradle.api.artifacts.ResolvableDependencies
+import org.gradle.api.*
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.tasks.compile.JavaCompile
 import java.io.File
 
@@ -41,15 +36,17 @@ class SqliteMagicPlugin : Plugin<Project> {
   }
 
   private fun configureProject(project: Project, sqlitemagic: SqliteMagicPluginExtension) {
-    project.gradle.addListener(object : DependencyResolutionListener {
-      override fun beforeResolve(dependencies: ResolvableDependencies?) {
-        project.gradle.removeListener(this)
+    project.gradle.addProjectEvaluationListener(object : ProjectEvaluationListener {
+      override fun beforeEvaluate(project: Project) {}
+
+      override fun afterEvaluate(project: Project, state: ProjectState?) {
+        project.gradle.removeProjectEvaluationListener(this)
         if (!sqlitemagic.configureAutomatically) {
           return
         }
 
-        val compileDeps = project.getConfigurationDependency(depName = "implementation", fallback = "compile")
-        val providedDeps = project.getConfigurationDependency(depName = "compileOnly", fallback = "provided")
+        val compileDeps = project.getConfiguration(depName = "implementation", fallback = "compile")
+        val providedDeps = project.getConfiguration(depName = "compileOnly", fallback = "provided")
 
         val kotlinProject = project.hasAnyPlugin("kotlin-android", "kotlin", "org.jetbrains.kotlin.android", "org.jetbrains.kotlin.jvm")
 
@@ -64,16 +61,13 @@ class SqliteMagicPlugin : Plugin<Project> {
           throw IllegalStateException("Missing kotlin kapt plugin! Set sqlitemagic.useKotlin=false or add kotlin-kapt plugin")
         }
 
-        project.getConfigurationDependency(if (hasKpt) "kapt" else "annotationProcessor")
+        project.getConfiguration(if (hasKpt) "kapt" else "annotationProcessor")
             .addDependency(project, "com.siimkinks.sqlitemagic:$compilerArtifact:$VERSION")
         providedDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$VERSION")
         compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic:$VERSION")
         if (sqlitemagic.useKotlin && kotlinProject) {
           compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-kotlin:$VERSION")
         }
-      }
-
-      override fun afterResolve(dependencies: ResolvableDependencies?) {
       }
     })
   }
@@ -178,15 +172,15 @@ class SqliteMagicPlugin : Plugin<Project> {
   }
 }
 
-fun Project.getConfigurationDependency(depName: String, fallback: String = ""): DependencySet =
+fun Project.getConfiguration(depName: String, fallback: String = ""): Configuration =
     try {
-      configurations.getByName(depName).dependencies
+      configurations.getByName(depName)
     } catch (e: Exception) {
-      configurations.getByName(fallback).dependencies
+      configurations.getByName(fallback)
     }
 
-fun DependencySet.addDependency(project: Project, dependency: String) {
-  add(project.dependencies.create(dependency))
+fun Configuration.addDependency(project: Project, dependency: String) {
+  dependencies.add(project.dependencies.create(dependency))
 }
 
 fun Project.hasAnyPlugin(vararg pluginIds: String): Boolean = pluginIds

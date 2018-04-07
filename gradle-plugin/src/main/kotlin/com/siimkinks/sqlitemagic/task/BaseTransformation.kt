@@ -13,10 +13,12 @@ import java.io.File
 import java.io.IOException
 import java.util.*
 
-abstract class BaseTransformation(val destinationDir: File,
-                                  val sources: FileCollection,
-                                  val classpath: FileCollection,
-                                  val debug: Boolean = false) {
+abstract class BaseTransformation(
+    val destinationDir: File,
+    val sources: FileCollection,
+    val classpath: FileCollection,
+    val debug: Boolean = false
+) {
   open val LOG = Logging.getLogger(BaseTransformation::class.java)
 
   protected abstract fun shouldTransform(candidateClass: CtClass): Boolean
@@ -37,7 +39,7 @@ abstract class BaseTransformation(val destinationDir: File,
         }
       }
       return anyTransformations
-    } catch(e: Exception) {
+    } catch (e: Exception) {
       throw GradleException("Could not execute transformation", e);
     }
   }
@@ -71,7 +73,7 @@ abstract class BaseTransformation(val destinationDir: File,
       }
       clazz.writeFile(destinationDir.absolutePath)
       return transformed
-    } catch(e: Exception) {
+    } catch (e: Exception) {
       throw GradleException("An error occurred while trying to process class file ", e)
     }
   }
@@ -84,7 +86,7 @@ abstract class BaseTransformation(val destinationDir: File,
     } catch (e: IOException) {
       logInfo("Not loading class file $classFile due to error=${e.message}")
       return null
-    } catch(e: Throwable) {
+    } catch (e: Throwable) {
       throw GradleException("Error loading class file $classFile", e)
     }
   }
