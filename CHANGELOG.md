@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+Version 0.21.1 _(2018-04-08)_
+---------------------------------
+
+* Fix: Transformation for incremental submodules compilation
+* Fix: Automatic dependency resolution
+
 Version 0.21.0 _(2018-03-30)_
 ---------------------------------
 

@@ -9,7 +9,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.tasks.compile.JavaCompile
 import java.io.File
 
-const val VERSION = "0.22.0-SNAPSHOT"
+const val VERSION = "0.21.1"
 const val DB_TASK_GROUP = "db"
 
 class SqliteMagicPlugin : Plugin<Project> {
