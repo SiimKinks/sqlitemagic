@@ -31,4 +31,11 @@ public @interface Database {
    * @return List of submodules database configurations.
    */
   Class<?>[] submodules() default {};
+
+  /**
+   * Transformers from external modules.
+   *
+   * @return External transformers containing classes
+   */
+  Class<?>[] externalTransformers() default {};
 }

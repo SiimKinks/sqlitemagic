@@ -18,6 +18,7 @@ import com.siimkinks.sqlitemagic.element.IndexElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
+import com.siimkinks.sqlitemagic.util.ConditionCallback;
 import com.siimkinks.sqlitemagic.util.Dual;
 import com.squareup.javapoet.TypeName;
 
@@ -130,7 +131,7 @@ public class Environment {
 
   private void addDefaultTransformers() {
     for (String transformerName : Const.DEFAULT_TRANSFORMERS) {
-      final TransformerElement transformer = new TransformerElement(this);
+      final TransformerElement transformer = new TransformerElement(this, false);
       final Element transformerElement = elementUtils.getTypeElement(transformerName);
       for (Element enclosedElement : transformerElement.getEnclosedElements()) {
         if (enclosedElement.getKind() == ElementKind.METHOD) {
@@ -443,8 +444,18 @@ public class Environment {
 
   @NonNull
   public Set<ExecutableElement> getLocalAndInheritedMethods(TypeElement type) {
+    return getLocalAndInheritedMethods(type, new ConditionCallback<ExecutableElement>() {
+      @Override
+      public boolean call(ExecutableElement method) {
+        return !method.getModifiers().contains(Modifier.STATIC);
+      }
+    });
+  }
+
+  @NonNull
+  public Set<ExecutableElement> getLocalAndInheritedMethods(TypeElement type, ConditionCallback<ExecutableElement> includeMethodCallback) {
     SetMultimap<String, ExecutableElement> methodMap = LinkedHashMultimap.create();
-    getLocalAndInheritedMethods(getPackage(type), type, methodMap);
+    getLocalAndInheritedMethods(getPackage(type), type, methodMap, includeMethodCallback);
     // Find methods that are overridden. We do this using `Elements.overrides`, which means
     // that it is inherently a quadratic operation, since we have to compare every method against
     // every other method. We reduce the performance impact by (a) grouping methods by name, since
@@ -472,21 +483,22 @@ public class Environment {
 
   private static void getLocalAndInheritedMethods(PackageElement pkg,
                                                   TypeElement type,
-                                                  SetMultimap<String, ExecutableElement> methods) {
+                                                  SetMultimap<String, ExecutableElement> methods,
+                                                  ConditionCallback<ExecutableElement> includeMethodCallback) {
     for (TypeMirror superInterface : type.getInterfaces()) {
       final TypeElement superInterfaceElement = asTypeElement(superInterface);
       final String interfaceName = superInterfaceElement.getSimpleName().toString();
       if (interfaceName.startsWith("Parcelable")) continue;
 
-      getLocalAndInheritedMethods(pkg, superInterfaceElement, methods);
+      getLocalAndInheritedMethods(pkg, superInterfaceElement, methods, includeMethodCallback);
     }
     if (type.getSuperclass().getKind() != TypeKind.NONE) {
       // Visit the superclass after superinterfaces so we will always see the implementation of a
       // method after any interfaces that declared it.
-      getLocalAndInheritedMethods(pkg, asTypeElement(type.getSuperclass()), methods);
+      getLocalAndInheritedMethods(pkg, asTypeElement(type.getSuperclass()), methods, includeMethodCallback);
     }
     for (ExecutableElement method : ElementFilter.methodsIn(type.getEnclosedElements())) {
-      if (!method.getModifiers().contains(Modifier.STATIC)
+      if (includeMethodCallback.call(method)
           && visibleFromPackage(method, pkg)) {
         methods.put(method.getSimpleName().toString(), method);
       }

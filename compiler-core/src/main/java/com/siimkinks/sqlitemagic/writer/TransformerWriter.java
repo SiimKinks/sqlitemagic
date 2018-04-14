@@ -23,7 +23,7 @@ public class TransformerWriter {
   private void writeTransformerColumns(Environment environment) throws IOException {
     final Filer filer = environment.getFiler();
     for (TransformerElement transformerElement : environment.getTransformerElements().values()) {
-      if (transformerElement.isDefaultTransformer()) {
+      if (transformerElement.isDefaultTransformer() || transformerElement.isExternal()) {
         continue;
       }
       ColumnClassWriter

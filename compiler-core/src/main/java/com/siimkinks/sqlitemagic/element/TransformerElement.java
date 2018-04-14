@@ -26,6 +26,8 @@ import static com.siimkinks.sqlitemagic.WriterUtil.typeNameForGenerics;
 
 public class TransformerElement {
   private final Environment environment;
+  @Getter
+  private final boolean external;
 
   private TypeElement deserializedTypeTransformerElement;
   private ClassName deserializedTypeTransformerClassName;
@@ -48,20 +50,23 @@ public class TransformerElement {
   private boolean hasObjectToDb = false;
   private boolean hasDbToObject = false;
 
-  public TransformerElement(Environment environment) {
+  public TransformerElement(Environment environment, boolean external) {
     this.environment = environment;
+    this.external = external;
   }
 
   public static TransformerElement fromObjectToDbValue(Environment environment,
-                                                       ExecutableElement objectToDbValue) {
-    final TransformerElement transformer = new TransformerElement(environment);
+                                                       ExecutableElement objectToDbValue,
+                                                       boolean external) {
+    final TransformerElement transformer = new TransformerElement(environment, external);
     transformer.addObjectToDbValueMethod(objectToDbValue);
     return transformer;
   }
 
   public static TransformerElement fromDbValueToObject(Environment environment,
-                                                       ExecutableElement dbValueToObject) {
-    final TransformerElement transformer = new TransformerElement(environment);
+                                                       ExecutableElement dbValueToObject,
+                                                       boolean external) {
+    final TransformerElement transformer = new TransformerElement(environment, external);
     transformer.addDbValueToObjectMethod(dbValueToObject);
     return transformer;
   }

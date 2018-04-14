@@ -18,7 +18,9 @@ class GenClassesManagerTest {
     assertThat(allChangedTables).isEqualTo(StringArraySet(arrayOf(
         "immutable_value_with_nullable_fields",
         "immutable_value",
-        "author"
+        "author",
+        "model_with_transformers",
+        "model_with_external_transformers"
     )))
   }
 
@@ -31,7 +33,7 @@ class GenClassesManagerTest {
   @Test
   fun tableCountIsAddedForAllTableCount() {
     assertThat(getNrOfTables(null))
-        .isEqualTo(3)
+        .isEqualTo(5)
   }
 
   @Test
@@ -43,7 +45,7 @@ class GenClassesManagerTest {
   @Test
   fun tableCountOfSubmodule() {
     assertThat(getNrOfTables("Submodule"))
-        .isEqualTo(2)
+        .isEqualTo(3)
   }
 
   @Test

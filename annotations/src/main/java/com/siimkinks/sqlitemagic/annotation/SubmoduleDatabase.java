@@ -17,4 +17,11 @@ public @interface SubmoduleDatabase {
    * @return Submodule name
    */
   String value();
+
+  /**
+   * Transformers from external modules.
+   *
+   * @return External transformers containing classes
+   */
+  Class<?>[] externalTransformers() default {};
 }

@@ -42,6 +42,8 @@ android {
 }
 
 dependencies {
+  implementation project(':submodule')
+
   implementation libraries.kotlinStdLib
   implementation libraries.rxJava2
   implementation libraries.supportSqliteFramework

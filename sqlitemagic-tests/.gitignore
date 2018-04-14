@@ -6,4 +6,4 @@
 /captures
 **/db
 /db
-**/debug/assets/*.sql
+**/*debug/assets/*.sql

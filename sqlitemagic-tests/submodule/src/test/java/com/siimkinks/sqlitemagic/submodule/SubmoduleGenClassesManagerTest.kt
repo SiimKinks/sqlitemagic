@@ -12,25 +12,29 @@ class SubmoduleGenClassesManagerTest {
   fun clearDataReturnsAllModuleTables() {
     val allChangedTables = clearData(mock())
     assertThat(allChangedTables.size).isEqualTo(getNrOfTables(null))
-    assertThat(allChangedTables).isEqualTo(StringArraySet(arrayOf("immutable_value_with_nullable_fields", "immutable_value")))
+    assertThat(allChangedTables).isEqualTo(StringArraySet(arrayOf(
+        "immutable_value_with_nullable_fields",
+        "immutable_value",
+        "model_with_transformers"
+    )))
   }
 
   @Test
   fun tableCountIsNotChangedForAllTableCount() {
     assertThat(getNrOfTables(null))
-        .isEqualTo(2)
+        .isEqualTo(3)
   }
 
   @Test
   fun tableCountIsNotChangedForNativeModule() {
     assertThat(getNrOfTables(""))
-        .isEqualTo(2)
+        .isEqualTo(3)
   }
 
   @Test
   fun tableCountIsNotChangedForNativeModuleWithSubmoduleName() {
     assertThat(getNrOfTables("Submodule"))
-        .isEqualTo(2)
+        .isEqualTo(3)
   }
 
   @Test
