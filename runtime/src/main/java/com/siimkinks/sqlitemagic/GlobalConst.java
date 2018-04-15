@@ -6,6 +6,7 @@ public final class GlobalConst {
 
   public static final String METHOD_CREATE_SCHEMA = "createSchema";
   public static final String METHOD_CLEAR_DATA = "clearData";
+  public static final String METHOD_MIGRATE_VIEWS = "migrateViews";
   public static final String METHOD_GET_DB_VERSION = "getDbVersion";
   public static final String METHOD_GET_DB_NAME = "getDbName";
   public static final String METHOD_CONFIGURE_DATABASE = "configureDatabase";
@@ -16,6 +17,7 @@ public final class GlobalConst {
 
   public static final String INVOCATION_METHOD_CREATE_SCHEMA = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_CREATE_SCHEMA;
   public static final String INVOCATION_METHOD_CLEAR_DATA = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_CLEAR_DATA;
+  public static final String INVOCATION_METHOD_MIGRATE_VIEWS = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_MIGRATE_VIEWS;
   public static final String INVOCATION_METHOD_GET_DB_VERSION = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_DB_VERSION;
   public static final String INVOCATION_METHOD_GET_DB_NAME = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_GET_DB_NAME;
   public static final String INVOCATION_METHOD_CONFIGURE_DATABASE = CLASS_GENERATED_CLASSES_MANAGER + "#" + METHOD_CONFIGURE_DATABASE;

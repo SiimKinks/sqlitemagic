@@ -35,10 +35,6 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
   // this method already runs in transaction
   @Override
   public void onUpgrade(SupportSQLiteDatabase db, int oldVersion, int newVersion) {
-    executeUpgradeScripts(db, oldVersion, newVersion);
-  }
-
-  private void executeUpgradeScripts(SupportSQLiteDatabase db, int oldVersion, int newVersion) {
     try {
       if (SqliteMagic.LOGGING_ENABLED) {
         LogUtil.logDebug("Executing upgrade scripts");
@@ -56,6 +52,7 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
         }
         runMigrationScript(db, assets, fileName);
       }
+      SqlUtil.migrateViews(db);
     } catch (IOException ioe) {
       LogUtil.logError("Error executing upgrade scripts");
       throw new RuntimeException(ioe);

@@ -48,6 +48,7 @@ import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_VERSION;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_NR_OF_TABLES;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_SUBMODULE_NAMES;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_IS_DEBUG;
+import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_MIGRATE_VIEWS;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.FROM;
 import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
@@ -92,6 +93,7 @@ public class GenClassesManagerWriter {
           .addMethod(databaseConfigurator(environment, className))
           .addMethod(databaseSchemaCreator(environment, managerStep, className))
           .addMethod(clearData(environment, className))
+          .addMethod(migrateViews(environment, managerStep, className))
           .addMethod(nrOfTables(environment, className));
 
       if (!environment.isSubmodule()) {
@@ -236,6 +238,40 @@ public class GenClassesManagerWriter {
             METHOD_CLEAR_DATA);
       }
     });
+  }
+
+  private MethodSpec migrateViews(Environment environment, GenClassesManagerStep managerStep, String className) {
+    final MethodSpec.Builder builder = createMagicInvokableMethod(className, METHOD_MIGRATE_VIEWS)
+        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addParameter(SUPPORT_SQLITE_DATABASE, "db");
+
+    if (environment.isDebugVariant() && environment.isMigrateDebug()) {
+      forEachSubmoduleDatabase(environment, new Callback2<TypeMirror, String>() {
+        @Override
+        public void call(TypeMirror type, String moduleName) {
+          builder.addStatement("$T.$L(db)",
+              type,
+              METHOD_MIGRATE_VIEWS);
+        }
+      });
+
+      final List<ViewElement> allViewElements = managerStep.getAllViewElements();
+      if (!allViewElements.isEmpty()) {
+        addDebugLogging(builder, "Migrating views");
+        for (ViewElement viewElement : allViewElements) {
+          builder.addStatement("db.execSQL($S)",
+              "DROP VIEW IF EXISTS " + viewElement.getViewName());
+
+          final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
+          builder.addStatement("$T.createView(db, $T.$L, $S)",
+              SQL_UTIL,
+              viewDao,
+              FIELD_VIEW_QUERY,
+              viewElement.getViewName());
+        }
+      }
+    }
+    return builder.build();
   }
 
   private MethodSpec submoduleNames(Environment environment, String className) {

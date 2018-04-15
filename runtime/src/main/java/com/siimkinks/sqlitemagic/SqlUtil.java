@@ -20,6 +20,7 @@ import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_VER
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_NR_OF_TABLES;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_SUBMODULE_NAMES;
 import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_IS_DEBUG;
+import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_MIGRATE_VIEWS;
 
 /**
  * Internal utility functions.
@@ -38,6 +39,12 @@ public final class SqlUtil {
   @NonNull
   @Invokes(INVOCATION_METHOD_CLEAR_DATA)
   public static StringArraySet clearData(SupportSQLiteDatabase db) {
+    // filled with magic
+    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
+  }
+
+  @Invokes(INVOCATION_METHOD_MIGRATE_VIEWS)
+  public static void migrateViews(SupportSQLiteDatabase db) {
     // filled with magic
     throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }

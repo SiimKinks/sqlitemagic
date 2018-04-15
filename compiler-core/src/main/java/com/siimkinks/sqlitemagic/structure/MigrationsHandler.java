@@ -82,7 +82,6 @@ public final class MigrationsHandler {
     dropIndices(from, to, changedTables, migrationStatements);
     migrationStatements.addAll(tableMigrationStatements);
     createIndices(from, to, changedTables, migrationStatements);
-    // TODO migrate views -- drop all views?
 
     persistMigrationStatements(migrationStatements);
   }

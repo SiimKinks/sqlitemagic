@@ -591,6 +591,12 @@ public class WriterUtil {
     }
   }
 
+  public static void addDebugLogging(MethodSpec.Builder builder, String message) {
+    if (BaseProcessor.GENERATE_LOGGING) {
+      builder.addStatement("if ($T.LOGGING_ENABLED) $T.logDebug($S)", SQLITE_MAGIC, LOG_UTIL, message);
+    }
+  }
+
   public static void addErrorLogging(MethodSpec.Builder methodBuilder, String message) {
     if (BaseProcessor.GENERATE_LOGGING) {
       methodBuilder.addStatement("if ($T.LOGGING_ENABLED) $T.logError($S)", SQLITE_MAGIC, LOG_UTIL, message);
