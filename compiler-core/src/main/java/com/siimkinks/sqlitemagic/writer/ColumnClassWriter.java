@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import javax.annotation.processing.Filer;
+import javax.lang.model.element.TypeElement;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -35,8 +36,8 @@ import static com.siimkinks.sqlitemagic.WriterUtil.CURSOR;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN;
-import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.UNIQUE;
 import static com.siimkinks.sqlitemagic.WriterUtil.VALUE_PARSER;
@@ -137,7 +138,11 @@ public final class ColumnClassWriter {
       classBuilder.addSuperinterface(ParameterizedTypeName.get(UNIQUE, nullabilityType));
     }
     final TypeSpec type = classBuilder.build();
-    writeSource(filer, type);
+    final TypeElement typeElement = environment.getElementUtils().getTypeElement(PACKAGE_ROOT + "." + className);
+    // write source only if there isn't already this type
+    if (typeElement == null) {
+      writeSource(filer, type);
+    }
     return type;
   }
 
