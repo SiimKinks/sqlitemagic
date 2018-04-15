@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+Version 0.21.2 _(2018-04-15)_
+---------------------------------
+
+* Add: Support for cross-module object transformers
+* Add: Support for views migration
+
 Version 0.21.1 _(2018-04-08)_
 ---------------------------------
 
