@@ -11,13 +11,13 @@ import com.siimkinks.sqlitemagic.internal.StringArraySet;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-import static com.siimkinks.sqlitemagic.Utils.numericConstantToSqlString;
-import static com.siimkinks.sqlitemagic.internal.StringArraySet.BASE_SIZE;
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.LONG_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.STRING_PARSER;
+import static com.siimkinks.sqlitemagic.Utils.numericConstantToSqlString;
 import static com.siimkinks.sqlitemagic.Utils.parserForNumberType;
+import static com.siimkinks.sqlitemagic.internal.StringArraySet.BASE_SIZE;
 
 /**
  * Builder for SQL SELECT statement.
@@ -148,7 +148,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
-   * Select all column from {@code table}.
+   * Select all columns from {@code table}.
    * <p>
    * Creates "SELECT * FROM {@code table} ..." query builder.
    *
@@ -160,6 +160,20 @@ public final class Select<S> extends SelectSqlNode<S> {
   @CheckResult
   public static <T> From<T, T, SelectN, NotNullable> from(@NonNull Table<T> table) {
     return new From<>(all(), table);
+  }
+
+  /**
+   * Select all columns from {@code SELECT}.
+   * <p>
+   * Creates "SELECT * FROM (SELECT... ) ..." query builder.
+   *
+   * @param select Subquery to select from
+   * @param <T>    Java type that table represents
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  public static <T> From<T, T, SelectN, NotNullable> from(@NonNull SelectNode<T, ?, ?> select) {
+    return new From<>(all(), SelectionTable.<T>from(select.selectBuilder, null));
   }
 
   /**
@@ -223,6 +237,18 @@ public final class Select<S> extends SelectSqlNode<S> {
     @CheckResult
     public <T> From<T, R, Select1, N> from(@NonNull Table<T> table) {
       return new From<>(this, table);
+    }
+
+    /**
+     * Define a FROM clause.
+     *
+     * @param select Subquery to select from
+     * @param <T>    Java type that table represents
+     * @return SQL SELECT statement builder
+     */
+    @CheckResult
+    public <T> From<T, R, Select1, N> from(@NonNull SelectNode<T, ?, ?> select) {
+      return new From<>(this, SelectionTable.<T>from(select.selectBuilder, null));
     }
   }
 
@@ -319,6 +345,18 @@ public final class Select<S> extends SelectSqlNode<S> {
     public <T> From<T, T, SelectN, NotNullable> from(@NonNull Table<T> table) {
       return new From<>(this, table);
     }
+
+    /**
+     * Define a FROM clause.
+     *
+     * @param select Subquery to select from
+     * @param <T>    Java type that table represents
+     * @return SQL SELECT statement builder
+     */
+    @CheckResult
+    public <T> From<T, T, SelectN, NotNullable> from(@NonNull SelectNode<T, ?, ?> select) {
+      return new From<>(this, SelectionTable.<T>from(select.selectBuilder, null));
+    }
   }
 
   /**
@@ -349,6 +387,9 @@ public final class Select<S> extends SelectSqlNode<S> {
       super(parent);
       this.table = table;
       selectBuilder.from = this;
+      if (table instanceof SelectionTable) {
+        ((SelectionTable<T>) table).linkWithOuterSelect(selectBuilder);
+      }
     }
 
     @Override
@@ -1089,10 +1130,10 @@ public final class Select<S> extends SelectSqlNode<S> {
     }
   }
 
-	/* ###############################################################################
+  /* ###############################################################################
    * #################################  FUNCTIONS  #################################
-	 * ###############################################################################
-	 */
+   * ###############################################################################
+   */
 
   private static final NumericColumn<Long, Long, Number, ?, NotNullable> COUNT = new NumericColumn<>(ANONYMOUS_TABLE, "count(*)", false, LONG_PARSER, false, null);
 

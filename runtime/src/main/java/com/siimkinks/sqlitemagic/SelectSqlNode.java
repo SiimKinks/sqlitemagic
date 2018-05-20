@@ -44,8 +44,20 @@ public abstract class SelectSqlNode<S> extends SqlNode {
      */
     @NonNull
     @CheckResult
-    public final NumericColumn<T, T, T, ?, N> asColumn(@NonNull String alias) {
+    public final NumericColumn<T, T, T, ?, N> toColumn(@NonNull String alias) {
       return SelectionColumn.from(selectBuilder, alias);
+    }
+
+    /**
+     * Convert SELECT statement into table which can then be used as inner SELECT.
+     *
+     * @param alias Table alias
+     * @return Table to be used in SELECT builder
+     */
+    @NonNull
+    @CheckResult
+    public final Table<T> toTable(@NonNull String alias) {
+      return SelectionTable.from(selectBuilder, alias);
     }
 
     /**

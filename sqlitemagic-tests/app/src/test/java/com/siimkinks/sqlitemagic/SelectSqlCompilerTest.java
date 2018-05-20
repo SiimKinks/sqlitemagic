@@ -112,6 +112,50 @@ public final class SelectSqlCompilerTest {
   }
 
   @Test
+  public void selectAllFromSimpleSubquery() {
+    CompiledSelect<Author, SelectN> compiledSelect = Select
+        .from(Select.from(AUTHOR))
+        .compile();
+    CompiledSelectMetadata
+        .assertThat()
+        .sql("SELECT * FROM (SELECT * FROM author ) ")
+        .tableName("")
+        .observedTables("author")
+        .queryDeep(false)
+        .build()
+        .isEqualTo(compiledSelect);
+
+    CompiledFirstSelect<Author, SelectN> compiledFirstSelect = compiledSelect.takeFirst();
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM author ) LIMIT 1 ")
+        .tableName("")
+        .observedTables("author")
+        .build()
+        .isEqualTo(compiledFirstSelect);
+
+    compiledSelect = Select
+        .from(Select.from(AUTHOR))
+        .queryDeep()
+        .compile();
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM author ) ")
+        .tableName("")
+        .observedTables("author")
+        .queryDeep(true)
+        .build()
+        .isEqualTo(compiledSelect);
+
+    compiledFirstSelect = compiledSelect.takeFirst();
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM author ) LIMIT 1 ")
+        .tableName("")
+        .observedTables("author")
+        .queryDeep(true)
+        .build()
+        .isEqualTo(compiledFirstSelect);
+  }
+
+  @Test
   public void selectAllFromComplex() {
     CompiledSelect<Book, SelectN> compiledSelect = Select
         .from(BOOK)
@@ -152,6 +196,63 @@ public final class SelectSqlCompilerTest {
         .queryDeep(true)
         .build()
         .isEqualTo(compiledFirstSelect);
+  }
+
+  @Test
+  public void selectAllFromComplexSubquery() {
+    CompiledSelect<Book, SelectN> compiledSelect = Select
+        .from(Select.from(BOOK))
+        .compile();
+
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM book ) ")
+        .tableName("")
+        .observedTables("book")
+        .build()
+        .isEqualTo(compiledSelect);
+
+    CompiledFirstSelect<Book, SelectN> compiledFirstSelect = compiledSelect.takeFirst();
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM book ) LIMIT 1 ")
+        .tableName("")
+        .observedTables("book")
+        .build()
+        .isEqualTo(compiledFirstSelect);
+
+    compiledSelect = Select
+        .from(Select.from(BOOK).queryDeep())
+        .queryDeep()
+        .compile();
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM book LEFT JOIN author ON book.author=author.id ) ")
+        .tableName("")
+        .observedTables("book", "author")
+        .queryDeep(true)
+        .build()
+        .isEqualTo(compiledSelect);
+
+    compiledFirstSelect = compiledSelect.takeFirst();
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM book LEFT JOIN author ON book.author=author.id ) LIMIT 1 ")
+        .tableName("")
+        .observedTables("book", "author")
+        .queryDeep(true)
+        .build()
+        .isEqualTo(compiledFirstSelect);
+  }
+
+  @Test
+  public void selectFromSubqueryArgsArePropagated() {
+    final CompiledSelect<Book, SelectN> compiledSelect = Select
+        .from(Select.from(BOOK).where(BOOK.TITLE.is("asd").and(BOOK.NR_OF_RELEASES.is(12))))
+        .compile();
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM (SELECT * FROM book WHERE (book.title=? AND book.nr_of_releases=?) ) ")
+        .tableName("")
+        .observedTables("book")
+        .args("asd", "12")
+        .build()
+        .isEqualTo(compiledSelect);
   }
 
   @Test
@@ -1385,7 +1486,7 @@ public final class SelectSqlCompilerTest {
             Select.column(count())
                 .from(MAGAZINE)
                 .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-                .asColumn("same_authors"))
+                .toColumn("same_authors"))
         .from(BOOK)
         .compile();
 
@@ -1413,7 +1514,7 @@ public final class SelectSqlCompilerTest {
         .column(count())
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-        .asColumn("same_authors");
+        .toColumn("same_authors");
 
     final CompiledSelect<Book, SelectN> compiledSelect = Select
         .columns(BOOK.TITLE, BOOK.AUTHOR, same_authors)
@@ -1451,7 +1552,7 @@ public final class SelectSqlCompilerTest {
             lower(Select.column(MAGAZINE.NAME)
                 .from(MAGAZINE)
                 .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-                .asColumn("mag_name")))
+                .toColumn("mag_name")))
         .from(BOOK)
         .compile();
 
@@ -1479,7 +1580,7 @@ public final class SelectSqlCompilerTest {
         .column(MAGAZINE.NAME)
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-        .asColumn("mag_name"));
+        .toColumn("mag_name"));
 
     final CompiledSelect<Book, SelectN> compiledSelect = Select
         .columns(BOOK.TITLE, BOOK.AUTHOR, mag_name)
@@ -1516,7 +1617,7 @@ public final class SelectSqlCompilerTest {
             abs(Select.column(count())
                 .from(MAGAZINE)
                 .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-                .asColumn("same_authors")))
+                .toColumn("same_authors")))
         .from(BOOK)
         .compile();
 
@@ -1544,7 +1645,7 @@ public final class SelectSqlCompilerTest {
         .column(count())
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-        .asColumn("same_authors"));
+        .toColumn("same_authors"));
 
     final CompiledSelect<Book, SelectN> compiledSelect = Select
         .columns(BOOK.TITLE, BOOK.AUTHOR, same_authors)
@@ -1580,7 +1681,7 @@ public final class SelectSqlCompilerTest {
         .column(count())
         .from(MAGAZINE)
         .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-        .asColumn("same_authors");
+        .toColumn("same_authors");
 
     final CompiledSelect<Book, SelectN> compiledSelect = Select
         .columns(BOOK.TITLE, BOOK.AUTHOR, same_authors)
@@ -1616,7 +1717,7 @@ public final class SelectSqlCompilerTest {
               BOOK.AUTHOR,
               Select.from(MAGAZINE)
                   .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-                  .asColumn("same_authors"))
+                  .toColumn("same_authors"))
           .from(BOOK)
           .compile();
     } catch (Exception e) {
@@ -1630,7 +1731,7 @@ public final class SelectSqlCompilerTest {
               Select.columns(MAGAZINE.NAME, MAGAZINE.NR_OF_RELEASES)
                   .from(MAGAZINE)
                   .where(MAGAZINE.AUTHOR.is(BOOK.AUTHOR))
-                  .asColumn("same_authors"))
+                  .toColumn("same_authors"))
           .from(BOOK)
           .compile();
     } catch (Exception e) {

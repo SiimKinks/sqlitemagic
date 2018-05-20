@@ -135,6 +135,23 @@ public final class SelectSqlBuilderTest {
   }
 
   @Test
+  public void selectAllFromSubquery() {
+    final String expected = "SELECT * FROM (SELECT * FROM author ) ";
+
+    SelectSqlNode sqlNode = Select.from(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+
+    sqlNode = Select.all().from(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+
+    final String expectedDistinct = "SELECT DISTINCT * FROM (SELECT * FROM author ) ";
+    sqlNode = Select
+        .distinct()
+        .from(Select.from(AUTHOR));
+    assertSql(sqlNode, expectedDistinct);
+  }
+
+  @Test
   public void selectAllFromAliased() {
     final String expected = "SELECT * FROM book AS b ";
 
@@ -144,6 +161,92 @@ public final class SelectSqlBuilderTest {
 
     sqlNode = Select.all().from(b);
     assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void selectAllFromAliasedSubquery() {
+    final String expected = "SELECT * FROM (SELECT * FROM author ) AS b ";
+
+    final Table b = Select.from(AUTHOR).toTable("b");
+    final Table b2 = b.as("b");
+
+    SelectSqlNode sqlNode = Select.from(b);
+    assertSql(sqlNode, expected);
+
+    sqlNode = Select.from(b2);
+    assertSql(sqlNode, expected);
+
+    sqlNode = Select.all().from(b);
+    assertSql(sqlNode, expected);
+
+    sqlNode = Select.all().from(b2);
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void selectSingleColumn() {
+    final String expected = "SELECT book.author FROM book ";
+
+    SelectSqlNode sqlNode = Select
+        .column(BOOK.AUTHOR)
+        .from(BOOK);
+    assertSql(sqlNode, expected);
+
+    String expectedDistinct = "SELECT DISTINCT book.author FROM book ";
+    sqlNode = Select
+        .distinct(BOOK.AUTHOR)
+        .from(BOOK);
+    assertSql(sqlNode, expectedDistinct);
+  }
+
+  @Test
+  public void selectSingleColumnFromSubquery() {
+    final String expected = "SELECT book.author FROM (SELECT * FROM author ) ";
+
+    SelectSqlNode sqlNode = Select
+        .column(BOOK.AUTHOR)
+        .from(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+
+    String expectedDistinct = "SELECT DISTINCT book.author FROM (SELECT * FROM author ) ";
+    sqlNode = Select
+        .distinct(BOOK.AUTHOR)
+        .from(Select.from(AUTHOR));
+    assertSql(sqlNode, expectedDistinct);
+  }
+
+  @Test
+  public void selectSingleColumnFromAliased() {
+    final String expected = "SELECT book.author FROM book AS b ";
+
+    final BookTable b = BOOK.as("b");
+    SelectSqlNode sqlNode = Select
+        .column(BOOK.AUTHOR)
+        .from(b);
+    assertSql(sqlNode, expected);
+
+    String expectedDistinct = "SELECT DISTINCT book.author FROM book AS b ";
+    sqlNode = Select
+        .distinct(BOOK.AUTHOR)
+        .from(b);
+    assertSql(sqlNode, expectedDistinct);
+  }
+
+  @Test
+  public void selectSingleColumnFromAliasedSubquery() {
+    final String expected = "SELECT book.author FROM (SELECT * FROM author ) AS a ";
+
+    final Table a = Select.from(AUTHOR).toTable("a");
+    SelectSqlNode sqlNode = Select
+        .column(BOOK.AUTHOR)
+        .from(a);
+    assertSql(sqlNode, expected);
+
+    String expectedDistinct = "SELECT DISTINCT book.author FROM (SELECT * FROM author ) AS a ";
+    sqlNode = Select
+        .distinct(BOOK.AUTHOR)
+        .from(a);
+    assertSql(sqlNode, expectedDistinct);
   }
 
   @Test
