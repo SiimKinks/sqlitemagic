@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+Version 0.22.0 _(2018-05-20)_
+---------------------------------
+
+* Breaking: Rename `Select#asColumn` to `Select#toColumn`
+* Add: Support for table as subquery
+
 Version 0.21.2 _(2018-04-15)_
 ---------------------------------
 

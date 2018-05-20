@@ -324,7 +324,8 @@ public class Column<T, R, ET, P, N> {
   public Column<T, R, ET, P, NotNullable> toNotNullable() {
     if (nullable) {
       final String errorMsg = "Converting nullable column [" + this + "] to not nullable. This might cause data inconsistencies!";
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logError(errorMsg, new IllegalStateException(errorMsg));
+      if (SqliteMagic.LOGGING_ENABLED)
+        LogUtil.logError(errorMsg, new IllegalStateException(errorMsg));
     }
     //noinspection unchecked
     return (Column<T, R, ET, P, NotNullable>) this;
@@ -475,6 +476,17 @@ public class Column<T, R, ET, P, N> {
   @CheckResult
   public final Column<String, String, CharSequence, ?, N> trim(@NonNull CharSequence trimString) {
     return new FunctionColumn<>(ANONYMOUS_TABLE, this, "trim(", ",'" + trimString + "')", STRING_PARSER, nullable, null);
+  }
+
+  /**
+   * This column as expression.
+   *
+   * @return Expression
+   */
+  @NonNull
+  @CheckResult
+  public final Expr toExpr() {
+    return new Expr(this, "");
   }
 
   /**
