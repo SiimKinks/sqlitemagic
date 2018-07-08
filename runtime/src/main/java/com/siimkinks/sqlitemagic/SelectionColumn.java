@@ -116,4 +116,10 @@ final class SelectionColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N
   public NumericColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new SelectionColumn<>(table, name, allFromTable, valueParser, nullable, alias, nameInQuery, selectBuilder);
   }
+
+  @NonNull
+  @Override
+  public <NewTableType> NumericColumn<T, R, ET, NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
+    return new SelectionColumn<>(table, name, allFromTable, valueParser, nullable, alias, nameInQuery, selectBuilder);
+  }
 }

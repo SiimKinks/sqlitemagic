@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Size;
@@ -141,10 +140,15 @@ final class FunctionColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N>
     return columnOffset + 1;
   }
 
-  @Override
   @NonNull
-  @CheckResult
+  @Override
   public FunctionColumn<T, R, ET, P, N> as(@NonNull String alias) {
+    return new FunctionColumn<>(table, wrappedColumns, prefix, separator, suffix, valueParser, nullable, alias);
+  }
+
+  @NonNull
+  @Override
+  public <NewTableType> FunctionColumn<T, R, ET, NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
     return new FunctionColumn<>(table, wrappedColumns, prefix, separator, suffix, valueParser, nullable, alias);
   }
 }

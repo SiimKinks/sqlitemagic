@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic;
 
 import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
-import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -120,10 +119,15 @@ final class FunctionCopyColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P
     return columnOffset + 1;
   }
 
-  @Override
   @NonNull
-  @CheckResult
+  @Override
   public FunctionCopyColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new FunctionCopyColumn<>(table, wrappedColumn, prefix, suffix, nullable, alias);
+  }
+
+  @NonNull
+  @Override
+  public <NewTableType> FunctionCopyColumn<T, R, ET, NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
+    return new FunctionCopyColumn<>(table, wrappedColumn.inTable(table), prefix, suffix, nullable, alias);
   }
 }

@@ -33,6 +33,12 @@ public final class BooleanColumn<T, N> extends NumericColumn<Boolean, Boolean, B
     return new BooleanColumn<>(table, name, valueParser, nullable, alias);
   }
 
+  @NonNull
+  @Override
+  public <NewTableType> BooleanColumn<NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
+    return new BooleanColumn<>(table, name, valueParser, nullable, alias);
+  }
+
   @Nullable
   @Override
   <V> V getFromCursor(@NonNull Cursor cursor) {

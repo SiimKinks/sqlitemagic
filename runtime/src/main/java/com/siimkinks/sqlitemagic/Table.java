@@ -18,7 +18,7 @@ import java.util.LinkedList;
  *     Table Java object type
  */
 public class Table<T> {
-  static final Table<?> ANONYMOUS_TABLE = new Table<>("", null, 1);
+  public static final Table<?> ANONYMOUS_TABLE = new Table<>("", null, 1);
 
   @NonNull
   final String name;

@@ -38,6 +38,12 @@ public class NumericColumn<T, R, ET, P, N> extends Column<T, R, ET, P, N> {
     return new NumericColumn<>(table, name, allFromTable, valueParser, nullable, alias);
   }
 
+  @NonNull
+  @Override
+  public <NewTableType> NumericColumn<T, R, ET, NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
+    return new NumericColumn<>(table, name, allFromTable, valueParser, nullable, alias);
+  }
+
   /**
    * This column &gt; value.
    *

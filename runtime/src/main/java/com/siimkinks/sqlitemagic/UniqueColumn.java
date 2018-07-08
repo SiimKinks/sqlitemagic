@@ -27,4 +27,10 @@ public final class UniqueColumn<T, R, ET, P, N> extends Column<T, R, ET, P, N> i
   public UniqueColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new UniqueColumn<>(table, name, allFromTable, valueParser, nullable, alias);
   }
+
+  @NonNull
+  @Override
+  public <NewTableType> UniqueColumn<T, R, ET, NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
+    return new UniqueColumn<>(table, name, allFromTable, valueParser, nullable, alias);
+  }
 }

@@ -315,6 +315,18 @@ public class Column<T, R, ET, P, N> {
   }
 
   /**
+   * Mark this column as a part of the provided table.
+   *
+   * @param table Table this column should belong to
+   * @return New column in the provided table.
+   */
+  @NonNull
+  @CheckResult
+  public <NewTableType> Column<T, R, ET, NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
+    return new Column<>(table, name, allFromTable, valueParser, nullable, alias);
+  }
+
+  /**
    * Convert this column to not-nullable column.
    *
    * @return Non-nullable column.

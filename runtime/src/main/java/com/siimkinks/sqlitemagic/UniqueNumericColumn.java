@@ -27,4 +27,10 @@ public final class UniqueNumericColumn<T, R, ET, P, N> extends NumericColumn<T, 
   public UniqueNumericColumn<T, R, ET, P, N> as(@NonNull String alias) {
     return new UniqueNumericColumn<>(table, name, allFromTable, valueParser, nullable, alias);
   }
+
+  @NonNull
+  @Override
+  public <NewTableType> UniqueNumericColumn<T, R, ET, NewTableType, N> inTable(@NonNull Table<NewTableType> table) {
+    return new UniqueNumericColumn<>(table, name, allFromTable, valueParser, nullable, alias);
+  }
 }

@@ -39,6 +39,7 @@ import static com.siimkinks.sqlitemagic.Select.sum;
 import static com.siimkinks.sqlitemagic.Select.sumDistinct;
 import static com.siimkinks.sqlitemagic.Select.upper;
 import static com.siimkinks.sqlitemagic.SimpleAllValuesMutableTable.SIMPLE_ALL_VALUES_MUTABLE;
+import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.BYTE_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.FLOAT_PARSER;
@@ -246,6 +247,39 @@ public final class SelectSqlBuilderTest {
     sqlNode = Select
         .distinct(BOOK.AUTHOR)
         .from(a);
+    assertSql(sqlNode, expectedDistinct);
+  }
+
+  @Test
+  public void selectSingleReownedColumnFromAliasedSubquery() {
+    final String expected = "SELECT a.author FROM (SELECT * FROM author ) AS a ";
+
+    final Table<Author> a = Select.from(AUTHOR).toTable("a");
+    SelectSqlNode sqlNode = Select
+        .column(BOOK.AUTHOR.inTable(a))
+        .from(a);
+    assertSql(sqlNode, expected);
+
+    String expectedDistinct = "SELECT DISTINCT a.author FROM (SELECT * FROM author ) AS a ";
+    sqlNode = Select
+        .distinct(BOOK.AUTHOR.inTable(a))
+        .from(a);
+    assertSql(sqlNode, expectedDistinct);
+  }
+
+  @Test
+  public void selectSingleColumnReownedToAnonymousTableFromSubquery() {
+    final String expected = "SELECT author FROM (SELECT * FROM author ) ";
+
+    SelectSqlNode sqlNode = Select
+        .column(BOOK.AUTHOR.inTable(ANONYMOUS_TABLE))
+        .from(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+
+    String expectedDistinct = "SELECT DISTINCT author FROM (SELECT * FROM author ) ";
+    sqlNode = Select
+        .distinct(BOOK.AUTHOR.inTable(ANONYMOUS_TABLE))
+        .from(Select.from(AUTHOR));
     assertSql(sqlNode, expectedDistinct);
   }
 
