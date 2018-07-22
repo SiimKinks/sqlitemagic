@@ -5,6 +5,7 @@ import android.support.annotation.Nullable;
 import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Random;
@@ -48,9 +49,8 @@ public abstract class SimpleValueWithBuilderAndNullableFields implements Immutab
     public abstract SimpleValueWithBuilderAndNullableFields build();
   }
 
-  public Builder copy() {
-    return new AutoValue_SimpleValueWithBuilderAndNullableFields.Builder(this);
-  }
+  @IgnoreColumn
+  public abstract Builder copy();
 
   public static Builder newRandom() {
     final Random r = new Random();

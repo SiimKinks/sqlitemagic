@@ -68,9 +68,8 @@ public abstract class BuilderWithColumnOptions extends ParentAbstractClass imple
         .ignorePrimVal(0L);
   }
 
-  public Builder copy() {
-    return new AutoValue_BuilderWithColumnOptions.Builder(this);
-  }
+  @IgnoreColumn
+  public abstract Builder copy();
 
   public static BuilderWithColumnOptions newRandom() {
     final Random r = new Random();

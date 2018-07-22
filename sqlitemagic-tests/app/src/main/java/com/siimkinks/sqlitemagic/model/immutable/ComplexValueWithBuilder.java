@@ -6,6 +6,7 @@ import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.ComplexObjectWithSameLeafs;
@@ -72,9 +73,8 @@ public abstract class ComplexValueWithBuilder {
     return new AutoValue_ComplexValueWithBuilder.Builder();
   }
 
-  public Builder copy() {
-    return new AutoValue_ComplexValueWithBuilder.Builder(this);
-  }
+  @IgnoreColumn
+  public abstract Builder copy();
 
   @AutoValue.Builder
   public abstract static class Builder {

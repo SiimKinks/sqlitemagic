@@ -52,6 +52,7 @@ dependencies {
   compileOnly libraries.sqlitemagicAnnotations
 
   annotationProcessor libraries.autoValue
+  annotationProcessor libraries.autoValueAnnotations
   annotationProcessor libraries.autoValueParcel
   annotationProcessor libraries.sqlitemagicProcessorMagic
 

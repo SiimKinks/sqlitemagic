@@ -7,6 +7,7 @@ import android.support.annotation.Nullable;
 import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.Unique;
 
@@ -36,9 +37,8 @@ public abstract class SimpleImmutableWithBuilderAndUnique {
 
   @NonNull
   @CheckResult
-  public Builder copy() {
-    return new AutoValue_SimpleImmutableWithBuilderAndUnique.Builder(this);
-  }
+  @IgnoreColumn
+  public abstract Builder copy();
 
   @AutoValue.Builder
   public static abstract class Builder {

@@ -5,6 +5,7 @@ import android.support.annotation.Nullable;
 import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.Author;
 
@@ -35,12 +36,11 @@ public abstract class BuilderMagazine implements ImmutableEquals {
   @Nullable
   public abstract SimpleValueWithCreator simpleValueWithCreator();
 
+  @IgnoreColumn
+  public abstract Builder copy();
+
   public static Builder builder() {
     return new AutoValue_BuilderMagazine.Builder();
-  }
-
-  public Builder copy() {
-    return new AutoValue_BuilderMagazine.Builder(this);
   }
 
   public boolean equalsWithoutId(Object o) {

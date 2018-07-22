@@ -145,16 +145,44 @@ public class ValueBuilderWriter implements ValueWriter {
 
   @Override
   public String buildOneValueSetterFromProvidedVariable(String entityVariableName, String settableValueName, BaseColumnElement settableColumn) {
-    return buildNewFromPrevious(entityVariableName, oneValueBuildMethod(settableValueName, settableColumn));
+    return buildNew(entityCopyWithSettingOneNewValue(entityVariableName, settableValueName, settableColumn));
   }
 
-  private String buildNewFromPrevious(String prevBuilder, String builderMethods) {
-    return String.format("new %s.%s(%s)%s.%s()",
-        environment.getValueImplementationClassNameString(abstractClassName),
-        builderClassElement.getSimpleName().toString(),
-        prevBuilder,
-        builderMethods,
-        buildMethod.getSimpleName().toString());
+  private String entityCopyWithSettingOneNewValue(String entityVariableName,
+                                                  String settableVariableName,
+                                                  BaseColumnElement settableColumn) {
+    final StringBuilder sb = new StringBuilder();
+    for (Dual<BaseColumnElement, ExecutableElement> element : requiredElements) {
+      final String methodName = element.getSecond().getSimpleName().toString();
+      sb.append('.');
+      if (element.getFirst().equals(settableColumn)) {
+        sb.append(methodName);
+        sb.append('(');
+        sb.append(settableVariableName);
+        sb.append(')');
+      } else {
+        sb.append(methodName);
+        sb.append('(');
+        sb.append(entityVariableName);
+        sb.append('.');
+        sb.append(methodName);
+        sb.append("()");
+        sb.append(')');
+      }
+    }
+    for (int i = 0, ignoredElementsSize = ignoredElements.size(); i < ignoredElementsSize; i++) {
+      final ExecutableElement ignoredElement = ignoredElements.get(i);
+      final String methodName = ignoredElement.getSimpleName().toString();
+      sb.append('.');
+      sb.append(methodName);
+      sb.append('(');
+      sb.append(entityVariableName);
+      sb.append('.');
+      sb.append(methodName);
+      sb.append("()");
+      sb.append(')');
+    }
+    return sb.toString();
   }
 
   private String buildNew(String builderMethods) {

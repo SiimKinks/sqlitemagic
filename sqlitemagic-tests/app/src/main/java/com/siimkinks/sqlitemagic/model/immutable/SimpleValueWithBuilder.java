@@ -5,6 +5,7 @@ import android.support.annotation.Nullable;
 import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
+import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.ProvidesId;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
@@ -53,9 +54,8 @@ public abstract class SimpleValueWithBuilder implements ImmutableEquals, Provide
     public abstract SimpleValueWithBuilder build();
   }
 
-  public Builder copy() {
-    return new AutoValue_SimpleValueWithBuilder.Builder(this);
-  }
+  @IgnoreColumn
+  public abstract Builder copy();
 
   public static Builder newRandom() {
     final Random random = new Random();
