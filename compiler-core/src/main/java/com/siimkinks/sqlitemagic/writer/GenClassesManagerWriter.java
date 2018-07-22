@@ -245,30 +245,28 @@ public class GenClassesManagerWriter {
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(SUPPORT_SQLITE_DATABASE, "db");
 
-    if (environment.isDebugVariant() && environment.isMigrateDebug()) {
-      forEachSubmoduleDatabase(environment, new Callback2<TypeMirror, String>() {
-        @Override
-        public void call(TypeMirror type, String moduleName) {
-          builder.addStatement("$T.$L(db)",
-              type,
-              METHOD_MIGRATE_VIEWS);
-        }
-      });
+    forEachSubmoduleDatabase(environment, new Callback2<TypeMirror, String>() {
+      @Override
+      public void call(TypeMirror type, String moduleName) {
+        builder.addStatement("$T.$L(db)",
+            type,
+            METHOD_MIGRATE_VIEWS);
+      }
+    });
 
-      final List<ViewElement> allViewElements = managerStep.getAllViewElements();
-      if (!allViewElements.isEmpty()) {
-        addDebugLogging(builder, "Migrating views");
-        for (ViewElement viewElement : allViewElements) {
-          builder.addStatement("db.execSQL($S)",
-              "DROP VIEW IF EXISTS " + viewElement.getViewName());
+    final List<ViewElement> allViewElements = managerStep.getAllViewElements();
+    if (!allViewElements.isEmpty()) {
+      addDebugLogging(builder, "Migrating views");
+      for (ViewElement viewElement : allViewElements) {
+        builder.addStatement("db.execSQL($S)",
+            "DROP VIEW IF EXISTS " + viewElement.getViewName());
 
-          final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
-          builder.addStatement("$T.createView(db, $T.$L, $S)",
-              SQL_UTIL,
-              viewDao,
-              FIELD_VIEW_QUERY,
-              viewElement.getViewName());
-        }
+        final ClassName viewDao = EntityEnvironment.getGeneratedDaoClassName(viewElement);
+        builder.addStatement("$T.createView(db, $T.$L, $S)",
+            SQL_UTIL,
+            viewDao,
+            FIELD_VIEW_QUERY,
+            viewElement.getViewName());
       }
     }
     return builder.build();

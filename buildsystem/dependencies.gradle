@@ -15,7 +15,7 @@ ext {
   compileSdkVersion = 27
   targetSdkVersion = compileSdkVersion
 
-  androidGradleVersion = '3.3.0-alpha02'
+  androidGradleVersion = '3.3.0-alpha03'
   androidSupportLibsVersion = '27.1.0'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.10'
