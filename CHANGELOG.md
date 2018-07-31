@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Version 0.23.0 _(2018-07-31)_
+---------------------------------
+
+* New: Add support for release migrations
+* New: Add ability to redefine columns in any table
+* New: Always rebuild views on migrations
+* Fix: Add support for latest AutoValue version
+
 Version 0.22.0 _(2018-05-20)_
 ---------------------------------
 

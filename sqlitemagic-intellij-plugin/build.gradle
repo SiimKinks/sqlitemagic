@@ -1,5 +1,5 @@
 group 'com.siimkinks.sqlitemagic'
-version '0.22.1-SNAPSHOT'
+version '0.23.0'
 
 apply plugin: 'java'
 
