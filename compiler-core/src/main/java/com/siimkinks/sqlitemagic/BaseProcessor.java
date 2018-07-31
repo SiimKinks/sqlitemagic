@@ -119,6 +119,10 @@ public class BaseProcessor extends AbstractProcessor {
     if (!Strings.isNullOrEmpty(migrateDebug)) {
       environment.setMigrateDebug(Boolean.valueOf(migrateDebug));
     }
+    final String mainModulePath = options.get("sqlitemagic.main.module.path");
+    if (!Strings.isNullOrEmpty(mainModulePath)) {
+      environment.setMainModulePath(mainModulePath);
+    }
     String dbVersion = options.get("sqlitemagic.db.version");
     if (!Strings.isNullOrEmpty(dbVersion)) {
       environment.setDbVersion(dbVersion);

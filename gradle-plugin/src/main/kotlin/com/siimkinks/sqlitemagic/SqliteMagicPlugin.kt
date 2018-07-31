@@ -4,6 +4,7 @@ import com.android.build.gradle.*
 import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.internal.variant.BaseVariantData
 import com.android.builder.model.ClassField
+import com.siimkinks.sqlitemagic.structure.MigrationsHandler
 import org.gradle.api.*
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.tasks.compile.JavaCompile
@@ -83,6 +84,9 @@ class SqliteMagicPlugin : Plugin<Project> {
       it.addAptArg("sqlitemagic.project.dir", project.projectDir)
       it.addAptArg("sqlitemagic.variant.name", it.name)
       it.addAptArg("sqlitemagic.variant.debug", it.debug)
+      sqlitemagic.mainModulePath?.let { mainModulePath ->
+        it.addAptArg("sqlitemagic.main.module.path", File(mainModulePath).absolutePath)
+      }
       it.addDebugDbVersion(project, sqlitemagic)
     }
   }
@@ -111,6 +115,9 @@ class SqliteMagicPlugin : Plugin<Project> {
   private fun <T : BaseVariant> T.configureVariant(transform: SqliteMagicTransform, project: Project) {
     transform.putJavaCompileTask(this)
     addConfigVariantDbTask(project, this)
+    if (!debug) {
+      addMigrateVariantDbTask(project)
+    }
   }
 
   // FIXME remove?
@@ -142,6 +149,20 @@ class SqliteMagicPlugin : Plugin<Project> {
     }
     configTask.group = DB_TASK_GROUP
     variant.javaCompiler.dependsOn(configTask)
+  }
+
+  private fun BaseVariant.addMigrateVariantDbTask(project: Project) {
+    val migrationTask = project.task("migrate${name.capitalize()}Db").doFirst {
+      val projectDir = project.projectDir
+      val dbDir = File(projectDir, "db")
+      check(dbDir.exists()) { "Database metadata directory must exist in order to create migrations. Build project and try again…" }
+
+      MigrationsHandler.handleReleaseMigrations(
+          projectDir = projectDir,
+          dbDir = dbDir,
+          variantName = name)
+    }
+    migrationTask.group = DB_TASK_GROUP
   }
 
   private fun <T : BaseVariant> T.addDebugDbVersion(project: Project, sqlitemagic: SqliteMagicPluginExtension) {

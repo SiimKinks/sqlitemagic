@@ -64,7 +64,6 @@ import static com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_GENERATED_CLASSES
 
 @Data
 public class Environment {
-
   private final Messager messager;
   private final Elements elementUtils;
   private final Types typeUtils;
@@ -94,26 +93,23 @@ public class Environment {
   @Getter
   @Setter(AccessLevel.PRIVATE)
   private Class<? extends Annotation> autoValueBuilderAnnotation;
-  @Getter
   @Setter
   private String projectDir;
-  @Getter
   @Setter
   private boolean debugVariant;
-  @Getter
   @Setter
   private String variantName;
-  @Getter
   @Setter
   private boolean migrateDebug = true;
-  @Getter
   private Integer dbVersion;
   @Getter
   private String dbName;
-  @Getter
   @Setter
   @Nullable
   private String submoduleName = null;
+  @Setter
+  @Nullable
+  private String mainModulePath = null;
   @Getter
   @Setter
   @Nullable
@@ -179,6 +175,36 @@ public class Environment {
 
   public void warning(String msg, Object... args) {
     messager.printMessage(Diagnostic.Kind.WARNING, "SqliteMagic: " + String.format(msg, args));
+  }
+
+  public boolean isDebugVariant() {
+    return debugVariant;
+  }
+
+  public boolean isMigrateDebug() {
+    return migrateDebug;
+  }
+
+  public String getProjectDir() {
+    return projectDir;
+  }
+
+  public String getVariantName() {
+    return variantName;
+  }
+
+  public Integer getDbVersion() {
+    return dbVersion;
+  }
+
+  @Nullable
+  public String getSubmoduleName() {
+    return submoduleName;
+  }
+
+  @Nullable
+  public String getMainModulePath() {
+    return mainModulePath;
   }
 
   public boolean isSubmodule() {

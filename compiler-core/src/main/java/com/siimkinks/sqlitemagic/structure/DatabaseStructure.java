@@ -5,12 +5,12 @@ import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.IndexElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
+import com.siimkinks.sqlitemagic.util.TopsortTables;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -18,20 +18,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
-import static java.util.Collections.emptyMap;
-
 @Data
 @ToString
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public final class DatabaseStructure implements Serializable {
-  Map<String, TableStructure> tables = emptyMap();
-  Map<String, IndexStructure> indices = emptyMap();
+  LinkedHashMap<String, TableStructure> tables = new LinkedHashMap<>();
+  LinkedHashMap<String, IndexStructure> indices = new LinkedHashMap<>();
 
   public static DatabaseStructure create(Environment environment, GenClassesManagerStep managerStep) {
     final List<TableElement> allTableElements = environment.getAllTableElements();
-    final HashMap<String, TableStructure> tables = new HashMap<>(allTableElements.size());
-    for (TableElement tableElement : allTableElements) {
+    final LinkedHashMap<String, TableStructure> tables = new LinkedHashMap<>(allTableElements.size());
+    for (TableElement tableElement : TopsortTables.sort(environment, allTableElements)) {
       final List<ColumnElement> allColumns = tableElement.getAllColumns();
       final ArrayList<ColumnStructure> columns = new ArrayList<>(allColumns.size());
       for (ColumnElement columnElement : allColumns) {
@@ -41,10 +39,20 @@ public final class DatabaseStructure implements Serializable {
     }
 
     final List<IndexElement> allIndexElements = managerStep.getAllIndexElements();
-    final HashMap<String, IndexStructure> indices = new HashMap<>(allIndexElements.size());
+    final LinkedHashMap<String, IndexStructure> indices = new LinkedHashMap<>(allIndexElements.size());
     for (IndexElement indexElement : allIndexElements) {
       indices.put(indexElement.getIndexName(), IndexStructure.create(indexElement));
     }
+
+    return new DatabaseStructure(tables, indices);
+  }
+
+  public DatabaseStructure plus(DatabaseStructure other) {
+    final LinkedHashMap<String, TableStructure> tables = new LinkedHashMap<>(getTables());
+    tables.putAll(other.getTables());
+
+    final LinkedHashMap<String, IndexStructure> indices = new LinkedHashMap<>(getIndices());
+    indices.putAll(other.getIndices());
 
     return new DatabaseStructure(tables, indices);
   }

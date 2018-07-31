@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.element.TransformerElement;
 import com.siimkinks.sqlitemagic.element.ViewElement;
 import com.siimkinks.sqlitemagic.processing.GenClassesManagerStep;
+import com.siimkinks.sqlitemagic.structure.MigrationsHandler;
 import com.siimkinks.sqlitemagic.util.Callback2;
 import com.siimkinks.sqlitemagic.util.Dual;
 import com.siimkinks.sqlitemagic.util.FormatData;
@@ -67,7 +68,6 @@ import static com.siimkinks.sqlitemagic.WriterUtil.anyWildcardTypeName;
 import static com.siimkinks.sqlitemagic.WriterUtil.createMagicInvokableMethod;
 import static com.siimkinks.sqlitemagic.WriterUtil.notNullParameter;
 import static com.siimkinks.sqlitemagic.WriterUtil.nullableParameter;
-import static com.siimkinks.sqlitemagic.structure.MigrationsHandler.handleMigrations;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_TABLE_SCHEMA;
 import static com.siimkinks.sqlitemagic.util.NameConst.FIELD_VIEW_QUERY;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_COLUMN_FOR_VALUE_OR_NULL;
@@ -107,7 +107,7 @@ public class GenClassesManagerWriter {
         classBuilder.addMethod(columnForValueOrNull(environment, managerStep, className));
       }
       WriterUtil.writeSource(filer, classBuilder.build(), PACKAGE_ROOT);
-      handleMigrations(environment, managerStep);
+      MigrationsHandler.Companion.handleDebugMigrations(environment, managerStep);
     }
   }
 
