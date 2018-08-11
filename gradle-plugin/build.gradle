@@ -8,9 +8,9 @@ sourceCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
   compileOnly gradleApi()
+  compileOnly libraries.android
+  compileOnly libraries.androidGradle
 
-  compile libraries.android
-  compile libraries.androidGradle
   compile libraries.autoValue
   compile libraries.javassist
   compile libraries.kotlinStdLib

@@ -37,7 +37,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.COMPILED_N_COLUMNS_SELECT_IMPL;
 import static com.siimkinks.sqlitemagic.WriterUtil.CURSOR;
 import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER;
-import static com.siimkinks.sqlitemagic.WriterUtil.MAPPER_WITH_COLUMN_OFFSET;
+import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.NOT_NULLABLE_COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.NULLABLE;
@@ -314,8 +314,8 @@ public final class StructureWriter {
           new Callback<MethodSpec.Builder>() {
             @Override
             public void call(MethodSpec.Builder deepBuilder) {
-              deepBuilder.addStatement("return $L", mapperFunction(true, CodeBlock.builder()
-                  .addStatement("columnOffset.value = 0")
+              deepBuilder.addStatement("return $L", mapperFunction(CodeBlock.builder()
+                  .addStatement("final $1T columnOffset = new $1T()", MUTABLE_INT)
                   .addStatement("return $T.$L(cursor, columnOffset)",
                       daoClassName,
                       METHOD_FULL_OBJECT_FROM_CURSOR_POSITION)
@@ -325,8 +325,8 @@ public final class StructureWriter {
           new Callback<MethodSpec.Builder>() {
             @Override
             public void call(MethodSpec.Builder shallowBuilder) {
-              shallowBuilder.addStatement("return $L", mapperFunction(true, CodeBlock.builder()
-                  .addStatement("columnOffset.value = 0")
+              shallowBuilder.addStatement("return $L", mapperFunction(CodeBlock.builder()
+                  .addStatement("final $1T columnOffset = new $1T()", MUTABLE_INT)
                   .addStatement("return $T.$L(cursor, columnOffset)",
                       daoClassName,
                       METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION)
@@ -340,7 +340,7 @@ public final class StructureWriter {
         new Callback<MethodSpec.Builder>() {
           @Override
           public void call(MethodSpec.Builder deepBuilder) {
-            deepBuilder.addStatement("return $L", mapperFunction(false, CodeBlock.builder()
+            deepBuilder.addStatement("return $L", mapperFunction(CodeBlock.builder()
                 .addStatement("return $T.$L(cursor, columns, tableGraphNodeNames, \"\")",
                     daoClassName,
                     METHOD_FULL_OBJECT_FROM_CURSOR_POSITION)
@@ -350,7 +350,7 @@ public final class StructureWriter {
         new Callback<MethodSpec.Builder>() {
           @Override
           public void call(MethodSpec.Builder shallowBuilder) {
-            shallowBuilder.addStatement("return $L", mapperFunction(false, CodeBlock.builder()
+            shallowBuilder.addStatement("return $L", mapperFunction(CodeBlock.builder()
                 .addStatement("return $T.$L(cursor, columns, tableGraphNodeNames, \"\")",
                     daoClassName,
                     METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION)
@@ -364,10 +364,10 @@ public final class StructureWriter {
     return builder.build();
   }
 
-  private TypeSpec mapperFunction(boolean withColumnOffset, @NonNull CodeBlock functionBody) {
+  private TypeSpec mapperFunction(@NonNull CodeBlock functionBody) {
     return TypeSpec
         .anonymousClassBuilder("")
-        .addSuperinterface(ParameterizedTypeName.get(withColumnOffset ? MAPPER_WITH_COLUMN_OFFSET : MAPPER, structureElementTypeName))
+        .addSuperinterface(ParameterizedTypeName.get(MAPPER, structureElementTypeName))
         .addMethod(MethodSpec.methodBuilder("apply")
             .addAnnotation(Override.class)
             .addModifiers(PUBLIC)

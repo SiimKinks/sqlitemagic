@@ -108,7 +108,6 @@ public class WriterUtil {
   public static final ClassName OPERATION_FAILED_EXCEPTION = ClassName.get(OperationFailedException.class);
   public static final ClassName TRANSACTION = ClassName.get(Transaction.class);
   public static final ClassName MAPPER = ClassName.get(Query.Mapper.class);
-  public static final ClassName MAPPER_WITH_COLUMN_OFFSET = ClassName.get(Query.MapperWithColumnOffset.class);
   public static final ClassName MUTABLE_INT = ClassName.get(MutableInt.class);
   public static final ClassName FROM = ClassName.get(Select.From.class);
   public static final ClassName TABLE = ClassName.get(Table.class);

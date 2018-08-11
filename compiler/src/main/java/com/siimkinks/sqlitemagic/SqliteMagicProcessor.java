@@ -13,6 +13,7 @@ import javax.annotation.processing.SupportedOptions;
     "sqlitemagic.variant.debug",
     "sqlitemagic.variant.name",
     "sqlitemagic.migrate.debug",
+    "sqlitemagic.main.module.path",
     "sqlitemagic.db.version",
     "sqlitemagic.db.name"
 })

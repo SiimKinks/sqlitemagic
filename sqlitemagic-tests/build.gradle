@@ -4,8 +4,8 @@ apply from: '../buildsystem/dependencies.gradle'
 allprojects {
   buildscript {
     repositories {
-      jcenter()
       mavenLocal()
+      jcenter()
       google()
     }
     dependencies {
