@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+Version 0.23.1 _(2018-08-18)_
+---------------------------------
+
+* Fix: Multithreading bug for compiled select
+
 Version 0.23.0 _(2018-07-31)_
 ---------------------------------
 

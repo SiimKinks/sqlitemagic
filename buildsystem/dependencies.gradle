@@ -8,14 +8,14 @@ ext {
   ]
 
   GROUP = 'com.siimkinks.sqlitemagic'
-  VERSION_NAME = '0.23.1-SNAPSHOT'
+  VERSION_NAME = '0.23.1'
 
   buildToolsVersion = '27.0.3'
   minSdkVersion = 16
   compileSdkVersion = 27
   targetSdkVersion = compileSdkVersion
 
-  androidGradleVersion = '3.3.0-alpha05'
+  androidGradleVersion = '3.3.0-alpha06'
   androidSupportLibsVersion = '27.1.0'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.10'
