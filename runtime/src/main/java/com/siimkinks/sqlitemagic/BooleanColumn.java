@@ -1,11 +1,12 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.transformer.BooleanTransformer;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteStatement;
 
 @SuppressWarnings("unchecked")
 public final class BooleanColumn<T, N> extends NumericColumn<Boolean, Boolean, Boolean, T, N> {

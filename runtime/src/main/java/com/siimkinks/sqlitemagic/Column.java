@@ -1,12 +1,8 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDoneException;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Size;
 
 import com.siimkinks.sqlitemagic.Select.OrderingTerm;
 import com.siimkinks.sqlitemagic.Select.Select1;
@@ -19,6 +15,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Size;
+import androidx.sqlite.db.SupportSQLiteStatement;
 
 import static com.siimkinks.sqlitemagic.Select.OrderingTerm.ASC;
 import static com.siimkinks.sqlitemagic.Select.OrderingTerm.DESC;
@@ -48,11 +49,11 @@ public class Column<T, R, ET, P, N> {
   /**
    * User defined alias
    */
-  @android.support.annotation.Nullable
+  @androidx.annotation.Nullable
   final String alias;
 
   Column(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-         @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias,
+         @NonNull ValueParser<?> valueParser, boolean nullable, @androidx.annotation.Nullable String alias,
          @NonNull String nameInQuery) {
     this.table = table;
     this.name = name;
@@ -64,7 +65,7 @@ public class Column<T, R, ET, P, N> {
   }
 
   Column(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-         @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias) {
+         @NonNull ValueParser<?> valueParser, boolean nullable, @androidx.annotation.Nullable String alias) {
     this.table = table;
     this.name = name;
     this.allFromTable = allFromTable;
@@ -229,7 +230,7 @@ public class Column<T, R, ET, P, N> {
   }
 
   static void putColumnPosition(@NonNull SimpleArrayMap<String, Integer> columnPositions,
-                                @android.support.annotation.Nullable String columnId,
+                                @androidx.annotation.Nullable String columnId,
                                 int pos,
                                 @NonNull Column column) {
     if (columnId != null) {
@@ -246,7 +247,7 @@ public class Column<T, R, ET, P, N> {
   }
 
   @SuppressWarnings("unchecked")
-  @android.support.annotation.Nullable
+  @androidx.annotation.Nullable
   <V> V getFromCursor(@NonNull Cursor cursor) {
     if (nullable && cursor.isNull(0)) {
       return null;
@@ -255,7 +256,7 @@ public class Column<T, R, ET, P, N> {
   }
 
   @SuppressWarnings("unchecked")
-  @android.support.annotation.Nullable
+  @androidx.annotation.Nullable
   <V> V getFromStatement(@NonNull SupportSQLiteStatement stm) {
     try {
       return (V) valueParser.parseFromStatement(stm);
@@ -281,13 +282,13 @@ public class Column<T, R, ET, P, N> {
         return column.toSqlArg(val);
       }
 
-      @android.support.annotation.Nullable
+      @androidx.annotation.Nullable
       @Override
       <V> V getFromCursor(@NonNull Cursor cursor) {
         return column.getFromCursor(cursor);
       }
 
-      @android.support.annotation.Nullable
+      @androidx.annotation.Nullable
       @Override
       <V> V getFromStatement(@NonNull SupportSQLiteStatement stm) {
         return column.getFromStatement(stm);

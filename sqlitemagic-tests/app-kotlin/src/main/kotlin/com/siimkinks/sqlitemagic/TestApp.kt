@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import android.app.Application
-import android.arch.persistence.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import io.reactivex.schedulers.Schedulers
 
 class TestApp : Application() {

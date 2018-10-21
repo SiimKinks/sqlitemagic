@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.writer;
 
-import android.support.annotation.Nullable;
-
 import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.BaseColumnElement;
@@ -13,6 +11,7 @@ import java.util.List;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
+import androidx.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;

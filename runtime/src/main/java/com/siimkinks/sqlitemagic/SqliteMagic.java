@@ -1,13 +1,13 @@
 package com.siimkinks.sqlitemagic;
 
 import android.app.Application;
-import android.arch.persistence.db.SupportSQLiteOpenHelper;
-import android.arch.persistence.db.SupportSQLiteOpenHelper.Configuration;
-import android.arch.persistence.db.SupportSQLiteOpenHelper.Factory;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteOpenHelper;
+import androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration;
+import androidx.sqlite.db.SupportSQLiteOpenHelper.Factory;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
 

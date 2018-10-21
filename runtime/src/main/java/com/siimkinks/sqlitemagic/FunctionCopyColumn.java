@@ -1,15 +1,16 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteStatement;
 
 /**
  * A column used in queries and conditions.

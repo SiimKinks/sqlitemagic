@@ -1,8 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.SQLException;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.Utils.ValueParser;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
@@ -10,6 +8,9 @@ import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
  * A column used in queries and conditions.

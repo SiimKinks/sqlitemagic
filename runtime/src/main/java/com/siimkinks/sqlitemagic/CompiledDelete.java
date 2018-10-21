@@ -1,13 +1,12 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteStatement;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.WorkerThread;
-
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.WorkerThread;
+import androidx.sqlite.db.SupportSQLiteStatement;
 import io.reactivex.Single;
 
 import static com.siimkinks.sqlitemagic.SqlUtil.bindAllArgsAsStrings;

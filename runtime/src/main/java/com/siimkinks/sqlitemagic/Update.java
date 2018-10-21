@@ -1,11 +1,12 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.*;
-
 import com.siimkinks.sqlitemagic.Select.Select1;
 
 import java.util.ArrayList;
 import java.util.Collections;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 /**
  * Builder for SQL UPDATE statement.
@@ -179,7 +180,7 @@ public final class Update extends UpdateSqlNode {
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> setNullable(@NonNull Column<V, R, ET, T, Nullable> column, @android.support.annotation.Nullable V value) {
+    public <V, R, ET> Set<T> setNullable(@NonNull Column<V, R, ET, T, Nullable> column, @androidx.annotation.Nullable V value) {
       return new Set<>(this, new UpdateColumn<>(column).isNullable(value));
     }
 
@@ -247,11 +248,11 @@ public final class Update extends UpdateSqlNode {
      * Update a column with new value.
      *
      * @param columnName Column to update
-     * @param value  A new value to set for updated column
+     * @param value      A new value to set for updated column
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public Set<T> set(@NonNull String columnName, @android.support.annotation.Nullable String value) {
+    public Set<T> set(@NonNull String columnName, @androidx.annotation.Nullable String value) {
       return new Set<>(this, columnName, value);
     }
   }
@@ -265,7 +266,7 @@ public final class Update extends UpdateSqlNode {
       this.parentColumn = parentColumn;
     }
 
-    Expr isNullable(@android.support.annotation.Nullable T value) {
+    Expr isNullable(@androidx.annotation.Nullable T value) {
       final String nullableValue = value != null ? toSqlArg(value) : null;
       return new Expr1(this, "=?", nullableValue);
     }
@@ -297,7 +298,7 @@ public final class Update extends UpdateSqlNode {
       firstUpdate.addArgs(updateBuilder.args);
     }
 
-    Set(@NonNull UpdateSqlNode parent, @NonNull String columnName, @android.support.annotation.Nullable String value) {
+    Set(@NonNull UpdateSqlNode parent, @NonNull String columnName, @androidx.annotation.Nullable String value) {
       super(parent);
       rawUpdates.add(columnName);
       updateBuilder.args.add(value);
@@ -358,7 +359,7 @@ public final class Update extends UpdateSqlNode {
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public <V, R, ET> Set<T> setNullable(@NonNull Column<V, R, ET, T, Nullable> column, @android.support.annotation.Nullable V value) {
+    public <V, R, ET> Set<T> setNullable(@NonNull Column<V, R, ET, T, Nullable> column, @androidx.annotation.Nullable V value) {
       final Expr expr = new UpdateColumn<>(column).isNullable(value);
       updates.add(expr);
       expr.addArgs(updateBuilder.args);
@@ -438,11 +439,11 @@ public final class Update extends UpdateSqlNode {
      * Update a column with new value.
      *
      * @param columnName Column to update
-     * @param value  A new value to set for updated column
+     * @param value      A new value to set for updated column
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public Set<T> set(@NonNull String columnName, @android.support.annotation.Nullable String value) {
+    public Set<T> set(@NonNull String columnName, @androidx.annotation.Nullable String value) {
       rawUpdates.add(columnName);
       updateBuilder.args.add(value);
       return this;
@@ -467,7 +468,7 @@ public final class Update extends UpdateSqlNode {
      * @return SQL UPDATE statement builder
      */
     @CheckResult
-    public RawWhere where(@NonNull String whereClause, @android.support.annotation.Nullable String... whereArgs) {
+    public RawWhere where(@NonNull String whereClause, @androidx.annotation.Nullable String... whereArgs) {
       return new RawWhere(this, whereClause, whereArgs);
     }
   }
@@ -499,7 +500,7 @@ public final class Update extends UpdateSqlNode {
     @NonNull
     private final String clause;
 
-    RawWhere(@NonNull UpdateSqlNode parent, @NonNull String clause, @android.support.annotation.Nullable String[] args) {
+    RawWhere(@NonNull UpdateSqlNode parent, @NonNull String clause, @androidx.annotation.Nullable String[] args) {
       super(parent);
       this.clause = clause;
       if (args != null && args.length > 0) {

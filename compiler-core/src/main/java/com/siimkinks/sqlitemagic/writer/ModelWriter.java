@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.writer;
 
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.TableElement;
@@ -13,6 +11,8 @@ import java.io.IOException;
 import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+
+import androidx.annotation.NonNull;
 
 import static com.siimkinks.sqlitemagic.Const.CLASS_MODIFIERS;
 

@@ -1,7 +1,8 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteDatabase;
 import android.database.Cursor;
+
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 final class DefaultDbDowngrader implements DbDowngrader {
   @Override

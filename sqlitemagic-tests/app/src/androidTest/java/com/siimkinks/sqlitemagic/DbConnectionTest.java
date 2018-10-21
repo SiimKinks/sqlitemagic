@@ -1,10 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteDatabase;
-import android.arch.persistence.db.framework.FrameworkSQLiteOpenHelperFactory;
 import android.database.Cursor;
-import android.support.annotation.NonNull;
-import android.support.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.Select.SelectN;
 import com.siimkinks.sqlitemagic.model.Author;
@@ -17,6 +13,10 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 
+import androidx.annotation.NonNull;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
+import androidx.test.runner.AndroidJUnit4;
 import io.reactivex.functions.Function;
 import io.reactivex.observers.TestObserver;
 import io.reactivex.schedulers.Schedulers;

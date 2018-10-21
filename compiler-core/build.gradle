@@ -11,13 +11,13 @@ dependencies {
 
   compile files("${System.properties['java.home']}/../lib/tools.jar")
 
+  compile libraries.androidSqlite
   compile libraries.autoCommon
   compile libraries.dagger
   compile libraries.guava
   compile libraries.javapoet
   compile libraries.jackson
   compile libraries.kotlinStdLib
-  compile libraries.supportSqlite
   compile libraries.rxJava2
 
   compileOnly libraries.daggerCompiler

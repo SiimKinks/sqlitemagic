@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.model.immutable;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;

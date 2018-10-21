@@ -1,8 +1,5 @@
 package com.siimkinks.sqlitemagic.element;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.Environment;
@@ -15,6 +12,8 @@ import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import lombok.Getter;
 
 import static com.siimkinks.sqlitemagic.element.TableElement.determineTableName;

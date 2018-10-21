@@ -1,13 +1,14 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteDatabase;
 import android.database.Cursor;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.annotation.Size;
 
 import java.util.Collection;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.Size;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.createQueryObservable;
 import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_STRINGS;

@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.transformer;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject;
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;

@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.support.annotation.CheckResult
+import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Select.Select1
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode
 

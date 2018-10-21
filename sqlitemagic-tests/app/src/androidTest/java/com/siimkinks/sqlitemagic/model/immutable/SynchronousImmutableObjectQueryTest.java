@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic.model.immutable;
 
 import android.database.Cursor;
 import android.database.SQLException;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.AuthorTable;
 import com.siimkinks.sqlitemagic.CompiledCursorSelect;

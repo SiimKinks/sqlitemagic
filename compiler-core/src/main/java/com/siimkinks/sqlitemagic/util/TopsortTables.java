@@ -1,8 +1,5 @@
 package com.siimkinks.sqlitemagic.util;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
@@ -12,6 +9,9 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 public final class TopsortTables implements Iterable<TableElement> {
   private final LinkedList<TableElement> sorted;

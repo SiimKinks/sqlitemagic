@@ -141,6 +141,6 @@ public class TableMethodsProcessor extends AbstractClassProcessor {
 
   @NotNull
   private String checkResultAnnotation() {
-    return "android.support.annotation.CheckResult";
+    return "androidx.annotation.CheckResult";
   }
 }

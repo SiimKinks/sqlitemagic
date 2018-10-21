@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.support.annotation.CheckResult
+import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation
 
 /** @see ConnectionProvidedOperation.usingConnection */

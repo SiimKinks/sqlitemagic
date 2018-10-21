@@ -22,9 +22,9 @@ import com.siimkinks.sqlitemagic.sample.ui.helper.SimpleItemTouchHelperCallback;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
-import rx.Observable;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.subscriptions.CompositeSubscription;
+import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
 
 import static com.siimkinks.sqlitemagic.ItemListTable.ITEM_LIST;
 import static com.siimkinks.sqlitemagic.ItemTable.ITEM;
@@ -38,7 +38,7 @@ public class ListActivity extends AppCompatActivity {
   RecyclerView recyclerView;
 
   private ItemsAdapter adapter;
-  private CompositeSubscription subscriptions;
+  private CompositeDisposable subscriptions;
 
   private ItemList itemList;
 
@@ -73,7 +73,7 @@ public class ListActivity extends AppCompatActivity {
   }
 
   private void wireData() {
-    subscriptions = new CompositeSubscription();
+    subscriptions = new CompositeDisposable();
     subscriptions.add(Select
         .from(ITEM)
         .where(ITEM.LIST.is(itemList))
@@ -98,7 +98,7 @@ public class ListActivity extends AppCompatActivity {
   @Override
   protected void onDestroy() {
     super.onDestroy();
-    subscriptions.unsubscribe();
+    subscriptions.dispose();
   }
 
   @OnClick(R.id.fab)

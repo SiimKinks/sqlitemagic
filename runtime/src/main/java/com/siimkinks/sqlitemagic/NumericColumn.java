@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode;
 import com.siimkinks.sqlitemagic.Utils.ValueParser;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
@@ -22,13 +22,13 @@ import static com.siimkinks.sqlitemagic.Utils.numericConstantToSqlString;
  */
 public class NumericColumn<T, R, ET, P, N> extends Column<T, R, ET, P, N> {
   NumericColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-                @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias,
+                @NonNull ValueParser<?> valueParser, boolean nullable, @androidx.annotation.Nullable String alias,
                 @NonNull String nameInQuery) {
     super(table, name, allFromTable, valueParser, nullable, alias, nameInQuery);
   }
 
   NumericColumn(@NonNull Table<P> table, @NonNull String name, boolean allFromTable,
-                @NonNull ValueParser<?> valueParser, boolean nullable, @android.support.annotation.Nullable String alias) {
+                @NonNull ValueParser<?> valueParser, boolean nullable, @androidx.annotation.Nullable String alias) {
     super(table, name, allFromTable, valueParser, nullable, alias);
   }
 
@@ -251,15 +251,15 @@ public class NumericColumn<T, R, ET, P, N> extends Column<T, R, ET, P, N> {
   public static final class Between<T, ET> {
     @NonNull
     final Column<T, ?, ?, ?, ?> column;
-    @android.support.annotation.Nullable
+    @androidx.annotation.Nullable
     final T firstVal;
-    @android.support.annotation.Nullable
+    @androidx.annotation.Nullable
     final Column<?, ?, ?, ?, ?> firstColumn;
     final boolean not;
 
     Between(@NonNull Column<T, ?, ?, ?, ?> column,
-            @android.support.annotation.Nullable T firstVal,
-            @android.support.annotation.Nullable Column<?, ?, ?, ?, ?> firstColumn,
+            @androidx.annotation.Nullable T firstVal,
+            @androidx.annotation.Nullable Column<?, ?, ?, ?, ?> firstColumn,
             boolean not) {
       this.column = column;
       this.firstVal = firstVal;

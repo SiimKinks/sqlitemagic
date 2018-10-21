@@ -1,8 +1,5 @@
 package com.siimkinks.sqlitemagic.element;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.siimkinks.sqlitemagic.Const;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.util.FormatData;
@@ -19,6 +16,8 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import lombok.Getter;
 
 import static com.siimkinks.sqlitemagic.Const.DEFAULT_TRANSFORMERS;

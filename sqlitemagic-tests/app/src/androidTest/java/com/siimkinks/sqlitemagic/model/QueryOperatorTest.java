@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.model;
 
 import android.database.Cursor;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.CompiledCountSelect;
 import com.siimkinks.sqlitemagic.CompiledSelect;

@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.support.annotation.CheckResult
+import androidx.annotation.CheckResult
 
 /** Builder for SQL DELETE statement. */
 val DELETE: Delete

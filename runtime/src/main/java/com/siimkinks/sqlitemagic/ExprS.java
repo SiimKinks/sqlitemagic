@@ -1,13 +1,13 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 final class ExprS extends Expr {
   @NonNull

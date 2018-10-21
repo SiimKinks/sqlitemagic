@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.model.immutable;
 
-import android.support.annotation.Nullable;
-
 import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
@@ -10,6 +8,8 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.Author;
 
 import java.util.Random;
+
+import androidx.annotation.Nullable;
 
 @AutoValue
 @Table(persistAll = true)

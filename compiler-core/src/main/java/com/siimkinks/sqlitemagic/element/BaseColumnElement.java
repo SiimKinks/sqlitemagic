@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic.element;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.squareup.javapoet.TypeName;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 public interface BaseColumnElement {
   String getElementName();

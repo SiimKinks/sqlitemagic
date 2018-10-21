@@ -1,13 +1,14 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Size;
-import android.support.annotation.WorkerThread;
 
 import com.siimkinks.sqlitemagic.RawSelect.CompiledRawSelectImpl;
 import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Size;
+import androidx.annotation.WorkerThread;
 
 @SuppressWarnings("unchecked")
 class RawSelectNode<R, CompiledType extends CompiledRawSelect> implements ConnectionProvidedOperation<R> {
@@ -28,8 +29,7 @@ class RawSelectNode<R, CompiledType extends CompiledRawSelect> implements Connec
   /**
    * Define SQL arguments.
    *
-   * @param args
-   *     Arguments for the created SQL
+   * @param args Arguments for the created SQL
    * @return A builder for raw SQL SELECT statement
    */
   @CheckResult

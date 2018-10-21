@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.*;
-import android.support.annotation.Nullable;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
  * A unique numeric column used in queries and conditions.

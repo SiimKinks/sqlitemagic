@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.writer;
 
-import android.support.annotation.NonNull;
-
 import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
@@ -21,6 +19,8 @@ import com.squareup.javapoet.TypeSpec;
 
 import java.util.List;
 import java.util.Set;
+
+import androidx.annotation.NonNull;
 
 import static com.siimkinks.sqlitemagic.BaseProcessor.GENERATE_LOGGING;
 import static com.siimkinks.sqlitemagic.Const.PUBLIC_STATIC_FINAL;

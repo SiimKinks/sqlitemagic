@@ -8,8 +8,8 @@ import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Update;
 import com.siimkinks.sqlitemagic.sample.R;
 
-import rx.Observable;
-import rx.schedulers.Schedulers;
+import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 
 import static com.siimkinks.sqlitemagic.ItemListTable.ITEM_LIST;
 
@@ -41,7 +41,7 @@ public final class EditListNameFragment extends CreateNewFragment {
             .where(ITEM_LIST.ID.is(listId))
             .observe()
             .toObservable())
-        .first()
+        .firstOrError()
         .subscribe();
   }
 

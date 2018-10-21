@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.model.persist
 
 import android.database.sqlite.SQLiteDatabase
-import android.support.test.runner.AndroidJUnit4
+import androidx.test.runner.AndroidJUnit4
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
 import com.siimkinks.sqlitemagic.model.*
 import com.siimkinks.sqlitemagic.model.insert.SingleItemInsertTest

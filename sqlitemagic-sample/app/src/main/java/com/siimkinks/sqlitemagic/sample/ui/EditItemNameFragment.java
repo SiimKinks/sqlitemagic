@@ -8,8 +8,8 @@ import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.Update;
 import com.siimkinks.sqlitemagic.sample.R;
 
-import rx.Observable;
-import rx.schedulers.Schedulers;
+import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 
 import static com.siimkinks.sqlitemagic.ItemTable.ITEM;
 
@@ -42,7 +42,7 @@ public final class EditItemNameFragment extends CreateNewFragment {
             .where(ITEM.ID.is(itemId))
             .observe()
             .toObservable())
-        .first()
+        .firstOrError()
         .subscribe();
   }
 

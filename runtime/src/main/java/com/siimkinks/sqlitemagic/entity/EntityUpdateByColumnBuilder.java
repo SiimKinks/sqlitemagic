@@ -1,10 +1,10 @@
 package com.siimkinks.sqlitemagic.entity;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.NotNullable;
 import com.siimkinks.sqlitemagic.Unique;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 public interface EntityUpdateByColumnBuilder<R> {
   /**

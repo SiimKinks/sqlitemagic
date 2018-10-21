@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 import io.reactivex.Maybe;
 import io.reactivex.Observable;
 import io.reactivex.Observer;
@@ -11,8 +10,7 @@ import io.reactivex.Single;
 /**
  * An {@link Observable} of {@link Query} which offers single item query specific convenience operators.
  *
- * @param <R>
- *     Mapped query return value type
+ * @param <R> Mapped query return value type
  */
 public class SingleItemQueryObservable<R> extends Observable<Query<R>> {
   private final Observable<Query<R>> upstream;
@@ -42,8 +40,7 @@ public class SingleItemQueryObservable<R> extends Observable<Query<R>> {
    * <p>
    * This operator emits {@code defaultValue} if query result is empty.
    *
-   * @param defaultValue
-   *     Value emitted if {@link Query} result is empty
+   * @param defaultValue Value emitted if {@link Query} result is empty
    */
   @NonNull
   @CheckResult
@@ -67,8 +64,7 @@ public class SingleItemQueryObservable<R> extends Observable<Query<R>> {
    * <p>
    * This operator emits {@code defaultValue} if query result is empty.
    *
-   * @param defaultValue
-   *     Value emitted if {@link Query} result is empty
+   * @param defaultValue Value emitted if {@link Query} result is empty
    */
   @NonNull
   @CheckResult

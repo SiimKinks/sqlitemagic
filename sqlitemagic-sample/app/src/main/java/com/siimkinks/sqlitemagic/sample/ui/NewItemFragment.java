@@ -8,8 +8,8 @@ import com.siimkinks.sqlitemagic.sample.R;
 import com.siimkinks.sqlitemagic.sample.model.Item;
 import com.siimkinks.sqlitemagic.sample.model.ItemList;
 
-import rx.Observable;
-import rx.schedulers.Schedulers;
+import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 
 import static com.siimkinks.sqlitemagic.sample.ui.ListActivity.EXTRA_LIST;
 
@@ -41,7 +41,7 @@ public final class NewItemFragment extends CreateNewFragment {
             .persist()
             .observe()
             .toObservable())
-        .first()
+        .firstOrError()
         .subscribe();
   }
 

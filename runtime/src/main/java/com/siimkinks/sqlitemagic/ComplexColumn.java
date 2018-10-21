@@ -1,15 +1,16 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.SQLException;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.annotation.Size;
 
 import com.siimkinks.sqlitemagic.Utils.ValueParser;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.Size;
 
 /**
  * A column used in queries and conditions.

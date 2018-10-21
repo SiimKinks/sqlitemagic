@@ -1,8 +1,5 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder;
@@ -51,6 +48,9 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import static com.siimkinks.sqlitemagic.Const.PRIMITIVES_DEFAULT_VALUE_MAP;
 import static com.siimkinks.sqlitemagic.Const.PRIVATE_FINAL_FIELD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.Const.PUBLIC_STATIC_FINAL;
@@ -66,13 +66,13 @@ import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_OBSERVE;
 import static com.siimkinks.sqlitemagic.util.NameConst.METHOD_SET_CONFLICT_ALGORITHM;
 import static com.siimkinks.sqlitemagic.util.NameConst.PACKAGE_ROOT;
 import static com.siimkinks.sqlitemagic.writer.EntityEnvironment.tableNameFromStructureConstant;
-import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_BY_COLUMNS_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.CONFLICT_ALGORITHM_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DB_CONNECTION_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.DISPOSABLE_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.EMITTER_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.ENTITY_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.MANAGER_VARIABLE;
+import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_BY_COLUMNS_VARIABLE;
 import static com.siimkinks.sqlitemagic.writer.ModelWriter.OPERATION_HELPER_VARIABLE;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -81,12 +81,12 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 public class WriterUtil {
 
   public static final ClassName SQLITE_DATABASE = ClassName.get("android.database.sqlite", "SQLiteDatabase");
-  public static final ClassName SUPPORT_SQLITE_DATABASE = ClassName.get("android.arch.persistence.db", "SupportSQLiteDatabase");
-  public static final ClassName SUPPORT_SQLITE_STATEMENT = ClassName.get("android.arch.persistence.db", "SupportSQLiteStatement");
+  public static final ClassName SUPPORT_SQLITE_DATABASE = ClassName.get("androidx.sqlite.db", "SupportSQLiteDatabase");
+  public static final ClassName SUPPORT_SQLITE_STATEMENT = ClassName.get("androidx.sqlite.db", "SupportSQLiteStatement");
   public static final ClassName SQL_EXCEPTION = ClassName.get("android.database", "SQLException");
-  public static final ClassName CHECK_RESULT = ClassName.get("android.support.annotation", "CheckResult");
-  public static final ClassName NON_NULL = ClassName.get("android.support.annotation", "NonNull");
-  public static final ClassName NULLABLE = ClassName.get("android.support.annotation", "Nullable");
+  public static final ClassName CHECK_RESULT = ClassName.get("androidx.annotation", "CheckResult");
+  public static final ClassName NON_NULL = ClassName.get("androidx.annotation", "NonNull");
+  public static final ClassName NULLABLE = ClassName.get("androidx.annotation", "Nullable");
 
   public static final ClassName ITERABLE = ClassName.get(Iterable.class);
   public static final ClassName COLLECTION = ClassName.get(Collection.class);

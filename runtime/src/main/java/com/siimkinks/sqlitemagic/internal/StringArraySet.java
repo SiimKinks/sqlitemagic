@@ -1,12 +1,12 @@
 package com.siimkinks.sqlitemagic.internal;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 public class StringArraySet implements Set<String> {
   /**

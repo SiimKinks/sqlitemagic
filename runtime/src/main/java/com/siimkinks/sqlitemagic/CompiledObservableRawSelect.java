@@ -1,8 +1,9 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 /**
  * Immutable object that contains raw SQL SELECT statement. This object

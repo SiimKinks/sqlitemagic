@@ -1,12 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteDatabase;
-import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
 import android.database.SQLException;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.Query.DatabaseQuery;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
@@ -16,6 +11,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteStatement;
 import io.reactivex.Observable;
 import io.reactivex.functions.Predicate;
 

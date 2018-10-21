@@ -16,7 +16,7 @@ android {
     buildConfigField "int", "DB_VERSION", "3"
     buildConfigField "String", "DB_NAME", '"db.db"'
 
-    testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
   }
   buildTypes {
     debug {
@@ -39,11 +39,11 @@ android {
 }
 
 dependencies {
+  implementation libraries.androidSqliteFramework
+  implementation libraries.androidAppcompat
   implementation libraries.kotlinStdLib
   implementation libraries.kotlinReflect
   implementation libraries.sqlitemagicRuntime
-  implementation libraries.supportSqliteFramework
-  implementation libraries.supportV7
   implementation libraries.rxJava2
   implementation libraries.rxJava2Extensions
 
@@ -67,8 +67,8 @@ dependencies {
 
   testAnnotationProcessor libraries.lombok
 
-  androidTestImplementation libraries.supportAnnotations
-  androidTestImplementation libraries.supportTestRunner
+  androidTestImplementation libraries.androidAnnotations
+  androidTestImplementation libraries.androidTestRunner
   androidTestImplementation(libraries.truth) {
     exclude group: 'junit' // Android has JUnit built in.
   }

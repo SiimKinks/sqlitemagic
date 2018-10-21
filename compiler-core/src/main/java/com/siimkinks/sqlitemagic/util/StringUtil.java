@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic.util;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
 import java.util.Arrays;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 public final class StringUtil {
   private StringUtil() {

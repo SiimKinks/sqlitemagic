@@ -1,13 +1,13 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.Select.OrderingTerm;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 import static com.siimkinks.sqlitemagic.Select.OrderingTerm.ASC;
 import static com.siimkinks.sqlitemagic.Select.OrderingTerm.DESC;
@@ -63,7 +63,7 @@ public class Expr {
    * Create SQLite expression from raw SQL string.
    *
    * @param rawExpr Raw expression
-   * @param args Expression arguments
+   * @param args    Expression arguments
    * @return Raw SQL expression.
    */
   @NonNull

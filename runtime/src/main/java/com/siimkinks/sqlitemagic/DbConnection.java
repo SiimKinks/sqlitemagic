@@ -1,10 +1,10 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.WorkerThread;
-
 import java.io.Closeable;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.WorkerThread;
 
 /**
  * Database connection reference.

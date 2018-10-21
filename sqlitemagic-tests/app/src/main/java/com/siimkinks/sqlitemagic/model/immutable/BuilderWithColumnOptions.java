@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic.model.immutable;
 
 import android.os.Parcelable;
-import android.support.annotation.Nullable;
 
 import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.ParentAbstractClass;
@@ -16,6 +15,8 @@ import com.siimkinks.sqlitemagic.model.NotPersistedModel;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
 
 import java.util.Random;
+
+import androidx.annotation.Nullable;
 
 @AutoValue
 @Table(persistAll = true, value = BuilderWithColumnOptions.TABLE)

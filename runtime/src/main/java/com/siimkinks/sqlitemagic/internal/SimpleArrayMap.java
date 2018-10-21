@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic.internal;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import java.util.Map;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
  * Base implementation of Android ArrayMap that doesn't include any standard Java

@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.validator;
 
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
@@ -17,6 +15,7 @@ import java.util.Queue;
 import javax.annotation.processing.Messager;
 import javax.tools.Diagnostic;
 
+import androidx.annotation.NonNull;
 import lombok.AllArgsConstructor;
 
 /**

@@ -6,8 +6,8 @@ import android.widget.EditText;
 import com.siimkinks.sqlitemagic.sample.R;
 import com.siimkinks.sqlitemagic.sample.model.ItemList;
 
-import rx.Observable;
-import rx.schedulers.Schedulers;
+import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 
 public final class NewListFragment extends CreateNewFragment {
   public static NewListFragment create() {
@@ -24,7 +24,7 @@ public final class NewListFragment extends CreateNewFragment {
             .persist()
             .observe()
             .toObservable())
-        .first()
+        .firstOrError()
         .subscribe();
   }
 

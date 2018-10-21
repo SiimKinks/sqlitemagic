@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.SQLException;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.model.Author;

@@ -1,10 +1,10 @@
 package com.siimkinks.sqlitemagic.entity;
 
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.ConflictAlgorithm;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 
 interface EntityOperationBuilder<R> extends ConnectionProvidedOperation<R> {
   /**

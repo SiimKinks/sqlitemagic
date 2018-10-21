@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.element;
 
-import android.support.annotation.NonNull;
-
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.siimkinks.sqlitemagic.Environment;
@@ -30,6 +28,7 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
+import androidx.annotation.NonNull;
 import lombok.Getter;
 
 import static com.siimkinks.sqlitemagic.util.StringUtil.replaceCamelCaseWithUnderscore;

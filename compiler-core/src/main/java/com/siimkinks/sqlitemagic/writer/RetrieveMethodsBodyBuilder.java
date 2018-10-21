@@ -1,9 +1,5 @@
 package com.siimkinks.sqlitemagic.writer;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.siimkinks.sqlitemagic.element.BaseColumnElement;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
@@ -16,6 +12,9 @@ import com.squareup.javapoet.TypeName;
 
 import java.util.List;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.experimental.Builder;

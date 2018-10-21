@@ -11,8 +11,8 @@ dependencies {
   compile fileTree(dir: 'libs', include: ['*.jar'])
 
   compile libraries.android
-  compile libraries.supportAnnotations
-  compile libraries.supportSqlite
+  compile libraries.androidAnnotations
+  compile libraries.androidSqlite
   compile libraries.rxJava2
 
   testCompile libraries.junit

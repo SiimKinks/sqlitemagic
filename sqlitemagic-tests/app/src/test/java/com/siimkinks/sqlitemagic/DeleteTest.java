@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 import org.junit.Before;
 import org.junit.Test;

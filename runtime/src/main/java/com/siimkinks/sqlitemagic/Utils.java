@@ -1,16 +1,17 @@
 package com.siimkinks.sqlitemagic;
 
-import android.arch.persistence.db.SupportSQLiteStatement;
 import android.database.Cursor;
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.annotation.VisibleForTesting;
 
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.LinkedList;
 import java.util.Random;
+
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+import androidx.sqlite.db.SupportSQLiteStatement;
 
 import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_BYTES;
 import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_PRIMITIVE_BYTES;

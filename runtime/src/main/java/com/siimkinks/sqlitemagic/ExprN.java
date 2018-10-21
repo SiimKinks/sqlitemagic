@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.NonNull;
-
 import java.util.ArrayList;
 import java.util.Collections;
+
+import androidx.annotation.NonNull;
 
 final class ExprN extends Expr {
   @NonNull

@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.model;
 
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.Select;
 import com.siimkinks.sqlitemagic.model.immutable.BuilderMagazine;

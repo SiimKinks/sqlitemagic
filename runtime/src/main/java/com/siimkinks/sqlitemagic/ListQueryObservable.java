@@ -1,10 +1,9 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.CheckResult;
-import android.support.annotation.NonNull;
-
 import java.util.List;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
 import io.reactivex.Observable;
 import io.reactivex.Observer;
 import io.reactivex.Single;
@@ -12,8 +11,7 @@ import io.reactivex.Single;
 /**
  * An {@link Observable} of {@link Query} which offers list query specific convenience operators.
  *
- * @param <R>
- *     Mapped query result list element type
+ * @param <R> Mapped query result list element type
  */
 public class ListQueryObservable<R> extends Observable<Query<List<R>>> {
   private final Observable<Query<List<R>>> upstream;

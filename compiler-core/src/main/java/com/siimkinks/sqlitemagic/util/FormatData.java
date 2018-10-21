@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.util;
 
-import android.support.annotation.CheckResult;
+import androidx.annotation.CheckResult;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;

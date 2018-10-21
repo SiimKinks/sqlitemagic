@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.model;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;

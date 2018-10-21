@@ -4,7 +4,11 @@ import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.BaseProcessor.PUBLIC_EXTENSIONS
 import com.siimkinks.sqlitemagic.element.TableElement
 import com.siimkinks.sqlitemagic.util.NameConst.*
-import com.squareup.kotlinpoet.*
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.squareup.kotlinpoet.TypeSpec
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,17 +26,17 @@ class ModelExtensionsWriter @Inject constructor() {
       fileBuilder
           .addAnnotation(NOTHING_TO_INLINE)
           .addType(TypeSpec.objectBuilder("${className}s")
-          .also { objectBuilder ->
-            if (!PUBLIC_EXTENSIONS) {
-              objectBuilder.addModifiers(KModifier.INTERNAL)
-            }
-            objectBuilder.addFunction(generateDeleteTable(entityEnvironment))
-            BulkMethod.values()
-                .forEach {
-                  objectBuilder.addFunction(generateBulkMethod(tableElement, entityEnvironment, it))
+              .also { objectBuilder ->
+                if (!PUBLIC_EXTENSIONS) {
+                  objectBuilder.addModifiers(KModifier.INTERNAL)
                 }
-          }
-          .build())
+                objectBuilder.addFunction(generateDeleteTable(entityEnvironment))
+                BulkMethod.values()
+                    .forEach {
+                      objectBuilder.addFunction(generateBulkMethod(tableElement, entityEnvironment, it))
+                    }
+              }
+              .build())
     }
   }
 
@@ -53,7 +57,7 @@ class ModelExtensionsWriter @Inject constructor() {
     return FunSpec
         .builder(method.funName)
         .addModifiers(EXTENSION_FUN_MODIFIERS)
-        .addParameter("o", ParameterizedTypeName.get(method.parameterType, tableElementType))
+        .addParameter("o", method.parameterType.parameterizedBy(tableElementType))
         .addStatement("return %T.create(o)",
             getHandlerInnerClassName(entityEnvironment, method.invocationClassName))
         .build()

@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.writer;
 
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.WriterUtil;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.ElementGraphWalker;
@@ -19,6 +17,7 @@ import com.squareup.javapoet.TypeSpec;
 import java.util.HashSet;
 import java.util.Set;
 
+import androidx.annotation.NonNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.experimental.Builder;

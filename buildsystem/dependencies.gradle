@@ -4,19 +4,22 @@ ext {
 
   android = [
       sdk   : props["sdk.dir"],
-      target: "android-24"
+      target: "android-28"
   ]
 
   GROUP = 'com.siimkinks.sqlitemagic'
   VERSION_NAME = '0.23.2-SNAPSHOT'
 
-  buildToolsVersion = '27.0.3'
+  buildToolsVersion = '28.0.3'
   minSdkVersion = 16
-  compileSdkVersion = 27
+  compileSdkVersion = 28
   targetSdkVersion = compileSdkVersion
 
-  androidGradleVersion = '3.3.0-alpha06'
-  androidSupportLibsVersion = '27.1.0'
+  androidGradleVersion = '3.4.0-alpha01'
+  androidAnnotationsVersion = '1.0.0'
+  androidAppcompatVersion = '1.0.0'
+  androidSqliteVersion = '2.0.0'
+  androidTestRunnerVersion = '1.1.0-beta02'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.10'
   autoServiceVersion = '1.0-rc4'
@@ -25,27 +28,30 @@ ext {
   bintrayGradlePluginVersion = '1.8.4'
   daggerVersion = '1.2.5'
   googleCompileTestingVersion = '0.6'
-  guavaVersion = '23.6-jre'
+  guavaVersion = '26.0-jre'
   jacksonVersion = '2.6.2'
   javapoetVersion = '1.10.0'
   javassistVersion = '3.22.0-GA'
   junitVersion = '4.12'
-  kotlinpoetVersion = '0.7.0'
-  kotlinVersion = '1.2.51'
+  kotlinpoetVersion = '1.0.0-RC1'
+  kotlinVersion = '1.2.71'
   lombokVersion = '1.14.8' // do not increment!
   mockitoVersion = '2.8.9'
   mockitoKotlinVersion = '1.5.0'
   rxJavaMathVersion = '1.0.0'
-  rxJava2Version = '2.1.16'
+  rxJava2Version = '2.2.2'
   rxJava2ExtensionsVersion = '0.18.8'
-  supportSqliteVersion = '1.0.0'
-  supportTestRunnerVersion = '1.0.1'
   truthVersion = '0.42'
   ztZipVersion = '1.9'
 
   libraries = [
       android                   : files("${android.sdk}/platforms/${android.target}/android.jar"),
+      androidAnnotations        : "androidx.annotation:annotation:$androidAnnotationsVersion",
+      androidAppcompat          : "androidx.appcompat:appcompat:$androidAppcompatVersion",
       androidGradle             : "com.android.tools.build:gradle:${androidGradleVersion}",
+      androidSqlite             : "androidx.sqlite:sqlite:$androidSqliteVersion",
+      androidSqliteFramework    : "androidx.sqlite:sqlite-framework:$androidSqliteVersion",
+      androidTestRunner         : "androidx.test:runner:$androidTestRunnerVersion",
       autoCommon                : "com.google.auto:auto-common:${autoCommonVersion}",
       autoService               : "com.google.auto.service:auto-service:${autoServiceVersion}",
       autoValue                 : "com.google.auto.value:auto-value:${autoValueVersion}",
@@ -67,11 +73,6 @@ ext {
       rxJava2                   : "io.reactivex.rxjava2:rxjava:${rxJava2Version}",
       rxJava2Extensions         : "com.github.akarnokd:rxjava2-extensions:${rxJava2ExtensionsVersion}",
       rxJavaMath                : "io.reactivex:rxjava-math:${rxJavaMathVersion}",
-      supportAnnotations        : "com.android.support:support-annotations:$androidSupportLibsVersion",
-      supportSqlite             : "android.arch.persistence:db:$supportSqliteVersion",
-      supportSqliteFramework    : "android.arch.persistence:db-framework:$supportSqliteVersion",
-      supportTestRunner         : "com.android.support.test:runner:${supportTestRunnerVersion}",
-      supportV7                 : "com.android.support:appcompat-v7:${androidSupportLibsVersion}",
       sqlitemagicAnnotations    : "$GROUP:sqlitemagic-annotations:$VERSION_NAME",
       sqlitemagicProcessorKotlin: "$GROUP:sqlitemagic-compiler-kotlin:$VERSION_NAME",
       sqlitemagicProcessorMagic : "$GROUP:sqlitemagic-compiler-magic:$VERSION_NAME",

@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
-import android.support.annotation.NonNull;
 
+import androidx.annotation.NonNull;
 import io.reactivex.ObservableOperator;
 import io.reactivex.Observer;
 import io.reactivex.exceptions.Exceptions;

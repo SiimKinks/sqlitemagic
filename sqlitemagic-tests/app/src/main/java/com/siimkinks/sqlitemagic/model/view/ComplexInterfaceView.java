@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.model.view;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.CompiledSelect;
 import com.siimkinks.sqlitemagic.Select;

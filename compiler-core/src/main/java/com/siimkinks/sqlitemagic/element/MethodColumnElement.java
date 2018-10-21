@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.element;
 
-import android.support.annotation.Nullable;
-
 import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.Utils;
@@ -18,6 +16,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
 
+import androidx.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;

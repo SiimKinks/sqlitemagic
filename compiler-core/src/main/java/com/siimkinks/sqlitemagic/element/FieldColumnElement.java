@@ -1,8 +1,5 @@
 package com.siimkinks.sqlitemagic.element;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
 import com.google.common.base.Strings;
 import com.siimkinks.sqlitemagic.Const;
 import com.siimkinks.sqlitemagic.Environment;
@@ -21,6 +18,8 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;

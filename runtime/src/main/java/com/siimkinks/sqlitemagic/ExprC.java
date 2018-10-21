@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic;
 
-import android.support.annotation.NonNull;
-
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+
+import androidx.annotation.NonNull;
 
 final class ExprC extends Expr {
   @NonNull

@@ -4,14 +4,14 @@ buildscript {
   repositories {
     mavenLocal()
     jcenter()
+    google()
     maven {
       url "http://dl.bintray.com/siimkinks/maven"
     }
   }
   dependencies {
-    classpath 'com.android.tools.build:gradle:2.2.3'
-    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.11.0'
-    classpath 'me.tatarka:gradle-retrolambda:3.4.0'
+    classpath 'com.android.tools.build:gradle:3.2.1'
+    classpath 'com.siimkinks.sqlitemagic:sqlitemagic-plugin:0.23.1'
 
     // NOTE: Do not place your application dependencies here; they belong
     // in the individual module build.gradle files
@@ -22,6 +22,7 @@ allprojects {
   repositories {
     mavenLocal()
     jcenter()
+    google()
     maven {
       url "http://dl.bintray.com/siimkinks/maven"
     }
@@ -33,6 +34,6 @@ task clean(type: Delete) {
 }
 
 task wrapper(type: Wrapper) {
-  gradleVersion = '3.2.1'
-  distributionUrl = 'https://services.gradle.org/distributions/gradle-3.2.1-all.zip'
+  gradleVersion = '4.10.2'
+  distributionUrl = 'https://services.gradle.org/distributions/gradle-4.10.2-all.zip'
 }
