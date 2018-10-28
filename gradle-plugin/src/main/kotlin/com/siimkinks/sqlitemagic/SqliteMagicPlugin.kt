@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic
 import com.android.build.gradle.*
 import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.internal.variant.BaseVariantData
+import com.android.builder.model.BuildType
 import com.android.builder.model.ClassField
 import com.siimkinks.sqlitemagic.structure.MigrationsHandler
 import org.gradle.api.*
@@ -103,6 +104,11 @@ class SqliteMagicPlugin : Plugin<Project> {
     if (androidExtension is AppExtension) {
       val transform = SqliteMagicTransform(project, sqlitemagic)
       androidExtension.registerTransform(transform)
+      androidExtension.buildTypes.all {
+        if (!it.debug) {
+          it.addMigrateDbTask(project)
+        }
+      }
       variants.all {
         it.configureVariant(transform, project)
       }
@@ -115,9 +121,6 @@ class SqliteMagicPlugin : Plugin<Project> {
   private fun <T : BaseVariant> T.configureVariant(transform: SqliteMagicTransform, project: Project) {
     transform.putJavaCompileTask(this)
     addConfigVariantDbTask(project, this)
-    if (!debug) {
-      addMigrateVariantDbTask(project)
-    }
   }
 
   // FIXME remove?
@@ -148,10 +151,10 @@ class SqliteMagicPlugin : Plugin<Project> {
       }
     }
     configTask.group = DB_TASK_GROUP
-    variant.javaCompiler.dependsOn(configTask)
+    variant.javaCompile().dependsOn(configTask)
   }
 
-  private fun BaseVariant.addMigrateVariantDbTask(project: Project) {
+  private fun BuildType.addMigrateDbTask(project: Project) {
     val migrationTask = project.task("migrate${name.capitalize()}Db").doFirst {
       val projectDir = project.projectDir
       val dbDir = File(projectDir, "db")
@@ -214,10 +217,15 @@ private fun BaseVariant.addAptArg(name: String, value: Any) {
   javaCompile().options.compilerArgs.add("-A$name=$value")
 }
 
-fun BaseVariant.javaCompile(): JavaCompile {
+fun BaseVariant.javaCompile(): JavaCompile = try {
+  javaCompileProvider.get()
+} catch (e: Exception) {
   val javaCompiler = javaCompiler
-  return javaCompiler as? JavaCompile ?: javaCompile
+  javaCompiler as? JavaCompile ?: javaCompile
 }
 
 val BaseVariant.debug: Boolean
-  get() = buildType.name == "debug"
+  get() = buildType.debug
+
+val BuildType.debug: Boolean
+  get() = name == "debug"

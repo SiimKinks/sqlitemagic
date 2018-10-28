@@ -15,7 +15,7 @@ ext {
   compileSdkVersion = 28
   targetSdkVersion = compileSdkVersion
 
-  androidGradleVersion = '3.4.0-alpha01'
+  androidGradleVersion = '3.4.0-alpha02'
   androidAnnotationsVersion = '1.0.0'
   androidAppcompatVersion = '1.0.0'
   androidSqliteVersion = '2.0.0'
