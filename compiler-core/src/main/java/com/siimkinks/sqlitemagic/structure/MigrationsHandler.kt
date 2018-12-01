@@ -61,17 +61,22 @@ class MigrationsHandler(
         dbDir: File,
         variantName: String
     ) {
-      val latestReleaseDir = dbDir
-          .listFiles { file -> file.isDirectory }
-          .asSequence()
-          .sortedBy { it.name }
-          .lastOrNull()
+      val releaseStructuresDir = File(dbDir, "releases")
+      val latestReleaseFile = releaseStructuresDir
+          .takeIf(File::exists)
+          ?.let { releaseDir ->
+            releaseDir
+                .listFiles { file -> !file.isDirectory }
+                .asSequence()
+                .sortedBy { it.nameWithoutExtension.toIntOrNull() }
+                .lastOrNull()
+          }
       val releaseAssetsDir = Paths.get(
           projectDir.absolutePath,
           "src", variantName, "assets")
           .toFile()
       val releaseVersion = determineReleaseVersion(
-          latestReleaseDir = latestReleaseDir,
+          latestReleaseFile = latestReleaseFile,
           releaseAssetsDir = releaseAssetsDir)
       val currentStructure = dbDir
           .listFiles { file -> file.extension == "struct" }
@@ -81,12 +86,8 @@ class MigrationsHandler(
 
       MigrationsHandler(
           currentStructure = currentStructure,
-          previousStructure = latestReleaseDir
-              ?.listFiles()
-              ?.firstOrNull()
-              ?.readStructure(),
-          outputStructureFile = File(dbDir, releaseVersion.toString())
-              .resolve("$releaseVersion.struct"),
+          previousStructure = latestReleaseFile?.readStructure(),
+          outputStructureFile = releaseStructuresDir.resolve("$releaseVersion.struct"),
           migrationOutputFile = File(releaseAssetsDir, "$releaseVersion.sql"))
           .migrate()
     }
@@ -300,16 +301,17 @@ internal fun File?.readStructure(): DatabaseStructure? {
   }
 }
 
-internal fun determineReleaseVersion(latestReleaseDir: File?, releaseAssetsDir: File): Long {
-  val latestReleasedVersion = latestReleaseDir?.name
+internal fun determineReleaseVersion(latestReleaseFile: File?, releaseAssetsDir: File): Long {
+  val latestReleasedVersion = latestReleaseFile?.nameWithoutExtension
   if (latestReleasedVersion != null) return latestReleasedVersion.toLong() + 1
 
   return releaseAssetsDir
       .takeIf(File::exists)
-      ?.let {
-        it.listFiles { file -> file.extension == "sql" }
+      ?.let { releaseDir ->
+        releaseDir
+            .listFiles { file -> file.extension == "sql" }
             .asSequence()
-            .sortedBy { it.name }
+            .sortedBy { it.name.toIntOrNull() }
             .lastOrNull()
             ?.nameWithoutExtension
             ?.toLong()
