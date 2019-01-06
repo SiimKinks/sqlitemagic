@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.SQLException;
+
 import androidx.annotation.NonNull;
 
 import com.google.common.truth.Truth;
@@ -1474,6 +1475,133 @@ public final class SelectSqlCompilerTest {
         .queryDeep(true)
         .tableGraphNodeNames(query.tableGraphNodeNames)
         .columns(query.columns)
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void simpleCompoundSelect() {
+    final CompiledSelect compiledSelect = Select
+        .from(BOOK)
+        .union(Select.from(MAGAZINE))
+        .compile();
+
+
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM book " +
+            "UNION " +
+            "SELECT * FROM magazine  ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE)
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void simpleCompoundSelectWithArgs() {
+    final CompiledSelect compiledSelect = Select
+        .from(BOOK)
+        .where(BOOK.TITLE.is("foo"))
+        .union(Select
+            .from(MAGAZINE)
+            .where(MAGAZINE.NAME.is("bar")))
+        .compile();
+
+
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM book WHERE book.title=? " +
+            "UNION " +
+            "SELECT * FROM magazine WHERE magazine.name=?  ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE)
+        .args("foo", "bar")
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void simpleCompoundSelectWithDefinedColumns() {
+    final CompiledSelect compiledSelect = Select
+        .columns(BOOK.TITLE, BOOK.NR_OF_RELEASES)
+        .from(BOOK)
+        .union(Select
+            .columns(MAGAZINE.NAME, MAGAZINE.NR_OF_RELEASES)
+            .from(MAGAZINE))
+        .compile();
+
+    final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
+    columns.put("book.title", 0);
+    columns.put("book.nr_of_releases", 1);
+
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT book.title,book.nr_of_releases FROM book " +
+            "UNION " +
+            "SELECT magazine.name,magazine.nr_of_releases FROM magazine  ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE)
+        .tableGraphNodeNames(new SimpleArrayMap<String, String>())
+        .columns(columns)
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void complexCompoundSelect() {
+    final CompiledSelect compiledSelect = Select
+        .from(BOOK)
+        .union(Select.from(MAGAZINE))
+        .queryDeep()
+        .compile();
+
+
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM book LEFT JOIN author ON book.author=author.id " +
+            "UNION " +
+            "SELECT * FROM magazine  ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE, Author.TABLE)
+        .queryDeep(true)
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  // While this is API correct, it is not logically -- combined selects must have equal amount of queried columns
+  @Test
+  public void complexCompoundCombinedSelect() {
+    final CompiledSelect compiledSelect = Select
+        .from(BOOK)
+        .union(Select.from(MAGAZINE).queryDeep())
+        .compile();
+
+
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM book " +
+            "UNION " +
+            "SELECT * FROM magazine LEFT JOIN author ON magazine.author=author.id  ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE, Author.TABLE)
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void fullComplexCompoundSelect() {
+    final CompiledSelect compiledSelect = Select
+        .from(BOOK)
+        .union(Select
+            .from(MAGAZINE)
+            .queryDeep())
+        .queryDeep()
+        .compile();
+
+
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT * FROM book LEFT JOIN author ON book.author=author.id " +
+            "UNION " +
+            "SELECT * FROM magazine LEFT JOIN author ON magazine.author=author.id  ")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE, Magazine.TABLE, Author.TABLE)
+        .queryDeep(true)
         .build()
         .isEqualTo(compiledSelect);
   }

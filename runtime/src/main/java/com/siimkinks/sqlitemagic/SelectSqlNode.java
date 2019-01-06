@@ -1,13 +1,14 @@
 package com.siimkinks.sqlitemagic;
 
-import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation;
-
-import java.util.List;
-
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
+
+import com.siimkinks.sqlitemagic.Select.CompoundSelect;
+import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation;
+
+import java.util.List;
 
 /**
  * A node in SELECT SQL builder.
@@ -34,6 +35,87 @@ public abstract class SelectSqlNode<S> extends SqlNode {
   public static abstract class SelectNode<T, S, N> extends SelectSqlNode<S> implements ConnectionProvidedOperation<SelectNode<T, S, N>> {
     SelectNode(SelectSqlNode<S> parent) {
       super(parent);
+    }
+
+    /**
+     * Connect together simple SELECT statements to form a compound SELECT using the UNION operator.
+     * <p>
+     * The UNION operator works the same way as UNION ALL, except that duplicate rows
+     * are removed from the final result set.
+     * <p>
+     * In a compound SELECT, all the constituent SELECTs must return the same number of
+     * result columns. As the components of a compound SELECT must be simple SELECT
+     * statements, they may not contain ORDER BY or LIMIT clauses. ORDER BY and LIMIT
+     * clauses may only occur at the end of the entire compound SELECT, and then only
+     * if the final element of the compound is not a VALUES clause.
+     *
+     * @param select Connected simple SELECT statement to form a compound SELECT
+     * @return SQL SELECT statement builder
+     */
+    @NonNull
+    public final CompoundSelect<T, S, N> union(@NonNull SelectNode<?, S, ?> select) {
+      return new CompoundSelect<>(this, "UNION", select);
+    }
+
+    /**
+     * Connect together simple SELECT statements to form a compound SELECT using the UNION ALL operator.
+     * <p>
+     * A compound SELECT created using UNION ALL operator returns all the rows from the SELECT
+     * to the left of the UNION ALL operator, and all the rows from the SELECT to the right of it.
+     * <p>
+     * In a compound SELECT, all the constituent SELECTs must return the same number of
+     * result columns. As the components of a compound SELECT must be simple SELECT
+     * statements, they may not contain ORDER BY or LIMIT clauses. ORDER BY and LIMIT
+     * clauses may only occur at the end of the entire compound SELECT, and then only
+     * if the final element of the compound is not a VALUES clause.
+     *
+     * @param select Connected simple SELECT statement to form a compound SELECT
+     * @return SQL SELECT statement builder
+     */
+    @NonNull
+    public final CompoundSelect<T, S, N> unionAll(@NonNull SelectNode<?, S, ?> select) {
+      return new CompoundSelect<>(this, "UNION ALL", select);
+    }
+
+    /**
+     * Connect together simple SELECT statements to form a compound SELECT using the INTERSECT operator.
+     * <p>
+     * The INTERSECT operator returns the intersection of the results of the left and right SELECTs.
+     * Duplicate rows are removed from the results before the result set is returned.
+     * <p>
+     * In a compound SELECT, all the constituent SELECTs must return the same number of
+     * result columns. As the components of a compound SELECT must be simple SELECT
+     * statements, they may not contain ORDER BY or LIMIT clauses. ORDER BY and LIMIT
+     * clauses may only occur at the end of the entire compound SELECT, and then only
+     * if the final element of the compound is not a VALUES clause.
+     *
+     * @param select Connected simple SELECT statement to form a compound SELECT
+     * @return SQL SELECT statement builder
+     */
+    @NonNull
+    public final CompoundSelect<T, S, N> intersect(@NonNull SelectNode<?, S, ?> select) {
+      return new CompoundSelect<>(this, "INTERSECT", select);
+    }
+
+    /**
+     * Connect together simple SELECT statements to form a compound SELECT using the EXCEPT operator.
+     * <p>
+     * The EXCEPT operator returns the subset of rows returned by the left SELECT
+     * that are not also returned by the right-hand SELECT. Duplicate rows are
+     * removed from the results before the result set is returned.
+     * <p>
+     * In a compound SELECT, all the constituent SELECTs must return the same number of
+     * result columns. As the components of a compound SELECT must be simple SELECT
+     * statements, they may not contain ORDER BY or LIMIT clauses. ORDER BY and LIMIT
+     * clauses may only occur at the end of the entire compound SELECT, and then only
+     * if the final element of the compound is not a VALUES clause.
+     *
+     * @param select Connected simple SELECT statement to form a compound SELECT
+     * @return SQL SELECT statement builder
+     */
+    @NonNull
+    public final CompoundSelect<T, S, N> except(@NonNull SelectNode<?, S, ?> select) {
+      return new CompoundSelect<>(this, "EXCEPT", select);
     }
 
     /**

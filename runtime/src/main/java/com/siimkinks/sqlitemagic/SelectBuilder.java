@@ -1,14 +1,14 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
-
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 final class SelectBuilder<S> {
   SqlNode sqlTreeRoot;
@@ -34,7 +34,6 @@ final class SelectBuilder<S> {
       selectFromTables = columnsNode.preCompileColumns();
     }
     final SimpleArrayMap<String, String> tableGraphNodeNames = selectFromTables != null ? new SimpleArrayMap<String, String>(selectFromTables.size()) : null;
-    //noinspection unchecked
     final Select.From<?, ?, ?, ?> from = this.from;
     final Table<?> table = from.table;
     final SimpleArrayMap<String, LinkedList<String>> systemRenamedTables;
@@ -42,6 +41,9 @@ final class SelectBuilder<S> {
       systemRenamedTables = table.addDeepQueryParts(from, selectFromTables, tableGraphNodeNames, select1);
     } else {
       systemRenamedTables = table.addShallowQueryParts(from, selectFromTables, tableGraphNodeNames, select1);
+    }
+    if (!select1) {
+      columnsNode.compileColumns(systemRenamedTables);
     }
     if (parentObservedTables != null) {
       perfectSelection(from, parentObservedTables, tableGraphNodeNames, null);

@@ -90,9 +90,288 @@ class SelectSqlBuilderTest : DSLTests {
   }
 
   @Test
+  fun selectAllFromSubquery() {
+    (SELECT FROM (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT * FROM (SELECT * FROM author ) ")
+
+    (SELECT.DISTINCT
+        FROM (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT DISTINCT * FROM (SELECT * FROM author ) ")
+  }
+
+  @Test
+  fun compoundSelectWithArgs() {
+    (SELECT
+        FROM AUTHOR
+        UNION
+        (SELECT
+            FROM AUTHOR
+            WHERE (AUTHOR.NAME IS "foo")))
+        .isEqualTo("SELECT * FROM author UNION SELECT * FROM author WHERE author.name=?  ")
+  }
+
+  @Test
+  fun compoundSelectWithArgsInBothSelects() {
+    (SELECT
+        FROM AUTHOR
+        WHERE (AUTHOR.NAME IS "foo")
+        UNION
+        (SELECT
+            FROM AUTHOR
+            WHERE (AUTHOR.NAME IS "foo")))
+        .isEqualTo("SELECT * FROM author WHERE author.name=? UNION SELECT * FROM author WHERE author.name=?  ")
+  }
+
+  @Test
+  fun unionSelect() {
+    (SELECT
+        FROM AUTHOR
+        UNION (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author UNION SELECT * FROM author  ")
+  }
+
+  @Test
+  fun unionSelectExplicitColumns() {
+    (SELECT
+        FROM AUTHOR
+        UNION
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author UNION SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
+  fun unionSelectExplicitAllColumns() {
+    (SELECT
+        COLUMNS arrayOf(
+        AUTHOR.ID,
+        AUTHOR.NAME,
+        AUTHOR.BOXED_BOOLEAN,
+        AUTHOR.PRIMITIVE_BOOLEAN)
+        FROM AUTHOR
+        UNION
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author UNION SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
+  fun unionAllSelect() {
+    (SELECT
+        FROM AUTHOR
+        UNION_ALL (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author UNION ALL SELECT * FROM author  ")
+  }
+
+  @Test
+  fun unionAllSelectExplicitColumns() {
+    (SELECT
+        FROM AUTHOR
+        UNION_ALL
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author UNION ALL SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
+  fun unionAllSelectExplicitAllColumns() {
+    (SELECT
+        COLUMNS arrayOf(
+        AUTHOR.ID,
+        AUTHOR.NAME,
+        AUTHOR.BOXED_BOOLEAN,
+        AUTHOR.PRIMITIVE_BOOLEAN)
+        FROM AUTHOR
+        UNION_ALL
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author UNION ALL SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
+  fun intersectSelect() {
+    (SELECT
+        FROM AUTHOR
+        INTERSECT (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author INTERSECT SELECT * FROM author  ")
+  }
+
+  @Test
+  fun intersectSelectExplicitColumns() {
+    (SELECT
+        FROM AUTHOR
+        INTERSECT
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author INTERSECT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
+  fun intersectSelectExplicitAllColumns() {
+    (SELECT
+        COLUMNS arrayOf(
+        AUTHOR.ID,
+        AUTHOR.NAME,
+        AUTHOR.BOXED_BOOLEAN,
+        AUTHOR.PRIMITIVE_BOOLEAN)
+        FROM AUTHOR
+        INTERSECT
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author INTERSECT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
+  fun exceptSelect() {
+    (SELECT
+        FROM AUTHOR
+        EXCEPT (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author EXCEPT SELECT * FROM author  ")
+  }
+
+  @Test
+  fun exceptSelectExplicitColumns() {
+    (SELECT
+        FROM AUTHOR
+        EXCEPT
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT * FROM author EXCEPT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
+  fun exceptSelectExplicitAllColumns() {
+    (SELECT
+        COLUMNS arrayOf(
+        AUTHOR.ID,
+        AUTHOR.NAME,
+        AUTHOR.BOXED_BOOLEAN,
+        AUTHOR.PRIMITIVE_BOOLEAN)
+        FROM AUTHOR
+        EXCEPT
+        (SELECT
+            COLUMNS arrayOf(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+            FROM AUTHOR))
+        .isEqualTo("SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author EXCEPT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ")
+  }
+
+  @Test
   fun selectAllFromAliased() {
     (SELECT FROM (MAGAZINE AS "b"))
         .isEqualTo("SELECT * FROM magazine AS b ")
+  }
+
+  @Test
+  fun selectAllFromAliasedSubquery() {
+    val expected = "SELECT * FROM (SELECT * FROM author ) AS b "
+
+    val b = (SELECT
+        FROM AUTHOR)
+        .toTable("b")
+    val b2 = b AS "b"
+
+    (SELECT FROM b)
+        .isEqualTo(expected)
+
+    (SELECT FROM b2)
+        .isEqualTo(expected)
+  }
+
+  @Test
+  fun selectSingleColumn() {
+    (SELECT
+        COLUMN MAGAZINE.AUTHOR
+        FROM MAGAZINE)
+        .isEqualTo("SELECT magazine.author FROM magazine ")
+
+    (SELECT
+        DISTINCT MAGAZINE.AUTHOR
+        FROM MAGAZINE)
+        .isEqualTo("SELECT DISTINCT magazine.author FROM magazine ")
+  }
+
+  @Test
+  fun selectSingleColumnFromSubquery() {
+    (SELECT
+        COLUMN MAGAZINE.AUTHOR
+        FROM (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT magazine.author FROM (SELECT * FROM author ) ")
+
+    (SELECT
+        DISTINCT MAGAZINE.AUTHOR
+        FROM (SELECT FROM AUTHOR))
+        .isEqualTo("SELECT DISTINCT magazine.author FROM (SELECT * FROM author ) ")
+  }
+
+  @Test
+  fun selectSingleColumnFromAliased() {
+    val b = MAGAZINE AS "b"
+
+    (SELECT
+        COLUMN MAGAZINE.AUTHOR
+        FROM b)
+        .isEqualTo("SELECT magazine.author FROM magazine AS b ")
+
+    (SELECT
+        DISTINCT MAGAZINE.AUTHOR
+        FROM b)
+        .isEqualTo("SELECT DISTINCT magazine.author FROM magazine AS b ")
+  }
+
+  @Test
+  fun selectSingleColumnFromAliasedSubquery() {
+    val a = (SELECT
+        FROM AUTHOR)
+        .toTable("a")
+
+    (SELECT
+        COLUMN MAGAZINE.AUTHOR
+        FROM a)
+        .isEqualTo("SELECT magazine.author FROM (SELECT * FROM author ) AS a ")
+
+    (SELECT
+        DISTINCT MAGAZINE.AUTHOR
+        FROM a)
+        .isEqualTo("SELECT DISTINCT magazine.author FROM (SELECT * FROM author ) AS a ")
   }
 
   @Test

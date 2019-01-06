@@ -1,15 +1,15 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.Size;
+
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
-
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.Size;
 
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
@@ -912,6 +912,64 @@ public final class Select<S> extends SelectSqlNode<S> {
     void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
       sb.append("HAVING ");
       expr.appendToSql(sb, systemRenamedTables);
+    }
+
+    /**
+     * Add an ORDER BY clause to the query.
+     *
+     * @param orderingTerms Ordering terms that define ORDER BY clause.
+     * @return SQL SELECT statement builder
+     */
+    @CheckResult
+    public OrderBy<T, S, N> orderBy(@NonNull @Size(min = 1) OrderingTerm... orderingTerms) {
+      return new OrderBy<>(this, orderingTerms);
+    }
+
+    /**
+     * Add a LIMIT clause to the query.
+     *
+     * @param nrOfRows Upper bound on the number of rows returned by the
+     *                 entire SELECT statement
+     * @return SQL SELECT statement builder
+     */
+    @CheckResult
+    public Limit<T, S, N> limit(int nrOfRows) {
+      return new Limit<>(this, Integer.toString(nrOfRows));
+    }
+  }
+
+  /**
+   * Builder for SQL SELECT statement.
+   *
+   * @param <T> Selection return type
+   * @param <S> Selection type -- either {@link Select1} or {@link SelectN}
+   * @param <N> Selection return type nullability
+   */
+  public static final class CompoundSelect<T, S, N> extends SelectNode<T, S, N> {
+    @NonNull
+    private final String op;
+    @NonNull
+    private final SelectNode<?, S, ?> select;
+
+    CompoundSelect(@NonNull SelectNode<T, S, N> parent, @NonNull String op, @NonNull SelectNode<?, S, ?> select) {
+      super(parent);
+      this.op = op;
+      this.select = select;
+      selectBuilder.args.addAll(select.selectBuilder.args);
+    }
+
+    @Override
+    void appendSql(@NonNull StringBuilder sb) {
+      sb.append(op);
+      sb.append(' ');
+      select.selectBuilder.appendCompiledQuery(sb, selectBuilder.observedTables);
+    }
+
+    @Override
+    void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
+      sb.append(op);
+      sb.append(' ');
+      select.selectBuilder.appendCompiledQuery(sb, selectBuilder.observedTables);
     }
 
     /**

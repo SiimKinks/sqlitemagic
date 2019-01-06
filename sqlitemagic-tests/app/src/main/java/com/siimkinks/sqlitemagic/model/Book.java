@@ -31,11 +31,15 @@ public class Book extends BaseModel {
   protected int nrOfReleases;
 
   public static Book newRandom() {
+    return newRandom(null);
+  }
+
+  public static Book newRandom(String title) {
     final Random r = new Random();
     final Book book = new Book();
     book.setBaseId(r.nextLong());
     book.author = Author.newRandom();
-    book.title = Utils.randomTableName();
+    book.title = title != null ? title : Utils.randomTableName();
     book.nrOfReleases = r.nextInt();
     return book;
   }

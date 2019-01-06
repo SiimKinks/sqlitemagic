@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
 import android.database.SQLException;
+
 import androidx.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.Select.Select1;
@@ -150,6 +151,206 @@ public final class SelectSqlBuilderTest {
         .distinct()
         .from(Select.from(AUTHOR));
     assertSql(sqlNode, expectedDistinct);
+  }
+
+  @Test
+  public void compoundSelectWithArgs() {
+    final String expected = "SELECT * FROM author UNION SELECT * FROM author WHERE author.name=?  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .union(Select.from(AUTHOR).where(AUTHOR.NAME.is("foo")));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void compoundSelectWithArgsInBothSelects() {
+    final String expected = "SELECT * FROM author WHERE author.name=? UNION SELECT * FROM author WHERE author.name=?  ";
+
+    final SelectSqlNode sqlNode = Select
+        .from(AUTHOR)
+        .where(AUTHOR.NAME.is("foo"))
+        .union(Select.from(AUTHOR).where(AUTHOR.NAME.is("foo")));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void unionSelect() {
+    final String expected = "SELECT * FROM author UNION SELECT * FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .union(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void unionSelectExplicitColumns() {
+    final String expected = "SELECT * FROM author UNION SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .union(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void unionSelectExplicitAllColumns() {
+    final String expected = "SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author UNION SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select
+        .columns(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+        .from(AUTHOR)
+        .union(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void unionAllSelect() {
+    final String expected = "SELECT * FROM author UNION ALL SELECT * FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .unionAll(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void unionAllSelectExplicitColumns() {
+    final String expected = "SELECT * FROM author UNION ALL SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .unionAll(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void unionAllSelectExplicitAllColumns() {
+    final String expected = "SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author UNION ALL SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select
+        .columns(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+        .from(AUTHOR)
+        .unionAll(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void intersectSelect() {
+    final String expected = "SELECT * FROM author INTERSECT SELECT * FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .intersect(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void intersectSelectExplicitColumns() {
+    final String expected = "SELECT * FROM author INTERSECT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .intersect(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void intersectSelectExplicitAllColumns() {
+    final String expected = "SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author INTERSECT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select
+        .columns(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+        .from(AUTHOR)
+        .intersect(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void exceptSelect() {
+    final String expected = "SELECT * FROM author EXCEPT SELECT * FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .except(Select.from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void exceptSelectExplicitColumns() {
+    final String expected = "SELECT * FROM author EXCEPT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select.from(AUTHOR)
+        .except(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
+  }
+
+  @Test
+  public void exceptSelectExplicitAllColumns() {
+    final String expected = "SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author EXCEPT SELECT author.id,author.name,author.boxed_boolean,author.primitive_boolean FROM author  ";
+
+    final SelectSqlNode sqlNode = Select
+        .columns(
+            AUTHOR.ID,
+            AUTHOR.NAME,
+            AUTHOR.BOXED_BOOLEAN,
+            AUTHOR.PRIMITIVE_BOOLEAN)
+        .from(AUTHOR)
+        .except(Select
+            .columns(
+                AUTHOR.ID,
+                AUTHOR.NAME,
+                AUTHOR.BOXED_BOOLEAN,
+                AUTHOR.PRIMITIVE_BOOLEAN)
+            .from(AUTHOR));
+    assertSql(sqlNode, expected);
   }
 
   @Test

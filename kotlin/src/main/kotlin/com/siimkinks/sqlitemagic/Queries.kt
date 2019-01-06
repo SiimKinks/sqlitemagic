@@ -33,6 +33,10 @@ inline infix fun <C : Column<*, *, *, *, *>> Select<*>.DISTINCT(columns: Array<C
 @CheckResult
 infix fun <T> Select<SelectN>.FROM(table: Table<T>) = From<T, T, SelectN, NotNullable>(Columns(this, ALL), table)
 
+/** @see Select.from */
+@CheckResult
+infix fun <T> Select<SelectN>.FROM(select: SelectSqlNode.SelectNode<T, *, *>) = Select.from(select)
+
 /** @see Select.raw */
 @CheckResult
 inline infix fun Select<*>.RAW(sql: String) = Select.raw(sql)
@@ -41,9 +45,17 @@ inline infix fun Select<*>.RAW(sql: String) = Select.raw(sql)
 @CheckResult
 inline infix fun <R, T, N> SingleColumn<R, N>.FROM(table: Table<T>) = this.from(table)
 
+/** @see SingleColumn.from */
+@CheckResult
+inline infix fun <R, T, N> SingleColumn<R, N>.FROM(select: SelectSqlNode.SelectNode<T, *, *>) = this.from(select)
+
 /** @see Columns.from */
 @CheckResult
 inline infix fun <T> Columns.FROM(table: Table<T>) = this.from(table)
+
+/** @see Columns.from */
+@CheckResult
+inline infix fun <T> Columns.FROM(select: SelectSqlNode.SelectNode<T, *, *>) = this.from(select)
 
 /** @see From.join */
 @CheckResult
@@ -216,3 +228,19 @@ inline val CharSequence.asColumn
 /** @see Select.val */
 inline val Any.asColumn
   @CheckResult get() = Select.asColumn(this)
+
+/** @see SelectSqlNode.SelectNode.union */
+inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.UNION(select: SelectSqlNode.SelectNode<*, S, *>) =
+    union(select)
+
+/** @see SelectSqlNode.SelectNode.unionAll */
+inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.UNION_ALL(select: SelectSqlNode.SelectNode<*, S, *>) =
+    unionAll(select)
+
+/** @see SelectSqlNode.SelectNode.intersect */
+inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.INTERSECT(select: SelectSqlNode.SelectNode<*, S, *>) =
+    intersect(select)
+
+/** @see SelectSqlNode.SelectNode.except */
+inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.EXCEPT(select: SelectSqlNode.SelectNode<*, S, *>) =
+    except(select)

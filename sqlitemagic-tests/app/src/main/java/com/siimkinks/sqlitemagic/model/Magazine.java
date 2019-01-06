@@ -32,6 +32,15 @@ public class Magazine implements ProvidesId {
     return magazine;
   }
 
+  public static Magazine newRandom(String name) {
+    final Magazine magazine = new Magazine();
+    fillWithRandomValues(magazine);
+    if (name != null) {
+      magazine.name = name;
+    }
+    return magazine;
+  }
+
   public static void fillWithRandomValues(Magazine magazine) {
     magazine.name = Utils.randomTableName();
     magazine.author = Author.newRandom();
