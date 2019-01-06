@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Version 0.24.0 _(2019-01-06)_
+---------------------------------
+
+* Breaking: Migrate to AndroidX
+* Breaking: Refactor release automatic schema migrations -- now all schema files must be in single dir
+* Add: DB migration task only per build type
+* Add: Support for compound operators
+
 Version 0.23.1 _(2018-08-18)_
 ---------------------------------
 
