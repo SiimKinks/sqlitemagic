@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+Version 0.24.1 _(2019-01-15)_
+---------------------------------
+
+* Fix: Support for older Android Gradle plugin versions
+
 Version 0.24.0 _(2019-01-06)_
 ---------------------------------
 
