@@ -39,7 +39,7 @@ abstract class BaseTransformation(
         }
       }
       return anyTransformations
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
       throw GradleException("Could not execute transformation", e);
     }
   }
@@ -73,7 +73,7 @@ abstract class BaseTransformation(
       }
       clazz.writeFile(destinationDir.absolutePath)
       return transformed
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
       throw GradleException("An error occurred while trying to process class file ", e)
     }
   }

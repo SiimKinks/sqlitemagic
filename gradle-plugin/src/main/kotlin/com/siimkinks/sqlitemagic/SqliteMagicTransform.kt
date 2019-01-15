@@ -191,6 +191,7 @@ class SqliteMagicTransform(
     return null
   }
 
+  @Suppress("DEPRECATION")
   private fun CompileOptions.bootClasspath(project: Project): FileCollection? {
     try {
       bootstrapClasspath?.let { return it }

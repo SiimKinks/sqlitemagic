@@ -199,7 +199,7 @@ class SqliteMagicPlugin : Plugin<Project> {
 fun Project.getConfiguration(depName: String, fallback: String = ""): Configuration =
     try {
       configurations.getByName(depName)
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
       configurations.getByName(fallback)
     }
 
@@ -217,9 +217,10 @@ private fun BaseVariant.addAptArg(name: String, value: Any) {
   javaCompile().options.compilerArgs.add("-A$name=$value")
 }
 
+@Suppress("DEPRECATION")
 fun BaseVariant.javaCompile(): JavaCompile = try {
   javaCompileProvider.get()
-} catch (e: Exception) {
+} catch (e: Throwable) {
   val javaCompiler = javaCompiler
   javaCompiler as? JavaCompile ?: javaCompile
 }

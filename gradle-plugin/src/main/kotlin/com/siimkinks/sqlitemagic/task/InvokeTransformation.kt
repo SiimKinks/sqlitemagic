@@ -54,7 +54,7 @@ class InvokeTransformation(
       }
       body.append(");")
       method.setBody(body.toString())
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
       val errMsg = e.message
       if (errMsg != null && errMsg.contains("class is frozen")) {
         logInfo("Not transforming frozen class ${clazz.name}; errMsg=$errMsg")
