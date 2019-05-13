@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+Version 0.24.2 _(2019-05-13)_
+---------------------------------
+
+* Fix: View validation false positive in Kotlin and AutoValue mixed project
+
 Version 0.24.1 _(2019-01-15)_
 ---------------------------------
 
