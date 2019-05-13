@@ -1,8 +1,9 @@
 package com.siimkinks.sqlitemagic;
 
 import android.app.Application;
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
+
 import androidx.annotation.NonNull;
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
 
 import io.reactivex.schedulers.Schedulers;
 

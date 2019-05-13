@@ -66,7 +66,7 @@ public final class ViewValidator {
     }
     final Set<Modifier> modifiers = viewElement.getModifiers();
     if (environment.hasAutoValueLib()) {
-      if (!viewElement.isInterface()) {
+      if (!viewElement.isInterface() && !viewElement.isValidDataClass()) {
         final Class<? extends Annotation> autoValueAnnotation = environment.getAutoValueAnnotation();
         if (!modifiers.contains(Modifier.ABSTRACT) || rawElement.getAnnotation(autoValueAnnotation) == null) {
           environment.error(rawElement, String.format(ERR_WRONG_TYPE, autoValueAnnotation.getSimpleName()));

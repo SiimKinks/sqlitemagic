@@ -39,20 +39,20 @@ class SubmoduleGenClassesManagerTest {
 
   @Test
   fun columnForDefaultTransformerValueNotFound() {
-    val column = columnForValueOrNull(Boolean::class.java.canonicalName, true)
+    val column = columnForValueOrNull(checkNotNull(Boolean::class.java.canonicalName), true)
     assertThat(column).isNull()
   }
 
   @Test
   fun columnForNativeTransformerValue() {
     val value = SubmoduleTransformableObject(0)
-    val column = columnForValueOrNull(value.javaClass.canonicalName, value)
+    val column = columnForValueOrNull(checkNotNull(value.javaClass.canonicalName), value)
     assertThat(column).isInstanceOf(SubmoduleTransformableObjectColumn::class.java)
   }
 
   @Test
   fun columnForValueWithoutTransformer() {
-    val column = columnForValueOrNull(String::class.java.canonicalName, "")
+    val column = columnForValueOrNull(checkNotNull(String::class.java.canonicalName), "")
     assertThat(column).isNull()
   }
 }

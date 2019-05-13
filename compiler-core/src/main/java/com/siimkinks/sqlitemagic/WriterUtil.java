@@ -1,5 +1,8 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
 import com.siimkinks.sqlitemagic.element.TableElement;
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder;
@@ -48,9 +51,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import static com.siimkinks.sqlitemagic.Const.PRIMITIVES_DEFAULT_VALUE_MAP;
 import static com.siimkinks.sqlitemagic.Const.PRIVATE_FINAL_FIELD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.Const.PUBLIC_STATIC_FINAL;
@@ -87,6 +87,7 @@ public class WriterUtil {
   public static final ClassName CHECK_RESULT = ClassName.get("androidx.annotation", "CheckResult");
   public static final ClassName NON_NULL = ClassName.get("androidx.annotation", "NonNull");
   public static final ClassName NULLABLE = ClassName.get("androidx.annotation", "Nullable");
+  public static final ClassName SUPPRESS_WARNINGS = ClassName.get(SuppressWarnings.class);
 
   public static final ClassName ITERABLE = ClassName.get(Iterable.class);
   public static final ClassName COLLECTION = ClassName.get(Collection.class);

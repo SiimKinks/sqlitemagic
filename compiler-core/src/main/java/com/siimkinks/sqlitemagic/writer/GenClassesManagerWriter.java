@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.util.Callback2;
 import com.siimkinks.sqlitemagic.util.Dual;
 import com.siimkinks.sqlitemagic.util.FormatData;
 import com.siimkinks.sqlitemagic.util.TopsortTables;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
@@ -61,6 +62,7 @@ import static com.siimkinks.sqlitemagic.WriterUtil.SQL_UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING;
 import static com.siimkinks.sqlitemagic.WriterUtil.STRING_ARRAY_SET;
 import static com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_DATABASE;
+import static com.siimkinks.sqlitemagic.WriterUtil.SUPPRESS_WARNINGS;
 import static com.siimkinks.sqlitemagic.WriterUtil.TABLE;
 import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
 import static com.siimkinks.sqlitemagic.WriterUtil.addDebugLogging;
@@ -381,6 +383,10 @@ public class GenClassesManagerWriter {
         .addTypeVariable(valType)
         .addModifiers(STATIC_METHOD_MODIFIERS)
         .addParameter(notNullParameter(valType, VAL_VARIABLE))
+        .addAnnotation(AnnotationSpec
+            .builder(SUPPRESS_WARNINGS)
+            .addMember("value", "$S", "unchecked")
+            .build())
         .returns(returnType)
         .beginControlFlow("if ($L == null)", VAL_VARIABLE)
         .addStatement("throw new $T($S)", NullPointerException.class, "Value cannot be null")
