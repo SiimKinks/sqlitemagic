@@ -29,6 +29,6 @@ allprojects {
 }
 
 wrapper {
-  version = '4.10.2'
-  distributionUrl = 'https://services.gradle.org/distributions/gradle-4.10.2-all.zip'
+  version = '6.3'
+  distributionUrl = 'https://services.gradle.org/distributions/gradle-6.3-all.zip'
 }

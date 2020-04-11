@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.model;
 
 import androidx.annotation.NonNull;
-import androidx.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.NumericColumn;
 import com.siimkinks.sqlitemagic.Select;

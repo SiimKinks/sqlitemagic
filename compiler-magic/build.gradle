@@ -9,11 +9,15 @@ dependencies {
   compile project(':compiler-core')
 
   compile fileTree(dir: 'libs', include: ['*.jar'])
-
   compile libraries.autoService
   compile libraries.lombok
 
   compileOnly libraries.daggerCompiler
+
+  annotationProcessor fileTree(dir: 'libs', include: ['*.jar'])
+  annotationProcessor libraries.autoService
+  annotationProcessor libraries.daggerCompiler
+  annotationProcessor libraries.lombok
 }
 
 tasks.withType(Test) {

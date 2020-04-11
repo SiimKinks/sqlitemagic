@@ -2,9 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import com.android.build.gradle.*
 import com.android.build.gradle.api.BaseVariant
-import com.android.build.gradle.internal.variant.BaseVariantData
 import com.android.builder.model.BuildType
-import com.android.builder.model.ClassField
 import com.siimkinks.sqlitemagic.structure.MigrationsHandler
 import org.gradle.api.*
 import org.gradle.api.artifacts.Configuration
@@ -110,48 +108,16 @@ class SqliteMagicPlugin : Plugin<Project> {
         }
       }
       variants.all {
-        it.configureVariant(transform, project)
+        it.configureVariant(transform)
       }
       androidExtension.testVariants.all {
-        it.configureVariant(transform, project)
+        it.configureVariant(transform)
       }
     }
   }
 
-  private fun <T : BaseVariant> T.configureVariant(transform: SqliteMagicTransform, project: Project) {
+  private fun <T : BaseVariant> T.configureVariant(transform: SqliteMagicTransform) {
     transform.putJavaCompileTask(this)
-    addConfigVariantDbTask(project, this)
-  }
-
-  // FIXME remove?
-  private fun addConfigVariantDbTask(project: Project, variant: BaseVariant) {
-    val configTask = project.task("config${variant.name.capitalize()}Db").doFirst {
-      var dbVersion = "1"
-      var dbName = "\"database.db\""
-      val variantData = variant.javaClass.getMethod("getVariantData").invoke(variant) as BaseVariantData
-      variantData.variantConfiguration.buildConfigItems.forEach {
-        if (it is ClassField) {
-          var gotValue = false
-          if ("DB_VERSION".equals(it.name, ignoreCase = true)) {
-            dbVersion = it.value
-            gotValue = true
-          }
-          if ("DB_NAME".equals(it.name, ignoreCase = true)) {
-            dbName = it.value
-            gotValue = true
-          }
-          if (gotValue) {
-            return@forEach
-          }
-        }
-      }
-      variant.addAptArg("sqlitemagic.db.name", dbName)
-      if (!variant.debug) {
-        variant.addAptArg("sqlitemagic.db.version", dbVersion)
-      }
-    }
-    configTask.group = DB_TASK_GROUP
-    variant.javaCompile().dependsOn(configTask)
   }
 
   private fun BuildType.addMigrateDbTask(project: Project) {

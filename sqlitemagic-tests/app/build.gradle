@@ -43,9 +43,10 @@ dependencies {
   implementation libraries.androidAppcompat
   implementation libraries.kotlinStdLib
   implementation libraries.kotlinReflect
-  implementation libraries.sqlitemagicRuntime
   implementation libraries.rxJava2
   implementation libraries.rxJava2Extensions
+  implementation libraries.supportTime
+  implementation libraries.sqlitemagicRuntime
 
   compileOnly libraries.autoValueAnnotations
   compileOnly libraries.lombok
@@ -54,6 +55,7 @@ dependencies {
   annotationProcessor libraries.autoValue
   annotationProcessor libraries.autoValueAnnotations
   annotationProcessor libraries.autoValueParcel
+  annotationProcessor libraries.lombok
   annotationProcessor libraries.sqlitemagicProcessorMagic
 
   testImplementation libraries.kotlinJunit
@@ -69,6 +71,7 @@ dependencies {
 
   androidTestImplementation libraries.androidAnnotations
   androidTestImplementation libraries.androidTestRunner
+  androidTestImplementation libraries.junitRunner
   androidTestImplementation(libraries.truth) {
     exclude group: 'junit' // Android has JUnit built in.
   }

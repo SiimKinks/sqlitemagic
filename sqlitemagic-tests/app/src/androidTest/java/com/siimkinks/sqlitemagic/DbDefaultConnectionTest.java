@@ -1,5 +1,10 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteOpenHelper;
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+
 import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.Magazine;
 
@@ -13,10 +18,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import androidx.sqlite.db.SupportSQLiteDatabase;
-import androidx.sqlite.db.SupportSQLiteOpenHelper;
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
-import androidx.test.runner.AndroidJUnit4;
 import io.reactivex.observers.TestObserver;
 import io.reactivex.schedulers.Schedulers;
 

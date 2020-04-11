@@ -1,5 +1,8 @@
 package com.siimkinks.sqlitemagic.writer;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.siimkinks.sqlitemagic.Environment;
 import com.siimkinks.sqlitemagic.element.ColumnElement;
 import com.siimkinks.sqlitemagic.element.ExtendedTypeElement;
@@ -21,8 +24,6 @@ import java.util.Arrays;
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.TypeElement;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;

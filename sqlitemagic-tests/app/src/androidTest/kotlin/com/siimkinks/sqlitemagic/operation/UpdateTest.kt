@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic.operation
 
-import androidx.test.runner.AndroidJUnit4
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
 import com.siimkinks.sqlitemagic.Select
@@ -172,7 +172,7 @@ class UpdateTest : DefaultConnectionTest {
                   .map { insertNewRandom(model).first }
                   .last()
             },
-            operation = object: DualOperation<SimpleMutableWithUnique, SimpleMutableWithUnique, Int> {
+            operation = object : DualOperation<SimpleMutableWithUnique, SimpleMutableWithUnique, Int> {
               override fun executeTest(model: TestModel<SimpleMutableWithUnique>, testVal: SimpleMutableWithUnique): Int =
                   Update
                       .table("simple_mutable_with_unique")

@@ -4,7 +4,7 @@ package com.siimkinks.sqlitemagic.query.column
 
 import android.annotation.SuppressLint
 import android.database.sqlite.SQLiteException
-import androidx.test.runner.AndroidJUnit4
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AuthorTable.AUTHOR
 import com.siimkinks.sqlitemagic.DefaultConnectionTest

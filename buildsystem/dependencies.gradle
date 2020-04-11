@@ -4,43 +4,45 @@ ext {
 
   android = [
       sdk   : props["sdk.dir"],
-      target: "android-28"
+      target: "android-29"
   ]
 
   GROUP = 'com.siimkinks.sqlitemagic'
   VERSION_NAME = '0.24.3-SNAPSHOT'
 
-  buildToolsVersion = '28.0.3'
+  buildToolsVersion = '29.0.3'
   minSdkVersion = 16
-  compileSdkVersion = 28
+  compileSdkVersion = 29
   targetSdkVersion = compileSdkVersion
 
-  androidGradleVersion = '3.5.0-beta01'
-  androidAnnotationsVersion = '1.0.2'
-  androidAppcompatVersion = '1.0.2'
-  androidSqliteVersion = '2.0.1'
-  androidTestRunnerVersion = '1.1.1'
+  androidGradleVersion = '4.1.0-alpha05'
+  androidAnnotationsVersion = '1.1.0'
+  androidAppcompatVersion = '1.1.0'
+  androidSqliteVersion = '2.1.0'
+  androidTestRunnerVersion = '1.2.0'
   androidVersion = '4.0.1.2' // do not increment!
   autoCommonVersion = '0.10'
-  autoServiceVersion = '1.0-rc4'
-  autoValueVersion = '1.6.2'
-  autoValueParcelVersion = '0.2.6'
-  bintrayGradlePluginVersion = '1.8.4'
+  autoServiceVersion = '1.0-rc6'
+  autoValueVersion = '1.7'
+  autoValueParcelVersion = '0.2.7'
+  bintrayGradlePluginVersion = '1.8.5'
   daggerVersion = '1.2.5'
   googleCompileTestingVersion = '0.6'
-  guavaVersion = '27.1-jre'
+  guavaVersion = '28.2-jre'
   jacksonVersion = '2.6.2'
-  javapoetVersion = '1.11.1'
-  javassistVersion = '3.25.0-GA'
+  javapoetVersion = '1.12.1'
+  javassistVersion = '3.27.0-GA'
   junitVersion = '4.12'
-  kotlinpoetVersion = '1.2.0'
-  kotlinVersion = '1.3.31'
+  junitRunnerVersion = '1.1.1'
+  kotlinpoetVersion = '1.5.0'
+  kotlinVersion = '1.3.71'
   lombokVersion = '1.14.8' // do not increment!
-  mockitoVersion = '2.23.4'
-  mockitoKotlinVersion = '1.5.0'
+  mockitoVersion = '3.3.3'
+  mockitoKotlinVersion = '2.2.0'
   rxJavaMathVersion = '1.0.0'
-  rxJava2Version = '2.2.8'
-  rxJava2ExtensionsVersion = '0.18.8'
+  rxJava2Version = '2.2.19'
+  rxJava2ExtensionsVersion = '0.20.10'
+  supportTimeVersion = '1.2.3'
   truthVersion = '0.42'
   ztZipVersion = '1.9'
 
@@ -73,6 +75,7 @@ ext {
       rxJava2                   : "io.reactivex.rxjava2:rxjava:${rxJava2Version}",
       rxJava2Extensions         : "com.github.akarnokd:rxjava2-extensions:${rxJava2ExtensionsVersion}",
       rxJavaMath                : "io.reactivex:rxjava-math:${rxJavaMathVersion}",
+      supportTime               : "com.jakewharton.threetenabp:threetenabp:$supportTimeVersion",
       sqlitemagicAnnotations    : "$GROUP:sqlitemagic-annotations:$VERSION_NAME",
       sqlitemagicProcessorKotlin: "$GROUP:sqlitemagic-compiler-kotlin:$VERSION_NAME",
       sqlitemagicProcessorMagic : "$GROUP:sqlitemagic-compiler-magic:$VERSION_NAME",
@@ -83,8 +86,9 @@ ext {
       // testing
       googleCompileTesting      : "com.google.testing.compile:compile-testing:${googleCompileTestingVersion}",
       junit                     : "junit:junit:${junitVersion}",
+      junitRunner               : "androidx.test.ext:junit:$junitRunnerVersion",
       mockito                   : "org.mockito:mockito-core:$mockitoVersion",
-      mockitoKotlin             : "com.nhaarman:mockito-kotlin:$mockitoKotlinVersion",
+      mockitoKotlin             : "com.nhaarman.mockitokotlin2:mockito-kotlin:$mockitoKotlinVersion",
       truth                     : "com.google.truth:truth:${truthVersion}",
   ]
 }

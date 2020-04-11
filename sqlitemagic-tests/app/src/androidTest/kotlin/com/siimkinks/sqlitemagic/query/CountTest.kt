@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.query
 
-import androidx.test.runner.AndroidJUnit4
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AuthorTable.AUTHOR
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
@@ -152,7 +152,7 @@ class CountTest : DefaultConnectionTest {
           setUp = { model ->
             createVals { insertNewRandom(model) }.size.toLong()
           },
-          operation = object: QueryOperation<Long, Long> {
+          operation = object : QueryOperation<Long, Long> {
             override fun executeTest(testVal: Long): Long = Select
                 .column(AUTHOR.NAME)
                 .from(MAGAZINE)

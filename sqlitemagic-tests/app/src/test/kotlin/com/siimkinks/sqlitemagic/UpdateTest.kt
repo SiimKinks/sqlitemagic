@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase
 import com.google.common.truth.Truth.assertThat
-import com.nhaarman.mockito_kotlin.mock
+import com.nhaarman.mockitokotlin2.mock
 import com.siimkinks.sqlitemagic.AuthorTable.AUTHOR
 import com.siimkinks.sqlitemagic.BookTable.BOOK
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.COMPLEX_OBJECT_WITH_SAME_LEAFS

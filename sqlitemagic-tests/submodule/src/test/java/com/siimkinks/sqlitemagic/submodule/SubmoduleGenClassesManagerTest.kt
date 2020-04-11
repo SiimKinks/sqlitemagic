@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.submodule
 
 import com.google.common.truth.Truth.assertThat
-import com.nhaarman.mockito_kotlin.mock
+import com.nhaarman.mockitokotlin2.mock
 import com.siimkinks.sqlitemagic.SubmoduleGeneratedClassesManager.*
 import com.siimkinks.sqlitemagic.SubmoduleTransformableObjectColumn
 import com.siimkinks.sqlitemagic.internal.StringArraySet

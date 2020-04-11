@@ -68,6 +68,7 @@ dependencies {
 
   androidTestImplementation libraries.androidAnnotations
   androidTestImplementation libraries.androidTestRunner
+  androidTestImplementation libraries.junitRunner
   androidTestImplementation(libraries.truth) {
     exclude group: 'junit' // Android has JUnit built in.
   }

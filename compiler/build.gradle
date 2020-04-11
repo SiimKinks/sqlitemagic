@@ -11,6 +11,9 @@ dependencies {
   compile libraries.autoService
 
   compileOnly libraries.daggerCompiler
+
+  annotationProcessor libraries.autoService
+  annotationProcessor libraries.daggerCompiler
 }
 
 tasks.withType(Test) {

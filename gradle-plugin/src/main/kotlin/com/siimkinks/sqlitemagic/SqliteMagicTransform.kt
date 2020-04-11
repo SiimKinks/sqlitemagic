@@ -103,8 +103,8 @@ class SqliteMagicTransform(
       return
     }
 
-    val outputFiles = outputDir.list().toSet()
-    extractDir.listFiles()
+    val outputFiles = checkNotNull(outputDir.list()).toSet()
+    checkNotNull(extractDir.listFiles())
         .forEach {
           if (it.name !in outputFiles) {
             it.copyRecursively(File(outputDir, it.name))
@@ -141,7 +141,7 @@ class SqliteMagicTransform(
    */
   private fun classpath(context: Context, outputDir: File, referencedInputs: Collection<TransformInput>): FileCollection {
     val variant = getVariant(context, outputDir)
-        ?: throw ProjectConfigurationException("Missing variant for output dir: $outputDir", null)
+        ?: throw ProjectConfigurationException("Missing variant for output dir: $outputDir", Throwable())
 
     var classpathFiles = variant.javaCompile().classpath
     for (input in referencedInputs) {
@@ -150,7 +150,7 @@ class SqliteMagicTransform(
 
     // bootClasspath isn't set until the last possible moment because it's expensive to look
     // up the android sdk path.
-    val bootClasspath = variant.javaCompile().options.bootClasspath(project)
+    val bootClasspath = variant.javaCompile().options.bootstrapClasspath
     if (bootClasspath != null) {
       classpathFiles += bootClasspath
     } else {
@@ -158,7 +158,7 @@ class SqliteMagicTransform(
       // need to run but can't without the bootClasspath. Just fail and ask the user to rebuild.
       throw ProjectConfigurationException("Unable to obtain the bootClasspath. This may happen if " +
           "your javaCompile tasks didn't run but sqlitemagic did. You must rebuild your project or " +
-          "otherwise force javaCompile to run.", null)
+          "otherwise force javaCompile to run.", Throwable())
     }
 
     return classpathFiles
@@ -179,26 +179,13 @@ class SqliteMagicTransform(
       // This will no longer be needed when the transform api supports per-variant transforms
       val parts = outputDir.toURI().path.split("/intermediates/transforms/$name/|/folders/[0-9]+".toRegex())
       if (parts.size < 2) {
-        throw ProjectConfigurationException("Could not extract variant from output dir: $outputDir", null)
+        throw ProjectConfigurationException("Could not extract variant from output dir: $outputDir", Throwable())
       }
       val variantPath = parts[1]
       for (variant in variants) {
         if (variant.dirName == variantPath) {
           return variant
         }
-      }
-    }
-    return null
-  }
-
-  @Suppress("DEPRECATION")
-  private fun CompileOptions.bootClasspath(project: Project): FileCollection? {
-    try {
-      bootstrapClasspath?.let { return it }
-    } catch (e: NoSuchMethodError) {
-      val bootClasspath = bootClasspath
-      if (bootClasspath != null) {
-        return project.files(*bootClasspath.split(File.pathSeparator).toTypedArray())
       }
     }
     return null

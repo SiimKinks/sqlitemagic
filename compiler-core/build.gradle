@@ -23,6 +23,9 @@ dependencies {
   compileOnly libraries.daggerCompiler
   compileOnly libraries.lombok
 
+  annotationProcessor libraries.daggerCompiler
+  annotationProcessor libraries.lombok
+
   testCompile libraries.googleCompileTesting
   testCompile libraries.junit
 }

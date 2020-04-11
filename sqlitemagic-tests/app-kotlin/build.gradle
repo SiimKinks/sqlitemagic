@@ -44,6 +44,7 @@ dependencies {
   implementation libraries.kotlinStdLib
   implementation libraries.rxJava2
   implementation libraries.rxJava2Extensions
+  implementation libraries.supportTime
 
   kapt libraries.sqlitemagicProcessorKotlin
 

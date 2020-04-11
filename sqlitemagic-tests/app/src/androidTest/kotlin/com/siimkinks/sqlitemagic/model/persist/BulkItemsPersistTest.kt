@@ -3,7 +3,7 @@
 package com.siimkinks.sqlitemagic.model.persist
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import androidx.test.runner.AndroidJUnit4
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
 import com.siimkinks.sqlitemagic.createVals
 import com.siimkinks.sqlitemagic.model.*

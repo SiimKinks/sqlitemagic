@@ -5,8 +5,14 @@ import android.app.Application;
 import androidx.annotation.NonNull;
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
 
+import com.siimkinks.sqlitemagic.annotation.Database;
+
 import io.reactivex.schedulers.Schedulers;
 
+@Database(
+    name = BuildConfig.DB_NAME,
+    version = BuildConfig.DB_VERSION
+)
 public class TestApp extends Application {
   public static Application INSTANCE;
 

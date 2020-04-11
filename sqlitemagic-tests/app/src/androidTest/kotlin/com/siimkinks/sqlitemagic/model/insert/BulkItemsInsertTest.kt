@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.model.insert
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import androidx.test.runner.AndroidJUnit4
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DefaultConnectionTest
 import com.siimkinks.sqlitemagic.Select
