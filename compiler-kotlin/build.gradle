@@ -15,7 +15,10 @@ dependencies {
   compile libraries.kotlinReflect
   compile libraries.kotlinStdLib
 
+  compileOnly libraries.incap
+
   kapt libraries.daggerCompiler
+  kapt libraries.incapProcessor
 }
 
 tasks.withType(Test) {

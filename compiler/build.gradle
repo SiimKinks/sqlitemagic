@@ -11,9 +11,11 @@ dependencies {
   compile libraries.autoService
 
   compileOnly libraries.daggerCompiler
+  compileOnly libraries.incap
 
   annotationProcessor libraries.autoService
   annotationProcessor libraries.daggerCompiler
+  annotationProcessor libraries.incapProcessor
 }
 
 tasks.withType(Test) {

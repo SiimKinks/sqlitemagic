@@ -13,10 +13,12 @@ dependencies {
   compile libraries.lombok
 
   compileOnly libraries.daggerCompiler
+  compileOnly libraries.incap
 
   annotationProcessor fileTree(dir: 'libs', include: ['*.jar'])
   annotationProcessor libraries.autoService
   annotationProcessor libraries.daggerCompiler
+  annotationProcessor libraries.incapProcessor
   annotationProcessor libraries.lombok
 }
 

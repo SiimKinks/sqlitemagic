@@ -29,6 +29,7 @@ ext {
   daggerVersion = '1.2.5'
   googleCompileTestingVersion = '0.6'
   guavaVersion = '28.2-jre'
+  incapVersion = '0.2'
   jacksonVersion = '2.6.2'
   javapoetVersion = '1.12.1'
   javassistVersion = '3.27.0-GA'
@@ -63,6 +64,8 @@ ext {
       dagger                    : "com.squareup.dagger:dagger:${daggerVersion}",
       daggerCompiler            : "com.squareup.dagger:dagger-compiler:${daggerVersion}",
       guava                     : "com.google.guava:guava:${guavaVersion}",
+      incap                     : "net.ltgt.gradle.incap:incap:$incapVersion",
+      incapProcessor            : "net.ltgt.gradle.incap:incap-processor:$incapVersion",
       jackson                   : "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}",
       javapoet                  : "com.squareup:javapoet:${javapoetVersion}",
       javassist                 : "org.javassist:javassist:$javassistVersion",

@@ -2,11 +2,15 @@ package com.siimkinks.sqlitemagic;
 
 import com.google.auto.service.AutoService;
 
+import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
+
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.SupportedOptions;
 
 import dagger.ObjectGraph;
+
+import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.AGGREGATING;
 
 @SupportedOptions({
     "sqlitemagic.generate.logging",
@@ -21,6 +25,7 @@ import dagger.ObjectGraph;
     "sqlitemagic.db.name"
 })
 @AutoService(Processor.class)
+@IncrementalAnnotationProcessor(AGGREGATING)
 public class SqliteMagicProcessor extends BaseProcessor {
   @Override
   protected ObjectGraph createObjectGraph(ProcessingEnvironment env) {
