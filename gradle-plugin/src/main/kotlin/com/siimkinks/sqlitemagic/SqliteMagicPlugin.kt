@@ -86,7 +86,6 @@ class SqliteMagicPlugin : Plugin<Project> {
       sqlitemagic.mainModulePath?.let { mainModulePath ->
         it.addAptArg("sqlitemagic.main.module.path", File(mainModulePath).absolutePath)
       }
-      it.addDebugDbVersion(project, sqlitemagic)
     }
   }
 
@@ -132,27 +131,6 @@ class SqliteMagicPlugin : Plugin<Project> {
           variantName = name)
     }
     migrationTask.group = DB_TASK_GROUP
-  }
-
-  private fun <T : BaseVariant> T.addDebugDbVersion(project: Project, sqlitemagic: SqliteMagicPluginExtension) {
-    if (debug) {
-      val mainModulePath = sqlitemagic.mainModulePath
-      val baseDir = mainModulePath?.let(::File) ?: project.projectDir
-      val dbDir = File(baseDir, "db")
-      val debugVersionFile = File(dbDir, "latest_$name.version")
-      val debugDbVersion = when {
-        debugVersionFile.exists() -> debugVersionFile.readLines().last().toInt()
-        else -> 1000
-      }.run { if (mainModulePath == null) inc() else this }
-      addAptArg("sqlitemagic.db.version", debugDbVersion)
-
-      if (mainModulePath == null) {
-        if (!dbDir.exists()) {
-          dbDir.mkdirs()
-        }
-        debugVersionFile.writeText(debugDbVersion.toString())
-      }
-    }
   }
 
   private fun ensureJavaVersion(javaVersion: JavaVersion) {

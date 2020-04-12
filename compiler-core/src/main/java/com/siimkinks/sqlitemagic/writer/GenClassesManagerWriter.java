@@ -88,6 +88,8 @@ public class GenClassesManagerWriter {
   public void writeSource(Environment environment, GenClassesManagerStep managerStep) throws IOException {
     final List<Dual<TypeElement, String>> submoduleDatabases = environment.getSubmoduleDatabases();
     if (!environment.getAllTableElements().isEmpty() || (submoduleDatabases != null && !submoduleDatabases.isEmpty())) {
+      MigrationsHandler.Companion.handleDebugMigrations(environment, managerStep);
+
       final Filer filer = environment.getFiler();
       final String className = environment.getGenClassesManagerClassName();
       TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
@@ -109,7 +111,6 @@ public class GenClassesManagerWriter {
         classBuilder.addMethod(columnForValueOrNull(environment, managerStep, className));
       }
       WriterUtil.writeSource(filer, classBuilder.build(), PACKAGE_ROOT);
-      MigrationsHandler.Companion.handleDebugMigrations(environment, managerStep);
     }
   }
 

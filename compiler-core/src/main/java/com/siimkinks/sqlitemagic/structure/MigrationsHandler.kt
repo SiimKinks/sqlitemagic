@@ -20,13 +20,14 @@ class MigrationsHandler(
   companion object {
     fun handleDebugMigrations(environment: Environment, managerStep: GenClassesManagerStep) {
       if (environment.isDebugVariant && environment.isMigrateDebug) {
+        val nextDbVersion = readLatestDebugVersion(environment).inc()
         val structureFile = File(environment.projectDir, "db")
             .resolve("latest.struct")
         val assetsDir = Paths.get(
             environment.projectDir,
             "src", environment.variantName, "assets")
             .toFile()
-        val migrationFileName = "${environment.dbVersion}.sql".let {
+        val migrationFileName = "$nextDbVersion.sql".let {
           when {
             environment.isSubmodule -> environment.submoduleName + it
             else -> it
@@ -35,7 +36,7 @@ class MigrationsHandler(
         val currentStructure = DatabaseStructure.create(environment, managerStep)
 
         try {
-          MigrationsHandler(
+          val migrationHappened = MigrationsHandler(
               currentStructure = currentStructure,
               previousStructure = structureFile.readStructure(),
               outputStructureFile = structureFile,
@@ -45,9 +46,19 @@ class MigrationsHandler(
           if (environment.isSubmodule) {
             environment.mainModulePath?.let { mainModulePath ->
               val submoduleName = checkNotNull(environment.submoduleName).toLowerCase()
-              val mainModuleStructureFile = File(mainModulePath, "db")
-                  .resolve("latest_$submoduleName.struct")
+              val dbDir = File(mainModulePath, "db")
+              val mainModuleStructureFile = dbDir.resolve("latest_$submoduleName.struct")
               JsonConfig.OBJECT_MAPPER.writeValue(mainModuleStructureFile, currentStructure)
+
+              if (migrationHappened) {
+                dbDir.resolve("$submoduleName.changed").createNewFile()
+              }
+            }
+          } else {
+            val submoduleChangeHappened = determineSubmoduleChange(environment)
+            if (migrationHappened || submoduleChangeHappened) {
+              environment.dbVersion = nextDbVersion
+              writeMainModuleDebugVersion(environment, nextDbVersion)
             }
           }
         } catch (e: IOException) {
@@ -93,16 +104,20 @@ class MigrationsHandler(
     }
   }
 
-  internal fun migrate() {
+  internal fun migrate(): Boolean {
     try {
       val previousStructure = previousStructure
       val currentStructure = currentStructure
+      var migrationHappened = false
       if (previousStructure != null && currentStructure != previousStructure) {
         migrateDatabase(from = previousStructure, to = currentStructure)
+        migrationHappened = true
       }
       persistStructure(currentStructure)
+      return migrationHappened
     } catch (e: Exception) {
       RuntimeException("Failed to automatically migrate database", e).printStackTrace()
+      return false
     }
   }
 
@@ -300,6 +315,32 @@ internal fun File?.readStructure(): DatabaseStructure? {
     null
   }
 }
+
+internal fun readLatestDebugVersion(environment: Environment): Int {
+  val debugVersionFile = File(environment.mainModulePath ?: environment.projectDir, "db")
+      .resolve("latest_${environment.variantName}.version")
+  return when {
+    debugVersionFile.exists() -> debugVersionFile.readLines().last().toInt()
+    else -> 1000
+  }
+}
+
+internal fun writeMainModuleDebugVersion(environment: Environment, version: Int) {
+  val versionFile = File(environment.projectDir, "db")
+      .resolve("latest_${environment.variantName}.version")
+  if (!versionFile.exists()) {
+    versionFile.mkdirs()
+  }
+  versionFile.writeText(version.toString())
+}
+
+private fun determineSubmoduleChange(environment: Environment): Boolean =
+    (File(environment.projectDir, "db")
+        .listFiles { file -> file.extension == "changed" }
+        ?.asSequence()
+        ?.map(File::delete)
+        ?.count()
+        ?: 0) > 0
 
 internal fun determineReleaseVersion(latestReleaseFile: File?, releaseAssetsDir: File): Long {
   val latestReleasedVersion = latestReleaseFile?.nameWithoutExtension

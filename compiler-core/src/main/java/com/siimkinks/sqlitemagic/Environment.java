@@ -414,6 +414,10 @@ public class Environment {
     this.dbVersion = Integer.valueOf(dbVersion);
   }
 
+  public void setDbVersion(int dbVersion) {
+    this.dbVersion = dbVersion;
+  }
+
   public void setDbName(String dbName) {
     this.dbName = dbName;
   }
