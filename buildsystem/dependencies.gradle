@@ -8,7 +8,7 @@ ext {
   ]
 
   GROUP = 'com.siimkinks.sqlitemagic'
-  VERSION_NAME = '0.25.1'
+  VERSION_NAME = '0.25.2-SNAPSHOT'
 
   buildToolsVersion = '29.0.3'
   minSdkVersion = 16
