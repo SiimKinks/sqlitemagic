@@ -1,11 +1,17 @@
 Change Log
 ==========
 
+Version 0.25.1 _(2020-04-12)_
+---------------------------------
+
+* Fix: Avoid unnecessary recompilation of debug builds
+
 Version 0.25.0 _(2020-04-11)_
 ---------------------------------
 
 * Add: Support for Android Gradle plugin version >= 4
 * Add: Support for Gradle incremental processing
+* Breaking: Remove support for defining DB name and version in build config file
 
 Version 0.24.2 _(2019-05-13)_
 ---------------------------------
