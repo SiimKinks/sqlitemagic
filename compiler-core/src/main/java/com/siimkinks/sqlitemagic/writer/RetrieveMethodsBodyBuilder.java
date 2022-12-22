@@ -17,7 +17,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.SQL_EXCEPTION;
 import static com.siimkinks.sqlitemagic.WriterUtil.getDefaultValue;

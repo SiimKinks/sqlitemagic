@@ -27,7 +27,7 @@ import javax.lang.model.element.TypeElement;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.Const.CLASS_MODIFIERS;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;

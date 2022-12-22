@@ -18,7 +18,7 @@ import javax.lang.model.element.Modifier;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.GlobalConst.FAILED_TO_INSERT_ERR_MSG;

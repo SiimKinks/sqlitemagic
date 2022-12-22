@@ -20,7 +20,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE book SET nr_of_releases=? ",
             nodeCount = 3,
-            args = *arrayOf("1"))
+            args = arrayOf("1"))
   }
 
   @Test
@@ -31,7 +31,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE magazine SET nr_of_releases=? ",
             nodeCount = 3,
-            args = *arrayOf("1"))
+            args = arrayOf("1"))
   }
 
   @Test
@@ -42,7 +42,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET name=? ",
             nodeCount = 3,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -53,7 +53,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET name=? ",
             nodeCount = 3,
-            args = *arrayOf<String?>(null))
+            args = arrayOf(null))
   }
 
   @Test
@@ -64,7 +64,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET primitive_boolean=? ",
             nodeCount = 3,
-            args = *arrayOf("1"))
+            args = arrayOf("1"))
   }
 
   @Test
@@ -75,7 +75,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET boxed_boolean=? ",
             nodeCount = 3,
-            args = *arrayOf("1"))
+            args = arrayOf("1"))
   }
 
   @Test
@@ -87,7 +87,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR IGNORE author SET name=? ",
             nodeCount = 4,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -99,7 +99,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR IGNORE author SET name=? ",
             nodeCount = 4,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -111,7 +111,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR FAIL author SET name=? ",
             nodeCount = 4,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -123,7 +123,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE immutable_value_with_fields SET a_boolean=?,integer=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "1"))
+            args = arrayOf("1", "1"))
   }
 
   @Test
@@ -135,7 +135,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE immutable_value_with_fields SET a_boolean=?,integer=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "1"))
+            args = arrayOf("1", "1"))
   }
 
   @Test
@@ -147,7 +147,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE immutable_value_with_nullable_fields SET a_boolean=?,integer=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "1"))
+            args = arrayOf("1", "1"))
   }
 
   @Test
@@ -160,7 +160,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE immutable_value_with_nullable_fields SET a_boolean=?,integer=?,string=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "1", "asd"))
+            args = arrayOf("1", "1", "asd"))
   }
 
   @Test
@@ -172,7 +172,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE immutable_value_with_nullable_fields SET a_boolean=?,integer=? ",
             nodeCount = 3,
-            args = *arrayOf("1", null))
+            args = arrayOf("1", null))
   }
 
   @Test
@@ -185,7 +185,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE immutable_value_with_nullable_fields SET a_boolean=?,integer=?,string=? ",
             nodeCount = 3,
-            args = *arrayOf("1", null, "foo"))
+            args = arrayOf("1", null, "foo"))
   }
 
   @Test
@@ -200,7 +200,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "1", "2", "0"))
+            args = arrayOf("asd", "1", "2", "0"))
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_ROLLBACK
@@ -210,7 +210,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "1"))
+            args = arrayOf("asd", "1"))
   }
 
   @Test
@@ -225,7 +225,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "1", "2", "0"))
+            args = arrayOf("asd", "1", "2", "0"))
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_ROLLBACK
@@ -235,7 +235,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "1"))
+            args = arrayOf("asd", "1"))
   }
 
   @Test
@@ -247,7 +247,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET name=? WHERE author.id=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "2"))
+            args = arrayOf("asd", "2"))
   }
 
   @Test
@@ -259,7 +259,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET name=? WHERE author.id=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "2"))
+            args = arrayOf("asd", "2"))
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_IGNORE
@@ -270,7 +270,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author.id=? AND author.name!=?) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "0", "2", "asd"))
+            args = arrayOf("asd", "0", "2", "asd"))
 
     (UPDATE
         TABLE AUTHOR
@@ -280,7 +280,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE author SET name=?,boxed_boolean=? WHERE (author.id=? OR author.name!=?) ",
             nodeCount = 4,
-            args = *arrayOf("asd", "0", "2", "asd"))
+            args = arrayOf("asd", "0", "2", "asd"))
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_FAIL
@@ -290,7 +290,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR FAIL author SET name=? WHERE (author.id=? OR author.name!=?) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "2", "asd"))
+            args = arrayOf("asd", "2", "asd"))
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_FAIL
@@ -305,7 +305,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "2", "asd", "0"))
+            args = arrayOf("asd", "2", "asd", "0"))
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM SQLiteDatabase.CONFLICT_FAIL
@@ -320,7 +320,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "2", "asd", "0"))
+            args = arrayOf("asd", "2", "asd", "0"))
   }
 
   @Test
@@ -336,7 +336,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE complex_object_with_same_leafs SET magazine=?,magazine=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
 
     (UPDATE
         TABLE COMPLEX_OBJECT_WITH_SAME_LEAFS
@@ -345,7 +345,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE complex_object_with_same_leafs SET magazine=?,magazine=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
   }
 
   @Test
@@ -361,7 +361,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE magazine SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
 
     (UPDATE
         TABLE MAGAZINE
@@ -370,7 +370,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE magazine SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
   }
 
   @Test
@@ -382,7 +382,7 @@ class UpdateTest : DSLTests {
         .isEqualTo(
             sql = "UPDATE magazine SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf<String?>(null, null))
+            args = arrayOf(null, null))
   }
 
   @Test

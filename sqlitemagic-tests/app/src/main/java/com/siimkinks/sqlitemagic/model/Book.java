@@ -1,9 +1,11 @@
 package com.siimkinks.sqlitemagic.model;
 
+import com.siimkinks.sqlitemagic.SqliteMagic_Book_Handler;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
+import java.util.Collection;
 import java.util.Random;
 
 import lombok.AllArgsConstructor;
@@ -13,7 +15,7 @@ import lombok.ToString;
 
 @Table
 @NoArgsConstructor
-@AllArgsConstructor(suppressConstructorProperties = true)
+@AllArgsConstructor
 @ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
 public class Book extends BaseModel {
@@ -42,5 +44,41 @@ public class Book extends BaseModel {
     book.title = title != null ? title : Utils.randomTableName();
     book.nrOfReleases = r.nextInt();
     return book;
+  }
+
+  public SqliteMagic_Book_Handler.InsertBuilder insert() {
+    return SqliteMagic_Book_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_Book_Handler.UpdateBuilder update() {
+    return SqliteMagic_Book_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_Book_Handler.PersistBuilder persist() {
+    return SqliteMagic_Book_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_Book_Handler.DeleteBuilder delete() {
+    return SqliteMagic_Book_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_Book_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_Book_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_Book_Handler.BulkInsertBuilder insert(Iterable<Book> o) {
+    return SqliteMagic_Book_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_Book_Handler.BulkUpdateBuilder update(Iterable<Book> o) {
+    return SqliteMagic_Book_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_Book_Handler.BulkPersistBuilder persist(Iterable<Book> o) {
+    return SqliteMagic_Book_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_Book_Handler.BulkDeleteBuilder delete(Collection<Book> o) {
+    return SqliteMagic_Book_Handler.BulkDeleteBuilder.create(o);
   }
 }

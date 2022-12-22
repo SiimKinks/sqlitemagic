@@ -11,8 +11,8 @@ import javax.lang.model.element.ExecutableElement;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import lombok.experimental.Builder;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.codeBlockEnd;
 import static com.siimkinks.sqlitemagic.WriterUtil.getDefaultValue;

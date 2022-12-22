@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Assert.fail
 import org.junit.Before
-import java.util.*
 
 interface DefaultConnectionTest {
   @Before
@@ -25,9 +25,9 @@ inline fun <reified T : Throwable> assertThrows(block: () -> Unit) {
     block()
     fail("This block was supposed to throw")
   } catch (e: Throwable) {
-    assertThat(e is T)
-        .named("Expected exception of type ${T::class.simpleName}, but was ${e::class.simpleName}")
-        .isTrue()
+    assertWithMessage("Expected exception of type ${T::class.simpleName}, but was ${e::class.simpleName}")
+      .that(e is T)
+      .isTrue()
     assertThat(e.message).isNotEmpty()
   }
 }

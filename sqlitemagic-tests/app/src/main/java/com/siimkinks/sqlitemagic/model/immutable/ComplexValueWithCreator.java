@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.model.immutable;
 import androidx.annotation.Nullable;
 
 import com.google.auto.value.AutoValue;
+import com.siimkinks.sqlitemagic.SqliteMagic_ComplexValueWithCreator_Handler;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
@@ -10,6 +11,7 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.ComplexObjectWithSameLeafs;
 
+import java.util.Collection;
 import java.util.Random;
 
 @Table(persistAll = true)
@@ -143,5 +145,41 @@ public abstract class ComplexValueWithCreator {
           && ((this.nullableCreatorSimpleValue() == null) ? (that.nullableCreatorSimpleValue() == null) : this.nullableCreatorSimpleValue().equalsWithoutId(that.nullableCreatorSimpleValue()));
     }
     return false;
+  }
+
+  public SqliteMagic_ComplexValueWithCreator_Handler.InsertBuilder insert() {
+    return SqliteMagic_ComplexValueWithCreator_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_ComplexValueWithCreator_Handler.UpdateBuilder update() {
+    return SqliteMagic_ComplexValueWithCreator_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_ComplexValueWithCreator_Handler.PersistBuilder persist() {
+    return SqliteMagic_ComplexValueWithCreator_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_ComplexValueWithCreator_Handler.DeleteBuilder delete() {
+    return SqliteMagic_ComplexValueWithCreator_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_ComplexValueWithCreator_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_ComplexValueWithCreator_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_ComplexValueWithCreator_Handler.BulkInsertBuilder insert(Iterable<ComplexValueWithCreator> o) {
+    return SqliteMagic_ComplexValueWithCreator_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_ComplexValueWithCreator_Handler.BulkUpdateBuilder update(Iterable<ComplexValueWithCreator> o) {
+    return SqliteMagic_ComplexValueWithCreator_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_ComplexValueWithCreator_Handler.BulkPersistBuilder persist(Iterable<ComplexValueWithCreator> o) {
+    return SqliteMagic_ComplexValueWithCreator_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_ComplexValueWithCreator_Handler.BulkDeleteBuilder delete(Collection<ComplexValueWithCreator> o) {
+    return SqliteMagic_ComplexValueWithCreator_Handler.BulkDeleteBuilder.create(o);
   }
 }

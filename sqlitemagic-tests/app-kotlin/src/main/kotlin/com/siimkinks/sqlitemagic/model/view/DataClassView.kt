@@ -3,13 +3,16 @@ package com.siimkinks.sqlitemagic.model.view
 import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.AuthorTable.AUTHOR
 import com.siimkinks.sqlitemagic.COLUMNS
+import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.FROM
 import com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE
 import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.Select.SelectN
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.annotation.ViewQuery
 import com.siimkinks.sqlitemagic.model.Author
+import com.siimkinks.sqlitemagic.model.Magazine
 
 @View
 data class DataClassView(
@@ -23,7 +26,7 @@ data class DataClassView(
   companion object {
     @JvmField
     @ViewQuery
-    val QUERY = (SELECT
+    val QUERY: CompiledSelect<Magazine, SelectN> = (SELECT
         COLUMNS
         arrayOf(
             AUTHOR.NAME AS "an",

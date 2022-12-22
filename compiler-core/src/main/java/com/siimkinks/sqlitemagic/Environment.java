@@ -588,7 +588,7 @@ public class Environment {
         ExecutableElement constructor = (ExecutableElement) enclosedElement;
         final List<? extends VariableElement> constructorParams = constructor.getParameters();
         if (constructorParams.size() != allColumns.size()) {
-          return false;
+          continue;
         }
         final Types typeUtils = getTypeUtils();
         final Iterator<? extends BaseColumnElement> columnsIterator = allColumns.iterator();

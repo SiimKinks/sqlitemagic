@@ -31,7 +31,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE book SET nr_of_releases=? ",
             nodeCount = 3,
-            args = *arrayOf("1"))
+            args = arrayOf("1"))
   }
 
   @Test
@@ -42,7 +42,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE book SET nr_of_releases=? ",
             nodeCount = 3,
-            args = *arrayOf("1"))
+            args = arrayOf("1"))
   }
 
   @Test
@@ -53,7 +53,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET name=? ",
             nodeCount = 3,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -64,7 +64,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET name=? ",
             nodeCount = 3,
-            args = *arrayOf(null as? String?))
+            args = arrayOf(null as? String?))
   }
 
   @Test
@@ -75,7 +75,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET primitive_boolean=? ",
             nodeCount = 3,
-            args = *arrayOf("0"))
+            args = arrayOf("0"))
   }
 
   @Test
@@ -86,7 +86,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET boxed_boolean=? ",
             nodeCount = 3,
-            args = *arrayOf("1"))
+            args = arrayOf("1"))
   }
 
   @Test
@@ -98,7 +98,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR FAIL author SET name=? ",
             nodeCount = 4,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -110,7 +110,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR FAIL author SET name=? ",
             nodeCount = 4,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -122,7 +122,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR IGNORE author SET name=? ",
             nodeCount = 4,
-            args = *arrayOf("asd"))
+            args = arrayOf("asd"))
   }
 
   @Test
@@ -134,7 +134,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE simple_all_primitive_builder SET bool=?,integer=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "1"))
+            args = arrayOf("1", "1"))
   }
 
   @Test
@@ -146,7 +146,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE simple_all_primitive_builder SET bool=?,integer=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "1"))
+            args = arrayOf("1", "1"))
   }
 
   @Test
@@ -158,7 +158,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET primitive_boolean=?,boxed_boolean=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "0"))
+            args = arrayOf("1", "0"))
   }
 
   @Test
@@ -171,7 +171,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET primitive_boolean=?,boxed_boolean=?,name=? ",
             nodeCount = 3,
-            args = *arrayOf("1", "0", "asd"))
+            args = arrayOf("1", "0", "asd"))
   }
 
   @Test
@@ -183,7 +183,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET primitive_boolean=?,name=? ",
             nodeCount = 3,
-            args = *arrayOf("1", null))
+            args = arrayOf("1", null))
   }
 
   @Test
@@ -196,7 +196,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET primitive_boolean=?,name=?,primitive_boolean=? ",
             nodeCount = 3,
-            args = *arrayOf("1", null, "0"))
+            args = arrayOf("1", null, "0"))
   }
 
   @Test
@@ -211,7 +211,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "1", "2", "0"))
+            args = arrayOf("asd", "1", "2", "0"))
   }
 
   @Test
@@ -226,7 +226,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "1", "2", "0"))
+            args = arrayOf("asd", "1", "2", "0"))
   }
 
   @Test
@@ -238,7 +238,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET name=? WHERE author.id=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "2"))
+            args = arrayOf("asd", "2"))
   }
 
   @Test
@@ -250,7 +250,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET name=? WHERE author.id=? ",
             nodeCount = 4,
-            args = *arrayOf("asd", "2"))
+            args = arrayOf("asd", "2"))
 
     Update
         .withConflictAlgorithm(SQLiteDatabase.CONFLICT_IGNORE)
@@ -261,7 +261,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author.id=? AND author.name!=?) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "0", "2", "asd"))
+            args = arrayOf("asd", "0", "2", "asd"))
 
     Update
         .table(AUTHOR)
@@ -271,7 +271,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE author SET name=?,boxed_boolean=? WHERE (author.id=? OR author.name!=?) ",
             nodeCount = 4,
-            args = *arrayOf("asd", "0", "2", "asd"))
+            args = arrayOf("asd", "0", "2", "asd"))
 
     Update
         .withConflictAlgorithm(SQLiteDatabase.CONFLICT_FAIL)
@@ -281,7 +281,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR FAIL author SET name=? WHERE (author.id=? AND author.name!=?) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "2", "asd"))
+            args = arrayOf("asd", "2", "asd"))
 
     Update
         .withConflictAlgorithm(SQLiteDatabase.CONFLICT_FAIL)
@@ -294,7 +294,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "2", "asd", "0"))
+            args = arrayOf("asd", "2", "asd", "0"))
 
     Update
         .withConflictAlgorithm(SQLiteDatabase.CONFLICT_FAIL)
@@ -308,14 +308,14 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ",
             nodeCount = 5,
-            args = *arrayOf("asd", "2", "asd", "0"))
+            args = arrayOf("asd", "2", "asd", "0"))
   }
 
   @Test
   fun updateComplexColumn() {
     val author = Author.newRandom()
     val id = author.id
-    val idStr = java.lang.Long.toString(id!!)
+    val idStr = (id!!).toString()
     Update
         .table(COMPLEX_VALUE_WITH_BUILDER)
         .set(COMPLEX_VALUE_WITH_BUILDER.AUTHOR, author)
@@ -323,7 +323,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE complex_value_with_builder SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
 
     Update
         .table(COMPLEX_VALUE_WITH_BUILDER)
@@ -332,14 +332,14 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE complex_value_with_builder SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
   }
 
   @Test
   fun updateNullableComplexColumn() {
     val author = Author.newRandom()
     val id = author.id
-    val idStr = java.lang.Long.toString(id!!)
+    val idStr = (id!!).toString()
     Update
         .table(BOOK)
         .setNullable(BOOK.AUTHOR, author)
@@ -347,7 +347,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE book SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
 
     Update
         .table(BOOK)
@@ -356,7 +356,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE book SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf(idStr, idStr))
+            args = arrayOf(idStr, idStr))
   }
 
   @Test
@@ -368,7 +368,7 @@ class UpdateTest {
         .assertProduces(
             sql = "UPDATE book SET author=?,author=? ",
             nodeCount = 3,
-            args = *arrayOf<String?>(null, null))
+            args = arrayOf(null, null))
   }
 
   @Test

@@ -3,31 +3,32 @@ apply plugin: 'java'
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
-targetCompatibility = JavaVersion.VERSION_1_7
-sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_8
+sourceCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-  compile project(':runtime')
+  implementation project(':annotations')
+  implementation project(':runtime')
 
-  compile files("${System.properties['java.home']}/../lib/tools.jar")
+  implementation files("${System.properties['java.home']}/../lib/tools.jar")
 
-  compile libraries.androidSqlite
-  compile libraries.autoCommon
-  compile libraries.dagger
-  compile libraries.guava
-  compile libraries.javapoet
-  compile libraries.jackson
-  compile libraries.kotlinStdLib
-  compile libraries.rxJava2
+  implementation libraries.androidSqlite
+  implementation libraries.autoCommon
+  implementation libraries.dagger
+  implementation libraries.guava
+  implementation libraries.javapoet
+  implementation libraries.jackson
+  implementation libraries.kotlinStdLib
+  implementation libraries.rxJava2
 
   compileOnly libraries.daggerCompiler
-  compileOnly libraries.lombok
+  compileOnly libraries.lombokNew
 
   annotationProcessor libraries.daggerCompiler
-  annotationProcessor libraries.lombok
+  annotationProcessor libraries.lombokNew
 
-  testCompile libraries.googleCompileTesting
-  testCompile libraries.junit
+  testImplementation libraries.googleCompileTesting
+  testImplementation libraries.junit
 }
 
 tasks.withType(Test) {

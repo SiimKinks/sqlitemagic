@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-kapt'
 apply plugin: 'sqlitemagic'
 
 android {
@@ -17,6 +18,12 @@ android {
     buildConfigField "String", "DB_NAME", '"db.db"'
 
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+    multiDexEnabled true
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
   }
   buildTypes {
     debug {
@@ -30,12 +37,18 @@ android {
     }
   }
   sourceSets {
+    main.java.srcDirs += 'src/main/kotlin'
+    debug.java.srcDirs += 'build/generated/source/kaptKotlin/debug'
     test.java.srcDirs += 'src/test/kotlin'
     androidTest.java.srcDirs += 'src/androidTest/kotlin'
   }
   lintOptions {
     abortOnError false
   }
+}
+
+kapt {
+  keepJavacAnnotationProcessors = true
 }
 
 dependencies {
@@ -49,15 +62,17 @@ dependencies {
   implementation libraries.sqlitemagicRuntime
 
   compileOnly libraries.autoValueAnnotations
-  compileOnly libraries.lombok
+  compileOnly libraries.lombokNew
   compileOnly libraries.sqlitemagicAnnotations
 
-  annotationProcessor libraries.autoValue
-  annotationProcessor libraries.autoValueAnnotations
-  annotationProcessor libraries.autoValueParcel
-  annotationProcessor libraries.lombok
-  annotationProcessor libraries.sqlitemagicProcessorMagic
+  annotationProcessor libraries.lombokNew
 
+  kapt libraries.autoValue
+  kapt libraries.autoValueAnnotations
+  kapt libraries.autoValueParcel
+  kapt libraries.sqlitemagicProcessorKotlin
+
+  testImplementation libraries.sqlitemagicAnnotations
   testImplementation libraries.kotlinJunit
   testImplementation libraries.kotlinStdLib
   testImplementation libraries.kotlinReflect
@@ -65,20 +80,16 @@ dependencies {
   testImplementation libraries.mockitoKotlin
   testImplementation libraries.truth
 
-  testCompileOnly libraries.lombok
-
-  testAnnotationProcessor libraries.lombok
-
   androidTestImplementation libraries.androidAnnotations
+  androidTestImplementation libraries.androidTestRules
   androidTestImplementation libraries.androidTestRunner
   androidTestImplementation libraries.junitRunner
-  androidTestImplementation(libraries.truth) {
-    exclude group: 'junit' // Android has JUnit built in.
-  }
+  androidTestImplementation libraries.truth
 }
 
 sqlitemagic {
   configureAutomatically = false
+  publicKotlinExtensionFunctions = true
 //  generateMagicMethods = false
 //	generateLogging = true
 //	debugBytecodeProcessor = true

@@ -19,7 +19,7 @@ import javax.lang.model.type.TypeMirror;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.typeNameForGenerics;
 import static com.siimkinks.sqlitemagic.element.ColumnElement.findEquivalentType;

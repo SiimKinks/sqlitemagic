@@ -11,14 +11,14 @@ dependencies {
   compileOnly libraries.android
   compileOnly libraries.androidGradle
 
-  compile libraries.autoValue
-  compile libraries.javassist
-  compile libraries.kotlinStdLib
-  compile libraries.kotlinReflect
-  compile libraries.ztZip
+  implementation libraries.autoValue
+  implementation libraries.javassist
+  implementation libraries.kotlinStdLib
+  implementation libraries.kotlinReflect
+  implementation libraries.ztZip
 
-  compile project(':annotations')
-  compile project(':compiler-core')
+  implementation project(':annotations')
+  implementation project(':compiler-core')
 }
 
 tasks.withType(Test) {

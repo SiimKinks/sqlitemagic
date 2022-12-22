@@ -14,7 +14,7 @@ class InvokeTransformation(
     classpath: FileCollection,
     debug: Boolean = false
 ) : BaseTransformation(destinationDir, sources, classpath, debug) {
-  private val METHOD_ANNOTATIONS = setOf<String>(Invokes::class.java.canonicalName)
+  private val METHOD_ANNOTATIONS = setOf(checkNotNull(Invokes::class.java.canonicalName))
   override val LOG = Logging.getLogger(InvokeTransformation::class.java)
 
   override fun shouldTransform(candidateClass: CtClass): Boolean {

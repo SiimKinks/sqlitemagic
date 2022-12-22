@@ -2,9 +2,12 @@ package com.siimkinks.sqlitemagic.model.immutable;
 
 import android.os.Parcelable;
 
+import androidx.annotation.Nullable;
+
 import com.google.auto.value.AutoValue;
 import com.siimkinks.sqlitemagic.ParentAbstractClass;
 import com.siimkinks.sqlitemagic.ParentInterface;
+import com.siimkinks.sqlitemagic.SqliteMagic_BuilderWithColumnOptions_Handler;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
@@ -14,9 +17,8 @@ import com.siimkinks.sqlitemagic.model.Author;
 import com.siimkinks.sqlitemagic.model.NotPersistedModel;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
 
+import java.util.Collection;
 import java.util.Random;
-
-import androidx.annotation.Nullable;
 
 @AutoValue
 @Table(persistAll = true, value = BuilderWithColumnOptions.TABLE)
@@ -110,5 +112,41 @@ public abstract class BuilderWithColumnOptions extends ParentAbstractClass imple
     public abstract Builder uniqueColumn(int uniqueColumn);
 
     public abstract BuilderWithColumnOptions build();
+  }
+
+  public SqliteMagic_BuilderWithColumnOptions_Handler.InsertBuilder insert() {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_BuilderWithColumnOptions_Handler.UpdateBuilder update() {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_BuilderWithColumnOptions_Handler.PersistBuilder persist() {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_BuilderWithColumnOptions_Handler.DeleteBuilder delete() {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_BuilderWithColumnOptions_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_BuilderWithColumnOptions_Handler.BulkInsertBuilder insert(Iterable<BuilderWithColumnOptions> o) {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_BuilderWithColumnOptions_Handler.BulkUpdateBuilder update(Iterable<BuilderWithColumnOptions> o) {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_BuilderWithColumnOptions_Handler.BulkPersistBuilder persist(Iterable<BuilderWithColumnOptions> o) {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_BuilderWithColumnOptions_Handler.BulkDeleteBuilder delete(Collection<BuilderWithColumnOptions> o) {
+    return SqliteMagic_BuilderWithColumnOptions_Handler.BulkDeleteBuilder.create(o);
   }
 }

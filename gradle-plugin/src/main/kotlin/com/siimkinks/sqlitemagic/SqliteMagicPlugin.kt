@@ -39,7 +39,7 @@ class SqliteMagicPlugin : Plugin<Project> {
     project.gradle.addProjectEvaluationListener(object : ProjectEvaluationListener {
       override fun beforeEvaluate(project: Project) {}
 
-      override fun afterEvaluate(project: Project, state: ProjectState?) {
+      override fun afterEvaluate(project: Project, state: ProjectState) {
         project.gradle.removeProjectEvaluationListener(this)
         if (!sqlitemagic.configureAutomatically) {
           return
@@ -84,7 +84,7 @@ class SqliteMagicPlugin : Plugin<Project> {
       it.addAptArg("sqlitemagic.variant.name", it.name)
       it.addAptArg("sqlitemagic.variant.debug", it.debug)
       sqlitemagic.mainModulePath?.let { mainModulePath ->
-        it.addAptArg("sqlitemagic.main.module.path", File(mainModulePath).absolutePath)
+        it.addAptArg("sqlitemagic.main.module.path", File(project.rootDir, mainModulePath).absolutePath)
       }
     }
   }

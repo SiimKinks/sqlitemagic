@@ -25,7 +25,7 @@ import static com.siimkinks.sqlitemagic.Const.STRING_TYPE;
 
 @Data
 @ToString(doNotUseGetters = true)
-@AllArgsConstructor(suppressConstructorProperties = true)
+@AllArgsConstructor
 public class ExtendedTypeElement {
   private final Dual<TypeElement, Boolean> typeElement;
   private final TypeMirror typeMirror;

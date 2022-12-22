@@ -16,7 +16,7 @@ import javax.lang.model.element.Modifier;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.BaseProcessor.GENERATE_LOGGING;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;

@@ -5,14 +5,11 @@ package com.siimkinks.sqlitemagic.query.column
 import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.AuthorTable.AUTHOR
-import com.siimkinks.sqlitemagic.DefaultConnectionTest
 import com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SelectSqlNode
 import com.siimkinks.sqlitemagic.SimpleAllValuesMutableTable.SIMPLE_ALL_VALUES_MUTABLE
 import com.siimkinks.sqlitemagic.SimpleMutableWithNullableFieldsTable.SIMPLE_MUTABLE_WITH_NULLABLE_FIELDS
-import com.siimkinks.sqlitemagic.createVals
 import com.siimkinks.sqlitemagic.model.*
 import com.siimkinks.sqlitemagic.query.*
 import org.junit.Test

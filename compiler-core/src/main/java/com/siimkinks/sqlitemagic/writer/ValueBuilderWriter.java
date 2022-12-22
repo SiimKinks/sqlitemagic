@@ -24,7 +24,7 @@ import javax.lang.model.util.Types;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.getDefaultValue;
 import static com.siimkinks.sqlitemagic.WriterUtil.nameWithoutJavaBeansPrefix;

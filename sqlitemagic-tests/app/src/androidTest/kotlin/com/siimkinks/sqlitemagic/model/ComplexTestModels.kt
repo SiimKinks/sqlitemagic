@@ -31,8 +31,8 @@ val complexMutableAutoIdTestModel = ComplexTestModelWithNullableColumns(
         get() = MAGAZINE._ID
 
       override fun deleteTable() {
-        Magazine.deleteTable().execute()
-        Author.deleteTable().execute()
+        Magazines.deleteTable().execute()
+        Authors.deleteTable().execute()
       }
 
       override fun newRandom(): Magazine = Magazine.newRandom()
@@ -51,14 +51,14 @@ val complexMutableAutoIdTestModel = ComplexTestModelWithNullableColumns(
       }
 
       override fun insertBuilder(v: Magazine): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<Magazine>): EntityBulkInsertBuilder = Magazine.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<Magazine>): EntityBulkInsertBuilder = Magazines.insert(v)
       override fun updateBuilder(v: Magazine): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<Magazine>): EntityBulkUpdateBuilder = Magazine.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<Magazine>): EntityBulkUpdateBuilder = Magazines.update(v)
       override fun persistBuilder(v: Magazine): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<Magazine>): EntityBulkPersistBuilder = Magazine.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<Magazine>): EntityBulkPersistBuilder = Magazines.persist(v)
       override fun deleteBuilder(v: Magazine): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<Magazine>): EntityBulkDeleteBuilder = Magazine.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = Magazine.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<Magazine>): EntityBulkDeleteBuilder = Magazines.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = Magazines.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, AUTHOR)
         assertTableCount(0, MAGAZINE)
@@ -103,10 +103,10 @@ val complexImmutableWithBuilderAutoIdTestModel = ComplexTestModelWithNullableCol
         get() = BUILDER_MAGAZINE.ID
 
       override fun deleteTable() {
-        BuilderMagazine.deleteTable().execute()
-        Author.deleteTable().execute()
-        SimpleValueWithBuilder.deleteTable().execute()
-        SimpleValueWithCreator.deleteTable().execute()
+        BuilderMagazines.deleteTable().execute()
+        Authors.deleteTable().execute()
+        SimpleValueWithBuilders.deleteTable().execute()
+        SimpleValueWithCreators.deleteTable().execute()
       }
 
       override fun newRandom(): BuilderMagazine = BuilderMagazine.newRandom().build()
@@ -137,14 +137,14 @@ val complexImmutableWithBuilderAutoIdTestModel = ComplexTestModelWithNullableCol
       }
 
       override fun insertBuilder(v: BuilderMagazine): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<BuilderMagazine>): EntityBulkInsertBuilder = BuilderMagazine.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<BuilderMagazine>): EntityBulkInsertBuilder = BuilderMagazines.insert(v)
       override fun updateBuilder(v: BuilderMagazine): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<BuilderMagazine>): EntityBulkUpdateBuilder = BuilderMagazine.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<BuilderMagazine>): EntityBulkUpdateBuilder = BuilderMagazines.update(v)
       override fun persistBuilder(v: BuilderMagazine): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<BuilderMagazine>): EntityBulkPersistBuilder = BuilderMagazine.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<BuilderMagazine>): EntityBulkPersistBuilder = BuilderMagazines.persist(v)
       override fun deleteBuilder(v: BuilderMagazine): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<BuilderMagazine>): EntityBulkDeleteBuilder = BuilderMagazine.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = BuilderMagazine.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<BuilderMagazine>): EntityBulkDeleteBuilder = BuilderMagazines.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = BuilderMagazines.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, AUTHOR)
         assertTableCount(0, BUILDER_MAGAZINE)
@@ -188,10 +188,10 @@ val complexImmutableWithCreatorAutoIdTestModel = ComplexTestModelWithNullableCol
         get() = CREATOR_MAGAZINE.ID
 
       override fun deleteTable() {
-        CreatorMagazine.deleteTable().execute()
-        Author.deleteTable().execute()
-        SimpleValueWithBuilder.deleteTable().execute()
-        SimpleValueWithCreator.deleteTable().execute()
+        CreatorMagazines.deleteTable().execute()
+        Authors.deleteTable().execute()
+        SimpleValueWithBuilders.deleteTable().execute()
+        SimpleValueWithCreators.deleteTable().execute()
       }
 
       override fun newRandom(): CreatorMagazine = CreatorMagazine.newRandom()
@@ -223,14 +223,14 @@ val complexImmutableWithCreatorAutoIdTestModel = ComplexTestModelWithNullableCol
       }
 
       override fun insertBuilder(v: CreatorMagazine): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<CreatorMagazine>): EntityBulkInsertBuilder = CreatorMagazine.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<CreatorMagazine>): EntityBulkInsertBuilder = CreatorMagazines.insert(v)
       override fun updateBuilder(v: CreatorMagazine): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<CreatorMagazine>): EntityBulkUpdateBuilder = CreatorMagazine.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<CreatorMagazine>): EntityBulkUpdateBuilder = CreatorMagazines.update(v)
       override fun persistBuilder(v: CreatorMagazine): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<CreatorMagazine>): EntityBulkPersistBuilder = CreatorMagazine.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<CreatorMagazine>): EntityBulkPersistBuilder = CreatorMagazines.persist(v)
       override fun deleteBuilder(v: CreatorMagazine): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<CreatorMagazine>): EntityBulkDeleteBuilder = CreatorMagazine.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = CreatorMagazine.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<CreatorMagazine>): EntityBulkDeleteBuilder = CreatorMagazines.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = CreatorMagazines.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, AUTHOR)
         assertTableCount(0, CREATOR_MAGAZINE)
@@ -274,10 +274,10 @@ val complexDataClassWithFieldsAutoIdTestModel = ComplexTestModelWithNullableColu
         get() = COMPLEX_DATA_CLASS_WITH_FIELDS.ID
 
       override fun deleteTable() {
-        ComplexDataClassWithFields.deleteTable().execute()
-        Author.deleteTable().execute()
-        SimpleValueWithBuilder.deleteTable().execute()
-        SimpleValueWithCreator.deleteTable().execute()
+        ComplexDataClassWithFieldss.deleteTable().execute()
+        Authors.deleteTable().execute()
+        SimpleValueWithBuilders.deleteTable().execute()
+        SimpleValueWithCreators.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexDataClassWithFields = ComplexDataClassWithFields.newRandom()
@@ -309,14 +309,14 @@ val complexDataClassWithFieldsAutoIdTestModel = ComplexTestModelWithNullableColu
       }
 
       override fun insertBuilder(v: ComplexDataClassWithFields): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithFields>): EntityBulkInsertBuilder = ComplexDataClassWithFields.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithFields>): EntityBulkInsertBuilder = ComplexDataClassWithFieldss.insert(v)
       override fun updateBuilder(v: ComplexDataClassWithFields): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithFields>): EntityBulkUpdateBuilder = ComplexDataClassWithFields.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithFields>): EntityBulkUpdateBuilder = ComplexDataClassWithFieldss.update(v)
       override fun persistBuilder(v: ComplexDataClassWithFields): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithFields>): EntityBulkPersistBuilder = ComplexDataClassWithFields.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithFields>): EntityBulkPersistBuilder = ComplexDataClassWithFieldss.persist(v)
       override fun deleteBuilder(v: ComplexDataClassWithFields): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithFields>): EntityBulkDeleteBuilder = ComplexDataClassWithFields.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithFields.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithFields>): EntityBulkDeleteBuilder = ComplexDataClassWithFieldss.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithFieldss.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, AUTHOR)
         assertTableCount(0, COMPLEX_DATA_CLASS_WITH_FIELDS)
@@ -360,10 +360,10 @@ val complexDataClassWithMethodsAutoIdTestModel = ComplexTestModelWithNullableCol
         get() = COMPLEX_DATA_CLASS_WITH_METHODS.ID
 
       override fun deleteTable() {
-        ComplexDataClassWithMethods.deleteTable().execute()
-        Author.deleteTable().execute()
-        SimpleValueWithBuilder.deleteTable().execute()
-        SimpleValueWithCreator.deleteTable().execute()
+        ComplexDataClassWithMethodss.deleteTable().execute()
+        Authors.deleteTable().execute()
+        SimpleValueWithBuilders.deleteTable().execute()
+        SimpleValueWithCreators.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexDataClassWithMethods = ComplexDataClassWithMethods.newRandom()
@@ -395,14 +395,14 @@ val complexDataClassWithMethodsAutoIdTestModel = ComplexTestModelWithNullableCol
       }
 
       override fun insertBuilder(v: ComplexDataClassWithMethods): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithMethods>): EntityBulkInsertBuilder = ComplexDataClassWithMethods.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithMethods>): EntityBulkInsertBuilder = ComplexDataClassWithMethodss.insert(v)
       override fun updateBuilder(v: ComplexDataClassWithMethods): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithMethods>): EntityBulkUpdateBuilder = ComplexDataClassWithMethods.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithMethods>): EntityBulkUpdateBuilder = ComplexDataClassWithMethodss.update(v)
       override fun persistBuilder(v: ComplexDataClassWithMethods): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithMethods>): EntityBulkPersistBuilder = ComplexDataClassWithMethods.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithMethods>): EntityBulkPersistBuilder = ComplexDataClassWithMethodss.persist(v)
       override fun deleteBuilder(v: ComplexDataClassWithMethods): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithMethods>): EntityBulkDeleteBuilder = ComplexDataClassWithMethods.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithMethods.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithMethods>): EntityBulkDeleteBuilder = ComplexDataClassWithMethodss.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithMethodss.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, AUTHOR)
         assertTableCount(0, COMPLEX_DATA_CLASS_WITH_METHODS)
@@ -446,8 +446,8 @@ val complexMutableFixedIdUniqueNullableTestModel = ComplexTestModelWithUniqueNul
         get() = COMPLEX_MUTABLE_WITH_UNIQUE.ID
 
       override fun deleteTable() {
-        ComplexMutableWithUnique.deleteTable().execute()
-        SimpleMutableWithUnique.deleteTable().execute()
+        ComplexMutableWithUniques.deleteTable().execute()
+        SimpleMutableWithUniques.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexMutableWithUnique = ComplexMutableWithUnique.newRandom()
@@ -467,14 +467,14 @@ val complexMutableFixedIdUniqueNullableTestModel = ComplexTestModelWithUniqueNul
       }
 
       override fun insertBuilder(v: ComplexMutableWithUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexMutableWithUnique>): EntityBulkInsertBuilder = ComplexMutableWithUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexMutableWithUnique>): EntityBulkInsertBuilder = ComplexMutableWithUniques.insert(v)
       override fun updateBuilder(v: ComplexMutableWithUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexMutableWithUnique>): EntityBulkUpdateBuilder = ComplexMutableWithUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexMutableWithUnique>): EntityBulkUpdateBuilder = ComplexMutableWithUniques.update(v)
       override fun persistBuilder(v: ComplexMutableWithUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexMutableWithUnique>): EntityBulkPersistBuilder = ComplexMutableWithUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexMutableWithUnique>): EntityBulkPersistBuilder = ComplexMutableWithUniques.persist(v)
       override fun deleteBuilder(v: ComplexMutableWithUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexMutableWithUnique>): EntityBulkDeleteBuilder = ComplexMutableWithUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexMutableWithUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexMutableWithUnique>): EntityBulkDeleteBuilder = ComplexMutableWithUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexMutableWithUniques.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, COMPLEX_MUTABLE_WITH_UNIQUE)
         assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE)
@@ -558,8 +558,8 @@ val complexImmutableWithBuilderFixedIdUniqueNullableTestModel = ComplexTestModel
         get() = COMPLEX_IMMUTABLE_BUILDER_WITH_UNIQUE.ID
 
       override fun deleteTable() {
-        ComplexImmutableBuilderWithUnique.deleteTable().execute()
-        SimpleMutableWithUnique.deleteTable().execute()
+        ComplexImmutableBuilderWithUniques.deleteTable().execute()
+        SimpleMutableWithUniques.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexImmutableBuilderWithUnique = ComplexImmutableBuilderWithUnique.newRandom()
@@ -591,14 +591,14 @@ val complexImmutableWithBuilderFixedIdUniqueNullableTestModel = ComplexTestModel
       }
 
       override fun insertBuilder(v: ComplexImmutableBuilderWithUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexImmutableBuilderWithUnique>): EntityBulkInsertBuilder = ComplexImmutableBuilderWithUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexImmutableBuilderWithUnique>): EntityBulkInsertBuilder = ComplexImmutableBuilderWithUniques.insert(v)
       override fun updateBuilder(v: ComplexImmutableBuilderWithUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexImmutableBuilderWithUnique>): EntityBulkUpdateBuilder = ComplexImmutableBuilderWithUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexImmutableBuilderWithUnique>): EntityBulkUpdateBuilder = ComplexImmutableBuilderWithUniques.update(v)
       override fun persistBuilder(v: ComplexImmutableBuilderWithUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexImmutableBuilderWithUnique>): EntityBulkPersistBuilder = ComplexImmutableBuilderWithUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexImmutableBuilderWithUnique>): EntityBulkPersistBuilder = ComplexImmutableBuilderWithUniques.persist(v)
       override fun deleteBuilder(v: ComplexImmutableBuilderWithUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexImmutableBuilderWithUnique>): EntityBulkDeleteBuilder = ComplexImmutableBuilderWithUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexImmutableBuilderWithUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexImmutableBuilderWithUnique>): EntityBulkDeleteBuilder = ComplexImmutableBuilderWithUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexImmutableBuilderWithUniques.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, COMPLEX_IMMUTABLE_BUILDER_WITH_UNIQUE)
         assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE)
@@ -682,8 +682,8 @@ val complexImmutableWithCreatorFixedIdUniqueNullableTestModel = ComplexTestModel
         get() = COMPLEX_IMMUTABLE_CREATOR_WITH_UNIQUE.ID
 
       override fun deleteTable() {
-        ComplexImmutableCreatorWithUnique.deleteTable().execute()
-        SimpleMutableWithUnique.deleteTable().execute()
+        ComplexImmutableCreatorWithUniques.deleteTable().execute()
+        SimpleMutableWithUniques.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexImmutableCreatorWithUnique = ComplexImmutableCreatorWithUnique.newRandom()
@@ -718,14 +718,14 @@ val complexImmutableWithCreatorFixedIdUniqueNullableTestModel = ComplexTestModel
       }
 
       override fun insertBuilder(v: ComplexImmutableCreatorWithUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexImmutableCreatorWithUnique>): EntityBulkInsertBuilder = ComplexImmutableCreatorWithUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexImmutableCreatorWithUnique>): EntityBulkInsertBuilder = ComplexImmutableCreatorWithUniques.insert(v)
       override fun updateBuilder(v: ComplexImmutableCreatorWithUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexImmutableCreatorWithUnique>): EntityBulkUpdateBuilder = ComplexImmutableCreatorWithUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexImmutableCreatorWithUnique>): EntityBulkUpdateBuilder = ComplexImmutableCreatorWithUniques.update(v)
       override fun persistBuilder(v: ComplexImmutableCreatorWithUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexImmutableCreatorWithUnique>): EntityBulkPersistBuilder = ComplexImmutableCreatorWithUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexImmutableCreatorWithUnique>): EntityBulkPersistBuilder = ComplexImmutableCreatorWithUniques.persist(v)
       override fun deleteBuilder(v: ComplexImmutableCreatorWithUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexImmutableCreatorWithUnique>): EntityBulkDeleteBuilder = ComplexImmutableCreatorWithUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexImmutableCreatorWithUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexImmutableCreatorWithUnique>): EntityBulkDeleteBuilder = ComplexImmutableCreatorWithUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexImmutableCreatorWithUniques.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, COMPLEX_IMMUTABLE_CREATOR_WITH_UNIQUE)
         assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE)
@@ -810,8 +810,8 @@ val complexDataClassWithFieldsFixedIdUniqueNullableTestModel = ComplexTestModelW
         get() = COMPLEX_DATA_CLASS_WITH_FIELDS_AND_UNIQUE.ID
 
       override fun deleteTable() {
-        ComplexDataClassWithFieldsAndUnique.deleteTable().execute()
-        SimpleMutableWithUnique.deleteTable().execute()
+        ComplexDataClassWithFieldsAndUniques.deleteTable().execute()
+        SimpleMutableWithUniques.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexDataClassWithFieldsAndUnique = ComplexDataClassWithFieldsAndUnique.newRandom()
@@ -846,14 +846,14 @@ val complexDataClassWithFieldsFixedIdUniqueNullableTestModel = ComplexTestModelW
       }
 
       override fun insertBuilder(v: ComplexDataClassWithFieldsAndUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithFieldsAndUnique>): EntityBulkInsertBuilder = ComplexDataClassWithFieldsAndUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithFieldsAndUnique>): EntityBulkInsertBuilder = ComplexDataClassWithFieldsAndUniques.insert(v)
       override fun updateBuilder(v: ComplexDataClassWithFieldsAndUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithFieldsAndUnique>): EntityBulkUpdateBuilder = ComplexDataClassWithFieldsAndUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithFieldsAndUnique>): EntityBulkUpdateBuilder = ComplexDataClassWithFieldsAndUniques.update(v)
       override fun persistBuilder(v: ComplexDataClassWithFieldsAndUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithFieldsAndUnique>): EntityBulkPersistBuilder = ComplexDataClassWithFieldsAndUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithFieldsAndUnique>): EntityBulkPersistBuilder = ComplexDataClassWithFieldsAndUniques.persist(v)
       override fun deleteBuilder(v: ComplexDataClassWithFieldsAndUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithFieldsAndUnique>): EntityBulkDeleteBuilder = ComplexDataClassWithFieldsAndUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithFieldsAndUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithFieldsAndUnique>): EntityBulkDeleteBuilder = ComplexDataClassWithFieldsAndUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithFieldsAndUniques.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, COMPLEX_DATA_CLASS_WITH_FIELDS_AND_UNIQUE)
         assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE)
@@ -938,8 +938,8 @@ val complexDataClassWithMethodsFixedIdUniqueNullableTestModel = ComplexTestModel
         get() = COMPLEX_DATA_CLASS_WITH_METHODS_AND_UNIQUE.ID
 
       override fun deleteTable() {
-        ComplexDataClassWithMethodsAndUnique.deleteTable().execute()
-        SimpleMutableWithUnique.deleteTable().execute()
+        ComplexDataClassWithMethodsAndUniques.deleteTable().execute()
+        SimpleMutableWithUniques.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexDataClassWithMethodsAndUnique = ComplexDataClassWithMethodsAndUnique.newRandom()
@@ -974,14 +974,14 @@ val complexDataClassWithMethodsFixedIdUniqueNullableTestModel = ComplexTestModel
       }
 
       override fun insertBuilder(v: ComplexDataClassWithMethodsAndUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithMethodsAndUnique>): EntityBulkInsertBuilder = ComplexDataClassWithMethodsAndUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexDataClassWithMethodsAndUnique>): EntityBulkInsertBuilder = ComplexDataClassWithMethodsAndUniques.insert(v)
       override fun updateBuilder(v: ComplexDataClassWithMethodsAndUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithMethodsAndUnique>): EntityBulkUpdateBuilder = ComplexDataClassWithMethodsAndUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexDataClassWithMethodsAndUnique>): EntityBulkUpdateBuilder = ComplexDataClassWithMethodsAndUniques.update(v)
       override fun persistBuilder(v: ComplexDataClassWithMethodsAndUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithMethodsAndUnique>): EntityBulkPersistBuilder = ComplexDataClassWithMethodsAndUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexDataClassWithMethodsAndUnique>): EntityBulkPersistBuilder = ComplexDataClassWithMethodsAndUniques.persist(v)
       override fun deleteBuilder(v: ComplexDataClassWithMethodsAndUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithMethodsAndUnique>): EntityBulkDeleteBuilder = ComplexDataClassWithMethodsAndUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithMethodsAndUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexDataClassWithMethodsAndUnique>): EntityBulkDeleteBuilder = ComplexDataClassWithMethodsAndUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexDataClassWithMethodsAndUniques.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, COMPLEX_DATA_CLASS_WITH_METHODS_AND_UNIQUE)
         assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE)
@@ -1066,8 +1066,8 @@ val complexMutableAutoIdUniqueNullableTestModel = ComplexTestModelWithUniqueNull
         get() = COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.ID
 
       override fun deleteTable() {
-        ComplexMutableWithUniqueAndNullableId.deleteTable().execute()
-        SimpleMutableWithUnique.deleteTable().execute()
+        ComplexMutableWithUniqueAndNullableIds.deleteTable().execute()
+        SimpleMutableWithUniques.deleteTable().execute()
       }
 
       override fun newRandom(): ComplexMutableWithUniqueAndNullableId = ComplexMutableWithUniqueAndNullableId.newRandom()
@@ -1087,14 +1087,14 @@ val complexMutableAutoIdUniqueNullableTestModel = ComplexTestModelWithUniqueNull
       }
 
       override fun insertBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkInsertBuilder = ComplexMutableWithUniqueAndNullableId.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkInsertBuilder = ComplexMutableWithUniqueAndNullableIds.insert(v)
       override fun updateBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkUpdateBuilder = ComplexMutableWithUniqueAndNullableId.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkUpdateBuilder = ComplexMutableWithUniqueAndNullableIds.update(v)
       override fun persistBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkPersistBuilder = ComplexMutableWithUniqueAndNullableId.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<ComplexMutableWithUniqueAndNullableId>): EntityBulkPersistBuilder = ComplexMutableWithUniqueAndNullableIds.persist(v)
       override fun deleteBuilder(v: ComplexMutableWithUniqueAndNullableId): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<ComplexMutableWithUniqueAndNullableId>): EntityBulkDeleteBuilder = ComplexMutableWithUniqueAndNullableId.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexMutableWithUniqueAndNullableId.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<ComplexMutableWithUniqueAndNullableId>): EntityBulkDeleteBuilder = ComplexMutableWithUniqueAndNullableIds.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = ComplexMutableWithUniqueAndNullableIds.deleteTable()
       override fun assertNoValsInTables() {
         assertTableCount(0, COMPLEX_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID)
         assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID)

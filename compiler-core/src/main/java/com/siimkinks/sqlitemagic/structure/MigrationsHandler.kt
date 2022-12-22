@@ -62,7 +62,7 @@ class MigrationsHandler(
             }
           }
         } catch (e: IOException) {
-          environment.warning("Error persisting latest schema graph")
+          environment.warning("Error persisting latest schema graph $e")
         }
       }
     }

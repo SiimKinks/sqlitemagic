@@ -5,7 +5,7 @@ allprojects {
   buildscript {
     repositories {
       mavenLocal()
-      jcenter()
+      mavenCentral()
       google()
     }
     dependencies {
@@ -16,7 +16,7 @@ allprojects {
   }
   repositories {
     mavenLocal()
-    jcenter()
+    mavenCentral()
     google()
     maven {
       url "${System.getenv("ANDROID_HOME")}/extras/android/m2repository/"
@@ -25,8 +25,8 @@ allprojects {
 }
 
 wrapper {
-  version = '6.3'
-  distributionUrl = 'https://services.gradle.org/distributions/gradle-6.3-all.zip'
+  version = '7.6'
+  distributionUrl = 'https://services.gradle.org/distributions/gradle-7.6-all.zip'
 }
 
 task runUnitTests(dependsOn: [

@@ -26,7 +26,7 @@ import javax.annotation.processing.Filer;
 import androidx.annotation.NonNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.Const.PUBLIC_FINAL;
 import static com.siimkinks.sqlitemagic.Const.PUBLIC_STATIC_FINAL;

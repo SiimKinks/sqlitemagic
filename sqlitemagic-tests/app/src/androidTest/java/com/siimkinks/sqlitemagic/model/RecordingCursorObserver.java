@@ -13,6 +13,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import io.reactivex.observers.DisposableObserver;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 class RecordingCursorObserver extends DisposableObserver<Query> {
   private static final Object COMPLETED = "<completed>";
@@ -74,9 +75,13 @@ class RecordingCursorObserver extends DisposableObserver<Query> {
 
     public CursorAssert hasRows(Func1<Cursor, ?> map, ArrayList values) {
       final int size = values.size();
-      assertThat(cursor.getCount()).named("column count").isEqualTo(size);
+      assertWithMessage("column count")
+          .that(cursor.getCount())
+          .isEqualTo(size);
       for (int i = 0; i < size; i++) {
-        assertThat(cursor.moveToNext()).named("row " + (i + 1) + " exists").isTrue();
+        assertWithMessage("row " + (i + 1) + " exists")
+            .that(cursor.moveToNext())
+            .isTrue();
         assertThat(map.call(cursor)).isEqualTo(values.get(i));
       }
       return this;

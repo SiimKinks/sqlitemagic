@@ -5,7 +5,6 @@ import android.database.Cursor;
 import androidx.annotation.NonNull;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.siimkinks.sqlitemagic.Select.SelectN;
 import com.siimkinks.sqlitemagic.model.Author;
@@ -14,7 +13,6 @@ import com.siimkinks.sqlitemagic.model.RecordingObserver;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.util.List;
 
@@ -31,7 +29,6 @@ import static com.siimkinks.sqlitemagic.model.TestUtil.createVals;
 import static com.siimkinks.sqlitemagic.model.TestUtil.updateVals;
 import static java.util.Collections.singletonList;
 
-@RunWith(AndroidJUnit4.class)
 public final class DbConnectionTest {
   private final RecordingObserver defaultObserver = new RecordingObserver();
   private final RecordingObserver newObserver = new RecordingObserver();

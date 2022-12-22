@@ -5,12 +5,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.auto.value.AutoValue;
+import com.siimkinks.sqlitemagic.SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.Unique;
 
+import java.util.Collection;
 import java.util.Random;
 
 @Table(persistAll = true)
@@ -68,5 +70,41 @@ public abstract class SimpleImmutableWithBuilderAndUnique {
         .uniqueVal(r.nextLong())
         .string(Utils.randomTableName())
         .build();
+  }
+
+  public SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.InsertBuilder insert() {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.UpdateBuilder update() {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.PersistBuilder persist() {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.DeleteBuilder delete() {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkInsertBuilder insert(Iterable<SimpleImmutableWithBuilderAndUnique> o) {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkUpdateBuilder update(Iterable<SimpleImmutableWithBuilderAndUnique> o) {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkPersistBuilder persist(Iterable<SimpleImmutableWithBuilderAndUnique> o) {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkDeleteBuilder delete(Collection<SimpleImmutableWithBuilderAndUnique> o) {
+    return SqliteMagic_SimpleImmutableWithBuilderAndUnique_Handler.BulkDeleteBuilder.create(o);
   }
 }

@@ -4,16 +4,19 @@ apply plugin: 'kotlin-kapt'
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
-targetCompatibility = JavaVersion.VERSION_1_7
-sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_8
+sourceCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
-  compile project(':compiler-core')
+  implementation project(':compiler-core')
+  implementation project(':runtime')
 
-  compile libraries.autoService
-  compile libraries.kotlinpoet
-  compile libraries.kotlinReflect
-  compile libraries.kotlinStdLib
+  implementation libraries.autoService
+  implementation libraries.dagger
+  implementation libraries.javapoet
+  implementation libraries.kotlinpoet
+  implementation libraries.kotlinReflect
+  implementation libraries.kotlinStdLib
 
   compileOnly libraries.incap
 

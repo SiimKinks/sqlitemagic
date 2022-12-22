@@ -12,7 +12,7 @@ import com.squareup.javapoet.TypeSpec;
 import androidx.annotation.NonNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.WriterUtil.CURSOR;

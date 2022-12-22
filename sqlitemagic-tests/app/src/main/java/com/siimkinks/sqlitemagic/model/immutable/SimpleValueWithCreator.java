@@ -3,12 +3,14 @@ package com.siimkinks.sqlitemagic.model.immutable;
 import androidx.annotation.Nullable;
 
 import com.google.auto.value.AutoValue;
+import com.siimkinks.sqlitemagic.SqliteMagic_SimpleValueWithCreator_Handler;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.ProvidesId;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
 
+import java.util.Collection;
 import java.util.Random;
 
 @Table(persistAll = true)
@@ -73,5 +75,41 @@ public abstract class SimpleValueWithCreator implements ImmutableEquals, Provide
   @Override
   public Long provideId() {
     return id();
+  }
+
+  public SqliteMagic_SimpleValueWithCreator_Handler.InsertBuilder insert() {
+    return SqliteMagic_SimpleValueWithCreator_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleValueWithCreator_Handler.UpdateBuilder update() {
+    return SqliteMagic_SimpleValueWithCreator_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleValueWithCreator_Handler.PersistBuilder persist() {
+    return SqliteMagic_SimpleValueWithCreator_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleValueWithCreator_Handler.DeleteBuilder delete() {
+    return SqliteMagic_SimpleValueWithCreator_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_SimpleValueWithCreator_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_SimpleValueWithCreator_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_SimpleValueWithCreator_Handler.BulkInsertBuilder insert(Iterable<SimpleValueWithCreator> o) {
+    return SqliteMagic_SimpleValueWithCreator_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleValueWithCreator_Handler.BulkUpdateBuilder update(Iterable<SimpleValueWithCreator> o) {
+    return SqliteMagic_SimpleValueWithCreator_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleValueWithCreator_Handler.BulkPersistBuilder persist(Iterable<SimpleValueWithCreator> o) {
+    return SqliteMagic_SimpleValueWithCreator_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleValueWithCreator_Handler.BulkDeleteBuilder delete(Collection<SimpleValueWithCreator> o) {
+    return SqliteMagic_SimpleValueWithCreator_Handler.BulkDeleteBuilder.create(o);
   }
 }

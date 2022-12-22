@@ -2,11 +2,13 @@ package com.siimkinks.sqlitemagic.model.immutable;
 
 import androidx.annotation.Nullable;
 
+import com.siimkinks.sqlitemagic.SqliteMagic_ComplexDataClassWithFields_Handler;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.Author;
 
+import java.util.Collection;
 import java.util.Random;
 
 import lombok.EqualsAndHashCode;
@@ -70,5 +72,41 @@ public final class ComplexDataClassWithFields implements ImmutableEquals {
   @Override
   public Long provideId() {
     return id;
+  }
+
+  public SqliteMagic_ComplexDataClassWithFields_Handler.InsertBuilder insert() {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_ComplexDataClassWithFields_Handler.UpdateBuilder update() {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_ComplexDataClassWithFields_Handler.PersistBuilder persist() {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_ComplexDataClassWithFields_Handler.DeleteBuilder delete() {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_ComplexDataClassWithFields_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_ComplexDataClassWithFields_Handler.BulkInsertBuilder insert(Iterable<ComplexDataClassWithFields> o) {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_ComplexDataClassWithFields_Handler.BulkUpdateBuilder update(Iterable<ComplexDataClassWithFields> o) {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_ComplexDataClassWithFields_Handler.BulkPersistBuilder persist(Iterable<ComplexDataClassWithFields> o) {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_ComplexDataClassWithFields_Handler.BulkDeleteBuilder delete(Collection<ComplexDataClassWithFields> o) {
+    return SqliteMagic_ComplexDataClassWithFields_Handler.BulkDeleteBuilder.create(o);
   }
 }

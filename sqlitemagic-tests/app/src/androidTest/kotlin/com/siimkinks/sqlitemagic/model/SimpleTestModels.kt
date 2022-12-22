@@ -30,7 +30,7 @@ val simpleMutableAutoIdTestModel = TestModelWithNullableColumns<Author>(
         get() = AUTHOR.ID
 
       override fun deleteTable() {
-        Author.deleteTable().execute()
+        Authors.deleteTable().execute()
       }
 
       override fun newRandom(): Author = Author.newRandom()
@@ -48,14 +48,14 @@ val simpleMutableAutoIdTestModel = TestModelWithNullableColumns<Author>(
       }
 
       override fun insertBuilder(v: Author): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<Author>): EntityBulkInsertBuilder = Author.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<Author>): EntityBulkInsertBuilder = Authors.insert(v)
       override fun updateBuilder(v: Author): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<Author>): EntityBulkUpdateBuilder = Author.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<Author>): EntityBulkUpdateBuilder = Authors.update(v)
       override fun persistBuilder(v: Author): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<Author>): EntityBulkPersistBuilder = Author.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<Author>): EntityBulkPersistBuilder = Authors.persist(v)
       override fun deleteBuilder(v: Author): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<Author>): EntityBulkDeleteBuilder = Author.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = Author.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<Author>): EntityBulkDeleteBuilder = Authors.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = Authors.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, AUTHOR)
     },
     nullableColumns = object : NullableColumns<Author> {
@@ -83,7 +83,7 @@ val simpleImmutableWithBuilderAutoIdTestModel = object : TestModel<SimpleValueWi
     get() = SIMPLE_VALUE_WITH_BUILDER.ID
 
   override fun deleteTable() {
-    SimpleValueWithBuilder.deleteTable().execute()
+    SimpleValueWithBuilders.deleteTable().execute()
   }
 
   override fun newRandom(): SimpleValueWithBuilder = SimpleValueWithBuilder.newRandom().build()
@@ -100,15 +100,15 @@ val simpleImmutableWithBuilderAutoIdTestModel = object : TestModel<SimpleValueWi
           .build()
 
   override fun insertBuilder(v: SimpleValueWithBuilder): EntityInsertBuilder = v.insert()
-  override fun bulkInsertBuilder(v: Iterable<SimpleValueWithBuilder>): EntityBulkInsertBuilder = SimpleValueWithBuilder.insert(v)
+  override fun bulkInsertBuilder(v: Iterable<SimpleValueWithBuilder>): EntityBulkInsertBuilder = SimpleValueWithBuilders.insert(v)
   override fun updateBuilder(v: SimpleValueWithBuilder): EntityUpdateBuilder = v.update()
-  override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithBuilder>): EntityBulkUpdateBuilder = SimpleValueWithBuilder.update(v)
+  override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithBuilder>): EntityBulkUpdateBuilder = SimpleValueWithBuilders.update(v)
   override fun persistBuilder(v: SimpleValueWithBuilder): EntityPersistBuilder = v.persist()
-  override fun bulkPersistBuilder(v: Iterable<SimpleValueWithBuilder>): EntityBulkPersistBuilder = SimpleValueWithBuilder.persist(v)
+  override fun bulkPersistBuilder(v: Iterable<SimpleValueWithBuilder>): EntityBulkPersistBuilder = SimpleValueWithBuilders.persist(v)
   override fun deleteBuilder(v: SimpleValueWithBuilder): EntityDeleteBuilder = v.delete()
-  override fun bulkDeleteBuilder(v: Collection<SimpleValueWithBuilder>): EntityBulkDeleteBuilder = SimpleValueWithBuilder.delete(v)
+  override fun bulkDeleteBuilder(v: Collection<SimpleValueWithBuilder>): EntityBulkDeleteBuilder = SimpleValueWithBuilders.delete(v)
   override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_VALUE_WITH_BUILDER)
-  override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithBuilder.deleteTable()
+  override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithBuilders.deleteTable()
 }
 
 val simpleImmutableWithCreatorAutoIdTestModel = object : TestModel<SimpleValueWithCreator> {
@@ -118,7 +118,7 @@ val simpleImmutableWithCreatorAutoIdTestModel = object : TestModel<SimpleValueWi
     get() = SIMPLE_VALUE_WITH_CREATOR.ID
 
   override fun deleteTable() {
-    SimpleValueWithCreator.deleteTable().execute()
+    SimpleValueWithCreators.deleteTable().execute()
   }
 
   override fun newRandom(): SimpleValueWithCreator = SimpleValueWithCreator.newRandom()
@@ -133,15 +133,15 @@ val simpleImmutableWithCreatorAutoIdTestModel = object : TestModel<SimpleValueWi
       SimpleValueWithCreator.newRandom(id)
 
   override fun insertBuilder(v: SimpleValueWithCreator): EntityInsertBuilder = v.insert()
-  override fun bulkInsertBuilder(v: Iterable<SimpleValueWithCreator>): EntityBulkInsertBuilder = SimpleValueWithCreator.insert(v)
+  override fun bulkInsertBuilder(v: Iterable<SimpleValueWithCreator>): EntityBulkInsertBuilder = SimpleValueWithCreators.insert(v)
   override fun updateBuilder(v: SimpleValueWithCreator): EntityUpdateBuilder = v.update()
-  override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithCreator>): EntityBulkUpdateBuilder = SimpleValueWithCreator.update(v)
+  override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithCreator>): EntityBulkUpdateBuilder = SimpleValueWithCreators.update(v)
   override fun persistBuilder(v: SimpleValueWithCreator): EntityPersistBuilder = v.persist()
-  override fun bulkPersistBuilder(v: Iterable<SimpleValueWithCreator>): EntityBulkPersistBuilder = SimpleValueWithCreator.persist(v)
+  override fun bulkPersistBuilder(v: Iterable<SimpleValueWithCreator>): EntityBulkPersistBuilder = SimpleValueWithCreators.persist(v)
   override fun deleteBuilder(v: SimpleValueWithCreator): EntityDeleteBuilder = v.delete()
-  override fun bulkDeleteBuilder(v: Collection<SimpleValueWithCreator>): EntityBulkDeleteBuilder = SimpleValueWithCreator.delete(v)
+  override fun bulkDeleteBuilder(v: Collection<SimpleValueWithCreator>): EntityBulkDeleteBuilder = SimpleValueWithCreators.delete(v)
   override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_VALUE_WITH_CREATOR)
-  override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithCreator.deleteTable()
+  override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithCreators.deleteTable()
 }
 
 val simpleDataClassWithFieldsAutoIdTestModel = object : TestModel<DataClassWithFields> {
@@ -151,7 +151,7 @@ val simpleDataClassWithFieldsAutoIdTestModel = object : TestModel<DataClassWithF
     get() = DATA_CLASS_WITH_FIELDS.ID
 
   override fun deleteTable() {
-    DataClassWithFields.deleteTable().execute()
+    DataClassWithFieldss.deleteTable().execute()
   }
 
   override fun newRandom(): DataClassWithFields = DataClassWithFields.newRandom()
@@ -166,15 +166,15 @@ val simpleDataClassWithFieldsAutoIdTestModel = object : TestModel<DataClassWithF
       DataClassWithFields.newRandom(id)
 
   override fun insertBuilder(v: DataClassWithFields): EntityInsertBuilder = v.insert()
-  override fun bulkInsertBuilder(v: Iterable<DataClassWithFields>): EntityBulkInsertBuilder = DataClassWithFields.insert(v)
+  override fun bulkInsertBuilder(v: Iterable<DataClassWithFields>): EntityBulkInsertBuilder = DataClassWithFieldss.insert(v)
   override fun updateBuilder(v: DataClassWithFields): EntityUpdateBuilder = v.update()
-  override fun bulkUpdateBuilder(v: Iterable<DataClassWithFields>): EntityBulkUpdateBuilder = DataClassWithFields.update(v)
+  override fun bulkUpdateBuilder(v: Iterable<DataClassWithFields>): EntityBulkUpdateBuilder = DataClassWithFieldss.update(v)
   override fun persistBuilder(v: DataClassWithFields): EntityPersistBuilder = v.persist()
-  override fun bulkPersistBuilder(v: Iterable<DataClassWithFields>): EntityBulkPersistBuilder = DataClassWithFields.persist(v)
+  override fun bulkPersistBuilder(v: Iterable<DataClassWithFields>): EntityBulkPersistBuilder = DataClassWithFieldss.persist(v)
   override fun deleteBuilder(v: DataClassWithFields): EntityDeleteBuilder = v.delete()
-  override fun bulkDeleteBuilder(v: Collection<DataClassWithFields>): EntityBulkDeleteBuilder = DataClassWithFields.delete(v)
+  override fun bulkDeleteBuilder(v: Collection<DataClassWithFields>): EntityBulkDeleteBuilder = DataClassWithFieldss.delete(v)
   override fun assertNoValsInTables() = assertTableCount(0, DATA_CLASS_WITH_FIELDS)
-  override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithFields.deleteTable()
+  override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithFieldss.deleteTable()
 }
 
 val simpleDataClassWithMethodsAutoIdTestModel = object : TestModel<DataClassWithMethods> {
@@ -184,7 +184,7 @@ val simpleDataClassWithMethodsAutoIdTestModel = object : TestModel<DataClassWith
     get() = DATA_CLASS_WITH_METHODS.ID
 
   override fun deleteTable() {
-    DataClassWithMethods.deleteTable().execute()
+    DataClassWithMethodss.deleteTable().execute()
   }
 
   override fun newRandom(): DataClassWithMethods = DataClassWithMethods.newRandom()
@@ -199,15 +199,15 @@ val simpleDataClassWithMethodsAutoIdTestModel = object : TestModel<DataClassWith
       DataClassWithMethods.newRandom(id)
 
   override fun insertBuilder(v: DataClassWithMethods): EntityInsertBuilder = v.insert()
-  override fun bulkInsertBuilder(v: Iterable<DataClassWithMethods>): EntityBulkInsertBuilder = DataClassWithMethods.insert(v)
+  override fun bulkInsertBuilder(v: Iterable<DataClassWithMethods>): EntityBulkInsertBuilder = DataClassWithMethodss.insert(v)
   override fun updateBuilder(v: DataClassWithMethods): EntityUpdateBuilder = v.update()
-  override fun bulkUpdateBuilder(v: Iterable<DataClassWithMethods>): EntityBulkUpdateBuilder = DataClassWithMethods.update(v)
+  override fun bulkUpdateBuilder(v: Iterable<DataClassWithMethods>): EntityBulkUpdateBuilder = DataClassWithMethodss.update(v)
   override fun persistBuilder(v: DataClassWithMethods): EntityPersistBuilder = v.persist()
-  override fun bulkPersistBuilder(v: Iterable<DataClassWithMethods>): EntityBulkPersistBuilder = DataClassWithMethods.persist(v)
+  override fun bulkPersistBuilder(v: Iterable<DataClassWithMethods>): EntityBulkPersistBuilder = DataClassWithMethodss.persist(v)
   override fun deleteBuilder(v: DataClassWithMethods): EntityDeleteBuilder = v.delete()
-  override fun bulkDeleteBuilder(v: Collection<DataClassWithMethods>): EntityBulkDeleteBuilder = DataClassWithMethods.delete(v)
+  override fun bulkDeleteBuilder(v: Collection<DataClassWithMethods>): EntityBulkDeleteBuilder = DataClassWithMethodss.delete(v)
   override fun assertNoValsInTables() = assertTableCount(0, DATA_CLASS_WITH_METHODS)
-  override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithMethods.deleteTable()
+  override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithMethodss.deleteTable()
 }
 
 val simpleGenericsMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableColumns<GenericsMutable>(
@@ -218,7 +218,7 @@ val simpleGenericsMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNul
         get() = GENERICS_MUTABLE.ID
 
       override fun deleteTable() {
-        GenericsMutable.deleteTable().execute()
+        GenericsMutables.deleteTable().execute()
       }
 
       override fun newRandom(): GenericsMutable =
@@ -240,14 +240,14 @@ val simpleGenericsMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNul
       }
 
       override fun insertBuilder(v: GenericsMutable): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<GenericsMutable>): EntityBulkInsertBuilder = GenericsMutable.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<GenericsMutable>): EntityBulkInsertBuilder = GenericsMutables.insert(v)
       override fun updateBuilder(v: GenericsMutable): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<GenericsMutable>): EntityBulkUpdateBuilder = GenericsMutable.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<GenericsMutable>): EntityBulkUpdateBuilder = GenericsMutables.update(v)
       override fun persistBuilder(v: GenericsMutable): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<GenericsMutable>): EntityBulkPersistBuilder = GenericsMutable.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<GenericsMutable>): EntityBulkPersistBuilder = GenericsMutables.persist(v)
       override fun deleteBuilder(v: GenericsMutable): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<GenericsMutable>): EntityBulkDeleteBuilder = GenericsMutable.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = GenericsMutable.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<GenericsMutable>): EntityBulkDeleteBuilder = GenericsMutables.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = GenericsMutables.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, GENERICS_MUTABLE)
     },
     uniqueValue = object : UniqueValued<GenericsMutable> {
@@ -284,7 +284,7 @@ val simpleMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableCol
         get() = SIMPLE_MUTABLE_WITH_UNIQUE.ID
 
       override fun deleteTable() {
-        SimpleMutableWithUnique.deleteTable().execute()
+        SimpleMutableWithUniques.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleMutableWithUnique =
@@ -306,14 +306,14 @@ val simpleMutableFixedIdUniqueNullableTestModel = TestModelWithUniqueNullableCol
       }
 
       override fun insertBuilder(v: SimpleMutableWithUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleMutableWithUnique>): EntityBulkInsertBuilder = SimpleMutableWithUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleMutableWithUnique>): EntityBulkInsertBuilder = SimpleMutableWithUniques.insert(v)
       override fun updateBuilder(v: SimpleMutableWithUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleMutableWithUnique>): EntityBulkUpdateBuilder = SimpleMutableWithUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleMutableWithUnique>): EntityBulkUpdateBuilder = SimpleMutableWithUniques.update(v)
       override fun persistBuilder(v: SimpleMutableWithUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleMutableWithUnique>): EntityBulkPersistBuilder = SimpleMutableWithUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleMutableWithUnique>): EntityBulkPersistBuilder = SimpleMutableWithUniques.persist(v)
       override fun deleteBuilder(v: SimpleMutableWithUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleMutableWithUnique>): EntityBulkDeleteBuilder = SimpleMutableWithUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleMutableWithUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleMutableWithUnique>): EntityBulkDeleteBuilder = SimpleMutableWithUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleMutableWithUniques.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleMutableWithUnique> {
@@ -348,7 +348,7 @@ val simpleImmutableWithBuilderFixedIdUniqueNullableTestModel = TestModelWithUniq
         get() = SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE.ID
 
       override fun deleteTable() {
-        SimpleImmutableWithBuilderAndUnique.deleteTable().execute()
+        SimpleImmutableWithBuilderAndUniques.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleImmutableWithBuilderAndUnique =
@@ -367,14 +367,14 @@ val simpleImmutableWithBuilderFixedIdUniqueNullableTestModel = TestModelWithUniq
           SimpleImmutableWithBuilderAndUnique.newRandomWithId(id)
 
       override fun insertBuilder(v: SimpleImmutableWithBuilderAndUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleImmutableWithBuilderAndUnique>): EntityBulkInsertBuilder = SimpleImmutableWithBuilderAndUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleImmutableWithBuilderAndUnique>): EntityBulkInsertBuilder = SimpleImmutableWithBuilderAndUniques.insert(v)
       override fun updateBuilder(v: SimpleImmutableWithBuilderAndUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleImmutableWithBuilderAndUnique>): EntityBulkUpdateBuilder = SimpleImmutableWithBuilderAndUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleImmutableWithBuilderAndUnique>): EntityBulkUpdateBuilder = SimpleImmutableWithBuilderAndUniques.update(v)
       override fun persistBuilder(v: SimpleImmutableWithBuilderAndUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleImmutableWithBuilderAndUnique>): EntityBulkPersistBuilder = SimpleImmutableWithBuilderAndUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleImmutableWithBuilderAndUnique>): EntityBulkPersistBuilder = SimpleImmutableWithBuilderAndUniques.persist(v)
       override fun deleteBuilder(v: SimpleImmutableWithBuilderAndUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleImmutableWithBuilderAndUnique>): EntityBulkDeleteBuilder = SimpleImmutableWithBuilderAndUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleImmutableWithBuilderAndUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleImmutableWithBuilderAndUnique>): EntityBulkDeleteBuilder = SimpleImmutableWithBuilderAndUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleImmutableWithBuilderAndUniques.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_IMMUTABLE_WITH_BUILDER_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleImmutableWithBuilderAndUnique> {
@@ -407,7 +407,7 @@ val simpleImmutableWithCreatorFixedIdUniqueNullableTestModel = TestModelWithUniq
         get() = SIMPLE_IMMUTABLE_WITH_CREATOR_AND_UNIQUE.ID
 
       override fun deleteTable() {
-        SimpleImmutableWithCreatorAndUnique.deleteTable().execute()
+        SimpleImmutableWithCreatorAndUniques.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleImmutableWithCreatorAndUnique =
@@ -424,14 +424,14 @@ val simpleImmutableWithCreatorFixedIdUniqueNullableTestModel = TestModelWithUniq
           SimpleImmutableWithCreatorAndUnique.newRandomWithId(id)
 
       override fun insertBuilder(v: SimpleImmutableWithCreatorAndUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleImmutableWithCreatorAndUnique>): EntityBulkInsertBuilder = SimpleImmutableWithCreatorAndUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleImmutableWithCreatorAndUnique>): EntityBulkInsertBuilder = SimpleImmutableWithCreatorAndUniques.insert(v)
       override fun updateBuilder(v: SimpleImmutableWithCreatorAndUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleImmutableWithCreatorAndUnique>): EntityBulkUpdateBuilder = SimpleImmutableWithCreatorAndUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleImmutableWithCreatorAndUnique>): EntityBulkUpdateBuilder = SimpleImmutableWithCreatorAndUniques.update(v)
       override fun persistBuilder(v: SimpleImmutableWithCreatorAndUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleImmutableWithCreatorAndUnique>): EntityBulkPersistBuilder = SimpleImmutableWithCreatorAndUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleImmutableWithCreatorAndUnique>): EntityBulkPersistBuilder = SimpleImmutableWithCreatorAndUniques.persist(v)
       override fun deleteBuilder(v: SimpleImmutableWithCreatorAndUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleImmutableWithCreatorAndUnique>): EntityBulkDeleteBuilder = SimpleImmutableWithCreatorAndUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleImmutableWithCreatorAndUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleImmutableWithCreatorAndUnique>): EntityBulkDeleteBuilder = SimpleImmutableWithCreatorAndUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleImmutableWithCreatorAndUniques.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_IMMUTABLE_WITH_CREATOR_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleImmutableWithCreatorAndUnique> {
@@ -462,7 +462,7 @@ val simpleDataClassWithFieldsFixedIdUniqueNullableTestModel = TestModelWithUniqu
         get() = SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE.ID
 
       override fun deleteTable() {
-        SimpleDataClassWithFieldsAndUnique.deleteTable().execute()
+        SimpleDataClassWithFieldsAndUniques.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleDataClassWithFieldsAndUnique =
@@ -479,14 +479,14 @@ val simpleDataClassWithFieldsFixedIdUniqueNullableTestModel = TestModelWithUniqu
           SimpleDataClassWithFieldsAndUnique.newRandomWithId(id)
 
       override fun insertBuilder(v: SimpleDataClassWithFieldsAndUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleDataClassWithFieldsAndUnique>): EntityBulkInsertBuilder = SimpleDataClassWithFieldsAndUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleDataClassWithFieldsAndUnique>): EntityBulkInsertBuilder = SimpleDataClassWithFieldsAndUniques.insert(v)
       override fun updateBuilder(v: SimpleDataClassWithFieldsAndUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleDataClassWithFieldsAndUnique>): EntityBulkUpdateBuilder = SimpleDataClassWithFieldsAndUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleDataClassWithFieldsAndUnique>): EntityBulkUpdateBuilder = SimpleDataClassWithFieldsAndUniques.update(v)
       override fun persistBuilder(v: SimpleDataClassWithFieldsAndUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleDataClassWithFieldsAndUnique>): EntityBulkPersistBuilder = SimpleDataClassWithFieldsAndUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleDataClassWithFieldsAndUnique>): EntityBulkPersistBuilder = SimpleDataClassWithFieldsAndUniques.persist(v)
       override fun deleteBuilder(v: SimpleDataClassWithFieldsAndUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleDataClassWithFieldsAndUnique>): EntityBulkDeleteBuilder = SimpleDataClassWithFieldsAndUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleDataClassWithFieldsAndUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleDataClassWithFieldsAndUnique>): EntityBulkDeleteBuilder = SimpleDataClassWithFieldsAndUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleDataClassWithFieldsAndUniques.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_DATA_CLASS_WITH_FIELDS_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleDataClassWithFieldsAndUnique> {
@@ -517,7 +517,7 @@ val simpleDataClassWithMethodsFixedIdUniqueNullableTestModel = TestModelWithUniq
         get() = SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE.ID
 
       override fun deleteTable() {
-        SimpleDataClassWithMethodsAndUnique.deleteTable().execute()
+        SimpleDataClassWithMethodsAndUniques.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleDataClassWithMethodsAndUnique =
@@ -534,14 +534,14 @@ val simpleDataClassWithMethodsFixedIdUniqueNullableTestModel = TestModelWithUniq
           SimpleDataClassWithMethodsAndUnique.newRandomWithId(id)
 
       override fun insertBuilder(v: SimpleDataClassWithMethodsAndUnique): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleDataClassWithMethodsAndUnique>): EntityBulkInsertBuilder = SimpleDataClassWithMethodsAndUnique.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleDataClassWithMethodsAndUnique>): EntityBulkInsertBuilder = SimpleDataClassWithMethodsAndUniques.insert(v)
       override fun updateBuilder(v: SimpleDataClassWithMethodsAndUnique): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleDataClassWithMethodsAndUnique>): EntityBulkUpdateBuilder = SimpleDataClassWithMethodsAndUnique.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleDataClassWithMethodsAndUnique>): EntityBulkUpdateBuilder = SimpleDataClassWithMethodsAndUniques.update(v)
       override fun persistBuilder(v: SimpleDataClassWithMethodsAndUnique): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleDataClassWithMethodsAndUnique>): EntityBulkPersistBuilder = SimpleDataClassWithMethodsAndUnique.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleDataClassWithMethodsAndUnique>): EntityBulkPersistBuilder = SimpleDataClassWithMethodsAndUniques.persist(v)
       override fun deleteBuilder(v: SimpleDataClassWithMethodsAndUnique): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleDataClassWithMethodsAndUnique>): EntityBulkDeleteBuilder = SimpleDataClassWithMethodsAndUnique.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleDataClassWithMethodsAndUnique.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleDataClassWithMethodsAndUnique>): EntityBulkDeleteBuilder = SimpleDataClassWithMethodsAndUniques.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleDataClassWithMethodsAndUniques.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_DATA_CLASS_WITH_METHODS_AND_UNIQUE)
     },
     uniqueValue = object : UniqueValued<SimpleDataClassWithMethodsAndUnique> {
@@ -572,7 +572,7 @@ val simpleImmutableWithBuilderNullableTestModel = TestModelWithNullableColumns<S
         get() = SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS.ID
 
       override fun deleteTable() {
-        SimpleValueWithBuilderAndNullableFields.deleteTable().execute()
+        SimpleValueWithBuilderAndNullableFieldss.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleValueWithBuilderAndNullableFields = SimpleValueWithBuilderAndNullableFields.newRandom().build()
@@ -589,14 +589,14 @@ val simpleImmutableWithBuilderNullableTestModel = TestModelWithNullableColumns<S
               .build()
 
       override fun insertBuilder(v: SimpleValueWithBuilderAndNullableFields): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleValueWithBuilderAndNullableFields>): EntityBulkInsertBuilder = SimpleValueWithBuilderAndNullableFields.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleValueWithBuilderAndNullableFields>): EntityBulkInsertBuilder = SimpleValueWithBuilderAndNullableFieldss.insert(v)
       override fun updateBuilder(v: SimpleValueWithBuilderAndNullableFields): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithBuilderAndNullableFields>): EntityBulkUpdateBuilder = SimpleValueWithBuilderAndNullableFields.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithBuilderAndNullableFields>): EntityBulkUpdateBuilder = SimpleValueWithBuilderAndNullableFieldss.update(v)
       override fun persistBuilder(v: SimpleValueWithBuilderAndNullableFields): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleValueWithBuilderAndNullableFields>): EntityBulkPersistBuilder = SimpleValueWithBuilderAndNullableFields.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleValueWithBuilderAndNullableFields>): EntityBulkPersistBuilder = SimpleValueWithBuilderAndNullableFieldss.persist(v)
       override fun deleteBuilder(v: SimpleValueWithBuilderAndNullableFields): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleValueWithBuilderAndNullableFields>): EntityBulkDeleteBuilder = SimpleValueWithBuilderAndNullableFields.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithBuilderAndNullableFields.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleValueWithBuilderAndNullableFields>): EntityBulkDeleteBuilder = SimpleValueWithBuilderAndNullableFieldss.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithBuilderAndNullableFieldss.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_VALUE_WITH_BUILDER_AND_NULLABLE_FIELDS)
     },
     nullableColumns = object: NullableColumns<SimpleValueWithBuilderAndNullableFields> {
@@ -622,7 +622,7 @@ val simpleImmutableWithCreatorNullableTestModel = TestModelWithNullableColumns<S
         get() = SIMPLE_VALUE_WITH_CREATOR_AND_NULLABLE_FIELDS.ID
 
       override fun deleteTable() {
-        SimpleValueWithCreatorAndNullableFields.deleteTable().execute()
+        SimpleValueWithCreatorAndNullableFieldss.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleValueWithCreatorAndNullableFields = SimpleValueWithCreatorAndNullableFields.newRandom()
@@ -637,14 +637,14 @@ val simpleImmutableWithCreatorNullableTestModel = TestModelWithNullableColumns<S
           SimpleValueWithCreatorAndNullableFields.newRandomWithId(id)
 
       override fun insertBuilder(v: SimpleValueWithCreatorAndNullableFields): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleValueWithCreatorAndNullableFields>): EntityBulkInsertBuilder = SimpleValueWithCreatorAndNullableFields.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleValueWithCreatorAndNullableFields>): EntityBulkInsertBuilder = SimpleValueWithCreatorAndNullableFieldss.insert(v)
       override fun updateBuilder(v: SimpleValueWithCreatorAndNullableFields): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithCreatorAndNullableFields>): EntityBulkUpdateBuilder = SimpleValueWithCreatorAndNullableFields.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleValueWithCreatorAndNullableFields>): EntityBulkUpdateBuilder = SimpleValueWithCreatorAndNullableFieldss.update(v)
       override fun persistBuilder(v: SimpleValueWithCreatorAndNullableFields): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleValueWithCreatorAndNullableFields>): EntityBulkPersistBuilder = SimpleValueWithCreatorAndNullableFields.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleValueWithCreatorAndNullableFields>): EntityBulkPersistBuilder = SimpleValueWithCreatorAndNullableFieldss.persist(v)
       override fun deleteBuilder(v: SimpleValueWithCreatorAndNullableFields): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleValueWithCreatorAndNullableFields>): EntityBulkDeleteBuilder = SimpleValueWithCreatorAndNullableFields.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithCreatorAndNullableFields.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleValueWithCreatorAndNullableFields>): EntityBulkDeleteBuilder = SimpleValueWithCreatorAndNullableFieldss.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleValueWithCreatorAndNullableFieldss.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_VALUE_WITH_CREATOR_AND_NULLABLE_FIELDS)
     },
     nullableColumns = object: NullableColumns<SimpleValueWithCreatorAndNullableFields> {
@@ -670,7 +670,7 @@ val simpleDataClassWithFieldsNullableTestModel = TestModelWithNullableColumns<Da
         get() = DATA_CLASS_WITH_NULLABLE_FIELDS.ID
 
       override fun deleteTable() {
-        DataClassWithNullableFields.deleteTable().execute()
+        DataClassWithNullableFieldss.deleteTable().execute()
       }
 
       override fun newRandom(): DataClassWithNullableFields = DataClassWithNullableFields.newRandom()
@@ -685,14 +685,14 @@ val simpleDataClassWithFieldsNullableTestModel = TestModelWithNullableColumns<Da
           DataClassWithNullableFields.newRandom(id)
 
       override fun insertBuilder(v: DataClassWithNullableFields): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<DataClassWithNullableFields>): EntityBulkInsertBuilder = DataClassWithNullableFields.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<DataClassWithNullableFields>): EntityBulkInsertBuilder = DataClassWithNullableFieldss.insert(v)
       override fun updateBuilder(v: DataClassWithNullableFields): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<DataClassWithNullableFields>): EntityBulkUpdateBuilder = DataClassWithNullableFields.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<DataClassWithNullableFields>): EntityBulkUpdateBuilder = DataClassWithNullableFieldss.update(v)
       override fun persistBuilder(v: DataClassWithNullableFields): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<DataClassWithNullableFields>): EntityBulkPersistBuilder = DataClassWithNullableFields.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<DataClassWithNullableFields>): EntityBulkPersistBuilder = DataClassWithNullableFieldss.persist(v)
       override fun deleteBuilder(v: DataClassWithNullableFields): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<DataClassWithNullableFields>): EntityBulkDeleteBuilder = DataClassWithNullableFields.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithNullableFields.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<DataClassWithNullableFields>): EntityBulkDeleteBuilder = DataClassWithNullableFieldss.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithNullableFieldss.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, DATA_CLASS_WITH_NULLABLE_FIELDS)
     },
     nullableColumns = object: NullableColumns<DataClassWithNullableFields> {
@@ -719,7 +719,7 @@ val simpleDataClassWithMethodsNullableTestModel = TestModelWithNullableColumns<D
         get() = DATA_CLASS_WITH_NULLABLE_METHODS.ID
 
       override fun deleteTable() {
-        DataClassWithNullableMethods.deleteTable().execute()
+        DataClassWithNullableMethodss.deleteTable().execute()
       }
 
       override fun newRandom(): DataClassWithNullableMethods = DataClassWithNullableMethods.newRandom()
@@ -734,14 +734,14 @@ val simpleDataClassWithMethodsNullableTestModel = TestModelWithNullableColumns<D
           DataClassWithNullableMethods.newRandom(id)
 
       override fun insertBuilder(v: DataClassWithNullableMethods): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<DataClassWithNullableMethods>): EntityBulkInsertBuilder = DataClassWithNullableMethods.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<DataClassWithNullableMethods>): EntityBulkInsertBuilder = DataClassWithNullableMethodss.insert(v)
       override fun updateBuilder(v: DataClassWithNullableMethods): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<DataClassWithNullableMethods>): EntityBulkUpdateBuilder = DataClassWithNullableMethods.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<DataClassWithNullableMethods>): EntityBulkUpdateBuilder = DataClassWithNullableMethodss.update(v)
       override fun persistBuilder(v: DataClassWithNullableMethods): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<DataClassWithNullableMethods>): EntityBulkPersistBuilder = DataClassWithNullableMethods.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<DataClassWithNullableMethods>): EntityBulkPersistBuilder = DataClassWithNullableMethodss.persist(v)
       override fun deleteBuilder(v: DataClassWithNullableMethods): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<DataClassWithNullableMethods>): EntityBulkDeleteBuilder = DataClassWithNullableMethods.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithNullableMethods.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<DataClassWithNullableMethods>): EntityBulkDeleteBuilder = DataClassWithNullableMethodss.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = DataClassWithNullableMethodss.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, DATA_CLASS_WITH_NULLABLE_METHODS)
     },
     nullableColumns = object: NullableColumns<DataClassWithNullableMethods> {
@@ -768,7 +768,7 @@ val simpleMutableAutoIdUniqueNullableTestModel = TestModelWithUniqueNullableColu
         get() = SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID.ID
 
       override fun deleteTable() {
-        SimpleMutableWithUniqueAndNullableId.deleteTable().execute()
+        SimpleMutableWithUniqueAndNullableIds.deleteTable().execute()
       }
 
       override fun newRandom(): SimpleMutableWithUniqueAndNullableId =
@@ -790,14 +790,14 @@ val simpleMutableAutoIdUniqueNullableTestModel = TestModelWithUniqueNullableColu
       }
 
       override fun insertBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityInsertBuilder = v.insert()
-      override fun bulkInsertBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkInsertBuilder = SimpleMutableWithUniqueAndNullableId.insert(v)
+      override fun bulkInsertBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkInsertBuilder = SimpleMutableWithUniqueAndNullableIds.insert(v)
       override fun updateBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityUpdateBuilder = v.update()
-      override fun bulkUpdateBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkUpdateBuilder = SimpleMutableWithUniqueAndNullableId.update(v)
+      override fun bulkUpdateBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkUpdateBuilder = SimpleMutableWithUniqueAndNullableIds.update(v)
       override fun persistBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityPersistBuilder = v.persist()
-      override fun bulkPersistBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkPersistBuilder = SimpleMutableWithUniqueAndNullableId.persist(v)
+      override fun bulkPersistBuilder(v: Iterable<SimpleMutableWithUniqueAndNullableId>): EntityBulkPersistBuilder = SimpleMutableWithUniqueAndNullableIds.persist(v)
       override fun deleteBuilder(v: SimpleMutableWithUniqueAndNullableId): EntityDeleteBuilder = v.delete()
-      override fun bulkDeleteBuilder(v: Collection<SimpleMutableWithUniqueAndNullableId>): EntityBulkDeleteBuilder = SimpleMutableWithUniqueAndNullableId.delete(v)
-      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleMutableWithUniqueAndNullableId.deleteTable()
+      override fun bulkDeleteBuilder(v: Collection<SimpleMutableWithUniqueAndNullableId>): EntityBulkDeleteBuilder = SimpleMutableWithUniqueAndNullableIds.delete(v)
+      override fun deleteTableBuilder(): EntityDeleteTableBuilder = SimpleMutableWithUniqueAndNullableIds.deleteTable()
       override fun assertNoValsInTables() = assertTableCount(0, SIMPLE_MUTABLE_WITH_UNIQUE_AND_NULLABLE_ID)
     },
     uniqueValue = object : UniqueValued<SimpleMutableWithUniqueAndNullableId> {

@@ -24,7 +24,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.experimental.Builder;
+import lombok.Builder;
 
 import static com.siimkinks.sqlitemagic.WriterUtil.UTIL;
 import static com.siimkinks.sqlitemagic.element.TableElement.getMethodNameForGettingField;

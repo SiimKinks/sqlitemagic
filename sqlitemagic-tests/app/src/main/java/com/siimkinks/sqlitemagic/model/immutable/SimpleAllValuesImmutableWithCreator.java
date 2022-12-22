@@ -3,10 +3,12 @@ package com.siimkinks.sqlitemagic.model.immutable;
 import androidx.annotation.Nullable;
 
 import com.google.auto.value.AutoValue;
+import com.siimkinks.sqlitemagic.SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 
 @AutoValue
@@ -104,5 +106,41 @@ public abstract class SimpleAllValuesImmutableWithCreator {
                                                            Calendar calendar,
                                                            Date utilDate) {
     return new AutoValue_SimpleAllValuesImmutableWithCreator(0L, string, primitiveShort, boxedShort, primitiveLong, boxedLong, primitiveInt, boxedInteger, primitiveFloat, boxedFloat, primitiveDouble, boxedDouble, primitiveByte, boxedByte, primitiveByteArray, primitiveBoolean, boxedBoolean, calendar, utilDate);
+  }
+
+  public SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.InsertBuilder insert() {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.UpdateBuilder update() {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.PersistBuilder persist() {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.DeleteBuilder delete() {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkInsertBuilder insert(Iterable<SimpleAllValuesImmutableWithCreator> o) {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkUpdateBuilder update(Iterable<SimpleAllValuesImmutableWithCreator> o) {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkPersistBuilder persist(Iterable<SimpleAllValuesImmutableWithCreator> o) {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkDeleteBuilder delete(Collection<SimpleAllValuesImmutableWithCreator> o) {
+    return SqliteMagic_SimpleAllValuesImmutableWithCreator_Handler.BulkDeleteBuilder.create(o);
   }
 }

@@ -22,8 +22,6 @@ import com.siimkinks.sqlitemagic.model.view.ComplexView;
 import org.junit.Before;
 import org.junit.Test;
 
-import lombok.experimental.Builder;
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.BookTable.BOOK;
@@ -1899,17 +1897,36 @@ public final class SelectSqlCompilerTest {
         .isEqualToColumnSelect(compiledSelect);
   }
 
-  @Builder(builderMethodName = "assertThat")
   static class CompiledSelectMetadata {
-    @lombok.NonNull
     final String sql;
     final String[] args;
     final String tableName;
-    @lombok.NonNull
     final String[] observedTables;
     final SimpleArrayMap<String, Integer> columns;
     final SimpleArrayMap<String, String> tableGraphNodeNames;
     final boolean queryDeep;
+
+    public CompiledSelectMetadata(
+        String sql,
+        String[] args,
+        String tableName,
+        String[] observedTables,
+        SimpleArrayMap<String, Integer> columns,
+        SimpleArrayMap<String, String> tableGraphNodeNames,
+        boolean queryDeep
+    ) {
+      this.sql = sql;
+      this.args = args;
+      this.tableName = tableName;
+      this.observedTables = observedTables;
+      this.columns = columns;
+      this.tableGraphNodeNames = tableGraphNodeNames;
+      this.queryDeep = queryDeep;
+    }
+
+    static CompiledSelectMetadataBuilder assertThat() {
+      return new CompiledSelectMetadataBuilder();
+    }
 
     CompiledSelectMetadataBuilder copy() {
       return CompiledSelectMetadata.assertThat()
@@ -1960,13 +1977,30 @@ public final class SelectSqlCompilerTest {
 
     static class CompiledSelectMetadataBuilder {
       private String sql;
+      private String tableName;
+      private boolean queryDeep;
       private String[] args;
       private String[] observedTables;
       private SimpleArrayMap<String, Integer> columns;
       private SimpleArrayMap<String, String> tableGraphNodeNames;
 
+      CompiledSelectMetadataBuilder sql(String sql) {
+        this.sql = sql;
+        return this;
+      }
+
       CompiledSelectMetadataBuilder sqlWithWildcards(String sql) {
         this.sql = replaceRandomTableNames(sql);
+        return this;
+      }
+
+      CompiledSelectMetadataBuilder tableName(String tableName) {
+        this.tableName = tableName;
+        return this;
+      }
+
+      CompiledSelectMetadataBuilder queryDeep(boolean queryDeep) {
+        this.queryDeep = queryDeep;
         return this;
       }
 
@@ -1988,6 +2022,10 @@ public final class SelectSqlCompilerTest {
       CompiledSelectMetadataBuilder tableGraphNodeNames(SimpleArrayMap<String, String> tableGraphNodeNames) {
         this.tableGraphNodeNames = new SimpleArrayMap<>(tableGraphNodeNames);
         return this;
+      }
+
+      CompiledSelectMetadata build() {
+        return new CompiledSelectMetadata(sql, args, tableName, observedTables, columns, tableGraphNodeNames, queryDeep);
       }
     }
   }

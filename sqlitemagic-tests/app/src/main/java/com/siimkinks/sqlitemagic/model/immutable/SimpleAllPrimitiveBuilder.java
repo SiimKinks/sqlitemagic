@@ -3,9 +3,11 @@ package com.siimkinks.sqlitemagic.model.immutable;
 import androidx.annotation.Nullable;
 
 import com.google.auto.value.AutoValue;
+import com.siimkinks.sqlitemagic.SqliteMagic_SimpleAllPrimitiveBuilder_Handler;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
+import java.util.Collection;
 import java.util.Random;
 
 @AutoValue
@@ -72,5 +74,41 @@ public abstract class SimpleAllPrimitiveBuilder {
     public abstract Builder aDouble(double aDouble);
 
     public abstract SimpleAllPrimitiveBuilder build();
+  }
+
+  public SqliteMagic_SimpleAllPrimitiveBuilder_Handler.InsertBuilder insert() {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleAllPrimitiveBuilder_Handler.UpdateBuilder update() {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleAllPrimitiveBuilder_Handler.PersistBuilder persist() {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_SimpleAllPrimitiveBuilder_Handler.DeleteBuilder delete() {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_SimpleAllPrimitiveBuilder_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkInsertBuilder insert(Iterable<SimpleAllPrimitiveBuilder> o) {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkUpdateBuilder update(Iterable<SimpleAllPrimitiveBuilder> o) {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkPersistBuilder persist(Iterable<SimpleAllPrimitiveBuilder> o) {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkDeleteBuilder delete(Collection<SimpleAllPrimitiveBuilder> o) {
+    return SqliteMagic_SimpleAllPrimitiveBuilder_Handler.BulkDeleteBuilder.create(o);
   }
 }

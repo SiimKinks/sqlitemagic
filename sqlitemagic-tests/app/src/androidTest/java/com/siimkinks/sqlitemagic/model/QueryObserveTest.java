@@ -720,7 +720,9 @@ public final class QueryObserveTest {
       transaction.end();
       fail();
     } catch (IllegalStateException e) {
-      assertThat(e).hasMessage("Not in transaction.");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Not in transaction.");
     }
   }
 

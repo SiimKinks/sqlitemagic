@@ -3,11 +3,13 @@ package com.siimkinks.sqlitemagic.model.immutable;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.siimkinks.sqlitemagic.SqliteMagic_DataClassWithNullableMethods_Handler;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.TransformableObject;
 
+import java.util.Collection;
 import java.util.Random;
 
 import lombok.EqualsAndHashCode;
@@ -96,5 +98,41 @@ public final class DataClassWithNullableMethods implements ImmutableEquals {
   @Override
   public Long provideId() {
     return id;
+  }
+
+  public SqliteMagic_DataClassWithNullableMethods_Handler.InsertBuilder insert() {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.InsertBuilder.create(this);
+  }
+
+  public SqliteMagic_DataClassWithNullableMethods_Handler.UpdateBuilder update() {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.UpdateBuilder.create(this);
+  }
+
+  public SqliteMagic_DataClassWithNullableMethods_Handler.PersistBuilder persist() {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.PersistBuilder.create(this);
+  }
+
+  public SqliteMagic_DataClassWithNullableMethods_Handler.DeleteBuilder delete() {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.DeleteBuilder.create(this);
+  }
+
+  public static SqliteMagic_DataClassWithNullableMethods_Handler.DeleteTableBuilder deleteTable() {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.DeleteTableBuilder.create();
+  }
+
+  public static SqliteMagic_DataClassWithNullableMethods_Handler.BulkInsertBuilder insert(Iterable<DataClassWithNullableMethods> o) {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.BulkInsertBuilder.create(o);
+  }
+
+  public static SqliteMagic_DataClassWithNullableMethods_Handler.BulkUpdateBuilder update(Iterable<DataClassWithNullableMethods> o) {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.BulkUpdateBuilder.create(o);
+  }
+
+  public static SqliteMagic_DataClassWithNullableMethods_Handler.BulkPersistBuilder persist(Iterable<DataClassWithNullableMethods> o) {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.BulkPersistBuilder.create(o);
+  }
+
+  public static SqliteMagic_DataClassWithNullableMethods_Handler.BulkDeleteBuilder delete(Collection<DataClassWithNullableMethods> o) {
+    return SqliteMagic_DataClassWithNullableMethods_Handler.BulkDeleteBuilder.create(o);
   }
 }

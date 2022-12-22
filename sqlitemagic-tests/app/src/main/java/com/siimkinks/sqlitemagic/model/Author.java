@@ -4,11 +4,21 @@ import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.BulkDeleteBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.BulkInsertBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.BulkPersistBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.BulkUpdateBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.DeleteBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.DeleteTableBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.InsertBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.PersistBuilder;
+import com.siimkinks.sqlitemagic.SqliteMagic_Author_Handler.UpdateBuilder;
 import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
+import java.util.Collection;
 import java.util.Random;
 
 import lombok.EqualsAndHashCode;
@@ -21,7 +31,6 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 public class Author implements Parcelable, ProvidesId {
-
   public static final String TABLE = "author";
   public static final String C_ID = "author.id";
   public static final String C_NAME = "author.name";
@@ -101,5 +110,41 @@ public class Author implements Parcelable, ProvidesId {
   @Override
   public Long provideId() {
     return id;
+  }
+
+  public InsertBuilder insert() {
+    return InsertBuilder.create(this);
+  }
+
+  public UpdateBuilder update() {
+    return UpdateBuilder.create(this);
+  }
+
+  public PersistBuilder persist() {
+    return PersistBuilder.create(this);
+  }
+
+  public DeleteBuilder delete() {
+    return DeleteBuilder.create(this);
+  }
+
+  public static DeleteTableBuilder deleteTable() {
+    return DeleteTableBuilder.create();
+  }
+
+  public static BulkInsertBuilder insert(Iterable<Author> o) {
+    return BulkInsertBuilder.create(o);
+  }
+
+  public static BulkUpdateBuilder update(Iterable<Author> o) {
+    return BulkUpdateBuilder.create(o);
+  }
+
+  public static BulkPersistBuilder persist(Iterable<Author> o) {
+    return BulkPersistBuilder.create(o);
+  }
+
+  public static BulkDeleteBuilder delete(Collection<Author> o) {
+    return BulkDeleteBuilder.create(o);
   }
 }
