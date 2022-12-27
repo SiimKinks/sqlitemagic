@@ -8,15 +8,15 @@ import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteOpenHelper;
 import androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration;
 import androidx.sqlite.db.SupportSQLiteOpenHelper.Factory;
+
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
-
-import static com.siimkinks.sqlitemagic.SqlUtil.getDbName;
-import static com.siimkinks.sqlitemagic.SqlUtil.getDbVersion;
 
 public final class SqliteMagic {
   static boolean LOGGING_ENABLED = false;
   static Logger LOGGER;
+  @Nullable
+  GeneratedDatabase database;
   @Nullable
   DbConnectionImpl defaultConnection;
 
@@ -78,19 +78,29 @@ public final class SqliteMagic {
     return new DatabaseSetupBuilder(context);
   }
 
-  static DbConnectionImpl openConnection(@NonNull Application context,
-                                         @NonNull DatabaseSetupBuilder databaseSetupBuilder) {
+  static DbConnectionImpl openConnection(
+      @NonNull Application context,
+      @NonNull DatabaseSetupBuilder databaseSetupBuilder
+  ) {
     final Factory sqliteFactory = databaseSetupBuilder.sqliteFactory;
     if (sqliteFactory == null) {
-      throw new NullPointerException("SQLite Factory cannot be null");
+      throw new NullPointerException("SQLite Factory cannot be missing");
     }
+    final GeneratedDatabase database = databaseSetupBuilder.database;
+    if (database == null) {
+      throw new NullPointerException("Generated database cannot be missing");
+    }
+    SingletonHolder.instance.database = database;
+    final DbDowngrader downgrader = databaseSetupBuilder.downgrader != null
+        ? databaseSetupBuilder.downgrader
+        : new DefaultDbDowngrader(database);
     try {
       String name = databaseSetupBuilder.name;
       if (name == null || name.isEmpty()) {
-        name = getDbName();
+        name = database.getDbName();
       }
-      final int version = getDbVersion();
-      final DbCallback dbCallback = new DbCallback(context, version, databaseSetupBuilder.downgrader);
+      final int version = database.getDbVersion();
+      final DbCallback dbCallback = new DbCallback(context, version, database, downgrader);
       final Configuration configuration = Configuration
           .builder(context)
           .name(name)
@@ -99,7 +109,7 @@ public final class SqliteMagic {
       final SupportSQLiteOpenHelper helper = sqliteFactory.create(configuration);
       LogUtil.logInfo("Initializing database with [name=%s, version=%s, logging=%s]",
           name, version, LOGGING_ENABLED);
-      return new DbConnectionImpl(helper, databaseSetupBuilder.queryScheduler);
+      return new DbConnectionImpl(database, helper, databaseSetupBuilder.queryScheduler);
     } catch (Exception e) {
       throw new IllegalStateException("Error initializing database. " +
           "Make sure there is at least one model annotated with @Table", e);
@@ -125,11 +135,13 @@ public final class SqliteMagic {
     @NonNull
     private final Application context;
     @Nullable
+    GeneratedDatabase database;
+    @Nullable
     String name;
     @Nullable
     Factory sqliteFactory;
-    @NonNull
-    DbDowngrader downgrader = new DefaultDbDowngrader();
+    @Nullable
+    DbDowngrader downgrader;
     @NonNull
     Scheduler queryScheduler = Schedulers.io();
 
@@ -138,6 +150,18 @@ public final class SqliteMagic {
         throw new NullPointerException("Application context cannot be null");
       }
       this.context = context;
+    }
+
+    /**
+     * Provide generated database.
+     *
+     * @param database Generated database instance
+     * @return Database connection configuration builder
+     */
+    @CheckResult
+    public DatabaseSetupBuilder database(@NonNull GeneratedDatabase database) {
+      this.database = database;
+      return this;
     }
 
     /**

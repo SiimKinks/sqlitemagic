@@ -40,6 +40,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 import static com.siimkinks.sqlitemagic.Const.CLASS_MODIFIERS;
+import static com.siimkinks.sqlitemagic.Const.PUBLIC_FINAL;
 import static com.siimkinks.sqlitemagic.Const.STATIC_METHOD_MODIFIERS;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_CLEAR_DATA;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_COLUMN_FOR_VALUE;
@@ -53,6 +54,7 @@ import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_IS_DEBUG;
 import static com.siimkinks.sqlitemagic.GlobalConst.METHOD_MIGRATE_VIEWS;
 import static com.siimkinks.sqlitemagic.WriterUtil.COLUMN;
 import static com.siimkinks.sqlitemagic.WriterUtil.FROM;
+import static com.siimkinks.sqlitemagic.WriterUtil.GENERATED_DATABASE;
 import static com.siimkinks.sqlitemagic.WriterUtil.MUTABLE_INT;
 import static com.siimkinks.sqlitemagic.WriterUtil.NON_NULL;
 import static com.siimkinks.sqlitemagic.WriterUtil.NOT_NULLABLE_COLUMN;
@@ -102,6 +104,7 @@ public class GenClassesManagerWriter {
 
       if (!environment.isSubmodule()) {
         classBuilder
+            .addSuperinterface(GENERATED_DATABASE)
             .addMethod(columnForValue(environment, managerStep, className))
             .addMethod(dbVersion(environment, className))
             .addMethod(dbName(environment, className))
@@ -116,7 +119,7 @@ public class GenClassesManagerWriter {
 
   private MethodSpec databaseConfigurator(Environment environment, String className) {
     final MethodSpec.Builder method = createMagicInvokableMethod(className, METHOD_CONFIGURE_DATABASE)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .addParameter(SUPPORT_SQLITE_DATABASE, "db");
     if (hasAnyForeignKeys(environment.getAllTableElements())) {
       method.addStatement("db.setForeignKeyConstraintsEnabled(true)");
@@ -144,7 +147,8 @@ public class GenClassesManagerWriter {
   }
 
   private MethodSpec databaseSchemaCreator(Environment environment, GenClassesManagerStep managerStep, String className) {
-    final MethodSpec.Builder method = createMagicInvokableMethod(className, METHOD_CREATE_SCHEMA);
+    final MethodSpec.Builder method = createMagicInvokableMethod(className, METHOD_CREATE_SCHEMA)
+        .addModifiers(getDatabaseMethodModifiers(environment));
     final CodeBlock.Builder sqlTransactionBody = CodeBlock.builder();
     addSubmoduleSchemasIfNeeded(environment, sqlTransactionBody);
     sqlTransactionBody.add(buildSchemaCreations(environment));
@@ -205,6 +209,7 @@ public class GenClassesManagerWriter {
 
   private MethodSpec clearData(Environment environment, String className) {
     final MethodSpec.Builder method = createMagicInvokableMethod(className, METHOD_CLEAR_DATA)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .returns(STRING_ARRAY_SET)
         .addAnnotation(NON_NULL);
     final CodeBlock.Builder body = CodeBlock.builder();
@@ -245,7 +250,7 @@ public class GenClassesManagerWriter {
 
   private MethodSpec migrateViews(Environment environment, GenClassesManagerStep managerStep, String className) {
     final MethodSpec.Builder builder = createMagicInvokableMethod(className, METHOD_MIGRATE_VIEWS)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .addParameter(SUPPORT_SQLITE_DATABASE, "db");
 
     forEachSubmoduleDatabase(environment, new Callback2<TypeMirror, String>() {
@@ -277,7 +282,7 @@ public class GenClassesManagerWriter {
 
   private MethodSpec submoduleNames(Environment environment, String className) {
     final MethodSpec.Builder builder = createMagicInvokableMethod(className, METHOD_GET_SUBMODULE_NAMES)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .addAnnotation(NULLABLE)
         .returns(String[].class);
     if (!environment.hasSubmodules()) {
@@ -303,7 +308,7 @@ public class GenClassesManagerWriter {
 
   private MethodSpec nrOfTables(Environment environment, String className) {
     final MethodSpec.Builder builder = createMagicInvokableMethod(className, METHOD_GET_NR_OF_TABLES)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .addParameter(nullableParameter(STRING, MODULE_NAME_VARIABLE))
         .returns(TypeName.INT);
     final boolean hasSubmodules = environment.hasSubmodules();
@@ -353,7 +358,7 @@ public class GenClassesManagerWriter {
   private MethodSpec dbVersion(Environment environment, String className) {
     final Integer dbVersion = environment.getDbVersion();
     return createMagicInvokableMethod(className, METHOD_GET_DB_VERSION)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .returns(TypeName.INT)
         .addStatement("return $L", (dbVersion != null) ? dbVersion : 1)
         .build();
@@ -361,7 +366,7 @@ public class GenClassesManagerWriter {
 
   private MethodSpec dbName(Environment environment, String className) {
     return createMagicInvokableMethod(className, METHOD_GET_DB_NAME)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .returns(String.class)
         .addStatement("return $L", environment.getDbName())
         .build();
@@ -369,7 +374,7 @@ public class GenClassesManagerWriter {
 
   private MethodSpec isDebug(Environment environment, String className) {
     return createMagicInvokableMethod(className, METHOD_IS_DEBUG)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .returns(TypeName.BOOLEAN)
         .addStatement("return $L", environment.isDebugVariant())
         .build();
@@ -382,7 +387,7 @@ public class GenClassesManagerWriter {
         anyWildcardTypeName(), NOT_NULLABLE_COLUMN);
     final MethodSpec.Builder builder = createMagicInvokableMethod(className, METHOD_COLUMN_FOR_VALUE)
         .addTypeVariable(valType)
-        .addModifiers(STATIC_METHOD_MODIFIERS)
+        .addModifiers(getDatabaseMethodModifiers(environment))
         .addParameter(notNullParameter(valType, VAL_VARIABLE))
         .addAnnotation(AnnotationSpec
             .builder(SUPPRESS_WARNINGS)
@@ -516,6 +521,13 @@ public class GenClassesManagerWriter {
       }
     }
     return transformerRepetitions;
+  }
+
+  static Modifier[] getDatabaseMethodModifiers(Environment environment) {
+    if (!environment.isSubmodule()) {
+      return PUBLIC_FINAL;
+    }
+    return STATIC_METHOD_MODIFIERS;
   }
 
   static ParameterSpec columnsParam() {

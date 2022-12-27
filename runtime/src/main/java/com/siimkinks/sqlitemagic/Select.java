@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.internal.StringArraySet;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
+import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_NOT_INITIALIZED;
 import static com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE;
 import static com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER;
 import static com.siimkinks.sqlitemagic.Utils.LONG_PARSER;
@@ -1537,7 +1538,11 @@ public final class Select<S> extends SelectSqlNode<S> {
   @NonNull
   @CheckResult
   public static <V> Column<V, V, V, ?, NotNullable> asColumn(@NonNull V val) {
-    return SqlUtil.columnForValue(val);
+    final GeneratedDatabase database = SqliteMagic.SingletonHolder.instance.database;
+    if (database == null) {
+      throw new IllegalStateException(ERROR_NOT_INITIALIZED);
+    }
+    return database.columnForValue(val);
   }
 
   /**

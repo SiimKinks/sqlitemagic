@@ -88,6 +88,32 @@ public final class DbDefaultConnectionTest {
   }
 
   @Test
+  public void missingDatabaseThrowsWhenBuildingDefaultConnection() {
+    try {
+      SqliteMagic
+          .builder(TestApp.INSTANCE)
+          .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
+          .openDefaultConnection();
+      fail("Creating new connection without database did not throw");
+    } catch (NullPointerException e) {
+      assertThat(e.getMessage()).isNotEmpty();
+    }
+  }
+
+  @Test
+  public void missingDatabaseThrowsWhenBuildingNewConnection() {
+    try {
+      SqliteMagic
+          .builder(TestApp.INSTANCE)
+          .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
+          .openNewConnection();
+      fail("Creating new connection without database did not throw");
+    } catch (NullPointerException e) {
+      assertThat(e.getMessage()).isNotEmpty();
+    }
+  }
+
+  @Test
   public void reInitClosesPrev() {
     final DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
     final SupportSQLiteOpenHelper dbHelper = dbConnection.dbHelper;
@@ -118,7 +144,7 @@ public final class DbDefaultConnectionTest {
     insertAuthors(5);
 
     ts.awaitTerminalEvent();
-    ts.assertValues(Collections.<Author>emptyList(), authors);
+    ts.assertValues(Collections.emptyList(), authors);
     ts.assertComplete();
     ts.assertNoErrors();
     assertThat(dbConnection.triggers.hasObservers()).isFalse();
@@ -146,13 +172,13 @@ public final class DbDefaultConnectionTest {
     final ArrayList<Author> authorsAfter = insertAuthors(5);
 
     tsBefore.awaitTerminalEvent();
-    tsBefore.assertValues(Collections.<Author>emptyList(), authorsBefore);
+    tsBefore.assertValues(Collections.emptyList(), authorsBefore);
     tsBefore.assertComplete();
     tsBefore.assertNoErrors();
     assertThat(dbConnection.triggers.hasObservers()).isFalse();
 
     tsAfter.awaitTerminalEvent();
-    tsAfter.assertValues(Collections.<Author>emptyList(), authorsAfter);
+    tsAfter.assertValues(Collections.emptyList(), authorsAfter);
     tsAfter.assertComplete();
     tsAfter.assertNoErrors();
     assertTriggersHaveNoObservers();
@@ -176,7 +202,7 @@ public final class DbDefaultConnectionTest {
 
     ts.awaitTerminalEvent(2, TimeUnit.SECONDS);
     ts.assertNoErrors()
-        .assertValue(Collections.<Magazine>emptyList());
+        .assertValue(Collections.emptyList());
 
     assertThat(Select.from(MAGAZINE).execute()).isEmpty();
     assertThat(Select.from(AUTHOR).execute()).isEmpty();
@@ -185,6 +211,7 @@ public final class DbDefaultConnectionTest {
   private void initDbWithNewConnection() {
     SqliteMagic.builder(TestApp.INSTANCE)
         .name("new.db")
+        .database(new SqliteMagicDatabase())
         .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
         .scheduleRxQueriesOn(Schedulers.trampoline())
         .openDefaultConnection();

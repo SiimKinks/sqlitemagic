@@ -61,6 +61,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import static com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_GENERATED_CLASSES_MANAGER;
+import static com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER;
 
 @Data
 public class Environment {
@@ -220,11 +221,10 @@ public class Environment {
   }
 
   public static String getGenClassesManagerClassName(String moduleName) {
-    final String className = CLASS_NAME_GENERATED_CLASSES_MANAGER;
     if (!Strings.isNullOrEmpty(moduleName)) {
-      return moduleName + className;
+      return moduleName + CLASS_NAME_GENERATED_CLASSES_MANAGER;
     }
-    return className;
+    return CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER;
   }
 
   public TableElement getTableElementFor(String qualifiedTypeName) {

@@ -23,13 +23,13 @@ class SqliteMagicPlugin : Plugin<Project> {
           val androidExtension = project.extensions.getByType(AppExtension::class.java)
           val variants = androidExtension.applicationVariants
           configureAptArgs(project, sqlitemagic, variants)
-          configureAndroid(project, sqlitemagic, androidExtension, variants)
+          configureAndroid(project, androidExtension)
         }
         is LibraryPlugin -> {
           val androidExtension = project.extensions.getByType(LibraryExtension::class.java)
           val variants = androidExtension.libraryVariants
           configureAptArgs(project, sqlitemagic, variants)
-          configureAndroid(project, sqlitemagic, androidExtension, variants)
+          configureAndroid(project, androidExtension)
         }
       }
     }
@@ -89,34 +89,17 @@ class SqliteMagicPlugin : Plugin<Project> {
     }
   }
 
-  private fun <T : BaseVariant> configureAndroid(project: Project,
-                                                 sqlitemagic: SqliteMagicPluginExtension,
-                                                 androidExtension: BaseExtension,
-                                                 variants: DomainObjectSet<T>) {
-    project.afterEvaluate {
-      ensureJavaVersion(androidExtension.compileOptions.sourceCompatibility)
-      ensureJavaVersion(androidExtension.compileOptions.targetCompatibility)
-    }
-
+  private fun configureAndroid(
+    project: Project,
+    androidExtension: BaseExtension
+  ) {
     if (androidExtension is AppExtension) {
-      val transform = SqliteMagicTransform(project, sqlitemagic)
-      androidExtension.registerTransform(transform)
       androidExtension.buildTypes.all {
         if (!it.debug) {
           it.addMigrateDbTask(project)
         }
       }
-      variants.all {
-        it.configureVariant(transform)
-      }
-      androidExtension.testVariants.all {
-        it.configureVariant(transform)
-      }
     }
-  }
-
-  private fun <T : BaseVariant> T.configureVariant(transform: SqliteMagicTransform) {
-    transform.putJavaCompileTask(this)
   }
 
   private fun BuildType.addMigrateDbTask(project: Project) {
@@ -131,12 +114,6 @@ class SqliteMagicPlugin : Plugin<Project> {
           variantName = name)
     }
     migrationTask.group = DB_TASK_GROUP
-  }
-
-  private fun ensureJavaVersion(javaVersion: JavaVersion) {
-    if (!javaVersion.isJava7Compatible) {
-      throw IllegalStateException("Source and target Java versions must be at least ${JavaVersion.VERSION_1_7}")
-    }
   }
 }
 

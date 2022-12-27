@@ -1,26 +1,12 @@
 package com.siimkinks.sqlitemagic;
 
-import com.siimkinks.sqlitemagic.annotation.internal.Invokes;
-import com.siimkinks.sqlitemagic.internal.StringArraySet;
-
-import java.util.ArrayList;
-
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.SupportSQLiteStatement;
 
-import static com.siimkinks.sqlitemagic.GlobalConst.ERROR_PROCESSOR_DID_NOT_RUN;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CLEAR_DATA;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_COLUMN_FOR_VALUE;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_CREATE_SCHEMA;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_NAME;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_DB_VERSION;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_NR_OF_TABLES;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_GET_SUBMODULE_NAMES;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_IS_DEBUG;
-import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_MIGRATE_VIEWS;
+import java.util.ArrayList;
 
 /**
  * Internal utility functions.
@@ -28,62 +14,6 @@ import static com.siimkinks.sqlitemagic.GlobalConst.INVOCATION_METHOD_MIGRATE_VI
 public final class SqlUtil {
   private SqlUtil() {
     throw new AssertionError("no instances");
-  }
-
-  @Invokes(INVOCATION_METHOD_CREATE_SCHEMA)
-  public static void createSchema(SupportSQLiteDatabase db) {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @NonNull
-  @Invokes(INVOCATION_METHOD_CLEAR_DATA)
-  public static StringArraySet clearData(SupportSQLiteDatabase db) {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @Invokes(INVOCATION_METHOD_MIGRATE_VIEWS)
-  public static void migrateViews(SupportSQLiteDatabase db) {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @Nullable
-  @Invokes(INVOCATION_METHOD_GET_SUBMODULE_NAMES)
-  public static String[] getSubmoduleNames() {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @Invokes(INVOCATION_METHOD_GET_NR_OF_TABLES)
-  public static int getNrOfTables(@Nullable String moduleName) {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @Invokes(INVOCATION_METHOD_GET_DB_VERSION)
-  public static int getDbVersion() {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @Invokes(INVOCATION_METHOD_GET_DB_NAME)
-  public static String getDbName() {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @Invokes(INVOCATION_METHOD_COLUMN_FOR_VALUE)
-  public static <V> Column<V, V, V, ?, NotNullable> columnForValue(@NonNull V val) {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
-  }
-
-  @Invokes(INVOCATION_METHOD_IS_DEBUG)
-  public static boolean isDebug() {
-    // filled with magic
-    throw new RuntimeException(ERROR_PROCESSOR_DID_NOT_RUN);
   }
 
   static void createView(@NonNull SupportSQLiteDatabase db,

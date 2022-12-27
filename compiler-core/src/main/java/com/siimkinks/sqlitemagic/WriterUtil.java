@@ -104,6 +104,7 @@ public class WriterUtil {
   public static final ClassName LOG_UTIL = ClassName.get(LogUtil.class);
   public static final ClassName SQL_UTIL = ClassName.get(SqlUtil.class);
   public static final ClassName SQLITE_MAGIC = ClassName.get(SqliteMagic.class);
+  public static final ClassName GENERATED_DATABASE = ClassName.get(GeneratedDatabase.class);
   public static final ClassName DB_CONNECTION = ClassName.get(DbConnection.class);
   public static final ClassName DB_CONNECTION_IMPL = ClassName.get(DbConnectionImpl.class);
   public static final ClassName OPERATION_FAILED_EXCEPTION = ClassName.get(OperationFailedException.class);
@@ -207,17 +208,20 @@ public class WriterUtil {
     }
   }
 
-  public static MethodSpec buildSqlTransactionMethod(MethodSpec.Builder methodBuilder,
-                                                     CodeBlock sqlTransactionBody) {
+  public static MethodSpec buildSqlTransactionMethod(
+      MethodSpec.Builder methodBuilder,
+      CodeBlock sqlTransactionBody
+  ) {
     return buildSqlTransactionMethod(methodBuilder, sqlTransactionBody, null, false);
   }
 
-  public static MethodSpec buildSqlTransactionMethod(MethodSpec.Builder methodBuilder,
-                                                     CodeBlock sqlTransactionBody,
-                                                     @Nullable CodeBlock returnBody,
-                                                     boolean throwError) {
+  public static MethodSpec buildSqlTransactionMethod(
+      MethodSpec.Builder methodBuilder,
+      CodeBlock sqlTransactionBody,
+      @Nullable CodeBlock returnBody,
+      boolean throwError
+  ) {
     methodBuilder
-        .addModifiers(Const.STATIC_METHOD_MODIFIERS)
         .addParameter(SUPPORT_SQLITE_DATABASE, "db")
         .addStatement("db.beginTransaction()")
         .beginControlFlow("try")

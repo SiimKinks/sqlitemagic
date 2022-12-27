@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.multimodule
 import android.app.Application
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.siimkinks.sqlitemagic.SqliteMagic
+import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import io.reactivex.schedulers.Schedulers
 
 class TestApp : Application() {
@@ -17,8 +18,9 @@ class TestApp : Application() {
   fun initDb(app: Application) {
     SqliteMagic.setLoggingEnabled(true)
     SqliteMagic.builder(app)
-        .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
-        .scheduleRxQueriesOn(Schedulers.trampoline())
-        .openDefaultConnection()
+      .database(SqliteMagicDatabase())
+      .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+      .scheduleRxQueriesOn(Schedulers.trampoline())
+      .openDefaultConnection()
   }
 }

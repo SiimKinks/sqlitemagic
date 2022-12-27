@@ -2,9 +2,17 @@ package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
 
+import androidx.annotation.NonNull;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
 final class DefaultDbDowngrader implements DbDowngrader {
+  @NonNull
+  private final GeneratedDatabase database;
+
+  DefaultDbDowngrader(@NonNull GeneratedDatabase database) {
+    this.database = database;
+  }
+
   @Override
   public void onDowngrade(SupportSQLiteDatabase db, int oldVersion, int newVersion) {
     if (SqliteMagic.LOGGING_ENABLED) {
@@ -21,6 +29,6 @@ final class DefaultDbDowngrader implements DbDowngrader {
       c.close();
     }
 
-    SqlUtil.createSchema(db);
+    database.createSchema(db);
   }
 }

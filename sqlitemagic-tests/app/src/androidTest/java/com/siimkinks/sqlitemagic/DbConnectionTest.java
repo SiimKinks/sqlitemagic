@@ -725,6 +725,7 @@ public final class DbConnectionTest {
     return SqliteMagic
         .builder(TestApp.INSTANCE)
         .name("newConnection.db")
+        .database(new SqliteMagicDatabase())
         .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
         .scheduleRxQueriesOn(Schedulers.trampoline())
         .openNewConnection();

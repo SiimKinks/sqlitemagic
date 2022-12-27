@@ -16,8 +16,9 @@ class TestApp : Application() {
   fun initDb(app: Application) {
     SqliteMagic.setLoggingEnabled(true)
     SqliteMagic.builder(app)
-        .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
-        .scheduleRxQueriesOn(Schedulers.trampoline())
-        .openDefaultConnection()
+      .database(SqliteMagicDatabase())
+      .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+      .scheduleRxQueriesOn(Schedulers.trampoline())
+      .openDefaultConnection()
   }
 }

@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic.multimodule
 import com.google.common.truth.Truth.assertThat
 import com.nhaarman.mockitokotlin2.mock
 import com.siimkinks.sqlitemagic.*
-import com.siimkinks.sqlitemagic.GeneratedClassesManager.*
+import com.siimkinks.sqlitemagic.SqliteMagicDatabase.*
 import com.siimkinks.sqlitemagic.another.Author
 import com.siimkinks.sqlitemagic.another.TransformableObject
 import com.siimkinks.sqlitemagic.internal.StringArraySet
@@ -11,10 +11,12 @@ import com.siimkinks.sqlitemagic.submodule.SubmoduleTransformableObject
 import org.junit.Test
 
 class GenClassesManagerTest {
+  private val db = SqliteMagicDatabase()
+
   @Test
   fun clearDataReturnsAllDatabaseTables() {
-    val allChangedTables = clearData(mock())
-    assertThat(allChangedTables.size).isEqualTo(getNrOfTables(null))
+    val allChangedTables = db.clearData(mock())
+    assertThat(allChangedTables.size).isEqualTo(db.getNrOfTables(null))
     assertThat(allChangedTables).isEqualTo(StringArraySet(arrayOf(
         "immutable_value_with_nullable_fields",
         "immutable_value",
@@ -26,55 +28,55 @@ class GenClassesManagerTest {
 
   @Test
   fun databaseNameFromAnnotation() {
-    assertThat(getDbName())
+    assertThat(db.getDbName())
         .isEqualTo("multimodule.db")
   }
 
   @Test
   fun tableCountIsAddedForAllTableCount() {
-    assertThat(getNrOfTables(null))
+    assertThat(db.getNrOfTables(null))
         .isEqualTo(5)
   }
 
   @Test
   fun tableCountOfNativeModule() {
-    assertThat(getNrOfTables(""))
+    assertThat(db.getNrOfTables(""))
         .isEqualTo(0)
   }
 
   @Test
   fun tableCountOfSubmodule() {
-    assertThat(getNrOfTables("Submodule"))
+    assertThat(db.getNrOfTables("Submodule"))
         .isEqualTo(3)
   }
 
   @Test
   fun getSubmoduleNames() {
-    assertThat(GeneratedClassesManager.getSubmoduleNames())
+    assertThat(db.getSubmoduleNames())
         .isEqualTo(arrayOf("Submodule", "Another"))
   }
 
   @Test
   fun columnForDefaultTransformerValue() {
-    val column = columnForValue(true)
+    val column = db.columnForValue(true)
     assertThat(column).isInstanceOf(BooleanColumn::class.java)
   }
 
   @Test
   fun columnForNativeModuleTransformerValue() {
-    val column = columnForValue(TransformableObject(0))
+    val column = db.columnForValue(TransformableObject(0))
     assertThat(column).isInstanceOf(TransformableObjectColumn::class.java)
   }
 
   @Test
   fun columnForSubmoduleTransformerValue() {
-    val column = columnForValue(SubmoduleTransformableObject(0))
+    val column = db.columnForValue(SubmoduleTransformableObject(0))
     assertThat(column).isInstanceOf(SubmoduleTransformableObjectColumn::class.java)
   }
 
   @Test
   fun columnForValueWithoutTransformer() {
-    val column = columnForValue(Author.newRandom())
+    val column = db.columnForValue(Author.newRandom())
     assertThat(column).isInstanceOf(Column::class.java)
   }
 }

@@ -20,13 +20,14 @@ public class TestApp extends Application {
   public void onCreate() {
     super.onCreate();
     INSTANCE = this;
-    deleteDatabase(SqlUtil.getDbName());
+    deleteDatabase(new SqliteMagicDatabase().getDbName());
     initDb(this);
   }
 
   public static void initDb(@NonNull Application app) {
     SqliteMagic.setLoggingEnabled(true);
     SqliteMagic.builder(app)
+        .database(new SqliteMagicDatabase())
         .sqliteFactory(new FrameworkSQLiteOpenHelperFactory())
         .scheduleRxQueriesOn(Schedulers.trampoline())
         .openDefaultConnection();

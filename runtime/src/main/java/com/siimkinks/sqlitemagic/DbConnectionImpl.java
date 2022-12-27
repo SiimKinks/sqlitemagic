@@ -2,6 +2,13 @@ package com.siimkinks.sqlitemagic;
 
 import android.database.sqlite.SQLiteTransactionListener;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteOpenHelper;
+import androidx.sqlite.db.SupportSQLiteStatement;
+
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
@@ -9,24 +16,17 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.sqlite.db.SupportSQLiteDatabase;
-import androidx.sqlite.db.SupportSQLiteOpenHelper;
-import androidx.sqlite.db.SupportSQLiteStatement;
 import io.reactivex.Scheduler;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.PublishSubject;
-
-import static com.siimkinks.sqlitemagic.SqlUtil.getNrOfTables;
-import static com.siimkinks.sqlitemagic.SqlUtil.getSubmoduleNames;
 
 /**
  * Note: some parts are forked from <a href="https://github.com/square/sqlbrite">sqlbrite</a>
  * and modified to extended functionality and improvements
  */
 public class DbConnectionImpl implements DbConnection {
+  @NonNull
+  final GeneratedDatabase database;
   @NonNull
   final SupportSQLiteOpenHelper dbHelper;
   @NonNull
@@ -89,16 +89,21 @@ public class DbConnectionImpl implements DbConnection {
     }
   };
 
-  DbConnectionImpl(@NonNull SupportSQLiteOpenHelper dbHelper, @NonNull Scheduler queryScheduler) {
+  DbConnectionImpl(
+      @NonNull GeneratedDatabase database,
+      @NonNull SupportSQLiteOpenHelper dbHelper,
+      @NonNull Scheduler queryScheduler
+  ) {
+    this.database = database;
     this.dbHelper = dbHelper;
     this.queryScheduler = queryScheduler;
-    final String[] submoduleNames = getSubmoduleNames();
+    final String[] submoduleNames = database.getSubmoduleNames();
     if (submoduleNames != null) {
       final int submodulesCount = submoduleNames.length;
       final SimpleArrayMap<String, EntityDbManager[]> submoduleEntityDbManagers = new SimpleArrayMap<>(submodulesCount);
       for (int i = 0; i < submodulesCount; i++) {
         final String submoduleName = submoduleNames[i];
-        final int nrOfTables = getNrOfTables(submoduleName);
+        final int nrOfTables = database.getNrOfTables(submoduleName);
         final EntityDbManager[] cachedEntityData = new EntityDbManager[nrOfTables];
         for (int j = 0; j < nrOfTables; j++) {
           cachedEntityData[j] = new EntityDbManager(this);
@@ -109,7 +114,7 @@ public class DbConnectionImpl implements DbConnection {
     } else {
       this.submoduleEntityDbManagers = null;
     }
-    final int nrOfTables = getNrOfTables("");
+    final int nrOfTables = database.getNrOfTables("");
     final EntityDbManager[] cachedEntityData = new EntityDbManager[nrOfTables];
     for (int i = 0; i < nrOfTables; i++) {
       cachedEntityData[i] = new EntityDbManager(this);
@@ -145,7 +150,7 @@ public class DbConnectionImpl implements DbConnection {
 
   @Override
   public final void clearData() {
-    final StringArraySet triggers = SqlUtil.clearData(getWritableDatabase());
+    final StringArraySet triggers = database.clearData(getWritableDatabase());
     if (triggers != null) {
       sendTableTriggers(triggers);
     }
