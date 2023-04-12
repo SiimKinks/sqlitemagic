@@ -9,7 +9,6 @@ import java.io.File
 import java.io.IOException
 import java.nio.charset.Charset
 import java.nio.file.Paths
-import java.util.*
 
 class MigrationsHandler(
     private val currentStructure: DatabaseStructure,
@@ -326,12 +325,13 @@ internal fun readLatestDebugVersion(environment: Environment): Int {
 }
 
 internal fun writeMainModuleDebugVersion(environment: Environment, version: Int) {
-  val versionFile = File(environment.projectDir, "db")
-      .resolve("latest_${environment.variantName}.version")
-  if (!versionFile.exists()) {
-    versionFile.mkdirs()
+  val versionFileParent = File(environment.projectDir, "db")
+  if (!versionFileParent.exists()) {
+    versionFileParent.mkdirs()
   }
-  versionFile.writeText(version.toString())
+  versionFileParent
+    .resolve("latest_${environment.variantName}.version")
+    .writeText(version.toString())
 }
 
 private fun determineSubmoduleChange(environment: Environment): Boolean =
