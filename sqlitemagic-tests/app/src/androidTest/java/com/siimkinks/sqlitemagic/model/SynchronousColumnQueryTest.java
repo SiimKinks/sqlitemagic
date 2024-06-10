@@ -28,7 +28,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
 import static com.siimkinks.sqlitemagic.Select.abs;
 import static com.siimkinks.sqlitemagic.Select.asColumn;
+import static com.siimkinks.sqlitemagic.Select.asRawColumn;
 import static com.siimkinks.sqlitemagic.Select.avg;
+import static com.siimkinks.sqlitemagic.Select.format;
 import static com.siimkinks.sqlitemagic.Select.groupConcat;
 import static com.siimkinks.sqlitemagic.Select.length;
 import static com.siimkinks.sqlitemagic.Select.lower;
@@ -529,6 +531,44 @@ public final class SynchronousColumnQueryTest {
 
     assertThat(Select
         .column(upper(SIMPLE_ALL_VALUES_MUTABLE.STRING))
+        .from(SIMPLE_ALL_VALUES_MUTABLE)
+        .execute())
+        .isEqualTo(expected);
+  }
+
+  @Test
+  public void formatFunction() {
+    final List<String> expected = Observable.fromIterable(insertSimpleAllValues(5))
+        .map(new Function<SimpleAllValuesMutable, String>() {
+          @Override
+          public String apply(SimpleAllValuesMutable v) {
+            return v.string + v.primitiveShort;
+          }
+        })
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(format("%s%d", SIMPLE_ALL_VALUES_MUTABLE.STRING, SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT))
+        .from(SIMPLE_ALL_VALUES_MUTABLE)
+        .execute())
+        .isEqualTo(expected);
+  }
+
+  @Test
+  public void rawColumnFunction() {
+    final List<String> expected = Observable.fromIterable(insertSimpleAllValues(5))
+        .map(new Function<SimpleAllValuesMutable, String>() {
+          @Override
+          public String apply(SimpleAllValuesMutable v) {
+            return v.string + v.primitiveShort;
+          }
+        })
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(asRawColumn("printf('%s%d', " + SIMPLE_ALL_VALUES_MUTABLE.STRING + ", " + SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT + ")"))
         .from(SIMPLE_ALL_VALUES_MUTABLE)
         .execute())
         .isEqualTo(expected);

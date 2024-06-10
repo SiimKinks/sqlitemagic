@@ -217,17 +217,21 @@ inline infix fun RawSelect.From.WITH_ARGS(args: Array<String>) = this.withArgs(*
 @CheckResult
 inline infix fun RawSelect.WITH_ARGS(args: Array<String>) = this.withArgs(*args)
 
-/** @see Select.val */
+/** @see Select.asColumn */
 inline val <T : Number> T.asColumn
   @CheckResult get() = Select.asColumn(this)
 
-/** @see Select.val */
+/** @see Select.asColumn */
 inline val CharSequence.asColumn
   @CheckResult get() = Select.asColumn(this)
 
-/** @see Select.val */
+/** @see Select.asColumn */
 inline val Any.asColumn
   @CheckResult get() = Select.asColumn(this)
+
+/** @see Select.asRawColumn */
+inline val Any.asRawColumn
+  @CheckResult get() = Select.asRawColumn(this)
 
 /** @see SelectSqlNode.SelectNode.union */
 inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.UNION(select: SelectSqlNode.SelectNode<*, S, *>) =

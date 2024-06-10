@@ -1546,6 +1546,18 @@ public final class Select<S> extends SelectSqlNode<S> {
   }
 
   /**
+   * Value as raw column.
+   *
+   * @param val Value
+   * @return Column representing provided value
+   */
+  @NonNull
+  @CheckResult
+  public static <V> Column<V, V, V, ?, NotNullable> asRawColumn(@NonNull V val) {
+    return new Column<>(ANONYMOUS_TABLE, val.toString(), false, STRING_PARSER, false, null);
+  }
+
+  /**
    * The abs(X) function returns the absolute value of the numeric argument X.
    * Abs(X) returns NULL if X is NULL. If X is the integer -9223372036854775808 then abs(X)
    * throws an integer overflow error since there is no equivalent positive 64-bit two complement value.
@@ -1607,5 +1619,21 @@ public final class Select<S> extends SelectSqlNode<S> {
   @CheckResult
   public static <P, N, X extends Column<?, ?, ? extends CharSequence, P, N>> Column<String, String, CharSequence, P, N> upper(@NonNull X column) {
     return new FunctionColumn<>(column.table.internalAlias(""), column, "upper(", ")", STRING_PARSER, column.nullable, null);
+  }
+
+  /**
+   * Format string.
+   * This operator always evaluates to either NULL or a text value.
+   *
+   * @param format Format string that specifies how to construct the output string using values taken from subsequent arguments
+   * @param columns Columns as arguments to format
+   * @return Column representing the result of this function
+   * @see <a href="https://www.sqlite.org/lang_corefunc.html#format">SQLite documentation: Core Functions</a>
+   */
+  @SafeVarargs
+  @NonNull
+  @CheckResult
+  public static <X extends Column<?, ?, ?, ?, ?>> Column<String, String, CharSequence, ?, com.siimkinks.sqlitemagic.Nullable> format(@NonNull String format, @NonNull @Size(min = 1) X... columns) {
+    return new FunctionColumn<>(ANONYMOUS_TABLE, columns, "printf('" + format + "', ", ", ", ")", STRING_PARSER, true, null);
   }
 }

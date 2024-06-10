@@ -23,11 +23,13 @@ import static com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.COMPLEX_
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.Select.abs;
 import static com.siimkinks.sqlitemagic.Select.asColumn;
+import static com.siimkinks.sqlitemagic.Select.asRawColumn;
 import static com.siimkinks.sqlitemagic.Select.avg;
 import static com.siimkinks.sqlitemagic.Select.avgDistinct;
 import static com.siimkinks.sqlitemagic.Select.concat;
 import static com.siimkinks.sqlitemagic.Select.count;
 import static com.siimkinks.sqlitemagic.Select.countDistinct;
+import static com.siimkinks.sqlitemagic.Select.format;
 import static com.siimkinks.sqlitemagic.Select.groupConcat;
 import static com.siimkinks.sqlitemagic.Select.groupConcatDistinct;
 import static com.siimkinks.sqlitemagic.Select.length;
@@ -2225,6 +2227,115 @@ public final class SelectSqlBuilderTest {
   }
 
   @Test
+  public void rawColumn() {
+    String expected = "SELECT author.id || ' ' || author.name FROM author ";
+    final Column<String, String, String, ?, ?> strVal = asRawColumn("' '");
+    assertSql(Select.column(concat(AUTHOR.ID, strVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(strVal.valueParser).isEqualTo(STRING_PARSER);
+
+    expected = "SELECT author.id || format('%s', author.name) || author.name FROM author ";
+    final Column<String, String, String, ?, ?> val = asRawColumn("format('%s', author.name)");
+    assertSql(Select.column(concat(AUTHOR.ID, val, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(strVal.valueParser).isEqualTo(STRING_PARSER);
+
+    expected = "SELECT author.id || 3 || author.name FROM author ";
+    final Column<Integer, Integer, Integer, ?, ?> intVal = asRawColumn(3);
+    assertSql(Select.column(concat(AUTHOR.ID, intVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(intVal.valueParser).isEqualTo(STRING_PARSER);
+
+    expected = "SELECT author.id || -3 || author.name FROM author ";
+    final Column<Integer, Integer, Integer, ?, ?> negIntVal = asRawColumn(-3);
+    assertSql(Select.column(concat(AUTHOR.ID, negIntVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negIntVal.valueParser).isEqualTo(STRING_PARSER);
+
+    expected = "SELECT author.id || 3 || author.name FROM author ";
+    final Column<Long, Long, Long, ?, ?> longVal = asRawColumn(3L);
+    assertSql(Select.column(concat(AUTHOR.ID, longVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(longVal.valueParser).isEqualTo(STRING_PARSER);
+
+    expected = "SELECT author.id || -3 || author.name FROM author ";
+    final Column<Long, Long, Long, ?, ?> negLongVal = asRawColumn(-3L);
+    assertSql(Select.column(concat(AUTHOR.ID, negLongVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negLongVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final short s = 3;
+    expected = "SELECT author.id || 3 || author.name FROM author ";
+    final Column<Short, Short, Short, ?, ?> shortVal = asRawColumn(s);
+    assertSql(Select.column(concat(AUTHOR.ID, shortVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(shortVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final short negS = -3;
+    expected = "SELECT author.id || -3 || author.name FROM author ";
+    final Column<Short, Short, Short, ?, ?> negShortVal = asRawColumn(negS);
+    assertSql(Select.column(concat(AUTHOR.ID, negShortVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negShortVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final byte b = 3;
+    expected = "SELECT author.id || 3 || author.name FROM author ";
+    final Column<Byte, Byte, Byte, ?, ?> byteVal = asRawColumn(b);
+    assertSql(Select.column(concat(AUTHOR.ID, byteVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(byteVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final byte nB = -3;
+    expected = "SELECT author.id || -3 || author.name FROM author ";
+    final Column<Byte, Byte, Byte, ?, ?> negByteVal = asRawColumn(nB);
+    assertSql(Select.column(concat(AUTHOR.ID, negByteVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negByteVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final float f = 3.3f;
+    expected = "SELECT author.id || 3.3 || author.name FROM author ";
+    final Column<Float, Float, Float, ?, ?> floatVal = asRawColumn(f);
+    assertSql(Select.column(concat(AUTHOR.ID, floatVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(floatVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final float nF = -3.3f;
+    expected = "SELECT author.id || -3.3 || author.name FROM author ";
+    final Column<Float, Float, Float, ?, ?> negFloatVal = asRawColumn(nF);
+    assertSql(Select.column(concat(AUTHOR.ID, negFloatVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negFloatVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final double d = 3.3;
+    expected = "SELECT author.id || 3.3 || author.name FROM author ";
+    final Column<Double, Double, Double, ?, ?> doubleVal = asRawColumn(d);
+    assertSql(Select.column(concat(AUTHOR.ID, doubleVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(doubleVal.valueParser).isEqualTo(STRING_PARSER);
+
+    final double nD = -3.3;
+    expected = "SELECT author.id || -3.3 || author.name FROM author ";
+    final Column<Double, Double, Double, ?, ?> negDoubleVal = asRawColumn(nD);
+    assertSql(Select.column(concat(AUTHOR.ID, negDoubleVal, AUTHOR.NAME))
+            .from(AUTHOR),
+        expected);
+    assertThat(negDoubleVal.valueParser).isEqualTo(STRING_PARSER);
+  }
+
+  @Test
   public void absFunction() {
     String expected = "SELECT abs(book.nr_of_releases) FROM book ";
     assertSql(Select.column(abs(BOOK.NR_OF_RELEASES))
@@ -2265,6 +2376,19 @@ public final class SelectSqlBuilderTest {
     final String expected = "SELECT upper(book.title) FROM book ";
     assertSql(Select.column(upper(BOOK.TITLE))
             .from(BOOK),
+        expected);
+  }
+
+  @Test
+  public void formatFunction() {
+    String expected = "SELECT printf('%.02f', book.nr_of_releases) FROM book ";
+    assertSql(Select.column(format("%.02f", BOOK.NR_OF_RELEASES))
+            .from(BOOK),
+        expected);
+
+    expected = "SELECT printf('%.02f', simple_all_values_mutable.primitive_float, simple_all_values_mutable.primitive_double) FROM simple_all_values_mutable ";
+    assertSql(Select.column(format("%.02f", SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_FLOAT, SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_DOUBLE))
+            .from(SIMPLE_ALL_VALUES_MUTABLE),
         expected);
   }
 

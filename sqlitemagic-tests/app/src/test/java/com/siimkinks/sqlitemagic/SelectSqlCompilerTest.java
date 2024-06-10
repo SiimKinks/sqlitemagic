@@ -32,11 +32,13 @@ import static com.siimkinks.sqlitemagic.ComplexViewTable.COMPLEX_VIEW;
 import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.Select.abs;
 import static com.siimkinks.sqlitemagic.Select.asColumn;
+import static com.siimkinks.sqlitemagic.Select.asRawColumn;
 import static com.siimkinks.sqlitemagic.Select.avg;
 import static com.siimkinks.sqlitemagic.Select.avgDistinct;
 import static com.siimkinks.sqlitemagic.Select.concat;
 import static com.siimkinks.sqlitemagic.Select.count;
 import static com.siimkinks.sqlitemagic.Select.countDistinct;
+import static com.siimkinks.sqlitemagic.Select.format;
 import static com.siimkinks.sqlitemagic.Select.groupConcat;
 import static com.siimkinks.sqlitemagic.Select.groupConcatDistinct;
 import static com.siimkinks.sqlitemagic.Select.length;
@@ -862,6 +864,29 @@ public final class SelectSqlCompilerTest {
   }
 
   @Test
+  public void rawColumn() {
+    CompiledSelectMetadata.assertThat()
+        .sqlWithWildcards("SELECT printf('%s', magazine.name) " +
+            "FROM complex_object_with_same_leafs ")
+        .observedTables("complex_object_with_same_leafs")
+        .build()
+        .isEqualToColumnSelect(Select
+            .column(asRawColumn("printf('%s', magazine.name)"))
+            .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
+            .compile());
+
+    CompiledSelectMetadata.assertThat()
+        .sqlWithWildcards("SELECT printf('%d%s%s', book.nr_of_releases, magazine.name, complex_object_with_same_leafs.name) " +
+            "FROM complex_object_with_same_leafs ")
+        .observedTables("complex_object_with_same_leafs")
+        .build()
+        .isEqualToColumnSelect(Select
+            .column(asRawColumn("printf('%d%s%s', book.nr_of_releases, magazine.name, complex_object_with_same_leafs.name)"))
+            .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
+            .compile());
+  }
+
+  @Test
   public void complexAvgFunction() {
     assertNumericFunction("avg(", new Func1<NumericColumn<Integer, Integer, Number, Book, ?>, Column<?, ?, ?, Book, ?>>() {
       @Override
@@ -1200,6 +1225,31 @@ public final class SelectSqlCompilerTest {
         return upper(c);
       }
     });
+  }
+
+  @Test
+  public void complexFormatFunction() {
+    CompiledSelectMetadata.assertThat()
+        .sqlWithWildcards("SELECT printf('%s', ?.name) " +
+            "FROM complex_object_with_same_leafs " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ")
+        .observedTables("complex_object_with_same_leafs", "magazine")
+        .build()
+        .isEqualToColumnSelect(Select
+            .column(format("%s", MAGAZINE.NAME))
+            .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
+            .compile());
+
+    CompiledSelectMetadata.assertThat()
+        .sqlWithWildcards("SELECT printf('%d%s%s', book.nr_of_releases, ?.name, complex_object_with_same_leafs.name) " +
+            "FROM complex_object_with_same_leafs LEFT JOIN book ON complex_object_with_same_leafs.book=book.base_id " +
+            "LEFT JOIN magazine AS ? ON complex_object_with_same_leafs.magazine=?._id ")
+        .observedTables("complex_object_with_same_leafs", "book", "magazine")
+        .build()
+        .isEqualToColumnSelect(Select
+            .column(format("%d%s%s", BOOK.NR_OF_RELEASES, MAGAZINE.NAME, COMPLEX_OBJECT_WITH_SAME_LEAFS.NAME))
+            .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
+            .compile());
   }
 
   @Test
