@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.SQLException;
-
 import androidx.annotation.NonNull;
 
 import com.siimkinks.sqlitemagic.Select.Select1;
@@ -14,7 +12,6 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
@@ -584,45 +581,47 @@ public final class SelectSqlBuilderTest {
   }
 
   @Test
-  public void invalidWhereInCondition() {
-    int exceptions = 0;
-    Select.From selectBase = Select.from(BOOK);
+  public void emptyWhereInCondition() {
+    final String expected = "SELECT * FROM book WHERE ? ";
 
-    try {
-      final Collection<String> values = new ArrayList<>();
-      generateSql(selectBase.where(BOOK.TITLE.in(values)));
-    } catch (SQLException e) {
-      exceptions++;
-    }
-    try {
-      final String[] values = {};
-      generateSql(selectBase.where(BOOK.TITLE.in(values)));
-    } catch (SQLException e) {
-      exceptions++;
-    }
+    Select.Where sqlNode = Select.from(BOOK).where(BOOK.TITLE.in(new ArrayList<>()));
+    assertSql(sqlNode, expected, "0");
 
-    assertThat(exceptions).isEqualTo(2);
+    sqlNode = Select.from(BOOK).where(BOOK.TITLE.in());
+    assertSql(sqlNode, expected, "0");
   }
 
   @Test
-  public void invalidWhereNotInCondition() {
-    int exceptions = 0;
-    Select.From selectBase = Select.from(BOOK);
+  public void emptyComplexWhereInCondition() {
+    final String expected = "SELECT * FROM book WHERE ? ";
 
-    try {
-      final Collection<String> values = new ArrayList<>();
-      generateSql(selectBase.where(BOOK.TITLE.notIn(values)));
-    } catch (SQLException e) {
-      exceptions++;
-    }
-    try {
-      final String[] values = {};
-      generateSql(selectBase.where(BOOK.TITLE.notIn(values)));
-    } catch (SQLException e) {
-      exceptions++;
-    }
+    Select.Where sqlNode = Select.from(BOOK).where(BOOK.AUTHOR.in(new ArrayList<Long>()));
+    assertSql(sqlNode, expected, "0");
 
-    assertThat(exceptions).isEqualTo(2);
+    sqlNode = Select.from(BOOK).where(BOOK.AUTHOR.in(new long[0]));
+    assertSql(sqlNode, expected, "0");
+  }
+
+  @Test
+  public void emptyWhereNotInCondition() {
+    final String expected = "SELECT * FROM book WHERE ? ";
+
+    Select.Where sqlNode = Select.from(BOOK).where(BOOK.TITLE.notIn(new ArrayList<>()));
+    assertSql(sqlNode, expected, "1");
+
+    sqlNode = Select.from(BOOK).where(BOOK.TITLE.notIn());
+    assertSql(sqlNode, expected, "1");
+  }
+
+  @Test
+  public void emptyComplexWhereNotInCondition() {
+    final String expected = "SELECT * FROM book WHERE ? ";
+
+    Select.Where sqlNode = Select.from(BOOK).where(BOOK.AUTHOR.notIn(new ArrayList<Long>()));
+    assertSql(sqlNode, expected, "1");
+
+    sqlNode = Select.from(BOOK).where(BOOK.AUTHOR.notIn(new long[0]));
+    assertSql(sqlNode, expected, "1");
   }
 
   @Test

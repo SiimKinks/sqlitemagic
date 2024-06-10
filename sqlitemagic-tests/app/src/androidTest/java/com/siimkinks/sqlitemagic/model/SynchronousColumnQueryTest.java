@@ -26,6 +26,7 @@ import io.reactivex.functions.Function;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.siimkinks.sqlitemagic.AuthorTable.AUTHOR;
+import static com.siimkinks.sqlitemagic.MagazineTable.MAGAZINE;
 import static com.siimkinks.sqlitemagic.Select.abs;
 import static com.siimkinks.sqlitemagic.Select.asColumn;
 import static com.siimkinks.sqlitemagic.Select.asRawColumn;
@@ -37,6 +38,7 @@ import static com.siimkinks.sqlitemagic.Select.lower;
 import static com.siimkinks.sqlitemagic.Select.upper;
 import static com.siimkinks.sqlitemagic.SimpleAllValuesMutableTable.SIMPLE_ALL_VALUES_MUTABLE;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertAuthors;
+import static com.siimkinks.sqlitemagic.model.TestUtil.insertMagazines;
 import static com.siimkinks.sqlitemagic.model.TestUtil.insertSimpleAllValues;
 
 @RunWith(AndroidJUnit4.class)
@@ -178,12 +180,12 @@ public final class SynchronousColumnQueryTest {
   public void maxFunction() {
     final List<SimpleAllValuesMutable> vals = insertSimpleAllValues(9);
     final Integer max = MathObservable.max(
-        Observable.fromIterable(vals).map(new Function<SimpleAllValuesMutable, Integer>() {
-          @Override
-          public Integer apply(SimpleAllValuesMutable v) {
-            return v.primitiveInt;
-          }
-        }))
+            Observable.fromIterable(vals).map(new Function<SimpleAllValuesMutable, Integer>() {
+              @Override
+              public Integer apply(SimpleAllValuesMutable v) {
+                return v.primitiveInt;
+              }
+            }))
         .blockingFirst();
 
     assertThat(Select
@@ -211,13 +213,13 @@ public final class SynchronousColumnQueryTest {
   public void minFunction() {
     final List<SimpleAllValuesMutable> vals = insertSimpleAllValues(9);
     final Integer min = MathObservable.min(
-        Observable.fromIterable(vals)
-            .map(new Function<SimpleAllValuesMutable, Integer>() {
-              @Override
-              public Integer apply(SimpleAllValuesMutable v) {
-                return v.primitiveInt;
-              }
-            }))
+            Observable.fromIterable(vals)
+                .map(new Function<SimpleAllValuesMutable, Integer>() {
+                  @Override
+                  public Integer apply(SimpleAllValuesMutable v) {
+                    return v.primitiveInt;
+                  }
+                }))
         .blockingFirst();
 
     assertThat(Select
@@ -244,13 +246,13 @@ public final class SynchronousColumnQueryTest {
   @Test
   public void sumFunction() {
     final Integer sum = MathObservable.sumInt(
-        Observable.fromIterable(insertSimpleAllValues(9))
-            .map(new Function<SimpleAllValuesMutable, Integer>() {
-              @Override
-              public Integer apply(SimpleAllValuesMutable v) {
-                return (int) v.primitiveShort;
-              }
-            }))
+            Observable.fromIterable(insertSimpleAllValues(9))
+                .map(new Function<SimpleAllValuesMutable, Integer>() {
+                  @Override
+                  public Integer apply(SimpleAllValuesMutable v) {
+                    return (int) v.primitiveShort;
+                  }
+                }))
         .blockingFirst();
 
     assertThat(Select
@@ -570,6 +572,122 @@ public final class SynchronousColumnQueryTest {
     assertThat(Select
         .column(asRawColumn("printf('%s%d', " + SIMPLE_ALL_VALUES_MUTABLE.STRING + ", " + SIMPLE_ALL_VALUES_MUTABLE.PRIMITIVE_SHORT + ")"))
         .from(SIMPLE_ALL_VALUES_MUTABLE)
+        .execute())
+        .isEqualTo(expected);
+  }
+
+  @Test
+  public void selectColumnInEmptyCollection() {
+    final List<SimpleAllValuesMutable> inserted = Observable.fromIterable(insertSimpleAllValues(5))
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING)
+        .from(SIMPLE_ALL_VALUES_MUTABLE)
+        .where(SIMPLE_ALL_VALUES_MUTABLE.ID.in(new ArrayList<>()))
+        .execute())
+        .isEqualTo(new ArrayList<>());
+  }
+
+  @Test
+  public void selectComplexColumnInEmptyCollection() {
+    final List<Magazine> inserted = Observable.fromIterable(insertMagazines(5))
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(MAGAZINE.NAME)
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.in(new ArrayList<Long>()))
+        .execute())
+        .isEqualTo(new ArrayList<>());
+  }
+
+  @Test
+  public void selectColumnInEmptyVarargs() {
+    final List<SimpleAllValuesMutable> inserted = Observable.fromIterable(insertSimpleAllValues(5))
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING)
+        .from(SIMPLE_ALL_VALUES_MUTABLE)
+        .where(SIMPLE_ALL_VALUES_MUTABLE.ID.in())
+        .execute())
+        .isEqualTo(new ArrayList<>());
+  }
+
+  @Test
+  public void selectComplexColumnInEmptyVarargs() {
+    final List<Magazine> inserted = Observable.fromIterable(insertMagazines(5))
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(MAGAZINE.NAME)
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.in(new long[0]))
+        .execute())
+        .isEqualTo(new ArrayList<>());
+  }
+
+  @Test
+  public void selectColumnNotInEmptyCollection() {
+    final List<String> expected = Observable.fromIterable(insertSimpleAllValues(5))
+        .map(s -> s.string)
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING)
+        .from(SIMPLE_ALL_VALUES_MUTABLE)
+        .where(SIMPLE_ALL_VALUES_MUTABLE.ID.notIn(new ArrayList<>()))
+        .execute())
+        .isEqualTo(expected);
+  }
+
+  @Test
+  public void selectComplexColumnNotInEmptyCollection() {
+    final List<String> expected = Observable.fromIterable(insertMagazines(5))
+        .map(s -> s.name)
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(MAGAZINE.NAME)
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.notIn(new ArrayList<Long>()))
+        .execute())
+        .isEqualTo(expected);
+  }
+
+  @Test
+  public void selectColumnNotInEmptyVarargs() {
+    final List<String> expected = Observable.fromIterable(insertSimpleAllValues(5))
+        .map(s -> s.string)
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(SIMPLE_ALL_VALUES_MUTABLE.STRING)
+        .from(SIMPLE_ALL_VALUES_MUTABLE)
+        .where(SIMPLE_ALL_VALUES_MUTABLE.ID.notIn())
+        .execute())
+        .isEqualTo(expected);
+  }
+
+  @Test
+  public void selectComplexColumnNotInEmptyVarargs() {
+    final List<String> expected = Observable.fromIterable(insertMagazines(5))
+        .map(s -> s.name)
+        .toList()
+        .blockingGet();
+
+    assertThat(Select
+        .column(MAGAZINE.NAME)
+        .from(MAGAZINE)
+        .where(MAGAZINE.AUTHOR.notIn(new long[0]))
         .execute())
         .isEqualTo(expected);
   }

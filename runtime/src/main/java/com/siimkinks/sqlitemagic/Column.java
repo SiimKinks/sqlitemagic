@@ -4,6 +4,10 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDoneException;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.sqlite.db.SupportSQLiteStatement;
+
 import com.siimkinks.sqlitemagic.Select.OrderingTerm;
 import com.siimkinks.sqlitemagic.Select.Select1;
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode;
@@ -15,11 +19,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
-
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Size;
-import androidx.sqlite.db.SupportSQLiteStatement;
 
 import static com.siimkinks.sqlitemagic.Select.OrderingTerm.ASC;
 import static com.siimkinks.sqlitemagic.Select.OrderingTerm.DESC;
@@ -672,10 +671,10 @@ public class Column<T, R, ET, P, N> {
    */
   @NonNull
   @CheckResult
-  public final Expr in(@NonNull @Size(min = 1) Collection<T> values) {
+  public final Expr in(@NonNull Collection<T> values) {
     final int length = values.size();
     if (length == 0) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "0");
     }
     final String[] args = new String[length];
     final StringBuilder sb = new StringBuilder(6 + (length << 1));
@@ -703,10 +702,10 @@ public class Column<T, R, ET, P, N> {
   @SafeVarargs
   @NonNull
   @CheckResult
-  public final Expr in(@NonNull @Size(min = 1) T... values) {
+  public final Expr in(@NonNull T... values) {
     final int length = values.length;
     if (length == 0) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "0");
     }
     final String[] args = new String[length];
     final StringBuilder sb = new StringBuilder(6 + (length << 1));
@@ -747,10 +746,10 @@ public class Column<T, R, ET, P, N> {
    */
   @NonNull
   @CheckResult
-  public final Expr notIn(@NonNull @Size(min = 1) Collection<T> values) {
+  public final Expr notIn(@NonNull Collection<T> values) {
     final int length = values.size();
     if (length == 0) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "1");
     }
     final String[] args = new String[length];
     final StringBuilder sb = new StringBuilder(10 + (length << 1));
@@ -778,10 +777,10 @@ public class Column<T, R, ET, P, N> {
   @SafeVarargs
   @NonNull
   @CheckResult
-  public final Expr notIn(@NonNull @Size(min = 1) T... values) {
+  public final Expr notIn(@NonNull T... values) {
     final int length = values.length;
     if (length == 0) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "1");
     }
     final String[] args = new String[length];
     final StringBuilder sb = new StringBuilder(10 + (length << 1));

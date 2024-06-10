@@ -1,16 +1,13 @@
 package com.siimkinks.sqlitemagic;
 
-import android.database.SQLException;
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.siimkinks.sqlitemagic.Utils.ValueParser;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.Size;
 
 /**
  * A column used in queries and conditions.
@@ -61,10 +58,10 @@ public class ComplexColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N>
    */
   @NonNull
   @CheckResult
-  public final Expr in(@NonNull @Size(min = 1) long... values) {
+  public final Expr in(@NonNull long... values) {
     final int length = values.length;
     if (length == 0) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "0");
     }
     final String[] args = new String[length];
     final StringBuilder sb = new StringBuilder(6 + (length << 1));
@@ -93,7 +90,7 @@ public class ComplexColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N>
   public final Expr in(@NonNull Iterable<Long> values) {
     final Iterator<Long> iterator = values.iterator();
     if (!iterator.hasNext()) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "0");
     }
     final ArrayList<String> args = new ArrayList<>();
     final StringBuilder sb = new StringBuilder();
@@ -123,10 +120,10 @@ public class ComplexColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N>
    */
   @NonNull
   @CheckResult
-  public final Expr notIn(@NonNull @Size(min = 1) long... values) {
+  public final Expr notIn(@NonNull long... values) {
     final int length = values.length;
     if (length == 0) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "1");
     }
     final String[] args = new String[length];
     final StringBuilder sb = new StringBuilder(10 + (length << 1));
@@ -155,7 +152,7 @@ public class ComplexColumn<T, R, ET, P, N> extends NumericColumn<T, R, ET, P, N>
   public final Expr notIn(@NonNull Iterable<Long> values) {
     final Iterator<Long> iterator = values.iterator();
     if (!iterator.hasNext()) {
-      throw new SQLException("Empty IN clause values");
+      return Expr.raw("?", "1");
     }
     final ArrayList<String> args = new ArrayList<>();
     final StringBuilder sb = new StringBuilder();
