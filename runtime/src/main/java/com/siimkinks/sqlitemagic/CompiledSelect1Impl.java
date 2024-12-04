@@ -2,16 +2,16 @@ package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteStatement;
+
 import com.siimkinks.sqlitemagic.Query.DatabaseQuery;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.sqlite.db.SupportSQLiteDatabase;
-import androidx.sqlite.db.SupportSQLiteStatement;
 
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.CompiledFirstSelectImpl.addTakeFirstLimitClauseIfNeeded;
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.createQueryObservable;
@@ -52,7 +52,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
     super.rawQuery(inStream);
     final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
     final long startNanos = nanoTime();
-    final Cursor cursor = db.query(sql, args);
+    final Cursor cursor = SqlUtil.query(db, sql, args);
     if (SqliteMagic.LOGGING_ENABLED) {
       final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
       LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
@@ -208,7 +208,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
       super.rawQuery(inStream);
       final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final Cursor cursor = db.query(sql, args);
+      final Cursor cursor = SqlUtil.query(db, sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);

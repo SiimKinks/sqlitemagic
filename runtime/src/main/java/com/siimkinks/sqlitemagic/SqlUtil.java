@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic;
 
+import android.database.Cursor;
+
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -14,6 +16,15 @@ import java.util.ArrayList;
 public final class SqlUtil {
   private SqlUtil() {
     throw new AssertionError("no instances");
+  }
+
+  static Cursor query(@NonNull SupportSQLiteDatabase db,
+                      @NonNull String sql,
+                      @Nullable String[] args) {
+    if (args != null) {
+      return db.query(sql, args);
+    }
+    return db.query(sql);
   }
 
   static void createView(@NonNull SupportSQLiteDatabase db,

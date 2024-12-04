@@ -3,6 +3,12 @@ package com.siimkinks.sqlitemagic;
 import android.database.Cursor;
 import android.database.SQLException;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.sqlite.db.SupportSQLiteStatement;
+
 import com.siimkinks.sqlitemagic.Query.DatabaseQuery;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
@@ -11,11 +17,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.sqlite.db.SupportSQLiteDatabase;
-import androidx.sqlite.db.SupportSQLiteStatement;
 import io.reactivex.Observable;
 import io.reactivex.functions.Predicate;
 
@@ -62,7 +63,7 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
     super.rawQuery(inStream);
     final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
     final long startNanos = nanoTime();
-    final Cursor cursor = db.query(sql, args);
+    final Cursor cursor = SqlUtil.query(db, sql, args);
     if (SqliteMagic.LOGGING_ENABLED) {
       final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
       LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
@@ -227,7 +228,7 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
       super.rawQuery(inStream);
       final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final Cursor cursor = db.query(sql, args);
+      final Cursor cursor = SqlUtil.query(db, sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
@@ -304,7 +305,7 @@ final class CompiledSelectImpl<T, S> extends DatabaseQuery<List<T>, T> implement
       super.rawQuery(inStream);
       final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final Cursor cursor = db.query(sql, args);
+      final Cursor cursor = SqlUtil.query(db, sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);

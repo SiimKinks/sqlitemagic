@@ -2,13 +2,13 @@ package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
 
-import java.util.Collection;
-
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import androidx.sqlite.db.SupportSQLiteDatabase;
+
+import java.util.Collection;
 
 import static com.siimkinks.sqlitemagic.CompiledSelectImpl.createQueryObservable;
 import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_STRINGS;
@@ -143,7 +143,7 @@ public final class RawSelect extends RawSelectNode<RawSelect, CompiledRawSelect>
       super.rawQuery(inStream);
       final SupportSQLiteDatabase db = dbConnection.getReadableDatabase();
       final long startNanos = nanoTime();
-      final Cursor cursor = db.query(sql, args);
+      final Cursor cursor = SqlUtil.query(db, sql, args);
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
