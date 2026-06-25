@@ -587,6 +587,27 @@ public final class SelectSqlCompilerTest {
   }
 
   @Test
+  public void orderByWithExpressionWithArgs() {
+    CompiledSelect<Author, SelectN> compiledSelect = Select
+        .from(AUTHOR)
+        .orderBy(
+            Expr
+                .raw("CASE WHEN " + AUTHOR.NAME + " LIKE ? THEN 0 ELSE 1 END", "foo")
+                .asc()
+        )
+        .compile();
+    CompiledSelectMetadata
+        .assertThat()
+        .sql("SELECT * FROM author ORDER BY CASE WHEN author.name LIKE ? THEN 0 ELSE 1 END ASC ")
+        .args("foo")
+        .tableName("author")
+        .observedTables("author")
+        .queryDeep(false)
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
   public void userDefinedSelect() {
     final String magazineAuthorAlias = "ma";
     final AuthorTable magazineAuthor = AUTHOR.as(magazineAuthorAlias);
@@ -1716,6 +1737,36 @@ public final class SelectSqlCompilerTest {
         .tableGraphNodeNames(new SimpleArrayMap<String, String>())
         .columns(columns)
         .args("5")
+        .build()
+        .isEqualTo(compiledSelect);
+  }
+
+  @Test
+  public void selectionAsColumnWithArgsInOrderBy() {
+    final CompiledSelect<Book, SelectN> compiledSelect = Select
+        .columns(BOOK.TITLE, BOOK.AUTHOR)
+        .from(BOOK)
+        .orderBy(Select.column(count())
+            .from(BOOK)
+            .where(BOOK.TITLE.is("foo"))
+            .toColumn("some_count")
+            .asc()
+        )
+        .compile();
+
+    final SimpleArrayMap<String, Integer> columns = new SimpleArrayMap<>();
+    columns.put("book.title", 0);
+    columns.put("book.author", 1);
+    CompiledSelectMetadata.assertThat()
+        .sql("SELECT book.title," +
+            "book.author " +
+            "FROM book " +
+            "ORDER BY (SELECT count(*) FROM book WHERE book.title=? ) ASC ")
+        .args("foo")
+        .tableName(Book.TABLE)
+        .observedTables(Book.TABLE)
+        .tableGraphNodeNames(new SimpleArrayMap<String, String>())
+        .columns(columns)
         .build()
         .isEqualTo(compiledSelect);
   }

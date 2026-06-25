@@ -1019,6 +1019,15 @@ public final class Select<S> extends SelectSqlNode<S> {
       this.ordering = ordering;
     }
 
+    void addArgs(@NonNull ArrayList<String> args) {
+      if (column != null) {
+        column.addArgs(args);
+      }
+      if (expr != null) {
+        expr.addArgs(args);
+      }
+    }
+
     @Override
     void appendSql(@NonNull StringBuilder sb) {
       if (column != null) {
@@ -1063,6 +1072,9 @@ public final class Select<S> extends SelectSqlNode<S> {
             @NonNull @Size(min = 1) OrderingTerm[] orderingTerms) {
       super(parent);
       this.orderingTerms = orderingTerms;
+      for (int i = 0, length = orderingTerms.length; i < length; i++) {
+        orderingTerms[i].addArgs(selectBuilder.args);
+      }
     }
 
     @Override
