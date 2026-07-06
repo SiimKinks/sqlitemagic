@@ -30,6 +30,6 @@ allprojects {
 }
 
 wrapper {
-  version = '7.6'
-  distributionUrl = 'https://services.gradle.org/distributions/gradle-7.6-all.zip'
+  version = '9.6.1'
+  distributionUrl = "https://services.gradle.org/distributions/gradle-$version-all.zip"
 }

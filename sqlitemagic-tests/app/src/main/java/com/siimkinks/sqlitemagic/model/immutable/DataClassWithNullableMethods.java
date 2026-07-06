@@ -12,60 +12,14 @@ import com.siimkinks.sqlitemagic.model.TransformableObject;
 import java.util.Collection;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@ToString
-@EqualsAndHashCode
 @Table(persistAll = true, useAccessMethods = true)
-public final class DataClassWithNullableMethods implements ImmutableEquals {
-  @Id
-  @Nullable
-  private final Long id;
-  @Nullable
-  private final String stringValue;
-  @Nullable
-  private final Boolean aBoolean;
-  private final int integer;
-  @NonNull
-  private final TransformableObject transformableObject;
-
-  public DataClassWithNullableMethods(@Nullable Long id,
-                                      @Nullable String stringValue,
-                                      @Nullable Boolean aBoolean,
-                                      int integer,
-                                      @NonNull TransformableObject transformableObject) {
-    this.id = id;
-    this.stringValue = stringValue;
-    this.aBoolean = aBoolean;
-    this.integer = integer;
-    this.transformableObject = transformableObject;
-  }
-
-  @Nullable
-  public final Long getId() {
-    return this.id;
-  }
-
-  @Nullable
-  public final String getStringValue() {
-    return this.stringValue;
-  }
-
-  @Nullable
-  public final Boolean getABoolean() {
-    return this.aBoolean;
-  }
-
-  public final int getInteger() {
-    return this.integer;
-  }
-
-  @NonNull
-  public final TransformableObject getTransformableObject() {
-    return this.transformableObject;
-  }
-
+public record DataClassWithNullableMethods(
+    @Id @Nullable Long id,
+    @Nullable String stringValue,
+    @Nullable Boolean aBoolean,
+    int integer,
+    @NonNull TransformableObject transformableObject
+) implements ImmutableEquals {
   public static DataClassWithNullableMethods newRandom() {
     return newRandom(null);
   }

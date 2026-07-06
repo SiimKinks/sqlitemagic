@@ -13,25 +13,12 @@ import com.siimkinks.sqlitemagic.annotation.Unique;
 import java.util.Collection;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@ToString
-@EqualsAndHashCode
 @Table(persistAll = true)
-public final class SimpleDataClassWithFieldsAndUnique {
-  @Id(autoIncrement = false)
-  public final long id;
-  @Unique
-  public final long uniqueVal;
-  @Nullable
-  public final String string;
-
-  public SimpleDataClassWithFieldsAndUnique(long id, long uniqueVal, @Nullable String string) {
-    this.id = id;
-    this.uniqueVal = uniqueVal;
-    this.string = string;
-  }
+public record SimpleDataClassWithFieldsAndUnique(
+    @Id(autoIncrement = false) long id,
+    @Unique long uniqueVal,
+    @Nullable String string
+) {
 
   @NonNull
   @CheckResult

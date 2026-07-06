@@ -41,7 +41,8 @@ public class ModelValidator {
 
   public boolean isTableElementValid(TableElement tableElement) {
     final TypeElement rawElement = tableElement.getTableElement();
-    if (rawElement.getKind() != ElementKind.CLASS) {
+    final ElementKind kind = rawElement.getKind();
+    if (kind != ElementKind.CLASS && kind != ElementKind.RECORD) {
       environment.error(rawElement, ERR_TABLE_MISPLACEMENT);
       return false;
     }

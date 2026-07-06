@@ -9,15 +9,9 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.Unique;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-@NoArgsConstructor
-@EqualsAndHashCode
-@ToString
 @Table(persistAll = true)
 public class SimpleMutableWithUnique {
   @Id(autoIncrement = false)
@@ -26,6 +20,9 @@ public class SimpleMutableWithUnique {
   long uniqueVal;
   @Nullable
   String string;
+
+  public SimpleMutableWithUnique() {
+  }
 
   public long getId() {
     return id;
@@ -91,5 +88,29 @@ public class SimpleMutableWithUnique {
 
   public static SqliteMagic_SimpleMutableWithUnique_Handler.BulkDeleteBuilder delete(Collection<SimpleMutableWithUnique> o) {
     return SqliteMagic_SimpleMutableWithUnique_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SimpleMutableWithUnique that = (SimpleMutableWithUnique) o;
+    return id == that.id &&
+        uniqueVal == that.uniqueVal &&
+        Objects.equals(string, that.string);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, uniqueVal, string);
+  }
+
+  @Override
+  public String toString() {
+    return "SimpleMutableWithUnique{" +
+        "id=" + id +
+        ", uniqueVal=" + uniqueVal +
+        ", string='" + string + '\'' +
+        '}';
   }
 }

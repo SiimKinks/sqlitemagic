@@ -1,10 +1,10 @@
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-kapt'
+apply plugin: 'com.android.legacy-kapt'
 apply plugin: 'sqlitemagic'
 
 android {
-  compileSdkVersion rootProject.ext.compileSdkVersion
+  namespace 'com.siimkinks.sqlitemagic.another'
+  compileSdk rootProject.ext.compileSdkVersion
   buildToolsVersion rootProject.ext.buildToolsVersion
 
   defaultConfig {
@@ -16,7 +16,10 @@ android {
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
   }
-
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_21
+    targetCompatibility JavaVersion.VERSION_21
+  }
   flavorDimensions "mode"
   productFlavors {
     demo {

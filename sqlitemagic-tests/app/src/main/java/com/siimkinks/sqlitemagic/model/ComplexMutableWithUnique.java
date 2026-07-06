@@ -9,15 +9,9 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.Unique;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-@NoArgsConstructor
-@EqualsAndHashCode
-@ToString
 @Table(persistAll = true)
 public class ComplexMutableWithUnique {
   @Id(autoIncrement = false)
@@ -29,6 +23,9 @@ public class ComplexMutableWithUnique {
   @Unique
   @NonNull
   SimpleMutableWithUnique complexVal2;
+
+  public ComplexMutableWithUnique() {
+  }
 
   public static ComplexMutableWithUnique newRandom() {
     final ComplexMutableWithUnique val = new ComplexMutableWithUnique();
@@ -79,5 +76,33 @@ public class ComplexMutableWithUnique {
 
   public static SqliteMagic_ComplexMutableWithUnique_Handler.BulkDeleteBuilder delete(Collection<ComplexMutableWithUnique> o) {
     return SqliteMagic_ComplexMutableWithUnique_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ComplexMutableWithUnique that = (ComplexMutableWithUnique) o;
+    return id == that.id &&
+        uniqueVal == that.uniqueVal &&
+        Objects.equals(string, that.string) &&
+        Objects.equals(complexVal, that.complexVal) &&
+        Objects.equals(complexVal2, that.complexVal2);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, uniqueVal, string, complexVal, complexVal2);
+  }
+
+  @Override
+  public String toString() {
+    return "ComplexMutableWithUnique{" +
+        "id=" + id +
+        ", uniqueVal=" + uniqueVal +
+        ", string='" + string + '\'' +
+        ", complexVal=" + complexVal +
+        ", complexVal2=" + complexVal2 +
+        '}';
   }
 }

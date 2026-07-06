@@ -9,15 +9,9 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.Unique;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-@NoArgsConstructor
-@EqualsAndHashCode
-@ToString
 @Table(persistAll = true)
 public class SimpleMutableWithUniqueAndNullableId {
   @Id
@@ -27,6 +21,9 @@ public class SimpleMutableWithUniqueAndNullableId {
   long uniqueVal;
   @Nullable
   String string;
+
+  public SimpleMutableWithUniqueAndNullableId() {
+  }
 
   public long getUniqueVal() {
     return uniqueVal;
@@ -82,5 +79,29 @@ public class SimpleMutableWithUniqueAndNullableId {
 
   public static SqliteMagic_SimpleMutableWithUniqueAndNullableId_Handler.BulkDeleteBuilder delete(Collection<SimpleMutableWithUniqueAndNullableId> o) {
     return SqliteMagic_SimpleMutableWithUniqueAndNullableId_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SimpleMutableWithUniqueAndNullableId that = (SimpleMutableWithUniqueAndNullableId) o;
+    return uniqueVal == that.uniqueVal &&
+        Objects.equals(id, that.id) &&
+        Objects.equals(string, that.string);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, uniqueVal, string);
+  }
+
+  @Override
+  public String toString() {
+    return "SimpleMutableWithUniqueAndNullableId{" +
+        "id=" + id +
+        ", uniqueVal=" + uniqueVal +
+        ", string='" + string + '\'' +
+        '}';
   }
 }

@@ -3,11 +3,8 @@ package com.siimkinks.sqlitemagic.model;
 import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Id;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import java.util.Objects;
 
-@EqualsAndHashCode
-@ToString
 public abstract class BaseModel {
 
   @Id(autoIncrement = true)
@@ -20,6 +17,26 @@ public abstract class BaseModel {
 
   public void setBaseId(Long baseId) {
     this.baseId = baseId;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    BaseModel baseModel = (BaseModel) o;
+    return Objects.equals(baseId, baseModel.baseId);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(baseId);
+  }
+
+  @Override
+  public String toString() {
+    return "BaseModel{" +
+        "baseId=" + baseId +
+        '}';
   }
 
 

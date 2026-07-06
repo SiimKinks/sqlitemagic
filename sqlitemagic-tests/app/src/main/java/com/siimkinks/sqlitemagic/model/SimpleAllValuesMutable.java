@@ -7,22 +7,13 @@ import com.siimkinks.sqlitemagic.Utils;
 import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-
-@EqualsAndHashCode
-@ToString
-@NoArgsConstructor
-@Getter
-@Setter
 @Table(persistAll = true)
 public class SimpleAllValuesMutable {
   @Id
@@ -46,6 +37,9 @@ public class SimpleAllValuesMutable {
   Boolean boxedBoolean;
   Calendar calendar;
   Date utilDate;
+
+  public SimpleAllValuesMutable() {
+  }
 
   public static SimpleAllValuesMutable newRandom() {
     return fillWithRandomValues(new SimpleAllValuesMutable());
@@ -240,6 +234,67 @@ public class SimpleAllValuesMutable {
 
   public void setUtilDate(Date utilDate) {
     this.utilDate = utilDate;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SimpleAllValuesMutable that = (SimpleAllValuesMutable) o;
+    return id == that.id &&
+        primitiveShort == that.primitiveShort &&
+        primitiveLong == that.primitiveLong &&
+        primitiveInt == that.primitiveInt &&
+        Float.compare(that.primitiveFloat, primitiveFloat) == 0 &&
+        Double.compare(that.primitiveDouble, primitiveDouble) == 0 &&
+        primitiveByte == that.primitiveByte &&
+        primitiveBoolean == that.primitiveBoolean &&
+        Objects.equals(string, that.string) &&
+        Objects.equals(boxedShort, that.boxedShort) &&
+        Objects.equals(boxedLong, that.boxedLong) &&
+        Objects.equals(boxedInteger, that.boxedInteger) &&
+        Objects.equals(boxedFloat, that.boxedFloat) &&
+        Objects.equals(boxedDouble, that.boxedDouble) &&
+        Objects.equals(boxedByte, that.boxedByte) &&
+        Arrays.equals(primitiveByteArray, that.primitiveByteArray) &&
+        Arrays.equals(boxedByteArray, that.boxedByteArray) &&
+        Objects.equals(boxedBoolean, that.boxedBoolean) &&
+        Objects.equals(calendar, that.calendar) &&
+        Objects.equals(utilDate, that.utilDate);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Objects.hash(id, string, primitiveShort, boxedShort, primitiveLong, boxedLong, primitiveInt, boxedInteger, primitiveFloat, boxedFloat, primitiveDouble, boxedDouble, primitiveByte, boxedByte, primitiveBoolean, boxedBoolean, calendar, utilDate);
+    result = 31 * result + Arrays.hashCode(primitiveByteArray);
+    result = 31 * result + Arrays.hashCode(boxedByteArray);
+    return result;
+  }
+
+  @Override
+  public String toString() {
+    return "SimpleAllValuesMutable{" +
+        "id=" + id +
+        ", string='" + string + '\'' +
+        ", primitiveShort=" + primitiveShort +
+        ", boxedShort=" + boxedShort +
+        ", primitiveLong=" + primitiveLong +
+        ", boxedLong=" + boxedLong +
+        ", primitiveInt=" + primitiveInt +
+        ", boxedInteger=" + boxedInteger +
+        ", primitiveFloat=" + primitiveFloat +
+        ", boxedFloat=" + boxedFloat +
+        ", primitiveDouble=" + primitiveDouble +
+        ", boxedDouble=" + boxedDouble +
+        ", primitiveByte=" + primitiveByte +
+        ", boxedByte=" + boxedByte +
+        ", primitiveByteArray=" + Arrays.toString(primitiveByteArray) +
+        ", boxedByteArray=" + Arrays.toString(boxedByteArray) +
+        ", primitiveBoolean=" + primitiveBoolean +
+        ", boxedBoolean=" + boxedBoolean +
+        ", calendar=" + calendar +
+        ", utilDate=" + utilDate +
+        '}';
   }
 
   public SqliteMagic_SimpleAllValuesMutable_Handler.InsertBuilder insert() {

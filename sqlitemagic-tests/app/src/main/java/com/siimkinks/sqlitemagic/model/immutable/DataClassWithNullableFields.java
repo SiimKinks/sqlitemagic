@@ -12,35 +12,14 @@ import com.siimkinks.sqlitemagic.model.TransformableObject;
 import java.util.Collection;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@ToString
-@EqualsAndHashCode
 @Table(persistAll = true)
-public final class DataClassWithNullableFields implements ImmutableEquals {
-  @Id
-  @Nullable
-  public final Long id;
-  @Nullable
-  public final String stringValue;
-  @Nullable
-  public final Boolean aBoolean;
-  public final int integer;
-  @NonNull
-  public final TransformableObject transformableObject;
-
-  public DataClassWithNullableFields(@Nullable Long id,
-                                     @Nullable String stringValue,
-                                     @Nullable Boolean aBoolean,
-                                     int integer,
-                                     @NonNull TransformableObject transformableObject) {
-    this.id = id;
-    this.stringValue = stringValue;
-    this.aBoolean = aBoolean;
-    this.integer = integer;
-    this.transformableObject = transformableObject;
-  }
+public record DataClassWithNullableFields(
+    @Id @Nullable Long id,
+    @Nullable String stringValue,
+    @Nullable Boolean aBoolean,
+    int integer,
+    @NonNull TransformableObject transformableObject
+) implements ImmutableEquals {
 
   public static DataClassWithNullableFields newRandom() {
     return newRandom(null);

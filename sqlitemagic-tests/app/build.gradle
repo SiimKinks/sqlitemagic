@@ -1,16 +1,16 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-kapt'
+apply plugin: 'com.android.legacy-kapt'
 apply plugin: 'sqlitemagic'
 
 android {
-  compileSdkVersion rootProject.ext.compileSdkVersion
+  namespace 'com.siimkinks.sqlitemagic'
+  compileSdk rootProject.ext.compileSdkVersion
   buildToolsVersion rootProject.ext.buildToolsVersion
 
   defaultConfig {
     applicationId "com.siimkinks.sqlitemagic"
-    minSdkVersion rootProject.ext.minSdkVersion
-    targetSdkVersion rootProject.ext.targetSdkVersion
+    minSdk rootProject.ext.minSdkVersion
+    targetSdk rootProject.ext.targetSdkVersion
     versionCode 1
     versionName "1.0"
 
@@ -22,8 +22,11 @@ android {
     multiDexEnabled true
   }
   compileOptions {
-    sourceCompatibility JavaVersion.VERSION_1_8
-    targetCompatibility JavaVersion.VERSION_1_8
+    sourceCompatibility JavaVersion.VERSION_21
+    targetCompatibility JavaVersion.VERSION_21
+  }
+  buildFeatures {
+    buildConfig = true
   }
   buildTypes {
     debug {
@@ -33,16 +36,10 @@ android {
       buildConfigField "int", "DB_VERSION", "2"
 
       minifyEnabled false
-      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
     }
   }
-  sourceSets {
-    main.java.srcDirs += 'src/main/kotlin'
-    debug.java.srcDirs += 'build/generated/source/kaptKotlin/debug'
-    test.java.srcDirs += 'src/test/kotlin'
-    androidTest.java.srcDirs += 'src/androidTest/kotlin'
-  }
-  lintOptions {
+  lint {
     abortOnError false
   }
 }
@@ -62,10 +59,7 @@ dependencies {
   implementation libraries.sqlitemagicRuntime
 
   compileOnly libraries.autoValueAnnotations
-  compileOnly libraries.lombokNew
   compileOnly libraries.sqlitemagicAnnotations
-
-  annotationProcessor libraries.lombokNew
 
   kapt libraries.autoValue
   kapt libraries.autoValueAnnotations

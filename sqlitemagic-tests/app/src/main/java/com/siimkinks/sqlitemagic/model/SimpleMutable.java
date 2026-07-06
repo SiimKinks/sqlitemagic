@@ -7,15 +7,9 @@ import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-@NoArgsConstructor
-@EqualsAndHashCode
-@ToString
 @Table
 public class SimpleMutable {
 
@@ -31,6 +25,9 @@ public class SimpleMutable {
   long aLong;
   @Column
   String name2;
+
+  public SimpleMutable() {
+  }
 
   public static SimpleMutable newRandom() {
     final SimpleMutable simpleMutable = new SimpleMutable();
@@ -80,5 +77,31 @@ public class SimpleMutable {
 
   public static SqliteMagic_SimpleMutable_Handler.BulkDeleteBuilder delete(Collection<SimpleMutable> o) {
     return SqliteMagic_SimpleMutable_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SimpleMutable that = (SimpleMutable) o;
+    return id == that.id &&
+        aLong == that.aLong &&
+        Objects.equals(name, that.name) &&
+        Objects.equals(name2, that.name2);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, name, aLong, name2);
+  }
+
+  @Override
+  public String toString() {
+    return "SimpleMutable{" +
+        "id=" + id +
+        ", name='" + name + '\'' +
+        ", aLong=" + aLong +
+        ", name2='" + name2 + '\'' +
+        '}';
   }
 }

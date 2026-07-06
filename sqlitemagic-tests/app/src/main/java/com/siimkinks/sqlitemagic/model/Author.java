@@ -19,17 +19,11 @@ import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
-
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
 
 // TODO use magic generated methods and remove unnecessary code
 @Table
-@NoArgsConstructor
-@ToString
-@EqualsAndHashCode
 public class Author implements Parcelable, ProvidesId {
   public static final String TABLE = "author";
   public static final String C_ID = "author.id";
@@ -46,6 +40,8 @@ public class Author implements Parcelable, ProvidesId {
   public Boolean boxedBoolean;
   @Column
   public boolean primitiveBoolean;
+
+  public Author() {}
 
   public Author(String name, Boolean boxedBoolean, boolean primitiveBoolean) {
     this.name = name;
@@ -110,6 +106,32 @@ public class Author implements Parcelable, ProvidesId {
   @Override
   public Long provideId() {
     return id;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Author author = (Author) o;
+    return primitiveBoolean == author.primitiveBoolean &&
+        Objects.equals(id, author.id) &&
+        Objects.equals(name, author.name) &&
+        Objects.equals(boxedBoolean, author.boxedBoolean);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, name, boxedBoolean, primitiveBoolean);
+  }
+
+  @Override
+  public String toString() {
+    return "Author{" +
+        "id=" + id +
+        ", name='" + name + '\'' +
+        ", boxedBoolean=" + boxedBoolean +
+        ", primitiveBoolean=" + primitiveBoolean +
+        '}';
   }
 
   public InsertBuilder insert() {

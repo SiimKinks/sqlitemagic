@@ -35,7 +35,7 @@ inline infix fun UpdateConflictAlgorithm.TABLE(tableName: String) = this.table(t
 
 /** @see Update.TableNode.set */
 @CheckResult
-inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, NotNullable>, V>) =
+inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, NotNullable>, V & Any>) =
     this.set(v.first, v.second)
 
 /** @see Update.TableNode.set */
@@ -70,7 +70,7 @@ inline infix fun <T> TableNode<T>.SET(v: Pair<String, String>) =
 
 /** @see Update.Set.set */
 @CheckResult
-inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, NotNullable>, V>) =
+inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, NotNullable>, V & Any>) =
     this.set(v.first, v.second)
 
 /** @see Update.Set.set */

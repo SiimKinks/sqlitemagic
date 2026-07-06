@@ -1,13 +1,13 @@
 apply plugin: 'maven-publish'
 
-task sourcesJar(type: Jar) {
+tasks.register('sourcesJar', Jar) {
   from sourceSets.main.allJava
-  classifier = 'sources'
+  archiveClassifier.set('sources')
 }
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
-  from javadoc.destinationDir
-  classifier = 'javadoc'
+tasks.register('javadocJar', Jar) {
+  archiveClassifier.set('javadoc')
+  from tasks.named('javadoc')
 }
 
 publishing {

@@ -12,57 +12,14 @@ import com.siimkinks.sqlitemagic.model.TransformableObject;
 import java.util.Collection;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@ToString
-@EqualsAndHashCode
 @Table(persistAll = true, useAccessMethods = true)
-public final class DataClassWithMethods implements ImmutableEquals {
-  @Id
-  @Nullable
-  private final Long id;
-  @NonNull
-  private final String stringValue;
-  private final boolean aBoolean;
-  private final int integer;
-  @NonNull
-  private final TransformableObject transformableObject;
-
-  public DataClassWithMethods(@Nullable Long id,
-                              @NonNull String stringValue,
-                              boolean aBoolean, int integer,
-                              @NonNull TransformableObject transformableObject) {
-    this.id = id;
-    this.stringValue = stringValue;
-    this.aBoolean = aBoolean;
-    this.integer = integer;
-    this.transformableObject = transformableObject;
-  }
-
-  @Nullable
-  public final Long getId() {
-    return this.id;
-  }
-
-  @NonNull
-  public final String getStringValue() {
-    return this.stringValue;
-  }
-
-  public final boolean getABoolean() {
-    return this.aBoolean;
-  }
-
-  public final int getInteger() {
-    return this.integer;
-  }
-
-  @NonNull
-  public final TransformableObject getTransformableObject() {
-    return this.transformableObject;
-  }
-
+public record DataClassWithMethods(
+    @Id @Nullable Long id,
+    @NonNull String stringValue,
+    boolean aBoolean,
+    int integer,
+    @NonNull TransformableObject transformableObject
+) implements ImmutableEquals {
   public static DataClassWithMethods newRandom() {
     return newRandom(null);
   }

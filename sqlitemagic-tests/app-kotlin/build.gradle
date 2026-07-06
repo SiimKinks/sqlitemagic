@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-kapt'
+apply plugin: 'com.android.legacy-kapt'
 apply plugin: 'sqlitemagic'
 
 android {
-  compileSdkVersion rootProject.ext.compileSdkVersion
+  namespace 'com.siimkinks.sqlitemagic.kotlin'
+  compileSdk rootProject.ext.compileSdkVersion
   buildToolsVersion rootProject.ext.buildToolsVersion
 
   defaultConfig {
@@ -19,12 +19,19 @@ android {
 
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
   }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_21
+    targetCompatibility JavaVersion.VERSION_21
+  }
+  buildFeatures {
+    buildConfig = true
+  }
   buildTypes {
     release {
       buildConfigField "int", "DB_VERSION", "2"
 
       minifyEnabled false
-      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
     }
   }
   lintOptions {

@@ -8,16 +8,10 @@ import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
 @Table
-@NoArgsConstructor
-@ToString
-@EqualsAndHashCode
 public final class SimpleMutableWithNullableFields {
   @Id
   @Column
@@ -28,6 +22,9 @@ public final class SimpleMutableWithNullableFields {
   @NonNull
   @Column
   public String nonNullString;
+
+  public SimpleMutableWithNullableFields() {
+  }
 
   public static SimpleMutableWithNullableFields newRandom() {
     final SimpleMutableWithNullableFields obj = new SimpleMutableWithNullableFields();
@@ -76,5 +73,29 @@ public final class SimpleMutableWithNullableFields {
 
   public static SqliteMagic_SimpleMutableWithNullableFields_Handler.BulkDeleteBuilder delete(Collection<SimpleMutableWithNullableFields> o) {
     return SqliteMagic_SimpleMutableWithNullableFields_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SimpleMutableWithNullableFields that = (SimpleMutableWithNullableFields) o;
+    return Objects.equals(id, that.id) &&
+        Objects.equals(nullableString, that.nullableString) &&
+        Objects.equals(nonNullString, that.nonNullString);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, nullableString, nonNullString);
+  }
+
+  @Override
+  public String toString() {
+    return "SimpleMutableWithNullableFields{" +
+        "id=" + id +
+        ", nullableString='" + nullableString + '\'' +
+        ", nonNullString='" + nonNullString + '\'' +
+        '}';
   }
 }

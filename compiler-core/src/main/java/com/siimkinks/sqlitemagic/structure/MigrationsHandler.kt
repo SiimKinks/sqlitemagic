@@ -44,7 +44,7 @@ class MigrationsHandler(
 
           if (environment.isSubmodule) {
             environment.mainModulePath?.let { mainModulePath ->
-              val submoduleName = checkNotNull(environment.submoduleName).toLowerCase()
+              val submoduleName = checkNotNull(environment.submoduleName).lowercase()
               val dbDir = File(mainModulePath, "db")
               val mainModuleStructureFile = dbDir.resolve("latest_$submoduleName.struct")
               JsonConfig.OBJECT_MAPPER.writeValue(mainModuleStructureFile, currentStructure)

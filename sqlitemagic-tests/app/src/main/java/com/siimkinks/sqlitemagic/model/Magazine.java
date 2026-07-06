@@ -7,15 +7,9 @@ import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-
-@EqualsAndHashCode
-@ToString
-@Getter
 @Table(persistAll = true)
 public class Magazine implements ProvidesId {
 
@@ -68,6 +62,32 @@ public class Magazine implements ProvidesId {
 
   public int getNrOfReleases() {
     return nrOfReleases;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Magazine magazine = (Magazine) o;
+    return id == magazine.id &&
+        nrOfReleases == magazine.nrOfReleases &&
+        Objects.equals(name, magazine.name) &&
+        Objects.equals(author, magazine.author);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, name, author, nrOfReleases);
+  }
+
+  @Override
+  public String toString() {
+    return "Magazine{" +
+        "id=" + id +
+        ", name='" + name + '\'' +
+        ", author=" + author +
+        ", nrOfReleases=" + nrOfReleases +
+        '}';
   }
 
   public SqliteMagic_Magazine_Handler.InsertBuilder insert() {

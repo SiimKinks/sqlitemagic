@@ -13,15 +13,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-@NoArgsConstructor
-@EqualsAndHashCode
-@ToString
 @Table(persistAll = true)
 public class GenericsMutable {
   @Id(autoIncrement = false)
@@ -34,6 +28,9 @@ public class GenericsMutable {
   List<Integer> listOfInts;
   @Nullable
   Map<String, String> map;
+
+  public GenericsMutable() {
+  }
 
   public static GenericsMutable newRandom() {
     final Random r = new Random();
@@ -104,5 +101,33 @@ public class GenericsMutable {
 
   public static SqliteMagic_GenericsMutable_Handler.BulkDeleteBuilder delete(Collection<GenericsMutable> o) {
     return SqliteMagic_GenericsMutable_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    GenericsMutable that = (GenericsMutable) o;
+    return id == that.id &&
+        uniqueVal == that.uniqueVal &&
+        Objects.equals(listOfStrings, that.listOfStrings) &&
+        Objects.equals(listOfInts, that.listOfInts) &&
+        Objects.equals(map, that.map);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, uniqueVal, listOfStrings, listOfInts, map);
+  }
+
+  @Override
+  public String toString() {
+    return "GenericsMutable{" +
+        "id=" + id +
+        ", uniqueVal=" + uniqueVal +
+        ", listOfStrings=" + listOfStrings +
+        ", listOfInts=" + listOfInts +
+        ", map=" + map +
+        '}';
   }
 }

@@ -7,13 +7,9 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.model.immutable.SimpleValueWithBuilder;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@ToString
-@EqualsAndHashCode
 @Table(persistAll = true)
 public class ComplexObjectWithSameLeafs {
 
@@ -93,5 +89,35 @@ public class ComplexObjectWithSameLeafs {
 
   public static SqliteMagic_ComplexObjectWithSameLeafs_Handler.BulkDeleteBuilder delete(Collection<ComplexObjectWithSameLeafs> o) {
     return SqliteMagic_ComplexObjectWithSameLeafs_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ComplexObjectWithSameLeafs that = (ComplexObjectWithSameLeafs) o;
+    return id == that.id &&
+        Objects.equals(name, that.name) &&
+        Objects.equals(simpleValueWithBuilder, that.simpleValueWithBuilder) &&
+        Objects.equals(book, that.book) &&
+        Objects.equals(magazine, that.magazine) &&
+        Objects.equals(simpleValueWithBuilderDuplicate, that.simpleValueWithBuilderDuplicate);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, name, simpleValueWithBuilder, book, magazine, simpleValueWithBuilderDuplicate);
+  }
+
+  @Override
+  public String toString() {
+    return "ComplexObjectWithSameLeafs{" +
+        "id=" + id +
+        ", name='" + name + '\'' +
+        ", simpleValueWithBuilder=" + simpleValueWithBuilder +
+        ", book=" + book +
+        ", magazine=" + magazine +
+        ", simpleValueWithBuilderDuplicate=" + simpleValueWithBuilderDuplicate +
+        '}';
   }
 }

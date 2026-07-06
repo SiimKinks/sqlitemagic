@@ -3,11 +3,8 @@ package com.siimkinks.sqlitemagic.model;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import java.util.Objects;
 
-@EqualsAndHashCode
-@ToString
 public class TransformableObject implements Parcelable {
   public int value;
 
@@ -39,5 +36,25 @@ public class TransformableObject implements Parcelable {
   @Override
   public void writeToParcel(Parcel dest, int flags) {
     dest.writeInt(value);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    TransformableObject that = (TransformableObject) o;
+    return value == that.value;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(value);
+  }
+
+  @Override
+  public String toString() {
+    return "TransformableObject{" +
+        "value=" + value +
+        '}';
   }
 }

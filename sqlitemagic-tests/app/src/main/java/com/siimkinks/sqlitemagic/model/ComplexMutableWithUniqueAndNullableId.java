@@ -10,15 +10,9 @@ import com.siimkinks.sqlitemagic.annotation.Table;
 import com.siimkinks.sqlitemagic.annotation.Unique;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-@NoArgsConstructor
-@EqualsAndHashCode
-@ToString
 @Table(persistAll = true)
 public class ComplexMutableWithUniqueAndNullableId {
   @Id
@@ -31,6 +25,9 @@ public class ComplexMutableWithUniqueAndNullableId {
   @Unique
   @NonNull
   SimpleMutableWithUniqueAndNullableId complexVal2;
+
+  public ComplexMutableWithUniqueAndNullableId() {
+  }
 
   public static ComplexMutableWithUniqueAndNullableId newRandom() {
     final ComplexMutableWithUniqueAndNullableId val = new ComplexMutableWithUniqueAndNullableId();
@@ -81,5 +78,33 @@ public class ComplexMutableWithUniqueAndNullableId {
 
   public static SqliteMagic_ComplexMutableWithUniqueAndNullableId_Handler.BulkDeleteBuilder delete(Collection<ComplexMutableWithUniqueAndNullableId> o) {
     return SqliteMagic_ComplexMutableWithUniqueAndNullableId_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ComplexMutableWithUniqueAndNullableId that = (ComplexMutableWithUniqueAndNullableId) o;
+    return uniqueVal == that.uniqueVal &&
+        Objects.equals(id, that.id) &&
+        Objects.equals(string, that.string) &&
+        Objects.equals(complexVal, that.complexVal) &&
+        Objects.equals(complexVal2, that.complexVal2);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, uniqueVal, string, complexVal, complexVal2);
+  }
+
+  @Override
+  public String toString() {
+    return "ComplexMutableWithUniqueAndNullableId{" +
+        "id=" + id +
+        ", uniqueVal=" + uniqueVal +
+        ", string='" + string + '\'' +
+        ", complexVal=" + complexVal +
+        ", complexVal2=" + complexVal2 +
+        '}';
   }
 }

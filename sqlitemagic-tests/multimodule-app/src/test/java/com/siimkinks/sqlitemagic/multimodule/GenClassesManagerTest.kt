@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.multimodule
 
 import com.google.common.truth.Truth.assertThat
-import com.nhaarman.mockitokotlin2.mock
+import org.mockito.kotlin.mock
 import com.siimkinks.sqlitemagic.*
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase.*
 import com.siimkinks.sqlitemagic.another.Author

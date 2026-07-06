@@ -6,21 +6,18 @@ import com.siimkinks.sqlitemagic.annotation.Id;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
-@NoArgsConstructor
-@EqualsAndHashCode
-@ToString
 @Table(persistAll = true)
 public class ComplexMutable {
   @Id(autoIncrement = false)
   long id;
   String name;
   SimpleMutable complexVal;
+
+  public ComplexMutable() {
+  }
 
   public static ComplexMutable newRandom() {
     final ComplexMutable val = new ComplexMutable();
@@ -69,5 +66,29 @@ public class ComplexMutable {
 
   public static SqliteMagic_ComplexMutable_Handler.BulkDeleteBuilder delete(Collection<ComplexMutable> o) {
     return SqliteMagic_ComplexMutable_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ComplexMutable that = (ComplexMutable) o;
+    return id == that.id &&
+        Objects.equals(name, that.name) &&
+        Objects.equals(complexVal, that.complexVal);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, name, complexVal);
+  }
+
+  @Override
+  public String toString() {
+    return "ComplexMutable{" +
+        "id=" + id +
+        ", name='" + name + '\'' +
+        ", complexVal=" + complexVal +
+        '}';
   }
 }

@@ -11,39 +11,14 @@ import com.siimkinks.sqlitemagic.model.Author;
 import java.util.Collection;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@ToString
-@EqualsAndHashCode
 @Table(persistAll = true)
-public final class ComplexDataClassWithFields implements ImmutableEquals {
-  @Id
-  public final long id;
-
-  @Nullable
-  public final String name;
-
-  @Nullable
-  public final Author author;
-
-  @Nullable
-  public final SimpleValueWithBuilder simpleValueWithBuilder;
-
-  @Nullable
-  public final SimpleValueWithCreator simpleValueWithCreator;
-
-  public ComplexDataClassWithFields(long id,
-                                    @Nullable String name,
-                                    @Nullable Author author,
-                                    @Nullable SimpleValueWithBuilder simpleValueWithBuilder,
-                                    @Nullable SimpleValueWithCreator simpleValueWithCreator) {
-    this.id = id;
-    this.name = name;
-    this.author = author;
-    this.simpleValueWithBuilder = simpleValueWithBuilder;
-    this.simpleValueWithCreator = simpleValueWithCreator;
-  }
+public record ComplexDataClassWithFields(
+    @Id long id,
+    @Nullable String name,
+    @Nullable Author author,
+    @Nullable SimpleValueWithBuilder simpleValueWithBuilder,
+    @Nullable SimpleValueWithCreator simpleValueWithCreator
+) implements ImmutableEquals {
 
   public boolean equalsWithoutId(Object o) {
     if (o == this) {

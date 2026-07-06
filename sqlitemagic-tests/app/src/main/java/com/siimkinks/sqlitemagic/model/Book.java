@@ -6,18 +6,10 @@ import com.siimkinks.sqlitemagic.annotation.Column;
 import com.siimkinks.sqlitemagic.annotation.Table;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Random;
 
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
-
 @Table
-@NoArgsConstructor
-@AllArgsConstructor
-@ToString(callSuper = true)
-@EqualsAndHashCode(callSuper = true)
 public class Book extends BaseModel {
   public static final String TABLE = "book";
   public static final String C_BASE_ID = "book.base_id";
@@ -31,6 +23,15 @@ public class Book extends BaseModel {
   protected String title;
   @Column
   protected int nrOfReleases;
+
+  public Book() {
+  }
+
+  public Book(Author author, String title, int nrOfReleases) {
+    this.author = author;
+    this.title = title;
+    this.nrOfReleases = nrOfReleases;
+  }
 
   public static Book newRandom() {
     return newRandom(null);
@@ -80,5 +81,30 @@ public class Book extends BaseModel {
 
   public static SqliteMagic_Book_Handler.BulkDeleteBuilder delete(Collection<Book> o) {
     return SqliteMagic_Book_Handler.BulkDeleteBuilder.create(o);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    if (!super.equals(o)) return false;
+    Book book = (Book) o;
+    return nrOfReleases == book.nrOfReleases &&
+        Objects.equals(author, book.author) &&
+        Objects.equals(title, book.title);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), author, title, nrOfReleases);
+  }
+
+  @Override
+  public String toString() {
+    return "Book{" +
+        "author=" + author +
+        ", title='" + title + '\'' +
+        ", nrOfReleases=" + nrOfReleases +
+        "} " + super.toString();
   }
 }

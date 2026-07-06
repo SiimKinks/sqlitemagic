@@ -11,64 +11,14 @@ import com.siimkinks.sqlitemagic.model.Author;
 import java.util.Collection;
 import java.util.Random;
 
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@ToString
-@EqualsAndHashCode
 @Table(persistAll = true, useAccessMethods = true)
-public final class ComplexDataClassWithMethods implements ImmutableEquals {
-  @Id
-  private final long id;
-
-  @Nullable
-  private final String name;
-
-  @Nullable
-  private final Author author;
-
-  @Nullable
-  private final SimpleValueWithBuilder simpleValueWithBuilder;
-
-  @Nullable
-  private final SimpleValueWithCreator simpleValueWithCreator;
-
-  public ComplexDataClassWithMethods(long id,
-                                     @Nullable String name,
-                                     @Nullable Author author,
-                                     @Nullable SimpleValueWithBuilder simpleValueWithBuilder,
-                                     @Nullable SimpleValueWithCreator simpleValueWithCreator) {
-    this.id = id;
-    this.name = name;
-    this.author = author;
-    this.simpleValueWithBuilder = simpleValueWithBuilder;
-    this.simpleValueWithCreator = simpleValueWithCreator;
-  }
-
-  public long getId() {
-    return id;
-  }
-
-  @Nullable
-  public String getName() {
-    return name;
-  }
-
-  @Nullable
-  public Author getAuthor() {
-    return author;
-  }
-
-  @Nullable
-  public SimpleValueWithBuilder getSimpleValueWithBuilder() {
-    return simpleValueWithBuilder;
-  }
-
-  @Nullable
-  public SimpleValueWithCreator getSimpleValueWithCreator() {
-    return simpleValueWithCreator;
-  }
-
+public record ComplexDataClassWithMethods(
+    @Id long id,
+    @Nullable String name,
+    @Nullable Author author,
+    @Nullable SimpleValueWithBuilder simpleValueWithBuilder,
+    @Nullable SimpleValueWithCreator simpleValueWithCreator
+) implements ImmutableEquals {
   public boolean equalsWithoutId(Object o) {
     if (o == this) {
       return true;
