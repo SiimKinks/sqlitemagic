@@ -1,0 +1,23 @@
+package com.siimkinks.sqlitemagic.utils
+
+import com.tschuchort.compiletesting.SourceFile
+
+object SqliteMagicSources {
+  fun testTable() = SourceFile.kotlin(
+    "TestTable.kt",
+    """
+      package test
+
+      import com.siimkinks.sqlitemagic.annotation.Column
+      import com.siimkinks.sqlitemagic.annotation.Id
+      import com.siimkinks.sqlitemagic.annotation.Table
+
+      @Table
+      class TestTable {
+        @Id
+        @Column
+        val id: Long = 0L
+      }
+      """.trimIndent()
+  )
+}
