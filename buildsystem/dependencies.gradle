@@ -23,6 +23,7 @@ ext {
   androidVersion = '4.1.1.4' // do not increment!
   autoCommonVersion = '1.2.1'
   autoServiceVersion = '1.1.1'
+  autoServiceKspVersion = '1.2.0'
   autoValueVersion = '1.11.1'
   autoValueParcelVersion = '0.2.7'
   bintrayGradlePluginVersion = '1.8.5'
@@ -33,10 +34,13 @@ ext {
   jacksonVersion = '2.17.1'
   javapoetVersion = '1.13.0'
   javassistVersion = '3.30.2-GA'
-  junitVersion = '4.13.2'
+  junit4Version = '4.13.2'
+  junitVersion = '6.1.1'
   junitRunnerVersion = '1.2.1'
   kotlinpoetVersion = '2.3.0'
   kotlinVersion = '2.4.0'
+  kspCompileTestingVersion = '0.13.0'
+  kspVersion = '2.3.9'
   lombokVersion = '1.14.8' // do not increment!
   lombokNewVersion = '1.18.46'
   mockitoVersion = '5.12.0'
@@ -58,6 +62,8 @@ ext {
       androidSqliteFramework    : "androidx.sqlite:sqlite-framework:$androidSqliteVersion",
       autoCommon                : "com.google.auto:auto-common:${autoCommonVersion}",
       autoService               : "com.google.auto.service:auto-service:${autoServiceVersion}",
+      autoServiceAnnotations    : "com.google.auto.service:auto-service-annotations:${autoServiceVersion}",
+      autoServiceKsp            : "dev.zacsweers.autoservice:auto-service-ksp:$autoServiceKspVersion",
       autoValue                 : "com.google.auto.value:auto-value:${autoValueVersion}",
       autoValueAnnotations      : "com.google.auto.value:auto-value-annotations:$autoValueVersion",
       autoValueParcel           : "com.ryanharter.auto.value:auto-value-parcel:${autoValueParcelVersion}",
@@ -75,6 +81,9 @@ ext {
       kotlinpoet                : "com.squareup:kotlinpoet:$kotlinpoetVersion",
       kotlinReflect             : "org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}",
       kotlinStdLib              : "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}",
+      kspApi                    : "com.google.devtools.ksp:symbol-processing-api:$kspVersion",
+      kspCompileTesting         : "dev.zacsweers.kctfork:ksp:$kspCompileTestingVersion",
+      kspGradlePlugin           : "com.google.devtools.ksp:symbol-processing-gradle-plugin:$kspVersion",
       lombok                    : "org.projectlombok:lombok:${lombokVersion}",
       lombokNew                 : "org.projectlombok:lombok:${lombokNewVersion}",
       rxJava2                   : "io.reactivex.rxjava2:rxjava:${rxJava2Version}",
@@ -84,6 +93,7 @@ ext {
       sqlitemagicAnnotations    : "$GROUP:sqlitemagic-annotations:$VERSION_NAME",
       sqlitemagicProcessor      : "$GROUP:sqlitemagic-compiler:$VERSION_NAME",
       sqlitemagicProcessorKotlin: "$GROUP:sqlitemagic-compiler-kotlin:$VERSION_NAME",
+      sqlitemagicProcessorKsp   : "$GROUP:sqlitemagic-compiler-ksp:$VERSION_NAME",
       sqlitemagicProcessorMagic : "$GROUP:sqlitemagic-compiler-magic:0.25.1",
       sqlitemagicPlugin         : "$GROUP:sqlitemagic-plugin:$VERSION_NAME",
       sqlitemagicRuntime        : "$GROUP:sqlitemagic:$VERSION_NAME",
@@ -93,7 +103,10 @@ ext {
       androidTestRules          : "androidx.test:rules:$androidTestRunnerVersion",
       androidTestRunner         : "androidx.test:runner:$androidTestRunnerVersion",
       googleCompileTesting      : "com.google.testing.compile:compile-testing:${googleCompileTestingVersion}",
-      junit                     : "junit:junit:${junitVersion}",
+      junit                     : "junit:junit:${junit4Version}",
+      junitBom                  : "org.junit:junit-bom:$junitVersion",
+      junitJupiter              : "org.junit.jupiter:junit-jupiter",
+      junitPlatformLauncher     : "org.junit.platform:junit-platform-launcher",
       junitRunner               : "androidx.test.ext:junit:$junitRunnerVersion",
       mockito                   : "org.mockito:mockito-core:$mockitoVersion",
       mockitoKotlin             : "org.mockito.kotlin:mockito-kotlin:$mockitoKotlinVersion",

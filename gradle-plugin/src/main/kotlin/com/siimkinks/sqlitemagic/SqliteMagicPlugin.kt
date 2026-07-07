@@ -14,7 +14,6 @@ import org.gradle.api.artifacts.Configuration
 import java.io.File
 import java.util.*
 
-const val VERSION = "0.25.2-SNAPSHOT"
 const val DB_TASK_GROUP = "db"
 
 class SqliteMagicPlugin : Plugin<Project> {
@@ -80,13 +79,13 @@ class SqliteMagicPlugin : Plugin<Project> {
         }
 
         project.getConfiguration(if (hasKpt) "kapt" else "annotationProcessor")
-          .addDependency(project, "com.siimkinks.sqlitemagic:$compilerArtifact:$VERSION")
-        providedDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$VERSION")
-        compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic:$VERSION")
+          .addDependency(project, "com.siimkinks.sqlitemagic:$compilerArtifact:$PLUGIN_VERSION")
+        providedDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$PLUGIN_VERSION")
+        compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic:$PLUGIN_VERSION")
         if (sqlitemagic.useKotlin && kotlinProject) {
           compileDeps.addDependency(
             project,
-            "com.siimkinks.sqlitemagic:sqlitemagic-kotlin:$VERSION"
+            "com.siimkinks.sqlitemagic:sqlitemagic-kotlin:$PLUGIN_VERSION"
           )
         }
       }

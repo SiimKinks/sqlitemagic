@@ -29,16 +29,10 @@ compileKotlin {
 
 dependencies {
   compileOnly gradleApi()
-  compileOnly libraries.android
   compileOnly libraries.androidGradle
+  compileOnly libraries.kspGradlePlugin
 
-  implementation libraries.autoValue
-  implementation libraries.javassist
   implementation libraries.kotlinStdLib
-  implementation libraries.kotlinReflect
-  implementation libraries.ztZip
-
-  implementation project(':annotations')
   implementation project(':compiler-core')
 }
 
