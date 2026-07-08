@@ -10,10 +10,8 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.testTable
-import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.junit.jupiter.api.Test
 
-@OptIn(ExperimentalCompilerApi::class)
 class SqliteMagicSymbolProcessorLifecycleTest {
   @Test
   fun `compiles sources annotated with supported annotations`() {

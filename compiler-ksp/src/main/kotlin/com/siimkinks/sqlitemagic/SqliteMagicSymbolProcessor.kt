@@ -12,6 +12,7 @@ import com.siimkinks.sqlitemagic.Types.OBJECT_TO_DB_VALUE_ANNOTATION
 import com.siimkinks.sqlitemagic.Types.SUBMODULE_DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.Types.TABLE_ANNOTATION
 import com.siimkinks.sqlitemagic.Types.VIEW_ANNOTATION
+import com.siimkinks.sqlitemagic.processing.DatabaseConfigurationCollectionStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
@@ -21,10 +22,11 @@ class SqliteMagicSymbolProcessor(
   symbolProcessorEnvironment: SymbolProcessorEnvironment,
   processingStepsProvider: (Environment) -> List<ProcessingStep> = { env ->
     listOf(
+      DatabaseConfigurationCollectionStep(env)
     )
   }
 ) : SymbolProcessor {
-  private val environment = Environment(symbolProcessorEnvironment)
+  val environment = Environment(symbolProcessorEnvironment)
   private val processingSteps = processingStepsProvider(environment)
   private var debugMessageEmitted = false
 

@@ -11,11 +11,24 @@ import com.tschuchort.compiletesting.SourceFile
 import com.tschuchort.compiletesting.kspProcessorOptions
 import com.tschuchort.compiletesting.symbolProcessorProviders
 import com.tschuchort.compiletesting.useKsp2
-import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import java.io.File
 
-@OptIn(ExperimentalCompilerApi::class)
+interface ProcessingStepsTest {
+  val processingSteps: (Environment) -> List<ProcessingStep>
+}
+
 internal object SqliteMagicCompilation {
+  fun ProcessingStepsTest.compile(
+    vararg sources: SourceFile,
+    kspOptions: Map<String, String> = emptyMap(),
+    classpaths: List<File> = emptyList()
+  ): ProcessorCompilationResult = compile(
+    *sources,
+    kspOptions = kspOptions,
+    classpaths = classpaths,
+    processingStepsFactory = processingSteps
+  )
+
   fun compile(
     vararg sources: SourceFile,
     kspOptions: Map<String, String> = emptyMap(),
