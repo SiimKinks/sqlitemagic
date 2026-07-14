@@ -79,6 +79,7 @@ ext {
       kotlinGradlePlugin        : "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}",
       kotlinJunit               : "org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion",
       kotlinpoet                : "com.squareup:kotlinpoet:$kotlinpoetVersion",
+      kotlinpoetKsp             : "com.squareup:kotlinpoet-ksp:$kotlinpoetVersion",
       kotlinReflect             : "org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}",
       kotlinStdLib              : "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}",
       kspApi                    : "com.google.devtools.ksp:symbol-processing-api:$kspVersion",

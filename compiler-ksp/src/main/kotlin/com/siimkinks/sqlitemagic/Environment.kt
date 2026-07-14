@@ -7,6 +7,12 @@ import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
+import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
+import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
+import com.siimkinks.sqlitemagic.transformer.TransformerElement
+import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
+import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement
+import com.siimkinks.sqlitemagic.transformer.TypeKey
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
 
 class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
@@ -16,22 +22,29 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
 
   var dbMetadata = DatabaseMetadata(dbName = options.dbName, dbVersion = options.dbVersion)
     private set
-
   var submoduleName: String? = null
     private set
   var submoduleDatabases: List<SubmoduleDatabaseMetadata>? = null
+  val transformerElements: Map<TypeKey, TransformerElement>
+    field = linkedMapOf()
+  val transformerElementsForCurrentRound: List<TransformerRoundElement>
+    field = mutableListOf()
+  val isSubmodule get() = !submoduleName.isNullOrEmpty()
+  val hasSubmodules get() = !submoduleDatabases.isNullOrEmpty()
 
   var processingRounds = 0
     private set
-
   var isProcessingFailed = false
 
-  val isSubmodule get() = !submoduleName.isNullOrEmpty()
-
-  val hasSubmodules get() = !submoduleDatabases.isNullOrEmpty()
+  init {
+    if (options.debug) {
+      logger.warn("SqliteMagic KSP debug mode enabled")
+    }
+  }
 
   fun incrementRound() {
     processingRounds++
+    transformerElementsForCurrentRound.clear()
   }
 
   fun setDatabaseMetadata(
@@ -51,6 +64,20 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   fun setSubmoduleName(name: String) {
     submoduleName = name.firstCharToUpperCase()
   }
+
+  fun addTransformerElement(transformer: TransformerRoundElement) {
+    val transformerElement = transformer.toTransformerElement()
+    when {
+      transformerElements[transformerElement.typeKey] == transformerElement -> return
+      else -> {
+        transformerElements[transformerElement.typeKey] = transformerElement
+        transformerElementsForCurrentRound.add(transformer)
+      }
+    }
+  }
+
+  fun getTransformerFor(type: TransformerRoundTypeElement): TransformerElement? =
+    transformerElements[type.typeKey]
 
   fun getGenClassesManagerClassName(
     moduleName: String? = submoduleName

@@ -1,0 +1,78 @@
+package com.siimkinks.sqlitemagic.transformer
+
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSDeclaration
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.CLASS_MEMBER
+import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.TOP_LEVEL
+import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.UNKNOWN
+import com.squareup.kotlinpoet.ksp.TypeParameterResolver
+import com.squareup.kotlinpoet.ksp.toTypeParameterResolver
+
+enum class TransformerCallableKind {
+  TOP_LEVEL,
+  CLASS_MEMBER,
+  UNKNOWN
+}
+
+interface TransformerMethodElement {
+  val methodName: String
+  val packageName: String
+  val ownerQualifiedName: String?
+  val callableKind: TransformerCallableKind
+}
+
+data class TransformerMethodElementImpl(
+  override val methodName: String,
+  override val packageName: String,
+  override val ownerQualifiedName: String?,
+  override val callableKind: TransformerCallableKind
+) : TransformerMethodElement
+
+@ConsistentCopyVisibility
+data class TransformerRoundMethodElement private constructor(
+  val declaration: KSFunctionDeclaration,
+  val transformerMethodElement: TransformerMethodElement,
+  val firstParameterType: TransformerRoundTypeElement?,
+  val returnType: TransformerRoundTypeElement?
+) : TransformerMethodElement by transformerMethodElement {
+  val hasSingleParameter get() = declaration.parameters.size == 1
+
+  companion object {
+    fun from(method: KSFunctionDeclaration): TransformerRoundMethodElement {
+      val typeParameterResolver = method.typeParameterResolver()
+      return TransformerRoundMethodElement(
+        declaration = method,
+        transformerMethodElement = TransformerMethodElementImpl(
+          methodName = method.simpleName.asString(),
+          packageName = method.packageName.asString(),
+          ownerQualifiedName = method.parentDeclaration
+            ?.qualifiedName
+            ?.asString(),
+          callableKind = when (method.parentDeclaration) {
+            null -> TOP_LEVEL
+            is KSClassDeclaration -> CLASS_MEMBER
+            else -> UNKNOWN
+          }
+        ),
+        firstParameterType = method.parameters
+          .firstOrNull()
+          ?.type
+          ?.toTransformerRoundTypeElement(typeParameterResolver),
+        returnType = method.returnType
+          ?.toTransformerRoundTypeElement(typeParameterResolver)
+      )
+    }
+  }
+}
+
+private fun KSFunctionDeclaration.typeParameterResolver() = typeParameters.toTypeParameterResolver(
+  parent = parentDeclaration.typeParameterResolver()
+)
+
+private fun KSDeclaration?.typeParameterResolver(): TypeParameterResolver = when (this) {
+  is KSClassDeclaration -> typeParameters.toTypeParameterResolver(
+    parent = parentDeclaration.typeParameterResolver()
+  )
+  else -> TypeParameterResolver.EMPTY
+}

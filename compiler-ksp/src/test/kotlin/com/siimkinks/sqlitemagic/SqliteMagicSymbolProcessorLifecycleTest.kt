@@ -8,11 +8,15 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
+import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.testTable
 import org.junit.jupiter.api.Test
 
-class SqliteMagicSymbolProcessorLifecycleTest {
+class SqliteMagicSymbolProcessorLifecycleTest : ProcessingStepsTest {
+  override val processingSteps: (Environment) -> List<ProcessingStep>
+    get() = { emptyList() }
+
   @Test
   fun `compiles sources annotated with supported annotations`() {
     SqliteMagicCompilation

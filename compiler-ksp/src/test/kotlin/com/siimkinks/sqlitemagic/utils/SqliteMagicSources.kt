@@ -4,8 +4,8 @@ import com.tschuchort.compiletesting.SourceFile
 
 object SqliteMagicSources {
   fun testTable() = SourceFile.kotlin(
-    "TestTable.kt",
-    """
+    name = "TestTable.kt",
+    contents = """
       package test
 
       import com.siimkinks.sqlitemagic.annotation.Column

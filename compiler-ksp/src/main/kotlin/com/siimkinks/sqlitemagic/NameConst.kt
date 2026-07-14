@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.utils
+package com.siimkinks.sqlitemagic
 
 object NameConst {
   const val PACKAGE_ROOT = "com.siimkinks.sqlitemagic"

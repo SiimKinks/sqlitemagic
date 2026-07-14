@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor
 import com.tschuchort.compiletesting.CompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
+import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.COMPILATION_ERROR
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.OK
 
 data class ProcessorCompilationResult(
@@ -21,6 +22,13 @@ data class ProcessorCompilationResult(
 
   fun hasMessage(message: String) = apply {
     result.hasMessage(message)
+  }
+
+  fun assertCompilationError(
+    vararg messages: String
+  ) = apply {
+    hasExitCode(COMPILATION_ERROR)
+    messages.forEach(this::hasMessage)
   }
 }
 

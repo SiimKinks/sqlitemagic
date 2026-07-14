@@ -1,14 +1,12 @@
-package com.siimkinks.sqlitemagic
+package com.siimkinks.sqlitemagic.dbconfig
 
-import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_NAME
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
-import com.siimkinks.sqlitemagic.processing.DatabaseConfigurationCollectionStep
-import com.siimkinks.sqlitemagic.utils.NameConst
+import com.google.common.truth.Truth
+import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.NameConst
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
-import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.COMPILATION_ERROR
+import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
@@ -24,20 +22,20 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       .compile(
         plainClass(className = "Unconfigured"),
         kspOptions = mapOf(
-          OPTION_DB_NAME to "option.db",
-          OPTION_DB_VERSION to "7"
+          SqliteMagicSymbolProcessor.OPTION_DB_NAME to "option.db",
+          SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "7"
         )
       )
       .isOk()
       .apply {
-        assertThat(environment.dbMetadata).isEqualTo(
+        Truth.assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = "option.db",
             dbVersion = 7
           )
         )
-        assertThat(environment.isSubmodule).isFalse()
-        assertThat(environment.hasSubmodules).isFalse()
+        Truth.assertThat(environment.isSubmodule).isFalse()
+        Truth.assertThat(environment.hasSubmodules).isFalse()
       }
   }
 
@@ -49,14 +47,14 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
       .apply {
-        assertThat(environment.dbMetadata).isEqualTo(
+        Truth.assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = "main.db",
             dbVersion = 5
           )
         )
-        assertThat(environment.isSubmodule).isFalse()
-        assertThat(environment.hasSubmodules).isFalse()
+        Truth.assertThat(environment.isSubmodule).isFalse()
+        Truth.assertThat(environment.hasSubmodules).isFalse()
       }
   }
 
@@ -69,13 +67,13 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
           version = 9
         ),
         kspOptions = mapOf(
-          OPTION_DB_NAME to "option.db",
-          OPTION_DB_VERSION to "3"
+          SqliteMagicSymbolProcessor.OPTION_DB_NAME to "option.db",
+          SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "3"
         )
       )
       .isOk()
       .apply {
-        assertThat(environment.dbMetadata).isEqualTo(
+        Truth.assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = "annotation.db",
             dbVersion = 9
@@ -89,11 +87,11 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
     SqliteMagicCompilation
       .compile(
         database(),
-        kspOptions = mapOf(OPTION_DB_VERSION to "4")
+        kspOptions = mapOf(SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "4")
       )
       .isOk()
       .apply {
-        assertThat(environment.dbMetadata).isEqualTo(
+        Truth.assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = null,
             dbVersion = 4
@@ -108,13 +106,13 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       .compile(
         database(version = 5),
         kspOptions = mapOf(
-          OPTION_DB_VERSION to "3",
-          OPTION_VARIANT_DEBUG to "true"
+          SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "3",
+          SqliteMagicSymbolProcessor.OPTION_VARIANT_DEBUG to "true"
         )
       )
       .isOk()
       .apply {
-        assertThat(environment.dbMetadata).isEqualTo(
+        Truth.assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = null,
             dbVersion = 3
@@ -128,11 +126,11 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
     SqliteMagicCompilation
       .compile(
         database(),
-        kspOptions = mapOf(OPTION_DB_NAME to "option.db")
+        kspOptions = mapOf(SqliteMagicSymbolProcessor.OPTION_DB_NAME to "option.db")
       )
       .isOk()
       .apply {
-        assertThat(environment.dbMetadata).isEqualTo(
+        Truth.assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = "option.db",
             dbVersion = null
@@ -149,8 +147,8 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
       .apply {
-        assertThat(environment.submoduleName).isEqualTo("Feature")
-        assertThat(environment.isSubmodule).isTrue()
+        Truth.assertThat(environment.submoduleName).isEqualTo("Feature")
+        Truth.assertThat(environment.isSubmodule).isTrue()
       }
   }
 
@@ -163,14 +161,11 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
 
-    SqliteMagicCompilation
-      .compile(
-        database(submodules = listOf("FeatureConfig")),
-        classpaths = listOf(submoduleCompilation.result.outputDirectory)
-      )
+    submoduleCompilation
+      .compile(database(submodules = listOf("FeatureConfig")))
       .isOk()
       .apply {
-        assertThat(environment.submoduleDatabases).isEqualTo(
+        Truth.assertThat(environment.submoduleDatabases).isEqualTo(
           listOf(
             SubmoduleDatabaseMetadata(
               moduleName = "Feature",
@@ -178,7 +173,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
             )
           )
         )
-        assertThat(environment.hasSubmodules).isTrue()
+        Truth.assertThat(environment.hasSubmodules).isTrue()
       }
   }
 
@@ -190,14 +185,11 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
 
-    SqliteMagicCompilation
-      .compile(
-        database(submodules = listOf("test.FeatureConfig")),
-        classpaths = listOf(submoduleCompilation.result.outputDirectory)
-      )
+    submoduleCompilation
+      .compile(database(submodules = listOf("test.FeatureConfig")))
       .isOk()
       .apply {
-        assertThat(environment.submoduleDatabases).isEqualTo(
+        Truth.assertThat(environment.submoduleDatabases).isEqualTo(
           listOf(
             SubmoduleDatabaseMetadata(
               moduleName = "Feature",
@@ -205,7 +197,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
             )
           )
         )
-        assertThat(environment.hasSubmodules).isTrue()
+        Truth.assertThat(environment.hasSubmodules).isTrue()
       }
   }
 
@@ -243,7 +235,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
       .apply {
-        assertThat(environment.submoduleDatabases).isEqualTo(
+        Truth.assertThat(environment.submoduleDatabases).isEqualTo(
           listOf(
             SubmoduleDatabaseMetadata(
               moduleName = "Feature",
@@ -255,7 +247,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
             )
           )
         )
-        assertThat(environment.hasSubmodules).isTrue()
+        Truth.assertThat(environment.hasSubmodules).isTrue()
       }
   }
 
@@ -266,7 +258,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
         database(className = "FirstDatabase"),
         database(className = "SecondDatabase")
       )
-      .hasExitCode(COMPILATION_ERROR)
+      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
       .hasMessage("Only one element per module can be annotated with @Database")
   }
 
@@ -277,7 +269,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
         submoduleDatabase(className = "FirstSubmodule", moduleName = "first"),
         submoduleDatabase(className = "SecondSubmodule", moduleName = "second")
       )
-      .hasExitCode(COMPILATION_ERROR)
+      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
       .hasMessage("Only one element per module can be annotated with @SubmoduleDatabase")
   }
 
@@ -288,7 +280,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
         database(),
         submoduleDatabase(moduleName = "feature")
       )
-      .hasExitCode(COMPILATION_ERROR)
+      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
       .hasMessage("Module can have either @Database or @SubmoduleDatabase annotated element, but not both")
   }
 
@@ -298,7 +290,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       .compile(
         submoduleDatabase(moduleName = "")
       )
-      .hasExitCode(COMPILATION_ERROR)
+      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
       .hasMessage("Submodule name cannot be empty or null")
   }
 
@@ -311,12 +303,9 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
 
-    SqliteMagicCompilation
-      .compile(
-        database(submodules = listOf("test.FeatureConfig")),
-        classpaths = listOf(submoduleCompilation.result.outputDirectory)
-      )
-      .hasExitCode(COMPILATION_ERROR)
+    submoduleCompilation
+      .compile(database(submodules = listOf("test.FeatureConfig")))
+      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
       .hasMessage("Submodule name cannot be empty")
   }
 
@@ -327,7 +316,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
         plainClass("FeatureConfig"),
         database(submodules = listOf("test.FeatureConfig"))
       )
-      .hasExitCode(COMPILATION_ERROR)
+      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
       .hasMessage("Database submodule test.FeatureConfig must be annotated with @SubmoduleDatabase")
   }
 

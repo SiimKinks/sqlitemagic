@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.processing
+package com.siimkinks.sqlitemagic.dbconfig
 
 import com.google.devtools.ksp.KSTypesNotPresentException
 import com.google.devtools.ksp.getClassDeclarationByName
@@ -6,14 +6,12 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.SubmoduleDatabaseMetadata
-import com.siimkinks.sqlitemagic.Types.DATABASE_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.SUBMODULE_DATABASE_ANNOTATION
+import com.siimkinks.sqlitemagic.NameConst
+import com.siimkinks.sqlitemagic.Types
 import com.siimkinks.sqlitemagic.annotation.Database
 import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
-import com.siimkinks.sqlitemagic.utils.NameConst
+import com.siimkinks.sqlitemagic.processing.ProcessingStep
+import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
 
@@ -22,24 +20,24 @@ class DatabaseConfigurationCollectionStep(
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
     val submoduleDatabaseSymbols = resolver
-      .getSymbolsWithAnnotation(SUBMODULE_DATABASE_ANNOTATION)
+      .getSymbolsWithAnnotation(Types.SUBMODULE_DATABASE_ANNOTATION)
       .toList()
     if (!parseSubmodules(submoduleDatabaseSymbols)) {
-      return Failed
+      return ProcessingStepResult.Failed
     }
 
     val databaseSymbols = resolver
-      .getSymbolsWithAnnotation(DATABASE_ANNOTATION)
+      .getSymbolsWithAnnotation(Types.DATABASE_ANNOTATION)
       .toList()
     if (submoduleDatabaseSymbols.isNotEmpty() && databaseSymbols.isNotEmpty()) {
       environment.logger.error(
         message = "Module can have either $DATABASE_ANNOTATION_NAME or $SUBMODULE_DATABASE_ANNOTATION_NAME annotated element, but not both"
       )
-      return Failed
+      return ProcessingStepResult.Failed
     }
     if (databaseSymbols.size > 1) {
       environment.logger.error(ERR_SINGLE_DB_ALLOWED)
-      return Failed
+      return ProcessingStepResult.Failed
     }
     for (symbol in databaseSymbols) {
       if (environment.submoduleDatabases != null) {
@@ -47,7 +45,7 @@ class DatabaseConfigurationCollectionStep(
           message = ERR_SINGLE_DB_ALLOWED,
           symbol = symbol
         )
-        return Failed
+        return ProcessingStepResult.Failed
       }
       val databaseAnnotation = checkNotNull(symbol.findAnnotationWithType<Database>())
       val submodules = resolver
@@ -55,7 +53,7 @@ class DatabaseConfigurationCollectionStep(
           databaseAnnotation = databaseAnnotation,
           databaseSymbol = symbol
         )
-        ?: return Failed
+        ?: return ProcessingStepResult.Failed
       if (submodules.isNotEmpty()) {
         environment.submoduleDatabases = submodules
       }
@@ -64,7 +62,7 @@ class DatabaseConfigurationCollectionStep(
         dbVersion = databaseAnnotation.version
       )
     }
-    return Continue
+    return ProcessingStepResult.Continue
   }
 
   private fun parseSubmodules(submoduleDatabaseSymbols: List<KSAnnotated>): Boolean {

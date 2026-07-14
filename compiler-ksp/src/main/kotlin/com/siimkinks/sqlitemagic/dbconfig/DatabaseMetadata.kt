@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic
+package com.siimkinks.sqlitemagic.dbconfig
 
 data class DatabaseMetadata(
   val dbName: String?,

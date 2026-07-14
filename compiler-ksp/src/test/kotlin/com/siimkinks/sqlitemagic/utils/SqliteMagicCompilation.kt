@@ -15,25 +15,35 @@ import java.io.File
 
 interface ProcessingStepsTest {
   val processingSteps: (Environment) -> List<ProcessingStep>
-}
 
-internal object SqliteMagicCompilation {
-  fun ProcessingStepsTest.compile(
+  fun SqliteMagicCompilation.compile(
     vararg sources: SourceFile,
     kspOptions: Map<String, String> = emptyMap(),
     classpaths: List<File> = emptyList()
-  ): ProcessorCompilationResult = compile(
+  ): ProcessorCompilationResult = SqliteMagicCompilation.compile(
     *sources,
     kspOptions = kspOptions,
     classpaths = classpaths,
     processingStepsFactory = processingSteps
   )
 
+  fun ProcessorCompilationResult.compile(
+    vararg sources: SourceFile,
+    kspOptions: Map<String, String> = emptyMap()
+  ): ProcessorCompilationResult = SqliteMagicCompilation.compile(
+    *sources,
+    kspOptions = kspOptions,
+    classpaths = listOf(result.outputDirectory),
+    processingStepsFactory = processingSteps
+  )
+}
+
+object SqliteMagicCompilation {
   fun compile(
     vararg sources: SourceFile,
     kspOptions: Map<String, String> = emptyMap(),
     classpaths: List<File> = emptyList(),
-    processingStepsFactory: ((Environment) -> List<ProcessingStep>)? = null
+    processingStepsFactory: ((Environment) -> List<ProcessingStep>)?
   ): ProcessorCompilationResult {
     val provider = RecordingSqliteMagicSymbolProcessorProvider(processingStepsFactory)
     val result = KotlinCompilation()

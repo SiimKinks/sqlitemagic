@@ -12,34 +12,32 @@ import com.siimkinks.sqlitemagic.Types.OBJECT_TO_DB_VALUE_ANNOTATION
 import com.siimkinks.sqlitemagic.Types.SUBMODULE_DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.Types.TABLE_ANNOTATION
 import com.siimkinks.sqlitemagic.Types.VIEW_ANNOTATION
-import com.siimkinks.sqlitemagic.processing.DatabaseConfigurationCollectionStep
+import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
+import com.siimkinks.sqlitemagic.transformer.DefaultTransformerCollectionStep
+import com.siimkinks.sqlitemagic.transformer.TransformerCollectionStep
 
 class SqliteMagicSymbolProcessor(
   symbolProcessorEnvironment: SymbolProcessorEnvironment,
   processingStepsProvider: (Environment) -> List<ProcessingStep> = { env ->
     listOf(
-      DatabaseConfigurationCollectionStep(env)
+      DefaultTransformerCollectionStep(env),
+      DatabaseConfigurationCollectionStep(env),
+      TransformerCollectionStep(env)
     )
   }
 ) : SymbolProcessor {
   val environment = Environment(symbolProcessorEnvironment)
   private val processingSteps = processingStepsProvider(environment)
-  private var debugMessageEmitted = false
 
   override fun process(resolver: Resolver): List<KSAnnotated> {
     if (environment.isProcessingFailed) {
       return emptyList()
     }
     environment.incrementRound()
-
-    if (!debugMessageEmitted && environment.options.debug) {
-      environment.logger.warn("SqliteMagic KSP debug mode enabled")
-      debugMessageEmitted = true
-    }
 
     val deferredSymbols = mutableListOf<KSAnnotated>()
     for (processingStep in processingSteps) {

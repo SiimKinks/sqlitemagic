@@ -12,6 +12,8 @@ dependencies {
 
   implementation libraries.autoServiceAnnotations
   implementation libraries.kotlinStdLib
+  implementation libraries.kotlinpoet
+  implementation libraries.kotlinpoetKsp
   implementation libraries.kspApi
 
   ksp libraries.autoServiceKsp
