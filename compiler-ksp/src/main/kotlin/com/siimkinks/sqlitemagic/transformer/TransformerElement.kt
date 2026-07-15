@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.transformer
 
 import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Const.DEFAULT_TRANSFORMERS
+import com.squareup.kotlinpoet.CodeBlock
 
 data class TransformerElement(
   val deserializedType: TransformerTypeElement,
@@ -15,6 +16,12 @@ data class TransformerElement(
   val isDefaultTransformer
     get() = objectToDbValueMethod.ownerQualifiedName in DEFAULT_TRANSFORMERS ||
         dbValueToObjectMethod.ownerQualifiedName in DEFAULT_TRANSFORMERS
+
+  fun serializedValueGetter(valueGetter: CodeBlock) =
+    objectToDbValueMethod.callWithArgument(valueGetter)
+
+  fun deserializedValueGetter(valueGetter: CodeBlock) =
+    dbValueToObjectMethod.callWithArgument(valueGetter)
 }
 
 class TransformerRoundElement private constructor(

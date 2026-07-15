@@ -15,7 +15,7 @@ ext {
   compileSdkVersion = 37
   targetSdkVersion = compileSdkVersion
 
-  androidGradleVersion = '9.2.1'
+  androidGradleVersion = '9.3.0'
   androidAnnotationsVersion = '1.10.0'
   androidAppcompatVersion = '1.7.1'
   androidSqliteVersion = '2.7.0'
@@ -38,9 +38,9 @@ ext {
   junitVersion = '6.1.1'
   junitRunnerVersion = '1.2.1'
   kotlinpoetVersion = '2.3.0'
-  kotlinVersion = '2.4.0'
+  kotlinVersion = '2.4.10'
   kspCompileTestingVersion = '0.13.0'
-  kspVersion = '2.3.9'
+  kspVersion = '2.3.10'
   lombokVersion = '1.14.8' // do not increment!
   lombokNewVersion = '1.18.46'
   mockitoVersion = '5.12.0'

@@ -26,6 +26,10 @@ object NameConst {
   const val FIELD_UPDATE_SQL = "UPDATE_SQL"
   const val FIELD_TABLE_SCHEMA = "TABLE_SCHEMA"
 
+  const val METHOD_TO_SQL_ARG = "toSqlArg"
+  const val METHOD_GET_FROM_CURSOR = "getFromCursor"
+  const val METHOD_GET_FROM_STATEMENT = "getFromStatement"
+  const val METHOD_AS = "as"
   const val METHOD_NEW_INSTANCE_WITH_ONLY_ID = "newInstanceWithOnlyId"
   const val METHOD_ADD_SHALLOW_QUERY_PARTS = "addShallowQueryParts"
   const val METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL = "addShallowQueryPartsInternal"

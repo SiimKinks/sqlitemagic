@@ -745,13 +745,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
     objectToDbValueMethod = TransformerMethodElementImpl(
       methodName = objectToDbValueMethodName,
       packageName = FIXTURE_PACKAGE,
-      ownerQualifiedName = objectToDbValueOwnerQualifiedName,
+      ownerClassName = objectToDbValueOwnerQualifiedName?.let(ClassName::bestGuess),
       callableKind = objectToDbValueCallableKind
     ),
     dbValueToObjectMethod = TransformerMethodElementImpl(
       methodName = dbValueToObjectMethodName,
       packageName = FIXTURE_PACKAGE,
-      ownerQualifiedName = dbValueToObjectOwnerQualifiedName,
+      ownerClassName = dbValueToObjectOwnerQualifiedName?.let(ClassName::bestGuess),
       callableKind = dbValueToObjectCallableKind
     ),
     serializedTypeCanBeNull = serializedTypeCanBeNull
