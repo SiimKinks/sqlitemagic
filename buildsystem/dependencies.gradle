@@ -91,7 +91,7 @@ ext {
       rxJava2Extensions         : "com.github.akarnokd:rxjava2-extensions:${rxJava2ExtensionsVersion}",
       rxJavaMath                : "io.reactivex:rxjava-math:${rxJavaMathVersion}",
       supportTime               : "com.jakewharton.threetenabp:threetenabp:$supportTimeVersion",
-      sqlitemagicAnnotations    : "$GROUP:sqlitemagic-annotations:$VERSION_NAME",
+      sqlitemagicAnnotations    : "$GROUP:sqlitemagic-legacy-annotations:$VERSION_NAME",
       sqlitemagicProcessor      : "$GROUP:sqlitemagic-compiler:$VERSION_NAME",
       sqlitemagicProcessorKotlin: "$GROUP:sqlitemagic-compiler-kotlin:$VERSION_NAME",
       sqlitemagicProcessorKsp   : "$GROUP:sqlitemagic-compiler-ksp:$VERSION_NAME",

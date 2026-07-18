@@ -12,7 +12,7 @@ import org.gradle.api.ProjectEvaluationListener
 import org.gradle.api.ProjectState
 import org.gradle.api.artifacts.Configuration
 import java.io.File
-import java.util.*
+import java.util.Locale
 
 const val DB_TASK_GROUP = "db"
 
@@ -80,7 +80,7 @@ class SqliteMagicPlugin : Plugin<Project> {
 
         project.getConfiguration(if (hasKpt) "kapt" else "annotationProcessor")
           .addDependency(project, "com.siimkinks.sqlitemagic:$compilerArtifact:$PLUGIN_VERSION")
-        providedDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$PLUGIN_VERSION")
+        providedDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-legacy-annotations:$PLUGIN_VERSION")
         compileDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic:$PLUGIN_VERSION")
         if (sqlitemagic.useKotlin && kotlinProject) {
           compileDeps.addDependency(

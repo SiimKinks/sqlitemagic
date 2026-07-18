@@ -1,11 +1,7 @@
-apply plugin: 'kotlin'
+apply plugin: 'java'
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
-
-dependencies {
-  implementation libraries.kotlinStdLib
-}
 
 tasks.withType(Test) {
   scanForTestClasses = false

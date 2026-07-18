@@ -3,16 +3,22 @@ apply plugin: 'java-gradle-plugin'
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
-def generatedVersionDir = file("$buildDir/generated/sources/pluginVersion/main/kotlin")
+def generatedVersionDir = layout.buildDirectory.dir('generated/sources/pluginVersion/main/kotlin')
+def pluginVersion = project.version.toString()
 def generatePluginVersion = tasks.register('generatePluginVersion') {
   outputs.dir(generatedVersionDir)
-  inputs.property('pluginVersion', project.version.toString())
+  inputs.property('pluginVersion', pluginVersion)
   doLast {
-    def packageDir = new File(generatedVersionDir, 'com/siimkinks/sqlitemagic')
+    def packageDir = generatedVersionDir.get()
+        .dir('com/siimkinks/sqlitemagic')
+        .asFile
     packageDir.mkdirs()
-    new File(packageDir, 'PluginVersion.kt').text = """package com.siimkinks.sqlitemagic
+    def versionFile = generatedVersionDir.get()
+        .file('com/siimkinks/sqlitemagic/PluginVersion.kt')
+        .asFile
+    versionFile.text = """package com.siimkinks.sqlitemagic
 
-internal const val PLUGIN_VERSION = "${project.version}"
+internal const val PLUGIN_VERSION = "${pluginVersion}"
 """
   }
 }
@@ -24,6 +30,10 @@ sourceSets {
 }
 
 compileKotlin {
+  dependsOn(generatePluginVersion)
+}
+
+tasks.named('sourcesJar') {
   dependsOn(generatePluginVersion)
 }
 

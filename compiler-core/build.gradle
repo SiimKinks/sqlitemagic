@@ -5,7 +5,7 @@ apply from: '../buildsystem/bintray-push.gradle'
 
 
 dependencies {
-  implementation project(':annotations')
+  implementation project(':legacy-annotations')
   implementation project(':runtime')
 
   implementation files("${System.properties['java.home']}/../lib/tools.jar")

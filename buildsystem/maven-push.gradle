@@ -1,7 +1,7 @@
 apply plugin: 'maven-publish'
 
 tasks.register('sourcesJar', Jar) {
-  from sourceSets.main.allJava
+  from sourceSets.main.allSource
   archiveClassifier.set('sources')
 }
 

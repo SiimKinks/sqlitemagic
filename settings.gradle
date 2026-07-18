@@ -1,6 +1,7 @@
 include ':gradle-plugin'
 include ':gradle-plugin-ksp'
 include ':annotations'
+include ':legacy-annotations'
 include ':runtime'
 include ':kotlin'
 include ':compiler-core'
