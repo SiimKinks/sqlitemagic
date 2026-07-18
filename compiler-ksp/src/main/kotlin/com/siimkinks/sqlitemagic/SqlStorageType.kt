@@ -43,6 +43,8 @@ enum class SqlStorageType(
   STRING(affinity = TEXT);
 
   companion object {
+    val supportedTypeNames = SIMPLE_TYPES.keys + "kotlin.Array<kotlin.Byte>"
+
     fun from(typeName: TypeName): SqlStorageType? {
       val expandedType = typeName.expandedTypeAlias()
       return when {

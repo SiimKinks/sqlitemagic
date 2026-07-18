@@ -55,15 +55,17 @@ class SqliteMagicSymbolProcessorLifecycleTest : ProcessingStepsTest {
 
     override fun process(resolver: Resolver): ProcessingStepResult {
       callCount++
-      if (deferred) {
-        return Continue
+      return when {
+        deferred -> Continue
+        else -> {
+          deferred = true
+          Deferred(
+            symbols = resolver
+              .getSymbolsWithAnnotation(TABLE_ANNOTATION)
+              .toList()
+          )
+        }
       }
-      deferred = true
-      return Deferred(
-        symbols = resolver
-          .getSymbolsWithAnnotation(TABLE_ANNOTATION)
-          .toList()
-      )
     }
   }
 

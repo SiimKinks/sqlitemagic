@@ -8,3 +8,19 @@ fun String.firstCharToUpperCase() = replaceFirstChar {
     else -> it.toString()
   }
 }
+
+fun String.camelCaseToSnakeCase() = when {
+  isEmpty() -> this
+  else -> buildString(length + 4) {
+    append(this@camelCaseToSnakeCase[0])
+    for (character in this@camelCaseToSnakeCase.drop(1)) {
+      when {
+        character.isUpperCase() -> {
+          append('_')
+          append(character.lowercaseChar())
+        }
+        else -> append(character)
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.transformer
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
+import com.siimkinks.sqlitemagic.element.ParsedTypeImpl
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.CLASS_MEMBER
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.TOP_LEVEL
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.FIXTURE_PACKAGE
@@ -288,11 +289,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "kotlin.collections.List<$FIXTURE_PACKAGE.Email>",
-            typeName = listTypeName.parameterizedBy(emailTypeName),
-            qualifiedName = "kotlin.collections.List",
-            transformerName = "List_Email",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "kotlin.collections.List<$FIXTURE_PACKAGE.Email>",
+              typeName = listTypeName.parameterizedBy(emailTypeName),
+              qualifiedName = "kotlin.collections.List",
+              sqlStorageType = null
+            ),
+            transformerName = "List_Email"
           ),
           objectToDbValueOwnerQualifiedName = "$FIXTURE_PACKAGE.ListEmailTransformer",
           dbValueToObjectOwnerQualifiedName = "$FIXTURE_PACKAGE.ListEmailTransformer",
@@ -324,13 +327,15 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "kotlin.collections.List<kotlin.collections.List<$FIXTURE_PACKAGE.Email>>",
-            typeName = listTypeName.parameterizedBy(
-              listTypeName.parameterizedBy(emailTypeName)
+            parsedType = ParsedTypeImpl(
+              typeKey = "kotlin.collections.List<kotlin.collections.List<$FIXTURE_PACKAGE.Email>>",
+              typeName = listTypeName.parameterizedBy(
+                listTypeName.parameterizedBy(emailTypeName)
+              ),
+              qualifiedName = "kotlin.collections.List",
+              sqlStorageType = null
             ),
-            qualifiedName = "kotlin.collections.List",
-            transformerName = "List_List_Email",
-            sqlStorageType = null
+            transformerName = "List_List_Email"
           ),
           objectToDbValueOwnerQualifiedName = "$FIXTURE_PACKAGE.NestedListEmailTransformer",
           dbValueToObjectOwnerQualifiedName = "$FIXTURE_PACKAGE.NestedListEmailTransformer",
@@ -377,11 +382,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "$FIXTURE_PACKAGE.A.Value",
-            typeName = ClassName(FIXTURE_PACKAGE, "A", "Value"),
-            qualifiedName = "$FIXTURE_PACKAGE.A.Value",
-            transformerName = "A_Value",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "$FIXTURE_PACKAGE.A.Value",
+              typeName = ClassName(FIXTURE_PACKAGE, "A", "Value"),
+              qualifiedName = "$FIXTURE_PACKAGE.A.Value",
+              sqlStorageType = null
+            ),
+            transformerName = "A_Value"
           ),
           objectToDbValueOwnerQualifiedName = transformerOwnerQualifiedName,
           dbValueToObjectOwnerQualifiedName = transformerOwnerQualifiedName,
@@ -390,11 +397,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
         ),
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "$FIXTURE_PACKAGE.B.Value",
-            typeName = ClassName(FIXTURE_PACKAGE, "B", "Value"),
-            qualifiedName = "$FIXTURE_PACKAGE.B.Value",
-            transformerName = "B_Value",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "$FIXTURE_PACKAGE.B.Value",
+              typeName = ClassName(FIXTURE_PACKAGE, "B", "Value"),
+              qualifiedName = "$FIXTURE_PACKAGE.B.Value",
+              sqlStorageType = null
+            ),
+            transformerName = "B_Value"
           ),
           objectToDbValueOwnerQualifiedName = transformerOwnerQualifiedName,
           dbValueToObjectOwnerQualifiedName = transformerOwnerQualifiedName,
@@ -433,11 +442,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "$FIXTURE_PACKAGE.Outer.Inner.Value",
-            typeName = ClassName(FIXTURE_PACKAGE, "Outer", "Inner", "Value"),
-            qualifiedName = "$FIXTURE_PACKAGE.Outer.Inner.Value",
-            transformerName = "Outer_Inner_Value",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "$FIXTURE_PACKAGE.Outer.Inner.Value",
+              typeName = ClassName(FIXTURE_PACKAGE, "Outer", "Inner", "Value"),
+              qualifiedName = "$FIXTURE_PACKAGE.Outer.Inner.Value",
+              sqlStorageType = null
+            ),
+            transformerName = "Outer_Inner_Value"
           ),
           objectToDbValueOwnerQualifiedName = transformerOwnerQualifiedName,
           dbValueToObjectOwnerQualifiedName = transformerOwnerQualifiedName,
@@ -476,11 +487,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "kotlin.collections.List<$FIXTURE_PACKAGE.Container.Value>",
-            typeName = listTypeName.parameterizedBy(nestedValueTypeName),
-            qualifiedName = "kotlin.collections.List",
-            transformerName = "List_Container_Value",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "kotlin.collections.List<$FIXTURE_PACKAGE.Container.Value>",
+              typeName = listTypeName.parameterizedBy(nestedValueTypeName),
+              qualifiedName = "kotlin.collections.List",
+              sqlStorageType = null
+            ),
+            transformerName = "List_Container_Value"
           ),
           objectToDbValueOwnerQualifiedName = transformerOwnerQualifiedName,
           dbValueToObjectOwnerQualifiedName = transformerOwnerQualifiedName,
@@ -518,11 +531,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "$FIXTURE_PACKAGE.QualifiedContainer.Value",
-            typeName = ClassName(FIXTURE_PACKAGE, "QualifiedContainer", "Value"),
-            qualifiedName = "$FIXTURE_PACKAGE.QualifiedContainer.Value",
-            transformerName = "QualifiedContainer_Value",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "$FIXTURE_PACKAGE.QualifiedContainer.Value",
+              typeName = ClassName(FIXTURE_PACKAGE, "QualifiedContainer", "Value"),
+              qualifiedName = "$FIXTURE_PACKAGE.QualifiedContainer.Value",
+              sqlStorageType = null
+            ),
+            transformerName = "QualifiedContainer_Value"
           ),
           objectToDbValueOwnerQualifiedName = transformerOwnerQualifiedName,
           dbValueToObjectOwnerQualifiedName = transformerOwnerQualifiedName,
@@ -543,18 +558,22 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "$FIXTURE_PACKAGE.Email",
-            typeName = emailTypeName.copy(nullable = true),
-            qualifiedName = "$FIXTURE_PACKAGE.Email",
-            transformerName = "Email",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "$FIXTURE_PACKAGE.Email",
+              typeName = emailTypeName.copy(nullable = true),
+              qualifiedName = "$FIXTURE_PACKAGE.Email",
+              sqlStorageType = null
+            ),
+            transformerName = "Email"
           ),
           serializedType = TransformerTypeElementImpl(
-            typeKey = "kotlin.String",
-            typeName = STRING.copy(nullable = true),
-            qualifiedName = "kotlin.String",
-            transformerName = "String",
-            sqlStorageType = SqlStorageType.STRING
+            parsedType = ParsedTypeImpl(
+              typeKey = "kotlin.String",
+              typeName = STRING.copy(nullable = true),
+              qualifiedName = "kotlin.String",
+              sqlStorageType = SqlStorageType.STRING
+            ),
+            transformerName = "String"
           ),
           objectToDbValueOwnerQualifiedName = "$FIXTURE_PACKAGE.NullableEmailTransformer",
           dbValueToObjectOwnerQualifiedName = "$FIXTURE_PACKAGE.NullableEmailTransformer"
@@ -587,24 +606,28 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "$FIXTURE_PACKAGE.Email",
-            typeName = aliasTypeName(
-              simpleName = "EmailAlias",
-              abbreviatedType = emailTypeName
+            parsedType = ParsedTypeImpl(
+              typeKey = "$FIXTURE_PACKAGE.Email",
+              typeName = aliasTypeName(
+                simpleName = "EmailAlias",
+                abbreviatedType = emailTypeName
+              ),
+              qualifiedName = "$FIXTURE_PACKAGE.Email",
+              sqlStorageType = null
             ),
-            qualifiedName = "$FIXTURE_PACKAGE.Email",
-            transformerName = "EmailAlias",
-            sqlStorageType = null
+            transformerName = "EmailAlias"
           ),
           serializedType = TransformerTypeElementImpl(
-            typeKey = "kotlin.String",
-            typeName = aliasTypeName(
-              simpleName = "StringAlias",
-              abbreviatedType = STRING
+            parsedType = ParsedTypeImpl(
+              typeKey = "kotlin.String",
+              typeName = aliasTypeName(
+                simpleName = "StringAlias",
+                abbreviatedType = STRING
+              ),
+              qualifiedName = "kotlin.String",
+              sqlStorageType = SqlStorageType.STRING
             ),
-            qualifiedName = "kotlin.String",
-            transformerName = "StringAlias",
-            sqlStorageType = SqlStorageType.STRING
+            transformerName = "StringAlias"
           ),
           objectToDbValueOwnerQualifiedName = "$FIXTURE_PACKAGE.AliasedEmailTransformer",
           dbValueToObjectOwnerQualifiedName = "$FIXTURE_PACKAGE.AliasedEmailTransformer"
@@ -634,11 +657,13 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
       .assertTransformers(
         emailTransformerElement(
           deserializedType = TransformerTypeElementImpl(
-            typeKey = "kotlin.collections.List<*>",
-            typeName = listTypeName.parameterizedBy(STAR),
-            qualifiedName = "kotlin.collections.List",
-            transformerName = "List",
-            sqlStorageType = null
+            parsedType = ParsedTypeImpl(
+              typeKey = "kotlin.collections.List<*>",
+              typeName = listTypeName.parameterizedBy(STAR),
+              qualifiedName = "kotlin.collections.List",
+              sqlStorageType = null
+            ),
+            transformerName = "List"
           ),
           objectToDbValueOwnerQualifiedName = "$FIXTURE_PACKAGE.StarProjectedListTransformer",
           dbValueToObjectOwnerQualifiedName = "$FIXTURE_PACKAGE.StarProjectedListTransformer",
@@ -719,18 +744,22 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
 
   private fun emailTransformerElement(
     deserializedType: TransformerTypeElement = TransformerTypeElementImpl(
-      typeKey = "$FIXTURE_PACKAGE.Email",
-      typeName = emailTypeName,
-      qualifiedName = "$FIXTURE_PACKAGE.Email",
-      transformerName = "Email",
-      sqlStorageType = null
+      parsedType = ParsedTypeImpl(
+        typeKey = "$FIXTURE_PACKAGE.Email",
+        typeName = emailTypeName,
+        qualifiedName = "$FIXTURE_PACKAGE.Email",
+        sqlStorageType = null
+      ),
+      transformerName = "Email"
     ),
     serializedType: TransformerTypeElement = TransformerTypeElementImpl(
-      typeKey = "kotlin.String",
-      typeName = STRING,
-      qualifiedName = "kotlin.String",
-      transformerName = "String",
-      sqlStorageType = SqlStorageType.STRING
+      parsedType = ParsedTypeImpl(
+        typeKey = "kotlin.String",
+        typeName = STRING,
+        qualifiedName = "kotlin.String",
+        sqlStorageType = SqlStorageType.STRING
+      ),
+      transformerName = "String"
     ),
     objectToDbValueOwnerQualifiedName: String?,
     dbValueToObjectOwnerQualifiedName: String?,

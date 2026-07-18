@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.transformer
 import com.google.devtools.ksp.symbol.KSFile
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.element.TypeKey
 
 internal class TransformerCollector(
   private val environment: Environment

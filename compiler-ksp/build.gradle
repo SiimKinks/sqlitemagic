@@ -35,6 +35,11 @@ ksp {
 tasks.withType(KotlinCompile).configureEach {
   compilerOptions {
     optIn.add("com.google.devtools.ksp.KspExperimental")
+  }
+}
+
+tasks.named('compileTestKotlin', KotlinCompile) {
+  compilerOptions {
     optIn.add("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
   }
 }

@@ -1,17 +1,15 @@
 package com.siimkinks.sqlitemagic.transformer
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.CLASS_MEMBER
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.TOP_LEVEL
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.UNKNOWN
+import com.siimkinks.sqlitemagic.utils.typeParameterResolver
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.MemberName
-import com.squareup.kotlinpoet.ksp.TypeParameterResolver
 import com.squareup.kotlinpoet.ksp.toClassName
-import com.squareup.kotlinpoet.ksp.toTypeParameterResolver
 
 enum class TransformerCallableKind {
   TOP_LEVEL,
@@ -87,15 +85,4 @@ data class TransformerRoundMethodElement private constructor(
       )
     }
   }
-}
-
-private fun KSFunctionDeclaration.typeParameterResolver() = typeParameters.toTypeParameterResolver(
-  parent = parentDeclaration.typeParameterResolver()
-)
-
-private fun KSDeclaration?.typeParameterResolver(): TypeParameterResolver = when (this) {
-  is KSClassDeclaration -> typeParameters.toTypeParameterResolver(
-    parent = parentDeclaration.typeParameterResolver()
-  )
-  else -> TypeParameterResolver.EMPTY
 }

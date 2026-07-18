@@ -3,6 +3,8 @@ package com.siimkinks.sqlitemagic.utils
 import com.tschuchort.compiletesting.SourceFile
 
 object SqliteMagicSources {
+  const val PACKAGE = "com.example.sqlitemagic"
+
   fun testTable() = SourceFile.kotlin(
     name = "TestTable.kt",
     contents = """

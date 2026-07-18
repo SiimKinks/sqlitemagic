@@ -1,10 +1,11 @@
 package com.siimkinks.sqlitemagic.transformer
 
+import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.tschuchort.compiletesting.SourceFile
 import org.intellij.lang.annotations.Language
 
 object TransformerCollectionSources {
-  const val FIXTURE_PACKAGE = "com.example.sqlitemagic.transformers"
+  const val FIXTURE_PACKAGE = "$PACKAGE.transformers"
 
   fun emailValueType() = SourceFile.kotlin(
     name = "Email.kt",

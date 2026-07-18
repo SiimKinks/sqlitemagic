@@ -63,7 +63,8 @@ class TransformerValidator(
       return false
     }
     val deserializedType = transformer.deserializedType
-    if (deserializedType?.declaration == null) {
+    val declarationTypeDeclaration = deserializedType?.declaration
+    if (declarationTypeDeclaration == null) {
       environment.logger.error(
         message = "Unsupported deserialization type ${transformer.deserializedType?.typeKey}",
         symbol = blameSymbol
@@ -93,7 +94,7 @@ class TransformerValidator(
       )
       return false
     }
-    if (deserializedType.declaration.isAnnotationPresent(Table::class)) {
+    if (declarationTypeDeclaration.isAnnotationPresent(Table::class)) {
       environment.logger.error(
         message = "Cannot transform object ${deserializedType.qualifiedName} which is also annotated with @Table. Delete transformer or remove annotation",
         symbol = blameSymbol

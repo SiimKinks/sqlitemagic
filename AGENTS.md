@@ -12,7 +12,7 @@
 - In Kotlin, omit explicit types when they can be inferred without hurting clarity.
 - In Kotlin, use explicit backing fields when a property should expose a read-only type while retaining a mutable implementation. Do not create a separate `mutable...` property solely for backing storage when this can be expressed as, for example, `val items: List<Item> field = mutableListOf()`.
 - In Kotlin, prefer expression bodies whenever possible.
-- In Kotlin, prefer `when` over `if` whenever possible, especially when selecting between multiple conditions or producing an expression value.
+- In Kotlin, prefer `when` over `if` when selecting between multiple conditions or producing an expression value. Use `if` for a single condition with no alternative branch. Do not use a Boolean expression as the `when` subject with `true` and `false` branches; use a subjectless `when` with the condition and `else` instead.
 - When a function call uses more than one named argument, put every argument on its own line, including the first argument, and keep the closing `)` on its own line.
 - When more than one function call is chained, put each call on its own line.
 - Exception for chained calls: if the receiver expression before the first call is very short and the call's argument list fits on one line, the first call may stay on the same line as the receiver; otherwise start the first call on a new line as well.

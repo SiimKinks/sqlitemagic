@@ -9,10 +9,10 @@ import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DEB
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
 import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
+import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement
-import com.siimkinks.sqlitemagic.transformer.TypeKey
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
 
 class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
