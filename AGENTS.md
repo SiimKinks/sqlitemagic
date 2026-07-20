@@ -39,3 +39,5 @@ gateway
 - When testing data classes, assert the full data class value instead of asserting each property separately.
 - Prefer constructing the expected instance and comparing it to the actual result in a single assertion.
 - Keep single-use test fixtures inline. Extract a fixture into a reusable function if and only if it is used more than once.
+- When several inputs exercise the same setup and assertion contract, use parameterized or table-driven coverage with labels that identify each case.
+- In Kotlin, omit an annotation use-site target when the annotation declaration already permits only the intended target. In particular, use `@Id`, `@Column`, `@Unique`, `@Embedded`, and `@IgnoreColumn` instead of their redundant `@field:` forms.

@@ -335,7 +335,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
 
       @Database(${databaseArguments(name, version, submodules)})
       class $className
-      """.trimIndent()
+      """
   )
 
   private fun submoduleDatabase(
@@ -350,7 +350,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
 
       @SubmoduleDatabase("$moduleName")
       class $className
-      """.trimIndent()
+      """
   )
 
   private fun generatedClassesManager(className: String) = SourceFile.kotlin(
@@ -359,7 +359,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       package ${NameConst.PACKAGE_ROOT}
 
       class $className
-      """.trimIndent()
+      """
   )
 
   private fun plainClass(className: String) = SourceFile.kotlin(
@@ -368,7 +368,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       package test
 
       class $className
-      """.trimIndent()
+      """
   )
 
   private fun databaseArguments(

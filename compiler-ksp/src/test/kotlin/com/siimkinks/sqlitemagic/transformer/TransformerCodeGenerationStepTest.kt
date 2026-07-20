@@ -4,7 +4,6 @@ import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
@@ -23,15 +22,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
-  override val processingSteps
-    get() = { env: Environment ->
-      listOf(
-        DefaultTransformerCollectionStep(env),
-        DatabaseConfigurationCollectionStep(env),
-        TransformerCollectionStep(env),
-        TransformerCodeGenerationStep(env)
-      )
-    }
+  override val processingSteps = ::transformerCodeGenerationProcessingSteps
 
   @Nested
   inner class ColumnTypesAndNullability {
@@ -80,7 +71,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 return EmailTransformer.stringToEmail(dbValue) as V?
               }
             }
-            """.trimIndent() + "\n"
+            """
         )
     }
 
@@ -133,7 +124,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 @DbValueToObject
                 fun stringToEmail(value: String?): Email = Email(value.orEmpty())
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -168,7 +159,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                   else -> emptyList()
                 }
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -197,7 +188,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 @DbValueToObject
                 fun longToEmail(value: Long): Email = Email(value.toString())
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -225,7 +216,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 @DbValueToObject
                 fun longToEmail(value: Long?): Email = Email((value ?: 0L).toString())
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -267,7 +258,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 @DbValueToObject
                 fun bytesToEmail(value: ByteArray): Email = Email(value.decodeToString())
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -297,7 +288,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
 
               @DbValueToObject
               fun stringToEmail(value: String): Email = Email(value)
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -327,7 +318,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                   fun stringToEmail(value: String): Email = Email(value)
                 }
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -357,7 +348,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                   fun stringToEmail(value: String): Email = Email(value)
                 }
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -384,7 +375,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 @DbValueToObject
                 fun `when`(value: String): Email = Email(value)
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -411,7 +402,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
 
               @ObjectToDbValue
               fun transform(email: Email): String = email.value
-              """.trimIndent()
+              """
           ),
           SourceFile.kotlin(
             name = "EmailDeserializer.kt",
@@ -423,7 +414,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
 
               @DbValueToObject
               fun transform(value: String): Email = Email(value)
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -461,7 +452,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                   return new Email(value);
                 }
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -498,7 +489,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                   return new Email(value == null ? "" : value);
                 }
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -534,7 +525,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                   return new Email(Long.toString(value));
                 }
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -567,7 +558,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                   return new Email(value);
                 }
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -603,7 +594,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 @DbValueToObject
                 fun stringToEmails(value: String): List<Email> = value.split(',').map(::Email)
               }
-              """.trimIndent()
+              """
           )
         )
         .isOk()
@@ -680,7 +671,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
                 @DbValueToObject
                 fun stringToEmail(value: String): Email = Email(value)
               }
-              """.trimIndent()
+              """
             )
           }
         isGenerated = true

@@ -20,6 +20,6 @@ object SqliteMagicSources {
         @Column
         val id: Long = 0L
       }
-      """.trimIndent()
+      """
   )
 }

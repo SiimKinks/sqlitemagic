@@ -15,3 +15,17 @@ fun String.assertDoesNotContain(
   val subject = assertThat(this)
   unexpected.forEach(subject::doesNotContain)
 }
+
+fun String.assertContainsInOrder(
+  vararg expected: String
+) {
+  var previousIndex = -1
+  expected.forEach { value ->
+    val index = indexOf(
+      string = value,
+      startIndex = previousIndex + 1
+    )
+    assertThat(index).isGreaterThan(previousIndex)
+    previousIndex = index
+  }
+}

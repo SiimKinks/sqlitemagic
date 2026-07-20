@@ -80,7 +80,7 @@ internal class SqlStorageTypeParsingTest : ProcessingStepsTest {
               val boxedByteArrayAlias: BoxedByteArrayAlias = emptyArray()
               val nullableBoxedByteArrayAlias: BoxedByteArrayAlias? = null
             }
-          """.trimIndent()
+          """
         )
       )
       .isOk()
@@ -154,7 +154,7 @@ internal class SqlStorageTypeParsingTest : ProcessingStepsTest {
               val byteList: List<Byte> = emptyList()
               val value: Value = Value()
             }
-          """.trimIndent()
+          """
         )
       )
       .isOk()
@@ -200,7 +200,7 @@ internal class SqlStorageTypeParsingTest : ProcessingStepsTest {
               public byte[] primitiveByteArray;
               public Byte[] boxedByteArray;
             }
-          """.trimIndent()
+          """
         )
       )
       .isOk()
@@ -246,7 +246,7 @@ internal class SqlStorageTypeParsingTest : ProcessingStepsTest {
               public java.util.List<Byte> unsupportedByteList;
               public Object unsupportedObject;
             }
-          """.trimIndent()
+          """
         )
       )
       .isOk()

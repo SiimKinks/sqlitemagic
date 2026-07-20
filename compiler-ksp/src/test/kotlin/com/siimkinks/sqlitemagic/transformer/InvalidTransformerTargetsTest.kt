@@ -1,8 +1,6 @@
 package com.siimkinks.sqlitemagic.transformer
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.FIXTURE_PACKAGE
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.emailValueType
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.javaTransformerSource
@@ -17,14 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
 internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
-  override val processingSteps
-    get() = { env: Environment ->
-      listOf(
-        DefaultTransformerCollectionStep(env),
-        DatabaseConfigurationCollectionStep(env),
-        TransformerCollectionStep(env)
-      )
-    }
+  override val processingSteps = ::transformerCollectionProcessingSteps
 
   @ParameterizedTest(name = "Kotlin {0}")
   @ValueSource(
@@ -53,7 +44,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToSqlType(value: String): $sqlType = error(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("can't have transformers")
@@ -89,7 +80,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
                 throw new IllegalArgumentException(value);
               }
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("can't have transformers")
@@ -112,7 +103,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
               @DbValueToObject
               fun serializedEmailToEmail(value: SerializedEmail): Email = Email(value.value)
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("serialized type must be one of supported SQLite types")
@@ -131,7 +122,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
 
             @Table
             data class Email(val value: String)
-            """.trimIndent()
+            """
         ),
         objectTransformer()
       )
@@ -200,7 +191,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(value: String): EmailAlias = Email(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("Multiple transformers defined for $FIXTURE_PACKAGE.Email")

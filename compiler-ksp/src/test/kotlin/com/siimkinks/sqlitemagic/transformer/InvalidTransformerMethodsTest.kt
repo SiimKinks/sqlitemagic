@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.transformer
 
-import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.databaseWithExternalTransformer
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.emailValueType
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.javaTransformerSource
@@ -12,14 +10,7 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import org.junit.jupiter.api.Test
 
 internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
-  override val processingSteps
-    get() = { env: Environment ->
-      listOf(
-        DefaultTransformerCollectionStep(env),
-        DatabaseConfigurationCollectionStep(env),
-        TransformerCollectionStep(env)
-      )
-    }
+  override val processingSteps = ::transformerCollectionProcessingSteps
 
   @Test
   fun `fails when transformer method is an instance member`() {
@@ -92,7 +83,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
 
             @DbValueToObject
             fun ExtensionTransformerReceiver.stringToEmail(value: String): Email = Email(value)
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("Transformer methods must not be extension functions")
@@ -111,7 +102,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
 
             @DbValueToObject
             suspend fun stringToEmail(value: String): Email = Email(value)
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("Transformer methods must not be suspend functions")
@@ -130,7 +121,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
 
             @DbValueToObject
             private fun stringToEmail(value: String): Email = Email(value)
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("Transformer methods must not be private")
@@ -148,7 +139,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @ObjectToDbValue
               fun emailToString(email: Email): String = email.value
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("there is missing valid database-value-to-object method")
@@ -166,7 +157,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(value: String): Email = Email(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("there is missing valid object-to-database-value method")
@@ -186,7 +177,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @DbValueToObject
               fun <T> stringToValue(value: String): T = error(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError(
@@ -210,7 +201,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(value: String): Email = Email(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("there is missing valid object-to-database-value method")
@@ -231,7 +222,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(): Email = Email("")
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("Transformer methods must have one parameter")
@@ -252,7 +243,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(value: String): Email = Email(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("Transformer methods must have one parameter")
@@ -273,7 +264,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @DbValueToObject
               fun intToEmail(value: Int): Email = Email(value.toString())
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("One transformer method's return type must be the same as other method's first parameter and vice versa")
@@ -294,7 +285,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(value: String?): Email = Email(value.orEmpty())
             }
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("One transformer method's return type must be the same as other method's first parameter and vice versa")
@@ -310,7 +301,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
             @ObjectToDbValue
             @DbValueToObject
             fun <T> transform(value: T): T = value
-            """.trimIndent()
+            """
         )
       )
       .assertCompilationError("There must be 2 annotated transform methods")
@@ -345,7 +336,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
         @DbValueToObject
         fun stringToEmail(value: String): Email = Email(value)
       }
-      """.trimIndent()
+      """
   )
 
   private fun javaInstanceMemberTransformer(
@@ -364,7 +355,7 @@ internal class InvalidTransformerMethodsTest : ProcessingStepsTest {
           return new Email(value);
         }
       }
-      """.trimIndent()
+      """
   )
   //endregion
 }

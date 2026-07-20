@@ -39,7 +39,13 @@ data class ProcessorCompilationResult(
     fileName: String,
     @Language("kotlin") expectedSource: String
   ) = withGeneratedSource(fileName) { generatedSource ->
-    assertThat(generatedSource).isEqualTo(expectedSource)
+    assertThat(generatedSource)
+      .isEqualTo(expectedSource.trimIndent() + "\n")
+  }
+
+  fun assertGeneratedSources(vararg fileNames: String) = apply {
+    assertThat(generatedSourceNames())
+      .containsAtLeastElementsIn(fileNames.asList())
   }
 
   fun withGeneratedSource(

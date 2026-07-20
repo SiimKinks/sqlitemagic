@@ -9,10 +9,9 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import org.junit.jupiter.api.Test
 
 internal class DefaultTransformerCollectionStepTest : ProcessingStepsTest {
-  override val processingSteps
-    get() = { env: Environment ->
-      listOf(DefaultTransformerCollectionStep(env))
-    }
+  override val processingSteps = { environment: Environment ->
+    listOf(DefaultTransformerCollectionStep(environment))
+  }
 
   @Test
   fun `collects default transformers`() {

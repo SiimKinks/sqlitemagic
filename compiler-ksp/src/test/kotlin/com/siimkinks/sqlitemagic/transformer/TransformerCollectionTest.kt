@@ -1,8 +1,6 @@
 package com.siimkinks.sqlitemagic.transformer
 
-import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
 import com.siimkinks.sqlitemagic.element.ParsedTypeImpl
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.CLASS_MEMBER
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.TOP_LEVEL
@@ -29,14 +27,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
   private val emailTypeName = ClassName(FIXTURE_PACKAGE, "Email")
   private val listTypeName = ClassName("kotlin.collections", "List")
 
-  override val processingSteps
-    get() = { env: Environment ->
-      listOf(
-        DefaultTransformerCollectionStep(env),
-        DatabaseConfigurationCollectionStep(env),
-        TransformerCollectionStep(env)
-      )
-    }
+  override val processingSteps = ::transformerCollectionProcessingSteps
 
   @Test
   fun `continues when transformer annotations are absent`() {
@@ -60,7 +51,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
 
             @Database
             class TestDatabase
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -80,7 +71,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
 
             @DbValueToObject
             fun stringToEmail(value: String): Email = Email(value)
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -127,7 +118,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
                 fun stringToEmail(value: String): Email = Email(value)
               }
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -173,7 +164,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(value: String): Email = Email(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -282,7 +273,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmails(value: String): List<Email> = listOf(Email(value))
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -320,7 +311,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmails(value: String): List<List<Email>> = listOf(listOf(Email(value)))
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -375,7 +366,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToBValue(value: String): B.Value = B.Value(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -435,7 +426,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToValue(value: String): Outer.Inner.Value = Outer.Inner.Value(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -480,7 +471,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               fun stringToValues(value: String): List<Container.Value> =
                 listOf(Container.Value(value))
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -524,7 +515,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               fun stringToValue(value: String): $FIXTURE_PACKAGE.QualifiedContainer.Value =
                 $FIXTURE_PACKAGE.QualifiedContainer.Value(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -599,7 +590,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToEmail(value: StringAlias): EmailAlias = Email(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -650,7 +641,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
               @DbValueToObject
               fun stringToValues(value: String): List<*> = listOf(value)
             }
-            """.trimIndent()
+            """
         )
       )
       .isOk()
@@ -697,7 +688,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
           return new Email(value);
         }
       }
-      """.trimIndent()
+      """
   )
 
   private fun externalEmailTransformerCompilation() = SqliteMagicCompilation
@@ -736,7 +727,7 @@ internal class TransformerCollectionTest : ProcessingStepsTest {
 
           public final class ExternalEmailTransformer extends BaseEmailTransformer {
           }
-          """.trimIndent()
+          """
       ),
       processingStepsFactory = { emptyList() }
     )

@@ -13,7 +13,7 @@ object TransformerCollectionSources {
       package $FIXTURE_PACKAGE
 
       data class Email(val value: String)
-      """.trimIndent()
+      """
   )
 
   fun objectTransformer(
@@ -28,7 +28,7 @@ object TransformerCollectionSources {
         @DbValueToObject
         fun stringToEmail(value: String): Email = Email(value)
       }
-      """.trimIndent()
+      """
   )
 
   fun nullableObjectTransformer(
@@ -43,7 +43,7 @@ object TransformerCollectionSources {
         @DbValueToObject
         fun stringToEmail(value: String?): Email? = value?.let(::Email)
       }
-      """.trimIndent()
+      """
   )
 
   fun databaseWithExternalTransformer() = SourceFile.kotlin(
@@ -55,7 +55,7 @@ object TransformerCollectionSources {
 
       @Database(externalTransformers = [ExternalEmailTransformer::class])
       class TestDatabase
-      """.trimIndent()
+      """
   )
 
   fun submoduleDatabaseWithExternalTransformer() = SourceFile.kotlin(
@@ -70,7 +70,7 @@ object TransformerCollectionSources {
         externalTransformers = [ExternalEmailTransformer::class]
       )
       class TestSubmoduleDatabase
-      """.trimIndent()
+      """
   )
 
   fun kotlinTransformerSource(
@@ -85,7 +85,7 @@ object TransformerCollectionSources {
       import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
       $contents
-      """.trimIndent()
+      """
   )
 
   fun javaTransformerSource(
@@ -100,6 +100,6 @@ object TransformerCollectionSources {
       import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue;
 
       $contents
-      """.trimIndent()
+      """
   )
 }

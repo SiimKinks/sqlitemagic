@@ -6,9 +6,11 @@ import kotlin.annotation.AnnotationTarget.CLASS
 /**
  * Marks a class as a table in the SQLite database.
  *
- * Supported table models are Kotlin data classes and mutable classes whose persisted properties
- * can be read and written by generated code and which can be constructed through a supported
- * model construction path.
+ * Supported table models are constructor-backed classes whose persisted properties correspond
+ * exactly to an accessible primary constructor, and mutable classes that generated Kotlin can
+ * instantiate without arguments and access through readable and writable properties.
+ * Constructor-backed classes do not need to be data classes. The declaration's source language is
+ * irrelevant when it exposes the same construction and property surface to Kotlin.
  *
  * An [Id] column is optional. When present, it may use any otherwise supported persisted type.
  * When absent, no implicit ID column is generated.
