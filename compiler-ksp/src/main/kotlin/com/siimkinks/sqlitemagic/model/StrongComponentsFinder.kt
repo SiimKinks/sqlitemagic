@@ -51,10 +51,10 @@ internal class StrongComponentsFinder(
       init = { source ->
         val sourceMarker = source + 1
         var adjacentCount = 0
-        for (column in tables[source].columnsExceptId) {
+        for (column in tables[source].relationshipColumns) {
           if (!column.isHandledRecursively) continue
 
-          val referencedTableTypeKey = column.referencedTableTypeKey ?: continue
+          val referencedTableTypeKey = checkNotNull(column.referencedTableTypeKey)
           val target = tableIndexes[referencedTableTypeKey] ?: continue
 
           if (seenAtSource[target] == sourceMarker) continue

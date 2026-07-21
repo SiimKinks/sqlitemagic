@@ -2,7 +2,9 @@ package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.element.mockParsedType
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.squareup.kotlinpoet.ClassName
 import org.junit.jupiter.api.Test
 
 internal class StrongComponentsFinderTest {
@@ -65,6 +67,26 @@ internal class StrongComponentsFinderTest {
       .containsExactly(listOf(node))
     assertThat(finder.hasStrongComponents)
       .isTrue()
+    assertThat(finder.diagnostic)
+      .isEqualTo(expectedDiagnostic("Node-Node"))
+  }
+
+  @Test
+  fun `recursive relationship ID is reported as a strong component`() {
+    val node = mockTableElement(
+      modelName = "Node",
+      properties = listOf(
+        column(
+          targetName = "Node",
+          isId = true,
+          isHandledRecursively = true
+        )
+      ).map(::mockColumnPropertyElement)
+    )
+    val finder = StrongComponentsFinder(listOf(node))
+
+    assertThat(finder.strongComponents)
+      .containsExactly(listOf(node))
     assertThat(finder.diagnostic)
       .isEqualTo(expectedDiagnostic("Node-Node"))
   }
@@ -211,7 +233,8 @@ private fun table(
   }
   return mockTableElement(
     modelName = name,
-    allColumns = relationshipColumns + idColumn
+    properties = (relationshipColumns + idColumn)
+      .map(::mockColumnPropertyElement)
   )
 }
 
@@ -219,11 +242,28 @@ private fun column(
   targetName: String?,
   isId: Boolean,
   isHandledRecursively: Boolean
-): ColumnElement = mockColumnElement(
-  referencedTableTypeKey = targetName?.let { "$PACKAGE.$it" },
-  isId = isId,
-  isHandledRecursively = isHandledRecursively
-)
+): ColumnElement {
+  val relationship = targetName?.let { referencedTableName ->
+    mockRelationshipElement(
+      referencedTableType = mockParsedType(
+        typeName = ClassName(PACKAGE, referencedTableName)
+      ),
+      isHandledRecursively = isHandledRecursively
+    )
+  }
+  val id = when {
+    isId -> mockIdElement()
+    else -> null
+  }
+  return when (relationship) {
+    null -> mockColumnElement(id = id)
+    else -> mockColumnElement(
+      deserializedType = relationship.referencedTableType,
+      relationship = relationship,
+      id = id
+    )
+  }
+}
 
 private fun expectedDiagnostic(vararg components: String) = buildString {
   append("VALIDATION ERROR:\n")
