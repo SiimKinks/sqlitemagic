@@ -30,11 +30,11 @@ data class TableElement(
   }
   val modelName get() = modelClassName.simpleName
   val packageName get() = modelClassName.packageName
-  val allColumns = properties.flatMap(PropertyElement::flattenedColumns)
   val generationNames = ModelGenerationNames(
     packageName = packageName,
     artifactStem = artifactStem
   )
+  val allColumns = properties.flatMap(PropertyElement::flattenedColumns)
   val idColumn get() = allColumns.singleOrNull(ColumnElement::isId)
   val columnsExceptId get() = allColumns.filterNot(ColumnElement::isId)
   val eligibleUniqueColumns get() = allColumns.filter(ColumnElement::isEligibleEntityKey)

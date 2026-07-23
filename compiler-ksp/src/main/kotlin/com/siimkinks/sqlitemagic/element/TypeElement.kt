@@ -55,17 +55,24 @@ fun KSTypeReference.toRoundTypeElement(
 fun KSType.toRoundTypeElement(
   typeParameterResolver: TypeParameterResolver = TypeParameterResolver.EMPTY
 ): RoundTypeElement {
-  val type = this
-  val typeName = type.toTypeName(typeParameterResolver)
-  val declaration = type.declaration.resolveClassDeclaration()
+  val declaration = declaration.resolveClassDeclaration()
   return RoundTypeElementImpl(
-    type = type,
+    type = this,
     declaration = declaration,
-    parsedType = ParsedTypeImpl(
-      typeKey = type.typeKey(typeName),
-      typeName = typeName,
-      qualifiedName = (declaration ?: type.declaration).qualifiedNameOrSimpleName(),
-      sqlStorageType = SqlStorageType.from(typeName)
+    parsedType = toParsedType(
+      typeParameterResolver = typeParameterResolver,
+      declaration = declaration
     )
   )
 }
+
+fun KSType.toParsedType(
+  typeParameterResolver: TypeParameterResolver = TypeParameterResolver.EMPTY,
+  typeName: TypeName = toTypeName(typeParameterResolver),
+  declaration: KSClassDeclaration? = this.declaration.resolveClassDeclaration()
+): ParsedType = ParsedTypeImpl(
+  typeKey = typeKey(typeName),
+  typeName = typeName,
+  qualifiedName = (declaration ?: this.declaration).qualifiedNameOrSimpleName(),
+  sqlStorageType = SqlStorageType.from(typeName)
+)

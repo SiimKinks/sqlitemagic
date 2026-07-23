@@ -11,7 +11,7 @@ internal class ModelInteroperabilityContractTest : ProcessingStepsTest {
   override val processingSteps = ::modelProcessingSteps
 
   @Test
-  fun `supports constructor-backed non-Kotlin declarations with the same Kotlin-visible model capabilities`() {
+  fun `rejects non-Kotlin constructor callables without KSP property capabilities`() {
     SqliteMagicCompilation
       .compile(
         SourceFile.java(
@@ -42,16 +42,10 @@ internal class ModelInteroperabilityContractTest : ProcessingStepsTest {
           """
         )
       )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_ConstructorBackedInteropModel_Dao.kt",
-        "SqliteMagic_ConstructorBackedInteropModel_Handler.kt",
-        "ConstructorBackedInteropModelTable.kt",
-        "_ConstructorBackedInteropModel.kt"
+      .assertCompilationError(
+        "Table must define at least one persisted column",
+        "ConstructorBackedInteropModel"
       )
-      .withGeneratedSource("SqliteMagic_ConstructorBackedInteropModel_Handler.kt") { generatedSource ->
-        generatedSource.assertContains("value TEXT DEFAULT NULL")
-      }
   }
 
   @Test

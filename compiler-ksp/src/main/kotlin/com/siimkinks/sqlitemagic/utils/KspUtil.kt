@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.utils
 
 import com.google.devtools.ksp.getAnnotationsByType
+import com.google.devtools.ksp.getConstructors
 import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.symbol.ClassKind.INTERFACE
 import com.google.devtools.ksp.symbol.KSAnnotated
@@ -27,7 +28,7 @@ inline fun <reified T : Annotation> KSAnnotated.findAnnotationWithType(): T? =
   getAnnotationsByType(T::class)
     .firstOrNull()
 
-/** Returns the first annotation with [T]'s short name without resolving its values. */
+/** Returns the first annotation with [T]'s short name without resolving it. */
 inline fun <reified T : Annotation> KSAnnotated.firstUncheckedAnnotation(): KSAnnotation? {
   val annotationShortName = checkNotNull(T::class.simpleName)
   return annotations.firstOrNull {
@@ -35,7 +36,7 @@ inline fun <reified T : Annotation> KSAnnotated.firstUncheckedAnnotation(): KSAn
   }
 }
 
-/** Returns whether an annotation with [T]'s short name is present without resolving its values. */
+/** Returns whether an annotation with [T]'s short name is present without resolving it. */
 inline fun <reified T : Annotation> KSAnnotated.isUncheckedAnnotationPresent(): Boolean {
   val annotationShortName = checkNotNull(T::class.simpleName)
   return annotations.any {
@@ -45,6 +46,12 @@ inline fun <reified T : Annotation> KSAnnotated.isUncheckedAnnotationPresent(): 
 
 fun KSAnnotated.hasAnyAnnotationWithSimpleName(names: Set<String>): Boolean = annotations.any { annotation ->
   annotation.shortName.asString() in names
+}
+
+fun KSAnnotation.getArgument(
+  property: KCallable<*>
+): KSValueArgument = arguments.first {
+  it.name?.asString() == property.name
 }
 
 /**
@@ -57,8 +64,8 @@ fun KSAnnotated.hasAnyAnnotationWithSimpleName(names: Set<String>): Boolean = an
 fun KSAnnotation.classArrayArgumentValue(
   property: KCallable<*>
 ): List<KSType>? =
-  arguments.argumentValue(property.name)
-    ?: defaultArguments.argumentValue(property.name)
+  arguments.arrayArgumentValue(property.name)
+    ?: defaultArguments.arrayArgumentValue(property.name)
 
 /**
  * Returns the type list named [propertyName].
@@ -66,7 +73,7 @@ fun KSAnnotation.classArrayArgumentValue(
  * Example: `[name = "id", types = [String]] -> [String]` for `propertyName = "types"`.
  */
 @Suppress("UNCHECKED_CAST")
-private fun List<KSValueArgument>.argumentValue(
+private fun List<KSValueArgument>.arrayArgumentValue(
   propertyName: String
 ): List<KSType>? =
   firstOrNull { it.name?.asString() == propertyName }
@@ -81,6 +88,10 @@ fun KSDeclaration.qualifiedNameOrSimpleName(): String =
   qualifiedName?.asString()
     ?: simpleName.asString()
 
+fun KSClassDeclaration.displayName() =
+  declarationPathNames()
+    .joinToString(separator = ".")
+
 /**
  * Resolves a class or type alias to its class declaration.
  *
@@ -92,12 +103,30 @@ fun KSDeclaration.resolveClassDeclaration(): KSClassDeclaration? = when (this) {
   else -> null
 }
 
+fun KSClassDeclaration.modelConstructor(): KSFunctionDeclaration? =
+  primaryConstructor ?: getConstructors().singleOrNull()
+
 fun KSDeclaration.isAccessibleFromGeneratedCode() = when (getVisibility()) {
   PUBLIC,
   INTERNAL,
   JAVA_PACKAGE -> true
   else -> false
 }
+
+fun KSDeclaration.isEffectivelyAccessibleFromGeneratedCode() =
+  generateSequence(
+    seed = this as KSDeclaration?,
+    nextFunction = KSDeclaration::parentDeclaration
+  ).all(KSDeclaration::isAccessibleFromGeneratedCode)
+
+fun KSClassDeclaration.declarationPathNames() =
+  generateSequence(this as KSDeclaration?) { declaration ->
+    declaration.parentDeclaration as? KSClassDeclaration
+  }
+    .filterIsInstance<KSClassDeclaration>()
+    .map { it.simpleName.asString() }
+    .toList()
+    .asReversed()
 
 fun KSDeclaration?.typeParameterResolver(): TypeParameterResolver = when (this) {
   is KSClassDeclaration -> typeParameters.toTypeParameterResolver(

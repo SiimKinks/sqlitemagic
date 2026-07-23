@@ -39,9 +39,9 @@ internal class ModelElementTest {
       isUnique = true,
       index = mockIndexElement(
         name = "index_project_meta_owner",
-        isUnique = true,
-        belongsToIndex = "project_owner"
+        isUnique = true
       ),
+      belongsToIndex = "project_owner",
       embeddedPrefixes = listOf("meta_")
     )
 
@@ -60,9 +60,9 @@ internal class ModelElementTest {
           isUnique = true,
           index = IndexElement(
             name = "index_project_meta_owner",
-            isUnique = true,
-            belongsToIndex = "project_owner"
+            isUnique = true
           ),
+          belongsToIndex = "project_owner",
           embeddedPrefixes = listOf("meta_")
         )
       )

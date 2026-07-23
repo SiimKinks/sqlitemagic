@@ -11,7 +11,6 @@ internal class StrongComponentsFinder(
   private val tables: List<TableElement>
 ) {
   private val graph = createGraph()
-
   val strongComponents = findStrongComponents()
   val hasStrongComponents get() = strongComponents.isNotEmpty()
   val diagnostic

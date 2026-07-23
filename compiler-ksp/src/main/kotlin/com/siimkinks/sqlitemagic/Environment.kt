@@ -10,6 +10,8 @@ import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VAR
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
 import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.model.TableElement
+import com.siimkinks.sqlitemagic.model.TableRoundElement
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement
@@ -29,6 +31,10 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
     field = linkedMapOf()
   val transformerElementsForCurrentRound: List<TransformerRoundElement>
     field = mutableListOf()
+  val tableElements: Map<TypeKey, TableElement>
+    field = linkedMapOf()
+  val tableRoundElementsForCurrentRound: List<TableRoundElement>
+    field = mutableListOf()
   val isSubmodule get() = !submoduleName.isNullOrEmpty()
   val hasSubmodules get() = !submoduleDatabases.isNullOrEmpty()
 
@@ -45,6 +51,7 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   fun incrementRound() {
     processingRounds++
     transformerElementsForCurrentRound.clear()
+    tableRoundElementsForCurrentRound.clear()
   }
 
   fun setDatabaseMetadata(
@@ -71,13 +78,27 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
       transformerElements[transformerElement.typeKey] == transformerElement -> return
       else -> {
         transformerElements[transformerElement.typeKey] = transformerElement
-        transformerElementsForCurrentRound.add(transformer)
+        transformerElementsForCurrentRound += transformer
       }
     }
   }
 
   fun getTransformerFor(type: TransformerRoundTypeElement): TransformerElement? =
     transformerElements[type.typeKey]
+
+  fun getRoundTransformerFor(typeKey: TypeKey) = transformerElementsForCurrentRound
+    .firstOrNull { it.typeKey == typeKey }
+
+  fun addTableElement(roundElement: TableRoundElement) {
+    val table = roundElement.tableElement
+    when {
+      tableElements[table.typeKey] == table -> return
+      else -> {
+        tableElements[table.typeKey] = table
+        tableRoundElementsForCurrentRound += roundElement
+      }
+    }
+  }
 
   fun getGenClassesManagerClassName(
     moduleName: String? = submoduleName

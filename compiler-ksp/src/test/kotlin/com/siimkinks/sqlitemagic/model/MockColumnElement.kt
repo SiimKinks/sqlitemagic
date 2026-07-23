@@ -23,6 +23,7 @@ fun mockColumnElement(
   id: IdElement? = null,
   isUnique: Boolean = false,
   index: IndexElement? = null,
+  belongsToIndex: String? = null,
   embeddedPrefixes: List<String> = emptyList()
 ) = ColumnElement(
   access = access,
@@ -36,5 +37,6 @@ fun mockColumnElement(
   id = id,
   isUnique = isUnique,
   index = index,
+  belongsToIndex = belongsToIndex,
   embeddedPrefixes = embeddedPrefixes
 )

@@ -688,9 +688,11 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .assertCompilationError(
-        "Recursive relationship cycle",
-        "Parent.child",
-        "Child.parent"
+        "VALIDATION ERROR:",
+        "Table graph validation failed: Tables cannot have reference cycles.",
+        "Found cycles:",
+        "Parent-Child",
+        "Possible fix: remove some complex columns or annotate them with @Column(handleRecursively = false)"
       )
   }
 

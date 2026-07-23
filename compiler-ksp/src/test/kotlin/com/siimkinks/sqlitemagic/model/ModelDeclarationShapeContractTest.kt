@@ -96,7 +96,9 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
         )
       )
       .assertCompilationError(
-        "Generated model artifact stem 'Outer_WithUnderscore_Nested' is ambiguous",
+        "Cannot generate code for declarations",
+        "their declaration paths map to the same generated name 'Outer_WithUnderscore_Nested'",
+        "Rename one model or an enclosing class to make the generated names unique",
         "Outer_WithUnderscore.Nested",
         "Outer.WithUnderscore_Nested"
       )
@@ -270,6 +272,30 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
       .assertCompilationError(
         "@Table model must be accessible to generated code",
         "PrivateTable"
+      )
+  }
+
+  @Test
+  fun `rejects table models inside inaccessible containers`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "PrivateContainer.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            private class PrivateContainer {
+              @Table
+              class NestedTable(val value: String)
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "@Table model must be accessible to generated code",
+        "PrivateContainer.NestedTable"
       )
   }
 

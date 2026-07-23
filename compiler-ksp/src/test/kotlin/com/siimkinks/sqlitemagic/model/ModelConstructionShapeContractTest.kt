@@ -439,6 +439,31 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `rejects mutable properties with a protected setter`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "ProtectedSetter.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class ProtectedSetter {
+              var value: String = ""
+                protected set
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "Mutable @Table properties must be readable and writable",
+        "ProtectedSetter.value"
+      )
+  }
+
+  @Test
   fun `rejects constructor-backed properties that cannot be read`() {
     SqliteMagicCompilation
       .compile(
@@ -483,6 +508,30 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .assertCompilationError(
         "Unsupported @Table model shape",
         "ArbitraryImmutable"
+      )
+  }
+
+  @Test
+  fun `does not infer constructor properties from same-named callables`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "CallableLookalike.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class CallableLookalike(value: String) {
+              fun value(): String = value
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "Table must define at least one persisted column",
+        "CallableLookalike"
       )
   }
 

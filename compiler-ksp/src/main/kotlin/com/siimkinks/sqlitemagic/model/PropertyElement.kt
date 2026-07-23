@@ -12,6 +12,7 @@ data class PropertyPath(
   }
 
   val propertyName get() = segments.last()
+  val displayName get() = segments.joinToString(separator = ".")
 
   fun child(propertyName: String) = PropertyPath(segments + propertyName)
 }

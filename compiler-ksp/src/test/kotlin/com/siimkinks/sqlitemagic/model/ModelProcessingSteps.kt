@@ -12,6 +12,6 @@ internal fun modelProcessingSteps(environment: Environment): List<ProcessingStep
   DatabaseConfigurationCollectionStep(environment),
   TransformerCollectionStep(environment),
   TransformerCodeGenerationStep(environment),
-  // TODO(Phase 4): ModelCollectionStep(environment),
+  ModelCollectionStep(environment),
   // TODO(Phase 5): ModelCodeGenerationStep(environment)
 )

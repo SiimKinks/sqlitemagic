@@ -22,7 +22,9 @@ import kotlin.annotation.AnnotationTarget.CLASS
  * composite unique index cannot serve as that operation key. Single-entity persist reports
  * whether it inserted a row, including SQLite's generated row ID, or updated an existing row.
  *
- * @property value Table name. Defaults to the lower-cased class name with camel case replaced by `_`.
+ * @property value Table name. For top-level classes, defaults to the lower-cased class name with
+ *     camel case replaced by `_`. Nested classes include each enclosing class name as an additional
+ *     lower-snake-case prefix.
  *
  * @property persistAll Whether all possible properties should be persisted as columns using
  *     [Column] defaults. A property's [Column] annotation overrides those defaults, while

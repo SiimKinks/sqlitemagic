@@ -39,6 +39,7 @@ class TransformerRoundElement private constructor(
   var dbValueToObjectMethod: TransformerRoundMethodElement? = null
     private set
 
+  val typeKey get() = deserializedType?.typeKey
   val isMissingMethods
     get() = objectToDbValueMethod == null || dbValueToObjectMethod == null
   val randomBlameSymbol

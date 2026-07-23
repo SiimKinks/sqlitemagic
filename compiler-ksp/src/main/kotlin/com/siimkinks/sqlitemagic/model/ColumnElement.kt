@@ -17,8 +17,7 @@ data class IdElement(
 
 data class IndexElement(
   val name: String,
-  val isUnique: Boolean,
-  val belongsToIndex: String?
+  val isUnique: Boolean
 )
 
 data class RelationshipElement(
@@ -48,6 +47,7 @@ data class ColumnElement(
   val id: IdElement?,
   val isUnique: Boolean,
   val index: IndexElement?,
+  val belongsToIndex: String?,
   val embeddedPrefixes: List<String>
 ) : PropertyMetadata {
   init {
