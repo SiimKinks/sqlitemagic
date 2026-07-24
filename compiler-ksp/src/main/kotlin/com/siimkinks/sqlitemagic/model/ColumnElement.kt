@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.model
 
+import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 
@@ -67,7 +68,7 @@ data class ColumnElement(
       "Column serialized type [${serializedType.typeKey}] is not a supported SQL storage type"
     }
   val isId get() = id != null
-  val isEligibleEntityKey get() = isUnique && !isSchemaNullable
+  val isEligibleEntityKey get() = isUnique && !isSchemaNullable && sqlStorageType.affinity != BLOB
   val isRelationship get() = relationship != null
   val isHandledRecursively get() = relationship?.isHandledRecursively == true
   val referencedTableTypeKey get() = relationship?.referencedTableTypeKey

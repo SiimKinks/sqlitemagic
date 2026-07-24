@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.mockParsedType
 import com.siimkinks.sqlitemagic.transformer.mockTransformerElement
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.squareup.kotlinpoet.BYTE_ARRAY
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.DOUBLE
 import com.squareup.kotlinpoet.STRING
@@ -229,12 +230,20 @@ internal class ModelElementTest {
       isNullable = true,
       isUnique = true
     )
+    val blobUniqueColumn = mockColumnElement(
+      columnName = "binary_key",
+      deserializedType = parsedType(
+        className = BYTE_ARRAY,
+        storageType = SqlStorageType.BYTE_ARRAY
+      ),
+      isUnique = true
+    )
     val table = mockTableElement(
-      properties = listOf(idColumn, eligibleUniqueColumn, nullableUniqueColumn)
+      properties = listOf(idColumn, eligibleUniqueColumn, nullableUniqueColumn, blobUniqueColumn)
         .map(::mockColumnPropertyElement)
     )
     val tableWithoutId = mockTableElement(
-      properties = listOf(eligibleUniqueColumn, nullableUniqueColumn)
+      properties = listOf(eligibleUniqueColumn, nullableUniqueColumn, blobUniqueColumn)
         .map(::mockColumnPropertyElement)
     )
 
@@ -242,8 +251,12 @@ internal class ModelElementTest {
       .isEqualTo(idColumn)
     assertThat(table.eligibleUniqueColumns)
       .containsExactly(eligibleUniqueColumn)
+    assertThat(table.allColumns)
+      .contains(blobUniqueColumn)
     assertThat(tableWithoutId.idColumn)
       .isNull()
+    assertThat(tableWithoutId.eligibleUniqueColumns)
+      .containsExactly(eligibleUniqueColumn)
   }
 }
 

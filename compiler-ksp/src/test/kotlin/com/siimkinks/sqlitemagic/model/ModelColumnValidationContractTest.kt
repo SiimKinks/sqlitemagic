@@ -108,6 +108,66 @@ internal class ModelColumnValidationContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `rejects a BLOB explicit ID`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "BlobId.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class BlobId(
+              @Id val id: ByteArray
+            )
+          """
+        )
+      )
+      .assertCompilationError(
+        "BLOB storage types cannot be used as explicit @Id columns",
+        "BlobId.id"
+      )
+  }
+
+  @Test
+  fun `rejects a transformed BLOB explicit ID`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "TransformedBlobId.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+            data class BinaryId(val value: String)
+
+            @ObjectToDbValue
+            fun binaryIdToBytes(value: BinaryId): ByteArray = value.value.encodeToByteArray()
+
+            @DbValueToObject
+            fun bytesToBinaryId(value: ByteArray): BinaryId = BinaryId(value.decodeToString())
+
+            @Table
+            data class TransformedBlobId(
+              @Id val id: BinaryId
+            )
+          """
+        )
+      )
+      .assertCompilationError(
+        "BLOB storage types cannot be used as explicit @Id columns",
+        "TransformedBlobId.id"
+      )
+  }
+
+  @Test
   fun `rejects unsupported persisted property types without a transformer`() {
     SqliteMagicCompilation
       .compile(

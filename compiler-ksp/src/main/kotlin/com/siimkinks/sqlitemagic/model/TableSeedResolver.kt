@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.model
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.Origin.SYNTHETIC
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
@@ -130,6 +131,13 @@ internal class TableSeedResolver(
     if (storageType == null) {
       reporter.error(
         message = "Persisted property type must be a supported SQLite type, transformed type, or @Table relationship: ${seed.diagnosticPath}; ${seed.roundElement.qualifiedName}",
+        symbol = seed.roundElement.sourceDeclaration
+      )
+      return null
+    }
+    if (seed.idAnnotation != null && storageType.affinity == BLOB) {
+      reporter.error(
+        message = "BLOB storage types cannot be used as explicit @Id columns: ${seed.diagnosticPath}",
         symbol = seed.roundElement.sourceDeclaration
       )
       return null
