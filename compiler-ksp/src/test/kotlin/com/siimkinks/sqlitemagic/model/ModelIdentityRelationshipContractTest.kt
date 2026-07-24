@@ -345,10 +345,17 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
             )
 
             @Table
+            data class Publisher(
+              @Id val id: Long,
+              val name: String = ""
+            )
+
+            @Table
             data class Article(
               @Id val id: String,
               @Column(handleRecursively = false) val author: Author,
-              @Column(handleRecursively = false) val account: Account
+              @Column(handleRecursively = false) val account: Account,
+              @Column(handleRecursively = false) val publisher: Publisher
             )
           """
         )
@@ -363,14 +370,16 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagic_Article_Handler.kt") { generatedSource ->
         generatedSource.assertContains(
           "author TEXT",
-          "account TEXT"
+          "account TEXT",
+          "publisher INTEGER"
         )
       }
       .withGeneratedSource("SqliteMagic_Article_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "author.id",
           "accountIdToString",
-          "stringToAccountId"
+          "stringToAccountId",
+          "publisher.id"
         )
         generatedSource.assertDoesNotContain(
           "bindLong",
@@ -379,8 +388,9 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("ArticleTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "ComplexColumn<Author",
-          "ComplexColumn<Account"
+          "ComplexColumn<String",
+          "ComplexColumn<AccountId",
+          "ComplexNumericColumn<Long"
         )
       }
   }

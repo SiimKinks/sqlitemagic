@@ -6,7 +6,7 @@ import androidx.annotation.Nullable;
 import com.siimkinks.sqlitemagic.Utils.ValueParser;
 
 /**
- * A relationship column whose ID is stored with a non-numeric SQLite affinity.
+ * A relationship column whose ID is stored with a numeric SQLite affinity.
  *
  * @param <ID> Referenced model ID type
  * @param <R>  Return type (when this column is queried)
@@ -14,8 +14,8 @@ import com.siimkinks.sqlitemagic.Utils.ValueParser;
  * @param <P>  Parent table type
  * @param <N>  Column nullability
  */
-public class ComplexColumn<ID, R, ET, P, N> extends Column<ID, R, ET, P, N> {
-  ComplexColumn(
+public class ComplexNumericColumn<ID, R, ET, P, N> extends NumericColumn<ID, R, ET, P, N> {
+  ComplexNumericColumn(
       @NonNull Table<P> table,
       @NonNull String name,
       boolean allFromTable,

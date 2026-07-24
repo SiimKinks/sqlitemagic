@@ -47,10 +47,6 @@ inline infix fun <T, R, ET, P, N, C : Column<*, *, out ET, *, *>> Column<T, R, E
 @CheckResult
 inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IS(select: SelectNode<out ET, Select1, *>) = this.`is`(select)
 
-/** @see ComplexColumn.is */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.IS(value: Long) = this.`is`(value)
-
 /** @see Column.isNot */
 @CheckResult
 inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IS_NOT(value: T & Any) = this.isNot(value)
@@ -62,10 +58,6 @@ inline infix fun <T, R, ET, P, N, C : Column<*, *, out ET, *, *>> Column<T, R, E
 /** @see Column.isNot */
 @CheckResult
 inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IS_NOT(select: SelectNode<out ET, Select1, *>) = this.isNot(select)
-
-/** @see ComplexColumn.isNot */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.IS_NOT(value: Long) = this.isNot(value)
 
 /** @see Column.like */
 @CheckResult
@@ -95,14 +87,6 @@ inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(values: Array<T>) = 
 @CheckResult
 inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(select: SelectNode<out ET, Select1, *>) = this.`in`(select)
 
-/** @see ComplexColumn.in */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.IN(values: LongArray) = this.`in`(*values)
-
-/** @see ComplexColumn.in */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.IN(values: Iterable<Long>) = this.`in`(values)
-
 /** @see Column.notIn */
 @CheckResult
 inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(values: Collection<T>) = this.notIn(values)
@@ -114,14 +98,6 @@ inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(values: Array<T>
 /** @see Column.notIn */
 @CheckResult
 inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(select: SelectNode<out ET, Select1, *>) = this.notIn(select)
-
-/** @see ComplexColumn.notIn */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.NOT_IN(values: LongArray) = this.notIn(*values)
-
-/** @see ComplexColumn.notIn */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.NOT_IN(values: Iterable<Long>) = this.notIn(values)
 
 /** @see NumericColumn.greaterThan */
 @CheckResult
@@ -137,10 +113,6 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.GREATER_THAN(select: SelectNode<out ET, Select1, *>) =
     this.greaterThan(select)
 
-/** @see ComplexColumn.greaterThan */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.GREATER_THAN(value: Long) = this.greaterThan(value)
-
 /** @see NumericColumn.greaterOrEqual */
 @CheckResult
 inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.GREATER_OR_EQUAL(value: T & Any) = this.greaterOrEqual(value)
@@ -154,10 +126,6 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 @CheckResult
 inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.GREATER_OR_EQUAL(select: SelectNode<out ET, Select1, *>) =
     this.greaterOrEqual(select)
-
-/** @see ComplexColumn.greaterOrEqual */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.GREATER_OR_EQUAL(value: Long) = this.greaterOrEqual(value)
 
 /** @see NumericColumn.lessThan */
 @CheckResult
@@ -173,10 +141,6 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_THAN(select: SelectNode<out ET, Select1, *>) =
     this.lessThan(select)
 
-/** @see ComplexColumn.lessThan */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.LESS_THAN(value: Long) = this.lessThan(value)
-
 /** @see NumericColumn.lessOrEqual */
 @CheckResult
 inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_OR_EQUAL(value: T & Any) = this.lessOrEqual(value)
@@ -190,10 +154,6 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 @CheckResult
 inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_OR_EQUAL(select: SelectNode<out ET, Select1, *>) =
     this.lessOrEqual(select)
-
-/** @see ComplexColumn.lessOrEqual */
-@CheckResult
-inline infix fun <T, R, ET, P, N> ComplexColumn<T, R, ET, P, N>.LESS_OR_EQUAL(value: Long) = this.lessOrEqual(value)
 
 typealias Between<A, B> = Pair<A, B>
 

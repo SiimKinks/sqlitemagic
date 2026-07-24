@@ -45,12 +45,6 @@ inline infix fun <V, R, ET, T> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, Null
     this.setNullable(v.first, v.second)
 
 /** @see Update.TableNode.set */
-@JvmName("setComplexColumn")
-@CheckResult
-inline infix fun <V, R, ET, T, N> TableNode<T>.SET(v: Pair<ComplexColumn<V, R, ET, T, N>, Long>) =
-    this.set(v.first, v.second)
-
-/** @see Update.TableNode.set */
 @JvmName("setColumn")
 @CheckResult
 inline infix fun <V, R, ET, T, N> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, N>, Column<*, *, out ET, *, in N>>) =
@@ -78,12 +72,6 @@ inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, Not
 @CheckResult
 inline infix fun <V, R, ET, T> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, Nullable>, V?>) =
     this.setNullable(v.first, v.second)
-
-/** @see Update.Set.set */
-@JvmName("setComplexColumn")
-@CheckResult
-inline infix fun <V, R, ET, T, N> Update.Set<T>.SET(v: Pair<ComplexColumn<V, R, ET, T, N>, Long>) =
-    this.set(v.first, v.second)
 
 /** @see Update.Set.set */
 @JvmName("setColumn")

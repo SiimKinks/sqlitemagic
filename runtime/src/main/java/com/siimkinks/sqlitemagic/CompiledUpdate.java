@@ -1,12 +1,14 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.WorkerThread;
+import androidx.sqlite.db.SupportSQLiteStatement;
+
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.WorkerThread;
-import androidx.sqlite.db.SupportSQLiteStatement;
 import io.reactivex.Single;
 
 /**
@@ -71,13 +73,15 @@ public final class CompiledUpdate {
     int sqlNodeCount;
     Update.TableNode tableNode;
     final ArrayList<String> args = new ArrayList<>();
-    DbConnectionImpl dbConnection = SqliteMagic.getDefaultDbConnection();
+    @Nullable
+    DbConnectionImpl dbConnection;
 
     @NonNull
     @CheckResult
     CompiledUpdate build() {
+      final DbConnectionImpl dbc = dbConnection != null ? dbConnection : SqliteMagic.getDefaultDbConnection();
       final String sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount);
-      final SupportSQLiteStatement stm = dbConnection.compileStatement(sql);
+      final SupportSQLiteStatement stm = dbc.compileStatement(sql);
       final ArrayList<String> args = this.args;
       for (int i = args.size(); i != 0; i--) {
         final String arg = args.get(i - 1);
@@ -87,7 +91,7 @@ public final class CompiledUpdate {
           stm.bindNull(i);
         }
       }
-      return new CompiledUpdate(stm, tableNode.tableName, dbConnection);
+      return new CompiledUpdate(stm, tableNode.tableName, dbc);
     }
   }
 }
