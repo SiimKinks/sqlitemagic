@@ -2,13 +2,14 @@ package com.siimkinks.sqlitemagic.entity;
 
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
+
 import io.reactivex.Completable;
 
 /**
  * Builder for bulk update operation.
  */
 public interface EntityBulkUpdateBuilder extends EntityOperationBuilder<EntityBulkUpdateBuilder>,
-    EntityUpdateByColumnBuilder<EntityBulkUpdateBuilder> {
+    EntityOperationByColumnBuilder<EntityBulkUpdateBuilder> {
   /**
    * Execute this configured bulk update operation against a database.
    * Operation will be executed inside a transaction.

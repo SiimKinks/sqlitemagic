@@ -92,13 +92,21 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "BulkPersistBuilder",
           "DeleteBuilder",
           "BulkDeleteBuilder",
+          "EntityUpdateByColumnBuilder",
+          "EntityBulkUpdateByColumnBuilder",
+          "EntityPersistByColumnBuilder",
+          "EntityBulkPersistByColumnBuilder",
+          "EntityDeleteByColumnBuilder",
+          "EntityBulkDeleteByColumnBuilder",
           "fun execute(byColumn:",
           "fun observe(byColumn:",
           "UniqueColumn<",
-          "EntityNoIdPersistResult",
-          "EntityNoIdPersistResult.Inserted",
-          "EntityNoIdPersistResult.Updated",
-          "Single<EntityNoIdPersistResult>"
+          "EntityPersistResult",
+          "EntityPersistResult.Inserted",
+          "rowId",
+          "EntityPersistResult.Updated",
+          "EntityPersistResult.Ignored",
+          "Single<EntityPersistResult>"
         )
       }
       .withGeneratedSource("_SluggedNote.kt") { generatedSource ->

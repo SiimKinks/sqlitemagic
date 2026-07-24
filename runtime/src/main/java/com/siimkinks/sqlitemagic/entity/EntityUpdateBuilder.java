@@ -2,13 +2,14 @@ package com.siimkinks.sqlitemagic.entity;
 
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
+
 import io.reactivex.Completable;
 
 /**
  * Builder for update operation.
  */
 public interface EntityUpdateBuilder extends EntityOperationBuilder<EntityUpdateBuilder>,
-    EntityUpdateByColumnBuilder<EntityUpdateBuilder> {
+    EntityOperationByColumnBuilder<EntityUpdateBuilder> {
   /**
    * Execute this configured update operation against a database.
    * Operation will be executed inside a transaction if the updated entity has complex columns

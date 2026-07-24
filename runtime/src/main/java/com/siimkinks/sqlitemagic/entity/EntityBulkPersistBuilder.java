@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.entity;
 
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
+
 import io.reactivex.Completable;
 
 /**
@@ -10,18 +11,8 @@ import io.reactivex.Completable;
  * Persist is an operation that first tries to update and if that fails then inserts
  * the provided entity.
  */
-public interface EntityBulkPersistBuilder extends EntityOperationBuilder<EntityBulkPersistBuilder>,
-    EntityUpdateByColumnBuilder<EntityBulkPersistBuilder> {
-  /**
-   * Configure this operation to ignore {@code null} values inside entities while
-   * persisting provided objects.
-   *
-   * @return Operation builder
-   */
-  @NonNull
-  @CheckResult
-  EntityBulkPersistBuilder ignoreNullValues();
-
+public interface EntityBulkPersistBuilder extends EntityPersistOperationBuilder<EntityBulkPersistBuilder>,
+    EntityOperationByColumnBuilder<EntityBulkPersistBuilder> {
   /**
    * Execute this configured bulk persist operation against a database.
    * Operation will be executed inside a transaction.
