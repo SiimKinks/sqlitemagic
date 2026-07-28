@@ -2,6 +2,7 @@
 
 - Use spaces for indentation in every generated edit. Do not insert tab characters in source files.
 - Use 2 spaces for normal indentation and 4 spaces for continuation indentation.
+- Line limit is 120 characters.
 - Before finishing a code change, check that any newly generated or modified lines follow these spacing rules and normalize them if needed.
 - When a function call uses more than one argument, use named arguments.
 - Exception: for Kotlin vararg function calls, use positional values. For static collection contents, prefer direct factories (`listOf`, `setOf`, `mapOf`, `arrayOf`, etc.) instead of builders.
