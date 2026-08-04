@@ -116,6 +116,110 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
         generatedSource.assertContains("created_by")
         generatedSource.assertDoesNotContain("transient_label")
       }
+      .withGeneratedSource("SqliteMagic_MutableAuthor_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "MutableAuthor().apply { this.id = id }",
+          "MutableAuthor().apply {",
+          "this.displayName ="
+        )
+        generatedSource.assertDoesNotContain(
+          "MutableAuthor().also { it.id = id }",
+          "MutableAuthor().also { value ->"
+        )
+      }
+  }
+
+  @Test
+  fun `preserves mutable nullable property defaults when database values are null`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "MutableNullableDefaults.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class MutableNullableDefaults {
+              @Id
+              var id: Long = 0
+              var label: String? = "default-label"
+              var count: Int? = 42
+            }
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_MutableNullableDefaults_Dao.kt")
+      .withGeneratedSource("SqliteMagic_MutableNullableDefaults_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "if (!cursor.isNull(thisTableOffset + 1))",
+          "this.label = cursor.getString(thisTableOffset + 1)",
+          "if (!cursor.isNull(thisTableOffset + 2))",
+          "this.count = cursor.getInt(thisTableOffset + 2)"
+        )
+        generatedSource.assertContains(
+          "if (!(columnIndex1 < 0 || cursor.isNull(columnIndex1)))",
+          "this.label = cursor.getString(columnIndex1)",
+          "if (!(columnIndex2 < 0 || cursor.isNull(columnIndex2)))",
+          "this.count = cursor.getInt(columnIndex2)"
+        )
+        generatedSource.assertDoesNotContain(
+          "value.label = if (cursor.isNull",
+          "value.count = if (cursor.isNull"
+        )
+      }
+  }
+
+  @Test
+  fun `preserves nullable mutable embedded and relationship defaults when values are null`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "MutableNullableCompositeDefaults.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Embedded
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            class MutableNullableDetails {
+              var label: String = "default-label"
+            }
+
+            @Table
+            class MutableNullableOwner {
+              @Id
+              var id: Long = 1
+            }
+
+            @Table
+            class MutableNullableCompositeDefaults {
+              @Id
+              var id: Long = 0
+              @Embedded
+              var details: MutableNullableDetails? = MutableNullableDetails()
+              var owner: MutableNullableOwner? = MutableNullableOwner()
+            }
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt")
+      .withGeneratedSource("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "if (!column1IsNull) this.details =",
+          "this.owner =",
+          "columnOffset.value +="
+        )
+        generatedSource.assertDoesNotContain(
+          "value.details = if (cursor.isNull",
+          "value.owner = if (cursor.isNull"
+        )
+      }
   }
 
   @Test

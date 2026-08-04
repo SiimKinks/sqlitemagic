@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic;
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
-
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteStatement;
+
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE;
 
@@ -23,12 +23,14 @@ public final class VariableArgsOperationHelper {
 
   @NonNull
   @CheckResult
-  SupportSQLiteStatement compileStatement(@OperationHelper.Op int operation,
-                                          @NonNull String tableName,
-                                          int maxColumns,
-                                          @NonNull SimpleArrayMap<String, Object> values,
-                                          @NonNull String resolutionColumn,
-                                          @NonNull EntityDbManager manager) {
+  SupportSQLiteStatement compileStatement(
+      @OperationHelper.Op int operation,
+      @NonNull String tableName,
+      int maxColumns,
+      @NonNull SimpleArrayMap<String, Object> values,
+      @NonNull String resolutionColumn,
+      @NonNull EntityDbManager manager
+  ) {
     StringBuilder sqlBuilder = this.sqlBuilder;
     if (sqlBuilder == null) {
       sqlBuilder = new StringBuilder(7 + conflictAlgorithm.length() + maxColumns * 22);
@@ -45,19 +47,56 @@ public final class VariableArgsOperationHelper {
         tableName,
         values,
         resolutionColumn,
-        manager);
+        values.get(resolutionColumn),
+        manager
+    );
   }
 
   @NonNull
   @CheckResult
-  private static SupportSQLiteStatement compileStatement(boolean reuseOperation,
-                                                         @OperationHelper.Op int operation,
-                                                         @NonNull StringBuilder sqlBuilder,
-                                                         @NonNull String conflictAlgorithm,
-                                                         @NonNull String tableName,
-                                                         @NonNull SimpleArrayMap<String, Object> values,
-                                                         @Nullable String resolutionColumn,
-                                                         @NonNull EntityDbManager manager) {
+  SupportSQLiteStatement compileStatement(
+      @OperationHelper.Op int operation,
+      @NonNull String tableName,
+      int maxColumns,
+      @NonNull SimpleArrayMap<String, Object> values,
+      @NonNull String resolutionColumn,
+      @NonNull Object resolutionValue,
+      @NonNull EntityDbManager manager
+  ) {
+    StringBuilder sqlBuilder = this.sqlBuilder;
+    if (sqlBuilder == null) {
+      sqlBuilder = new StringBuilder(7 + conflictAlgorithm.length() + maxColumns * 22);
+      this.sqlBuilder = sqlBuilder;
+    }
+    final int lastCompiledOperation = this.lastCompiledOperation;
+    this.lastCompiledOperation = operation;
+
+    return compileStatement(
+        operation == lastCompiledOperation,
+        operation,
+        sqlBuilder,
+        conflictAlgorithm,
+        tableName,
+        values,
+        resolutionColumn,
+        resolutionValue,
+        manager
+    );
+  }
+
+  @NonNull
+  @CheckResult
+  private static SupportSQLiteStatement compileStatement(
+      boolean reuseOperation,
+      @OperationHelper.Op int operation,
+      @NonNull StringBuilder sqlBuilder,
+      @NonNull String conflictAlgorithm,
+      @NonNull String tableName,
+      @NonNull SimpleArrayMap<String, Object> values,
+      @Nullable String resolutionColumn,
+      @Nullable Object resolutionValue,
+      @NonNull EntityDbManager manager
+  ) {
     final int valuesSize = values.size();
     if (operation == OperationHelper.Op.INSERT) {
       if (reuseOperation) {
@@ -123,30 +162,31 @@ public final class VariableArgsOperationHelper {
       bindValue(statement, i + 1, value);
     }
     if (operation == OperationHelper.Op.UPDATE) {
-      final Object value = values.get(resolutionColumn);
-      if (value == null) {
+      if (resolutionValue == null) {
         throw new NullPointerException("Column \"" + resolutionColumn + "\" is null");
       }
-      bindValue(statement, i + 1, value);
+      bindValue(statement, i + 1, resolutionValue);
     }
     return statement;
   }
 
-  private static void bindValue(@NonNull SupportSQLiteStatement statement, int pos, Object value) {
-    if (value instanceof String) {
-      statement.bindString(pos, (String) value);
-    } else if (value instanceof Number) {
-      if (value instanceof Float || value instanceof Double) {
-        statement.bindDouble(pos, ((Number) value).doubleValue());
-      } else {
-        statement.bindLong(pos, ((Number) value).longValue());
+  private static void bindValue(
+      @NonNull SupportSQLiteStatement statement,
+      int pos,
+      Object value
+  ) {
+    switch (value) {
+      case String s -> statement.bindString(pos, s);
+      case Number number -> {
+        if (value instanceof Float || value instanceof Double) {
+          statement.bindDouble(pos, number.doubleValue());
+        } else {
+          statement.bindLong(pos, number.longValue());
+        }
       }
-    } else if (value instanceof byte[]) {
-      statement.bindBlob(pos, (byte[]) value);
-    } else if (value instanceof Byte[]) {
-      statement.bindBlob(pos, Utils.toByteArray((Byte[]) value));
-    } else {
-      statement.bindString(pos, value.toString());
+      case byte[] bytes -> statement.bindBlob(pos, bytes);
+      case Byte[] bytes -> statement.bindBlob(pos, Utils.toByteArray(bytes));
+      default -> statement.bindString(pos, value.toString());
     }
   }
 }

@@ -2,8 +2,8 @@ package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.Resolver
+import com.siimkinks.sqlitemagic.AnnotationNames.TABLE_ANNOTATION
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DEBUG
-import com.siimkinks.sqlitemagic.Types.TABLE_ANNOTATION
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue

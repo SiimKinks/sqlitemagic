@@ -50,6 +50,6 @@ data class PropertyRoundElement(
 }
 
 data class TableRoundElement(
-  val tableElement: TableElement,
+  val table: TableElement,
   val originatingFiles: OriginatingFiles
 )

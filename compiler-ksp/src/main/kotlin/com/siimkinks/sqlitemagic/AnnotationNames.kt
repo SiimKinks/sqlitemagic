@@ -9,7 +9,7 @@ import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
-object Types {
+internal object AnnotationNames {
   val DATABASE_ANNOTATION = Database::class.qualifiedName!!
   val SUBMODULE_DATABASE_ANNOTATION = SubmoduleDatabase::class.qualifiedName!!
   val TABLE_ANNOTATION = Table::class.qualifiedName!!

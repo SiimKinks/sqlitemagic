@@ -28,7 +28,17 @@ interface PropertyMetadata {
   val isNullable: Boolean
 }
 
-sealed interface PropertyElement : PropertyMetadata
+sealed interface PropertyElement : PropertyMetadata {
+  fun flattenedColumns(): List<ColumnElement> = when (this) {
+    is ColumnPropertyElement -> listOf(column)
+    is EmbeddedPropertyElement -> properties.flatMap(PropertyElement::flattenedColumns)
+  }
+
+  fun allEmbeddedProperties(): List<EmbeddedPropertyElement> = when (this) {
+    is ColumnPropertyElement -> emptyList()
+    is EmbeddedPropertyElement -> listOf(this) + properties.flatMap(PropertyElement::allEmbeddedProperties)
+  }
+}
 
 data class ColumnPropertyElement(
   val column: ColumnElement

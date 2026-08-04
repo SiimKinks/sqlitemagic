@@ -5,9 +5,10 @@ import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.siimkinks.sqlitemagic.AnnotationNames.DATABASE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.SUBMODULE_DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.NameConst
-import com.siimkinks.sqlitemagic.Types
+import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.annotation.Database
 import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
@@ -20,14 +21,14 @@ class DatabaseConfigurationCollectionStep(
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
     val submoduleDatabaseSymbols = resolver
-      .getSymbolsWithAnnotation(Types.SUBMODULE_DATABASE_ANNOTATION)
+      .getSymbolsWithAnnotation(SUBMODULE_DATABASE_ANNOTATION)
       .toList()
     if (!parseSubmodules(submoduleDatabaseSymbols)) {
       return ProcessingStepResult.Failed
     }
 
     val databaseSymbols = resolver
-      .getSymbolsWithAnnotation(Types.DATABASE_ANNOTATION)
+      .getSymbolsWithAnnotation(DATABASE_ANNOTATION)
       .toList()
     if (submoduleDatabaseSymbols.isNotEmpty() && databaseSymbols.isNotEmpty()) {
       environment.logger.error(
@@ -164,7 +165,7 @@ class DatabaseConfigurationCollectionStep(
     val capitalizedModuleName = moduleName.firstCharToUpperCase()
     val managerClassName = environment.getGenClassesManagerClassName(capitalizedModuleName)
     return SubmoduleDatabaseMetadata(
-      managerQualifiedName = "${NameConst.PACKAGE_ROOT}.$managerClassName",
+      managerQualifiedName = "${PACKAGE_ROOT}.$managerClassName",
       moduleName = capitalizedModuleName
     )
   }

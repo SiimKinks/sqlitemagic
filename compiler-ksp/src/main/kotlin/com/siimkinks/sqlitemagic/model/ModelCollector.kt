@@ -17,6 +17,7 @@ import com.siimkinks.sqlitemagic.utils.declarationPathNames
 import com.siimkinks.sqlitemagic.utils.displayName
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.isEffectivelyAccessibleFromGeneratedCode
+import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
 import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
 
@@ -51,7 +52,7 @@ internal class ModelCollector(
       val seed = tableSeeds.getValue(table.typeKey)
       environment.addTableElement(
         TableRoundElement(
-          tableElement = table,
+          table = table,
           originatingFiles = OriginatingFilesCollector(
             environment = environment,
             tableSeeds = tableSeeds
@@ -110,7 +111,8 @@ internal class ModelCollector(
       declarationOrder = declarationOrder,
       options = tableAnnotation.options.toSet(),
       construction = shape.construction,
-      propertySeeds = logicalProperties
+      propertySeeds = logicalProperties,
+      isPublic = declaration.isEffectivelyPublic()
     )
   }
 

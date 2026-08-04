@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.NameConst.PACKAGE_ROOT
+import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.mockParsedType
@@ -205,7 +205,7 @@ internal class ModelElementTest {
         actual.generationNames.handlerClassName,
         actual.generationNames.tableClassName,
         actual.generationNames.extensionsFileName,
-        actual.generationNames.operationsObjectName
+        actual.generationNames.bulkOperationsObjectName
       )
     )
       .containsExactly(

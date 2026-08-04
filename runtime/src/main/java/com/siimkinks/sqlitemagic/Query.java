@@ -2,13 +2,14 @@ package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
 
-import java.util.Set;
-
 import androidx.annotation.CallSuper;
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
+
+import java.util.Set;
+
 import io.reactivex.Maybe;
 import io.reactivex.MaybeEmitter;
 import io.reactivex.MaybeOnSubscribe;
@@ -112,7 +113,7 @@ public abstract class Query<T> {
     }
   }
 
-  interface Mapper<R> {
+  public interface Mapper<R> {
     R apply(@NonNull Cursor cursor);
   }
 }

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.model
 
+import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
@@ -44,15 +45,35 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "BulkUpdateBuilder",
           "PersistBuilder",
           "BulkPersistBuilder",
+          "if (ignoreNullValues)",
+          "bindNotNull",
+          "OperationHelper",
+          "VariableArgsOperationHelper",
+          "getEntityDbManager(null,",
+          "getInsertStatement",
+          "getUpdateStatement",
+          "return EntityInsertResult.Ignored",
+          "is EntityInsertResult.Ignored -> false",
           "EntityPersistResult",
           "EntityPersistResult.Inserted",
           "rowId",
-          "EntityPersistResult.Updated",
-          "EntityPersistResult.Ignored",
+          "return EntityPersistResult.Updated",
+          "return EntityPersistResult.Ignored",
           "Single<EntityPersistResult>",
           "DeleteBuilder",
           "BulkDeleteBuilder",
           "DeleteTableBuilder",
+          "executeInTransaction transaction@ {",
+          "newTransaction()",
+          "transaction.markSuccessful()",
+          "transaction.end()",
+          "Completable.create",
+          "emitter::isDisposed",
+          "CancellationException",
+          "catch (exception: OperationFailedException)",
+          "catch (exception: Exception)",
+          "Failed to insert \$entity",
+          "Failed to persist \$entity",
           "LogUtil.logDebug"
         )
       }
@@ -70,17 +91,37 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "COVER",
           "override fun `as`(",
           "Query.Mapper<LibraryBook>",
-          "shallowObjectFromCursorPosition"
+          "checkNotNull(",
+          "SqliteMagic_LibraryBook_Dao::shallowObjectFromCursorPosition"
+        )
+        generatedSource.assertDoesNotContain(
+          "queryDeep ->",
+          "requireNotNull(",
+          "SqliteMagic_LibraryBook_Dao::fullObjectFromCursorPosition"
         )
       }
       .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "bindToInsertStatement",
           "bindToUpdateStatement",
-          "getId",
+          "fun bindNotNull",
+          "statement.clearBindings()",
+          "values.clear()",
+          "SimpleArrayMap<String, Any>",
           "shallowObjectFromCursorPosition",
           "LibraryBook("
         )
+        generatedSource.assertDoesNotContain(
+          "ContentValues()",
+          "checkNotNull(",
+          "fullObjectFromCursorPosition",
+          "fun getId(",
+          "generatedRelationshipIds",
+          "val value0 = entity.bookKey",
+          "valuesForInsertIgnoringNull",
+          "valuesForUpdateIgnoringNull"
+        )
+        assertThat(generatedSource.split("fun bindToUpdateStatement")).hasSize(2)
       }
       .withGeneratedSource("_LibraryBook.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -96,6 +137,43 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "fun persist(o: Iterable<LibraryBook>)",
           "fun delete(o: Collection<LibraryBook>)"
         )
+      }
+  }
+
+  @Test
+  fun `batches bulk entity deletion into one identity statement`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "BulkDeleteModel.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("bulk_delete_models")
+            data class BulkDeleteModel(
+              @Id(autoIncrement = false) val id: String,
+              val value: String
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_BulkDeleteModel_Handler.kt")
+      .withGeneratedSource("SqliteMagic_BulkDeleteModel_Handler.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "val identities = mutableListOf<Pair<String, String>>()",
+          "identities += identity(entity, byColumn)",
+          "if (identities.isEmpty())",
+          "val sql = \"DELETE FROM bulk_delete_models WHERE \" + identities.first().first",
+          "identities.joinToString(\",\") { \"?\" }",
+          "db().compileStatement(sql).use",
+          "identities.forEachIndexed { index, identity ->",
+          "statement.bindString(index + 1, identity.second)"
+        )
+        assertThat(generatedSource.split("db().compileStatement(sql)")).hasSize(2)
       }
   }
 
@@ -117,6 +195,23 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `parses a selected whole table from its recorded cursor offset`() {
+    SqliteMagicCompilation
+      .compile(libraryBookSource())
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_LibraryBook_Dao.kt")
+      .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "val effectiveTableName = tableName ?: \"library_books\"",
+          "val thisTableOffset = columns[effectiveTableName]",
+          "val columnIndex0 = thisTableOffset ?: columns[\"\"\"\$effectiveTableName.book_key\"\"\"]",
+          "val columnIndex1 = thisTableOffset?.plus(1) ?: " +
+              "columns[\"\"\"\$effectiveTableName.title_text\"\"\"]"
+        )
+      }
+  }
+
+  @Test
   fun `preserves String ID types throughout generated declarations`() {
     SqliteMagicCompilation
       .compile(libraryBookSource())
@@ -124,12 +219,11 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagic_LibraryBook_Dao.kt")
       .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "fun getId(entity: LibraryBook): String",
           "fun newInstanceWithOnlyId(id: String): LibraryBook",
           "bindString"
         )
         generatedSource.assertDoesNotContain(
-          "fun getId(entity: LibraryBook): Long",
+          "fun getId(",
           "Long.toString"
         )
       }
@@ -163,17 +257,190 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagic_GeneratedIdModel_Handler.kt") { generatedSource ->
         generatedSource.assertContains(
           "INSERT%s INTO generated_id_model (value) VALUES (?)",
-          "UPDATE%s generated_id_model SET value=? WHERE id=?"
+          "UPDATE%s generated_id_model SET value=? WHERE id=?",
+          "if (rowId != -1L)",
+          "entity.id = rowId"
         )
         generatedSource.assertDoesNotContain("INSERT%s INTO generated_id_model (id,")
       }
       .withGeneratedSource("SqliteMagic_GeneratedIdModel_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "fun setId(entity: GeneratedIdModel, id: Long)",
-          "entity.id = id",
           "bindToInsertStatement",
           "bindToUpdateStatement"
         )
+        generatedSource.assertDoesNotContain(
+          "fun setId(",
+          "entity.id = id"
+        )
+      }
+  }
+
+  @Test
+  fun `guards update null omission only with identity columns`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "UpdateNullOmissionGuards.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.Unique
+
+            @Table
+            data class UpdateNullOmissionGuards(
+              @Id val id: Long,
+              @Unique val identityValue: String,
+              val nullableValue: String?,
+              val regularValue: String,
+              @Unique val nullableUniqueValue: String?
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_UpdateNullOmissionGuards_Dao.kt")
+      .withGeneratedSource("SqliteMagic_UpdateNullOmissionGuards_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "when (byColumn)",
+          "UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.ID ->",
+          "UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.IDENTITY_VALUE ->",
+          "else -> throw IllegalArgumentException(",
+          "if (byColumn != UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.IDENTITY_VALUE)",
+          "entity.nullableValue?.let {",
+          "values.put(\"nullable_value\", it)",
+          "entity.nullableUniqueValue?.let {",
+          "values.put(\"nullable_unique_value\", it)",
+          "values.put(\"regular_value\", entity.regularValue)"
+        )
+        generatedSource.assertDoesNotContain(
+          "if (value1 != null)",
+          "if (value3 != null)",
+          "if (byColumn == UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.ID)",
+          "if (byColumn == UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.IDENTITY_VALUE)",
+          "byColumn != UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.NULLABLE_VALUE",
+          "byColumn != UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.REGULAR_VALUE",
+          "byColumn != UpdateNullOmissionGuardsTable.UPDATE_NULL_OMISSION_GUARDS.NULLABLE_UNIQUE_VALUE"
+        )
+      }
+  }
+
+  @Test
+  fun `generates storage-aware binders parsers and Boolean columns`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "StorageMatrix.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.Unique
+
+            @Table
+            data class StorageMatrix(
+              @Id(autoIncrement = false) val id: Long,
+              val primitiveBytes: ByteArray,
+              val boxedBytes: Array<Byte>,
+              val byte: Byte,
+              val double: Double,
+              val float: Float,
+              val int: Int,
+              val short: Short,
+              val text: String,
+              val nullableText: String?,
+              val enabled: Boolean,
+              @Unique val uniqueEnabled: Boolean
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_StorageMatrix_Dao.kt",
+        "StorageMatrixTable.kt",
+        "UniqueBooleanColumn.kt"
+      )
+      .withGeneratedSource("SqliteMagic_StorageMatrix_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "statement.bindLong(1, entity.id)",
+          "statement.bindBlob",
+          ".toByteArray()",
+          "byteArrayOf",
+          "statement.bindDouble",
+          "statement.bindLong",
+          "statement.bindString",
+          "statement.bindNull",
+          "cursor.getBlob",
+          "toTypedArray()",
+          "cursor.getFloat"
+        )
+        generatedSource.assertDoesNotContain(
+          "checkNotNull(",
+          "Utils.toByteArray",
+          "val value0 = entity.id",
+          "val value1 = entity.id"
+        )
+      }
+      .withGeneratedSource("StorageMatrixTable.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "BooleanColumn<StorageMatrix",
+          "BooleanColumn(this, \"enabled\", Utils.INTEGER_PARSER"
+        )
+        generatedSource.assertDoesNotContain(
+          "BooleanColumn(this, \"enabled\", false"
+        )
+      }
+      .withGeneratedSource("UniqueBooleanColumn.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "class UniqueBooleanColumn",
+          "Unique<N>",
+          "BooleanTransformer.objectToDbValue",
+          "BooleanTransformer.dbValueToObject"
+        )
+      }
+  }
+
+  @Test
+  fun `keeps generated APIs internal for an internal model`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "InternalRecord.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            internal data class InternalRecord(
+              @Id val id: String
+            )
+          """
+        ),
+        kspOptions = mapOf("sqlitemagic.kotlin.public.extensions" to "true")
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "InternalRecordTable.kt",
+        "SqliteMagic_InternalRecord_Handler.kt",
+        "_InternalRecord.kt"
+      )
+      .withGeneratedSource("InternalRecordTable.kt") { generatedSource ->
+        generatedSource.assertContains("internal class InternalRecordTable")
+      }
+      .withGeneratedSource("SqliteMagic_InternalRecord_Handler.kt") { generatedSource ->
+        generatedSource.assertContains("internal object SqliteMagic_InternalRecord_Handler")
+      }
+      .withGeneratedSource("_InternalRecord.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "internal inline fun InternalRecord.insert()",
+          "internal object InternalRecords"
+        )
+        generatedSource.assertDoesNotContain("public inline fun InternalRecord.insert()")
       }
   }
 

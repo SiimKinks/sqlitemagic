@@ -42,7 +42,8 @@ internal class TableSeedResolver(
         declarationOrder = seed.declarationOrder,
         options = seed.options,
         construction = seed.construction,
-        properties = properties
+        properties = properties,
+        isPublic = seed.isPublic
       ).also { table ->
         validateTableColumns(
           table = table,
@@ -145,7 +146,7 @@ internal class TableSeedResolver(
     val autoIncrementMode = seed.idAnnotation?.autoIncrementMode()
     val id = autoIncrementMode?.let { mode ->
       val withoutRowId = WITHOUT_ROWID in tableSeed.options
-      val compatible = storageType.affinity == INTEGER
+      val compatible = storageType.affinity == INTEGER && relationship == null
       when {
         withoutRowId && mode == ENABLED -> reporter.error(
           message = "WITHOUT_ROWID does not support explicit auto-increment: ${seed.diagnosticPath}",
@@ -162,14 +163,16 @@ internal class TableSeedResolver(
         canAssignGeneratedId = seed.access.isMutable
       )
     }
+    val isSchemaNullable = seed.isSchemaNullable || relationship?.referencedIdIsNullable == true
     return ColumnElement(
       access = seed.access,
       deserializedType = seed.roundElement.parsedType,
       isNullable = seed.roundElement.canBeNull,
       columnName = seed.columnName,
-      isSchemaNullable = seed.isSchemaNullable,
+      isSchemaNullable = isSchemaNullable,
+      isModelPathNullable = seed.isSchemaNullable,
       defaultValue = seed.explicitDefaultValue ?: when {
-        seed.isSchemaNullable -> "NULL"
+        isSchemaNullable -> "NULL"
         else -> storageType.affinity.defaultValue
       },
       transformer = seed.transformer,
@@ -201,6 +204,7 @@ internal class TableSeedResolver(
         source = source,
         targetType = durableTarget.parsedType,
         targetTableName = durableTarget.tableName,
+        targetArtifactStem = durableTarget.artifactStem,
         targetConstruction = durableTarget.construction,
         targetId = targetId
       )
@@ -235,6 +239,7 @@ internal class TableSeedResolver(
       source = source,
       targetType = targetSeed.parsedType,
       targetTableName = targetSeed.tableName,
+      targetArtifactStem = targetSeed.artifactStem,
       targetConstruction = targetSeed.construction,
       targetId = targetId
     )
@@ -244,10 +249,29 @@ internal class TableSeedResolver(
     source: ColumnSeed,
     targetType: ParsedType,
     targetTableName: String,
+    targetArtifactStem: String,
     targetConstruction: ModelConstruction,
     targetId: ColumnElement
   ): RelationshipElement? {
     val canConstructWithOnlyId = targetConstruction.canConstructWithOnly(targetId.access.path)
+    if (
+      source.isHandledRecursively &&
+      (targetId.isSchemaNullable || targetId.serializedValueCanBeNull) &&
+      !canConstructWithOnlyId
+    ) {
+      reporter.error(
+        message = "A recursive relationship with a nullable target @Id must be constructible from only that @Id: ${source.diagnosticPath}",
+        symbol = source.roundElement.sourceDeclaration
+      )
+      return null
+    }
+    if (targetId.relationship?.canConstructWithOnlyId == false) {
+      reporter.error(
+        message = "A relationship-backed @Id target must be constructible from only its own @Id: ${source.diagnosticPath}",
+        symbol = source.roundElement.sourceDeclaration
+      )
+      return null
+    }
     if (!source.isHandledRecursively && !canConstructWithOnlyId) {
       val targetTypeName = targetType.qualifiedName.substringAfterLast('.')
       reporter.error(
@@ -264,9 +288,12 @@ internal class TableSeedResolver(
       referencedIdType = targetId.deserializedType,
       referencedIdSerializedType = targetId.serializedType,
       referencedIdTransformer = targetId.transformer,
+      referencedIdIsNullable = targetId.isSchemaNullable || targetId.serializedValueCanBeNull,
       isHandledRecursively = source.isHandledRecursively,
-      onDeleteCascade = source.onDeleteCascade,
-      canConstructWithOnlyId = canConstructWithOnlyId
+      onDeleteCascade = source.isHandledRecursively && source.onDeleteCascade,
+      canConstructWithOnlyId = canConstructWithOnlyId,
+      referencedIdRelationship = targetId.relationship,
+      referencedTableArtifactStem = targetArtifactStem
     )
   }
 

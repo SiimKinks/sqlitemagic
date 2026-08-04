@@ -88,7 +88,8 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
           "shipping_geo_longitude",
           "shipping_note",
           "cursor.isNull",
-          "shipping = null",
+          "shipping = if (",
+          "null else Delivery(",
           "Selected columns did not contain",
           "Delivery(",
           "Geo("
@@ -103,6 +104,61 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
             .findAll(generatedSource)
             .count()
         ).isAtLeast(3)
+      }
+  }
+
+  @Test
+  fun `keeps nullable embedded selection absence distinct from SQL null`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableEmbeddedSelection.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Embedded
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            data class RequiredEmbeddedDetails(
+              val required: String,
+              val optional: String?
+            )
+
+            @Table
+            data class NullableEmbeddedSelection(
+              @Id val id: String,
+              @Embedded val details: RequiredEmbeddedDetails?
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_NullableEmbeddedSelection_Dao.kt")
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedSelection_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "val column1IsNull = cursor.isNull(thisTableOffset + 1)",
+          "val column2IsNull = cursor.isNull(thisTableOffset + 2)",
+          "val columnIndex1IsNull = (columnIndex1 >= 0 && cursor.isNull(columnIndex1))",
+          "val columnIndex2IsNull = (columnIndex2 >= 0 && cursor.isNull(columnIndex2))",
+          "required = if (column1IsNull)",
+          "optional = if (column2IsNull)"
+        )
+        generatedSource.assertContains(
+          "columnIndex1 >= 0",
+          """required column \"required\"""",
+          """Column \"required\" was NULL"""
+        )
+        assertThat(
+          Regex("cursor\\.isNull\\(thisTableOffset \\+ 1\\)")
+            .findAll(generatedSource)
+            .count()
+        ).isEqualTo(1)
+        assertThat(
+          Regex("cursor\\.isNull\\(columnIndex1\\)")
+            .findAll(generatedSource)
+            .count()
+        ).isEqualTo(1)
       }
   }
 
@@ -161,6 +217,49 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
           "metadata.owner.id",
           "moneyToLong",
           "longToMoney"
+        )
+      }
+  }
+
+  @Test
+  fun `skips recursive operations below a null embedded value`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableEmbeddedRelationship.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Embedded
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class EmbeddedOwner(
+              @Id val id: String,
+              val name: String
+            )
+
+            data class OptionalMetadata(
+              @Column(handleRecursively = true)
+              val owner: EmbeddedOwner
+            )
+
+            @Table
+            data class NullableEmbeddedProject(
+              @Id val id: String,
+              @Embedded val metadata: OptionalMetadata?
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_NullableEmbeddedProject_Handler.kt")
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedProject_Handler.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "entity.metadata?.owner?.let",
+          "val builder = SqliteMagic_EmbeddedOwner_Handler.InsertBuilder.create(it)"
         )
       }
   }
@@ -335,7 +434,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "external_value TEXT UNIQUE",
           "UpdateBuilder",
-          "fun execute(byColumn:"
+          "execute(byColumn: C)"
         )
       }
       .withGeneratedSource("SqliteMagic_NullableEmbeddedKey_Handler.kt") { generatedSource ->

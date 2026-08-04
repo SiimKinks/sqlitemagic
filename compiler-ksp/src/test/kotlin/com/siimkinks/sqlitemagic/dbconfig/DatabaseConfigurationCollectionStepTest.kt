@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic.dbconfig
 
 import com.google.common.truth.Truth
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.NameConst
+import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
@@ -169,7 +169,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
           listOf(
             SubmoduleDatabaseMetadata(
               moduleName = "Feature",
-              managerQualifiedName = "${NameConst.PACKAGE_ROOT}.FeatureGeneratedClassesManager"
+              managerQualifiedName = "$PACKAGE_ROOT.FeatureGeneratedClassesManager"
             )
           )
         )
@@ -193,7 +193,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
           listOf(
             SubmoduleDatabaseMetadata(
               moduleName = "Feature",
-              managerQualifiedName = "${NameConst.PACKAGE_ROOT}.FeatureGeneratedClassesManager"
+              managerQualifiedName = "$PACKAGE_ROOT.FeatureGeneratedClassesManager"
             )
           )
         )
@@ -239,11 +239,11 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
           listOf(
             SubmoduleDatabaseMetadata(
               moduleName = "Feature",
-              managerQualifiedName = "${NameConst.PACKAGE_ROOT}.FeatureGeneratedClassesManager"
+              managerQualifiedName = "$PACKAGE_ROOT.FeatureGeneratedClassesManager"
             ),
             SubmoduleDatabaseMetadata(
               moduleName = "Billing",
-              managerQualifiedName = "${NameConst.PACKAGE_ROOT}.BillingGeneratedClassesManager"
+              managerQualifiedName = "$PACKAGE_ROOT.BillingGeneratedClassesManager"
             )
           )
         )
@@ -356,7 +356,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
   private fun generatedClassesManager(className: String) = SourceFile.kotlin(
     "$className.kt",
     """
-      package ${NameConst.PACKAGE_ROOT}
+      package $PACKAGE_ROOT
 
       class $className
       """

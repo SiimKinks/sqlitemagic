@@ -19,6 +19,7 @@ fun mockRelationshipElement(
   ),
   referencedIdSerializedType: ParsedType = referencedIdType,
   referencedIdTransformer: TransformerElement? = null,
+  referencedIdIsNullable: Boolean = false,
   isHandledRecursively: Boolean = true,
   onDeleteCascade: Boolean = false,
   canConstructWithOnlyId: Boolean = true
@@ -30,6 +31,7 @@ fun mockRelationshipElement(
   referencedIdType = referencedIdType,
   referencedIdSerializedType = referencedIdSerializedType,
   referencedIdTransformer = referencedIdTransformer,
+  referencedIdIsNullable = referencedIdIsNullable,
   isHandledRecursively = isHandledRecursively,
   onDeleteCascade = onDeleteCascade,
   canConstructWithOnlyId = canConstructWithOnlyId

@@ -1,0 +1,249 @@
+package com.siimkinks.sqlitemagic.model
+
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.siimkinks.sqlitemagic.Const.GENERATION_COMMENT
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_NEW_INSTANCE_WITH_ONLY_ID
+import com.siimkinks.sqlitemagic.SqlStorageType
+import com.siimkinks.sqlitemagic.annotation.TableOption
+import com.siimkinks.sqlitemagic.writer.OriginatingFiles
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.CodeBlock
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.ksp.writeTo
+
+internal fun FileSpec.writeModelSource(
+  codeGenerator: CodeGenerator,
+  originatingFiles: OriginatingFiles
+) {
+  toBuilder()
+    .addFileComment("%L", GENERATION_COMMENT)
+    .build()
+    .writeTo(
+      codeGenerator = codeGenerator,
+      aggregating = !originatingFiles.isComplete,
+      originatingKSFiles = originatingFiles.files
+    )
+}
+
+internal fun TableElement.schemaSql(): String {
+  val createPrefix = when {
+    TableOption.TEMPORARY in options -> "CREATE TEMPORARY TABLE IF NOT EXISTS"
+    else -> "CREATE TABLE IF NOT EXISTS"
+  }
+  val columns = allColumns.joinToString(separator = ", ") { column ->
+    buildString {
+      append(column.columnName)
+      append(' ')
+      append(column.sqlStorageType.affinity.name)
+      when {
+        column.isId -> {
+          append(" PRIMARY KEY")
+          if (column.id?.isAutoIncrement == true) {
+            append(" AUTOINCREMENT")
+          }
+        }
+        column.isUnique -> append(" UNIQUE")
+      }
+      if (!column.isId && !column.isUnique) {
+        append(" DEFAULT ")
+        append(column.defaultValue)
+      }
+      column.relationship
+        ?.takeIf(RelationshipElement::onDeleteCascade)
+        ?.let { relationship ->
+          append(" REFERENCES ")
+          append(relationship.referencedTableName)
+          append('(')
+          append(relationship.referencedIdColumnName)
+          append(')')
+          append(" ON DELETE CASCADE")
+        }
+    }
+  }
+  val suffix = when {
+    TableOption.WITHOUT_ROWID in options -> " WITHOUT ROWID"
+    else -> ""
+  }
+  return "$createPrefix $tableName ($columns)$suffix"
+}
+
+internal fun TableElement.insertSql(): String {
+  val columns = columnsForInsert
+  return when {
+    columns.isEmpty() -> "INSERT%s INTO $tableName DEFAULT VALUES"
+    else -> {
+      val names = columns.joinToString(separator = ", ", transform = ColumnElement::columnName)
+      val values = List(columns.size) { "?" }.joinToString(separator = ", ")
+      "INSERT%s INTO $tableName ($names) VALUES ($values)"
+    }
+  }
+}
+
+internal fun TableElement.updateSql(): String? {
+  val identityColumn = idColumn ?: eligibleUniqueColumns.firstOrNull() ?: return null
+  return updateSql(identityColumn)
+}
+
+internal fun TableElement.updateSql(identityColumn: ColumnElement): String {
+  val columns = allColumns.filterNot { column ->
+    column === identityColumn || column.isId
+  }
+  val setters = when {
+    columns.isEmpty() -> "${identityColumn.columnName}=${identityColumn.columnName}"
+    else -> columns.joinToString(separator = ", ") { "${it.columnName}=?" }
+  }
+  return "UPDATE%s $tableName SET $setters WHERE ${identityColumn.columnName}=?"
+}
+
+internal fun TableElement.readExpression(
+  column: ColumnElement,
+  root: String = "entity"
+): CodeBlock {
+  val nullableSegments = mutableSetOf<Int>()
+  fun collect(
+    properties: List<PropertyElement>,
+    depth: Int
+  ) {
+    for (property in properties) {
+      if (property.access.path.segments == column.access.path.segments.take(depth + 1)) {
+        if (property.isNullable) {
+          nullableSegments += depth
+        }
+        if (property is EmbeddedPropertyElement) {
+          collect(
+            properties = property.properties,
+            depth = depth + 1
+          )
+        }
+        return
+      }
+    }
+  }
+  collect(
+    properties = properties,
+    depth = 0
+  )
+  return CodeBlock
+    .builder()
+    .add("%N", root)
+    .apply {
+      column.access.path.segments.forEachIndexed { index, segment ->
+        add(
+          when {
+            index - 1 in nullableSegments -> "?.%N"
+            else -> ".%N"
+          },
+          segment
+        )
+      }
+    }
+    .build()
+}
+
+internal fun TableElement.serializedReadExpression(column: ColumnElement): CodeBlock {
+  var expression = readExpression(column)
+  column.relationship?.let { relationship ->
+    expression = expression.appendPropertyPath(
+      path = relationship.referencedIdProperty,
+      nullableReceiver = column.isModelPathNullable
+    )
+    expression = relationship.serializedDeclaredIdValue(
+      value = expression,
+      valueCanBeNull = column.isModelPathNullable || relationship.referencedIdIsNullable
+    )
+  }
+  column.transformer?.let { transformer ->
+    expression = when {
+      column.isSchemaNullable -> CodeBlock.of(
+        "%L?.let(%L)",
+        expression,
+        transformer.objectToDbValueMethod.callableReference()
+      )
+      else -> transformer.serializedValueGetter(expression)
+    }
+  }
+  return expression
+}
+
+internal fun RelationshipElement.serializedDeclaredIdValue(
+  value: CodeBlock,
+  valueCanBeNull: Boolean = false
+): CodeBlock {
+  val nestedRelationship = referencedIdRelationship
+  if (nestedRelationship != null) {
+    val nestedValue = value.appendPropertyPath(
+      path = nestedRelationship.referencedIdProperty,
+      nullableReceiver = valueCanBeNull
+    )
+    return nestedRelationship.serializedDeclaredIdValue(
+      value = nestedValue,
+      valueCanBeNull = valueCanBeNull || nestedRelationship.referencedIdIsNullable
+    )
+  }
+  val transformer = referencedIdTransformer ?: return value
+  return when {
+    valueCanBeNull -> CodeBlock.of(
+      "%L?.let(%L)",
+      value,
+      transformer.objectToDbValueMethod.callableReference()
+    )
+    else -> transformer.serializedValueGetter(value)
+  }
+}
+
+internal fun RelationshipElement.deserializedDeclaredIdValue(
+  databaseValue: CodeBlock,
+  databaseValueCanBeNull: Boolean = false
+): CodeBlock {
+  if (databaseValueCanBeNull && referencedIdType.typeName.isNullable) {
+    return CodeBlock.of(
+      "%L?.let { %L }",
+      databaseValue,
+      deserializedDeclaredIdValue(
+        databaseValue = CodeBlock.of("it")
+      )
+    )
+  }
+  val nestedRelationship = referencedIdRelationship
+  if (nestedRelationship != null) {
+    return CodeBlock.of(
+      "%T.%N(%L)",
+      ModelGenerationNames(
+        packageName = nestedRelationship.referencedTableType.typeName
+          .let { checkNotNull(it as? ClassName).packageName },
+        artifactStem = nestedRelationship.referencedTableArtifactStem
+      ).daoClassName,
+      METHOD_NEW_INSTANCE_WITH_ONLY_ID,
+      nestedRelationship.deserializedDeclaredIdValue(
+        databaseValue = databaseValue,
+        databaseValueCanBeNull = databaseValueCanBeNull
+      )
+    )
+  }
+  return referencedIdTransformer
+    ?.deserializedValueGetter(databaseValue)
+    ?: databaseValue
+}
+
+private fun CodeBlock.appendPropertyPath(
+  path: PropertyPath,
+  nullableReceiver: Boolean
+) = toBuilder()
+  .apply {
+    path.segments.forEach { segment ->
+      add(
+        when {
+          nullableReceiver -> "?.%N"
+          else -> ".%N"
+        },
+        segment
+      )
+    }
+  }
+  .build()
+
+internal fun ColumnElement.databaseWriteValue(value: CodeBlock) = when (sqlStorageType) {
+  SqlStorageType.BOXED_BYTE_ARRAY -> CodeBlock.of("%L.toByteArray()", value)
+  SqlStorageType.BYTE -> CodeBlock.of("byteArrayOf(%L)", value)
+  else -> value
+}

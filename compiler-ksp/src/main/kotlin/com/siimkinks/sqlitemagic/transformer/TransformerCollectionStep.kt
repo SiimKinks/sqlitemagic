@@ -5,11 +5,11 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.siimkinks.sqlitemagic.AnnotationNames.DATABASE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.DB_VALUE_TO_OBJECT_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.OBJECT_TO_DB_VALUE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.SUBMODULE_DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.Types.DATABASE_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.DB_VALUE_TO_OBJECT_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.OBJECT_TO_DB_VALUE_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.SUBMODULE_DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.annotation.Database
 import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject

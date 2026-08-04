@@ -4,8 +4,8 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
+import com.siimkinks.sqlitemagic.AnnotationNames.TABLE_ANNOTATION
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.Types.TABLE_ANNOTATION
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue

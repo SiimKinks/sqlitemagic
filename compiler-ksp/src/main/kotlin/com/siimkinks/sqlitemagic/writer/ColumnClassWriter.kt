@@ -3,22 +3,29 @@ package com.siimkinks.sqlitemagic.writer
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Const.GENERATION_COMMENT
-import com.siimkinks.sqlitemagic.NameConst.METHOD_AS
-import com.siimkinks.sqlitemagic.NameConst.METHOD_GET_FROM_CURSOR
-import com.siimkinks.sqlitemagic.NameConst.METHOD_GET_FROM_STATEMENT
-import com.siimkinks.sqlitemagic.NameConst.METHOD_TO_SQL_ARG
-import com.siimkinks.sqlitemagic.NameConst.PACKAGE_ROOT
-import com.siimkinks.sqlitemagic.WriterUtil.COLUMN
-import com.siimkinks.sqlitemagic.WriterUtil.CURSOR
-import com.siimkinks.sqlitemagic.WriterUtil.DB_VALUE_VARIABLE
-import com.siimkinks.sqlitemagic.WriterUtil.NUMERIC_COLUMN
-import com.siimkinks.sqlitemagic.WriterUtil.SQL_VALUE_VARIABLE
-import com.siimkinks.sqlitemagic.WriterUtil.SUPPORT_SQLITE_STATEMENT
-import com.siimkinks.sqlitemagic.WriterUtil.TABLE
-import com.siimkinks.sqlitemagic.WriterUtil.UNCHECKED_CAST
-import com.siimkinks.sqlitemagic.WriterUtil.UNIQUE
-import com.siimkinks.sqlitemagic.WriterUtil.VALUE_PARSER
-import com.siimkinks.sqlitemagic.WriterUtil.VALUE_VARIABLE
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_GET_FROM_CURSOR
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_GET_FROM_STATEMENT
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_TO_SQL_ARG
+import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_DB_VALUE
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_SQL_VALUE
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_VALUE
+import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_NUMERIC_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
+import com.siimkinks.sqlitemagic.WriterTypes.NUMERIC_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.SUPPORT_SQLITE_STATEMENT
+import com.siimkinks.sqlitemagic.WriterTypes.TABLE
+import com.siimkinks.sqlitemagic.WriterTypes.UNCHECKED_CAST
+import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE
+import com.siimkinks.sqlitemagic.WriterTypes.VALUE_PARSER
+import com.siimkinks.sqlitemagic.model.ColumnElement
+import com.siimkinks.sqlitemagic.model.TableElement
+import com.siimkinks.sqlitemagic.model.deserializedDeclaredIdValue
+import com.siimkinks.sqlitemagic.model.serializedDeclaredIdValue
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.ClassName
@@ -27,6 +34,7 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
+import com.squareup.kotlinpoet.NUMBER
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
@@ -47,14 +55,25 @@ internal class ColumnClassWriter private constructor(
   private val serializedValueCanBeNull: Boolean,
   private val initBlock: CodeBlock?,
   private val parser: ParserData?,
-  private val unique: Boolean
+  private val unique: Boolean,
+  private val isInternal: Boolean
 ) {
   private val parentTableType = TypeVariableName("T")
   private val nullabilityType = TypeVariableName("N")
 
-  fun write(originatingFiles: Set<KSFile>) {
+  fun write(originatingFiles: Set<KSFile>) = write(
+    originatingFiles = OriginatingFiles(
+      files = originatingFiles,
+      isComplete = true
+    )
+  )
+
+  fun write(originatingFiles: OriginatingFiles) {
     val typeBuilder = TypeSpec
       .classBuilder(className)
+      .apply {
+        if (isInternal) addModifiers(INTERNAL)
+      }
       .addTypeVariables(listOf(parentTableType, nullabilityType))
       .primaryConstructor(constructor())
       .superclass(
@@ -71,7 +90,7 @@ internal class ColumnClassWriter private constructor(
       .addSuperclassConstructorParameter("false")
       .addSuperclassConstructorParameter("valueParser")
       .addSuperclassConstructorParameter("nullable")
-      .addSuperclassConstructorParameter("alias")
+      .addSuperclassConstructorParameter("%N", VARIABLE_ALIAS)
       .addFunction(toSqlArg())
       .addFunction(aliasOverride())
     parser?.let { parser ->
@@ -96,18 +115,16 @@ internal class ColumnClassWriter private constructor(
     if (unique) {
       typeBuilder.addSuperinterface(UNIQUE.parameterizedBy(nullabilityType))
     }
-    originatingFiles.forEach(typeBuilder::addOriginatingKSFile)
+    originatingFiles.files.forEach(typeBuilder::addOriginatingKSFile)
     FileSpec
-      .builder(
-        packageName = className.packageName,
-        fileName = className.simpleName
-      )
+      .builder(className)
       .addFileComment("%L", GENERATION_COMMENT)
       .addType(typeBuilder.build())
       .build()
       .writeTo(
         codeGenerator = codeGenerator,
-        aggregating = false
+        aggregating = !originatingFiles.isComplete,
+        originatingKSFiles = originatingFiles.files
       )
   }
 
@@ -118,23 +135,23 @@ internal class ColumnClassWriter private constructor(
     .addParameter(name = "name", type = STRING)
     .addParameter(name = "valueParser", type = VALUE_PARSER)
     .addParameter(name = "nullable", type = BOOLEAN)
-    .addParameter(name = "alias", type = STRING.copy(nullable = true))
+    .addParameter(name = VARIABLE_ALIAS, type = STRING.copy(nullable = true))
     .build()
 
   private fun toSqlArg(): FunSpec {
     val builder = FunSpec
       .builder(METHOD_TO_SQL_ARG)
       .addModifiers(OVERRIDE)
-      .addParameter(name = VALUE_VARIABLE, type = deserializedType)
+      .addParameter(name = VARIABLE_VALUE, type = deserializedType)
       .returns(STRING)
     initBlock?.let(builder::addCode)
     when {
       serializedValueCanBeNull -> builder
-        .addStatement("val %N = %L", SQL_VALUE_VARIABLE, serializedValue)
-        .beginControlFlow("if (%N == null)", SQL_VALUE_VARIABLE)
+        .addStatement("val %N = %L", VARIABLE_SQL_VALUE, serializedValue)
+        .beginControlFlow("if (%N == null)", VARIABLE_SQL_VALUE)
         .addStatement("throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
         .endControlFlow()
-        .addSerializedValueReturn(CodeBlock.of("%N", SQL_VALUE_VARIABLE))
+        .addSerializedValueReturn(CodeBlock.of("%N", VARIABLE_SQL_VALUE))
       else -> builder.addSerializedValueReturn(serializedValue)
     }
     return builder.build()
@@ -152,11 +169,12 @@ internal class ColumnClassWriter private constructor(
     return FunSpec
       .builder(METHOD_AS)
       .addModifiers(OVERRIDE)
-      .addParameter(name = "alias", type = STRING)
+      .addParameter(name = VARIABLE_ALIAS, type = STRING)
       .returns(generatedType)
       .addStatement(
-        "return %T(table, name, valueParser, nullable, alias)",
-        generatedType
+        "return %T(table, name, valueParser, nullable, %N)",
+        generatedType,
+        VARIABLE_ALIAS
       )
       .build()
   }
@@ -180,7 +198,7 @@ internal class ColumnClassWriter private constructor(
           parser.acceptsNullDatabaseValue -> "val %N = super.%N<%T>(%N)"
           else -> "val %N = super.%N<%T>(%N) ?: return null"
         },
-        DB_VALUE_VARIABLE,
+        VARIABLE_DB_VALUE,
         functionName,
         serializedType,
         parameterName
@@ -225,17 +243,73 @@ internal class ColumnClassWriter private constructor(
         equivalentType = deserializedType,
         serializedType = serializedType,
         serializedValue = transformerElement.serializedValueGetter(
-          CodeBlock.of("%N", VALUE_VARIABLE)
+          CodeBlock.of("%N", VARIABLE_VALUE)
         ),
         serializedValueCanBeNull = transformerElement.serializedTypeCanBeNull,
         initBlock = null,
         parser = ParserData(
           deserializedValue = transformerElement.deserializedValueGetter(
-            CodeBlock.of("%N", DB_VALUE_VARIABLE)
+            CodeBlock.of("%N", VARIABLE_DB_VALUE)
           ),
           acceptsNullDatabaseValue = transformerElement.serializedTypeCanBeNull
         ),
-        unique = createUniqueClass
+        unique = createUniqueClass,
+        isInternal = false
+      )
+    }
+
+    fun fromRelationship(
+      table: TableElement,
+      column: ColumnElement,
+      codeGenerator: CodeGenerator
+    ): ColumnClassWriter {
+      val relationship = checkNotNull(column.relationship)
+      val transformer = relationship.referencedIdTransformer
+      val idType = relationship.referencedIdType.typeName.copy(nullable = false)
+      val serializedType = relationship.referencedIdSerializedType.typeName.copy(nullable = false)
+      val databaseValueCanBeNull = relationship.referencedIdIsNullable || relationship.serializedValueCanBeNull
+      val databaseValue = CodeBlock.of("%N", VARIABLE_DB_VALUE)
+      val deserializedValue = when {
+        column.isNullable && databaseValueCanBeNull -> CodeBlock.of(
+          "%L?.let { %L }",
+          databaseValue,
+          relationship.deserializedDeclaredIdValue(
+            databaseValue = CodeBlock.of("it")
+          )
+        )
+        else -> relationship.deserializedDeclaredIdValue(
+          databaseValue = databaseValue,
+          databaseValueCanBeNull = databaseValueCanBeNull
+        )
+      }
+      return ColumnClassWriter(
+        codeGenerator = codeGenerator,
+        className = table.relationshipColumnClassName(column),
+        superClass = when {
+          column.sqlStorageType.isNumeric -> COMPLEX_NUMERIC_COLUMN
+          else -> COMPLEX_COLUMN
+        },
+        deserializedType = idType,
+        returnType = idType,
+        equivalentType = when {
+          column.sqlStorageType.isNumeric -> NUMBER
+          else -> idType
+        },
+        serializedType = serializedType,
+        serializedValue = relationship.serializedDeclaredIdValue(
+          CodeBlock.of("%N", VARIABLE_VALUE)
+        ),
+        serializedValueCanBeNull = relationship.serializedValueCanBeNull,
+        initBlock = null,
+        parser = when {
+          transformer != null || relationship.referencedIdRelationship != null -> ParserData(
+            deserializedValue = deserializedValue,
+            acceptsNullDatabaseValue = databaseValueCanBeNull
+          )
+          else -> null
+        },
+        unique = column.isUnique || column.isId,
+        isInternal = !table.isPublic
       )
     }
   }

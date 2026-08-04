@@ -6,6 +6,8 @@ import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_MAIN_GENERATED_CLASSES_M
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_NAME
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DEBUG
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_GENERATE_LOGGING
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PUBLIC_EXTENSIONS
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
 import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
@@ -90,7 +92,7 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
     .firstOrNull { it.typeKey == typeKey }
 
   fun addTableElement(roundElement: TableRoundElement) {
-    val table = roundElement.tableElement
+    val table = roundElement.table
     when {
       tableElements[table.typeKey] == table -> return
       else -> {
@@ -113,7 +115,9 @@ data class CompilerOptions private constructor(
   val debug: Boolean,
   val isDebugVariant: Boolean,
   val dbName: String?,
-  val dbVersion: Int?
+  val dbVersion: Int?,
+  val generateLogging: Boolean,
+  val publicExtensions: Boolean,
 ) {
   companion object {
     fun from(options: Map<String, String>) = CompilerOptions(
@@ -122,7 +126,9 @@ data class CompilerOptions private constructor(
       dbName = options[OPTION_DB_NAME].takeUnless(String?::isNullOrEmpty),
       dbVersion = options[OPTION_DB_VERSION]
         ?.takeIf(String::isNotEmpty)
-        ?.toIntOrNull()
+        ?.toIntOrNull(),
+      generateLogging = options[OPTION_GENERATE_LOGGING].toBoolean(),
+      publicExtensions = options[OPTION_PUBLIC_EXTENSIONS].toBoolean(),
     )
   }
 }

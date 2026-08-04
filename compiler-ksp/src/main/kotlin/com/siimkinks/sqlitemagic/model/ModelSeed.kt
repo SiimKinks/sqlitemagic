@@ -46,7 +46,8 @@ internal data class TableSeed(
   val declarationOrder: Int,
   val options: Set<TableOption>,
   val construction: ModelConstruction,
-  val propertySeeds: List<PropertySeed>
+  val propertySeeds: List<PropertySeed>,
+  val isPublic: Boolean
 ) : ParsedType by parsedType {
   val idSeed = propertySeeds
     .filterIsInstance<ColumnSeed>()

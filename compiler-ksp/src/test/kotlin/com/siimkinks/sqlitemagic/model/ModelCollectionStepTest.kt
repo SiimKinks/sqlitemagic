@@ -26,7 +26,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 
 internal class ModelCollectionStepTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
+  override val processingSteps = ::modelCollectionProcessingSteps
 
   @Test
   fun `collects complete durable table value`() {
@@ -159,7 +159,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
           )
         )
       )
-    assertThat(environment.tableRoundElementsForCurrentRound.single().tableElement)
+    assertThat(environment.tableRoundElementsForCurrentRound.single().table)
       .isSameInstanceAs(table)
   }
 
@@ -212,9 +212,11 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
       referencedIdType = stringType,
       referencedIdSerializedType = stringType,
       referencedIdTransformer = null,
+      referencedIdIsNullable = false,
       isHandledRecursively = false,
-      onDeleteCascade = true,
-      canConstructWithOnlyId = true
+      onDeleteCascade = false,
+      canConstructWithOnlyId = true,
+      referencedTableArtifactStem = "Owner"
     )
 
     assertThat(compilation.environment.tableElements.values.single { table ->
@@ -758,7 +760,7 @@ private class OriginRecordingStep(
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
     environment.tableRoundElementsForCurrentRound.forEach { table ->
-      originatingFiles[table.tableElement.modelName] = OriginatingFilesSnapshot.from(table.originatingFiles)
+      originatingFiles[table.table.modelName] = OriginatingFilesSnapshot.from(table.originatingFiles)
     }
     return Continue
   }

@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-object NameConst {
+internal object GeneratedNames {
   const val PACKAGE_ROOT = "com.siimkinks.sqlitemagic"
 
   const val CLASS_MODEL_DAO = "Dao"
@@ -16,7 +16,6 @@ object NameConst {
   const val CLASS_BULK_DELETE = "BulkDeleteBuilder"
   const val CLASS_DELETE_TABLE = "DeleteTableBuilder"
 
-  const val METHOD_CREATE = "create"
   const val METHOD_EXECUTE = "execute"
   const val METHOD_OBSERVE = "observe"
   const val METHOD_CONNECTION_PROVIDER = "usingConnection"
@@ -25,6 +24,11 @@ object NameConst {
   const val FIELD_INSERT_SQL = "INSERT_SQL"
   const val FIELD_UPDATE_SQL = "UPDATE_SQL"
   const val FIELD_TABLE_SCHEMA = "TABLE_SCHEMA"
+
+  const val VARIABLE_VALUE = "value"
+  const val VARIABLE_SQL_VALUE = "sqlValue"
+  const val VARIABLE_DB_VALUE = "dbValue"
+  const val VARIABLE_ALIAS = "alias"
 
   const val METHOD_TO_SQL_ARG = "toSqlArg"
   const val METHOD_GET_FROM_CURSOR = "getFromCursor"
@@ -38,8 +42,6 @@ object NameConst {
   const val METHOD_MAPPER = "mapper"
   const val METHOD_FULL_OBJECT_FROM_CURSOR_POSITION = "fullObjectFromCursorPosition"
   const val METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION = "shallowObjectFromCursorPosition"
-  const val METHOD_SET_ID = "setId"
-  const val METHOD_GET_ID = "getId"
   const val METHOD_SET_CONFLICT_ALGORITHM = "conflictAlgorithm"
   const val METHOD_BY_COLUMN = "byColumn"
   const val METHOD_SET_IGNORE_NULL_VALUES = "ignoreNullValues"

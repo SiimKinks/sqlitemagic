@@ -113,17 +113,19 @@ fun KSDeclaration.isAccessibleFromGeneratedCode() = when (getVisibility()) {
   else -> false
 }
 
+fun KSDeclaration.declarationPath() = generateSequence(
+  seed = this as KSDeclaration?,
+  nextFunction = KSDeclaration::parentDeclaration
+)
+
 fun KSDeclaration.isEffectivelyAccessibleFromGeneratedCode() =
-  generateSequence(
-    seed = this as KSDeclaration?,
-    nextFunction = KSDeclaration::parentDeclaration
-  ).all(KSDeclaration::isAccessibleFromGeneratedCode)
+  declarationPath().all(KSDeclaration::isAccessibleFromGeneratedCode)
+
+fun KSDeclaration.isEffectivelyPublic() =
+  declarationPath().all { it.getVisibility() == PUBLIC }
 
 fun KSClassDeclaration.declarationPathNames() =
-  generateSequence(this as KSDeclaration?) { declaration ->
-    declaration.parentDeclaration as? KSClassDeclaration
-  }
-    .filterIsInstance<KSClassDeclaration>()
+  declarationPath()
     .map { it.simpleName.asString() }
     .toList()
     .asReversed()
@@ -187,29 +189,6 @@ fun KSClassDeclaration.getLocalAndInheritedProperties(): List<KSPropertyDeclarat
     visibleProperties.add(property)
   }
   return visibleProperties
-}
-
-/**
- * Returns visible inherited methods before locally declared ones and removes overridden ancestors.
- */
-fun KSClassDeclaration.getLocalAndInheritedColumnFunctions(): List<KSFunctionDeclaration> {
-  val targetPackageName = packageName.asString()
-  val methods = getLocalAndInheritedColumnTypes()
-    .flatMap { declaration ->
-      declaration.declarations
-        .filterIsInstance<KSFunctionDeclaration>()
-        .filter { JAVA_STATIC !in it.modifiers }
-        .filter { function ->
-          function.isVisibleFromPackage(
-            targetPackageName = targetPackageName
-          )
-        }
-        .toList()
-    }
-  val overriddenMethods = methods
-    .mapNotNull(KSFunctionDeclaration::findOverridee)
-    .toSet()
-  return methods.filterNot(overriddenMethods::contains)
 }
 
 private fun KSDeclaration.isVisibleFromPackage(

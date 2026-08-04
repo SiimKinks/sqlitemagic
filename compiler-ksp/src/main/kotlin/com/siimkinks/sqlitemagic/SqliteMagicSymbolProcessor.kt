@@ -4,15 +4,17 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
-import com.siimkinks.sqlitemagic.Types.COLUMN_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.DATABASE_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.DB_VALUE_TO_OBJECT_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.INDEX_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.OBJECT_TO_DB_VALUE_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.SUBMODULE_DATABASE_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.TABLE_ANNOTATION
-import com.siimkinks.sqlitemagic.Types.VIEW_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.COLUMN_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.DATABASE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.DB_VALUE_TO_OBJECT_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.INDEX_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.OBJECT_TO_DB_VALUE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.SUBMODULE_DATABASE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.TABLE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.VIEW_ANNOTATION
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
+import com.siimkinks.sqlitemagic.model.ModelCodeGenerationStep
+import com.siimkinks.sqlitemagic.model.ModelCollectionStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
@@ -29,6 +31,8 @@ class SqliteMagicSymbolProcessor(
       DatabaseConfigurationCollectionStep(env),
       TransformerCollectionStep(env),
       TransformerCodeGenerationStep(env),
+      ModelCollectionStep(env),
+      ModelCodeGenerationStep(env),
     )
   }
 ) : SymbolProcessor {
@@ -60,6 +64,8 @@ class SqliteMagicSymbolProcessor(
     const val OPTION_VARIANT_DEBUG = "sqlitemagic.variant.debug"
     const val OPTION_DB_NAME = "sqlitemagic.db.name"
     const val OPTION_DB_VERSION = "sqlitemagic.db.version"
+    const val OPTION_GENERATE_LOGGING = "sqlitemagic.generate.logging"
+    const val OPTION_PUBLIC_EXTENSIONS = "sqlitemagic.kotlin.public.extensions"
 
     val SUPPORTED_ANNOTATIONS = setOf(
       DATABASE_ANNOTATION,

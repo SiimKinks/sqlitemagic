@@ -24,23 +24,18 @@ interface TransformerMethodElement {
   val callableKind: TransformerCallableKind
 
   val ownerQualifiedName get() = ownerClassName?.canonicalName
+  val memberName get() = MemberName(packageName = packageName, simpleName = methodName)
+
+  fun callableReference() = when (callableKind) {
+    TOP_LEVEL -> CodeBlock.of("::%M", memberName)
+    CLASS_MEMBER -> CodeBlock.of("%T::%N", checkNotNull(ownerClassName), methodName)
+    UNKNOWN -> error("Unsupported transformer callable kind $callableKind")
+  }
 
   fun callWithArgument(argument: CodeBlock) = when (callableKind) {
-    TOP_LEVEL -> CodeBlock.of(
-      "%M(%L)",
-      MemberName(
-        packageName = packageName,
-        simpleName = methodName
-      ),
-      argument
-    )
-    CLASS_MEMBER -> CodeBlock.of(
-      "%T.%N(%L)",
-      checkNotNull(ownerClassName),
-      methodName,
-      argument
-    )
-    else -> error("Unsupported transformer callable kind $callableKind")
+    TOP_LEVEL -> CodeBlock.of("%M(%L)", memberName, argument)
+    CLASS_MEMBER -> CodeBlock.of("%T.%N(%L)", checkNotNull(ownerClassName), methodName, argument)
+    UNKNOWN -> error("Unsupported transformer callable kind $callableKind")
   }
 }
 
