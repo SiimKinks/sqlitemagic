@@ -30,7 +30,7 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_ModelContainer_NestedTable_Dao.kt",
-        "SqliteMagic_ModelContainer_NestedTable_Handler.kt",
+        "SqliteMagic_ModelContainer_NestedTable_Adapter.kt",
         "ModelContainer_NestedTableTable.kt",
         "_ModelContainer_NestedTable.kt"
       )
@@ -62,11 +62,11 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_FirstContainer_NestedTable_Dao.kt",
-        "SqliteMagic_FirstContainer_NestedTable_Handler.kt",
+        "SqliteMagic_FirstContainer_NestedTable_Adapter.kt",
         "FirstContainer_NestedTableTable.kt",
         "_FirstContainer_NestedTable.kt",
         "SqliteMagic_SecondContainer_NestedTable_Dao.kt",
-        "SqliteMagic_SecondContainer_NestedTable_Handler.kt",
+        "SqliteMagic_SecondContainer_NestedTable_Adapter.kt",
         "SecondContainer_NestedTableTable.kt",
         "_SecondContainer_NestedTable.kt"
       )
@@ -125,7 +125,7 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_ValueClassTable_Dao.kt",
-        "SqliteMagic_ValueClassTable_Handler.kt",
+        "SqliteMagic_ValueClassTable_Adapter.kt",
         "ValueClassTableTable.kt",
         "_ValueClassTable.kt"
       )

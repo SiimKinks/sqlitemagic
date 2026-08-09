@@ -79,7 +79,6 @@ class SqliteMagicKspPlugin : Plugin<Project> {
 private fun Project.configureKspArgs(sqlitemagic: SqliteMagicKspPluginExtension) {
   val ksp = extensions.getByType(KspExtension::class.java)
   ksp.arg("sqlitemagic.kotlin.public.extensions", sqlitemagic.publicKotlinExtensionFunctions.toString())
-  ksp.arg("sqlitemagic.generate.logging", sqlitemagic.generateLogging.toString())
   ksp.arg("sqlitemagic.migrate.debug", sqlitemagic.migrateDebugDatabase.toString())
   ksp.arg("sqlitemagic.project.dir", projectDir.absolutePath)
   sqlitemagic.mainModulePath?.let { mainModulePath ->

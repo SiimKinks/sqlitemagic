@@ -166,7 +166,7 @@ public class DbConnectionImpl implements DbConnection {
 
   @NonNull
   @CheckResult
-  public final EntityDbManager getEntityDbManager(@Nullable String moduleName, int tablePos) {
+  final EntityDbManager getEntityDbManager(@Nullable String moduleName, int tablePos) {
     if (moduleName == null) {
       return entityDbManagers[tablePos];
     }

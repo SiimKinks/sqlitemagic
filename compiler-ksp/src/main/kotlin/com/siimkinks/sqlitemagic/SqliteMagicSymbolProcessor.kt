@@ -64,7 +64,6 @@ class SqliteMagicSymbolProcessor(
     const val OPTION_VARIANT_DEBUG = "sqlitemagic.variant.debug"
     const val OPTION_DB_NAME = "sqlitemagic.db.name"
     const val OPTION_DB_VERSION = "sqlitemagic.db.version"
-    const val OPTION_GENERATE_LOGGING = "sqlitemagic.generate.logging"
     const val OPTION_PUBLIC_EXTENSIONS = "sqlitemagic.kotlin.public.extensions"
 
     val SUPPORTED_ANNOTATIONS = setOf(

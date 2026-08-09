@@ -43,11 +43,11 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_Book_Dao.kt",
-        "SqliteMagic_Book_Handler.kt",
+        "SqliteMagic_Book_Adapter.kt",
         "BookTable.kt",
         "_Book.kt"
       )
-      .withGeneratedSource("SqliteMagic_Book_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_Book_Adapter.kt") { generatedSource ->
         generatedSource.assertDoesNotContain("not_persisted")
       }
   }
@@ -71,7 +71,7 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_MissingNoArgConstructor_Dao.kt",
-        "SqliteMagic_MissingNoArgConstructor_Handler.kt",
+        "SqliteMagic_MissingNoArgConstructor_Adapter.kt",
         "MissingNoArgConstructorTable.kt",
         "_MissingNoArgConstructor.kt"
       )
@@ -108,11 +108,11 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_MutableAuthor_Dao.kt",
-        "SqliteMagic_MutableAuthor_Handler.kt",
+        "SqliteMagic_MutableAuthor_Adapter.kt",
         "MutableAuthorTable.kt",
         "_MutableAuthor.kt"
       )
-      .withGeneratedSource("SqliteMagic_MutableAuthor_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_MutableAuthor_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("created_by")
         generatedSource.assertDoesNotContain("transient_label")
       }
@@ -121,10 +121,6 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
           "MutableAuthor().apply { this.id = id }",
           "MutableAuthor().apply {",
           "this.displayName ="
-        )
-        generatedSource.assertDoesNotContain(
-          "MutableAuthor().also { it.id = id }",
-          "MutableAuthor().also { value ->"
         )
       }
   }
@@ -165,10 +161,6 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
           "this.label = cursor.getString(columnIndex1)",
           "if (!(columnIndex2 < 0 || cursor.isNull(columnIndex2)))",
           "this.count = cursor.getInt(columnIndex2)"
-        )
-        generatedSource.assertDoesNotContain(
-          "value.label = if (cursor.isNull",
-          "value.count = if (cursor.isNull"
         )
       }
   }
@@ -214,10 +206,6 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
           "if (!column1IsNull) this.details =",
           "this.owner =",
           "columnOffset.value +="
-        )
-        generatedSource.assertDoesNotContain(
-          "value.details = if (cursor.isNull",
-          "value.owner = if (cursor.isNull"
         )
       }
   }
@@ -423,9 +411,9 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_OrderedConstructorModel_Dao.kt",
-        "SqliteMagic_OrderedConstructorModel_Handler.kt"
+        "SqliteMagic_OrderedConstructorModel_Adapter.kt"
       )
-      .withGeneratedSource("SqliteMagic_OrderedConstructorModel_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_OrderedConstructorModel_Adapter.kt") { generatedSource ->
         generatedSource.assertContainsInOrder(
           "first_value",
           "second_value",
@@ -464,7 +452,7 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_SecondaryNoArgConstructor_Dao.kt",
-        "SqliteMagic_SecondaryNoArgConstructor_Handler.kt"
+        "SqliteMagic_SecondaryNoArgConstructor_Adapter.kt"
       )
   }
 
@@ -489,7 +477,7 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_DefaultedPrimaryConstructor_Dao.kt",
-        "SqliteMagic_DefaultedPrimaryConstructor_Handler.kt"
+        "SqliteMagic_DefaultedPrimaryConstructor_Adapter.kt"
       )
   }
 

@@ -2,7 +2,9 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_DEEP_QUERY_PARTS
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_SHALLOW_QUERY_PARTS
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
@@ -10,16 +12,20 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSO
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.SqlStorageType
+import com.siimkinks.sqlitemagic.WriterTypes.ARRAY_LIST
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_NUMERIC_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.JOIN_CLAUSE
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NUMERIC_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.QUERY_MAPPER
 import com.siimkinks.sqlitemagic.WriterTypes.SELECT_FROM
+import com.siimkinks.sqlitemagic.WriterTypes.SELECT_FROM_RAW
 import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
+import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY_SET
 import com.siimkinks.sqlitemagic.WriterTypes.SYSTEM_RENAMED_TABLES
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
@@ -40,6 +46,7 @@ import com.squareup.kotlinpoet.NUMBER
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
@@ -78,11 +85,13 @@ internal class ModelTableWriter(
               )
             }
             if (table.hasRecursiveRelationships) {
-              addFunction(queryPartsFunction(table))
+              addFunction(queryPartsFunction())
+              addFunction(queryPartsInternalFunction(table))
             }
             if (table.needsShallowQueryParts) {
+              addFunction(queryPartsFunction(shallow = true))
               addFunction(
-                queryPartsFunction(
+                queryPartsInternalFunction(
                   table = table,
                   shallow = true
                 )
@@ -326,7 +335,6 @@ internal class ModelTableWriter(
   }
 
   private fun queryPartsFunction(
-    table: TableElement,
     shallow: Boolean = false
   ) = FunSpec
     .builder(
@@ -346,15 +354,170 @@ internal class ModelTableWriter(
     )
     .addParameter(name = "select1", type = BOOLEAN)
     .returns(SYSTEM_RENAMED_TABLES.copy(nullable = true))
+    .addCode("val systemRenamedTables = ")
+    .beginControlFlow("when (selectFromTables)")
+    .addStatement("null -> null")
+    .addStatement("else -> %T()", SYSTEM_RENAMED_TABLES)
+    .endControlFlow()
     .addStatement(
-      "return %T.%N(from, selectFromTables, tableGraphNodeNames, select1)",
-      table.generationNames.handlerClassName,
+      "%N(from.table, from.joins, selectFromTables, systemRenamedTables, tableGraphNodeNames, %S, select1)",
       when {
-        shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS
-        else -> METHOD_ADD_DEEP_QUERY_PARTS
-      }
+        shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
+        else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
+      },
+      ""
     )
+    .beginControlFlow("if (systemRenamedTables?.isEmpty() == true)")
+    .addStatement("return null")
+    .endControlFlow()
+    .addStatement("return systemRenamedTables")
     .build()
+
+  private fun queryPartsInternalFunction(
+    table: TableElement,
+    shallow: Boolean = false
+  ): FunSpec {
+    val function = FunSpec
+      .builder(
+        when {
+          shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
+          else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
+        }
+      )
+      .addModifiers(INTERNAL)
+      .addParameter(name = "tableAlias", type = TABLE.parameterizedBy(STAR))
+      .addParameter(name = "joins", type = ARRAY_LIST.parameterizedBy(JOIN_CLAUSE))
+      .addParameter(name = "selectFromTables", type = STRING_ARRAY_SET.copy(nullable = true))
+      .addParameter(name = "systemRenamedTables", type = SYSTEM_RENAMED_TABLES.copy(nullable = true))
+      .addParameter(
+        name = "tableGraphNodeNames",
+        type = SIMPLE_ARRAY_MAP
+          .parameterizedBy(STRING, STRING)
+          .copy(nullable = true)
+      )
+      .addParameter(name = "nodeName", type = STRING)
+      .addParameter(name = "select1", type = BOOLEAN)
+    table.recursiveRelationshipColumns
+      .filter { !shallow || it.relationship?.canConstructWithOnlyId == false }
+      .forEachIndexed { index, column ->
+        val referencedTable = checkNotNull(
+          environment.tableElements[column.relationship?.referencedTableTypeKey]
+        )
+        val referencedTableClassName = referencedTable.generationNames.tableClassName
+        val referencedId = checkNotNull(referencedTable.idColumn)
+        val referencedTableName = "referencedTable$index"
+        val joinedTableName = "joinedTable$index"
+        val joinIndexName = "joinIndex$index"
+        val relationshipNodeName = "relationshipNodeName$index"
+        val parentColumnName = "parentColumn$index"
+        val referencedIdName = "referencedId$index"
+        val joinClauseName = "joinClause$index"
+        function
+          .addStatement(
+            "val %N = %T.%N",
+            referencedTableName,
+            referencedTableClassName,
+            referencedTable.structureFieldName
+          )
+          .beginControlFlow("if (selectFromTables == null || selectFromTables.contains(%S))", referencedTable.tableName)
+          .addStatement("val %N = nodeName + %S", relationshipNodeName, column.columnName)
+          .addStatement(
+            "val %N = %T.internalCopy(tableAlias, %T.%N.%N)",
+            parentColumnName,
+            COLUMN,
+            table.generationNames.tableClassName,
+            table.structureFieldName,
+            column.fieldName
+          )
+          .addStatement(
+            "val %N = %T.indexOf(%N, joins, %N)",
+            joinIndexName,
+            JOIN_CLAUSE,
+            referencedTableName,
+            parentColumnName
+          )
+          .beginControlFlow("if (%N != -1)", joinIndexName)
+          .addStatement("val userJoin = joins[%N]", joinIndexName)
+          .addStatement("tableGraphNodeNames?.put(%N, userJoin.tableNameInQuery())", relationshipNodeName)
+        if (
+          referencedTable.hasRecursiveRelationships &&
+          (!shallow || referencedTable.needsShallowQueryParts)
+        ) {
+          function.addStatement(
+            "%T.%N.%N(userJoin.table, joins, selectFromTables, systemRenamedTables, tableGraphNodeNames, %N, select1)",
+            referencedTableClassName,
+            referencedTable.structureFieldName,
+            when {
+              shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
+              else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
+            },
+            relationshipNodeName
+          )
+        }
+        function
+          .nextControlFlow("else")
+          .addStatement(
+            "val %N = %N.internalAlias(%T.randomTableName())",
+            joinedTableName,
+            referencedTableName,
+            UTILS
+          )
+          .addCode("val addedAlias = ")
+          .beginControlFlow("when (systemRenamedTables)")
+          .addStatement("null -> %N.nameInQuery", joinedTableName)
+          .addStatement("else -> %T.addTableAlias(%N, systemRenamedTables)", UTILS, joinedTableName)
+          .endControlFlow()
+          .addStatement("tableGraphNodeNames?.put(%N, addedAlias)", relationshipNodeName)
+          .addStatement(
+            "val %N = %T.internalCopy(%N, %T.%N.%N)",
+            referencedIdName,
+            COLUMN,
+            joinedTableName,
+            referencedTableClassName,
+            referencedTable.structureFieldName,
+            referencedId.fieldName
+          )
+          .addStatement(
+            "val %N = %N.on(%N.%N(%N))",
+            joinClauseName,
+            joinedTableName,
+            parentColumnName,
+            "is",
+            referencedIdName
+          )
+          .addStatement("%N.operator = %T.LEFT_JOIN", joinClauseName, SELECT_FROM_RAW)
+          .addStatement("joins.add(%N)", joinClauseName)
+        if (
+          referencedTable.hasRecursiveRelationships &&
+          (!shallow || referencedTable.needsShallowQueryParts)
+        ) {
+          function.addStatement(
+            "%T.%N.%N(%N, joins, selectFromTables, systemRenamedTables, tableGraphNodeNames, %N, select1)",
+            referencedTableClassName,
+            referencedTable.structureFieldName,
+            when {
+              shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
+              else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
+            },
+            joinedTableName,
+            relationshipNodeName
+          )
+        }
+        function.endControlFlow()
+        when {
+          column.isModelPathNullable -> function.endControlFlow()
+          else -> function
+            .nextControlFlow("else if (!select1)")
+            .addStatement(
+              "throw %T(%S)",
+              SQL_EXCEPTION,
+              "Column ${column.columnName} is not nullable and was not part of selected columns"
+            )
+            .endControlFlow()
+        }
+      }
+    return function.build()
+  }
 
   private fun companionObject(table: TableElement): TypeSpec {
     val tableClassName = table.generationNames.tableClassName
@@ -369,5 +532,4 @@ internal class ModelTableWriter(
       )
       .build()
   }
-
 }

@@ -202,7 +202,7 @@ internal class ModelElementTest {
     assertThat(
       listOf(
         actual.generationNames.daoClassName,
-        actual.generationNames.handlerClassName,
+        actual.generationNames.adapterClassName,
         actual.generationNames.tableClassName,
         actual.generationNames.extensionsFileName,
         actual.generationNames.bulkOperationsObjectName
@@ -210,7 +210,7 @@ internal class ModelElementTest {
     )
       .containsExactly(
         ClassName(PACKAGE, "SqliteMagic_Container_Account_Dao"),
-        ClassName(PACKAGE_ROOT, "SqliteMagic_Container_Account_Handler"),
+        ClassName(PACKAGE_ROOT, "SqliteMagic_Container_Account_Adapter"),
         ClassName(PACKAGE_ROOT, "Container_AccountTable"),
         "_Container_Account",
         "Container_Accounts"

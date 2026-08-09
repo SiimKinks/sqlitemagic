@@ -35,6 +35,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_AuditEvent_Dao.kt",
+        "SqliteMagic_AuditEvent_Adapter.kt",
         "_AuditEvent.kt"
       )
       .withGeneratedSource("SqliteMagic_AuditEvent_Dao.kt") { generatedSource ->
@@ -47,15 +48,17 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "newInstanceWithOnlyId"
         )
       }
-      .withGeneratedSource("SqliteMagic_AuditEvent_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_AuditEvent_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "internal object SqliteMagic_AuditEvent_Adapter",
+          "EntityAdapter<AuditEvent",
+          "override fun bindToInsertStatement("
+        )
         generatedSource.assertDoesNotContain(
-          "_id",
-          "UpdateBuilder",
-          "BulkUpdateBuilder",
-          "PersistBuilder",
-          "BulkPersistBuilder",
-          "DeleteBuilder",
-          "BulkDeleteBuilder"
+          "bindNotNull",
+          "identity(",
+          "updateStatementSql(",
+          "defaultIdentityColumn"
         )
       }
       .withGeneratedSource("_AuditEvent.kt") { generatedSource ->
@@ -82,34 +85,22 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .compile(sluggedNoteSource())
       .isOk()
       .assertGeneratedSources(
-        "SqliteMagic_SluggedNote_Handler.kt",
+        "SqliteMagic_SluggedNote_Adapter.kt",
         "_SluggedNote.kt"
       )
-      .withGeneratedSource("SqliteMagic_SluggedNote_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_SluggedNote_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "slug TEXT UNIQUE",
           "external_key TEXT UNIQUE",
-          "UpdateBuilder",
-          "BulkUpdateBuilder",
-          "PersistBuilder",
-          "BulkPersistBuilder",
-          "DeleteBuilder",
-          "BulkDeleteBuilder",
-          "EntityUpdateByColumnBuilder",
-          "EntityBulkUpdateByColumnBuilder",
-          "EntityPersistByColumnBuilder",
-          "EntityBulkPersistByColumnBuilder",
-          "EntityDeleteByColumnBuilder",
-          "EntityBulkDeleteByColumnBuilder",
-          "execute(byColumn: C)",
-          "observe(byColumn: C)",
-          "Unique<",
-          "EntityPersistResult",
-          "EntityPersistResult.Inserted",
-          "rowId",
-          "EntityPersistResult.Updated",
-          "EntityPersistResult.Ignored",
-          "Single<EntityPersistResult>"
+          "EntityIdentityAdapter<SluggedNote>",
+          "override fun bindToUpdateStatement(",
+          "override fun bindNotNullForUpdate(",
+          "override fun identity(",
+          "override fun hasIdentityValue(",
+          "override fun updateStatementSql(",
+          "requireNotNull(entity.slug)",
+          "SluggedNoteTable.SLUGGED_NOTE.SLUG",
+          "SluggedNoteTable.SLUGGED_NOTE.EXTERNAL_KEY"
         )
       }
       .withGeneratedSource("_SluggedNote.kt") { generatedSource ->
@@ -162,7 +153,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_UniqueRelationshipOwner_TargetColumn.kt",
-        "SqliteMagic_UniqueRelationshipOwner_Handler.kt"
+        "SqliteMagic_UniqueRelationshipOwner_Adapter.kt"
       )
       .withGeneratedSource("SqliteMagic_UniqueRelationshipOwner_TargetColumn.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -170,10 +161,12 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "Unique<N>"
         )
       }
-      .withGeneratedSource("SqliteMagic_UniqueRelationshipOwner_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_UniqueRelationshipOwner_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "EntityUpdateByColumnBuilder",
-          "execute(byColumn: C)"
+          "EntityIdentityAdapter<UniqueRelationshipOwner>",
+          "override fun identity(",
+          "override fun updateStatementSql(",
+          "UniqueRelationshipOwnerTable.UNIQUE_RELATIONSHIP_OWNER.TARGET"
         )
       }
   }
@@ -209,12 +202,12 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_NullableSerializedKey_Handler.kt")
-      .withGeneratedSource("SqliteMagic_NullableSerializedKey_Handler.kt") { generatedSource ->
-        generatedSource.assertDoesNotContain(
-          "UpdateBuilder",
-          "PersistBuilder",
-          "DeleteBuilder"
+      .assertGeneratedSources("SqliteMagic_NullableSerializedKey_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_NullableSerializedKey_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "internal object SqliteMagic_NullableSerializedKey_Adapter",
+          "EntityAdapter<NullableSerializedKey>",
+          "override fun bindToInsertStatement("
         )
       }
   }
@@ -285,9 +278,6 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         "SluggedNoteTable.kt",
         "_SluggedNote.kt"
       )
-      .withGeneratedSource("SqliteMagic_SluggedNote_Dao.kt") { generatedSource ->
-        generatedSource.assertDoesNotContain("object SluggedNoteTable")
-      }
   }
 
   @Test
@@ -325,18 +315,18 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .isOk()
       .assertGeneratedSources(
-        "SqliteMagic_AutomaticLong_Handler.kt",
-        "SqliteMagic_AutomaticString_Handler.kt",
-        "SqliteMagic_AutomaticTransformed_Handler.kt"
+        "SqliteMagic_AutomaticLong_Adapter.kt",
+        "SqliteMagic_AutomaticString_Adapter.kt",
+        "SqliteMagic_AutomaticTransformed_Adapter.kt"
       )
-      .withGeneratedSource("SqliteMagic_AutomaticLong_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_AutomaticLong_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("INTEGER PRIMARY KEY AUTOINCREMENT")
       }
-      .withGeneratedSource("SqliteMagic_AutomaticString_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_AutomaticString_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("TEXT PRIMARY KEY")
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
       }
-      .withGeneratedSource("SqliteMagic_AutomaticTransformed_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_AutomaticTransformed_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("INTEGER PRIMARY KEY AUTOINCREMENT")
       }
   }
@@ -361,8 +351,8 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_DisabledLong_Handler.kt")
-      .withGeneratedSource("SqliteMagic_DisabledLong_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_DisabledLong_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_DisabledLong_Adapter.kt") { generatedSource ->
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
       }
   }
@@ -387,8 +377,8 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_EnabledAutoIncrement_Handler.kt")
-      .withGeneratedSource("SqliteMagic_EnabledAutoIncrement_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_EnabledAutoIncrement_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_EnabledAutoIncrement_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("INTEGER PRIMARY KEY AUTOINCREMENT")
       }
   }
@@ -443,8 +433,8 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_AutomaticRelationshipId_Handler.kt")
-      .withGeneratedSource("SqliteMagic_AutomaticRelationshipId_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_AutomaticRelationshipId_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_AutomaticRelationshipId_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("id INTEGER PRIMARY KEY")
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
       }
@@ -535,11 +525,11 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .assertGeneratedSources(
         "SqliteMagic_Account_Dao.kt",
         "SqliteMagic_Article_Dao.kt",
-        "SqliteMagic_Article_Handler.kt",
+        "SqliteMagic_Article_Adapter.kt",
         "SqliteMagic_Article_AccountColumn.kt",
         "ArticleTable.kt"
       )
-      .withGeneratedSource("SqliteMagic_Article_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_Article_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "author TEXT",
           "account TEXT",
@@ -555,7 +545,6 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "bindString",
           "bindLong"
         )
-        generatedSource.assertDoesNotContain("Long.toString")
       }
       .withGeneratedSource("ArticleTable.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -871,10 +860,10 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .isOk()
       .assertGeneratedSources(
-        "SqliteMagic_NonNullTargetOwner_Handler.kt",
+        "SqliteMagic_NonNullTargetOwner_Adapter.kt",
         "SqliteMagic_NonNullTargetOwner_Dao.kt"
       )
-      .withGeneratedSource("SqliteMagic_NonNullTargetOwner_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_NonNullTargetOwner_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("target TEXT DEFAULT NULL")
       }
       .withGeneratedSource("SqliteMagic_NonNullTargetOwner_Dao.kt") { generatedSource ->
@@ -997,12 +986,13 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_ShallowChild_Handler.kt")
-      .withGeneratedSource("SqliteMagic_ShallowChild_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_ShallowChild_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_ShallowChild_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "parent TEXT DEFAULT ''",
-          "sendOwnTableTrigger",
-          "ShallowChildTable.SHALLOW_CHILD.name"
+          "EntityDefaultIdentityAdapter<ShallowChild>",
+          "override fun bindToInsertStatement(",
+          "override fun identity("
         )
         generatedSource.assertDoesNotContain(
           "REFERENCES shallow_parent(id)",
@@ -1041,14 +1031,16 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .isOk()
       .assertGeneratedSources(
-        "SqliteMagic_ImmutableGeneratedParent_Handler.kt",
+        "SqliteMagic_ImmutableGeneratedParent_Adapter.kt",
         "SqliteMagic_ImmutableGeneratedParent_Dao.kt"
       )
-      .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "generatedRelationshipIds[\"child\"] = it",
-          "bindToInsertStatement(statement, entity, generatedRelationshipIds)",
-          "bindNotNull(entity, bindValues, generatedRelationshipIds)"
+          "EntityRecursiveAdapter<ImmutableGeneratedParent",
+          "operations.insert(",
+          "adapter = SqliteMagic_ImmutableGeneratedChild_Adapter",
+          "operations.rememberGeneratedId(",
+          "generatedRelationshipIds: Map<String, Long>"
         )
       }
       .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Dao.kt") { generatedSource ->
@@ -1060,7 +1052,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `uses affected-row insert results for WITHOUT ROWID models`() {
+  fun `marks WITHOUT ROWID models for shared runtime execution`() {
     SqliteMagicCompilation
       .compile(
         SourceFile.kotlin(
@@ -1081,19 +1073,12 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_NaturalKey_Handler.kt")
-      .withGeneratedSource("SqliteMagic_NaturalKey_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_NaturalKey_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_NaturalKey_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "EntityInsertResult.Inserted(null)",
-          "VariableArgsOperationHelper",
-          "bindValues",
-          "statement.executeUpdateDelete()",
-          "OperationHelper.Op.INSERT"
-        )
-        generatedSource.assertDoesNotContain(
-          "executeWithoutRowIdInsert",
-          "executeInsert()",
-          "getWritableDatabase().insert("
+          "EntityDefaultIdentityAdapter<NaturalKey>",
+          "override val withoutRowId: Boolean = true",
+          "override fun bindToInsertStatement("
         )
       }
   }
@@ -1119,12 +1104,13 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_NullableIdentity_Handler.kt")
-      .withGeneratedSource("SqliteMagic_NullableIdentity_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_NullableIdentity_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_NullableIdentity_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "if (!hasIdentityValue(entity, selectedByColumn))",
+          "EntityDefaultIdentityAdapter<NullableIdentity>",
+          "override fun hasIdentityValue(",
           "return entity.id != null",
-          "val insertResult"
+          "override fun identity("
         )
       }
   }
@@ -1201,21 +1187,17 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_TeamMember_Dao.kt",
-        "SqliteMagic_TeamMember_Handler.kt",
+        "SqliteMagic_TeamMember_Adapter.kt",
         "TeamMemberTable.kt"
       )
-      .withGeneratedSource("SqliteMagic_TeamMember_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_TeamMember_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "team TEXT",
-          "SqliteMagic_Team_Handler",
-          "callInternalInsertsOnComplexColumns",
-          "callInternalUpdatesOnComplexColumns",
-          "callInternalPersistsOnComplexColumns",
-          "builder.withoutTableTriggers()",
-          "var processed = false",
-          "processed && conflictAlgorithm == SQLiteDatabase.CONFLICT_IGNORE",
-          "rowId != -1L || conflictAlgorithm == SQLiteDatabase.CONFLICT_IGNORE",
-          "TeamTable.TEAM"
+          "EntityRecursiveAdapter<TeamMember",
+          "operations.insert(",
+          "operations.update(",
+          "operations.persist(",
+          "adapter = SqliteMagic_Team_Adapter",
+          "entity = entity.team"
         )
       }
       .withGeneratedSource("SqliteMagic_TeamMember_Dao.kt") { generatedSource ->
@@ -1228,12 +1210,13 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .withGeneratedSource("TeamMemberTable.kt") { generatedSource ->
         generatedSource.assertContains(
           "addDeepQueryParts",
+          "internal fun addDeepQueryPartsInternal(",
+          "TeamTable.TEAM",
           "queryDeep ->",
           "checkNotNull(",
           "SqliteMagic_TeamMember_Dao::fullObjectFromCursorPosition",
           "SqliteMagic_TeamMember_Dao::shallowObjectFromCursorPosition"
         )
-        generatedSource.assertDoesNotContain("requireNotNull(")
       }
   }
 
@@ -1276,24 +1259,16 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "RecursiveTargetOwnerTable.kt",
-        "SqliteMagic_RecursiveTargetOwner_Handler.kt",
         "SqliteMagic_RecursiveTargetOwner_Dao.kt",
         "SqliteMagic_RequiredRecursiveTarget_Dao.kt"
       )
       .withGeneratedSource("RecursiveTargetOwnerTable.kt") { generatedSource ->
         generatedSource.assertContains(
           "addShallowQueryParts",
-          "SqliteMagic_RecursiveTargetOwner_Handler.addShallowQueryParts"
-        )
-      }
-      .withGeneratedSource("SqliteMagic_RecursiveTargetOwner_Handler.kt") { generatedSource ->
-        generatedSource.assertContains(
+          "internal fun addShallowQueryPartsInternal(",
           "fun addShallowQueryPartsInternal",
           "JoinClause.indexOf",
           "userJoin.tableNameInQuery()"
-        )
-        generatedSource.assertDoesNotContain(
-          "SqliteMagic_ShallowLeaf_Handler"
         )
       }
       .withGeneratedSource("SqliteMagic_RecursiveTargetOwner_Dao.kt") { generatedSource ->
@@ -1338,8 +1313,9 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .isOk()
       .assertGeneratedSources(
-        "SqliteMagic_RecursiveParent_Handler.kt",
-        "SqliteMagic_RecursiveChild_Handler.kt"
+        "RecursiveParentTable.kt",
+        "SqliteMagic_RecursiveParent_Adapter.kt",
+        "SqliteMagic_RecursiveChild_Adapter.kt"
       )
   }
 
@@ -1481,9 +1457,9 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_OptionalChild_Dao.kt",
-        "SqliteMagic_OptionalChild_Handler.kt"
+        "SqliteMagic_OptionalChild_Adapter.kt"
       )
-      .withGeneratedSource("SqliteMagic_OptionalChild_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_OptionalChild_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("parent TEXT DEFAULT NULL")
       }
       .withGeneratedSource("SqliteMagic_OptionalChild_Dao.kt") { generatedSource ->
@@ -1528,14 +1504,20 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_LeafEntity_Handler.kt")
-      .withGeneratedSource("SqliteMagic_LeafEntity_Handler.kt") { generatedSource ->
+      .assertGeneratedSources(
+        "SqliteMagic_LeafEntity_Adapter.kt",
+        "LeafEntityTable.kt"
+      )
+      .withGeneratedSource("SqliteMagic_LeafEntity_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "branch TEXT DEFAULT '' REFERENCES branch_entity(id) ON DELETE CASCADE",
-          "sendTableTriggers(",
-          "LeafEntityTable.LEAF_ENTITY.name",
-          "BranchEntityTable.BRANCH_ENTITY.name",
-          "RootEntityTable.ROOT_ENTITY.name"
+          "override val triggerTableNames"
+        )
+      }
+      .withGeneratedSource("LeafEntityTable.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "fun addDeepQueryParts(",
+          "internal fun addDeepQueryPartsInternal("
         )
       }
   }

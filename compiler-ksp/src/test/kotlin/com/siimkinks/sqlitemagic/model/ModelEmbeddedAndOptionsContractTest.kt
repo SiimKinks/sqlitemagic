@@ -53,10 +53,10 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_Shipment_Dao.kt",
-        "SqliteMagic_Shipment_Handler.kt",
+        "SqliteMagic_Shipment_Adapter.kt",
         "ShipmentTable.kt"
       )
-      .withGeneratedSource("SqliteMagic_Shipment_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_Shipment_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "shipping_geo_lat REAL DEFAULT NULL",
           "shipping_geo_longitude REAL DEFAULT NULL",
@@ -205,8 +205,8 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_Project_Handler.kt")
-      .withGeneratedSource("SqliteMagic_Project_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_Project_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_Project_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "meta_owner TEXT",
           "meta_budget INTEGER"
@@ -255,11 +255,22 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_NullableEmbeddedProject_Handler.kt")
-      .withGeneratedSource("SqliteMagic_NullableEmbeddedProject_Handler.kt") { generatedSource ->
+      .assertGeneratedSources(
+        "SqliteMagic_NullableEmbeddedProject_Adapter.kt",
+        "NullableEmbeddedProjectTable.kt"
+      )
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedProject_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "entity.metadata?.owner?.let",
-          "val builder = SqliteMagic_EmbeddedOwner_Handler.InsertBuilder.create(it)"
+          "operations.insert(",
+          "adapter = SqliteMagic_EmbeddedOwner_Adapter",
+          "entity = it"
+        )
+      }
+      .withGeneratedSource("NullableEmbeddedProjectTable.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "fun addDeepQueryParts(",
+          "internal fun addDeepQueryPartsInternal("
         )
       }
   }
@@ -293,7 +304,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_MutableEmbeddedValue_Dao.kt",
-        "SqliteMagic_MutableEmbeddedValue_Handler.kt"
+        "SqliteMagic_MutableEmbeddedValue_Adapter.kt"
       )
       .withGeneratedSource("SqliteMagic_MutableEmbeddedValue_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -425,25 +436,20 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
       )
       .isOk()
       .assertGeneratedSources(
-        "SqliteMagic_RequiredEmbeddedKey_Handler.kt",
-        "SqliteMagic_NullableEmbeddedKey_Handler.kt",
+        "SqliteMagic_RequiredEmbeddedKey_Adapter.kt",
+        "SqliteMagic_NullableEmbeddedKey_Adapter.kt",
         "_RequiredEmbeddedKey.kt",
         "_NullableEmbeddedKey.kt"
       )
-      .withGeneratedSource("SqliteMagic_RequiredEmbeddedKey_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_RequiredEmbeddedKey_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "external_value TEXT UNIQUE",
-          "UpdateBuilder",
-          "execute(byColumn: C)"
+          "EntityIdentityAdapter<RequiredEmbeddedKey>",
+          "override fun updateStatementSql"
         )
       }
-      .withGeneratedSource("SqliteMagic_NullableEmbeddedKey_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedKey_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("external_value TEXT UNIQUE")
-        generatedSource.assertDoesNotContain(
-          "UpdateBuilder",
-          "PersistBuilder",
-          "DeleteBuilder"
-        )
       }
       .withGeneratedSource("_RequiredEmbeddedKey.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -640,8 +646,8 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_SessionValue_Handler.kt")
-      .withGeneratedSource("SqliteMagic_SessionValue_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_SessionValue_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_SessionValue_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("CREATE TEMPORARY TABLE IF NOT EXISTS session_value")
       }
   }
@@ -671,8 +677,8 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_CachedAccount_Handler.kt")
-      .withGeneratedSource("SqliteMagic_CachedAccount_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_CachedAccount_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_CachedAccount_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "CREATE TEMPORARY TABLE IF NOT EXISTS cached_accounts",
           "WITHOUT ROWID"
@@ -703,8 +709,8 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_SessionValue_Handler.kt")
-      .withGeneratedSource("SqliteMagic_SessionValue_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_SessionValue_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_SessionValue_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "CREATE TEMPORARY TABLE IF NOT EXISTS session_value",
           "WITHOUT ROWID"
@@ -738,8 +744,8 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_ExplicitlyDisabledWithoutRowId_Handler.kt")
-      .withGeneratedSource("SqliteMagic_ExplicitlyDisabledWithoutRowId_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_ExplicitlyDisabledWithoutRowId_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_ExplicitlyDisabledWithoutRowId_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("WITHOUT ROWID")
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
       }

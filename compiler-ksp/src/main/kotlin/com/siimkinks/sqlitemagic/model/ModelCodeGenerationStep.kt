@@ -17,6 +17,7 @@ class ModelCodeGenerationStep(
 
   private val writers = listOf(
     ModelDaoWriter(environment),
+    ModelAdapterWriter(environment),
     ModelTableWriter(environment),
     ModelExtensionsWriter(environment),
   )

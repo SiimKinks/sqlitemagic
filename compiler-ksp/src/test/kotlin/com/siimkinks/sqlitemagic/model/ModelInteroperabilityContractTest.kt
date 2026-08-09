@@ -87,11 +87,11 @@ internal class ModelInteroperabilityContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_InteropModel_Dao.kt",
-        "SqliteMagic_InteropModel_Handler.kt",
+        "SqliteMagic_InteropModel_Adapter.kt",
         "InteropModelTable.kt",
         "_InteropModel.kt"
       )
-      .withGeneratedSource("SqliteMagic_InteropModel_Handler.kt") { generatedSource ->
+      .withGeneratedSource("SqliteMagic_InteropModel_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("value TEXT DEFAULT NULL")
       }
   }

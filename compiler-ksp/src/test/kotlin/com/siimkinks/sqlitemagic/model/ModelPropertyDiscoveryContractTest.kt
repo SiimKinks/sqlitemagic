@@ -35,8 +35,8 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_CompanionProperty_Handler.kt")
-      .withGeneratedSource("SqliteMagic_CompanionProperty_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_CompanionProperty_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_CompanionProperty_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("instance_value")
         generatedSource.assertDoesNotContain("companion_value")
       }
@@ -64,8 +64,8 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_SelectiveMutableKotlin_Handler.kt")
-      .withGeneratedSource("SqliteMagic_SelectiveMutableKotlin_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_SelectiveMutableKotlin_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_SelectiveMutableKotlin_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("persisted_value")
         generatedSource.assertDoesNotContain("ignored_value")
       }
@@ -96,8 +96,8 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_InheritedPropertyOrder_Handler.kt")
-      .withGeneratedSource("SqliteMagic_InheritedPropertyOrder_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_InheritedPropertyOrder_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_InheritedPropertyOrder_Adapter.kt") { generatedSource ->
         generatedSource.assertContainsInOrder(
           "inherited_first",
           "inherited_second",
@@ -132,8 +132,8 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_CalculatedValues_Handler.kt")
-      .withGeneratedSource("SqliteMagic_CalculatedValues_Handler.kt") { generatedSource ->
+      .assertGeneratedSources("SqliteMagic_CalculatedValues_Adapter.kt")
+      .withGeneratedSource("SqliteMagic_CalculatedValues_Adapter.kt") { generatedSource ->
         generatedSource.assertDoesNotContain(
           "computed",
           "delegated"

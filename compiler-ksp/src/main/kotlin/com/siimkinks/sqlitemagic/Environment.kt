@@ -6,7 +6,6 @@ import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_MAIN_GENERATED_CLASSES_M
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_NAME
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DEBUG
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_GENERATE_LOGGING
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PUBLIC_EXTENSIONS
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
@@ -116,7 +115,6 @@ data class CompilerOptions private constructor(
   val isDebugVariant: Boolean,
   val dbName: String?,
   val dbVersion: Int?,
-  val generateLogging: Boolean,
   val publicExtensions: Boolean,
 ) {
   companion object {
@@ -127,7 +125,6 @@ data class CompilerOptions private constructor(
       dbVersion = options[OPTION_DB_VERSION]
         ?.takeIf(String::isNotEmpty)
         ?.toIntOrNull(),
-      generateLogging = options[OPTION_GENERATE_LOGGING].toBoolean(),
       publicExtensions = options[OPTION_PUBLIC_EXTENSIONS].toBoolean(),
     )
   }

@@ -1,20 +1,21 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_BULK_DELETE
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_BULK_INSERT
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_BULK_PERSIST
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_BULK_UPDATE
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_DELETE
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_DELETE_TABLE
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_INSERT
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_PERSIST
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_UPDATE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_DELETE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_DELETE_TABLE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_INSERT
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_PERSIST
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE
+import com.siimkinks.sqlitemagic.WriterTypes.BULK_DELETE_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.BULK_DELETE_BY_COLUMN_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.BULK_INSERT_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.BULK_PERSIST_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.BULK_PERSIST_BY_COLUMN_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.BULK_UPDATE_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.BULK_UPDATE_BY_COLUMN_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.DELETE_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.DELETE_BY_COLUMN_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.DELETE_TABLE_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_BULK_DELETE_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_BULK_DELETE_BY_COLUMN_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_BULK_INSERT_BUILDER
@@ -30,8 +31,14 @@ import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_PERSIST_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_PERSIST_BY_COLUMN_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_UPDATE_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_UPDATE_BY_COLUMN_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.INSERT_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.PERSIST_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.PERSIST_BY_COLUMN_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.UPDATE_BUILDER
+import com.siimkinks.sqlitemagic.WriterTypes.UPDATE_BY_COLUMN_BUILDER
 import com.squareup.kotlinpoet.COLLECTION
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.ITERABLE
@@ -55,7 +62,7 @@ internal class ModelExtensionsWriter(
 
     FileSpec
       .builder(
-        packageName = generationNames.handlerClassName.packageName,
+        packageName = generationNames.adapterClassName.packageName,
         fileName = generationNames.extensionsFileName
       )
       .also { file ->
@@ -109,12 +116,7 @@ internal class ModelExtensionsWriter(
     .receiver(table.modelClassName)
     .addModifiers(visibility)
     .returns(operation.returnType(table))
-    .addStatement(
-      "return %T(this)",
-      table.generationNames
-        .handlerClassName
-        .nestedClass(operation.invocationClassName)
-    )
+    .addCode(operationBuilderCall(table, operation))
     .build()
 
   private fun bulkOperationExtension(
@@ -126,108 +128,172 @@ internal class ModelExtensionsWriter(
     .addModifiers(visibility)
     .returns(operation.returnType(table))
     .also { function ->
-      val builderType = table.generationNames
-        .handlerClassName
-        .nestedClass(operation.invocationClassName)
       when {
         operation.parameterType != null -> function
           .addParameter(
             name = "o",
             type = operation.parameterType.parameterizedBy(table.modelClassName)
           )
-          .addStatement("return %T(o)", builderType)
-        else -> function.addStatement("return %T()", builderType)
+          .addCode(bulkOperationBuilderCall(table, operation))
+        else -> function.addCode(bulkOperationBuilderCall(table, operation))
       }
     }
     .build()
 
+  private fun operationBuilderCall(
+    table: TableElement,
+    operation: OperationFunction
+  ): CodeBlock {
+    val adapterClassName = table.generationNames.adapterClassName
+    return CodeBlock
+      .builder()
+      .add("return %T(\n", operation.builderType(table))
+      .indent()
+      .add("adapter = %T,\n", adapterClassName)
+      .apply {
+        when (operation) {
+          OperationFunction.DELETE -> {
+            add("entity = this")
+            if (!table.requiresByColumnTerminal) {
+              add(",\nbyColumn = %T.defaultIdentityColumn", adapterClassName)
+            }
+          }
+          else -> add("entity = this")
+        }
+      }
+      .unindent()
+      .add("\n)")
+      .build()
+  }
+
+  private fun bulkOperationBuilderCall(
+    table: TableElement,
+    operation: BulkOperationFunction
+  ): CodeBlock {
+    val adapterClassName = table.generationNames.adapterClassName
+    return CodeBlock
+      .builder()
+      .add("return %T(\n", operation.builderType(table))
+      .indent()
+      .add("adapter = %T", adapterClassName)
+      .apply {
+        if (operation.parameterType != null) {
+          add(",\nentities = o")
+          if (operation == BulkOperationFunction.BULK_DELETE && !table.requiresByColumnTerminal) {
+            add(",\nbyColumn = %T.defaultIdentityColumn", adapterClassName)
+          }
+        }
+      }
+      .unindent()
+      .add("\n)")
+      .build()
+  }
+
   private enum class OperationFunction(
     val isIdentityOperation: Boolean = true,
     val funName: String,
-    val invocationClassName: String,
     val returnType: ClassName,
-    val byColumnReturnType: ClassName? = null
+    val builderType: ClassName,
+    val byColumnReturnType: ClassName? = null,
+    val byColumnBuilderType: ClassName? = null
   ) {
     INSERT(
       isIdentityOperation = false,
       funName = METHOD_INSERT,
-      invocationClassName = CLASS_INSERT,
-      returnType = ENTITY_INSERT_BUILDER
+      returnType = ENTITY_INSERT_BUILDER,
+      builderType = INSERT_BUILDER
     ),
     UPDATE(
       funName = METHOD_UPDATE,
-      invocationClassName = CLASS_UPDATE,
       returnType = ENTITY_UPDATE_BUILDER,
-      byColumnReturnType = ENTITY_UPDATE_BY_COLUMN_BUILDER
+      builderType = UPDATE_BUILDER,
+      byColumnReturnType = ENTITY_UPDATE_BY_COLUMN_BUILDER,
+      byColumnBuilderType = UPDATE_BY_COLUMN_BUILDER
     ),
     PERSIST(
       funName = METHOD_PERSIST,
-      invocationClassName = CLASS_PERSIST,
       returnType = ENTITY_PERSIST_BUILDER,
-      byColumnReturnType = ENTITY_PERSIST_BY_COLUMN_BUILDER
+      builderType = PERSIST_BUILDER,
+      byColumnReturnType = ENTITY_PERSIST_BY_COLUMN_BUILDER,
+      byColumnBuilderType = PERSIST_BY_COLUMN_BUILDER
     ),
     DELETE(
       funName = METHOD_DELETE,
-      invocationClassName = CLASS_DELETE,
       returnType = ENTITY_DELETE_BUILDER,
-      byColumnReturnType = ENTITY_DELETE_BY_COLUMN_BUILDER
+      builderType = DELETE_BUILDER,
+      byColumnReturnType = ENTITY_DELETE_BY_COLUMN_BUILDER,
+      byColumnBuilderType = DELETE_BY_COLUMN_BUILDER
     );
 
     fun returnType(table: TableElement): TypeName = when {
       table.requiresByColumnTerminal && byColumnReturnType != null -> byColumnReturnType
         .parameterizedBy(table.modelClassName)
       else -> returnType
+    }
+
+    fun builderType(table: TableElement) = when {
+      table.requiresByColumnTerminal && byColumnBuilderType != null -> byColumnBuilderType
+      else -> builderType
     }
   }
 
   private enum class BulkOperationFunction(
     val isIdentityOperation: Boolean = true,
     val funName: String,
-    val invocationClassName: String,
     val parameterType: ClassName?,
     val returnType: ClassName,
-    val byColumnReturnType: ClassName? = null
+    val builderType: ClassName,
+    val byColumnReturnType: ClassName? = null,
+    val byColumnBuilderType: ClassName? = null
   ) {
     BULK_INSERT(
       isIdentityOperation = false,
       funName = METHOD_INSERT,
-      invocationClassName = CLASS_BULK_INSERT,
       parameterType = ITERABLE,
-      returnType = ENTITY_BULK_INSERT_BUILDER
+      returnType = ENTITY_BULK_INSERT_BUILDER,
+      builderType = BULK_INSERT_BUILDER
     ),
     BULK_UPDATE(
       funName = METHOD_UPDATE,
-      invocationClassName = CLASS_BULK_UPDATE,
       parameterType = ITERABLE,
       returnType = ENTITY_BULK_UPDATE_BUILDER,
-      byColumnReturnType = ENTITY_BULK_UPDATE_BY_COLUMN_BUILDER
+      builderType = BULK_UPDATE_BUILDER,
+      byColumnReturnType = ENTITY_BULK_UPDATE_BY_COLUMN_BUILDER,
+      byColumnBuilderType = BULK_UPDATE_BY_COLUMN_BUILDER
     ),
     BULK_PERSIST(
       funName = METHOD_PERSIST,
-      invocationClassName = CLASS_BULK_PERSIST,
       parameterType = ITERABLE,
       returnType = ENTITY_BULK_PERSIST_BUILDER,
-      byColumnReturnType = ENTITY_BULK_PERSIST_BY_COLUMN_BUILDER
+      builderType = BULK_PERSIST_BUILDER,
+      byColumnReturnType = ENTITY_BULK_PERSIST_BY_COLUMN_BUILDER,
+      byColumnBuilderType = BULK_PERSIST_BY_COLUMN_BUILDER
     ),
     BULK_DELETE(
       funName = METHOD_DELETE,
-      invocationClassName = CLASS_BULK_DELETE,
       parameterType = COLLECTION,
       returnType = ENTITY_BULK_DELETE_BUILDER,
-      byColumnReturnType = ENTITY_BULK_DELETE_BY_COLUMN_BUILDER
+      builderType = BULK_DELETE_BUILDER,
+      byColumnReturnType = ENTITY_BULK_DELETE_BY_COLUMN_BUILDER,
+      byColumnBuilderType = BULK_DELETE_BY_COLUMN_BUILDER
     ),
     DELETE_TABLE(
       isIdentityOperation = false,
       funName = METHOD_DELETE_TABLE,
-      invocationClassName = CLASS_DELETE_TABLE,
       parameterType = null,
-      returnType = ENTITY_DELETE_TABLE_BUILDER
+      returnType = ENTITY_DELETE_TABLE_BUILDER,
+      builderType = DELETE_TABLE_BUILDER
     );
 
     fun returnType(table: TableElement): TypeName = when {
       table.requiresByColumnTerminal && byColumnReturnType != null -> byColumnReturnType
         .parameterizedBy(table.modelClassName)
       else -> returnType
+    }
+
+    fun builderType(table: TableElement) = when {
+      table.requiresByColumnTerminal && byColumnBuilderType != null -> byColumnBuilderType
+      else -> builderType
     }
   }
 }
