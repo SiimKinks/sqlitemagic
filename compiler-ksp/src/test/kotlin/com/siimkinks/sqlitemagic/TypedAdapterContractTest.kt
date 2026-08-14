@@ -41,11 +41,17 @@ internal class TypedAdapterContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "internal object SqliteMagic_AdapterBook_Adapter",
           "EntityDefaultIdentityAdapter<AdapterBook>",
-          "override fun bindToInsertStatement(",
+          "EntityIdentityStatementBinder<AdapterBook> by SqliteMagic_AdapterBook_Dao",
           "override fun identity(entity",
           "override val tableName: String = \"adapter_book\"",
           "override val insertSql: String = \"INSERT%s INTO adapter_book",
           "TABLE_SCHEMA"
+        )
+        generatedSource.assertDoesNotContain(
+          "override fun bindToInsertStatement(",
+          "override fun bindToUpdateStatement(",
+          "override fun bindNotNullForInsert(",
+          "override fun bindNotNullForUpdate("
         )
       }
       .withGeneratedSource("_AdapterBook.kt") { generatedSource ->
@@ -86,9 +92,10 @@ internal class TypedAdapterContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "internal object SqliteMagic_AdapterInsertOnly_Adapter",
           "EntityAdapter<AdapterInsertOnly",
-          "override fun bindToInsertStatement("
+          "EntityStatementBinder<AdapterInsertOnly> by SqliteMagic_AdapterInsertOnly_Dao"
         )
         generatedSource.assertDoesNotContain(
+          "override fun bindToInsertStatement(",
           "bindToUpdateStatement",
           "bindNotNullForInsert",
           "bindNotNullForUpdate",

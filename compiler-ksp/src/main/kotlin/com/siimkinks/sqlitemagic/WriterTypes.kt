@@ -32,8 +32,10 @@ import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
+import com.siimkinks.sqlitemagic.internal.EntityIdentityStatementBinder
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
+import com.siimkinks.sqlitemagic.internal.EntityStatementBinder
 import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
 import com.siimkinks.sqlitemagic.internal.InsertBuilder
 import com.siimkinks.sqlitemagic.internal.MutableInt
@@ -116,6 +118,8 @@ internal object WriterTypes {
   val ENTITY_IDENTITY_ADAPTER = EntityIdentityAdapter::class.asClassName()
   val ENTITY_DEFAULT_IDENTITY_ADAPTER = EntityDefaultIdentityAdapter::class.asClassName()
   val ENTITY_GENERATED_ID_ADAPTER = EntityGeneratedIdAdapter::class.asClassName()
+  val ENTITY_STATEMENT_BINDER = EntityStatementBinder::class.asClassName()
+  val ENTITY_IDENTITY_STATEMENT_BINDER = EntityIdentityStatementBinder::class.asClassName()
   val ENTITY_RECURSIVE_ADAPTER = EntityRecursiveAdapter::class.asClassName()
   val ENTITY_RELATIONSHIP_OPERATIONS = EntityRelationshipOperations::class.asClassName()
   val GENERATED_ENTITY_IDENTITY = GeneratedEntityIdentity::class.asClassName()

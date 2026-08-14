@@ -11,11 +11,6 @@ import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TRIGGER_TABLE_NAMES
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_WITHOUT_ROW_ID
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ASSIGN_GENERATED_ID
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_NOT_NULL_FOR_INSERT
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_NOT_NULL_FOR_UPDATE
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_TO_INSERT_STATEMENT
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_TO_NOT_NULL
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_TO_UPDATE_STATEMENT
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BY_COLUMN
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_HAS_IDENTITY_VALUE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_IDENTITY
@@ -27,10 +22,8 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_REMEMBER_GENERATED_ID
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE_RELATIONSHIPS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE_STATEMENT_SQL
-import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_GENERATED_RELATIONSHIP_IDS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_OPERATIONS
 import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.WriterTypes.BIND_VALUES_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_ADAPTER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_DEFAULT_IDENTITY_ADAPTER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_GENERATED_ID_ADAPTER
@@ -41,7 +34,6 @@ import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_RECURSIVE_ADAPTER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_RELATIONSHIP_OPERATIONS
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_ENTITY_IDENTITY
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
-import com.siimkinks.sqlitemagic.WriterTypes.SUPPORT_SQLITE_STATEMENT
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.CodeBlock
@@ -52,7 +44,6 @@ import com.squareup.kotlinpoet.KModifier.CONST
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.LONG
-import com.squareup.kotlinpoet.MAP
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STRING
@@ -64,13 +55,16 @@ internal class ModelAdapterWriter(
   private val environment: Environment
 ) : ModelWriter {
   override fun write(tableRoundElement: TableRoundElement) = with(tableRoundElement) {
-    val needsGeneratedRelationshipIds = table.needsGeneratedRelationshipIds(environment)
     val adapterClassName = table.generationNames.adapterClassName
     val adapter = TypeSpec
       .objectBuilder(adapterClassName)
       .addModifiers(INTERNAL)
       .addProperty(schemaSqlConstant(table))
       .addSuperinterface(adapterType(table))
+      .addSuperinterface(
+        superinterface = table.statementBinderType(),
+        delegate = CodeBlock.of("%T", table.generationNames.daoClassName)
+      )
       .addProperty(moduleName())
       .addProperty(
         metadataStringProperty(
@@ -105,12 +99,6 @@ internal class ModelAdapterWriter(
           initializer = table.allColumns.size.toString()
         )
       )
-      .addFunction(
-        bindToInsertStatement(
-          table = table,
-          needsGeneratedRelationshipIds = needsGeneratedRelationshipIds
-        )
-      )
       .apply {
         val modelClassName = table.modelClassName
         if (table.hasRecursiveRelationships) {
@@ -121,15 +109,7 @@ internal class ModelAdapterWriter(
           addSuperinterface(ENTITY_GENERATED_ID_ADAPTER.parameterizedBy(modelClassName))
         }
         if (table.supportsIdentityOperations) {
-          addFunction(bindToUpdateStatement(table))
-            .addFunction(
-              bindNotNullForInsert(
-                table = table,
-                needsGeneratedRelationshipIds = needsGeneratedRelationshipIds
-              )
-            )
-            .addFunction(bindNotNullForUpdate(table))
-            .addFunction(identity(table))
+          addFunction(identity(table))
             .addFunction(hasIdentityValue(table))
             .addFunction(updateStatementSql(table))
           if (table.supportsDefaultIdentity) {
@@ -179,10 +159,10 @@ internal class ModelAdapterWriter(
   }
 
   private fun adapterType(table: TableElement) = when {
-    table.supportsDefaultIdentity -> ENTITY_DEFAULT_IDENTITY_ADAPTER.parameterizedBy(table.modelClassName)
-    table.supportsIdentityOperations -> ENTITY_IDENTITY_ADAPTER.parameterizedBy(table.modelClassName)
-    else -> ENTITY_ADAPTER.parameterizedBy(table.modelClassName)
-  }
+    table.supportsDefaultIdentity -> ENTITY_DEFAULT_IDENTITY_ADAPTER
+    table.supportsIdentityOperations -> ENTITY_IDENTITY_ADAPTER
+    else -> ENTITY_ADAPTER
+  }.parameterizedBy(table.modelClassName)
 
   private fun schemaSqlConstant(table: TableElement) = PropertySpec
     .builder(name = FIELD_TABLE_SCHEMA, type = STRING)
@@ -318,76 +298,6 @@ internal class ModelAdapterWriter(
       .addStatement("return successful")
       .build()
   }
-
-  private fun bindToInsertStatement(
-    table: TableElement,
-    needsGeneratedRelationshipIds: Boolean
-  ) = FunSpec
-    .builder(METHOD_BIND_TO_INSERT_STATEMENT)
-    .addModifiers(OVERRIDE)
-    .addParameter(name = "statement", type = SUPPORT_SQLITE_STATEMENT)
-    .addParameter(name = "entity", type = table.modelClassName)
-    .addParameter(
-      name = VARIABLE_GENERATED_RELATIONSHIP_IDS,
-      type = MAP.parameterizedBy(STRING, LONG)
-    )
-    .addStatement(
-      when {
-        needsGeneratedRelationshipIds -> "%T.%N(statement = statement, entity = entity, generatedRelationshipIds = $VARIABLE_GENERATED_RELATIONSHIP_IDS)"
-        else -> "%T.%N(statement = statement, entity = entity)"
-      },
-      table.generationNames.daoClassName,
-      METHOD_BIND_TO_INSERT_STATEMENT
-    )
-    .build()
-
-  private fun bindToUpdateStatement(table: TableElement) = FunSpec
-    .builder(METHOD_BIND_TO_UPDATE_STATEMENT)
-    .addModifiers(OVERRIDE)
-    .addParameter(name = "statement", type = SUPPORT_SQLITE_STATEMENT)
-    .addParameter(name = "entity", type = table.modelClassName)
-    .addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
-    .addStatement(
-      "%T.%N(statement = statement, entity = entity, byColumn = byColumn)",
-      table.generationNames.daoClassName,
-      METHOD_BIND_TO_UPDATE_STATEMENT
-    )
-    .build()
-
-  private fun bindNotNullForInsert(
-    table: TableElement,
-    needsGeneratedRelationshipIds: Boolean
-  ) = FunSpec
-    .builder(METHOD_BIND_NOT_NULL_FOR_INSERT)
-    .addModifiers(OVERRIDE)
-    .addParameter(name = "entity", type = table.modelClassName)
-    .addParameter(name = "values", type = BIND_VALUES_MAP)
-    .addParameter(
-      name = VARIABLE_GENERATED_RELATIONSHIP_IDS,
-      type = MAP.parameterizedBy(STRING, LONG)
-    )
-    .addStatement(
-      when {
-        needsGeneratedRelationshipIds -> "%T.%N(entity = entity, values = values, generatedRelationshipIds = $VARIABLE_GENERATED_RELATIONSHIP_IDS)"
-        else -> "%T.%N(entity = entity, values = values)"
-      },
-      table.generationNames.daoClassName,
-      METHOD_BIND_TO_NOT_NULL
-    )
-    .build()
-
-  private fun bindNotNullForUpdate(table: TableElement) = FunSpec
-    .builder(METHOD_BIND_NOT_NULL_FOR_UPDATE)
-    .addModifiers(OVERRIDE)
-    .addParameter(name = "entity", type = table.modelClassName)
-    .addParameter(name = "values", type = BIND_VALUES_MAP)
-    .addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
-    .addStatement(
-      "%T.%N(entity = entity, values = values, byColumn = byColumn)",
-      table.generationNames.daoClassName,
-      METHOD_BIND_TO_NOT_NULL
-    )
-    .build()
 
   private fun identity(table: TableElement) = FunSpec
     .builder(METHOD_IDENTITY)

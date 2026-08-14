@@ -4,11 +4,14 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.siimkinks.sqlitemagic.Const.GENERATION_COMMENT
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_NEW_INSTANCE_WITH_ONLY_ID
 import com.siimkinks.sqlitemagic.SqlStorageType
+import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_IDENTITY_STATEMENT_BINDER
+import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_STATEMENT_BINDER
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.ksp.writeTo
 
 internal fun FileSpec.writeModelSource(
@@ -267,6 +270,12 @@ private fun CodeBlock.appendPropertyPath(
     }
   }
   .build()
+
+
+internal fun TableElement.statementBinderType() = when {
+  supportsIdentityOperations -> ENTITY_IDENTITY_STATEMENT_BINDER
+  else -> ENTITY_STATEMENT_BINDER
+}.parameterizedBy(modelClassName)
 
 internal fun ColumnElement.databaseWriteValue(value: CodeBlock) = when (sqlStorageType) {
   SqlStorageType.BOXED_BYTE_ARRAY -> CodeBlock.of("%L.toByteArray()", value)

@@ -1,11 +1,13 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_NOT_NULL_FOR_INSERT
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_NOT_NULL_FOR_UPDATE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_TO_INSERT_STATEMENT
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_TO_NOT_NULL
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BIND_TO_UPDATE_STATEMENT
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BY_COLUMN
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_NEW_INSTANCE_WITH_ONLY_ID
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_GENERATED_RELATIONSHIP_IDS
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.BIND_VALUES_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.SUPPORT_SQLITE_STATEMENT
@@ -15,9 +17,9 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.INTERNAL
+import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.LONG
 import com.squareup.kotlinpoet.MAP
-import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeSpec
@@ -32,6 +34,7 @@ internal class ModelDaoWriter(
     val dao = TypeSpec
       .objectBuilder(table.generationNames.daoClassName)
       .addModifiers(INTERNAL)
+      .addSuperinterface(table.statementBinderType())
       .addFunction(
         bindToInsertStatement(
           table = table,
@@ -53,7 +56,7 @@ internal class ModelDaoWriter(
         if (table.supportsIdentityOperations) {
           addFunction(
             notNullValues(
-              functionName = METHOD_BIND_TO_NOT_NULL,
+              functionName = METHOD_BIND_NOT_NULL_FOR_INSERT,
               table = table,
               columns = table.columnsForInsert,
               excludesIdentityColumn = false,
@@ -63,7 +66,7 @@ internal class ModelDaoWriter(
             .addFunction(bindToUpdateStatement(table))
             .addFunction(
               notNullValues(
-                functionName = METHOD_BIND_TO_NOT_NULL,
+                functionName = METHOD_BIND_NOT_NULL_FOR_UPDATE,
                 table = table,
                 columns = table.allColumns,
                 excludesIdentityColumn = true
@@ -119,30 +122,21 @@ internal class ModelDaoWriter(
     usesGeneratedRelationshipIds: Boolean = false
   ) = FunSpec
     .builder(METHOD_BIND_TO_INSERT_STATEMENT)
+    .addModifiers(OVERRIDE)
     .addParameter(name = "statement", type = SUPPORT_SQLITE_STATEMENT)
     .addParameter(name = "entity", type = table.modelClassName)
-    .apply {
-      if (usesGeneratedRelationshipIds) {
-        addParameter(
-          ParameterSpec
-            .builder(
-              name = "generatedRelationshipIds",
-              type = MAP.parameterizedBy(STRING, LONG)
-            )
-            .build()
-        )
-      }
-      addStatement("statement.clearBindings()")
-      addBindings(
-        table = table,
-        columns = columns,
-        usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
-      )
-    }
+    .addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = MAP.parameterizedBy(STRING, LONG))
+    .addStatement("statement.clearBindings()")
+    .addBindings(
+      table = table,
+      columns = columns,
+      usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
+    )
     .build()
 
   private fun bindToUpdateStatement(table: TableElement) = FunSpec
     .builder(METHOD_BIND_TO_UPDATE_STATEMENT)
+    .addModifiers(OVERRIDE)
     .addParameter(name = "statement", type = SUPPORT_SQLITE_STATEMENT)
     .addParameter(name = "entity", type = table.modelClassName)
     .addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
@@ -184,22 +178,16 @@ internal class ModelDaoWriter(
   ): FunSpec {
     val function = FunSpec
       .builder(functionName)
+      .addModifiers(OVERRIDE)
       .addParameter(name = "entity", type = table.modelClassName)
       .addParameter(name = "values", type = BIND_VALUES_MAP)
       .addStatement("values.clear()")
-    if (usesGeneratedRelationshipIds) {
-      function.addParameter(
-        ParameterSpec
-          .builder(
-            name = "generatedRelationshipIds",
-            type = MAP.parameterizedBy(STRING, LONG)
-          )
-          .build()
-      )
-    }
-    if (excludesIdentityColumn) {
-      function.addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
-    }
+      .apply {
+        when {
+          excludesIdentityColumn -> addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
+          else -> addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = MAP.parameterizedBy(STRING, LONG))
+        }
+      }
     columns
       .filterNot { column -> excludesIdentityColumn && column.isId }
       .forEach { column ->

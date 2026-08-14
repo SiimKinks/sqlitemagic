@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.internal
 
-import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
@@ -60,33 +59,9 @@ interface EntityRelationshipOperations {
   )
 }
 
-interface EntityAdapter<M> : EntityAdapterMetadata {
-  fun bindToInsertStatement(
-    statement: SupportSQLiteStatement,
-    entity: M,
-    generatedRelationshipIds: Map<String, Long>
-  )
-}
+interface EntityAdapter<M> : EntityAdapterMetadata, EntityStatementBinder<M>
 
-interface EntityIdentityAdapter<M> : EntityAdapter<M> {
-  fun bindToUpdateStatement(
-    statement: SupportSQLiteStatement,
-    entity: M,
-    byColumn: IdentityColumn<M>
-  )
-
-  fun bindNotNullForInsert(
-    entity: M,
-    values: SimpleArrayMap<String, Any>,
-    generatedRelationshipIds: Map<String, Long>
-  )
-
-  fun bindNotNullForUpdate(
-    entity: M,
-    values: SimpleArrayMap<String, Any>,
-    byColumn: IdentityColumn<M>
-  )
-
+interface EntityIdentityAdapter<M> : EntityAdapter<M>, EntityIdentityStatementBinder<M> {
   fun identity(
     entity: M,
     byColumn: IdentityColumn<M>

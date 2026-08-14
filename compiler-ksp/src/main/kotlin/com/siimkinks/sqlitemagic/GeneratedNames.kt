@@ -41,7 +41,6 @@ internal object GeneratedNames {
   const val METHOD_SET_IGNORE_NULL_VALUES = "ignoreNullValues"
   const val METHOD_BIND_TO_UPDATE_STATEMENT = "bindToUpdateStatement"
   const val METHOD_BIND_TO_INSERT_STATEMENT = "bindToInsertStatement"
-  const val METHOD_BIND_TO_NOT_NULL = "bindNotNull"
   const val METHOD_BIND_NOT_NULL_FOR_INSERT = "bindNotNullForInsert"
   const val METHOD_BIND_NOT_NULL_FOR_UPDATE = "bindNotNullForUpdate"
   const val METHOD_IDENTITY = "identity"

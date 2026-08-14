@@ -39,12 +39,14 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         "_AuditEvent.kt"
       )
       .withGeneratedSource("SqliteMagic_AuditEvent_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "generatedRelationshipIds: Map<String, Long>"
+        )
         generatedSource.assertDoesNotContain(
           "bindNotNull",
           "fullObjectFromCursorPosition",
           "fun getId(",
           "fun setId(",
-          "generatedRelationshipIds",
           "newInstanceWithOnlyId"
         )
       }
@@ -52,9 +54,10 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "internal object SqliteMagic_AuditEvent_Adapter",
           "EntityAdapter<AuditEvent",
-          "override fun bindToInsertStatement("
+          "EntityStatementBinder<AuditEvent> by SqliteMagic_AuditEvent_Dao"
         )
         generatedSource.assertDoesNotContain(
+          "override fun bindToInsertStatement(",
           "bindNotNull",
           "identity(",
           "updateStatementSql(",
@@ -93,8 +96,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "slug TEXT UNIQUE",
           "external_key TEXT UNIQUE",
           "EntityIdentityAdapter<SluggedNote>",
-          "override fun bindToUpdateStatement(",
-          "override fun bindNotNullForUpdate(",
+          "EntityIdentityStatementBinder<SluggedNote> by SqliteMagic_SluggedNote_Dao",
           "override fun identity(",
           "override fun hasIdentityValue(",
           "override fun updateStatementSql(",
@@ -207,6 +209,9 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "internal object SqliteMagic_NullableSerializedKey_Adapter",
           "EntityAdapter<NullableSerializedKey>",
+          "EntityStatementBinder<NullableSerializedKey> by SqliteMagic_NullableSerializedKey_Dao"
+        )
+        generatedSource.assertDoesNotContain(
           "override fun bindToInsertStatement("
         )
       }
@@ -991,10 +996,14 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "parent TEXT DEFAULT ''",
           "EntityDefaultIdentityAdapter<ShallowChild>",
-          "override fun bindToInsertStatement(",
+          "EntityIdentityStatementBinder<ShallowChild> by SqliteMagic_ShallowChild_Dao",
           "override fun identity("
         )
         generatedSource.assertDoesNotContain(
+          "override fun bindToInsertStatement(",
+          "override fun bindToUpdateStatement(",
+          "override fun bindNotNullForInsert(",
+          "override fun bindNotNullForUpdate(",
           "REFERENCES shallow_parent(id)",
           "ON DELETE CASCADE",
           "ShallowParentTable.SHALLOW_PARENT.name"
@@ -1131,12 +1140,12 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "EntityRecursiveAdapter<ImmutableGeneratedParent",
           "operations.insert(",
           "adapter = SqliteMagic_ImmutableGeneratedChild_Adapter",
-          "operations.rememberGeneratedId(",
-          "generatedRelationshipIds: Map<String, Long>"
+          "operations.rememberGeneratedId("
         )
       }
       .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
+          "generatedRelationshipIds: Map<String, Long>",
           "generatedRelationshipIds[\"child\"] ?: entity.child.id",
           "statement.bindLong"
         )
@@ -1170,7 +1179,13 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "EntityDefaultIdentityAdapter<NaturalKey>",
           "override val withoutRowId: Boolean = true",
-          "override fun bindToInsertStatement("
+          "EntityIdentityStatementBinder<NaturalKey> by SqliteMagic_NaturalKey_Dao"
+        )
+        generatedSource.assertDoesNotContain(
+          "override fun bindToInsertStatement(",
+          "override fun bindToUpdateStatement(",
+          "override fun bindNotNullForInsert(",
+          "override fun bindNotNullForUpdate("
         )
       }
   }

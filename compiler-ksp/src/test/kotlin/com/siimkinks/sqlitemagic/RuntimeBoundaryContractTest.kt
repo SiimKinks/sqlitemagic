@@ -18,8 +18,10 @@ internal class RuntimeBoundaryContractTest {
           import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
           import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
           import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
+          import com.siimkinks.sqlitemagic.internal.EntityIdentityStatementBinder
           import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
           import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
+          import com.siimkinks.sqlitemagic.internal.EntityStatementBinder
           import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
           import com.siimkinks.sqlitemagic.internal.InsertBuilder
           import com.siimkinks.sqlitemagic.internal.PersistBuilder
@@ -30,6 +32,14 @@ internal class RuntimeBoundaryContractTest {
 
           fun useAdapter(adapter: EntityAdapter<String>) = adapter
           fun useIdentityAdapter(adapter: EntityIdentityAdapter<String>) = adapter
+          fun useStatementBinder(binder: EntityStatementBinder<String>) = binder
+          fun useIdentityStatementBinder(binder: EntityIdentityStatementBinder<String>) = binder
+          fun useAdapterAsStatementBinder(
+            adapter: EntityAdapter<String>
+          ): EntityStatementBinder<String> = adapter
+          fun useIdentityAdapterAsStatementBinder(
+            adapter: EntityIdentityAdapter<String>
+          ): EntityIdentityStatementBinder<String> = adapter
           fun useDefaultIdentityAdapter(
             adapter: EntityDefaultIdentityAdapter<String>
           ) = adapter

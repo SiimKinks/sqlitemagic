@@ -24,11 +24,16 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "internal object SqliteMagic_LibraryBook_Adapter",
           "EntityDefaultIdentityAdapter<LibraryBook>",
-          "override fun bindToInsertStatement(",
-          "SqliteMagic_LibraryBook_Dao.bindToInsertStatement",
+          "EntityIdentityStatementBinder<LibraryBook> by SqliteMagic_LibraryBook_Dao",
           "override fun identity(",
           "override fun hasIdentityValue(",
           "override fun updateStatementSql("
+        )
+        generatedSource.assertDoesNotContain(
+          "override fun bindToInsertStatement(",
+          "override fun bindToUpdateStatement(",
+          "override fun bindNotNullForInsert(",
+          "override fun bindNotNullForUpdate("
         )
       }
       .withGeneratedSource("_LibraryBook.kt") { generatedSource ->
@@ -80,9 +85,15 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "EntityIdentityAdapter<SharedRuntimeNoId>",
           "Column<*, *, *, SharedRuntimeNoId, NotNullable>",
-          "override fun bindNotNullForUpdate(",
+          "EntityIdentityStatementBinder<SharedRuntimeNoId> by SqliteMagic_SharedRuntimeNoId_Dao",
           "override fun identity(",
           "requireNotNull(entity.key)"
+        )
+        generatedSource.assertDoesNotContain(
+          "override fun bindToInsertStatement(",
+          "override fun bindToUpdateStatement(",
+          "override fun bindNotNullForInsert(",
+          "override fun bindNotNullForUpdate("
         )
       }
       .withGeneratedSource("_SharedRuntimeNoId.kt") { generatedSource ->
@@ -131,12 +142,15 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "INSERT%s INTO library_books",
           "internal object SqliteMagic_LibraryBook_Adapter",
           "EntityDefaultIdentityAdapter<LibraryBook>",
+          "EntityIdentityStatementBinder<LibraryBook> by SqliteMagic_LibraryBook_Dao",
+          "override fun identity(",
+          "override fun updateStatementSql("
+        )
+        generatedSource.assertDoesNotContain(
           "override fun bindToInsertStatement(",
           "override fun bindToUpdateStatement(",
           "override fun bindNotNullForInsert(",
-          "override fun bindNotNullForUpdate(",
-          "override fun identity(",
-          "override fun updateStatementSql("
+          "override fun bindNotNullForUpdate("
         )
       }
       .withGeneratedSource("LibraryBookTable.kt") { generatedSource ->
@@ -161,7 +175,9 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "bindToInsertStatement",
           "bindToUpdateStatement",
-          "fun bindNotNull",
+          "bindNotNullForInsert",
+          "bindNotNullForUpdate",
+          "generatedRelationshipIds: Map<String, Long>",
           "statement.clearBindings()",
           "values.clear()",
           "SimpleArrayMap<String, Any>",
