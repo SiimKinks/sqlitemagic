@@ -8,7 +8,8 @@ ext {
   ]
 
   GROUP = 'com.siimkinks.sqlitemagic'
-  VERSION_NAME = '0.25.2-SNAPSHOT'
+  VERSION_NAME = '2.0.0-SNAPSHOT'
+  sqlitemagicDependencyVersion = project.findProperty('sqlitemagicVersion') ?: VERSION_NAME
 
   buildToolsVersion = '37.0.0'
   minSdkVersion = 24
@@ -94,13 +95,14 @@ ext {
       rxJava2Extensions         : "com.github.akarnokd:rxjava2-extensions:${rxJava2ExtensionsVersion}",
       rxJavaMath                : "io.reactivex:rxjava-math:${rxJavaMathVersion}",
       supportTime               : "com.jakewharton.threetenabp:threetenabp:$supportTimeVersion",
-      sqlitemagicAnnotations    : "$GROUP:sqlitemagic-legacy-annotations:$VERSION_NAME",
-      sqlitemagicProcessor      : "$GROUP:sqlitemagic-compiler:$VERSION_NAME",
-      sqlitemagicProcessorKotlin: "$GROUP:sqlitemagic-compiler-kotlin:$VERSION_NAME",
-      sqlitemagicProcessorKsp   : "$GROUP:sqlitemagic-compiler-ksp:$VERSION_NAME",
+      sqlitemagicAnnotations    : "$GROUP:sqlitemagic-annotations:$sqlitemagicDependencyVersion",
+      sqlitemagicProcessor      : "$GROUP:sqlitemagic-compiler:$sqlitemagicDependencyVersion",
+      sqlitemagicProcessorKotlin: "$GROUP:sqlitemagic-compiler-kotlin:$sqlitemagicDependencyVersion",
+      sqlitemagicProcessorKsp   : "$GROUP:sqlitemagic-compiler-ksp:$sqlitemagicDependencyVersion",
       sqlitemagicProcessorMagic : "$GROUP:sqlitemagic-compiler-magic:0.25.1",
-      sqlitemagicPlugin         : "$GROUP:sqlitemagic-plugin:$VERSION_NAME",
-      sqlitemagicRuntime        : "$GROUP:sqlitemagic:$VERSION_NAME",
+      sqlitemagicPlugin         : "$GROUP:sqlitemagic-plugin:$sqlitemagicDependencyVersion",
+      sqlitemagicPluginKsp      : "$GROUP:sqlitemagic-plugin-ksp:$sqlitemagicDependencyVersion",
+      sqlitemagicRuntime        : "$GROUP:sqlitemagic:$sqlitemagicDependencyVersion",
       ztZip                     : "org.zeroturnaround:zt-zip:$ztZipVersion",
 
       // testing
