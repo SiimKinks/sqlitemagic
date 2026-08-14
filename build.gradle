@@ -1,25 +1,15 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
-apply from: 'buildsystem/dependencies.gradle'
+plugins {
+  alias(libs.plugins.kotlin.jvm) apply false
+  alias(libs.plugins.kotlin.serialization) apply false
+  alias(libs.plugins.ksp) apply false
+}
+
+apply from: 'buildsystem/android-sdk.gradle'
 
 allprojects {
-  group = rootProject.ext.GROUP
-  version = rootProject.ext.VERSION_NAME
-
-  buildscript {
-    repositories {
-      mavenCentral()
-      google()
-    }
-    dependencies {
-//      classpath libraries.bintrayGradlePlugin
-      classpath libraries.kotlinGradlePlugin
-      classpath libraries.kotlinSerializationPlugin
-      classpath libraries.kspGradlePlugin
-
-      // NOTE: Do not place your application dependencies here; they belong
-      // in the individual module build.gradle files
-    }
-  }
+  group = 'com.siimkinks.sqlitemagic'
+  version = libs.versions.project.get()
 
   repositories {
     mavenLocal()
@@ -31,7 +21,7 @@ allprojects {
   }
 }
 
-wrapper {
-  version = '9.6.1'
+tasks.named('wrapper') {
+  version = '9.7.0'
   distributionUrl = "https://services.gradle.org/distributions/gradle-$version-all.zip"
 }

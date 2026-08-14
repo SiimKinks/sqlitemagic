@@ -1,28 +1,29 @@
-apply plugin: 'java'
-apply plugin: 'kotlin'
-apply plugin: 'kotlin-kapt'
+plugins {
+  id 'java'
+  id 'org.jetbrains.kotlin.kapt'
+  alias(libs.plugins.kotlin.jvm)
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
-
 
 dependencies {
   implementation project(':compiler-core')
   implementation project(':runtime')
 
-  implementation libraries.autoService
-  implementation libraries.dagger
-  implementation libraries.javapoet
-  implementation libraries.kotlinpoet
-  implementation libraries.kotlinReflect
-  implementation libraries.kotlinStdLib
+  implementation libs.auto.service
+  implementation libs.dagger
+  implementation libs.java.poet
+  implementation libs.kotlin.poet
+  implementation libs.kotlin.reflect
 
-  compileOnly libraries.incap
+  compileOnly libs.incap
 
-  kapt libraries.daggerCompiler
-  kapt libraries.incapProcessor
+  kapt libs.dagger.compiler
+  kapt libs.incap.processor
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

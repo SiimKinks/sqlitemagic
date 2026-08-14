@@ -29,11 +29,11 @@ allprojects {
   }
 }
 
-task clean(type: Delete) {
+tasks.register('clean', Delete) {
   delete rootProject.buildDir
 }
 
-task wrapper(type: Wrapper) {
+wrapper {
   gradleVersion = '4.10.2'
   distributionUrl = 'https://services.gradle.org/distributions/gradle-4.10.2-all.zip'
 }

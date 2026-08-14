@@ -1,0 +1,11 @@
+Properties localProperties = new Properties()
+localProperties.load(new FileInputStream(rootProject.file('local.properties')))
+
+def sdkDir = localProperties.getProperty('sdk.dir')
+if (sdkDir == null) {
+  throw new GradleException("local.properties must define sdk.dir")
+}
+
+ext.androidJar = files(
+    "${sdkDir}/platforms/${rootProject.libs.versions.android.platform.get()}/android.jar"
+)

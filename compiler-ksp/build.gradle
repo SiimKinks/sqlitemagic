@@ -1,8 +1,11 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-apply plugin: 'kotlin'
-apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
-apply plugin: 'com.google.devtools.ksp'
+plugins {
+  alias(libs.plugins.kotlin.jvm)
+  alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.ksp)
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
@@ -11,20 +14,19 @@ dependencies {
   implementation project(':annotations')
   implementation project(':runtime')
 
-  implementation libraries.autoServiceAnnotations
-  implementation libraries.kotlinStdLib
-  implementation libraries.kotlinpoet
-  implementation libraries.kotlinpoetKsp
-  implementation libraries.kspApi
-  implementation libraries.kotlinxSerializationJson
+  implementation libs.auto.service.annotations
+  implementation libs.kotlin.poet
+  implementation libs.kotlin.poet.ksp
+  implementation libs.ksp.api
+  implementation libs.serialization.json
 
-  ksp libraries.autoServiceKsp
+  ksp libs.auto.service.ksp
 
-  testImplementation platform(libraries.junitBom)
-  testImplementation libraries.junitJupiter
-  testImplementation libraries.truth
-  testImplementation libraries.kspCompileTesting
-  testRuntimeOnly libraries.junitPlatformLauncher
+  testImplementation platform(libs.junit.bom)
+  testImplementation libs.junit.jupiter
+  testImplementation libs.truth
+  testImplementation libs.ksp.compile.testing
+  testRuntimeOnly libs.junit.platform.launcher
 }
 
 ksp {

@@ -1,5 +1,8 @@
-apply plugin: 'kotlin'
-apply plugin: 'java-gradle-plugin'
+plugins {
+  id 'java-gradle-plugin'
+  alias(libs.plugins.kotlin.jvm)
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
@@ -29,7 +32,7 @@ sourceSets {
   }
 }
 
-compileKotlin {
+tasks.named('compileKotlin') {
   dependsOn(generatePluginVersion)
 }
 
@@ -39,20 +42,19 @@ tasks.named('sourcesJar') {
 
 dependencies {
   compileOnly gradleApi()
-  compileOnly libraries.android
-  compileOnly libraries.androidGradle
+  compileOnly rootProject.ext.androidJar
+  compileOnly libs.android.gradle
 
-  implementation libraries.autoValue
-  implementation libraries.javassist
-  implementation libraries.kotlinStdLib
-  implementation libraries.kotlinReflect
-  implementation libraries.ztZip
+  implementation libs.auto.value
+  implementation libs.java.assist
+  implementation libs.kotlin.reflect
+  implementation libs.zt.zip
 
   implementation project(':legacy-annotations')
   implementation project(':compiler-core')
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

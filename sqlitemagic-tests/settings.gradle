@@ -1,1 +1,29 @@
+pluginManagement {
+  repositories {
+    mavenLocal()
+    gradlePluginPortal()
+    google()
+    mavenCentral()
+  }
+  resolutionStrategy {
+    eachPlugin {
+      if (requested.id.id == 'sqlitemagic') {
+        useModule("com.siimkinks.sqlitemagic:sqlitemagic-plugin:${requested.version}")
+      }
+    }
+  }
+}
+
+dependencyResolutionManagement {
+  versionCatalogs {
+    libs {
+      from(files('../gradle/libs.versions.toml'))
+      version(
+          'sqlitemagic',
+          providers.gradleProperty('sqlitemagicVersion').orElse('2.0.0-SNAPSHOT').get()
+      )
+    }
+  }
+}
+
 include ':app', ':app-kotlin', ':multimodule-app', ':submodule', ':another-submodule'

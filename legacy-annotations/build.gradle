@@ -1,9 +1,11 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
-
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

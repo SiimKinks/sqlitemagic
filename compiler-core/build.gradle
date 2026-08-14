@@ -1,5 +1,8 @@
-apply plugin: 'kotlin'
-apply plugin: 'java'
+plugins {
+  id 'java'
+  alias(libs.plugins.kotlin.jvm)
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
@@ -8,36 +11,35 @@ dependencies {
   implementation project(':legacy-annotations')
   implementation project(':runtime')
 
-  implementation files("${System.properties['java.home']}/../lib/tools.jar")
+  implementation libs.android.sqlite
+  implementation libs.auto.common
+  implementation libs.dagger
+  implementation libs.guava
+  implementation libs.java.poet
+  implementation libs.jackson
+  implementation libs.rx.java2
 
-  implementation libraries.androidSqlite
-  implementation libraries.autoCommon
-  implementation libraries.dagger
-  implementation libraries.guava
-  implementation libraries.javapoet
-  implementation libraries.jackson
-  implementation libraries.kotlinStdLib
-  implementation libraries.rxJava2
+  compileOnly libs.dagger.compiler
+  compileOnly libs.lombok.new
 
-  compileOnly libraries.daggerCompiler
-  compileOnly libraries.lombokNew
+  annotationProcessor libs.dagger.compiler
+  annotationProcessor libs.lombok.new
 
-  annotationProcessor libraries.daggerCompiler
-  annotationProcessor libraries.lombokNew
-
-  testImplementation libraries.googleCompileTesting
-  testImplementation libraries.junit
+  testImplementation libs.compile.testing
+  testImplementation libs.junit
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }
 
-task(setupTestsEnv) {
+def setupTestsEnv = tasks.register('setupTestsEnv') {
   doFirst {
     System.setProperty('SQLITE_MAGIC_AUTO_LIB', 'com.google.auto.value.AutoValue')
   }
 }
 
-test.dependsOn setupTestsEnv
+tasks.named('test') {
+  dependsOn(setupTestsEnv)
+}

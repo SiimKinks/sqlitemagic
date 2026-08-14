@@ -1,20 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
-apply from: '../buildsystem/dependencies.gradle'
 
 allprojects {
-  buildscript {
-    repositories {
-      mavenLocal()
-      mavenCentral()
-      google()
-    }
-    dependencies {
-      classpath libraries.androidGradle
-      classpath libraries.kotlinGradlePlugin
-      classpath libraries.legacyKapt
-      classpath libraries.sqlitemagicPlugin
-    }
-  }
   repositories {
     mavenLocal()
     mavenCentral()
@@ -23,22 +9,34 @@ allprojects {
       url "${System.getenv("ANDROID_HOME")}/extras/android/m2repository/"
     }
   }
+
+  // The frozen 0.25.2 snapshot carries Kotlin 2.4 metadata while AGP 9 bundles KGP 2.2.
+  // Keep the legacy test artifact usable until that snapshot is rebuilt with the bundled compiler.
+  tasks.configureEach { task ->
+    if (task.hasProperty('compilerOptions')) {
+      task.compilerOptions.freeCompilerArgs.add('-Xskip-metadata-version-check')
+    }
+  }
 }
 
-wrapper {
-  version = '9.6.1'
+tasks.named('wrapper') {
+  version = '9.7.0'
   distributionUrl = "https://services.gradle.org/distributions/gradle-$version-all.zip"
 }
 
-task runUnitTests(dependsOn: [
+tasks.register('runUnitTests') {
+  dependsOn([
     'app:testDebugUnitTest',
     'app-kotlin:testDebugUnitTest',
     'multimodule-app:testDemoDebugUnitTest',
     'another-submodule:testDemoDebugUnitTest',
     'submodule:testDemoDebugUnitTest'
-])
+  ])
+}
 
-task runAndroidTests(dependsOn: [
+tasks.register('runAndroidTests') {
+  dependsOn([
     'app:connectedDebugAndroidTest',
     'multimodule-app:connectedDemoDebugAndroidTest'
-])
+  ])
+}

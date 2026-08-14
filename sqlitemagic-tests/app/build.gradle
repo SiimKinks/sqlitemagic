@@ -1,21 +1,22 @@
-apply plugin: 'com.android.application'
-apply plugin: 'com.android.legacy-kapt'
-apply plugin: 'sqlitemagic'
+import com.android.build.api.variant.BuildConfigField
+
+plugins {
+  alias(libs.plugins.android.application)
+  alias(libs.plugins.android.legacy.kapt)
+  alias(libs.plugins.sqlitemagic)
+}
 
 android {
   namespace 'com.siimkinks.sqlitemagic'
-  compileSdk rootProject.ext.compileSdkVersion
-  buildToolsVersion rootProject.ext.buildToolsVersion
+  compileSdk libs.versions.android.compile.sdk.get().toInteger()
+  buildToolsVersion libs.versions.android.build.tools.get()
 
   defaultConfig {
     applicationId "com.siimkinks.sqlitemagic"
-    minSdk rootProject.ext.minSdkVersion
-    targetSdk rootProject.ext.targetSdkVersion
+    minSdk libs.versions.android.min.sdk.get().toInteger()
+    targetSdk libs.versions.android.target.sdk.get().toInteger()
     versionCode 1
     versionName "1.0"
-
-    buildConfigField "int", "DB_VERSION", "3"
-    buildConfigField "String", "DB_NAME", '"db.db"'
 
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -33,8 +34,6 @@ android {
       minifyEnabled false
     }
     release {
-      buildConfigField "int", "DB_VERSION", "2"
-
       minifyEnabled false
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
     }
@@ -44,41 +43,52 @@ android {
   }
 }
 
+androidComponents {
+  onVariants(selector().all()) { variant ->
+    variant.buildConfigFields.put(
+        'DB_VERSION',
+        new BuildConfigField('int', variant.buildType == 'release' ? '2' : '3', null)
+    )
+    variant.buildConfigFields.put(
+        'DB_NAME',
+        new BuildConfigField('String', '"db.db"', null)
+    )
+  }
+}
+
 kapt {
   keepJavacAnnotationProcessors = true
 }
 
 dependencies {
-  implementation libraries.androidSqliteFramework
-  implementation libraries.androidAppcompat
-  implementation libraries.kotlinStdLib
-  implementation libraries.kotlinReflect
-  implementation libraries.rxJava2
-  implementation libraries.rxJava2Extensions
-  implementation libraries.supportTime
-  implementation libraries.sqlitemagicRuntime
+  implementation libs.android.sqlite.framework
+  implementation libs.android.appcompat
+  implementation libs.kotlin.reflect
+  implementation libs.rx.java2
+  implementation libs.rx.java2.extensions
+  implementation libs.support.time
+  implementation libs.sqlitemagic.runtime
 
-  compileOnly libraries.autoValueAnnotations
-  compileOnly libraries.sqlitemagicAnnotations
+  compileOnly libs.auto.value.annotations
+  compileOnly libs.sqlitemagic.annotations
 
-  kapt libraries.autoValue
-  kapt libraries.autoValueAnnotations
-  kapt libraries.autoValueParcel
-  kapt libraries.sqlitemagicProcessorKotlin
+  kapt libs.auto.value
+  kapt libs.auto.value.annotations
+  kapt libs.auto.value.parcel
+  kapt libs.sqlitemagic.kotlin
 
-  testImplementation libraries.sqlitemagicAnnotations
-  testImplementation libraries.kotlinJunit
-  testImplementation libraries.kotlinStdLib
-  testImplementation libraries.kotlinReflect
-  testImplementation libraries.mockito
-  testImplementation libraries.mockitoKotlin
-  testImplementation libraries.truth
+  testImplementation libs.sqlitemagic.annotations
+  testImplementation libs.kotlin.junit
+  testImplementation libs.kotlin.reflect
+  testImplementation libs.mockito
+  testImplementation libs.mockito.kotlin
+  testImplementation libs.truth
 
-  androidTestImplementation libraries.androidAnnotations
-  androidTestImplementation libraries.androidTestRules
-  androidTestImplementation libraries.androidTestRunner
-  androidTestImplementation libraries.junitRunner
-  androidTestImplementation libraries.truth
+  androidTestImplementation libs.android.annotations
+  androidTestImplementation libs.android.test.rules
+  androidTestImplementation libs.android.test.runner
+  androidTestImplementation libs.junit.runner
+  androidTestImplementation libs.truth
 }
 
 sqlitemagic {
@@ -89,7 +99,7 @@ sqlitemagic {
 //	debugBytecodeProcessor = true
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

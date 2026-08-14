@@ -1,13 +1,11 @@
-apply plugin: 'kotlin'
+plugins {
+  alias(libs.plugins.kotlin.jvm)
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
-
-dependencies {
-  implementation libraries.kotlinStdLib
-}
-
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

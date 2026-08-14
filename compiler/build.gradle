@@ -1,4 +1,7 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
@@ -6,17 +9,17 @@ apply from: '../buildsystem/bintray-push.gradle'
 dependencies {
   implementation project(':compiler-core')
 
-  implementation libraries.autoService
+  implementation libs.auto.service
 
-  compileOnly libraries.daggerCompiler
-  compileOnly libraries.incap
+  compileOnly libs.dagger.compiler
+  compileOnly libs.incap
 
-  annotationProcessor libraries.autoService
-  annotationProcessor libraries.daggerCompiler
-  annotationProcessor libraries.incapProcessor
+  annotationProcessor libs.auto.service
+  annotationProcessor libs.dagger.compiler
+  annotationProcessor libs.incap.processor
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

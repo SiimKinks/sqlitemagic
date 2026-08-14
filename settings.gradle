@@ -1,3 +1,11 @@
+pluginManagement {
+  repositories {
+    gradlePluginPortal()
+    google()
+    mavenCentral()
+  }
+}
+
 include ':gradle-plugin'
 include ':gradle-plugin-ksp'
 include ':annotations'

@@ -1,17 +1,18 @@
-apply plugin: 'java'
-apply plugin: 'kotlin'
+plugins {
+  id 'java'
+  alias(libs.plugins.kotlin.jvm)
+}
+
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
 
 dependencies {
   implementation project(':runtime')
-  implementation libraries.androidAnnotations
-
-  implementation libraries.kotlinStdLib
+  implementation libs.android.annotations
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

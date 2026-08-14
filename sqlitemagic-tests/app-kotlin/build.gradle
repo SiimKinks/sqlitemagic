@@ -1,21 +1,22 @@
-apply plugin: 'com.android.application'
-apply plugin: 'com.android.legacy-kapt'
-apply plugin: 'sqlitemagic'
+import com.android.build.api.variant.BuildConfigField
+
+plugins {
+  alias(libs.plugins.android.application)
+  alias(libs.plugins.android.legacy.kapt)
+  alias(libs.plugins.sqlitemagic)
+}
 
 android {
   namespace 'com.siimkinks.sqlitemagic.kotlin'
-  compileSdk rootProject.ext.compileSdkVersion
-  buildToolsVersion rootProject.ext.buildToolsVersion
+  compileSdk libs.versions.android.compile.sdk.get().toInteger()
+  buildToolsVersion libs.versions.android.build.tools.get()
 
   defaultConfig {
     applicationId "com.siimkinks.sqlitemagic"
-    minSdkVersion rootProject.ext.minSdkVersion
-    targetSdkVersion rootProject.ext.targetSdkVersion
+    minSdk libs.versions.android.min.sdk.get().toInteger()
+    targetSdk libs.versions.android.target.sdk.get().toInteger()
     versionCode 1
     versionName "1.0"
-
-    buildConfigField "int", "DB_VERSION", "3"
-    buildConfigField "String", "DB_NAME", '"db.db"'
 
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -28,42 +29,51 @@ android {
   }
   buildTypes {
     release {
-      buildConfigField "int", "DB_VERSION", "2"
-
       minifyEnabled false
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
     }
   }
-  lintOptions {
+  lint {
     abortOnError false
   }
   sourceSets {
-    main.java.srcDirs += 'src/main/kotlin'
-    debug.java.srcDirs += 'build/generated/source/kaptKotlin/debug'
-    test.java.srcDirs += 'src/test/kotlin'
-    androidTest.java.srcDirs += 'src/androidTest/kotlin'
+    main.kotlin.directories.add('src/main/kotlin')
+    debug.kotlin.directories.add('build/generated/source/kaptKotlin/debug')
+    test.kotlin.directories.add('src/test/kotlin')
+    androidTest.kotlin.directories.add('src/androidTest/kotlin')
+  }
+}
+
+androidComponents {
+  onVariants(selector().all()) { variant ->
+    variant.buildConfigFields.put(
+        'DB_VERSION',
+        new BuildConfigField('int', variant.buildType == 'release' ? '2' : '3', null)
+    )
+    variant.buildConfigFields.put(
+        'DB_NAME',
+        new BuildConfigField('String', '"db.db"', null)
+    )
   }
 }
 
 dependencies {
-  implementation libraries.androidSqliteFramework
-  implementation libraries.androidAppcompat
-  implementation libraries.kotlinStdLib
-  implementation libraries.rxJava2
-  implementation libraries.rxJava2Extensions
-  implementation libraries.supportTime
+  implementation libs.android.sqlite.framework
+  implementation libs.android.appcompat
+  implementation libs.rx.java2
+  implementation libs.rx.java2.extensions
+  implementation libs.support.time
 
-  kapt libraries.sqlitemagicProcessorKotlin
+  kapt libs.sqlitemagic.kotlin
 
-  testImplementation libraries.kotlinStdLib
-  testImplementation libraries.kotlinReflect
-  testImplementation libraries.mockito
-  testImplementation libraries.mockitoKotlin
-  testImplementation libraries.truth
+  testImplementation libs.kotlin.reflect
+  testImplementation libs.mockito
+  testImplementation libs.mockito.kotlin
+  testImplementation libs.truth
 
-  androidTestImplementation libraries.androidAnnotations
-  androidTestImplementation libraries.androidTestRunner
-  androidTestImplementation(libraries.truth) {
+  androidTestImplementation libs.android.annotations
+  androidTestImplementation libs.android.test.runner
+  androidTestImplementation(libs.truth) {
     exclude group: 'junit' // Android has JUnit built in.
   }
 }
@@ -74,7 +84,7 @@ sqlitemagic {
 //	debugBytecodeProcessor = true
 }
 
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
 }

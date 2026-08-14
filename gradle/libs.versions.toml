@@ -1,0 +1,106 @@
+[versions]
+android-build-tools = "37.0.0"
+android-compile-sdk = "37"
+agp = "9.3.1"
+android-min-sdk = "24"
+android-platform = "android-37.1"
+android-target-sdk = "37"
+android-test-runner = "1.7.0"
+appcompat = "1.7.1"
+auto-common = "1.2.1"
+auto-service = "1.1.1"
+auto-service-ksp = "1.2.0"
+auto-value = "1.11.1"
+auto-value-parcel = "0.2.7"
+dagger = "1.2.5"
+compile-testing = "0.21.0"
+guava = "33.2.1-jre"
+incap = "1.0.0"
+jackson = "2.17.1"
+java-poet = "1.13.0"
+java-assist = "3.30.2-GA"
+junit = "6.1.1"
+junit4 = "4.13.2"
+junit-runner = "1.2.1"
+kotlin = "2.4.10"
+kotlin-poet = "2.3.0"
+serialization = "1.9.0"
+ksp = "2.3.10"
+ksp-compile-testing = "0.13.0"
+lombok = "1.14.8"
+lombok-new = "1.18.46"
+mockito = "5.12.0"
+mockito-kotlin = "6.3.0"
+project = "2.0.0-SNAPSHOT"
+rx-java2 = "2.2.21"
+rx-java2-extensions = "0.20.10"
+rx-java-math = "1.0.0"
+sqlitemagic = "2.0.0-SNAPSHOT"
+sqlite = "2.7.0"
+support-time = "1.2.3"
+test-annotations = "1.10.0"
+truth = "1.4.2"
+zt-zip = "1.17"
+
+[libraries]
+android-annotations = { module = "androidx.annotation:annotation", version.ref = "test-annotations" }
+android-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+android-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+android-sqlite = { module = "androidx.sqlite:sqlite", version.ref = "sqlite" }
+android-sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "sqlite" }
+android-test-rules = { module = "androidx.test:rules", version.ref = "android-test-runner" }
+android-test-runner = { module = "androidx.test:runner", version.ref = "android-test-runner" }
+auto-common = { module = "com.google.auto:auto-common", version.ref = "auto-common" }
+auto-service = { module = "com.google.auto.service:auto-service", version.ref = "auto-service" }
+auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "auto-service" }
+auto-service-ksp = { module = "dev.zacsweers.autoservice:auto-service-ksp", version.ref = "auto-service-ksp" }
+auto-value = { module = "com.google.auto.value:auto-value", version.ref = "auto-value" }
+auto-value-annotations = { module = "com.google.auto.value:auto-value-annotations", version.ref = "auto-value" }
+auto-value-parcel = { module = "com.ryanharter.auto.value:auto-value-parcel", version.ref = "auto-value-parcel" }
+dagger = { module = "com.squareup.dagger:dagger", version.ref = "dagger" }
+dagger-compiler = { module = "com.squareup.dagger:dagger-compiler", version.ref = "dagger" }
+compile-testing = { module = "com.google.testing.compile:compile-testing", version.ref = "compile-testing" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+incap = { module = "net.ltgt.gradle.incap:incap", version.ref = "incap" }
+incap-processor = { module = "net.ltgt.gradle.incap:incap-processor", version.ref = "incap" }
+jackson = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+java-poet = { module = "com.squareup:javapoet", version.ref = "java-poet" }
+java-assist = { module = "org.javassist:javassist", version.ref = "java-assist" }
+junit = { module = "junit:junit", version.ref = "junit4" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+junit-runner = { module = "androidx.test.ext:junit", version.ref = "junit-runner" }
+kotlin-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+kotlin-poet = { module = "com.squareup:kotlinpoet", version.ref = "kotlin-poet" }
+kotlin-poet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlin-poet" }
+serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
+ksp-compile-testing = { module = "dev.zacsweers.kctfork:ksp", version.ref = "ksp-compile-testing" }
+ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+lombok-new = { module = "org.projectlombok:lombok", version.ref = "lombok-new" }
+mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito-kotlin" }
+rx-java2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rx-java2" }
+rx-java2-extensions = { module = "com.github.akarnokd:rxjava2-extensions", version.ref = "rx-java2-extensions" }
+rx-java-math = { module = "io.reactivex:rxjava-math", version.ref = "rx-java-math" }
+sqlitemagic-annotations = { module = "com.siimkinks.sqlitemagic:sqlitemagic-annotations", version.ref = "sqlitemagic" }
+sqlitemagic-processor = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler", version.ref = "sqlitemagic" }
+sqlitemagic-kotlin = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-kotlin", version.ref = "sqlitemagic" }
+sqlitemagic-ksp = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-ksp", version.ref = "sqlitemagic" }
+sqlitemagic-processor-magic = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-magic", version = "0.25.1" }
+sqlitemagic-runtime = { module = "com.siimkinks.sqlitemagic:sqlitemagic", version.ref = "sqlitemagic" }
+support-time = { module = "com.jakewharton.threetenabp:threetenabp", version.ref = "support-time" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
+zt-zip = { module = "org.zeroturnaround:zt-zip", version.ref = "zt-zip" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-legacy-kapt = { id = "com.android.legacy-kapt", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+sqlitemagic = { id = "sqlitemagic", version.ref = "sqlitemagic" }
