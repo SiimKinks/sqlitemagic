@@ -54,6 +54,7 @@ private class GeneratedIdParentAdapter(
   private val childAdapter: GeneratedIdChildAdapter
 ) : EntityDefaultIdentityAdapter<GeneratedIdParent>,
   EntityRecursiveAdapter<GeneratedIdParent> {
+  override val moduleName: String? = null
   override val tableName = "generated_id_parent"
   override val insertSql = "INSERT%s INTO generated_id_parent (id, child) VALUES (?, ?)"
   override val tablePosition = 1

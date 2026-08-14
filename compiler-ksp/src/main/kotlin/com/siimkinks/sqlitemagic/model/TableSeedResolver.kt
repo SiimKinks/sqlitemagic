@@ -6,6 +6,8 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.annotation.Id
+import com.siimkinks.sqlitemagic.annotation.TableOption
+import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.element.TypeKey
@@ -121,6 +123,7 @@ internal class TableSeedResolver(
       resolveRelationshipElement(
         source = seed,
         targetTypeKey = typeKey,
+        sourceTableOptions = tableSeed.options,
         resolvingIds = resolvingIds
       )
     }
@@ -188,6 +191,7 @@ internal class TableSeedResolver(
   private fun resolveRelationshipElement(
     source: ColumnSeed,
     targetTypeKey: TypeKey,
+    sourceTableOptions: Set<TableOption>,
     resolvingIds: Set<TypeKey>
   ): RelationshipElement? {
     val durableTarget = environment.tableElements[targetTypeKey]
@@ -202,9 +206,11 @@ internal class TableSeedResolver(
       }
       return createRelationshipElement(
         source = source,
+        sourceTableOptions = sourceTableOptions,
         targetType = durableTarget.parsedType,
         targetTableName = durableTarget.tableName,
         targetArtifactStem = durableTarget.artifactStem,
+        targetTableOptions = durableTarget.options,
         targetConstruction = durableTarget.construction,
         targetId = targetId
       )
@@ -237,9 +243,11 @@ internal class TableSeedResolver(
     ) ?: return null
     return createRelationshipElement(
       source = source,
+      sourceTableOptions = sourceTableOptions,
       targetType = targetSeed.parsedType,
       targetTableName = targetSeed.tableName,
       targetArtifactStem = targetSeed.artifactStem,
+      targetTableOptions = targetSeed.options,
       targetConstruction = targetSeed.construction,
       targetId = targetId
     )
@@ -247,12 +255,23 @@ internal class TableSeedResolver(
 
   private fun createRelationshipElement(
     source: ColumnSeed,
+    sourceTableOptions: Set<TableOption>,
     targetType: ParsedType,
     targetTableName: String,
     targetArtifactStem: String,
+    targetTableOptions: Set<TableOption>,
     targetConstruction: ModelConstruction,
     targetId: ColumnElement
   ): RelationshipElement? {
+    val targetTypeName = targetType.qualifiedName.substringAfterLast('.')
+    if (!isValidRelationshipSchema(
+        source = source,
+        sourceTableOptions = sourceTableOptions,
+        targetTableOptions = targetTableOptions,
+        targetName = targetTypeName
+      )
+    ) return null
+
     val canConstructWithOnlyId = targetConstruction.canConstructWithOnly(targetId.access.path)
     if (
       source.isHandledRecursively &&
@@ -273,7 +292,6 @@ internal class TableSeedResolver(
       return null
     }
     if (!source.isHandledRecursively && !canConstructWithOnlyId) {
-      val targetTypeName = targetType.qualifiedName.substringAfterLast('.')
       reporter.error(
         message = "A non-recursive relationship target must be constructible from only its @Id: ${source.diagnosticPath}; $targetTypeName",
         symbol = source.roundElement.sourceDeclaration
@@ -295,6 +313,30 @@ internal class TableSeedResolver(
       referencedIdRelationship = targetId.relationship,
       referencedTableArtifactStem = targetArtifactStem
     )
+  }
+
+  private fun isValidRelationshipSchema(
+    source: ColumnSeed,
+    sourceTableOptions: Set<TableOption>,
+    targetTableOptions: Set<TableOption>,
+    targetName: String
+  ): Boolean {
+    val sourceIsTemporary = TEMPORARY in sourceTableOptions
+    val targetIsTemporary = TEMPORARY in targetTableOptions
+    return when {
+      !sourceIsTemporary && targetIsTemporary -> reporter.error(
+        message = "Persistent table relationships cannot target temporary tables: ${source.diagnosticPath}; $targetName",
+        symbol = source.roundElement.sourceDeclaration
+      )
+      sourceIsTemporary &&
+          !targetIsTemporary &&
+          source.isHandledRecursively &&
+          source.onDeleteCascade -> reporter.error(
+        message = "Cross-schema relationships cannot use onDeleteCascade: ${source.diagnosticPath}; $targetName",
+        symbol = source.roundElement.sourceDeclaration
+      )
+      else -> true
+    }
   }
 
   private fun validateTableColumns(

@@ -8,7 +8,6 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.siimkinks.sqlitemagic.AnnotationNames.DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.SUBMODULE_DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.annotation.Database
 import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
@@ -61,6 +60,7 @@ class DatabaseConfigurationCollectionStep(
       environment.setDatabaseMetadata(
         dbName = databaseAnnotation.name,
         dbVersion = databaseAnnotation.version
+          .takeIf { !environment.options.isDebugVariant }
       )
     }
     return ProcessingStepResult.Continue
@@ -163,9 +163,10 @@ class DatabaseConfigurationCollectionStep(
     }
 
     val capitalizedModuleName = moduleName.firstCharToUpperCase()
-    val managerClassName = environment.getGenClassesManagerClassName(capitalizedModuleName)
     return SubmoduleDatabaseMetadata(
-      managerQualifiedName = "${PACKAGE_ROOT}.$managerClassName",
+      managerQualifiedName = environment
+        .getGenClassesManagerClassName(capitalizedModuleName)
+        .canonicalName,
       moduleName = capitalizedModuleName
     )
   }

@@ -134,6 +134,7 @@ internal class RecursiveOperationState {
 internal class RecursiveGrandchildAdapter(
   private val state: RecursiveOperationState
 ) : EntityDefaultIdentityAdapter<RecursiveGrandchild> {
+  override val moduleName: String? = null
   override val tableName = RECURSIVE_GRANDCHILD_TABLE
   override val insertSql = "INSERT%s INTO $RECURSIVE_GRANDCHILD_TABLE (id) VALUES (?)"
   override val tablePosition = 0
@@ -201,6 +202,7 @@ internal class RecursiveChildAdapter(
   private val grandchildAdapter: RecursiveGrandchildAdapter
 ) : EntityDefaultIdentityAdapter<RecursiveChild>,
   EntityRecursiveAdapter<RecursiveChild> {
+  override val moduleName: String? = null
   override val tableName = RECURSIVE_CHILD_TABLE
   override val insertSql = "INSERT%s INTO $RECURSIVE_CHILD_TABLE (id, grandchild) VALUES (?, ?)"
   override val tablePosition = 1
@@ -321,6 +323,7 @@ internal class RecursiveParentAdapter(
   private val childAdapter: RecursiveChildAdapter
 ) : EntityDefaultIdentityAdapter<RecursiveParent>,
   EntityRecursiveAdapter<RecursiveParent> {
+  override val moduleName: String? = null
   override val tableName = RECURSIVE_PARENT_TABLE
   override val insertSql = "INSERT%s INTO $RECURSIVE_PARENT_TABLE (id, child) VALUES (?, ?)"
   override val tablePosition = 2

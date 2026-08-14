@@ -5,6 +5,7 @@ public final class GlobalConst {
   public static final String CLASS_NAME_GENERATED_CLASSES_MANAGER = "GeneratedClassesManager";
 
   public static final String METHOD_CREATE_SCHEMA = "createSchema";
+  public static final String METHOD_CREATE_TEMPORARY_SCHEMA = "createTemporarySchema";
   public static final String METHOD_CLEAR_DATA = "clearData";
   public static final String METHOD_MIGRATE_VIEWS = "migrateViews";
   public static final String METHOD_GET_DB_VERSION = "getDbVersion";

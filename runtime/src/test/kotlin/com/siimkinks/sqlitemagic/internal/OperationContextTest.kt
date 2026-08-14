@@ -7,8 +7,9 @@ import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityAdapterMetadata
-import java.util.concurrent.TimeUnit
+import io.reactivex.schedulers.Schedulers
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 internal class OperationContextTest {
   @Test
@@ -107,6 +108,7 @@ internal class OperationContextTest {
     )
 
     assertThat(child.tableName).isEqualTo("child")
+    assertThat(child.moduleName).isNull()
     assertThat(child.tablePosition).isEqualTo(1)
     assertThat(child.bindValues).isSameInstanceAs(context.bindValues)
     assertThat(child.variableArgsOperationHelper).isSameInstanceAs(helper)
@@ -119,9 +121,46 @@ internal class OperationContextTest {
 
     val sameTable = context.childWithoutTableTriggers()
     assertThat(sameTable.tableName).isEqualTo(context.tableName)
+    assertThat(sameTable.moduleName).isEqualTo(context.moduleName)
     assertThat(sameTable.tablePosition).isEqualTo(context.tablePosition)
     assertThat(sameTable.skipTableTriggers).isTrue()
     assertThat(sameTable.ignoreNullValues).isEqualTo(context.ignoreNullValues)
+  }
+
+  @Test
+  fun `adapter module identity selects the corresponding entity manager cache`() {
+    val database = RecordingDatabase()
+    val generatedDatabase = TestGeneratedDatabase(
+      tableCount = 1,
+      submoduleTableCounts = mapOf("Feature" to 1)
+    )
+    val connection = DbConnectionImpl(
+      generatedDatabase,
+      RecordingOpenHelper(database),
+      Schedulers.trampoline()
+    )
+    val mainContext = context(
+      connection = connection,
+      moduleName = null
+    )
+    val featureContext = context(
+      connection = connection,
+      moduleName = "Feature"
+    )
+
+    assertThat(mainContext.entityDbManager()).isNotSameInstanceAs(featureContext.entityDbManager())
+    assertThat(featureContext.child().entityDbManager()).isSameInstanceAs(featureContext.entityDbManager())
+    assertThat(
+      mainContext
+        .childFor(
+          adapter = metadata(
+            moduleName = "Feature",
+            tableName = "feature_items",
+            tablePosition = 0
+          )
+        )
+        .entityDbManager()
+    ).isSameInstanceAs(featureContext.entityDbManager())
   }
 
   @Test
@@ -233,12 +272,14 @@ internal class OperationContextTest {
 
   private fun context(
     connection: DbConnection,
+    moduleName: String? = null,
     tableName: String = "books",
     tablePosition: Int = 0,
     conflictAlgorithm: Int = CONFLICT_NONE,
     ignoreNullValues: Boolean = false
   ) = OperationContext(
     adapter = metadata(
+      moduleName = moduleName,
       tableName = tableName,
       tablePosition = tablePosition
     ),
@@ -250,9 +291,11 @@ internal class OperationContextTest {
   )
 
   private fun metadata(
+    moduleName: String? = null,
     tableName: String,
     tablePosition: Int
   ) = object : EntityAdapterMetadata {
+    override val moduleName = moduleName
     override val tableName = tableName
     override val insertSql = "INSERT%s INTO $tableName"
     override val tablePosition = tablePosition

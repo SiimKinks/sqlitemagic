@@ -77,6 +77,7 @@ internal class OperationExecutionTest {
   )
 
   private val metadata = object : EntityAdapterMetadata {
+    override val moduleName: String? = null
     override val tableName = "books"
     override val insertSql = "INSERT%s INTO books"
     override val tablePosition = 0

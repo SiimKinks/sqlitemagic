@@ -7,7 +7,6 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_GET_FROM_CURSOR
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_GET_FROM_STATEMENT
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_TO_SQL_ARG
-import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_DB_VALUE
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_SQL_VALUE
@@ -69,7 +68,7 @@ internal class ColumnClassWriter private constructor(
   )
 
   fun write(originatingFiles: OriginatingFiles) {
-    val typeBuilder = TypeSpec
+    val columnClass = TypeSpec
       .classBuilder(className)
       .apply {
         if (isInternal) addModifiers(INTERNAL)
@@ -94,7 +93,7 @@ internal class ColumnClassWriter private constructor(
       .addFunction(toSqlArg())
       .addFunction(aliasOverride())
     parser?.let { parser ->
-      typeBuilder
+      columnClass
         .addFunction(
           parserOverride(
             functionName = METHOD_GET_FROM_CURSOR,
@@ -113,13 +112,13 @@ internal class ColumnClassWriter private constructor(
         )
     }
     if (unique) {
-      typeBuilder.addSuperinterface(UNIQUE.parameterizedBy(nullabilityType))
+      columnClass.addSuperinterface(UNIQUE.parameterizedBy(nullabilityType))
     }
-    originatingFiles.files.forEach(typeBuilder::addOriginatingKSFile)
+    originatingFiles.files.forEach(columnClass::addOriginatingKSFile)
     FileSpec
       .builder(className)
       .addFileComment("%L", GENERATION_COMMENT)
-      .addType(typeBuilder.build())
+      .addType(columnClass.build())
       .build()
       .writeTo(
         codeGenerator = codeGenerator,
@@ -224,16 +223,9 @@ internal class ColumnClassWriter private constructor(
     ): ColumnClassWriter {
       val deserializedType = transformerElement.deserializedType.typeName.copy(nullable = false)
       val serializedType = transformerElement.serializedType.typeName.copy(nullable = false)
-      val className = transformerElement.transformerName + COLUMN.simpleName
       return ColumnClassWriter(
         codeGenerator = codeGenerator,
-        className = ClassName(
-          PACKAGE_ROOT,
-          when {
-            createUniqueClass -> "Unique$className"
-            else -> className
-          }
-        ),
+        className = transformerElement.generatedColumnClassName(unique = createUniqueClass),
         superClass = when {
           transformerElement.serializedType.sqlStorageType?.isNumeric == true -> NUMERIC_COLUMN
           else -> COLUMN

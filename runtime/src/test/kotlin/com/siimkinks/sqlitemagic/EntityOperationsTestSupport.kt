@@ -253,20 +253,33 @@ internal class RecordingOpenHelper(
 }
 
 internal class TestGeneratedDatabase(
-  private val tableCount: Int
+  private val tableCount: Int,
+  private val submoduleTableCounts: Map<String, Int> = emptyMap()
 ) : GeneratedDatabase {
+  val temporarySchemaDatabases = mutableListOf<SupportSQLiteDatabase>()
+
   override fun configureDatabase(db: SupportSQLiteDatabase) = Unit
 
   override fun createSchema(db: SupportSQLiteDatabase) = Unit
+
+  override fun createTemporarySchema(db: SupportSQLiteDatabase) {
+    temporarySchemaDatabases += db
+  }
 
   override fun clearData(db: SupportSQLiteDatabase): com.siimkinks.sqlitemagic.internal.StringArraySet? =
     null
 
   override fun migrateViews(db: SupportSQLiteDatabase) = Unit
 
-  override fun getSubmoduleNames(): Array<String>? = null
+  override fun getSubmoduleNames() = submoduleTableCounts
+    .keys
+    .toTypedArray()
+    .takeIf(Array<String>::isNotEmpty)
 
-  override fun getNrOfTables(moduleName: String?) = tableCount
+  override fun getNrOfTables(moduleName: String?) = when (moduleName) {
+    null, "" -> tableCount
+    else -> submoduleTableCounts.getValue(moduleName)
+  }
 
   override fun getDbVersion() = 1
 

@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
+import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.testTable
@@ -49,6 +50,37 @@ class SqliteMagicSymbolProcessorLifecycleTest : ProcessingStepsTest {
     assertThat(recordingStep.callCount).isEqualTo(1)
   }
 
+  @Test
+  fun `finalizes every processing step exactly once`() {
+    val firstStep = RecordingStep()
+    val secondStep = RecordingStep()
+
+    SqliteMagicCompilation
+      .compile(
+        testTable(),
+        processingStepsFactory = { listOf(firstStep, secondStep) }
+      )
+      .isOk()
+
+    assertThat(firstStep.finishCount).isEqualTo(1)
+    assertThat(secondStep.finishCount).isEqualTo(1)
+  }
+
+  @Test
+  fun `does not finalize steps after processing fails`() {
+    val recordingStep = RecordingStep()
+
+    SqliteMagicCompilation
+      .compile(
+        testTable(),
+        processingStepsFactory = { listOf(FailingStep, recordingStep) }
+      )
+      .isOk()
+
+    assertThat(recordingStep.callCount).isEqualTo(0)
+    assertThat(recordingStep.finishCount).isEqualTo(0)
+  }
+
   private class DeferringOnceStep : ProcessingStep {
     var callCount = 0
     var deferred = false
@@ -71,10 +103,20 @@ class SqliteMagicSymbolProcessorLifecycleTest : ProcessingStepsTest {
 
   private class RecordingStep : ProcessingStep {
     var callCount = 0
+    var finishCount = 0
 
     override fun process(resolver: Resolver): ProcessingStepResult {
       callCount++
       return Continue
     }
+
+    override fun finish(): ProcessingStepResult {
+      finishCount++
+      return Continue
+    }
+  }
+
+  private object FailingStep : ProcessingStep {
+    override fun process(resolver: Resolver): ProcessingStepResult = Failed
   }
 }

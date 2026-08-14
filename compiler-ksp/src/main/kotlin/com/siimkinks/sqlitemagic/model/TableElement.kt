@@ -61,6 +61,7 @@ data class TableElement(
     column.relationship?.canConstructWithOnlyId == false
   }
   val hasRecursiveRelationships = recursiveRelationshipColumns.isNotEmpty()
+  val hasCascadeDelete get() = allColumns.any { it.relationship?.onDeleteCascade == true }
 
   val byColumnType = COLUMN.parameterizedBy(STAR, STAR, STAR, modelClassName, NOT_NULLABLE)
 

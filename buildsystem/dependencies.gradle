@@ -39,6 +39,7 @@ ext {
   junitRunnerVersion = '1.2.1'
   kotlinpoetVersion = '2.3.0'
   kotlinVersion = '2.4.10'
+  kotlinxSerializationVersion = '1.9.0'
   kspCompileTestingVersion = '0.13.0'
   kspVersion = '2.3.10'
   lombokVersion = '1.14.8' // do not increment!
@@ -77,9 +78,11 @@ ext {
       javapoet                  : "com.squareup:javapoet:${javapoetVersion}",
       javassist                 : "org.javassist:javassist:$javassistVersion",
       kotlinGradlePlugin        : "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}",
+      kotlinSerializationPlugin : "org.jetbrains.kotlin:kotlin-serialization:${kotlinVersion}",
       kotlinJunit               : "org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion",
       kotlinpoet                : "com.squareup:kotlinpoet:$kotlinpoetVersion",
       kotlinpoetKsp             : "com.squareup:kotlinpoet-ksp:$kotlinpoetVersion",
+      kotlinxSerializationJson  : "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationVersion",
       kotlinReflect             : "org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}",
       kotlinStdLib              : "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}",
       kspApi                    : "com.google.devtools.ksp:symbol-processing-api:$kspVersion",

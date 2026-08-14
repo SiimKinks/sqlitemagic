@@ -125,6 +125,7 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "rating REAL DEFAULT 0.0",
           "subtitle TEXT DEFAULT NULL",
           "cover BLOB DEFAULT 0",
+          "override val moduleName: String? = null",
           "override val tableName: String = \"library_books\"",
           "override val insertSql: String =",
           "INSERT%s INTO library_books",

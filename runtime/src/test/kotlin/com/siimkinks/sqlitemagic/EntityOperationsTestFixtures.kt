@@ -39,6 +39,7 @@ internal class TestAdapter(
   override val withoutRowId: Boolean = false,
   private val omitNullInsertValues: Boolean = false
 ) : EntityDefaultIdentityAdapter<TestEntity>, EntityGeneratedIdAdapter<TestEntity> {
+  override val moduleName: String? = null
   override val tableName = "books"
   override val insertSql = "INSERT%s INTO books (id, key, name) VALUES (?, ?, ?)"
   override val tablePosition = 0

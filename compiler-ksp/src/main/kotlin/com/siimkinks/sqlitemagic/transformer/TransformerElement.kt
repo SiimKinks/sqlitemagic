@@ -2,6 +2,9 @@ package com.siimkinks.sqlitemagic.transformer
 
 import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Const.DEFAULT_TRANSFORMERS
+import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
+import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 
 data class TransformerElement(
@@ -22,6 +25,14 @@ data class TransformerElement(
 
   fun deserializedValueGetter(valueGetter: CodeBlock) =
     dbValueToObjectMethod.callWithArgument(valueGetter)
+
+  fun generatedColumnClassName(unique: Boolean = false) = ClassName(
+    PACKAGE_ROOT,
+    when {
+      unique -> "Unique${transformerName}${COLUMN.simpleName}"
+      else -> "${transformerName}${COLUMN.simpleName}"
+    }
+  )
 }
 
 class TransformerRoundElement private constructor(

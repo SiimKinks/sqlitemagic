@@ -1,13 +1,18 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_GENERATED_CLASSES_MANAGER
 import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_NAME
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DEBUG
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MAIN_MODULE_PATH
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MIGRATE_DEBUG
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PROJECT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PUBLIC_EXTENSIONS
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_NAME
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
 import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.element.TypeKey
@@ -17,6 +22,7 @@ import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
+import com.squareup.kotlinpoet.ClassName
 
 class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   val codeGenerator = symbolProcessorEnvironment.codeGenerator
@@ -56,15 +62,15 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   }
 
   fun setDatabaseMetadata(
-    dbName: String,
-    dbVersion: Int
+    dbName: String? = null,
+    dbVersion: Int? = null
   ) {
     dbMetadata = dbMetadata.copy(
       dbName = dbName
-        .takeIf(String::isNotEmpty)
+        .takeUnless(String?::isNullOrEmpty)
         ?: dbMetadata.dbName,
       dbVersion = dbVersion
-        .takeIf { it >= 0 && !options.isDebugVariant }
+        ?.takeIf { it >= 0 }
         ?: dbMetadata.dbVersion
     )
   }
@@ -103,18 +109,25 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
 
   fun getGenClassesManagerClassName(
     moduleName: String? = submoduleName
-  ) = when {
-    moduleName.isNullOrEmpty() -> CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER
-    else -> moduleName + CLASS_NAME_GENERATED_CLASSES_MANAGER
-  }
+  ) = ClassName(
+    PACKAGE_ROOT,
+    when {
+      moduleName.isNullOrEmpty() -> CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER
+      else -> moduleName + CLASS_NAME_GENERATED_CLASSES_MANAGER
+    }
+  )
 }
 
 @ConsistentCopyVisibility
-data class CompilerOptions private constructor(
+data class CompilerOptions internal constructor(
   val debug: Boolean,
   val isDebugVariant: Boolean,
   val dbName: String?,
   val dbVersion: Int?,
+  val migrateDebug: Boolean,
+  val projectDir: String?,
+  val variantName: String?,
+  val mainModulePath: String?,
   val publicExtensions: Boolean,
 ) {
   companion object {
@@ -125,6 +138,12 @@ data class CompilerOptions private constructor(
       dbVersion = options[OPTION_DB_VERSION]
         ?.takeIf(String::isNotEmpty)
         ?.toIntOrNull(),
+      migrateDebug = options[OPTION_MIGRATE_DEBUG]
+        ?.toBoolean()
+        ?: true,
+      projectDir = options[OPTION_PROJECT_DIR].takeUnless(String?::isNullOrEmpty),
+      variantName = options[OPTION_VARIANT_NAME].takeUnless(String?::isNullOrEmpty),
+      mainModulePath = options[OPTION_MAIN_MODULE_PATH].takeUnless(String?::isNullOrEmpty),
       publicExtensions = options[OPTION_PUBLIC_EXTENSIONS].toBoolean(),
     )
   }

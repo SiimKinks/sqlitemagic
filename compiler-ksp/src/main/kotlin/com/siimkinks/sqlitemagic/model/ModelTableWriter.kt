@@ -9,9 +9,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
-import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
-import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.ARRAY_LIST
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
@@ -211,36 +209,12 @@ internal class ModelTableWriter(
 
   private fun generatedTransformerColumnClass(column: ColumnElement): ClassName {
     val transformer = checkNotNull(column.transformer)
-    val prefix = when {
-      column.isUnique || column.isId -> "Unique"
-      else -> ""
-    }
-    return ClassName(PACKAGE_ROOT, "$prefix${transformer.transformerName}Column")
+    return transformer.generatedColumnClassName(unique = column.isUnique || column.isId)
   }
 
-  private fun parserName(column: ColumnElement) = when (column.sqlStorageType) {
-    SqlStorageType.BYTE_ARRAY -> "UNBOXED_BYTE_ARRAY_PARSER"
-    SqlStorageType.BOXED_BYTE_ARRAY -> "BOXED_BYTE_ARRAY_PARSER"
-    SqlStorageType.BYTE -> when {
-      column.isSchemaNullable -> "NULLABLE_BYTE_PARSER"
-      else -> "BYTE_PARSER"
-    }
-    SqlStorageType.DOUBLE -> "DOUBLE_PARSER"
-    SqlStorageType.FLOAT -> "FLOAT_PARSER"
-    SqlStorageType.INT -> when {
-      column.isSchemaNullable -> "NULLABLE_INTEGER_PARSER"
-      else -> "INTEGER_PARSER"
-    }
-    SqlStorageType.LONG -> when {
-      column.isSchemaNullable -> "NULLABLE_LONG_PARSER"
-      else -> "LONG_PARSER"
-    }
-    SqlStorageType.SHORT -> when {
-      column.isSchemaNullable -> "NULLABLE_SHORT_PARSER"
-      else -> "SHORT_PARSER"
-    }
-    SqlStorageType.STRING -> "STRING_PARSER"
-  }
+  private fun parserName(column: ColumnElement) = column
+    .sqlStorageType
+    .parserName(column.isSchemaNullable)
 
   private fun aliasFunction(table: TableElement): FunSpec {
     val tableClassName = table.generationNames.tableClassName

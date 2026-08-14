@@ -11,6 +11,9 @@ public interface GeneratedDatabase {
 
   void createSchema(SupportSQLiteDatabase db);
 
+  default void createTemporarySchema(SupportSQLiteDatabase db) {
+  }
+
   StringArraySet clearData(SupportSQLiteDatabase db);
 
   void migrateViews(SupportSQLiteDatabase db);

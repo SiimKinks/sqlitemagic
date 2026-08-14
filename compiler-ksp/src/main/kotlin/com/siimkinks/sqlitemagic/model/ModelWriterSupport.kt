@@ -25,46 +25,72 @@ internal fun FileSpec.writeModelSource(
     )
 }
 
-internal fun TableElement.schemaSql(): String {
+internal fun TableElement.schemaSql(
+  columnSchemas: List<String> = allColumns.map(ColumnElement::schemaSql)
+): String {
   val createPrefix = when {
     TableOption.TEMPORARY in options -> "CREATE TEMPORARY TABLE IF NOT EXISTS"
     else -> "CREATE TABLE IF NOT EXISTS"
   }
-  val columns = allColumns.joinToString(separator = ", ") { column ->
-    buildString {
-      append(column.columnName)
-      append(' ')
-      append(column.sqlStorageType.affinity.name)
-      when {
-        column.isId -> {
-          append(" PRIMARY KEY")
-          if (column.id?.isAutoIncrement == true) {
-            append(" AUTOINCREMENT")
-          }
-        }
-        column.isUnique -> append(" UNIQUE")
-      }
-      if (!column.isId && !column.isUnique) {
-        append(" DEFAULT ")
-        append(column.defaultValue)
-      }
-      column.relationship
-        ?.takeIf(RelationshipElement::onDeleteCascade)
-        ?.let { relationship ->
-          append(" REFERENCES ")
-          append(relationship.referencedTableName)
-          append('(')
-          append(relationship.referencedIdColumnName)
-          append(')')
-          append(" ON DELETE CASCADE")
-        }
-    }
-  }
+  val columns = columnSchemas.joinToString(separator = ", ")
   val suffix = when {
     TableOption.WITHOUT_ROWID in options -> " WITHOUT ROWID"
     else -> ""
   }
   return "$createPrefix $tableName ($columns)$suffix"
+}
+
+internal fun ColumnElement.schemaSql() = buildString {
+  append(columnName)
+  append(' ')
+  append(sqlStorageType.affinity.name)
+  when {
+    isId -> {
+      append(" PRIMARY KEY")
+      if (id?.isAutoIncrement == true) {
+        append(" AUTOINCREMENT")
+      }
+    }
+    isUnique -> append(" UNIQUE")
+  }
+  if (!isId && !isUnique) {
+    append(" DEFAULT ")
+    append(defaultValue)
+  }
+  relationship
+    ?.takeIf(RelationshipElement::onDeleteCascade)
+    ?.let { relationship ->
+      append(" REFERENCES ")
+      append(relationship.referencedTableName)
+      append('(')
+      append(relationship.referencedIdColumnName)
+      append(')')
+      append(" ON DELETE CASCADE")
+    }
+}
+
+internal fun SqlStorageType.parserName(nullable: Boolean) = when (this) {
+  SqlStorageType.BYTE_ARRAY -> "UNBOXED_BYTE_ARRAY_PARSER"
+  SqlStorageType.BOXED_BYTE_ARRAY -> "BOXED_BYTE_ARRAY_PARSER"
+  SqlStorageType.BYTE -> when {
+    nullable -> "NULLABLE_BYTE_PARSER"
+    else -> "BYTE_PARSER"
+  }
+  SqlStorageType.DOUBLE -> "DOUBLE_PARSER"
+  SqlStorageType.FLOAT -> "FLOAT_PARSER"
+  SqlStorageType.INT -> when {
+    nullable -> "NULLABLE_INTEGER_PARSER"
+    else -> "INTEGER_PARSER"
+  }
+  SqlStorageType.LONG -> when {
+    nullable -> "NULLABLE_LONG_PARSER"
+    else -> "LONG_PARSER"
+  }
+  SqlStorageType.SHORT -> when {
+    nullable -> "NULLABLE_SHORT_PARSER"
+    else -> "SHORT_PARSER"
+  }
+  SqlStorageType.STRING -> "STRING_PARSER"
 }
 
 internal fun TableElement.insertSql(): String {

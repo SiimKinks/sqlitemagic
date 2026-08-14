@@ -36,6 +36,12 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
     database.createSchema(db);
   }
 
+  @Override
+  public void onOpen(@NonNull SupportSQLiteDatabase db) {
+    super.onOpen(db);
+    database.createTemporarySchema(db);
+  }
+
   // this method already runs in transaction
   @Override
   public void onUpgrade(@NonNull SupportSQLiteDatabase db, int oldVersion, int newVersion) {

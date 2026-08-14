@@ -21,6 +21,7 @@ internal data class OperationConfigurationSnapshot(
 ) : OperationConfiguration
 
 internal class OperationContext private constructor(
+  val moduleName: String?,
   override val tableName: String,
   val tablePosition: Int,
   val configuration: OperationConfigurationSnapshot,
@@ -31,6 +32,7 @@ internal class OperationContext private constructor(
     adapter: EntityAdapterMetadata,
     configuration: OperationConfigurationSnapshot
   ) : this(
+    moduleName = adapter.moduleName,
     tableName = adapter.tableName,
     tablePosition = adapter.tablePosition,
     configuration = configuration,
@@ -48,6 +50,7 @@ internal class OperationContext private constructor(
     skipTableTriggers: Boolean = this.skipTableTriggers,
     ignoreNullValues: Boolean = this.ignoreNullValues
   ) = OperationContext(
+    moduleName = moduleName,
     tableName = tableName,
     tablePosition = tablePosition,
     configuration = configuration.copy(ignoreNullValues = ignoreNullValues),
@@ -60,6 +63,7 @@ internal class OperationContext private constructor(
     skipTableTriggers: Boolean = this.skipTableTriggers,
     ignoreNullValues: Boolean = this.ignoreNullValues
   ) = OperationContext(
+    moduleName = adapter.moduleName,
     tableName = adapter.tableName,
     tablePosition = adapter.tablePosition,
     configuration = configuration.copy(ignoreNullValues = ignoreNullValues),
@@ -78,7 +82,8 @@ internal class OperationContext private constructor(
     operationByColumns
   )
 
-  fun entityDbManager() = (connection as DbConnectionImpl).getEntityDbManager(null, tablePosition)
+  fun entityDbManager() = (connection as DbConnectionImpl)
+    .getEntityDbManager(moduleName, tablePosition)
 
   fun sendTableTriggers(adapter: EntityAdapter<*>) {
     if (!skipTableTriggers) {

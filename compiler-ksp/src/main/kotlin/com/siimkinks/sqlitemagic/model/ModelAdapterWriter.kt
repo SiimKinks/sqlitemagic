@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_DEFAULT_IDENTITY_COLUMN
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_INSERT_SQL
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_MAX_COLUMNS
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_MODULE_NAME
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_NAME
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
@@ -70,6 +71,7 @@ internal class ModelAdapterWriter(
       .addModifiers(INTERNAL)
       .addProperty(schemaSqlConstant(table))
       .addSuperinterface(adapterType(table))
+      .addProperty(moduleName())
       .addProperty(
         metadataStringProperty(
           name = FIELD_TABLE_NAME,
@@ -205,6 +207,17 @@ internal class ModelAdapterWriter(
     .builder(name = name, type = STRING)
     .addModifiers(OVERRIDE)
     .initializer("%S", value)
+    .build()
+
+  private fun moduleName() = PropertySpec
+    .builder(name = FIELD_MODULE_NAME, type = STRING.copy(nullable = true))
+    .addModifiers(OVERRIDE)
+    .apply {
+      when (val moduleName = environment.submoduleName) {
+        null -> initializer("null")
+        else -> initializer("%S", moduleName)
+      }
+    }
     .build()
 
   private fun triggerTableNames(table: TableElement): PropertySpec {

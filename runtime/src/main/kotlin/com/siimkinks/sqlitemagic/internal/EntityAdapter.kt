@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 internal typealias IdentityColumn<M> = Column<*, *, *, M, NotNullable>
 
 interface EntityAdapterMetadata {
+  val moduleName: String?
   val tableName: String
   val insertSql: String
   val tablePosition: Int

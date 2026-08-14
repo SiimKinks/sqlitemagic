@@ -316,6 +316,29 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `rejects a persistent relationship to a temporary table collected in an earlier round`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "RoundGeneratedRelationshipSeed.kt",
+          contents = "package $PACKAGE\nclass RoundGeneratedRelationshipSeed"
+        ),
+        processingStepsFactory = { environment ->
+          listOf(
+            GeneratedTemporaryOwnerStep(environment),
+            ModelCollectionStep(environment),
+            GeneratedPersistentEntryStep(environment)
+          )
+        }
+      )
+      .assertCompilationError(
+        "Persistent table relationships cannot target temporary tables",
+        "GeneratedPersistentEntry.owner",
+        "GeneratedTemporaryOwner"
+      )
+  }
+
+  @Test
   fun `reports focused collection diagnostics`() {
     SqliteMagicCompilation
       .compile(
@@ -787,6 +810,74 @@ private class GeneratedTypeStep(
           package $PACKAGE
 
           typealias GeneratedValue = String
+          """.trimIndent()
+        )
+      }
+    return Continue
+  }
+}
+
+private class GeneratedTemporaryOwnerStep(
+  private val environment: Environment
+) : ProcessingStep {
+  private var generated = false
+
+  override fun process(resolver: Resolver): ProcessingStepResult {
+    if (generated) return Continue
+    generated = true
+    environment.codeGenerator
+      .createNewFile(
+        dependencies = Dependencies(aggregating = false),
+        packageName = PACKAGE,
+        fileName = "GeneratedTemporaryOwner"
+      )
+      .bufferedWriter()
+      .use { writer ->
+        writer.write(
+          """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+            @Table(options = [TEMPORARY])
+            data class GeneratedTemporaryOwner(@Id val id: String)
+          """.trimIndent()
+        )
+      }
+    return Continue
+  }
+}
+
+private class GeneratedPersistentEntryStep(
+  private val environment: Environment
+) : ProcessingStep {
+  private var generated = false
+
+  override fun process(resolver: Resolver): ProcessingStepResult {
+    if (generated || environment.tableElements.isEmpty()) return Continue
+    generated = true
+    environment.codeGenerator
+      .createNewFile(
+        dependencies = Dependencies(aggregating = false),
+        packageName = PACKAGE,
+        fileName = "GeneratedPersistentEntry"
+      )
+      .bufferedWriter()
+      .use { writer ->
+        writer.write(
+          """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class GeneratedPersistentEntry(
+              @Id val id: String,
+              val owner: GeneratedTemporaryOwner
+            )
           """.trimIndent()
         )
       }

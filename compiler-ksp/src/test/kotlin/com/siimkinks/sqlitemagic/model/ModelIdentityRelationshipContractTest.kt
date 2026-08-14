@@ -1003,6 +1003,98 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `allows temporary relationships to persistent tables`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "TemporaryToPersistentRelationship.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+            @Table
+            data class PersistentOwner(@Id val id: String)
+
+            @Table(value = "temporary_entries", options = [TEMPORARY])
+            data class TemporaryEntry(
+              @Id val id: String,
+              @Column(handleRecursively = false) val owner: PersistentOwner
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_TemporaryEntry_Adapter.kt")
+  }
+
+  @Test
+  fun `rejects persistent relationships to temporary tables`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "PersistentToTemporaryRelationship.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+            @Table(value = "temporary_owners", options = [TEMPORARY])
+            data class TemporaryOwner(@Id val id: String)
+
+            @Table
+            data class PersistentEntry(
+              @Id val id: String,
+              val owner: TemporaryOwner
+            )
+          """
+        )
+      )
+      .assertCompilationError(
+        "Persistent table relationships cannot target temporary tables",
+        "PersistentEntry.owner",
+        "TemporaryOwner"
+      )
+  }
+
+  @Test
+  fun `rejects cascade relationships across persistent and temporary tables`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "TemporaryCascadeRelationship.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+            @Table
+            data class PersistentOwner(@Id val id: String)
+
+            @Table(value = "temporary_entries", options = [TEMPORARY])
+            data class TemporaryEntry(
+              @Id val id: String,
+              @Column(onDeleteCascade = true) val owner: PersistentOwner
+            )
+          """
+        )
+      )
+      .assertCompilationError(
+        "Cross-schema relationships cannot use onDeleteCascade",
+        "TemporaryEntry.owner",
+        "PersistentOwner"
+      )
+  }
+
+  @Test
   fun `forwards generated immutable recursive IDs to the parent insert`() {
     SqliteMagicCompilation
       .compile(

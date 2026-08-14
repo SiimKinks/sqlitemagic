@@ -54,6 +54,7 @@ import com.squareup.kotlinpoet.asClassName
 import java.util.concurrent.CancellationException
 
 internal object WriterTypes {
+  val GENERATED_DATABASE = GeneratedDatabase::class.asClassName()
   val TABLE = Table::class.asClassName()
   val COLUMN = Column::class.asClassName()
   val NUMERIC_COLUMN = NumericColumn::class.asClassName()
@@ -133,7 +134,7 @@ internal object WriterTypes {
   )
 
   val CURSOR = ClassName("android.database", "Cursor")
-  val SQLITE_DATABASE = ClassName("android.database.sqlite", "SQLiteDatabase")
+  val SQLITE_DATABASE = ClassName("androidx.sqlite.db", "SupportSQLiteDatabase")
   val SQL_EXCEPTION = ClassName("android.database", "SQLException")
   val SUPPORT_SQLITE_STATEMENT = ClassName("androidx.sqlite.db", "SupportSQLiteStatement")
 
