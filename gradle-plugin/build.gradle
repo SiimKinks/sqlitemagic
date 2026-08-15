@@ -54,6 +54,15 @@ dependencies {
   implementation project(':compiler-core')
 }
 
+gradlePlugin {
+  plugins {
+    sqlitemagic {
+      id = 'com.siimkinks.sqlitemagic'
+      implementationClass = 'com.siimkinks.sqlitemagic.SqliteMagicPlugin'
+    }
+  }
+}
+
 tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"

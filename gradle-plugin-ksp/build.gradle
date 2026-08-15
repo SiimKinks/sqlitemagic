@@ -48,6 +48,15 @@ dependencies {
   implementation project(':compiler-core')
 }
 
+gradlePlugin {
+  plugins {
+    sqlitemagicKsp {
+      id = 'com.siimkinks.sqlitemagic.ksp'
+      implementationClass = 'com.siimkinks.sqlitemagic.SqliteMagicKspPlugin'
+    }
+  }
+}
+
 tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"

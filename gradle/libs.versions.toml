@@ -17,6 +17,7 @@ compile-testing = "0.21.0"
 guava = "33.2.1-jre"
 incap = "1.0.0"
 jackson = "2.17.1"
+java-version = "21"
 java-poet = "1.13.0"
 java-assist = "3.30.2-GA"
 junit = "6.1.1"
@@ -25,7 +26,7 @@ junit-runner = "1.2.1"
 kotlin = "2.4.10"
 kotlin-poet = "2.3.0"
 serialization = "1.9.0"
-ksp = "2.3.10"
+ksp = "2.3.11"
 ksp-compile-testing = "0.13.0"
 lombok = "1.14.8"
 lombok-new = "1.18.46"
@@ -100,7 +101,9 @@ zt-zip = { module = "org.zeroturnaround:zt-zip", version.ref = "zt-zip" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 android-legacy-kapt = { id = "com.android.legacy-kapt", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 sqlitemagic = { id = "sqlitemagic", version.ref = "sqlitemagic" }
+sqlitemagic-ksp = { id = "com.siimkinks.sqlitemagic.ksp", version.ref = "sqlitemagic" }
