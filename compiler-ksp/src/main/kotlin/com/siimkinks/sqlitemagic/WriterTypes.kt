@@ -78,6 +78,7 @@ internal object WriterTypes {
   val CONFLICT_ALGORITHM = ConflictAlgorithm::class.asClassName()
   val LOG_UTIL = LogUtil::class.asClassName()
   val JOIN_CLAUSE = JoinClause::class.asClassName()
+  val QUERY_ALIAS_CONTEXT = QueryAliasContext::class.asClassName()
   val VALUE_PARSER = Utils.ValueParser::class
     .asClassName()
     .parameterizedBy(STAR)

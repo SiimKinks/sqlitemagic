@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
@@ -1370,12 +1371,24 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "addDeepQueryParts",
           "internal fun addDeepQueryPartsInternal(",
+          "val queryAliasContext = QueryAliasContext(",
+          "rootTable = from.table,",
+          "joins = from.joins",
+          "queryAliasContext: QueryAliasContext",
+          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)",
           "TeamTable.TEAM",
           "queryDeep ->",
           "checkNotNull(",
           "SqliteMagic_TeamMember_Dao::fullObjectFromCursorPosition",
           "SqliteMagic_TeamMember_Dao::shallowObjectFromCursorPosition"
         )
+        generatedSource.assertContainsInOrder(
+          "JoinClause.indexOf(referencedTable0, joins, parentColumn0)",
+          "if (joinIndex0 != -1)",
+          "val userJoin = joins[joinIndex0]",
+          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)"
+        )
+        generatedSource.assertDoesNotContain("randomTableName()")
       }
   }
 
@@ -1427,8 +1440,22 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "internal fun addShallowQueryPartsInternal(",
           "fun addShallowQueryPartsInternal",
           "JoinClause.indexOf",
-          "userJoin.tableNameInQuery()"
+          "userJoin.tableNameInQuery()",
+          "val queryAliasContext = QueryAliasContext(",
+          "rootTable = from.table,",
+          "joins = from.joins",
+          "queryAliasContext: QueryAliasContext",
+          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)",
+          "RequiredRecursiveTargetTable.REQUIRED_RECURSIVE_TARGET.addDeepQueryPartsInternal(",
+          "queryAliasContext"
         )
+        generatedSource.assertContainsInOrder(
+          "JoinClause.indexOf(referencedTable0, joins, parentColumn0)",
+          "if (joinIndex0 != -1)",
+          "val userJoin = joins[joinIndex0]",
+          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)"
+        )
+        generatedSource.assertDoesNotContain("randomTableName()")
       }
       .withGeneratedSource("SqliteMagic_RecursiveTargetOwner_Dao.kt") { generatedSource ->
         generatedSource.assertContains(

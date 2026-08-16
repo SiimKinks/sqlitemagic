@@ -19,6 +19,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.JOIN_CLAUSE
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NUMERIC_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.QUERY_ALIAS_CONTEXT
 import com.siimkinks.sqlitemagic.WriterTypes.QUERY_MAPPER
 import com.siimkinks.sqlitemagic.WriterTypes.SELECT_FROM
 import com.siimkinks.sqlitemagic.WriterTypes.SELECT_FROM_RAW
@@ -333,13 +334,14 @@ internal class ModelTableWriter(
     .addStatement("null -> null")
     .addStatement("else -> %T()", SYSTEM_RENAMED_TABLES)
     .endControlFlow()
-    .addStatement(
-      "%N(from.table, from.joins, selectFromTables, systemRenamedTables, tableGraphNodeNames, %S, select1)",
-      when {
-        shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
-        else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
-      },
-      ""
+    .addStatement("val queryAliasContext = %T(rootTable = from.table, joins = from.joins)", QUERY_ALIAS_CONTEXT)
+    .addCode(
+      queryPartsCall(
+        methodName = queryPartsInternalMethodName(shallow = shallow),
+        tableAlias = CodeBlock.of("from.table"),
+        joinsExpression = CodeBlock.of("from.joins"),
+        nodeName = CodeBlock.of("%S", "")
+      )
     )
     .beginControlFlow("if (systemRenamedTables?.isEmpty() == true)")
     .addStatement("return null")
@@ -352,12 +354,7 @@ internal class ModelTableWriter(
     shallow: Boolean = false
   ): FunSpec {
     val function = FunSpec
-      .builder(
-        when {
-          shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
-          else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
-        }
-      )
+      .builder(queryPartsInternalMethodName(shallow = shallow))
       .addModifiers(INTERNAL)
       .addParameter(name = "tableAlias", type = TABLE.parameterizedBy(STAR))
       .addParameter(name = "joins", type = ARRAY_LIST.parameterizedBy(JOIN_CLAUSE))
@@ -369,6 +366,7 @@ internal class ModelTableWriter(
           .parameterizedBy(STRING, STRING)
           .copy(nullable = true)
       )
+      .addParameter(name = "queryAliasContext", type = QUERY_ALIAS_CONTEXT)
       .addParameter(name = "nodeName", type = STRING)
       .addParameter(name = "select1", type = BOOLEAN)
     table.recursiveRelationshipColumns
@@ -417,24 +415,26 @@ internal class ModelTableWriter(
           referencedTable.hasRecursiveRelationships &&
           (!shallow || referencedTable.needsShallowQueryParts)
         ) {
-          function.addStatement(
-            "%T.%N.%N(userJoin.table, joins, selectFromTables, systemRenamedTables, tableGraphNodeNames, %N, select1)",
-            referencedTableClassName,
-            referencedTable.structureFieldName,
-            when {
-              shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
-              else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
-            },
-            relationshipNodeName
+          function.addCode(
+            queryPartsCall(
+              methodName = queryPartsInternalMethodName(shallow = shallow),
+              receiver = CodeBlock.of(
+                "%T.%N",
+                referencedTableClassName,
+                referencedTable.structureFieldName
+              ),
+              tableAlias = CodeBlock.of("userJoin.table"),
+              joinsExpression = CodeBlock.of("joins"),
+              nodeName = CodeBlock.of("%N", relationshipNodeName)
+            )
           )
         }
         function
           .nextControlFlow("else")
           .addStatement(
-            "val %N = %N.internalAlias(%T.randomTableName())",
+            "val %N = queryAliasContext.tableForAutomaticJoin(%N)",
             joinedTableName,
-            referencedTableName,
-            UTILS
+            referencedTableName
           )
           .addCode("val addedAlias = ")
           .beginControlFlow("when (systemRenamedTables)")
@@ -465,16 +465,18 @@ internal class ModelTableWriter(
           referencedTable.hasRecursiveRelationships &&
           (!shallow || referencedTable.needsShallowQueryParts)
         ) {
-          function.addStatement(
-            "%T.%N.%N(%N, joins, selectFromTables, systemRenamedTables, tableGraphNodeNames, %N, select1)",
-            referencedTableClassName,
-            referencedTable.structureFieldName,
-            when {
-              shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
-              else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
-            },
-            joinedTableName,
-            relationshipNodeName
+          function.addCode(
+            queryPartsCall(
+              methodName = queryPartsInternalMethodName(shallow = shallow),
+              receiver = CodeBlock.of(
+                "%T.%N",
+                referencedTableClassName,
+                referencedTable.structureFieldName
+              ),
+              tableAlias = CodeBlock.of("%N", joinedTableName),
+              joinsExpression = CodeBlock.of("joins"),
+              nodeName = CodeBlock.of("%N", relationshipNodeName)
+            )
           )
         }
         function.endControlFlow()
@@ -492,6 +494,36 @@ internal class ModelTableWriter(
       }
     return function.build()
   }
+
+  private fun queryPartsInternalMethodName(shallow: Boolean) = when {
+    shallow -> METHOD_ADD_SHALLOW_QUERY_PARTS_INTERNAL
+    else -> METHOD_ADD_DEEP_QUERY_PARTS_INTERNAL
+  }
+
+  private fun queryPartsCall(
+    methodName: String,
+    tableAlias: CodeBlock,
+    joinsExpression: CodeBlock,
+    nodeName: CodeBlock,
+    receiver: CodeBlock? = null
+  ) = CodeBlock
+    .builder()
+    .apply {
+      receiver?.let { add("%L.", it) }
+    }
+    .add("%N(\n", methodName)
+    .indent()
+    .add("tableAlias = %L,\n", tableAlias)
+    .add("joins = %L,\n", joinsExpression)
+    .add("selectFromTables = selectFromTables,\n")
+    .add("systemRenamedTables = systemRenamedTables,\n")
+    .add("tableGraphNodeNames = tableGraphNodeNames,\n")
+    .add("queryAliasContext = queryAliasContext,\n")
+    .add("nodeName = %L,\n", nodeName)
+    .add("select1 = select1\n")
+    .unindent()
+    .add(")\n")
+    .build()
 
   private fun companionObject(table: TableElement): TypeSpec {
     val tableClassName = table.generationNames.tableClassName
