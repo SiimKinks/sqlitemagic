@@ -59,6 +59,7 @@ internal object WriterTypes {
   val GENERATED_DATABASE = GeneratedDatabase::class.asClassName()
   val TABLE = Table::class.asClassName()
   val COLUMN = Column::class.asClassName()
+  val CHAR_SEQUENCE = CharSequence::class.asClassName()
   val NUMERIC_COLUMN = NumericColumn::class.asClassName()
   val UNIQUE_COLUMN = UniqueColumn::class.asClassName()
   val UNIQUE_NUMERIC_COLUMN = UniqueNumericColumn::class.asClassName()

@@ -490,7 +490,9 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
       .withGeneratedSource("StorageMatrixTable.kt") { generatedSource ->
         generatedSource.assertContains(
           "BooleanColumn<StorageMatrix",
-          "BooleanColumn(this, \"enabled\", Utils.INTEGER_PARSER"
+          "BooleanColumn(this, \"enabled\", Utils.INTEGER_PARSER",
+          "val TEXT: Column<String, String, CharSequence, StorageMatrix, NotNullable>",
+          "val NULLABLE_TEXT: Column<String, String?, CharSequence, StorageMatrix, Nullable>"
         )
       }
       .withGeneratedSource("UniqueBooleanColumn.kt") { generatedSource ->

@@ -10,8 +10,10 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_P
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
+import com.siimkinks.sqlitemagic.SqlStorageType.STRING as SQL_STRING
 import com.siimkinks.sqlitemagic.WriterTypes.ARRAY_LIST
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.CHAR_SEQUENCE
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_NUMERIC_COLUMN
@@ -173,6 +175,7 @@ internal class ModelTableWriter(
     )
     val equivalentType = when {
       column.sqlStorageType.isNumeric -> NUMBER
+      column.sqlStorageType == SQL_STRING && column.transformer == null && column.relationship == null -> CHAR_SEQUENCE
       else -> valueType
     }
     return columnClass(column).parameterizedBy(
