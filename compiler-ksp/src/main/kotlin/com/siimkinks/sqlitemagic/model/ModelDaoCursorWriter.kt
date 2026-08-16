@@ -386,7 +386,7 @@ internal class ModelDaoCursorWriter(
         index = index
       )
       relationship.referencedIdIsNullable -> CodeBlock.of(
-        "if (%L) null else %L",
+        "(if (%L) null else %L)",
         columnPosition.presentNullCheck(),
         databaseCursorGetter(
           column = column,
@@ -400,8 +400,8 @@ internal class ModelDaoCursorWriter(
     }
     val databaseId = relationship.deserializedDeclaredIdValue(
       databaseValue = storedDatabaseId,
-      databaseValueCanBeNull = relationship.referencedIdIsNullable ||
-          relationship.serializedValueCanBeNull
+      databaseValueCanBeNull = relationship.databaseValueCanBeNull,
+      databaseValueIsNonNull = !column.isNullable
     )
     val referencedTable = checkNotNull(
       environment.tableElements[relationship.referencedTableTypeKey]
@@ -448,6 +448,7 @@ internal class ModelDaoCursorWriter(
         recursive = recursive,
         selection = selection,
         value = value,
+        valueCanBeNull = retrievesRelationship && selection != null,
         skippedRelationship = skippedRelationship
       )
       !nullableValueGuarded && column.isNullable && skippedRelationship != null -> CodeBlock.of(
@@ -477,11 +478,16 @@ internal class ModelDaoCursorWriter(
     recursive: Boolean,
     selection: CursorSelection?,
     value: CodeBlock,
+    valueCanBeNull: Boolean,
     skippedRelationship: CodeBlock?
   ): CodeBlock {
     val relationshipKind = if (column.isHandledRecursively) "recursive " else ""
     val nullIdMessage = "Required ${relationshipKind}relationship \"${column.columnName}\" had a NULL ID"
     val missingRelationshipMessage = "Selected columns did not contain required relationship \"${column.columnName}\""
+    val valueOrMissingFailure = when {
+      valueCanBeNull -> CodeBlock.of("%L ?: throw %T(%S)", value, SQL_EXCEPTION, missingRelationshipMessage)
+      else -> value
+    }
     val skippedValue = skippedRecursiveRelationshipFailure(
       columns = listOf(column),
       recursive = recursive,
@@ -491,25 +497,21 @@ internal class ModelDaoCursorWriter(
       selection != null && columnPosition.mayBeMissing -> CodeBlock.of(
         "if (%L) throw %T(%S)\n" +
             "else if (%L) throw %T(%S)\n" +
-            "else %L ?: throw %T(%S)",
+            "else %L",
         columnPosition.missingCheck(),
         SQL_EXCEPTION,
         missingRelationshipMessage,
         columnPosition.presentNullCheck(),
         SQL_EXCEPTION,
         nullIdMessage,
-        value,
-        SQL_EXCEPTION,
-        missingRelationshipMessage
+        valueOrMissingFailure
       )
       selection != null -> CodeBlock.of(
-        "if (%L) throw %T(%S) else %L ?: throw %T(%S)",
+        "if (%L) throw %T(%S) else %L",
         columnPosition.presentNullCheck(),
         SQL_EXCEPTION,
         nullIdMessage,
-        value,
-        SQL_EXCEPTION,
-        missingRelationshipMessage
+        valueOrMissingFailure
       )
       skippedRelationship != null -> CodeBlock.of(
         "if (%L) %L else %L",

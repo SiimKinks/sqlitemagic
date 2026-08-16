@@ -259,7 +259,7 @@ internal class ColumnClassWriter private constructor(
       val transformer = relationship.referencedIdTransformer
       val idType = relationship.referencedIdType.typeName.copy(nullable = false)
       val serializedType = relationship.referencedIdSerializedType.typeName.copy(nullable = false)
-      val databaseValueCanBeNull = relationship.referencedIdIsNullable || relationship.serializedValueCanBeNull
+      val databaseValueCanBeNull = relationship.databaseValueCanBeNull
       val databaseValue = CodeBlock.of("%N", VARIABLE_DB_VALUE)
       val deserializedValue = when {
         column.isNullable && databaseValueCanBeNull -> CodeBlock.of(

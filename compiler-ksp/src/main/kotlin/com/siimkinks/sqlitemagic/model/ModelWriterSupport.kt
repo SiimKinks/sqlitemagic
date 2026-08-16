@@ -222,14 +222,24 @@ internal fun RelationshipElement.serializedDeclaredIdValue(
 
 internal fun RelationshipElement.deserializedDeclaredIdValue(
   databaseValue: CodeBlock,
-  databaseValueCanBeNull: Boolean = false
+  databaseValueCanBeNull: Boolean = false,
+  databaseValueIsNonNull: Boolean = false
 ): CodeBlock {
-  if (databaseValueCanBeNull && referencedIdType.typeName.isNullable) {
+  if (databaseValueCanBeNull &&
+      referencedIdType.typeName.isNullable &&
+      (referencedIdTransformer != null || referencedIdRelationship != null)
+  ) {
+    val nullableLet = when {
+      databaseValueIsNonNull -> ".let"
+      else -> "?.let"
+    }
     return CodeBlock.of(
-      "%L?.let { %L }",
+      "%L%L { %L }",
       databaseValue,
+      nullableLet,
       deserializedDeclaredIdValue(
-        databaseValue = CodeBlock.of("it")
+        databaseValue = CodeBlock.of("it"),
+        databaseValueIsNonNull = true
       )
     )
   }
@@ -245,7 +255,8 @@ internal fun RelationshipElement.deserializedDeclaredIdValue(
       METHOD_NEW_INSTANCE_WITH_ONLY_ID,
       nestedRelationship.deserializedDeclaredIdValue(
         databaseValue = databaseValue,
-        databaseValueCanBeNull = databaseValueCanBeNull
+        databaseValueCanBeNull = databaseValueCanBeNull,
+        databaseValueIsNonNull = databaseValueIsNonNull
       )
     )
   }

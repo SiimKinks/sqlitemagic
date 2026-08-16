@@ -292,6 +292,57 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `keeps nullable relationship reads warning free`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableIdentityRelationship.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class NullableIdentityTarget(
+              @Id val id: Long? = null,
+              val name: String = ""
+            )
+
+            @Table
+            data class NullableIdentityOwner(
+              @Id(autoIncrement = false) val id: Long,
+              val target: NullableIdentityTarget,
+              val optionalTarget: NullableIdentityTarget?
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_NullableIdentityTarget_Adapter.kt",
+        "SqliteMagic_NullableIdentityOwner_Dao.kt"
+      )
+      .withGeneratedSource("SqliteMagic_NullableIdentityTarget_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains(
+          """@Suppress("UNCHECKED_CAST")""",
+          "override val defaultIdentityColumn: Column<*, *, *, NullableIdentityTarget, NotNullable>"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_NullableIdentityOwner_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "newInstanceWithOnlyId(cursor.getLong(thisTableOffset + 1))",
+          "newInstanceWithOnlyId((if (columnIndex2IsNull) null else cursor.getLong(columnIndex2)))"
+        )
+        generatedSource.assertDoesNotContain(
+          "cursor.getLong(thisTableOffset + 1)?.let { it }",
+          "cursor.getLong(columnIndex2)?.let { it }",
+          "newInstanceWithOnlyId(cursor.getLong(columnIndex1)) ?: throw"
+        )
+      }
+  }
+
+  @Test
   fun `excludes auto-increment IDs from inserts and binds them for updates`() {
     SqliteMagicCompilation
       .compile(

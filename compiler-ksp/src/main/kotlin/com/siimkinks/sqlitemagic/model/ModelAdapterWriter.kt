@@ -34,6 +34,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_RECURSIVE_ADAPTER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_RELATIONSHIP_OPERATIONS
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_ENTITY_IDENTITY
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
+import com.siimkinks.sqlitemagic.WriterTypes.UNCHECKED_CAST
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.CodeBlock
@@ -379,6 +380,7 @@ internal class ModelAdapterWriter(
 
   private fun defaultIdentityColumn(table: TableElement) = PropertySpec
     .builder(name = FIELD_DEFAULT_IDENTITY_COLUMN, type = table.byColumnType)
+    .addAnnotation(UNCHECKED_CAST)
     .addModifiers(OVERRIDE)
     .initializer(
       "%T.%N.%N as %T",

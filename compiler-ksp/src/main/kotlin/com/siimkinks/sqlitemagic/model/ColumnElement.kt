@@ -43,6 +43,7 @@ data class RelationshipElement(
   val serializedValueCanBeNull: Boolean
     get() = referencedIdTransformer?.serializedTypeCanBeNull == true ||
         referencedIdRelationship?.serializedValueCanBeNull == true
+  val databaseValueCanBeNull get() = referencedIdIsNullable || serializedValueCanBeNull
 }
 
 data class ColumnElement(
