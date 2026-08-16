@@ -17,7 +17,6 @@ pluginManagement {
 dependencyResolutionManagement {
   versionCatalogs {
     libs {
-      from(files('../gradle/libs.versions.toml'))
       version(
           'sqlitemagic',
           providers.gradleProperty('sqlitemagicVersion').orElse('2.0.0-SNAPSHOT').get()

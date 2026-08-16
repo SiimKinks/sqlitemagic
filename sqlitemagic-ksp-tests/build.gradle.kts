@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.Test
+
 plugins {
   alias(libs.plugins.android.application) apply false
   alias(libs.plugins.kotlin.android) apply false
@@ -10,6 +12,12 @@ allprojects {
     mavenLocal()
     mavenCentral()
     google()
+  }
+}
+
+subprojects {
+  tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
   }
 }
 

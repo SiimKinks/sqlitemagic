@@ -35,7 +35,15 @@ android {
 }
 
 dependencies {
-  testImplementation(libs.junit)
+  implementation(libs.android.sqlite.framework)
+  implementation(libs.rx.java2)
+
+  testImplementation(platform(libs.junit.bom))
+  testImplementation(libs.junit.jupiter)
+  testImplementation(libs.truth)
+  testImplementation(libs.mockito.kotlin)
+  testRuntimeOnly(libs.junit.platform.launcher)
+
   androidTestImplementation(libs.android.test.runner)
   androidTestImplementation(libs.junit.runner)
 }

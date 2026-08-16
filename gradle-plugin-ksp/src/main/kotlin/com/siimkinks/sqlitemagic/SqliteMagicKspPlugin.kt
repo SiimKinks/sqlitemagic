@@ -3,20 +3,18 @@ package com.siimkinks.sqlitemagic
 import com.android.build.api.variant.AndroidComponentsExtension
 import com.android.build.api.variant.ComponentIdentity
 import com.android.build.api.variant.Variant
-import com.android.build.gradle.AppPlugin
-import com.android.build.gradle.LibraryPlugin
 import com.google.devtools.ksp.gradle.KspAATask
 import com.google.devtools.ksp.gradle.KspExtension
 import com.siimkinks.sqlitemagic.structure.MigrationsHandler
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.ProjectEvaluationListener
-import org.gradle.api.ProjectState
-import org.gradle.api.artifacts.Configuration
 import java.io.File
 import java.util.Locale
 
-const val DB_TASK_GROUP = "db"
+private const val DB_TASK_GROUP = "db"
+private const val ANDROID_APPLICATION_PLUGIN_ID = "com.android.application"
+private const val ANDROID_BASE_PLUGIN_ID = "com.android.base"
+private const val KSP_PLUGIN_ID = "com.google.devtools.ksp"
 
 class SqliteMagicKspPlugin : Plugin<Project> {
   override fun apply(project: Project) {
@@ -24,55 +22,42 @@ class SqliteMagicKspPlugin : Plugin<Project> {
       "sqlitemagic",
       SqliteMagicKspPluginExtension::class.java
     )
-    configureProject(project, sqlitemagic)
-
-    project.plugins.withType(AppPlugin::class.java) {
-      project
-        .extensions
-        .getByType(AndroidComponentsExtension::class.java)
-        .onVariants { variant ->
-          project.configureKspVariantArgs(variant)
-          if (!variant.isDebug) {
-            variant.addMigrateDbTask(project)
-          }
-        }
+    project.afterEvaluate {
+      check(project.plugins.hasPlugin(KSP_PLUGIN_ID)) {
+        "SqliteMagic KSP plugin requires '$KSP_PLUGIN_ID' in project '${project.path}'. Apply it in that module's plugins block."
+      }
     }
-    project.plugins.withType(LibraryPlugin::class.java) {
-      project
-        .extensions
-        .getByType(AndroidComponentsExtension::class.java)
-        .onVariants(
-          callback = project::configureKspVariantArgs
-        )
+
+    project.plugins.withId(KSP_PLUGIN_ID) {
+      project.plugins.withId(ANDROID_BASE_PLUGIN_ID) {
+        project
+          .extensions
+          .getByType(AndroidComponentsExtension::class.java)
+          .apply {
+            finalizeDsl {
+              project.configureDependencies(sqlitemagic)
+            }
+            onVariants { variant ->
+              project.configureKspVariantArgs(variant)
+              if (project.plugins.hasPlugin(ANDROID_APPLICATION_PLUGIN_ID) && !variant.isDebug) {
+                variant.addMigrateDbTask(project)
+              }
+            }
+          }
+      }
     }
   }
+}
 
-  private fun configureProject(
-    project: Project,
-    sqlitemagic: SqliteMagicKspPluginExtension
-  ) {
-    project.gradle.addProjectEvaluationListener(object : ProjectEvaluationListener {
-      override fun beforeEvaluate(project: Project) {}
-
-      override fun afterEvaluate(project: Project, state: ProjectState) {
-        project.gradle.removeProjectEvaluationListener(this)
-
-        project.configureKspArgs(sqlitemagic)
-        if (!sqlitemagic.configureAutomatically) {
-          return
-        }
-
-        val implDeps = project.getConfiguration(depName = "implementation", fallback = "compile")
-        val compileOnlyDeps = project.getConfiguration(depName = "compileOnly", fallback = "provided")
-
-        project
-          .getConfiguration("ksp")
-          .addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-compiler-ksp:$PLUGIN_VERSION")
-        compileOnlyDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$PLUGIN_VERSION")
-        implDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic:$PLUGIN_VERSION")
-        implDeps.addDependency(project, "com.siimkinks.sqlitemagic:sqlitemagic-kotlin:$PLUGIN_VERSION")
-      }
-    })
+private fun Project.configureDependencies(sqlitemagic: SqliteMagicKspPluginExtension) {
+  configureKspArgs(sqlitemagic)
+  if (sqlitemagic.configureAutomatically) {
+    with(dependencies) {
+      add("compileOnly", "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$PLUGIN_VERSION")
+      add("implementation", "com.siimkinks.sqlitemagic:sqlitemagic:$PLUGIN_VERSION")
+      add("implementation", "com.siimkinks.sqlitemagic:sqlitemagic-kotlin:$PLUGIN_VERSION")
+      add("ksp", "com.siimkinks.sqlitemagic:sqlitemagic-compiler-ksp:$PLUGIN_VERSION")
+    }
   }
 }
 
@@ -126,17 +111,6 @@ private fun Variant.addMigrateDbTask(project: Project) {
   migrationTask.configure {
     it.group = DB_TASK_GROUP
   }
-}
-
-fun Project.getConfiguration(depName: String, fallback: String = ""): Configuration =
-  try {
-    configurations.getByName(depName)
-  } catch (_: Throwable) {
-    configurations.getByName(fallback)
-  }
-
-fun Configuration.addDependency(project: Project, dependency: String) {
-  dependencies.add(project.dependencies.create(dependency))
 }
 
 private fun Variant.kspTaskName(): String = "ksp${name.capitalize()}Kotlin"
