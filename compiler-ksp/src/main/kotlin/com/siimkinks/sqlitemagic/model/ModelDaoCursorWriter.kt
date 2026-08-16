@@ -381,6 +381,10 @@ internal class ModelDaoCursorWriter(
       nullableValueGuarded = nullableValueGuarded
     )
     val storedDatabaseId = when {
+      !column.isNullable -> databaseCursorGetter(
+        column = column,
+        index = index
+      )
       relationship.referencedIdIsNullable -> CodeBlock.of(
         "if (%L) null else %L",
         columnPosition.presentNullCheck(),
@@ -437,33 +441,15 @@ internal class ModelDaoCursorWriter(
       )
       else -> null
     }
-    val result = when {
-      !column.isNullable &&
-          relationship.referencedIdIsNullable &&
-          skippedRelationship != null -> CodeBlock.of(
-        "if (%L) run { %L; %L } else %L",
-        columnPosition.nullCheck(),
-        skippedRelationship,
-        idOnlyValue,
-        value
+    return when {
+      !column.isNullable -> requiredRelationshipValue(
+        column = column,
+        columnPosition = columnPosition,
+        recursive = recursive,
+        selection = selection,
+        value = value,
+        skippedRelationship = skippedRelationship
       )
-      !column.isNullable &&
-          relationship.referencedIdIsNullable -> when {
-        retrievesRelationship && selection != null -> CodeBlock.of(
-          "(if (%L) %L else %L) ?: throw %T(%S)",
-          columnPosition.nullCheck(),
-          idOnlyValue,
-          value,
-          SQL_EXCEPTION,
-          "Selected columns did not contain required relationship \"${column.columnName}\""
-        )
-        else -> CodeBlock.of(
-          "if (%L) %L else %L",
-          columnPosition.nullCheck(),
-          idOnlyValue,
-          value
-        )
-      }
       !nullableValueGuarded && column.isNullable && skippedRelationship != null -> CodeBlock.of(
         "if (%L) %L else %L",
         columnPosition.nullCheck(),
@@ -483,14 +469,61 @@ internal class ModelDaoCursorWriter(
       )
       else -> value
     }
+  }
+
+  private fun requiredRelationshipValue(
+    column: ColumnElement,
+    columnPosition: CursorPosition,
+    recursive: Boolean,
+    selection: CursorSelection?,
+    value: CodeBlock,
+    skippedRelationship: CodeBlock?
+  ): CodeBlock {
+    val relationshipKind = if (column.isHandledRecursively) "recursive " else ""
+    val nullIdMessage = "Required ${relationshipKind}relationship \"${column.columnName}\" had a NULL ID"
+    val missingRelationshipMessage = "Selected columns did not contain required relationship \"${column.columnName}\""
+    val skippedValue = skippedRecursiveRelationshipFailure(
+      columns = listOf(column),
+      recursive = recursive,
+      message = nullIdMessage
+    )
     return when {
-      column.isModelPathNullable && !column.isNullable -> requiredNonNullColumnValue(
-        column = column,
-        tableName = tableName,
-        columnPosition = columnPosition,
-        value = result
+      selection != null && columnPosition.mayBeMissing -> CodeBlock.of(
+        "if (%L) throw %T(%S)\n" +
+            "else if (%L) throw %T(%S)\n" +
+            "else %L ?: throw %T(%S)",
+        columnPosition.missingCheck(),
+        SQL_EXCEPTION,
+        missingRelationshipMessage,
+        columnPosition.presentNullCheck(),
+        SQL_EXCEPTION,
+        nullIdMessage,
+        value,
+        SQL_EXCEPTION,
+        missingRelationshipMessage
       )
-      else -> result
+      selection != null -> CodeBlock.of(
+        "if (%L) throw %T(%S) else %L ?: throw %T(%S)",
+        columnPosition.presentNullCheck(),
+        SQL_EXCEPTION,
+        nullIdMessage,
+        value,
+        SQL_EXCEPTION,
+        missingRelationshipMessage
+      )
+      skippedRelationship != null -> CodeBlock.of(
+        "if (%L) %L else %L",
+        columnPosition.presentNullCheck(),
+        skippedValue,
+        value
+      )
+      else -> CodeBlock.of(
+        "if (%L) throw %T(%S) else %L",
+        columnPosition.presentNullCheck(),
+        SQL_EXCEPTION,
+        nullIdMessage,
+        value
+      )
     }
   }
 
@@ -506,19 +539,10 @@ internal class ModelDaoCursorWriter(
     columns: List<ColumnElement>,
     recursive: Boolean
   ): CodeBlock {
-    val skippedColumns = columns.sumOf { column ->
-      if (!column.requiresRecursiveCursorOffset(recursive)) {
-        return@sumOf 0
-      }
-      val relationship = checkNotNull(column.relationship)
-      val referencedTable = checkNotNull(
-        environment.tableElements[relationship.referencedTableTypeKey]
-      )
-      cursorColumnCount(
-        table = referencedTable,
-        recursive = recursive
-      )
-    }
+    val skippedColumns = recursiveCursorOffset(
+      columns = columns,
+      recursive = recursive
+    )
     return when {
       skippedColumns == 0 -> CodeBlock.of("null")
       else -> CodeBlock.of(
@@ -526,6 +550,43 @@ internal class ModelDaoCursorWriter(
         skippedColumns
       )
     }
+  }
+
+  private fun skippedRecursiveRelationshipFailure(
+    columns: List<ColumnElement>,
+    recursive: Boolean,
+    message: String
+  ): CodeBlock {
+    val skippedColumns = recursiveCursorOffset(
+      columns = columns,
+      recursive = recursive
+    )
+    return when {
+      skippedColumns == 0 -> CodeBlock.of("throw %T(%S)", SQL_EXCEPTION, message)
+      else -> CodeBlock.of(
+        "run { columnOffset.value += %L; throw %T(%S) }",
+        skippedColumns,
+        SQL_EXCEPTION,
+        message
+      )
+    }
+  }
+
+  private fun recursiveCursorOffset(
+    columns: List<ColumnElement>,
+    recursive: Boolean
+  ): Int = columns.sumOf { column ->
+    if (!column.requiresRecursiveCursorOffset(recursive)) {
+      return@sumOf 0
+    }
+    val relationship = checkNotNull(column.relationship)
+    val referencedTable = checkNotNull(
+      environment.tableElements[relationship.referencedTableTypeKey]
+    )
+    cursorColumnCount(
+      table = referencedTable,
+      recursive = recursive
+    )
   }
 
   private fun ColumnElement.requiresRecursiveCursorOffset(recursive: Boolean): Boolean =

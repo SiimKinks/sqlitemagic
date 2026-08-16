@@ -720,7 +720,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("SqliteMagic_NullableRelationshipOwner_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "SqliteMagic_NullableRelationshipId_Dao.newInstanceWithOnlyId(if (column1IsNull",
+          "SqliteMagic_NullableRelationshipId_Dao.newInstanceWithOnlyId(cursor.getString(thisTableOffset + 1)",
           "SqliteMagic_NullableRelationshipLeaf_Dao.newInstanceWithOnlyId"
         )
       }
@@ -873,15 +873,21 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("SqliteMagic_NonNullTargetOwner_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
+          """Relationship \"target\" resolved to a NULL ID""",
+          "OperationFailedException",
           "?: throw SQLException",
-          "newInstanceWithOnlyId(if (column1IsNull"
+          "Required relationship",
+          "had a NULL ID"
         )
-        generatedSource.assertDoesNotContain("target = null")
+        generatedSource.assertDoesNotContain(
+          "newInstanceWithOnlyId(if (column1IsNull",
+          "statement.bindNull"
+        )
       }
   }
 
   @Test
-  fun `advances recursive cursor offsets when a nullable referenced ID is absent`() {
+  fun `advances recursive cursor offsets before throwing for an absent required recursive ID`() {
     SqliteMagicCompilation
       .compile(
         SourceFile.kotlin(
@@ -913,7 +919,50 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagic_NonNullRecursiveTargetOwner_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "columnOffset.value += 2",
-          "SqliteMagic_NullableRecursiveIdTarget_Dao.newInstanceWithOnlyId"
+          """Required recursive relationship \"target\" had a NULL ID"""
+        )
+      }
+  }
+
+  @Test
+  fun `reconstructs a nullable recursive relationship as null when its ID is absent`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableRecursiveRelationship.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class NullableRecursiveRelationshipTarget(
+              @Id val id: String?,
+              val requiredValue: String
+            )
+
+            @Table
+            data class NullableRecursiveRelationshipOwner(
+              @Id val id: String,
+              @Column(handleRecursively = true)
+              val target: NullableRecursiveRelationshipTarget?
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_NullableRecursiveRelationshipOwner_Dao.kt")
+      .withGeneratedSource("SqliteMagic_NullableRecursiveRelationshipOwner_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "columnOffset.value += 2",
+          "target = if (column1IsNull)",
+          "null"
+        )
+        generatedSource.assertDoesNotContain(
+          "Required recursive relationship",
+          "NullableRecursiveRelationshipTarget_Dao.newInstanceWithOnlyId"
         )
       }
   }
@@ -1118,7 +1167,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
 
             @Table
             data class ImmutableGeneratedChild(
-              @Id val id: Long = 0L
+              @Id val id: Long? = null
             )
 
             @Table
@@ -1137,6 +1186,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
+          "child INTEGER DEFAULT NULL",
           "EntityRecursiveAdapter<ImmutableGeneratedParent",
           "operations.insert(",
           "adapter = SqliteMagic_ImmutableGeneratedChild_Adapter",
@@ -1147,6 +1197,8 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "generatedRelationshipIds: Map<String, Long>",
           "generatedRelationshipIds[\"child\"] ?: entity.child.id",
+          """Relationship \"child\" resolved to a NULL ID""",
+          "OperationFailedException",
           "statement.bindLong"
         )
       }
@@ -1386,7 +1438,8 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("SqliteMagic_RequiredRecursiveTarget_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "leaf = SqliteMagic_ShallowLeaf_Dao.newInstanceWithOnlyId"
+          "Required recursive relationship",
+          "SqliteMagic_ShallowLeaf_Dao.newInstanceWithOnlyId"
         )
       }
   }
@@ -1461,7 +1514,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `rejects recursive relationships with nullable IDs that cannot reconstruct the target`() {
+  fun `allows recursive relationships with nullable IDs that cannot reconstruct the target`() {
     SqliteMagicCompilation
       .compile(
         SourceFile.kotlin(
@@ -1487,10 +1540,15 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           """
         )
       )
-      .assertCompilationError(
-        "A recursive relationship with a nullable target @Id must be constructible from only that @Id",
-        "RecursiveNullableIdOwner.target"
-      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_RecursiveNullableIdOwner_Dao.kt")
+      .withGeneratedSource("SqliteMagic_RecursiveNullableIdOwner_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          """Required recursive relationship \"target\" had a NULL ID""",
+          "throw SQLException"
+        )
+        generatedSource.assertDoesNotContain("newInstanceWithOnlyId")
+      }
   }
 
   @Test
@@ -1571,7 +1629,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("SqliteMagic_OptionalChild_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "parent?.id",
+          "parent?.let",
           "cursor.isNull",
           "parent = if (",
           "null else",
@@ -1692,6 +1750,187 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         "Parent-Child",
         "Possible fix: remove some complex columns or annotate them with @Column(handleRecursively = false)"
       )
+  }
+
+  @Test
+  fun `keeps nullable ID storage metadata while requiring present relationship IDs`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableRelationshipIdModes.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class MutableGeneratedRelationshipTarget {
+              @Id var id: Long? = null
+              var value: String = ""
+            }
+
+            @Table
+            data class ImmutableGeneratedRelationshipTarget(
+              @Id val id: Long? = null,
+              val value: String = ""
+            )
+
+            @Table
+            data class NullableStringRelationshipTarget(
+              @Id(autoIncrement = false) val id: String?,
+              val value: String = ""
+            )
+
+            @Table
+            data class NullableIntegerRelationshipTarget(
+              @Id(autoIncrement = false) val id: Int?,
+              val value: String = ""
+            )
+
+            @Table
+            data class NullableRelationshipIdModes(
+              @Id val id: String,
+              val mutableTarget: MutableGeneratedRelationshipTarget,
+              val immutableTarget: ImmutableGeneratedRelationshipTarget,
+              @Column(handleRecursively = false)
+              val stringTarget: NullableStringRelationshipTarget,
+              @Column(handleRecursively = false)
+              val integerTarget: NullableIntegerRelationshipTarget
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_NullableRelationshipIdModes_Adapter.kt",
+        "SqliteMagic_NullableRelationshipIdModes_Dao.kt"
+      )
+      .withGeneratedSource("SqliteMagic_NullableRelationshipIdModes_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "mutable_target INTEGER DEFAULT NULL",
+          "immutable_target INTEGER DEFAULT NULL",
+          "string_target TEXT DEFAULT NULL",
+          "integer_target INTEGER DEFAULT NULL"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_NullableRelationshipIdModes_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "generatedRelationshipIds[\"immutable_target\"] ?: entity.immutableTarget.id",
+          """Relationship \"mutable_target\" resolved to a NULL ID""",
+          """Relationship \"immutable_target\" resolved to a NULL ID""",
+          """Relationship \"string_target\" resolved to a NULL ID""",
+          """Relationship \"integer_target\" resolved to a NULL ID""",
+          "OperationFailedException"
+        )
+      }
+  }
+
+  @Test
+  fun `requires a non-null serialized value for transformed relationship IDs`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableSerializedRelationshipId.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+            data class NullableSerializedRelationshipId(val value: String)
+
+            @ObjectToDbValue
+            fun nullableSerializedRelationshipIdToString(
+              value: NullableSerializedRelationshipId
+            ): String? = value.value.takeIf(String::isNotEmpty)
+
+            @DbValueToObject
+            fun stringToNullableSerializedRelationshipId(
+              value: String?
+            ): NullableSerializedRelationshipId = NullableSerializedRelationshipId(value.orEmpty())
+
+            @Table
+            data class NullableSerializedRelationshipTarget(
+              @Id val id: NullableSerializedRelationshipId
+            )
+
+            @Table
+            data class NullableSerializedRelationshipOwner(
+              @Id val id: String,
+              @Column(handleRecursively = false)
+              val target: NullableSerializedRelationshipTarget
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_NullableSerializedRelationshipOwner_Adapter.kt",
+        "SqliteMagic_NullableSerializedRelationshipOwner_Dao.kt"
+      )
+      .withGeneratedSource("SqliteMagic_NullableSerializedRelationshipOwner_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains("target TEXT DEFAULT NULL")
+      }
+      .withGeneratedSource("SqliteMagic_NullableSerializedRelationshipOwner_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "nullableSerializedRelationshipIdToString",
+          """Relationship \"target\" resolved to a NULL ID""",
+          "OperationFailedException"
+        )
+      }
+  }
+
+  @Test
+  fun `uses nullable embedded paths for relationship schema and binding`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableEmbeddedRelationshipPath.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Embedded
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class EmbeddedRelationshipTarget(@Id val id: String)
+
+            data class NullableEmbeddedRelationshipDetails(
+              @Column(handleRecursively = false)
+              val target: EmbeddedRelationshipTarget,
+              val label: String
+            )
+
+            @Table
+            data class NullableEmbeddedRelationshipOwner(
+              @Id val id: String,
+              @Embedded val details: NullableEmbeddedRelationshipDetails?
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_NullableEmbeddedRelationshipOwner_Adapter.kt",
+        "SqliteMagic_NullableEmbeddedRelationshipOwner_Dao.kt"
+      )
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedRelationshipOwner_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains("target TEXT DEFAULT NULL")
+      }
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedRelationshipOwner_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "details?.target?.let",
+          """Required relationship \"target\" had a NULL ID"""
+        )
+        generatedSource.assertDoesNotContain("OperationFailedException")
+      }
   }
 
   private fun sluggedNoteSource() = SourceFile.kotlin(

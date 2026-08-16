@@ -273,17 +273,6 @@ internal class TableSeedResolver(
     ) return null
 
     val canConstructWithOnlyId = targetConstruction.canConstructWithOnly(targetId.access.path)
-    if (
-      source.isHandledRecursively &&
-      (targetId.isSchemaNullable || targetId.serializedValueCanBeNull) &&
-      !canConstructWithOnlyId
-    ) {
-      reporter.error(
-        message = "A recursive relationship with a nullable target @Id must be constructible from only that @Id: ${source.diagnosticPath}",
-        symbol = source.roundElement.sourceDeclaration
-      )
-      return null
-    }
     if (targetId.relationship?.canConstructWithOnlyId == false) {
       reporter.error(
         message = "A relationship-backed @Id target must be constructible from only its own @Id: ${source.diagnosticPath}",

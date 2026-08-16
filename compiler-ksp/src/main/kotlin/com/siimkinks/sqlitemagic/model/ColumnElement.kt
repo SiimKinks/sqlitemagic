@@ -122,4 +122,9 @@ data class ColumnElement(
       isAutoIncrement && !canAssignGeneratedId
     } == true
   }
+
+  fun bindingValueCanBeNull() = when {
+    relationship != null -> isModelPathNullable
+    else -> isSchemaNullable || serializedValueCanBeNull
+  }
 }

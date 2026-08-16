@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_NEW_INSTANCE_WITH_ONLY_ID
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_GENERATED_RELATIONSHIP_IDS
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.BIND_VALUES_MAP
+import com.siimkinks.sqlitemagic.WriterTypes.OPERATION_FAILED_EXCEPTION
 import com.siimkinks.sqlitemagic.WriterTypes.SUPPORT_SQLITE_STATEMENT
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERTIES
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
@@ -191,7 +192,7 @@ internal class ModelDaoWriter(
     columns
       .filterNot { column -> excludesIdentityColumn && column.isId }
       .forEach { column ->
-        val nullableValue = column.isSchemaNullable || column.serializedValueCanBeNull
+        val nullableValue = column.bindingValueCanBeNull()
         val value = serializedInsertAccessCode(
           table = table,
           column = column,
@@ -264,7 +265,7 @@ internal class ModelDaoWriter(
         usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
       )
       when {
-        column.isSchemaNullable || column.serializedValueCanBeNull -> {
+        column.bindingValueCanBeNull() ->
           addStatement("val %N = %L", valueName, value)
             .beginControlFlow("if (%N == null)", valueName)
             .addStatement("statement.bindNull(%L)", parameterIndex)
@@ -277,7 +278,6 @@ internal class ModelDaoWriter(
               )
             )
             .endControlFlow()
-        }
         else -> addCode(
           bindCode(
             column = column,
@@ -309,12 +309,46 @@ internal class ModelDaoWriter(
     table: TableElement,
     column: ColumnElement,
     usesGeneratedRelationshipIds: Boolean
-  ) = when {
-    usesGeneratedRelationshipIds && column.needsGeneratedRelationshipId(environment) -> CodeBlock.of(
-      "generatedRelationshipIds[%S] ?: %L",
-      column.columnName,
-      table.serializedReadExpression(column)
+  ): CodeBlock {
+    val relationship = column.relationship ?: return table.serializedReadExpression(column)
+    val relationshipValue = table.readExpression(column)
+    val relationshipVariable = "relationship"
+    val relationshipReceiver = when {
+      column.isModelPathNullable -> CodeBlock.of("%N", relationshipVariable)
+      else -> relationshipValue
+    }
+    val serializedId = relationship.serializedDeclaredIdValue(
+      value = relationshipReceiver.appendPropertyPath(
+        path = relationship.referencedIdProperty,
+        nullableReceiver = false
+      ),
+      valueCanBeNull = relationship.referencedIdIsNullable
     )
-    else -> table.serializedReadExpression(column)
+    val resolvedId = when {
+      usesGeneratedRelationshipIds && column.needsGeneratedRelationshipId(environment) -> CodeBlock.of(
+        "generatedRelationshipIds[%S] ?: %L",
+        column.columnName,
+        serializedId
+      )
+      else -> serializedId
+    }
+    val requiredId = when {
+      relationship.referencedIdIsNullable -> CodeBlock.of(
+        "(%L ?: throw %T(%S))",
+        resolvedId,
+        OPERATION_FAILED_EXCEPTION,
+        "Relationship \"${column.columnName}\" resolved to a NULL ID"
+      )
+      else -> resolvedId
+    }
+    return when {
+      column.isModelPathNullable -> CodeBlock.of(
+        "%L?.let { %N -> %L }",
+        relationshipValue,
+        relationshipVariable,
+        requiredId
+      )
+      else -> requiredId
+    }
   }
 }

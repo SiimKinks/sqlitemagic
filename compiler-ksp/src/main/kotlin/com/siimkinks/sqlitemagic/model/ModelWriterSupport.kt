@@ -254,7 +254,7 @@ internal fun RelationshipElement.deserializedDeclaredIdValue(
     ?: databaseValue
 }
 
-private fun CodeBlock.appendPropertyPath(
+internal fun CodeBlock.appendPropertyPath(
   path: PropertyPath,
   nullableReceiver: Boolean
 ) = toBuilder()
