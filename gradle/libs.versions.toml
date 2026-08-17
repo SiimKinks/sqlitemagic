@@ -30,7 +30,7 @@ ksp = "2.3.11"
 ksp-compile-testing = "0.13.0"
 lombok = "1.14.8"
 lombok-new = "1.18.46"
-mockito = "5.12.0"
+mockito = "5.23.0"
 mockito-kotlin = "6.3.0"
 project = "2.0.0-SNAPSHOT"
 rx-java2 = "2.2.21"
@@ -93,6 +93,7 @@ sqlitemagic-kotlin = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-
 sqlitemagic-ksp = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-ksp", version.ref = "sqlitemagic" }
 sqlitemagic-processor-magic = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-magic", version = "0.25.1" }
 sqlitemagic-runtime = { module = "com.siimkinks.sqlitemagic:sqlitemagic", version.ref = "sqlitemagic" }
+sqlitemagic-runtime-kotlin = { module = "com.siimkinks.sqlitemagic:sqlitemagic-kotlin", version.ref = "sqlitemagic" }
 support-time = { module = "com.jakewharton.threetenabp:threetenabp", version.ref = "support-time" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 zt-zip = { module = "org.zeroturnaround:zt-zip", version.ref = "zt-zip" }

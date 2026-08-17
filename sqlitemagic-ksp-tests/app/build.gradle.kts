@@ -5,6 +5,7 @@ plugins {
 }
 
 val javaVersion = JavaVersion.toVersion(libs.versions.java.version.get())
+val mockitoAgent = configurations.create("mockitoAgent")
 
 android {
   namespace = "com.siimkinks.sqlitemagic"
@@ -44,6 +45,20 @@ dependencies {
   testImplementation(libs.mockito.kotlin)
   testRuntimeOnly(libs.junit.platform.launcher)
 
+  mockitoAgent(libs.mockito) {
+    isTransitive = false
+  }
+
   androidTestImplementation(libs.android.test.runner)
   androidTestImplementation(libs.junit.runner)
+}
+
+tasks.withType<Test>().configureEach {
+  jvmArgumentProviders.add(MockitoAgentArgumentProvider(mockitoAgent))
+}
+
+private class MockitoAgentArgumentProvider(
+  @get:Classpath val classpath: FileCollection
+) : CommandLineArgumentProvider {
+  override fun asArguments() = listOf("-javaagent:${classpath.singleFile.absolutePath}")
 }

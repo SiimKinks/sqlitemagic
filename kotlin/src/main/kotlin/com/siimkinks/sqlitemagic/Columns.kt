@@ -32,8 +32,8 @@ inline infix fun CharSequence.with(that: CharSequence) = With(this, that)
 
 /** @see Column.replace */
 @CheckResult
-inline fun <N> Column<String, String, CharSequence, *, N>.replace(with: With) =
-    this.replace(with.first, with.second)
+inline fun <R : CharSequence?, N> Column<String, R, CharSequence, *, N>.replace(with: With) =
+  this.replace(with.first, with.second)
 
 /** @see Column.is */
 @CheckResult
