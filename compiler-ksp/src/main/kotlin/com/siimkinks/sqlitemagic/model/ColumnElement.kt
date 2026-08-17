@@ -2,10 +2,14 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
+import com.siimkinks.sqlitemagic.SqlStorageType
+import com.siimkinks.sqlitemagic.WriterTypes.CHAR_SEQUENCE
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
+import com.squareup.kotlinpoet.NUMBER
+import com.squareup.kotlinpoet.TypeName
 
 enum class AutoIncrementMode {
   AUTOMATIC,
@@ -110,6 +114,15 @@ data class ColumnElement(
               isUnique ||
               isId
         } == true
+
+  fun equivalentType(declaredType: TypeName) = when {
+    sqlStorageType.isNumeric -> NUMBER
+    sqlStorageType == SqlStorageType.STRING &&
+        transformer == null &&
+        (relationship == null ||
+            (relationship.referencedIdTransformer == null && relationship.referencedIdRelationship == null)) -> CHAR_SEQUENCE
+    else -> declaredType
+  }
 
   fun needsGeneratedRelationshipId(environment: Environment): Boolean {
     if (!isHandledRecursively) {

@@ -10,10 +10,8 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_P
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
-import com.siimkinks.sqlitemagic.SqlStorageType.STRING as SQL_STRING
 import com.siimkinks.sqlitemagic.WriterTypes.ARRAY_LIST
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.CHAR_SEQUENCE
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_NUMERIC_COLUMN
@@ -43,7 +41,6 @@ import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PRIVATE
 import com.squareup.kotlinpoet.KModifier.PROTECTED
-import com.squareup.kotlinpoet.NUMBER
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
@@ -173,11 +170,7 @@ internal class ModelTableWriter(
     val returnType = valueType.copy(
       nullable = column.isSchemaNullable
     )
-    val equivalentType = when {
-      column.sqlStorageType.isNumeric -> NUMBER
-      column.sqlStorageType == SQL_STRING && column.transformer == null && column.relationship == null -> CHAR_SEQUENCE
-      else -> valueType
-    }
+    val equivalentType = column.equivalentType(declaredType = valueType)
     return columnClass(column).parameterizedBy(
       valueType,
       returnType,

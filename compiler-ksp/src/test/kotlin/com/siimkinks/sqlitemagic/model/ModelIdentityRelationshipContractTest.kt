@@ -160,7 +160,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("SqliteMagic_UniqueRelationshipOwner_TargetColumn.kt") { generatedSource ->
         generatedSource.assertContains(
-          "ComplexColumn<String, String",
+          "ComplexColumn<String, String, CharSequence",
           "Unique<N>"
         )
       }
@@ -170,6 +170,41 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "override fun identity(",
           "override fun updateStatementSql(",
           "UniqueRelationshipOwnerTable.UNIQUE_RELATIONSHIP_OWNER.TARGET"
+        )
+      }
+  }
+
+  @Test
+  fun `uses CharSequence equivalent type for a recursive plain text relationship`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "RecursivePlainTextRelationship.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class RecursivePlainTextTarget(
+              @Id val id: String
+            )
+
+            @Table
+            data class RecursivePlainTextOwner(
+              @Id val id: String,
+              @Column(handleRecursively = true)
+              val target: RecursivePlainTextTarget
+            )
+          """
+        )
+      )
+      .isOk()
+      .withGeneratedSource("RecursivePlainTextOwnerTable.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "ComplexColumn<String, String, CharSequence"
         )
       }
   }

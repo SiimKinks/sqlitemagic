@@ -24,6 +24,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.VALUE_PARSER
 import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.deserializedDeclaredIdValue
+import com.siimkinks.sqlitemagic.model.equivalentType
 import com.siimkinks.sqlitemagic.model.serializedDeclaredIdValue
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.squareup.kotlinpoet.BOOLEAN
@@ -33,7 +34,6 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
-import com.squareup.kotlinpoet.NUMBER
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
@@ -283,10 +283,7 @@ internal class ColumnClassWriter private constructor(
         },
         deserializedType = idType,
         returnType = idType,
-        equivalentType = when {
-          column.sqlStorageType.isNumeric -> NUMBER
-          else -> idType
-        },
+        equivalentType = column.equivalentType(declaredType = idType),
         serializedType = serializedType,
         serializedValue = relationship.serializedDeclaredIdValue(
           CodeBlock.of("%N", VARIABLE_VALUE)

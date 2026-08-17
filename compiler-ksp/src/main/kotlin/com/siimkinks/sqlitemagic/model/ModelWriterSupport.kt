@@ -226,8 +226,8 @@ internal fun RelationshipElement.deserializedDeclaredIdValue(
   databaseValueIsNonNull: Boolean = false
 ): CodeBlock {
   if (databaseValueCanBeNull &&
-      referencedIdType.typeName.isNullable &&
-      (referencedIdTransformer != null || referencedIdRelationship != null)
+    referencedIdType.typeName.isNullable &&
+    (referencedIdTransformer != null || referencedIdRelationship != null)
   ) {
     val nullableLet = when {
       databaseValueIsNonNull -> ".let"
