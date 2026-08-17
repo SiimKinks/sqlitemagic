@@ -93,7 +93,6 @@ sqlitemagic-kotlin = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-
 sqlitemagic-ksp = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-ksp", version.ref = "sqlitemagic" }
 sqlitemagic-processor-magic = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-magic", version = "0.25.1" }
 sqlitemagic-runtime = { module = "com.siimkinks.sqlitemagic:sqlitemagic", version.ref = "sqlitemagic" }
-sqlitemagic-runtime-kotlin = { module = "com.siimkinks.sqlitemagic:sqlitemagic-kotlin", version.ref = "sqlitemagic" }
 support-time = { module = "com.jakewharton.threetenabp:threetenabp", version.ref = "support-time" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 zt-zip = { module = "org.zeroturnaround:zt-zip", version.ref = "zt-zip" }

@@ -1,3 +1,5 @@
+import com.android.build.api.variant.BuildConfigField
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.ksp)
@@ -29,9 +31,31 @@ android {
       }
     }
   }
+  buildFeatures {
+    buildConfig = true
+  }
   compileOptions {
     sourceCompatibility = javaVersion
     targetCompatibility = javaVersion
+  }
+}
+
+androidComponents {
+  onVariants { variant ->
+    variant.buildConfigFields?.putAll(
+      mapOf(
+        "DB_VERSION" to BuildConfigField(
+          type = "int",
+          value = if (variant.buildType == "release") "2" else "3",
+          comment = null
+        ),
+        "DB_NAME" to BuildConfigField(
+          type = "String",
+          value = """"db.db"""",
+          comment = null
+        )
+      )
+    )
   }
 }
 

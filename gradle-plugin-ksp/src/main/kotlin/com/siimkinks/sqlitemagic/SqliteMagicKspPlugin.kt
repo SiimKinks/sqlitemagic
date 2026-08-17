@@ -55,7 +55,6 @@ private fun Project.configureDependencies(sqlitemagic: SqliteMagicKspPluginExten
     with(dependencies) {
       add("compileOnly", "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$PLUGIN_VERSION")
       add("implementation", "com.siimkinks.sqlitemagic:sqlitemagic:$PLUGIN_VERSION")
-      add("implementation", "com.siimkinks.sqlitemagic:sqlitemagic-kotlin:$PLUGIN_VERSION")
       add("ksp", "com.siimkinks.sqlitemagic:sqlitemagic-compiler-ksp:$PLUGIN_VERSION")
     }
   }
