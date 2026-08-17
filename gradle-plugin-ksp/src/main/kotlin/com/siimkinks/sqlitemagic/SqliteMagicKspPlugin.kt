@@ -5,7 +5,7 @@ import com.android.build.api.variant.ComponentIdentity
 import com.android.build.api.variant.Variant
 import com.google.devtools.ksp.gradle.KspAATask
 import com.google.devtools.ksp.gradle.KspExtension
-import com.siimkinks.sqlitemagic.structure.MigrationsHandler
+import com.siimkinks.sqlitemagic.manager.ReleaseMigrationCoordinator
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import java.io.File
@@ -100,9 +100,9 @@ private fun Variant.addMigrateDbTask(project: Project) {
         "Database metadata directory must exist in order to create migrations. Build project and try again…"
       }
 
-      MigrationsHandler.handleReleaseMigrations(
+      ReleaseMigrationCoordinator.migrate(
         projectDir = projectDir,
-        dbDir = dbDir,
+        databaseDirectory = dbDir,
         variantName = buildTypeName
       )
     }

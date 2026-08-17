@@ -45,7 +45,7 @@ dependencies {
   compileOnly libs.android.gradle
   compileOnly libs.ksp.gradle.plugin
 
-  implementation project(':compiler-core')
+  implementation project(':compiler-ksp')
 }
 
 gradlePlugin {
