@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
+import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.Utils.BYTE_PARSER
 import com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER
 import com.siimkinks.sqlitemagic.Utils.FLOAT_PARSER
@@ -74,8 +74,8 @@ fun Expr.isEqualTo(
   expectedExpr: String,
   vararg args: String
 ) {
-  (SELECT FROM AUTHOR WHERE this)
-    .isEqualTo("SELECT * FROM author WHERE $expectedExpr ", *args)
+  (SELECT FROM SIMPLE_MUTABLE_ENTITY WHERE this)
+    .isEqualTo("SELECT * FROM simple_mutable_entity WHERE $expectedExpr ", *args)
 }
 
 fun generateSql(sqlNode: SelectSqlNode<*>): String {

@@ -13,6 +13,7 @@ import io.reactivex.schedulers.Schedulers
 class TestApp : Application() {
   override fun onCreate() {
     super.onCreate()
+    deleteDatabase(SqliteMagicDatabase().dbName)
     initDb(this)
   }
 

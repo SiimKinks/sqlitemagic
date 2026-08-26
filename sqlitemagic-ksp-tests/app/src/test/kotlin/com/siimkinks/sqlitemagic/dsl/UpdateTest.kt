@@ -4,7 +4,7 @@ import android.database.sqlite.SQLiteDatabase.CONFLICT_FAIL
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_ROLLBACK
 import com.siimkinks.sqlitemagic.AND
-import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
+import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.COLUMN
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
 import com.siimkinks.sqlitemagic.DSLTests
@@ -13,7 +13,7 @@ import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.IS_NOT
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable.Companion.IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
-import com.siimkinks.sqlitemagic.MagazineTable.Companion.MAGAZINE
+import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.OR
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SET
@@ -30,9 +30,9 @@ class UpdateTest : DSLTests {
   fun setRawValue() {
     (UPDATE
         TABLE "book"
-        SET ("nr_of_releases" to "1"))
+        SET ("count" to "1"))
       .isEqualTo(
-        sql = "UPDATE book SET nr_of_releases=? ",
+        sql = "UPDATE book SET count=? ",
         nodeCount = 3,
         args = arrayOf("1")
       )
@@ -41,10 +41,10 @@ class UpdateTest : DSLTests {
   @Test
   fun setValue() {
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.NR_OF_RELEASES to 1))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.COUNT to 1))
       .isEqualTo(
-        sql = "UPDATE magazine SET nr_of_releases=? ",
+        sql = "UPDATE entity_with_relationship SET count=? ",
         nodeCount = 3,
         args = arrayOf("1")
       )
@@ -53,10 +53,10 @@ class UpdateTest : DSLTests {
   @Test
   fun setNullableValue() {
     (UPDATE
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd"))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd"))
       .isEqualTo(
-        sql = "UPDATE author SET name=? ",
+        sql = "UPDATE simple_mutable_entity SET value=? ",
         nodeCount = 3,
         args = arrayOf("asd")
       )
@@ -65,10 +65,10 @@ class UpdateTest : DSLTests {
   @Test
   fun setNullValue() {
     (UPDATE
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to null))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to null))
       .isEqualTo(
-        sql = "UPDATE author SET name=? ",
+        sql = "UPDATE simple_mutable_entity SET value=? ",
         nodeCount = 3,
         args = arrayOf(null)
       )
@@ -77,10 +77,10 @@ class UpdateTest : DSLTests {
   @Test
   fun setPrimitiveBoolean() {
     (UPDATE
-        TABLE AUTHOR
-        SET (AUTHOR.PRIMITIVE_BOOLEAN to true))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN to true))
       .isEqualTo(
-        sql = "UPDATE author SET primitive_boolean=? ",
+        sql = "UPDATE simple_mutable_entity SET primitive_boolean=? ",
         nodeCount = 3,
         args = arrayOf("1")
       )
@@ -89,10 +89,10 @@ class UpdateTest : DSLTests {
   @Test
   fun setBoxedBoolean() {
     (UPDATE
-        TABLE AUTHOR
-        SET (AUTHOR.BOXED_BOOLEAN to true))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN to true))
       .isEqualTo(
-        sql = "UPDATE author SET boxed_boolean=? ",
+        sql = "UPDATE simple_mutable_entity SET boxed_boolean=? ",
         nodeCount = 3,
         args = arrayOf("1")
       )
@@ -102,10 +102,10 @@ class UpdateTest : DSLTests {
   fun rawWithDefaultConflictAlgorithm() {
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_IGNORE
-        TABLE "author"
-        SET ("name" to "asd"))
+        TABLE "simple_mutable_entity"
+        SET ("value" to "asd"))
       .isEqualTo(
-        sql = "UPDATE  OR IGNORE author SET name=? ",
+        sql = "UPDATE  OR IGNORE simple_mutable_entity SET value=? ",
         nodeCount = 4,
         args = arrayOf("asd")
       )
@@ -115,10 +115,10 @@ class UpdateTest : DSLTests {
   fun withDefaultConflictAlgorithm() {
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_IGNORE
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd"))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd"))
       .isEqualTo(
-        sql = "UPDATE  OR IGNORE author SET name=? ",
+        sql = "UPDATE  OR IGNORE simple_mutable_entity SET value=? ",
         nodeCount = 4,
         args = arrayOf("asd")
       )
@@ -128,10 +128,10 @@ class UpdateTest : DSLTests {
   fun withCustomConflictAlgorithm() {
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_FAIL
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd"))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd"))
       .isEqualTo(
-        sql = "UPDATE  OR FAIL author SET name=? ",
+        sql = "UPDATE  OR FAIL simple_mutable_entity SET value=? ",
         nodeCount = 4,
         args = arrayOf("asd")
       )
@@ -221,24 +221,24 @@ class UpdateTest : DSLTests {
   fun setRawChainedValuesWithConflictAlgorithm() {
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_ROLLBACK
-        TABLE "author"
-        SET ("name" to "asd")
+        TABLE "simple_mutable_entity"
+        SET ("value" to "asd")
         SET ("boxed_boolean" to "1")
         SET ("id" to "2")
         SET ("primitive_boolean" to "0"))
       .isEqualTo(
-        sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
+        sql = "UPDATE  OR ROLLBACK simple_mutable_entity SET value=?,boxed_boolean=?,id=?,primitive_boolean=? ",
         nodeCount = 4,
         args = arrayOf("asd", "1", "2", "0")
       )
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_ROLLBACK
-        TABLE "author"
-        SET ("name" to "asd")
+        TABLE "simple_mutable_entity"
+        SET ("value" to "asd")
         SET ("boxed_boolean" to "1"))
       .isEqualTo(
-        sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ",
+        sql = "UPDATE  OR ROLLBACK simple_mutable_entity SET value=?,boxed_boolean=? ",
         nodeCount = 4,
         args = arrayOf("asd", "1")
       )
@@ -248,24 +248,24 @@ class UpdateTest : DSLTests {
   fun setChainedValuesWithConflictAlgorithm() {
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_ROLLBACK
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
-        SET (AUTHOR.BOXED_BOOLEAN to true)
-        SET (AUTHOR.ID to 2L)
-        SET (AUTHOR.PRIMITIVE_BOOLEAN to false))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
+        SET (SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN to true)
+        SET (SIMPLE_MUTABLE_ENTITY.ID to 2L)
+        SET (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN to false))
       .isEqualTo(
-        sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=?,id=?,primitive_boolean=? ",
+        sql = "UPDATE  OR ROLLBACK simple_mutable_entity SET value=?,boxed_boolean=?,id=?,primitive_boolean=? ",
         nodeCount = 4,
         args = arrayOf("asd", "1", "2", "0")
       )
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_ROLLBACK
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
-        SET (AUTHOR.BOXED_BOOLEAN to true))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
+        SET (SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN to true))
       .isEqualTo(
-        sql = "UPDATE  OR ROLLBACK author SET name=?,boxed_boolean=? ",
+        sql = "UPDATE  OR ROLLBACK simple_mutable_entity SET value=?,boxed_boolean=? ",
         nodeCount = 4,
         args = arrayOf("asd", "1")
       )
@@ -274,11 +274,11 @@ class UpdateTest : DSLTests {
   @Test
   fun rawUpdateWithWhereClause() {
     (UPDATE
-        TABLE "author"
-        SET ("name" to "asd")
-        WHERE ("author.id=?" to arrayOf("2")))
+        TABLE "simple_mutable_entity"
+        SET ("value" to "asd")
+        WHERE ("simple_mutable_entity.id=?" to arrayOf("2")))
       .isEqualTo(
-        sql = "UPDATE author SET name=? WHERE author.id=? ",
+        sql = "UPDATE simple_mutable_entity SET value=? WHERE simple_mutable_entity.id=? ",
         nodeCount = 4,
         args = arrayOf("asd", "2")
       )
@@ -287,77 +287,85 @@ class UpdateTest : DSLTests {
   @Test
   fun updateWhereBuilder() {
     (UPDATE
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
-        WHERE (AUTHOR.ID IS 2))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
+        WHERE (SIMPLE_MUTABLE_ENTITY.ID IS 2))
       .isEqualTo(
-        sql = "UPDATE author SET name=? WHERE author.id=? ",
+        sql = "UPDATE simple_mutable_entity SET value=? WHERE simple_mutable_entity.id=? ",
         nodeCount = 4,
         args = arrayOf("asd", "2")
       )
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_IGNORE
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
-        SET (AUTHOR.BOXED_BOOLEAN to false)
-        WHERE ((AUTHOR.ID IS 2) AND (AUTHOR.NAME IS_NOT "asd")))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
+        SET (SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN to false)
+        WHERE ((SIMPLE_MUTABLE_ENTITY.ID IS 2) AND (SIMPLE_MUTABLE_ENTITY.VALUE IS_NOT "asd")))
       .isEqualTo(
-        sql = "UPDATE  OR IGNORE author SET name=?,boxed_boolean=? WHERE (author.id=? AND author.name!=?) ",
+        sql = "UPDATE  OR IGNORE simple_mutable_entity SET value=?,boxed_boolean=? WHERE " +
+            "(simple_mutable_entity.id=? AND simple_mutable_entity.value!=?) ",
         nodeCount = 5,
         args = arrayOf("asd", "0", "2", "asd")
       )
 
     (UPDATE
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
-        SET (AUTHOR.BOXED_BOOLEAN to false)
-        WHERE ((AUTHOR.ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
+        SET (SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN to false)
+        WHERE ((SIMPLE_MUTABLE_ENTITY.ID IS 2) OR (SIMPLE_MUTABLE_ENTITY.VALUE IS_NOT "asd")))
       .isEqualTo(
-        sql = "UPDATE author SET name=?,boxed_boolean=? WHERE (author.id=? OR author.name!=?) ",
+        sql = "UPDATE simple_mutable_entity SET value=?,boxed_boolean=? WHERE " +
+            "(simple_mutable_entity.id=? OR simple_mutable_entity.value!=?) ",
         nodeCount = 4,
         args = arrayOf("asd", "0", "2", "asd")
       )
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_FAIL
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
-        WHERE ((AUTHOR.ID IS 2) OR (AUTHOR.NAME IS_NOT "asd")))
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
+        WHERE ((SIMPLE_MUTABLE_ENTITY.ID IS 2) OR (SIMPLE_MUTABLE_ENTITY.VALUE IS_NOT "asd")))
       .isEqualTo(
-        sql = "UPDATE  OR FAIL author SET name=? WHERE (author.id=? OR author.name!=?) ",
+        sql = "UPDATE  OR FAIL simple_mutable_entity SET value=? WHERE " +
+            "(simple_mutable_entity.id=? OR simple_mutable_entity.value!=?) ",
         nodeCount = 5,
         args = arrayOf("asd", "2", "asd")
       )
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_FAIL
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
         WHERE (
-        (((AUTHOR.ID IS 2)
-            AND AUTHOR.NAME.isNotNull)
-            AND (AUTHOR.NAME IS_NOT "asd"))
-            AND (AUTHOR.PRIMITIVE_BOOLEAN IS false)
+        (((SIMPLE_MUTABLE_ENTITY.ID IS 2)
+            AND SIMPLE_MUTABLE_ENTITY.VALUE.isNotNull)
+            AND (SIMPLE_MUTABLE_ENTITY.VALUE IS_NOT "asd"))
+            AND (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS false)
         ))
       .isEqualTo(
-        sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) AND author.name!=?) AND author.primitive_boolean=?) ",
+        sql = "UPDATE  OR FAIL simple_mutable_entity SET value=? WHERE " +
+            "(((simple_mutable_entity.id=? AND simple_mutable_entity.value IS NOT NULL) " +
+            "AND simple_mutable_entity.value!=?) AND simple_mutable_entity.primitive_boolean=?) ",
         nodeCount = 5,
         args = arrayOf("asd", "2", "asd", "0")
       )
 
     (UPDATE
         WITH_CONFLICT_ALGORITHM CONFLICT_FAIL
-        TABLE AUTHOR
-        SET (AUTHOR.NAME to "asd")
+        TABLE SIMPLE_MUTABLE_ENTITY
+        SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
         WHERE (
-        ((((AUTHOR.ID IS 2)
-            AND AUTHOR.NAME.isNotNull)
-            OR (AUTHOR.NAME IS_NOT "asd"))
-            OR ((AUTHOR.PRIMITIVE_BOOLEAN IS false) AND AUTHOR.BOXED_BOOLEAN.isNotNull))
+        ((((SIMPLE_MUTABLE_ENTITY.ID IS 2)
+            AND SIMPLE_MUTABLE_ENTITY.VALUE.isNotNull)
+            OR (SIMPLE_MUTABLE_ENTITY.VALUE IS_NOT "asd"))
+            OR ((SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS false) AND SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN.isNotNull))
         ))
       .isEqualTo(
-        sql = "UPDATE  OR FAIL author SET name=? WHERE (((author.id=? AND author.name IS NOT NULL) OR author.name!=?) OR (author.primitive_boolean=? AND author.boxed_boolean IS NOT NULL)) ",
+        sql = "UPDATE  OR FAIL simple_mutable_entity SET value=? WHERE " +
+            "(((simple_mutable_entity.id=? AND simple_mutable_entity.value IS NOT NULL) " +
+            "OR simple_mutable_entity.value!=?) OR " +
+            "(simple_mutable_entity.primitive_boolean=? AND simple_mutable_entity.boxed_boolean IS NOT NULL)) ",
         nodeCount = 5,
         args = arrayOf("asd", "2", "asd", "0")
       )
@@ -369,10 +377,10 @@ class UpdateTest : DSLTests {
     val idStr = id.toString()
     (UPDATE
         TABLE COMPLEX_OBJECT_WITH_SAME_LEAFS
-        SET (COMPLEX_OBJECT_WITH_SAME_LEAFS.MAGAZINE to id)
-        SET (COMPLEX_OBJECT_WITH_SAME_LEAFS.MAGAZINE to id))
+        SET (COMPLEX_OBJECT_WITH_SAME_LEAFS.ENTITY_WITH_RELATIONSHIP to id)
+        SET (COMPLEX_OBJECT_WITH_SAME_LEAFS.ENTITY_WITH_RELATIONSHIP to id))
       .isEqualTo(
-        sql = "UPDATE complex_object_with_same_leafs SET magazine=?,magazine=? ",
+        sql = "UPDATE complex_object_with_same_leafs SET entity_with_relationship=?,entity_with_relationship=? ",
         nodeCount = 3,
         args = arrayOf(idStr, idStr)
       )
@@ -384,11 +392,11 @@ class UpdateTest : DSLTests {
     val idStr = id.toString()
 
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.AUTHOR to id)
-        SET (MAGAZINE.AUTHOR to id))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to id)
+        SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to id))
       .isEqualTo(
-        sql = "UPDATE magazine SET author=?,author=? ",
+        sql = "UPDATE entity_with_relationship SET related_entity=?,related_entity=? ",
         nodeCount = 3,
         args = arrayOf(idStr, idStr)
       )
@@ -397,11 +405,11 @@ class UpdateTest : DSLTests {
   @Test
   fun setNullComplexColumn() {
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.AUTHOR to null)
-        SET (MAGAZINE.AUTHOR to null))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to null)
+        SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to null))
       .isEqualTo(
-        sql = "UPDATE magazine SET author=?,author=? ",
+        sql = "UPDATE entity_with_relationship SET related_entity=?,related_entity=? ",
         nodeCount = 3,
         args = arrayOf(null, null)
       )
@@ -422,9 +430,9 @@ class UpdateTest : DSLTests {
   fun setNotNullableColumnWithNullableColumn() {
     (UPDATE
         TABLE IMMUTABLE_VALUE_WITH_FIELDS
-        SET (IMMUTABLE_VALUE_WITH_FIELDS.INTEGER to MAGAZINE.ID.toNotNullable()))
+        SET (IMMUTABLE_VALUE_WITH_FIELDS.INTEGER to ENTITY_WITH_RELATIONSHIP.ID.toNotNullable()))
       .isEqualTo(
-        sql = "UPDATE immutable_value_with_fields SET integer=magazine.id ",
+        sql = "UPDATE immutable_value_with_fields SET integer=entity_with_relationship.id ",
         nodeCount = 3
       )
 
@@ -441,9 +449,9 @@ class UpdateTest : DSLTests {
   fun setNullableColumnWithNullableColumn() {
     (UPDATE
         TABLE IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
-        SET (IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.INTEGER to MAGAZINE.NR_OF_RELEASES + 6))
+        SET (IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.INTEGER to ENTITY_WITH_RELATIONSHIP.COUNT + 6))
       .isEqualTo(
-        sql = "UPDATE immutable_value_with_nullable_fields SET integer=(magazine.nr_of_releases+6) ",
+        sql = "UPDATE immutable_value_with_nullable_fields SET integer=(entity_with_relationship.count+6) ",
         nodeCount = 3
       )
   }
@@ -470,10 +478,10 @@ class UpdateTest : DSLTests {
   @Test
   fun setComplexColumnToComplexColumn() {
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.AUTHOR to MAGAZINE.AUTHOR))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY))
       .isEqualTo(
-        sql = "UPDATE magazine SET author=magazine.author ",
+        sql = "UPDATE entity_with_relationship SET related_entity=entity_with_relationship.related_entity ",
         nodeCount = 3
       )
   }
@@ -481,10 +489,10 @@ class UpdateTest : DSLTests {
   @Test
   fun setColumnToComplexColumnId() {
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.AUTHOR to MAGAZINE.ID))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to ENTITY_WITH_RELATIONSHIP.ID))
       .isEqualTo(
-        sql = "UPDATE magazine SET author=magazine.id ",
+        sql = "UPDATE entity_with_relationship SET related_entity=entity_with_relationship.id ",
         nodeCount = 3
       )
   }
@@ -492,28 +500,36 @@ class UpdateTest : DSLTests {
   @Test
   fun updateWithSelect() {
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.NR_OF_RELEASES to (SELECT COLUMN MAGAZINE.NR_OF_RELEASES FROM MAGAZINE)))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.COUNT to (
+          SELECT COLUMN ENTITY_WITH_RELATIONSHIP.COUNT FROM ENTITY_WITH_RELATIONSHIP
+        )))
       .isEqualTo(
-        sql = "UPDATE magazine SET nr_of_releases=(SELECT magazine.nr_of_releases FROM magazine ) ",
+        sql = "UPDATE entity_with_relationship SET count=(SELECT " +
+            "entity_with_relationship.count FROM entity_with_relationship ) ",
         nodeCount = 3
       )
 
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.AUTHOR to (SELECT COLUMN MAGAZINE.AUTHOR FROM MAGAZINE)))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to (
+          SELECT COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY FROM ENTITY_WITH_RELATIONSHIP
+        )))
       .isEqualTo(
-        sql = "UPDATE magazine SET author=(SELECT magazine.author FROM magazine ) ",
+        sql = "UPDATE entity_with_relationship SET related_entity=(SELECT " +
+            "entity_with_relationship.related_entity FROM entity_with_relationship ) ",
         nodeCount = 3
       )
 
     (UPDATE
-        TABLE MAGAZINE
-        SET (MAGAZINE.NR_OF_RELEASES to (SELECT COLUMN MAGAZINE.NR_OF_RELEASES FROM COMPLEX_OBJECT_WITH_SAME_LEAFS)))
+        TABLE ENTITY_WITH_RELATIONSHIP
+        SET (ENTITY_WITH_RELATIONSHIP.COUNT to (
+          SELECT COLUMN ENTITY_WITH_RELATIONSHIP.COUNT FROM COMPLEX_OBJECT_WITH_SAME_LEAFS
+        )))
       .isEqualTo(
-        sql = "UPDATE magazine SET nr_of_releases=(SELECT magazine.nr_of_releases FROM " +
-            "complex_object_with_same_leafs LEFT JOIN magazine ON " +
-            "complex_object_with_same_leafs.magazine=magazine.id ) ",
+        sql = "UPDATE entity_with_relationship SET count=(SELECT entity_with_relationship.count FROM " +
+            "complex_object_with_same_leafs LEFT JOIN entity_with_relationship ON " +
+            "complex_object_with_same_leafs.entity_with_relationship=entity_with_relationship.id ) ",
         nodeCount = 3
       )
   }

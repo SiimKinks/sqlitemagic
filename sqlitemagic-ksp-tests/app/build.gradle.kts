@@ -75,6 +75,7 @@ dependencies {
 
   androidTestImplementation(libs.android.test.runner)
   androidTestImplementation(libs.junit.runner)
+  androidTestImplementation(libs.truth)
 }
 
 tasks.withType<Test>().configureEach {

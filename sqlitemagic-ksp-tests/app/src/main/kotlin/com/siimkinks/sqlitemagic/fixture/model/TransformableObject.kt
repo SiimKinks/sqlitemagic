@@ -1,9 +1,9 @@
-package com.siimkinks.sqlitemagic.model
+package com.siimkinks.sqlitemagic.fixture.model
 
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
-class TransformableObject(val value: Int)
+data class TransformableObject(val value: Int)
 
 @ObjectToDbValue
 fun objectToDbValue(javaObject: TransformableObject): Int =

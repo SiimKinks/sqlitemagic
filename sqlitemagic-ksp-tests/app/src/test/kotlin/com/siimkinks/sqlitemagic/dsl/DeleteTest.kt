@@ -9,7 +9,7 @@ import com.siimkinks.sqlitemagic.GREATER_THAN
 import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.IS_NOT
 import com.siimkinks.sqlitemagic.LESS_THAN
-import com.siimkinks.sqlitemagic.MagazineTable.Companion.MAGAZINE
+import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.OR
 import com.siimkinks.sqlitemagic.WHERE
 import com.siimkinks.sqlitemagic.isEqualTo
@@ -18,73 +18,80 @@ import org.junit.jupiter.api.Test
 class DeleteTest : DSLTests {
   @Test
   fun deleteFromBuilder() {
-    (DELETE FROM MAGAZINE)
-      .isEqualTo("DELETE FROM magazine ")
+    (DELETE FROM ENTITY_WITH_RELATIONSHIP)
+      .isEqualTo("DELETE FROM entity_with_relationship ")
   }
 
   @Test
   fun deleteFromBuilderWithAlias() {
-    (DELETE FROM (MAGAZINE AS "foo"))
-      .isEqualTo("DELETE FROM magazine ")
+    (DELETE FROM (ENTITY_WITH_RELATIONSHIP AS "foo"))
+      .isEqualTo("DELETE FROM entity_with_relationship ")
   }
 
   @Test
   fun deleteRawFromBuilder() {
-    (DELETE FROM "magazine")
-      .isEqualTo("DELETE FROM magazine ")
+    (DELETE FROM "entity_with_relationship")
+      .isEqualTo("DELETE FROM entity_with_relationship ")
   }
 
   @Test
   fun deleteWhereBuilder() {
     (DELETE
-        FROM MAGAZINE
-        WHERE (MAGAZINE.NAME IS "asd"))
+        FROM ENTITY_WITH_RELATIONSHIP
+        WHERE (ENTITY_WITH_RELATIONSHIP.VALUE IS "asd"))
       .isEqualTo(
-        expectedSql = "DELETE FROM magazine WHERE magazine.name=? ",
+        expectedSql = "DELETE FROM entity_with_relationship WHERE entity_with_relationship.value=? ",
         withArgs = arrayOf("asd")
       )
 
     (DELETE
-        FROM MAGAZINE
+        FROM ENTITY_WITH_RELATIONSHIP
         WHERE (
-        ((MAGAZINE.NAME IS "asd") AND MAGAZINE.NAME.isNotNull)
-            OR (MAGAZINE.NR_OF_RELEASES GREATER_THAN 2)))
+        ((ENTITY_WITH_RELATIONSHIP.VALUE IS "asd") AND ENTITY_WITH_RELATIONSHIP.VALUE.isNotNull)
+            OR (ENTITY_WITH_RELATIONSHIP.COUNT GREATER_THAN 2)))
       .isEqualTo(
         "DELETE " +
-            "FROM magazine " +
+            "FROM entity_with_relationship " +
             "WHERE (" +
-            "(magazine.name=? AND magazine.name IS NOT NULL) " +
-            "OR magazine.nr_of_releases>?) ",
+            "(entity_with_relationship.value=? AND entity_with_relationship.value IS NOT NULL) " +
+            "OR entity_with_relationship.count>?) ",
         "asd", "2"
       )
 
     (DELETE
-        FROM MAGAZINE
+        FROM ENTITY_WITH_RELATIONSHIP
         WHERE (
-        ((MAGAZINE.NAME IS "asd") AND MAGAZINE.NAME.isNotNull)
-            AND (MAGAZINE.NR_OF_RELEASES IS 2)))
+        ((ENTITY_WITH_RELATIONSHIP.VALUE IS "asd") AND ENTITY_WITH_RELATIONSHIP.VALUE.isNotNull)
+            AND (ENTITY_WITH_RELATIONSHIP.COUNT IS 2)))
       .isEqualTo(
         "DELETE " +
-            "FROM magazine " +
+            "FROM entity_with_relationship " +
             "WHERE (" +
-            "(magazine.name=? AND magazine.name IS NOT NULL) " +
-            "AND magazine.nr_of_releases=?) ",
+            "(entity_with_relationship.value=? AND entity_with_relationship.value IS NOT NULL) " +
+            "AND entity_with_relationship.count=?) ",
         "asd", "2"
       )
 
     (DELETE
-        FROM MAGAZINE
+        FROM ENTITY_WITH_RELATIONSHIP
         WHERE (
-        ((((MAGAZINE.NAME IS "asd") AND MAGAZINE.NAME.isNotNull)
-            AND (MAGAZINE.NR_OF_RELEASES IS 2))
-            AND (((MAGAZINE.ID IS 2) OR MAGAZINE.AUTHOR.isNotNull) OR (MAGAZINE.NR_OF_RELEASES LESS_THAN 55)))
-            OR (((MAGAZINE.ID GREATER_THAN 2) AND MAGAZINE.AUTHOR.isNull) AND (MAGAZINE.NR_OF_RELEASES IS_NOT 55))))
+        ((((ENTITY_WITH_RELATIONSHIP.VALUE IS "asd") AND ENTITY_WITH_RELATIONSHIP.VALUE.isNotNull)
+            AND (ENTITY_WITH_RELATIONSHIP.COUNT IS 2))
+            AND (((ENTITY_WITH_RELATIONSHIP.ID IS 2) OR
+            ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.isNotNull) OR
+            (ENTITY_WITH_RELATIONSHIP.COUNT LESS_THAN 55)))
+            OR (((ENTITY_WITH_RELATIONSHIP.ID GREATER_THAN 2) AND
+            ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.isNull) AND
+            (ENTITY_WITH_RELATIONSHIP.COUNT IS_NOT 55))))
       .isEqualTo(
         "DELETE " +
-            "FROM magazine " +
-            "WHERE ((((magazine.name=? AND magazine.name IS NOT NULL) AND magazine.nr_of_releases=?) " +
-            "AND ((magazine.id=? OR magazine.author IS NOT NULL) OR magazine.nr_of_releases<?)) " +
-            "OR ((magazine.id>? AND magazine.author IS NULL) AND magazine.nr_of_releases!=?)) ",
+            "FROM entity_with_relationship " +
+            "WHERE ((((entity_with_relationship.value=? AND " +
+            "entity_with_relationship.value IS NOT NULL) AND entity_with_relationship.count=?) " +
+            "AND ((entity_with_relationship.id=? OR " +
+            "entity_with_relationship.related_entity IS NOT NULL) OR entity_with_relationship.count<?)) " +
+            "OR ((entity_with_relationship.id>? AND " +
+            "entity_with_relationship.related_entity IS NULL) AND entity_with_relationship.count!=?)) ",
         "asd", "2", "2", "55", "2", "55"
       )
   }

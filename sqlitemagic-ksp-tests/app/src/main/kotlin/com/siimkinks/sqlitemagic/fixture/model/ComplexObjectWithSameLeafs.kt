@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.model
+package com.siimkinks.sqlitemagic.fixture.model
 
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Id
@@ -10,6 +10,6 @@ data class ComplexObjectWithSameLeafs(
   val name: String,
   @Column
   val simpleValue: ImmutableValueWithFields,
-  val magazine: Magazine,
+  val entityWithRelationship: EntityWithRelationship,
   val simpleValueDuplicate: ImmutableValueWithFields
 )

@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.model
+package com.siimkinks.sqlitemagic.fixture.model
 
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
