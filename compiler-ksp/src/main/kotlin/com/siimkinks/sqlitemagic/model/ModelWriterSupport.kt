@@ -156,12 +156,13 @@ internal fun TableElement.readExpression(
     .builder()
     .add("%N", root)
     .apply {
+      var nullableReceiver = false
       column.access.path.segments.forEachIndexed { index, segment ->
+        if (index - 1 in nullableSegments) {
+          nullableReceiver = true
+        }
         add(
-          when {
-            index - 1 in nullableSegments -> "?.%N"
-            else -> ".%N"
-          },
+          if (nullableReceiver) "?.%N" else ".%N",
           segment
         )
       }

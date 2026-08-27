@@ -24,7 +24,6 @@ import com.siimkinks.sqlitemagic.WriterTypes.VALUE_PARSER
 import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.deserializedDeclaredIdValue
-import com.siimkinks.sqlitemagic.model.equivalentType
 import com.siimkinks.sqlitemagic.model.serializedDeclaredIdValue
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.squareup.kotlinpoet.BOOLEAN

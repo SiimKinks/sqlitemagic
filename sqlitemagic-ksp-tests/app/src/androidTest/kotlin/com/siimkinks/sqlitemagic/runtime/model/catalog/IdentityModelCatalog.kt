@@ -1,22 +1,26 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
+import com.siimkinks.sqlitemagic.NoIdUniqueEntityTable
 import com.siimkinks.sqlitemagic.NoIdEntityTable
 import com.siimkinks.sqlitemagic.StringIdEntityTable
 import com.siimkinks.sqlitemagic.WithoutRowIdEntityTable
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.fixture.model.NoIdUniqueEntity
 import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.WithoutRowIdEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 
 internal object IdentityModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
     StringIdEntityCase,
     NoIdEntityCase,
-    WithoutRowIdEntityCase
+    NoIdUniqueEntityCase,
+    WithoutRowIdEntityCase,
   )
 
   private object StringIdEntityCase : InsertModelCase<StringIdEntity> {
@@ -63,6 +67,27 @@ internal object IdentityModelCatalog {
     override fun insert(value: WithoutRowIdEntity) = value.insert()
 
     override fun expectedAfterInsert(value: WithoutRowIdEntity, result: EntityInsertResult.Inserted) = value
+
+    override fun toString() = name
+  }
+
+  private object NoIdUniqueEntityCase : UniqueInsertModelCase<NoIdUniqueEntity> {
+    override val name = "NoIdUniqueEntity"
+    override val table = NoIdUniqueEntityTable.NO_ID_UNIQUE_ENTITY
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = NoIdUniqueEntity(
+      uniqueValue = "no-id-unique-$sequence",
+      value = "no-id-unique-value-$sequence"
+    )
+
+    override fun insert(value: NoIdUniqueEntity) = value.insert()
+
+    override fun expectedAfterInsert(value: NoIdUniqueEntity, result: EntityInsertResult.Inserted) = value
+
+    override fun conflictingValue(existing: NoIdUniqueEntity, sequence: Int) = existing.copy(
+      value = "no-id-unique-conflicting-value-$sequence"
+    )
 
     override fun toString() = name
   }

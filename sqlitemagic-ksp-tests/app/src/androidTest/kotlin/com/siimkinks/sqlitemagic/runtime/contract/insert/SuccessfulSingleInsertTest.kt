@@ -64,8 +64,6 @@ class SuccessfulSingleInsertTest(
   companion object {
     @JvmStatic
     @Parameterized.Parameters(name = "{0}")
-    fun modelCases(): Collection<Array<Any>> = ModelCatalog
-      .insertCases
-      .map(::arrayOf)
+    fun modelCases() = ModelCatalog.insertCases
   }
 }

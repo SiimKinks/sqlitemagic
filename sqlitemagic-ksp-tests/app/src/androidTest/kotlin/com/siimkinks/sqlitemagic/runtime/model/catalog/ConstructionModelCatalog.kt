@@ -16,7 +16,7 @@ internal object ConstructionModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
     NonDataConstructorEntityCase,
     MutableBodyEntityCase,
-    InheritedMutableEntityCase
+    InheritedMutableEntityCase,
   )
 
   private object NonDataConstructorEntityCase : InsertModelCase<NonDataConstructorEntity> {

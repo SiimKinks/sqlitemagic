@@ -1,13 +1,19 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
+import com.siimkinks.sqlitemagic.BlobEntityTable
 import com.siimkinks.sqlitemagic.CustomColumnEntityTable
+import com.siimkinks.sqlitemagic.EntityWithIgnoredValueTable
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable
+import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.fixture.model.BlobEntity
 import com.siimkinks.sqlitemagic.fixture.model.CustomColumnEntity
+import com.siimkinks.sqlitemagic.fixture.model.EntityWithIgnoredValue
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithNullableFields
+import com.siimkinks.sqlitemagic.fixture.model.SelectiveColumnsEntity
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
@@ -21,7 +27,10 @@ internal object ScalarModelCatalog {
     SimpleMutableEntityWithPresetAutoIdCase,
     ImmutableValueWithNullableFieldsCase,
     ImmutableValueWithFieldsCase,
-    CustomColumnEntityCase
+    CustomColumnEntityCase,
+    SelectiveColumnsEntityCase,
+    EntityWithIgnoredValueCase,
+    BlobEntityCase,
   )
 
   private object SimpleMutableEntityCase : InsertModelCase<SimpleMutableEntity> {
@@ -127,6 +136,79 @@ internal object ScalarModelCatalog {
     override fun insert(value: CustomColumnEntity) = value.insert()
 
     override fun expectedAfterInsert(value: CustomColumnEntity, result: EntityInsertResult.Inserted) = value
+
+    override fun toString() = name
+  }
+
+  private object SelectiveColumnsEntityCase : InsertModelCase<SelectiveColumnsEntity> {
+    override val name = "SelectiveColumnsEntity"
+    override val table = SelectiveColumnsEntityTable.SELECTIVE_COLUMNS_ENTITY
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = SelectiveColumnsEntity().apply {
+      persistedValue = "selective-persisted-$sequence"
+      transientValue = "selective-transient-$sequence"
+    }
+
+    override fun insert(value: SelectiveColumnsEntity) = value.insert()
+
+    override fun expectedAfterInsert(
+      value: SelectiveColumnsEntity,
+      result: EntityInsertResult.Inserted
+    ) = SelectiveColumnsEntity().apply {
+      id = checkNotNull(result.rowId)
+      persistedValue = value.persistedValue
+    }
+
+    override fun toString() = name
+  }
+
+  private object EntityWithIgnoredValueCase : InsertModelCase<EntityWithIgnoredValue> {
+    override val name = "EntityWithIgnoredValue"
+    override val table = EntityWithIgnoredValueTable.ENTITY_WITH_IGNORED_VALUE
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = EntityWithIgnoredValue().apply {
+      persistedValue = "ignored-persisted-$sequence"
+      ignoredValue = "ignored-value-$sequence"
+    }
+
+    override fun insert(value: EntityWithIgnoredValue) = value.insert()
+
+    override fun expectedAfterInsert(
+      value: EntityWithIgnoredValue,
+      result: EntityInsertResult.Inserted
+    ) = EntityWithIgnoredValue().apply {
+      id = checkNotNull(result.rowId)
+      persistedValue = value.persistedValue
+    }
+
+    override fun toString() = name
+  }
+
+  private object BlobEntityCase : InsertModelCase<BlobEntity> {
+    override val name = "BlobEntity"
+    override val table = BlobEntityTable.BLOB_ENTITY
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = BlobEntity(
+      id = null,
+      payload = byteArrayOf(
+        sequence.toByte(),
+        (sequence + 1).toByte(),
+        (sequence + 2).toByte()
+      )
+    )
+
+    override fun insert(value: BlobEntity) = value.insert()
+
+    override fun expectedAfterInsert(
+      value: BlobEntity,
+      result: EntityInsertResult.Inserted
+    ) = BlobEntity(
+      id = checkNotNull(result.rowId),
+      payload = value.payload
+    )
 
     override fun toString() = name
   }

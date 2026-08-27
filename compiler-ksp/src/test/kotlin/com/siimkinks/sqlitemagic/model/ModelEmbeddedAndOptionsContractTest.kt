@@ -108,6 +108,42 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `uses safe calls for every descendant of nullable embedded properties`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableNestedEmbedded.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Embedded
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            data class Coordinates(
+              val latitude: Double
+            )
+
+            data class OptionalDetails(
+              @Embedded val coordinates: Coordinates
+            )
+
+            @Table
+            data class NullableNestedEmbedded(
+              @Id val id: String,
+              @Embedded val optionalDetails: OptionalDetails?
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_NullableNestedEmbedded_Dao.kt")
+      .withGeneratedSource("SqliteMagic_NullableNestedEmbedded_Dao.kt") { generatedSource ->
+        generatedSource.assertContains("entity.optionalDetails?.coordinates?.latitude")
+      }
+  }
+
+  @Test
   fun `keeps nullable embedded selection absence distinct from SQL null`() {
     SqliteMagicCompilation
       .compile(
