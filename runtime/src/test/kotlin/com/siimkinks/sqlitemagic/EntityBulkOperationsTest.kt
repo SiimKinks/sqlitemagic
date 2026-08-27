@@ -1,8 +1,11 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
+import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.exception.OperationFailedException
+import io.reactivex.Completable
 import io.reactivex.observers.TestObserver
 import org.junit.Test
 
@@ -159,6 +162,169 @@ internal class EntityBulkOperationsTest {
           )
         )
       assertWithMessage(operationName)
+        .that(connection.triggers)
+        .isEmpty()
+    }
+  }
+
+  @Test
+  fun `empty bulk Rx terminals complete for update and persist builders`() {
+    data class EmptyBulkCase(
+      val label: String,
+      val operation: (BulkRxInput) -> Completable
+    )
+    listOf(
+      EmptyBulkCase(
+        label = "bulk update",
+        operation = { input ->
+          TestAdapter()
+            .bulkUpdate(input.entities)
+            .usingConnection(input.connection.connection)
+            .observe()
+        }
+      ),
+      EmptyBulkCase(
+        label = "bulk update by column",
+        operation = { input ->
+          TestAdapter()
+            .bulkUpdateByColumn(input.entities)
+            .usingConnection(input.connection.connection)
+            .observe(TestSchema.key)
+        }
+      ),
+      EmptyBulkCase(
+        label = "bulk persist",
+        operation = { input ->
+          TestAdapter()
+            .bulkPersist(input.entities)
+            .usingConnection(input.connection.connection)
+            .observe()
+        }
+      ),
+      EmptyBulkCase(
+        label = "bulk persist by column",
+        operation = { input ->
+          TestAdapter()
+            .bulkPersistByColumn(input.entities)
+            .usingConnection(input.connection.connection)
+            .observe(TestSchema.key)
+        }
+      )
+    ).forEach { case ->
+      val connection = newConnection()
+      case.operation(
+        BulkRxInput(
+          connection = connection,
+          entities = oneShotIterable(emptyList())
+        )
+      )
+        .test()
+        .assertResult()
+
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.successfulTransactions)
+        .isEqualTo(0)
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.rolledBackTransactions)
+        .isEqualTo(1)
+      assertWithMessage(case.label)
+        .that(connection.triggers)
+        .isEmpty()
+    }
+  }
+
+  @Test
+  fun `non-empty one-shot bulk Rx terminals preserve failure and ignored completion`() {
+    data class NonEmptyBulkCase(
+      val label: String,
+      val configure: (RecordingDatabase) -> Unit,
+      val operation: (BulkRxInput) -> Completable,
+      val expectedTerminal: BulkRxTerminal
+    )
+    listOf(
+      NonEmptyBulkCase(
+        label = "bulk update default conflict",
+        configure = { it.updateResults += 0 },
+        operation = { input ->
+          TestAdapter()
+            .bulkUpdate(input.entities)
+            .usingConnection(input.connection.connection)
+            .conflictAlgorithm(CONFLICT_NONE)
+            .observe()
+        },
+        expectedTerminal = BulkRxTerminal.ERROR
+      ),
+      NonEmptyBulkCase(
+        label = "bulk update ignored conflict",
+        configure = { it.updateResults += 0 },
+        operation = { input ->
+          TestAdapter()
+            .bulkUpdate(input.entities)
+            .usingConnection(input.connection.connection)
+            .conflictAlgorithm(CONFLICT_IGNORE)
+            .observe()
+        },
+        expectedTerminal = BulkRxTerminal.COMPLETE
+      ),
+      NonEmptyBulkCase(
+        label = "bulk persist default conflict",
+        configure = {
+          it.updateResults += 0
+          it.insertResults += -1L
+        },
+        operation = { input ->
+          TestAdapter()
+            .bulkPersist(input.entities)
+            .usingConnection(input.connection.connection)
+            .conflictAlgorithm(CONFLICT_NONE)
+            .observe()
+        },
+        expectedTerminal = BulkRxTerminal.ERROR
+      ),
+      NonEmptyBulkCase(
+        label = "bulk persist ignored conflict",
+        configure = {
+          it.updateResults += 0
+          it.insertResults += -1L
+        },
+        operation = { input ->
+          TestAdapter()
+            .bulkPersist(input.entities)
+            .usingConnection(input.connection.connection)
+            .conflictAlgorithm(CONFLICT_IGNORE)
+            .observe()
+        },
+        expectedTerminal = BulkRxTerminal.COMPLETE
+      )
+    ).forEach { case ->
+      val connection = newConnection()
+      case.configure(connection.recordingDatabase)
+      val observer = case.operation(
+        BulkRxInput(
+          connection = connection,
+          entities = oneShotIterable(
+            listOf(
+              TestEntity(
+                id = "id-1",
+                key = "key-1",
+                name = "name"
+              )
+            )
+          )
+        )
+      ).test()
+
+      when (case.expectedTerminal) {
+        BulkRxTerminal.ERROR -> observer.assertFailure(OperationFailedException::class.java)
+        BulkRxTerminal.COMPLETE -> observer.assertResult()
+      }
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.successfulTransactions)
+        .isEqualTo(0)
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.rolledBackTransactions)
+        .isEqualTo(1)
+      assertWithMessage(case.label)
         .that(connection.triggers)
         .isEmpty()
     }
@@ -441,5 +607,15 @@ internal class EntityBulkOperationsTest {
           )
         )
     }
+  }
+
+  private data class BulkRxInput(
+    val connection: RecordingConnection,
+    val entities: Iterable<TestEntity>
+  )
+
+  private enum class BulkRxTerminal {
+    ERROR,
+    COMPLETE
   }
 }

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.internal
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
+import com.siimkinks.sqlitemagic.BulkOperationOutcome
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.OperationConfigurationSnapshot
@@ -100,7 +101,7 @@ class BulkUpdateBuilder<M>(
       defaultIdentity = selection.usesDefault,
       context = newContext(),
       isCancelled = ::neverCancelled
-    )
+    ) == BulkOperationOutcome.APPLIED
   }
 
   override fun observe(): Completable {
@@ -136,7 +137,7 @@ class BulkUpdateByColumnBuilder<M>(
       defaultIdentity = false,
       context = newContext(),
       isCancelled = ::neverCancelled
-    )
+    ) == BulkOperationOutcome.APPLIED
 
   override fun <D> observe(byColumn: D): Completable
       where D : Column<*, *, *, M, NotNullable>,

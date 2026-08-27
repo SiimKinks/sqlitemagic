@@ -6,7 +6,6 @@ import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.IdentityColumn
-import java.util.concurrent.CancellationException
 
 internal object UpdateExecutors {
   fun <M> executeIgnoringNullValues(
@@ -173,49 +172,26 @@ internal object UpdateExecutors {
     defaultIdentity: Boolean,
     context: OperationContext,
     isCancelled: () -> Boolean
-  ): Boolean {
-    var updated = false
-
-    fun executeEntities(): Boolean {
-      for (entity in entities) {
-        if (isCancelled()) {
-          throw CancellationException()
-        }
-        val entityUpdated = try {
-          execute(
-            adapter = adapter,
-            entity = entity,
-            context = context.childWithoutTableTriggers(),
-            byColumn = byColumn,
-            defaultIdentity = defaultIdentity
-          )
-        } catch (exception: OperationFailedException) {
-          if (context.conflictAlgorithm == CONFLICT_IGNORE) {
-            throw exception
-          }
-          return false
-        }
-        if (!entityUpdated) {
-          if (context.conflictAlgorithm != CONFLICT_IGNORE) {
-            return false
-          }
-        } else {
-          updated = true
-        }
+  ): BulkOperationOutcome = executeBulkOperation(
+    adapter = adapter,
+    entities = entities,
+    context = context,
+    isCancelled = isCancelled,
+    operation = { entity ->
+      val entityUpdated = execute(
+        adapter = adapter,
+        entity = entity,
+        context = context.childWithoutTableTriggers(),
+        byColumn = byColumn,
+        defaultIdentity = defaultIdentity
+      )
+      when {
+        entityUpdated -> BulkEntityOutcome.APPLIED
+        context.conflictAlgorithm == CONFLICT_IGNORE -> BulkEntityOutcome.IGNORED
+        else -> BulkEntityOutcome.FAILED
       }
-      if (isCancelled()) {
-        throw CancellationException()
-      }
-      return updated
     }
-
-    return executeBulkOperation(
-      adapter = adapter,
-      context = context,
-      operation = ::executeEntities,
-      isSuccessful = { updated }
-    )
-  }
+  )
 }
 
 private fun OperationContext.conflictValue() =

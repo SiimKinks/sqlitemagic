@@ -65,37 +65,86 @@ internal class RelationshipOperations(
   }
 }
 
-internal fun executeBulkOperation(
-  adapter: EntityAdapter<*>,
+internal enum class BulkOperationOutcome {
+  APPLIED,
+  EMPTY,
+  IGNORED,
+  FAILED
+}
+
+internal enum class BulkEntityOutcome {
+  APPLIED,
+  IGNORED,
+  FAILED
+}
+
+internal fun <M> executeBulkOperation(
+  adapter: EntityAdapter<M>,
+  entities: Iterable<M>,
   context: OperationContext,
-  operation: () -> Boolean,
-  isSuccessful: () -> Boolean
-): Boolean = when {
-  adapter is EntityRecursiveAdapter<*> && context.conflictAlgorithm == CONFLICT_IGNORE -> try {
-    operation()
-  } finally {
-    if (isSuccessful()) {
-      context.sendTableTriggers(adapter)
+  isCancelled: () -> Boolean,
+  operation: (M) -> BulkEntityOutcome
+): BulkOperationOutcome {
+  var outcome = BulkOperationOutcome.EMPTY
+
+  fun executeEntities(): Boolean {
+    for (entity in entities) {
+      if (outcome == BulkOperationOutcome.EMPTY) {
+        outcome = BulkOperationOutcome.IGNORED
+      }
+      if (isCancelled()) {
+        throw CancellationException()
+      }
+      val entityOutcome = try {
+        operation(entity)
+      } catch (exception: OperationFailedException) {
+        if (context.conflictAlgorithm == CONFLICT_IGNORE) {
+          throw exception
+        }
+        BulkEntityOutcome.FAILED
+      }
+      when (entityOutcome) {
+        BulkEntityOutcome.APPLIED -> outcome = BulkOperationOutcome.APPLIED
+        BulkEntityOutcome.IGNORED -> Unit
+        BulkEntityOutcome.FAILED -> {
+          outcome = BulkOperationOutcome.FAILED
+          return false
+        }
+      }
     }
+    if (isCancelled()) {
+      throw CancellationException()
+    }
+    return outcome == BulkOperationOutcome.APPLIED
   }
-  else -> context.executeInTransaction {
-    operation().also { successful ->
-      if (successful) {
+
+  when {
+    adapter is EntityRecursiveAdapter<*> && context.conflictAlgorithm == CONFLICT_IGNORE -> try {
+      executeEntities()
+    } finally {
+      if (outcome == BulkOperationOutcome.APPLIED) {
         context.sendTableTriggers(adapter)
       }
     }
+    else -> context.executeInTransaction {
+      executeEntities().also { applied ->
+        if (applied) {
+          context.sendTableTriggers(adapter)
+        }
+      }
+    }
   }
+  return outcome
 }
 
 internal fun executeBulkRxOperation(
   contextFactory: () -> OperationContext,
-  operation: (context: OperationContext, isCancelled: () -> Boolean) -> Boolean
+  operation: (context: OperationContext, isCancelled: () -> Boolean) -> BulkOperationOutcome
 ) = Completable.create { emitter ->
   try {
     val context = contextFactory()
-    val successful = operation(context, emitter::isDisposed)
-    when {
-      !successful && context.conflictAlgorithm != CONFLICT_IGNORE -> emitter.tryOnError(
+    when (operation(context, emitter::isDisposed)) {
+      BulkOperationOutcome.FAILED -> emitter.tryOnError(
         OperationFailedException("Bulk operation failed")
       )
       else -> emitter.onComplete()

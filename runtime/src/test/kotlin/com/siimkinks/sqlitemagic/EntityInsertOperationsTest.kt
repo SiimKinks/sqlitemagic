@@ -175,6 +175,90 @@ internal class EntityInsertOperationsTest {
   }
 
   @Test
+  fun `empty bulk Rx terminals complete for default and ignored conflicts`() {
+    data class EmptyBulkCase(
+      val label: String,
+      val conflictAlgorithm: Int
+    )
+    listOf(
+      EmptyBulkCase(
+        label = "default conflict",
+        conflictAlgorithm = CONFLICT_NONE
+      ),
+      EmptyBulkCase(
+        label = "ignore conflict",
+        conflictAlgorithm = CONFLICT_IGNORE
+      )
+    ).forEach { case ->
+      val connection = newConnection()
+      TestAdapter()
+        .bulkInsert(oneShotIterable(emptyList()))
+        .usingConnection(connection.connection)
+        .conflictAlgorithm(case.conflictAlgorithm)
+        .observe()
+        .test()
+        .assertResult()
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.successfulTransactions)
+        .isEqualTo(0)
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.rolledBackTransactions)
+        .isEqualTo(1)
+    }
+  }
+
+  @Test
+  fun `bulk Rx terminals distinguish non-empty one-shot failures from ignored conflicts`() {
+    data class BulkRxCase(
+      val label: String,
+      val conflictAlgorithm: Int,
+      val expectedTerminal: BulkRxTerminal
+    )
+    listOf(
+      BulkRxCase(
+        label = "default conflict failure",
+        conflictAlgorithm = CONFLICT_NONE,
+        expectedTerminal = BulkRxTerminal.ERROR
+      ),
+      BulkRxCase(
+        label = "ignored conflict",
+        conflictAlgorithm = CONFLICT_IGNORE,
+        expectedTerminal = BulkRxTerminal.COMPLETE
+      )
+    ).forEach { case ->
+      val connection = newConnection()
+      connection.recordingDatabase.insertResults += -1L
+      val observer = TestAdapter()
+        .bulkInsert(
+          oneShotIterable(
+            listOf(
+              TestEntity(
+                id = "id-1",
+                key = "key-1",
+                name = "name"
+              )
+            )
+          )
+        )
+        .usingConnection(connection.connection)
+        .conflictAlgorithm(case.conflictAlgorithm)
+        .observe()
+        .test()
+
+      when (case.expectedTerminal) {
+        BulkRxTerminal.ERROR -> observer.assertFailure(OperationFailedException::class.java)
+        BulkRxTerminal.COMPLETE -> observer.assertResult()
+      }
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.successfulTransactions)
+        .isEqualTo(0)
+      assertWithMessage(case.label)
+        .that(connection.recordingDatabase.rolledBackTransactions)
+        .isEqualTo(1)
+    }
+  }
+
+  @Test
   fun `single Rx terminals deliver results and errors`() {
     val success = newConnection()
     success.recordingDatabase.insertResults += 11L
@@ -276,4 +360,9 @@ internal class EntityInsertOperationsTest {
       name = "name"
     )
   )
+
+  private enum class BulkRxTerminal {
+    ERROR,
+    COMPLETE
+  }
 }

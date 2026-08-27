@@ -325,6 +325,16 @@ internal fun <R> RecordingConnection.transactionResult(result: R) = TransactionR
   rolledBack = recordingDatabase.rolledBackTransactions
 )
 
+internal fun <T> oneShotIterable(values: Iterable<T>) = object : Iterable<T> {
+  private var iteratorRequested = false
+
+  override fun iterator(): Iterator<T> {
+    check(!iteratorRequested) { "Iterator requested more than once" }
+    iteratorRequested = true
+    return values.iterator()
+  }
+}
+
 internal val RecordingConnection.statementSql
   get() = recordingDatabase.compiledStatements.map(RecordingStatement::sql)
 

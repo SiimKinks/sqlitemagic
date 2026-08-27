@@ -7,7 +7,6 @@ import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.IdentityColumn
-import java.util.concurrent.CancellationException
 
 internal object PersistExecutors {
   @Suppress("UNCHECKED_CAST")
@@ -121,43 +120,23 @@ internal object PersistExecutors {
     defaultIdentity: Boolean,
     context: OperationContext,
     isCancelled: () -> Boolean
-  ): Boolean {
-    var persisted = false
-
-    fun executeEntities(): Boolean {
-      for (entity in entities) {
-        if (isCancelled()) {
-          throw CancellationException()
-        }
-        val result = try {
-          execute(
-            adapter = adapter,
-            entity = entity,
-            context = context.childWithoutTableTriggers(),
-            byColumn = byColumn,
-            defaultIdentity = defaultIdentity
-          )
-        } catch (exception: OperationFailedException) {
-          if (context.conflictAlgorithm == CONFLICT_IGNORE) {
-            throw exception
-          }
-          return false
-        }
-        if (result !is EntityPersistResult.Ignored) {
-          persisted = true
-        }
+  ): BulkOperationOutcome = executeBulkOperation(
+    adapter = adapter,
+    entities = entities,
+    context = context,
+    isCancelled = isCancelled,
+    operation = { entity ->
+      val result = execute(
+        adapter = adapter,
+        entity = entity,
+        context = context.childWithoutTableTriggers(),
+        byColumn = byColumn,
+        defaultIdentity = defaultIdentity
+      )
+      when (result) {
+        EntityPersistResult.Ignored -> BulkEntityOutcome.IGNORED
+        else -> BulkEntityOutcome.APPLIED
       }
-      if (isCancelled()) {
-        throw CancellationException()
-      }
-      return persisted
     }
-
-    return executeBulkOperation(
-      adapter = adapter,
-      context = context,
-      operation = ::executeEntities,
-      isSuccessful = { persisted }
-    )
-  }
+  )
 }

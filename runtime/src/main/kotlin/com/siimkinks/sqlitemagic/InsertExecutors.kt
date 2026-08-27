@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
-import java.util.concurrent.CancellationException
 
 internal object InsertExecutors {
   @Suppress("UNCHECKED_CAST")
@@ -202,43 +201,23 @@ internal object InsertExecutors {
     entities: Iterable<M>,
     context: OperationContext,
     isCancelled: () -> Boolean
-  ): Boolean {
-    var inserted = false
-
-    fun executeEntities(): Boolean {
-      for (entity in entities) {
-        if (isCancelled()) {
-          throw CancellationException()
-        }
-        val result = try {
-          execute(
-            adapter = adapter,
-            entity = entity,
-            context = context.childWithoutTableTriggers()
-          )
-        } catch (exception: OperationFailedException) {
-          if (context.conflictAlgorithm == CONFLICT_IGNORE) {
-            throw exception
-          }
-          return false
-        }
-        if (result is EntityInsertResult.Inserted) {
-          inserted = true
-        }
+  ): BulkOperationOutcome = executeBulkOperation(
+    adapter = adapter,
+    entities = entities,
+    context = context,
+    isCancelled = isCancelled,
+    operation = { entity ->
+      val result = execute(
+        adapter = adapter,
+        entity = entity,
+        context = context.childWithoutTableTriggers()
+      )
+      when (result) {
+        is EntityInsertResult.Inserted -> BulkEntityOutcome.APPLIED
+        EntityInsertResult.Ignored -> BulkEntityOutcome.IGNORED
       }
-      if (isCancelled()) {
-        throw CancellationException()
-      }
-      return inserted
     }
-
-    return executeBulkOperation(
-      adapter = adapter,
-      context = context,
-      operation = ::executeEntities,
-      isSuccessful = { inserted }
-    )
-  }
+  )
 }
 
 private fun OperationContext.conflictValue() =

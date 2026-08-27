@@ -1,13 +1,14 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
 import com.siimkinks.sqlitemagic.EmbeddedValueEntityTable
+import com.siimkinks.sqlitemagic.EmbeddedValueEntitys
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.EmbeddedCoordinates
 import com.siimkinks.sqlitemagic.fixture.model.EmbeddedDetails
 import com.siimkinks.sqlitemagic.fixture.model.EmbeddedValueEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 
@@ -17,7 +18,7 @@ internal object EmbeddedModelCatalog {
     EmbeddedValueEntityWithoutOptionalValueCase,
   )
 
-  private object EmbeddedValueEntityWithOptionalValueCase : InsertModelCase<EmbeddedValueEntity> {
+  private object EmbeddedValueEntityWithOptionalValueCase : BulkInsertModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EmbeddedValueEntityTable.EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -44,15 +45,26 @@ internal object EmbeddedModelCatalog {
 
     override fun insert(value: EmbeddedValueEntity) = value.insert()
 
+    override fun bulkInsert(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys.insert(values)
+
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,
       result: EntityInsertResult.Inserted
     ) = value.copy(id = checkNotNull(result.rowId))
 
+    override fun expectedAfterBulkInsert(
+      values: List<EmbeddedValueEntity>,
+      actual: List<EmbeddedValueEntity>
+    ) = actual.map { persisted ->
+      values
+        .single { it.requiredDetails.label == persisted.requiredDetails.label }
+        .copy(id = persisted.id)
+    }
+
     override fun toString() = name
   }
 
-  private object EmbeddedValueEntityWithoutOptionalValueCase : InsertModelCase<EmbeddedValueEntity> {
+  private object EmbeddedValueEntityWithoutOptionalValueCase : BulkInsertModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
     override val table = EmbeddedValueEntityTable.EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -72,10 +84,21 @@ internal object EmbeddedModelCatalog {
 
     override fun insert(value: EmbeddedValueEntity) = value.insert()
 
+    override fun bulkInsert(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys.insert(values)
+
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,
       result: EntityInsertResult.Inserted
     ) = value.copy(id = checkNotNull(result.rowId))
+
+    override fun expectedAfterBulkInsert(
+      values: List<EmbeddedValueEntity>,
+      actual: List<EmbeddedValueEntity>
+    ) = actual.map { persisted ->
+      values
+        .single { it.requiredDetails.label == persisted.requiredDetails.label }
+        .copy(id = persisted.id)
+    }
 
     override fun toString() = name
   }

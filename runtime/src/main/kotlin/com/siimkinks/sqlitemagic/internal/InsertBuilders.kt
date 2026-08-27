@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.internal
 
+import com.siimkinks.sqlitemagic.BulkOperationOutcome
 import com.siimkinks.sqlitemagic.InsertExecutors
 import com.siimkinks.sqlitemagic.OperationConfigurationSnapshot
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
@@ -37,7 +38,7 @@ class BulkInsertBuilder<M>(
     entities = entities,
     context = newContext(),
     isCancelled = ::neverCancelled
-  )
+  ) == BulkOperationOutcome.APPLIED
 
   override fun observe(): Completable {
     val configuration = configurationSnapshot()

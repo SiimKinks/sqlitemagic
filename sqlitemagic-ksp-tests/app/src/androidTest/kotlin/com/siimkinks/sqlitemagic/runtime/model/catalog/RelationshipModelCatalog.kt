@@ -1,8 +1,11 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
-import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipsTable
-import com.siimkinks.sqlitemagic.EntityWithStringIdRelationshipTable
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable
+import com.siimkinks.sqlitemagic.EntityWithRelationships
+import com.siimkinks.sqlitemagic.EntityWithStringIdRelationshipTable
+import com.siimkinks.sqlitemagic.EntityWithStringIdRelationships
+import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipsTable
+import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipss
 import com.siimkinks.sqlitemagic.UniqueRelatedEntityTable
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
@@ -12,7 +15,7 @@ import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
@@ -25,23 +28,25 @@ internal object RelationshipModelCatalog {
     EntityWithUniqueRelationshipsCase,
   )
 
-  private object EntityWithRelationshipCase : InsertModelCase<EntityWithRelationship> {
+  private object EntityWithRelationshipCase : BulkInsertModelCase<EntityWithRelationship> {
     override val name = "EntityWithRelationship"
     override val table = EntityWithRelationshipTable.ENTITY_WITH_RELATIONSHIP
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EntityWithRelationship().apply {
-      value = "relationship-entity-with-relationship"
+      value = "relationship-entity-with-relationship-$sequence"
       relatedEntity = SimpleMutableEntity(
         id = null,
-        value = "relationship-simple-mutable-entity",
+        value = "relationship-simple-mutable-entity-$sequence",
         boxedBoolean = false,
         primitiveBoolean = true
       )
-      count = 7
+      count = 7 + sequence
     }
 
     override fun insert(value: EntityWithRelationship) = value.insert()
+
+    override fun bulkInsert(values: List<EntityWithRelationship>) = EntityWithRelationships.insert(values)
 
     override fun expectedAfterInsert(
       value: EntityWithRelationship,
@@ -51,7 +56,7 @@ internal object RelationshipModelCatalog {
     override fun toString() = name
   }
 
-  private object EntityWithNullRelationshipCase : InsertModelCase<EntityWithRelationship> {
+  private object EntityWithNullRelationshipCase : BulkInsertModelCase<EntityWithRelationship> {
     override val name = "EntityWithNullRelationship"
     override val table = EntityWithRelationshipTable.ENTITY_WITH_RELATIONSHIP
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -64,6 +69,8 @@ internal object RelationshipModelCatalog {
 
     override fun insert(value: EntityWithRelationship) = value.insert()
 
+    override fun bulkInsert(values: List<EntityWithRelationship>) = EntityWithRelationships.insert(values)
+
     override fun expectedAfterInsert(
       value: EntityWithRelationship,
       result: EntityInsertResult.Inserted
@@ -72,7 +79,7 @@ internal object RelationshipModelCatalog {
     override fun toString() = name
   }
 
-  private object EntityWithStringIdRelationshipCase : InsertModelCase<EntityWithStringIdRelationship> {
+  private object EntityWithStringIdRelationshipCase : BulkInsertModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
     override val table = EntityWithStringIdRelationshipTable.ENTITY_WITH_STRING_ID_RELATIONSHIP
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -88,10 +95,22 @@ internal object RelationshipModelCatalog {
 
     override fun insert(value: EntityWithStringIdRelationship) = value.insert()
 
+    override fun bulkInsert(values: List<EntityWithStringIdRelationship>) =
+      EntityWithStringIdRelationships.insert(values)
+
     override fun expectedAfterInsert(
       value: EntityWithStringIdRelationship,
       result: EntityInsertResult.Inserted
     ) = value.copy(id = checkNotNull(result.rowId))
+
+    override fun expectedAfterBulkInsert(
+      values: List<EntityWithStringIdRelationship>,
+      actual: List<EntityWithStringIdRelationship>
+    ) = actual.map { persisted ->
+      values
+        .single { it.value == persisted.value }
+        .copy(id = persisted.id)
+    }
 
     override fun toString() = name
   }
@@ -120,10 +139,18 @@ internal object RelationshipModelCatalog {
 
     override fun insert(value: EntityWithUniqueRelationships) = value.insert()
 
+    override fun bulkInsert(values: List<EntityWithUniqueRelationships>) =
+      EntityWithUniqueRelationshipss.insert(values)
+
     override fun expectedAfterInsert(
       value: EntityWithUniqueRelationships,
       result: EntityInsertResult.Inserted
     ) = value
+
+    override fun relatedValues(value: EntityWithUniqueRelationships): List<*> = listOf(
+      value.firstRelatedEntity,
+      value.secondRelatedEntity
+    )
 
     override fun valueWithParentConflict(
       existing: EntityWithUniqueRelationships,

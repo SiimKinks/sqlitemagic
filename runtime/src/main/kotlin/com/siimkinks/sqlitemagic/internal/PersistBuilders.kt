@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.internal
 
+import com.siimkinks.sqlitemagic.BulkOperationOutcome
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.OperationConfigurationSnapshot
@@ -85,7 +86,7 @@ class BulkPersistBuilder<M>(
       defaultIdentity = selection.usesDefault,
       context = newContext(),
       isCancelled = ::neverCancelled
-    )
+    ) == BulkOperationOutcome.APPLIED
   }
 
   override fun observe(): Completable {
@@ -122,7 +123,7 @@ class BulkPersistByColumnBuilder<M>(
       defaultIdentity = false,
       context = newContext(),
       isCancelled = ::neverCancelled
-    )
+    ) == BulkOperationOutcome.APPLIED
 
   override fun <D> observe(byColumn: D): Completable
       where D : Column<*, *, *, M, NotNullable>,
