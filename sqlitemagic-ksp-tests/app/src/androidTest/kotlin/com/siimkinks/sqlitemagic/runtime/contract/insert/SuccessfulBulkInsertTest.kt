@@ -50,7 +50,7 @@ class SuccessfulBulkInsertTest(
     modelCase: BulkInsertModelCase<T>,
     operation: (EntityBulkInsertBuilder) -> Boolean
   ) {
-    val values = (1..3).map(modelCase::newValue)
+    val values = List(3, init = modelCase::newValue)
     assertThat(
       operation(
         modelCase.bulkInsert(values = values)
@@ -73,7 +73,7 @@ class SuccessfulBulkInsertTest(
     modelCase: RecursiveInsertConflictModelCase<T>,
     operation: (EntityBulkInsertBuilder) -> Boolean
   ) {
-    val values = (1..3).map(modelCase::newValue)
+    val values = List(3, init = modelCase::newValue)
     assertThat(
       operation(
         modelCase.bulkInsert(values = values)

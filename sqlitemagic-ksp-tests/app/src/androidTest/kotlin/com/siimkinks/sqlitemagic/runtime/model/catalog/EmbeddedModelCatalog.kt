@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
@@ -23,6 +24,7 @@ internal object EmbeddedModelCatalog {
 
   private object EmbeddedValueEntityWithOptionalValueCase :
     BulkInsertModelCase<EmbeddedValueEntity>,
+    BulkUpdateModelCase<EmbeddedValueEntity>,
     PersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
@@ -73,6 +75,14 @@ internal object EmbeddedModelCatalog {
       .update()
       .observe()
 
+    override fun executeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+      .update(values)
+      .observe()
+
     override fun executePersist(value: EmbeddedValueEntity) = value
       .persist()
       .execute()
@@ -100,6 +110,7 @@ internal object EmbeddedModelCatalog {
 
   private object EmbeddedValueEntityWithoutOptionalValueCase :
     BulkInsertModelCase<EmbeddedValueEntity>,
+    BulkUpdateModelCase<EmbeddedValueEntity>,
     PersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
@@ -141,6 +152,14 @@ internal object EmbeddedModelCatalog {
 
     override fun observeUpdate(value: EmbeddedValueEntity) = value
       .update()
+      .observe()
+
+    override fun executeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+      .update(values)
       .observe()
 
     override fun executePersist(value: EmbeddedValueEntity) = value

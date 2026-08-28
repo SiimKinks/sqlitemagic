@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.fixture.model.NonDataConstructorEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
@@ -43,6 +44,7 @@ internal object ConstructionModelCatalog {
 
   private object MutableBodyEntityCase :
     BulkInsertModelCase<MutableBodyEntity>,
+    BulkUpdateModelCase<MutableBodyEntity>,
     PersistModelCase<MutableBodyEntity> {
     override val name = "MutableBodyEntity"
     override val table = MUTABLE_BODY_ENTITY
@@ -70,6 +72,14 @@ internal object ConstructionModelCatalog {
       .update()
       .observe()
 
+    override fun executeBulkUpdate(values: List<MutableBodyEntity>) = MutableBodyEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<MutableBodyEntity>) = MutableBodyEntitys
+      .update(values)
+      .observe()
+
     override fun executePersist(value: MutableBodyEntity) = value
       .persist()
       .execute()
@@ -83,6 +93,7 @@ internal object ConstructionModelCatalog {
 
   private object InheritedMutableEntityCase :
     BulkInsertModelCase<InheritedMutableEntity>,
+    BulkUpdateModelCase<InheritedMutableEntity>,
     PersistModelCase<InheritedMutableEntity> {
     override val name = "InheritedMutableEntity"
     override val table = INHERITED_MUTABLE_ENTITY
@@ -110,6 +121,14 @@ internal object ConstructionModelCatalog {
 
     override fun observeUpdate(value: InheritedMutableEntity) = value
       .update()
+      .observe()
+
+    override fun executeBulkUpdate(values: List<InheritedMutableEntity>) = InheritedMutableEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<InheritedMutableEntity>) = InheritedMutableEntitys
+      .update(values)
       .observe()
 
     override fun executePersist(value: InheritedMutableEntity) = value

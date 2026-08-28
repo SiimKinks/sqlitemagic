@@ -26,6 +26,7 @@ import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
@@ -43,8 +44,11 @@ internal object ScalarModelCatalog {
     BlobEntityCase,
   )
 
+  internal val emptyBulkUpdateCase: BulkUpdateModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
+
   private object SimpleMutableEntityCase :
     BulkInsertModelCase<SimpleMutableEntity>,
+    BulkUpdateModelCase<SimpleMutableEntity>,
     PersistModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
@@ -75,6 +79,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+      .update(values)
+      .observe()
+
     override fun executePersist(value: SimpleMutableEntity) = value
       .persist()
       .execute()
@@ -90,6 +102,7 @@ internal object ScalarModelCatalog {
 
   private object SimpleMutableEntityWithPresetAutoIdCase :
     BulkInsertModelCase<SimpleMutableEntity>,
+    BulkUpdateModelCase<SimpleMutableEntity>,
     PersistModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntityWithPresetAutoId"
     override val table = SIMPLE_MUTABLE_ENTITY
@@ -120,6 +133,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+      .update(values)
+      .observe()
+
     override fun executePersist(value: SimpleMutableEntity) = value
       .persist()
       .execute()
@@ -140,6 +161,7 @@ internal object ScalarModelCatalog {
 
   private object ImmutableValueWithNullableFieldsCase :
     BulkInsertModelCase<ImmutableValueWithNullableFields>,
+    BulkUpdateModelCase<ImmutableValueWithNullableFields>,
     PersistModelCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
     override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
@@ -171,6 +193,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executeBulkUpdate(values: List<ImmutableValueWithNullableFields>) = ImmutableValueWithNullableFieldss
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<ImmutableValueWithNullableFields>) = ImmutableValueWithNullableFieldss
+      .update(values)
+      .observe()
+
     override fun executePersist(value: ImmutableValueWithNullableFields) = value
       .persist()
       .execute()
@@ -198,6 +228,7 @@ internal object ScalarModelCatalog {
 
   private object ImmutableValueWithFieldsCase :
     BulkInsertModelCase<ImmutableValueWithFields>,
+    BulkUpdateModelCase<ImmutableValueWithFields>,
     PersistModelCase<ImmutableValueWithFields> {
     override val name = "ImmutableValueWithFields"
     override val table = IMMUTABLE_VALUE_WITH_FIELDS
@@ -234,6 +265,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executeBulkUpdate(values: List<ImmutableValueWithFields>) = ImmutableValueWithFieldss
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<ImmutableValueWithFields>) = ImmutableValueWithFieldss
+      .update(values)
+      .observe()
+
     override fun executePersist(value: ImmutableValueWithFields) = value
       .persist()
       .execute()
@@ -261,6 +300,7 @@ internal object ScalarModelCatalog {
 
   private object CustomColumnEntityCase :
     BulkInsertModelCase<CustomColumnEntity>,
+    BulkUpdateModelCase<CustomColumnEntity>,
     PersistModelCase<CustomColumnEntity> {
     override val name = "CustomColumnEntity"
     override val table = CUSTOM_COLUMN_ENTITY
@@ -287,6 +327,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executeBulkUpdate(values: List<CustomColumnEntity>) = CustomColumnEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<CustomColumnEntity>) = CustomColumnEntitys
+      .update(values)
+      .observe()
+
     override fun executePersist(value: CustomColumnEntity) = value
       .persist()
       .execute()
@@ -302,6 +350,7 @@ internal object ScalarModelCatalog {
 
   private object SelectiveColumnsEntityCase :
     BulkInsertModelCase<SelectiveColumnsEntity>,
+    BulkUpdateModelCase<SelectiveColumnsEntity>,
     PersistModelCase<SelectiveColumnsEntity> {
     override val name = "SelectiveColumnsEntity"
     override val table = SELECTIVE_COLUMNS_ENTITY
@@ -328,6 +377,14 @@ internal object ScalarModelCatalog {
 
     override fun observeUpdate(value: SelectiveColumnsEntity) = value
       .update()
+      .observe()
+
+    override fun executeBulkUpdate(values: List<SelectiveColumnsEntity>) = SelectiveColumnsEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<SelectiveColumnsEntity>) = SelectiveColumnsEntitys
+      .update(values)
       .observe()
 
     override fun executePersist(value: SelectiveColumnsEntity) = value
@@ -370,6 +427,7 @@ internal object ScalarModelCatalog {
 
   private object EntityWithIgnoredValueCase :
     BulkInsertModelCase<EntityWithIgnoredValue>,
+    BulkUpdateModelCase<EntityWithIgnoredValue>,
     PersistModelCase<EntityWithIgnoredValue> {
     override val name = "EntityWithIgnoredValue"
     override val table = ENTITY_WITH_IGNORED_VALUE
@@ -396,6 +454,14 @@ internal object ScalarModelCatalog {
 
     override fun observeUpdate(value: EntityWithIgnoredValue) = value
       .update()
+      .observe()
+
+    override fun executeBulkUpdate(values: List<EntityWithIgnoredValue>) = EntityWithIgnoredValues
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<EntityWithIgnoredValue>) = EntityWithIgnoredValues
+      .update(values)
       .observe()
 
     override fun executePersist(value: EntityWithIgnoredValue) = value
@@ -438,6 +504,7 @@ internal object ScalarModelCatalog {
 
   private object BlobEntityCase :
     BulkInsertModelCase<BlobEntity>,
+    BulkUpdateModelCase<BlobEntity>,
     PersistModelCase<BlobEntity> {
     override val name = "BlobEntity"
     override val table = BLOB_ENTITY
@@ -471,6 +538,14 @@ internal object ScalarModelCatalog {
 
     override fun observeUpdate(value: BlobEntity) = value
       .update()
+      .observe()
+
+    override fun executeBulkUpdate(values: List<BlobEntity>) = BlobEntitys
+      .update(values)
+      .execute()
+
+    override fun observeBulkUpdate(values: List<BlobEntity>) = BlobEntitys
+      .update(values)
       .observe()
 
     override fun executePersist(value: BlobEntity) = value
