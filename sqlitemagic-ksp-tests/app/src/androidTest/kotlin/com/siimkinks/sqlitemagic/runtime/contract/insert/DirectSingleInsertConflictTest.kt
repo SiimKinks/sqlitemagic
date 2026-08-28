@@ -90,7 +90,7 @@ class DirectSingleInsertConflictTest(
     EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for $modelName")
   }
 
-  private fun <T> captureRows(table: Table<T>): List<T> = Select
+  private fun <T> captureRows(table: Table<T>) = Select
     .from(table)
     .queryDeep()
     .execute()

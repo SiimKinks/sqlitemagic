@@ -41,6 +41,15 @@ object ModelCatalog {
   val bulkUpdateCases: List<BulkUpdateModelCase<*>> = allCases
     .filterIsInstance<BulkUpdateModelCase<*>>()
 
+  val bulkPersistCases: List<BulkPersistModelCase<*>> = allCases
+    .filterIsInstance<BulkPersistModelCase<*>>()
+
+  val emptyBulkPersistCases: List<BulkPersistModelCase<*>> = listOf(
+    ScalarModelCatalog.emptyBulkUpdateCase,
+    IdentityModelCatalog.emptyBulkUpdateCase,
+    RelationshipModelCatalog.emptyBulkUpdateCase
+  )
+
   val emptyBulkUpdateCases: List<BulkUpdateModelCase<*>> = listOf(
     ScalarModelCatalog.emptyBulkUpdateCase,
     IdentityModelCatalog.emptyBulkUpdateCase,

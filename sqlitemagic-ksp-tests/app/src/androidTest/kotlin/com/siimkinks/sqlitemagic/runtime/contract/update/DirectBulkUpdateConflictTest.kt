@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -163,9 +164,7 @@ class DirectBulkUpdateConflictTest(
     conflictAlgorithm: Int? = null
   ) = modelCase
     .bulkUpdate(values = values)
-    .apply {
-      conflictAlgorithm?.let(this::conflictAlgorithm)
-    }
+    .withConflictAlgorithm(conflictAlgorithm)
 
   private fun <T> threeRowScenario(
     modelCase: BulkUpdateConflictModelCase<T>

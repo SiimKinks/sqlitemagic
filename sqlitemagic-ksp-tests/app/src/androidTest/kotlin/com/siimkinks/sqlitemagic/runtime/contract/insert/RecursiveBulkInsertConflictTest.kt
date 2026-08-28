@@ -326,8 +326,7 @@ class RecursiveBulkInsertConflictTest(
   private fun <T> relatedRows(
     modelCase: RecursiveInsertConflictModelCase<T>,
     values: List<T>
-  ): List<Any?> = values
-    .flatMap(modelCase::relatedValues)
+  ) = values.flatMap(modelCase::relatedValues)
 
   private fun <T> assertSnapshot(
     modelCase: RecursiveInsertConflictModelCase<T>,

@@ -9,10 +9,8 @@ import com.siimkinks.sqlitemagic.fixture.model.EmbeddedValueEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
-import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
-import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
@@ -24,9 +22,7 @@ internal object EmbeddedModelCatalog {
   )
 
   private object EmbeddedValueEntityWithOptionalValueCase :
-    BulkInsertModelCase<EmbeddedValueEntity>,
-    BulkUpdateModelCase<EmbeddedValueEntity>,
-    PersistModelCase<EmbeddedValueEntity> {
+    BulkPersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -100,6 +96,22 @@ internal object EmbeddedModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
+    override fun executeBulkPersist(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
     override fun executePersist(value: EmbeddedValueEntity) = value
       .persist()
       .execute()
@@ -126,9 +138,7 @@ internal object EmbeddedModelCatalog {
   }
 
   private object EmbeddedValueEntityWithoutOptionalValueCase :
-    BulkInsertModelCase<EmbeddedValueEntity>,
-    BulkUpdateModelCase<EmbeddedValueEntity>,
-    PersistModelCase<EmbeddedValueEntity> {
+    BulkPersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -192,6 +202,22 @@ internal object EmbeddedModelCatalog {
       conflictAlgorithm: Int?
     ) = EmbeddedValueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
+    override fun executeBulkPersist(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
+      .persist(values)
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 

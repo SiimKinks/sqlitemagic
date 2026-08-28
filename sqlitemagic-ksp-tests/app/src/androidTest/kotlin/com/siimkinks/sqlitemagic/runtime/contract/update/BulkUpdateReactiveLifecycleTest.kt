@@ -434,7 +434,7 @@ class BulkUpdateReactiveLifecycleTest(
   private fun <T> disposeAfterFirst(
     values: List<T>,
     observer: TestObserver<Void>
-  ): List<T> = object : AbstractList<T>() {
+  ) = object : AbstractList<T>() {
     override val size get() = values.size
 
     override fun get(index: Int) = values[index]

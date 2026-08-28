@@ -68,7 +68,7 @@ class EmptyBulkInsertTest(
     }
   }
 
-  private fun <T> captureRows(table: Table<T>): List<T> = Select
+  private fun <T> captureRows(table: Table<T>) = Select
     .from(table)
     .queryDeep()
     .execute()

@@ -16,9 +16,8 @@ import com.siimkinks.sqlitemagic.fixture.model.WithoutRowIdEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
-import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
@@ -32,12 +31,10 @@ internal object IdentityModelCatalog {
     WithoutRowIdEntityCase,
   )
 
-  internal val emptyBulkUpdateCase: BulkUpdateModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
+  internal val emptyBulkUpdateCase: BulkPersistModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
 
   private object StringIdEntityCase :
-    BulkInsertModelCase<StringIdEntity>,
-    BulkUpdateModelCase<StringIdEntity>,
-    PersistModelCase<StringIdEntity> {
+    BulkPersistModelCase<StringIdEntity> {
     override val name = "StringIdEntity"
     override val table = STRING_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -90,6 +87,22 @@ internal object IdentityModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
+    override fun executeBulkPersist(
+      values: Iterable<StringIdEntity>,
+      conflictAlgorithm: Int?
+    ) = StringIdEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<StringIdEntity>,
+      conflictAlgorithm: Int?
+    ) = StringIdEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
     override fun executePersist(value: StringIdEntity) = value
       .persist()
       .execute()
@@ -118,9 +131,7 @@ internal object IdentityModelCatalog {
   }
 
   private object WithoutRowIdEntityCase :
-    BulkInsertModelCase<WithoutRowIdEntity>,
-    BulkUpdateModelCase<WithoutRowIdEntity>,
-    PersistModelCase<WithoutRowIdEntity> {
+    BulkPersistModelCase<WithoutRowIdEntity> {
     override val name = "WithoutRowIdEntity"
     override val table = WITHOUT_ROW_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.ABSENT
@@ -173,6 +184,22 @@ internal object IdentityModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
+    override fun executeBulkPersist(
+      values: Iterable<WithoutRowIdEntity>,
+      conflictAlgorithm: Int?
+    ) = WithoutRowIdEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<WithoutRowIdEntity>,
+      conflictAlgorithm: Int?
+    ) = WithoutRowIdEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
     override fun executePersist(value: WithoutRowIdEntity) = value
       .persist()
       .execute()
@@ -186,8 +213,7 @@ internal object IdentityModelCatalog {
 
   private object NoIdUniqueEntityCase :
     UniqueInsertModelCase<NoIdUniqueEntity>,
-    BulkUpdateModelCase<NoIdUniqueEntity>,
-    PersistModelCase<NoIdUniqueEntity> {
+    BulkPersistModelCase<NoIdUniqueEntity> {
     override val name = "NoIdUniqueEntity"
     override val table = NO_ID_UNIQUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -237,6 +263,22 @@ internal object IdentityModelCatalog {
       conflictAlgorithm: Int?
     ) = NoIdUniqueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun executeBulkPersist(
+      values: Iterable<NoIdUniqueEntity>,
+      conflictAlgorithm: Int?
+    ) = NoIdUniqueEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun observeBulkPersist(
+      values: Iterable<NoIdUniqueEntity>,
+      conflictAlgorithm: Int?
+    ) = NoIdUniqueEntitys
+      .persist(values)
       .withConflictAlgorithm(conflictAlgorithm)
       .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 

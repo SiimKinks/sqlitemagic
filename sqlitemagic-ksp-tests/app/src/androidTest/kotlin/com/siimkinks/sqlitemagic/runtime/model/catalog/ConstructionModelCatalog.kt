@@ -13,9 +13,8 @@ import com.siimkinks.sqlitemagic.fixture.model.NonDataConstructorEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
-import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
@@ -44,9 +43,7 @@ internal object ConstructionModelCatalog {
   }
 
   private object MutableBodyEntityCase :
-    BulkInsertModelCase<MutableBodyEntity>,
-    BulkUpdateModelCase<MutableBodyEntity>,
-    PersistModelCase<MutableBodyEntity> {
+    BulkPersistModelCase<MutableBodyEntity> {
     override val name = "MutableBodyEntity"
     override val table = MUTABLE_BODY_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -97,6 +94,22 @@ internal object ConstructionModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
+    override fun executeBulkPersist(
+      values: Iterable<MutableBodyEntity>,
+      conflictAlgorithm: Int?
+    ) = MutableBodyEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<MutableBodyEntity>,
+      conflictAlgorithm: Int?
+    ) = MutableBodyEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
     override fun executePersist(value: MutableBodyEntity) = value
       .persist()
       .execute()
@@ -109,9 +122,7 @@ internal object ConstructionModelCatalog {
   }
 
   private object InheritedMutableEntityCase :
-    BulkInsertModelCase<InheritedMutableEntity>,
-    BulkUpdateModelCase<InheritedMutableEntity>,
-    PersistModelCase<InheritedMutableEntity> {
+    BulkPersistModelCase<InheritedMutableEntity> {
     override val name = "InheritedMutableEntity"
     override val table = INHERITED_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -161,6 +172,22 @@ internal object ConstructionModelCatalog {
       conflictAlgorithm: Int?
     ) = InheritedMutableEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
+    override fun executeBulkPersist(
+      values: Iterable<InheritedMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = InheritedMutableEntitys
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<InheritedMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = InheritedMutableEntitys
+      .persist(values)
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 

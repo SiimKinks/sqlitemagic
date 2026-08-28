@@ -20,24 +20,18 @@ import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
+import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
-import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
-import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
-import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursivePersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
-import kotlin.collections.List
 import kotlin.collections.copy
-import kotlin.collections.listOf
-import kotlin.collections.listOfNotNull
-import kotlin.collections.map
-import kotlin.collections.single
 
 internal object RelationshipModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -67,7 +61,7 @@ internal object RelationshipModelCatalog {
     EntityWithUniqueRelationshipsCase
   )
 
-  internal val emptyBulkUpdateCase: BulkUpdateModelCase<EntityWithRelationship> = EntityWithRelationshipCase
+  internal val emptyBulkUpdateCase: BulkPersistModelCase<EntityWithRelationship> = EntityWithRelationshipCase
 
   private object UniqueRelatedEntityCase :
     PersistConflictModelCase<UniqueRelatedEntity>,
@@ -100,6 +94,8 @@ internal object RelationshipModelCatalog {
     ) = value
 
     override fun persist(value: UniqueRelatedEntity): EntityPersistBuilder = value.persist()
+
+    override fun bulkPersist(values: Iterable<UniqueRelatedEntity>) = UniqueRelatedEntitys.persist(values)
 
     override fun valueWithInsertConflict(
       existing: UniqueRelatedEntity,
@@ -134,8 +130,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithRelationshipCase :
-    RecursiveBulkUpdateModelCase<EntityWithRelationship>,
-    PersistModelCase<EntityWithRelationship> {
+    RecursiveBulkPersistModelCase<EntityWithRelationship> {
     override val name = "EntityWithRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
@@ -205,6 +200,22 @@ internal object RelationshipModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
+    override fun executeBulkPersist(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
     override fun executePersist(value: EntityWithRelationship) = value
       .persist()
       .execute()
@@ -217,8 +228,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithNullRelationshipCase :
-    RecursiveBulkUpdateModelCase<EntityWithRelationship>,
-    PersistModelCase<EntityWithRelationship> {
+    RecursiveBulkPersistModelCase<EntityWithRelationship> {
     override val name = "EntityWithNullRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
@@ -278,6 +288,22 @@ internal object RelationshipModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
+    override fun executeBulkPersist(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
     override fun executePersist(value: EntityWithRelationship) = value
       .persist()
       .execute()
@@ -290,8 +316,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithStringIdRelationshipCase :
-    RecursiveBulkUpdateModelCase<EntityWithStringIdRelationship>,
-    PersistModelCase<EntityWithStringIdRelationship> {
+    RecursiveBulkPersistModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
     override val table = ENTITY_WITH_STRING_ID_RELATIONSHIP
     override val relatedTable = STRING_ID_ENTITY
@@ -368,6 +393,22 @@ internal object RelationshipModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
+    override fun executeBulkPersist(
+      values: Iterable<EntityWithStringIdRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithStringIdRelationships
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<EntityWithStringIdRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithStringIdRelationships
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
     override fun executePersist(value: EntityWithStringIdRelationship) = value
       .persist()
       .execute()
@@ -382,8 +423,7 @@ internal object RelationshipModelCatalog {
   private object EntityWithUniqueRelationshipsCase :
     RecursivePersistConflictModelCase<EntityWithUniqueRelationships>,
     RecursiveUpdateConflictModelCase<EntityWithUniqueRelationships>,
-    RecursiveBulkUpdateModelCase<EntityWithUniqueRelationships>,
-    PersistModelCase<EntityWithUniqueRelationships> {
+    RecursiveBulkPersistModelCase<EntityWithUniqueRelationships> {
     override val name = "EntityWithUniqueRelationships"
     override val table = ENTITY_WITH_UNIQUE_RELATIONSHIPS
     override val relatedTable = UNIQUE_RELATED_ENTITY
@@ -509,6 +549,9 @@ internal object RelationshipModelCatalog {
 
     override fun persist(value: EntityWithUniqueRelationships) = value.persist()
 
+    override fun bulkPersist(values: Iterable<EntityWithUniqueRelationships>) =
+      EntityWithUniqueRelationshipss.persist(values)
+
     override fun valueWithInsertConflict(
       existing: EntityWithUniqueRelationships,
       sequence: Int
@@ -570,6 +613,22 @@ internal object RelationshipModelCatalog {
       conflictAlgorithm: Int?
     ) = EntityWithUniqueRelationshipss
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .observe()
+
+    override fun executeBulkPersist(
+      values: Iterable<EntityWithUniqueRelationships>,
+      conflictAlgorithm: Int?
+    ) = EntityWithUniqueRelationshipss
+      .persist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+      .execute()
+
+    override fun observeBulkPersist(
+      values: Iterable<EntityWithUniqueRelationships>,
+      conflictAlgorithm: Int?
+    ) = EntityWithUniqueRelationshipss
+      .persist(values)
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
