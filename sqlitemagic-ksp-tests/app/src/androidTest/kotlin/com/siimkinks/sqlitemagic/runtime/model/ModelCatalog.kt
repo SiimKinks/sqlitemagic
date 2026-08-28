@@ -24,6 +24,10 @@ object ModelCatalog {
   val persistCases: List<PersistModelCase<*>> = allCases
     .filterIsInstance<PersistModelCase<*>>()
 
+  val persistConflictCases = RelationshipModelCatalog.persistConflictCases
+
+  val recursivePersistConflictCases = RelationshipModelCatalog.recursivePersistConflictCases
+
   val bulkInsertCases: List<BulkInsertModelCase<*>> = allCases
     .filterIsInstance<BulkInsertModelCase<*>>()
 

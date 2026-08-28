@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTAB
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.UniqueRelatedEntityTable.Companion.UNIQUE_RELATED_ENTITY
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithStringIdRelationship
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithUniqueRelationships
@@ -19,9 +20,11 @@ import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RecursivePersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.update
 
@@ -32,6 +35,56 @@ internal object RelationshipModelCatalog {
     EntityWithStringIdRelationshipCase,
     EntityWithUniqueRelationshipsCase,
   )
+
+  val persistConflictCases: List<PersistConflictModelCase<*>> = listOf(
+    UniqueRelatedEntityCase
+  )
+
+  val recursivePersistConflictCases: List<RecursivePersistConflictModelCase<*>> = listOf(
+    EntityWithUniqueRelationshipsCase
+  )
+
+  private object UniqueRelatedEntityCase : PersistConflictModelCase<UniqueRelatedEntity> {
+    override val name = "UniqueRelatedEntity"
+    override val table = UNIQUE_RELATED_ENTITY
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = UniqueRelatedEntity(
+      id = null,
+      uniqueValue = "unique-related-$sequence",
+      value = "unique-related-value-$sequence"
+    )
+
+    override fun insert(value: UniqueRelatedEntity) = value.insert()
+
+    override fun expectedAfterInsert(
+      value: UniqueRelatedEntity,
+      result: EntityInsertResult.Inserted
+    ) = value
+
+    override fun persist(value: UniqueRelatedEntity): EntityPersistBuilder = value.persist()
+
+    override fun valueWithInsertConflict(
+      existing: UniqueRelatedEntity,
+      sequence: Int
+    ) = UniqueRelatedEntity(
+      id = null,
+      uniqueValue = existing.uniqueValue,
+      value = "unique-related-insert-conflict-value-$sequence"
+    )
+
+    override fun valueWithUpdateConflict(
+      existing: UniqueRelatedEntity,
+      conflicting: UniqueRelatedEntity,
+      sequence: Int
+    ) = UniqueRelatedEntity(
+      id = existing.id,
+      uniqueValue = conflicting.uniqueValue,
+      value = "unique-related-update-conflict-value-$sequence"
+    )
+
+    override fun toString() = name
+  }
 
   private object EntityWithRelationshipCase :
     RecursiveBulkInsertModelCase<EntityWithRelationship>,
@@ -208,7 +261,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithUniqueRelationshipsCase :
-    RecursiveInsertConflictModelCase<EntityWithUniqueRelationships>,
+    RecursivePersistConflictModelCase<EntityWithUniqueRelationships>,
     PersistModelCase<EntityWithUniqueRelationships> {
     override val name = "EntityWithUniqueRelationships"
     override val table = ENTITY_WITH_UNIQUE_RELATIONSHIPS
@@ -280,6 +333,25 @@ internal object RelationshipModelCatalog {
         value = "unique-child-conflict-second-child-value-$sequence"
       )
     )
+
+    override fun persist(value: EntityWithUniqueRelationships) = value.persist()
+
+    override fun valueWithInsertConflict(
+      existing: EntityWithUniqueRelationships,
+      sequence: Int
+    ) = valueWithParentConflict(
+      existing = existing,
+      sequence = sequence
+    )
+
+    override fun valueWithUpdateConflict(
+      existing: EntityWithUniqueRelationships,
+      conflicting: EntityWithUniqueRelationships,
+      sequence: Int
+    ) = updatedValue(
+      value = existing,
+      sequence = sequence
+    ).copy(uniqueValue = conflicting.uniqueValue)
 
     override fun updatedValue(value: EntityWithUniqueRelationships, sequence: Int) = value.copy(
       id = value.id,
