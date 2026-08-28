@@ -1,12 +1,12 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
-import com.siimkinks.sqlitemagic.NoIdEntityTable
+import com.siimkinks.sqlitemagic.NoIdEntityTable.Companion.NO_ID_ENTITY
 import com.siimkinks.sqlitemagic.NoIdEntitys
-import com.siimkinks.sqlitemagic.NoIdUniqueEntityTable
+import com.siimkinks.sqlitemagic.NoIdUniqueEntityTable.Companion.NO_ID_UNIQUE_ENTITY
 import com.siimkinks.sqlitemagic.NoIdUniqueEntitys
-import com.siimkinks.sqlitemagic.StringIdEntityTable
+import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntitys
-import com.siimkinks.sqlitemagic.WithoutRowIdEntityTable
+import com.siimkinks.sqlitemagic.WithoutRowIdEntityTable.Companion.WITHOUT_ROW_ID_ENTITY
 import com.siimkinks.sqlitemagic.WithoutRowIdEntitys
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
@@ -18,6 +18,8 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
+import com.siimkinks.sqlitemagic.update
 
 internal object IdentityModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -27,9 +29,11 @@ internal object IdentityModelCatalog {
     WithoutRowIdEntityCase,
   )
 
-  private object StringIdEntityCase : BulkInsertModelCase<StringIdEntity> {
+  private object StringIdEntityCase :
+    BulkInsertModelCase<StringIdEntity>,
+    UpdateModelCase<StringIdEntity> {
     override val name = "StringIdEntity"
-    override val table = StringIdEntityTable.STRING_ID_ENTITY
+    override val table = STRING_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = StringIdEntity(
@@ -43,12 +47,25 @@ internal object IdentityModelCatalog {
 
     override fun expectedAfterInsert(value: StringIdEntity, result: EntityInsertResult.Inserted) = value
 
+    override fun updatedValue(value: StringIdEntity, sequence: Int) = value.copy(
+      id = value.id,
+      value = "string-value-updated-$sequence"
+    )
+
+    override fun executeUpdate(value: StringIdEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: StringIdEntity) = value
+      .update()
+      .observe()
+
     override fun toString() = name
   }
 
   private object NoIdEntityCase : BulkInsertModelCase<NoIdEntity> {
     override val name = "NoIdEntity"
-    override val table = NoIdEntityTable.NO_ID_ENTITY
+    override val table = NO_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = NoIdEntity(value = "no-id-$sequence")
@@ -62,9 +79,11 @@ internal object IdentityModelCatalog {
     override fun toString() = name
   }
 
-  private object WithoutRowIdEntityCase : BulkInsertModelCase<WithoutRowIdEntity> {
+  private object WithoutRowIdEntityCase :
+    BulkInsertModelCase<WithoutRowIdEntity>,
+    UpdateModelCase<WithoutRowIdEntity> {
     override val name = "WithoutRowIdEntity"
-    override val table = WithoutRowIdEntityTable.WITHOUT_ROW_ID_ENTITY
+    override val table = WITHOUT_ROW_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.ABSENT
 
     override fun newValue(sequence: Int) = WithoutRowIdEntity(
@@ -78,12 +97,27 @@ internal object IdentityModelCatalog {
 
     override fun expectedAfterInsert(value: WithoutRowIdEntity, result: EntityInsertResult.Inserted) = value
 
+    override fun updatedValue(value: WithoutRowIdEntity, sequence: Int) = value.copy(
+      id = value.id,
+      value = "without-rowid-value-updated-$sequence"
+    )
+
+    override fun executeUpdate(value: WithoutRowIdEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: WithoutRowIdEntity) = value
+      .update()
+      .observe()
+
     override fun toString() = name
   }
 
-  private object NoIdUniqueEntityCase : UniqueInsertModelCase<NoIdUniqueEntity> {
+  private object NoIdUniqueEntityCase :
+    UniqueInsertModelCase<NoIdUniqueEntity>,
+    UpdateModelCase<NoIdUniqueEntity> {
     override val name = "NoIdUniqueEntity"
-    override val table = NoIdUniqueEntityTable.NO_ID_UNIQUE_ENTITY
+    override val table = NO_ID_UNIQUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = NoIdUniqueEntity(
@@ -96,6 +130,19 @@ internal object IdentityModelCatalog {
     override fun bulkInsert(values: List<NoIdUniqueEntity>) = NoIdUniqueEntitys.insert(values)
 
     override fun expectedAfterInsert(value: NoIdUniqueEntity, result: EntityInsertResult.Inserted) = value
+
+    override fun updatedValue(value: NoIdUniqueEntity, sequence: Int) = value.copy(
+      uniqueValue = value.uniqueValue,
+      value = "no-id-unique-value-updated-$sequence"
+    )
+
+    override fun executeUpdate(value: NoIdUniqueEntity) = value
+      .update()
+      .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun observeUpdate(value: NoIdUniqueEntity) = value
+      .update()
+      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
     override fun conflictingValue(existing: NoIdUniqueEntity, sequence: Int) = existing.copy(
       value = "no-id-unique-conflicting-value-$sequence"

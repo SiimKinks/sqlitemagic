@@ -1,18 +1,18 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
-import com.siimkinks.sqlitemagic.BlobEntityTable
+import com.siimkinks.sqlitemagic.BlobEntityTable.Companion.BLOB_ENTITY
 import com.siimkinks.sqlitemagic.BlobEntitys
-import com.siimkinks.sqlitemagic.CustomColumnEntityTable
+import com.siimkinks.sqlitemagic.CustomColumnEntityTable.Companion.CUSTOM_COLUMN_ENTITY
 import com.siimkinks.sqlitemagic.CustomColumnEntitys
-import com.siimkinks.sqlitemagic.EntityWithIgnoredValueTable
+import com.siimkinks.sqlitemagic.EntityWithIgnoredValueTable.Companion.ENTITY_WITH_IGNORED_VALUE
 import com.siimkinks.sqlitemagic.EntityWithIgnoredValues
-import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable
+import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldss
-import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable
+import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable.Companion.IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldss
-import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable
+import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE_COLUMNS_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
-import com.siimkinks.sqlitemagic.SimpleMutableEntityTable
+import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntitys
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.BlobEntity
@@ -27,6 +27,8 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
+import com.siimkinks.sqlitemagic.update
 
 internal object ScalarModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -40,9 +42,11 @@ internal object ScalarModelCatalog {
     BlobEntityCase,
   )
 
-  private object SimpleMutableEntityCase : BulkInsertModelCase<SimpleMutableEntity> {
+  private object SimpleMutableEntityCase :
+    BulkInsertModelCase<SimpleMutableEntity>,
+    UpdateModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
-    override val table = SimpleMutableEntityTable.SIMPLE_MUTABLE_ENTITY
+    override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = SimpleMutableEntity(
@@ -56,14 +60,30 @@ internal object ScalarModelCatalog {
 
     override fun bulkInsert(values: List<SimpleMutableEntity>) = SimpleMutableEntitys.insert(values)
 
+    override fun updatedValue(value: SimpleMutableEntity, sequence: Int) = value.copy(
+      value = "simple-mutable-entity-updated-$sequence",
+      boxedBoolean = sequence % 2 == 0,
+      primitiveBoolean = sequence % 2 != 0
+    )
+
+    override fun executeUpdate(value: SimpleMutableEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: SimpleMutableEntity) = value
+      .update()
+      .observe()
+
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
   }
 
-  private object SimpleMutableEntityWithPresetAutoIdCase : BulkInsertModelCase<SimpleMutableEntity> {
+  private object SimpleMutableEntityWithPresetAutoIdCase :
+    BulkInsertModelCase<SimpleMutableEntity>,
+    UpdateModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntityWithPresetAutoId"
-    override val table = SimpleMutableEntityTable.SIMPLE_MUTABLE_ENTITY
+    override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = SimpleMutableEntity(
@@ -77,6 +97,20 @@ internal object ScalarModelCatalog {
 
     override fun bulkInsert(values: List<SimpleMutableEntity>) = SimpleMutableEntitys.insert(values)
 
+    override fun updatedValue(value: SimpleMutableEntity, sequence: Int) = value.copy(
+      value = "preset-simple-mutable-entity-updated-$sequence",
+      boxedBoolean = sequence % 2 != 0,
+      primitiveBoolean = sequence % 2 == 0
+    )
+
+    override fun executeUpdate(value: SimpleMutableEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: SimpleMutableEntity) = value
+      .update()
+      .observe()
+
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
 
     override fun verifyAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) {
@@ -87,9 +121,11 @@ internal object ScalarModelCatalog {
     override fun toString() = name
   }
 
-  private object ImmutableValueWithNullableFieldsCase : BulkInsertModelCase<ImmutableValueWithNullableFields> {
+  private object ImmutableValueWithNullableFieldsCase :
+    BulkInsertModelCase<ImmutableValueWithNullableFields>,
+    UpdateModelCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
-    override val table = ImmutableValueWithNullableFieldsTable.IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
+    override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = ImmutableValueWithNullableFields(
@@ -103,6 +139,20 @@ internal object ScalarModelCatalog {
 
     override fun bulkInsert(values: List<ImmutableValueWithNullableFields>) =
       ImmutableValueWithNullableFieldss.insert(values)
+
+    override fun updatedValue(value: ImmutableValueWithNullableFields, sequence: Int) = value.copy(
+      string = "immutable-value-updated-$sequence",
+      aBoolean = sequence % 2 == 0,
+      integer = 100 + sequence
+    )
+
+    override fun executeUpdate(value: ImmutableValueWithNullableFields) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: ImmutableValueWithNullableFields) = value
+      .update()
+      .observe()
 
     override fun expectedAfterInsert(
       value: ImmutableValueWithNullableFields,
@@ -121,9 +171,11 @@ internal object ScalarModelCatalog {
     override fun toString() = name
   }
 
-  private object ImmutableValueWithFieldsCase : BulkInsertModelCase<ImmutableValueWithFields> {
+  private object ImmutableValueWithFieldsCase :
+    BulkInsertModelCase<ImmutableValueWithFields>,
+    UpdateModelCase<ImmutableValueWithFields> {
     override val name = "ImmutableValueWithFields"
-    override val table = ImmutableValueWithFieldsTable.IMMUTABLE_VALUE_WITH_FIELDS
+    override val table = IMMUTABLE_VALUE_WITH_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = ImmutableValueWithFields(
@@ -139,6 +191,23 @@ internal object ScalarModelCatalog {
     override fun insert(value: ImmutableValueWithFields) = value.insert()
 
     override fun bulkInsert(values: List<ImmutableValueWithFields>) = ImmutableValueWithFieldss.insert(values)
+
+    override fun updatedValue(value: ImmutableValueWithFields, sequence: Int) = value.copy(
+      stringValue = "transformed-updated-$sequence",
+      aBoolean = sequence % 2 != 0,
+      integer = 100 + sequence,
+      aDouble = 10.5 + sequence,
+      aShort = (10 + sequence).toShort(),
+      transformableObject = TransformableObject(value = 100 + sequence)
+    )
+
+    override fun executeUpdate(value: ImmutableValueWithFields) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: ImmutableValueWithFields) = value
+      .update()
+      .observe()
 
     override fun expectedAfterInsert(
       value: ImmutableValueWithFields,
@@ -157,9 +226,11 @@ internal object ScalarModelCatalog {
     override fun toString() = name
   }
 
-  private object CustomColumnEntityCase : BulkInsertModelCase<CustomColumnEntity> {
+  private object CustomColumnEntityCase :
+    BulkInsertModelCase<CustomColumnEntity>,
+    UpdateModelCase<CustomColumnEntity> {
     override val name = "CustomColumnEntity"
-    override val table = CustomColumnEntityTable.CUSTOM_COLUMN_ENTITY
+    override val table = CUSTOM_COLUMN_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = CustomColumnEntity(
@@ -171,14 +242,28 @@ internal object ScalarModelCatalog {
 
     override fun bulkInsert(values: List<CustomColumnEntity>) = CustomColumnEntitys.insert(values)
 
+    override fun updatedValue(value: CustomColumnEntity, sequence: Int) = value.copy(
+      value = "custom-column-updated-$sequence"
+    )
+
+    override fun executeUpdate(value: CustomColumnEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: CustomColumnEntity) = value
+      .update()
+      .observe()
+
     override fun expectedAfterInsert(value: CustomColumnEntity, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
   }
 
-  private object SelectiveColumnsEntityCase : BulkInsertModelCase<SelectiveColumnsEntity> {
+  private object SelectiveColumnsEntityCase :
+    BulkInsertModelCase<SelectiveColumnsEntity>,
+    UpdateModelCase<SelectiveColumnsEntity> {
     override val name = "SelectiveColumnsEntity"
-    override val table = SelectiveColumnsEntityTable.SELECTIVE_COLUMNS_ENTITY
+    override val table = SELECTIVE_COLUMNS_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = SelectiveColumnsEntity().apply {
@@ -189,6 +274,25 @@ internal object ScalarModelCatalog {
     override fun insert(value: SelectiveColumnsEntity) = value.insert()
 
     override fun bulkInsert(values: List<SelectiveColumnsEntity>) = SelectiveColumnsEntitys.insert(values)
+
+    override fun updatedValue(value: SelectiveColumnsEntity, sequence: Int) = SelectiveColumnsEntity().apply {
+      id = value.id
+      persistedValue = "selective-updated-$sequence"
+      transientValue = "selective-transient-updated-$sequence"
+    }
+
+    override fun executeUpdate(value: SelectiveColumnsEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: SelectiveColumnsEntity) = value
+      .update()
+      .observe()
+
+    override fun expectedAfterUpdate(value: SelectiveColumnsEntity) = SelectiveColumnsEntity().apply {
+      id = value.id
+      persistedValue = value.persistedValue
+    }
 
     override fun expectedAfterInsert(
       value: SelectiveColumnsEntity,
@@ -215,9 +319,11 @@ internal object ScalarModelCatalog {
     override fun toString() = name
   }
 
-  private object EntityWithIgnoredValueCase : BulkInsertModelCase<EntityWithIgnoredValue> {
+  private object EntityWithIgnoredValueCase :
+    BulkInsertModelCase<EntityWithIgnoredValue>,
+    UpdateModelCase<EntityWithIgnoredValue> {
     override val name = "EntityWithIgnoredValue"
-    override val table = EntityWithIgnoredValueTable.ENTITY_WITH_IGNORED_VALUE
+    override val table = ENTITY_WITH_IGNORED_VALUE
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EntityWithIgnoredValue().apply {
@@ -228,6 +334,25 @@ internal object ScalarModelCatalog {
     override fun insert(value: EntityWithIgnoredValue) = value.insert()
 
     override fun bulkInsert(values: List<EntityWithIgnoredValue>) = EntityWithIgnoredValues.insert(values)
+
+    override fun updatedValue(value: EntityWithIgnoredValue, sequence: Int) = EntityWithIgnoredValue().apply {
+      id = value.id
+      persistedValue = "ignored-persisted-updated-$sequence"
+      ignoredValue = "ignored-value-updated-$sequence"
+    }
+
+    override fun executeUpdate(value: EntityWithIgnoredValue) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: EntityWithIgnoredValue) = value
+      .update()
+      .observe()
+
+    override fun expectedAfterUpdate(value: EntityWithIgnoredValue) = EntityWithIgnoredValue().apply {
+      id = value.id
+      persistedValue = value.persistedValue
+    }
 
     override fun expectedAfterInsert(
       value: EntityWithIgnoredValue,
@@ -254,9 +379,11 @@ internal object ScalarModelCatalog {
     override fun toString() = name
   }
 
-  private object BlobEntityCase : BulkInsertModelCase<BlobEntity> {
+  private object BlobEntityCase :
+    BulkInsertModelCase<BlobEntity>,
+    UpdateModelCase<BlobEntity> {
     override val name = "BlobEntity"
-    override val table = BlobEntityTable.BLOB_ENTITY
+    override val table = BLOB_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = BlobEntity(
@@ -271,6 +398,23 @@ internal object ScalarModelCatalog {
     override fun insert(value: BlobEntity) = value.insert()
 
     override fun bulkInsert(values: List<BlobEntity>) = BlobEntitys.insert(values)
+
+    override fun updatedValue(value: BlobEntity, sequence: Int) = BlobEntity(
+      id = value.id,
+      payload = byteArrayOf(
+        sequence.toByte(),
+        (sequence + 1).toByte(),
+        (sequence + 2).toByte()
+      )
+    )
+
+    override fun executeUpdate(value: BlobEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: BlobEntity) = value
+      .update()
+      .observe()
 
     override fun expectedAfterInsert(
       value: BlobEntity,

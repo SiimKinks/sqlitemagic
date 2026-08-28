@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
-import com.siimkinks.sqlitemagic.EmbeddedValueEntityTable
+import com.siimkinks.sqlitemagic.EmbeddedValueEntityTable.Companion.EMBEDDED_VALUE_ENTITY
 import com.siimkinks.sqlitemagic.EmbeddedValueEntitys
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.EmbeddedCoordinates
@@ -11,6 +11,8 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
+import com.siimkinks.sqlitemagic.update
 
 internal object EmbeddedModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -18,9 +20,11 @@ internal object EmbeddedModelCatalog {
     EmbeddedValueEntityWithoutOptionalValueCase,
   )
 
-  private object EmbeddedValueEntityWithOptionalValueCase : BulkInsertModelCase<EmbeddedValueEntity> {
+  private object EmbeddedValueEntityWithOptionalValueCase :
+    BulkInsertModelCase<EmbeddedValueEntity>,
+    UpdateModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
-    override val table = EmbeddedValueEntityTable.EMBEDDED_VALUE_ENTITY
+    override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EmbeddedValueEntity(
@@ -47,6 +51,27 @@ internal object EmbeddedModelCatalog {
 
     override fun bulkInsert(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys.insert(values)
 
+    override fun updatedValue(value: EmbeddedValueEntity, sequence: Int) = value.copy(
+      requiredDetails = value.requiredDetails
+        .updated(
+          sequence = sequence,
+          prefix = "required"
+        ),
+      optionalDetails = value.optionalDetails
+        ?.updated(
+          sequence = sequence,
+          prefix = "optional"
+        )
+    )
+
+    override fun executeUpdate(value: EmbeddedValueEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: EmbeddedValueEntity) = value
+      .update()
+      .observe()
+
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,
       result: EntityInsertResult.Inserted
@@ -64,9 +89,11 @@ internal object EmbeddedModelCatalog {
     override fun toString() = name
   }
 
-  private object EmbeddedValueEntityWithoutOptionalValueCase : BulkInsertModelCase<EmbeddedValueEntity> {
+  private object EmbeddedValueEntityWithoutOptionalValueCase :
+    BulkInsertModelCase<EmbeddedValueEntity>,
+    UpdateModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
-    override val table = EmbeddedValueEntityTable.EMBEDDED_VALUE_ENTITY
+    override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EmbeddedValueEntity(
@@ -86,6 +113,27 @@ internal object EmbeddedModelCatalog {
 
     override fun bulkInsert(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys.insert(values)
 
+    override fun updatedValue(value: EmbeddedValueEntity, sequence: Int) = value.copy(
+      requiredDetails = value.requiredDetails
+        .updated(
+          sequence = sequence,
+          prefix = "required"
+        ),
+      optionalDetails = value.optionalDetails
+        ?.updated(
+          sequence = sequence,
+          prefix = "optional"
+        )
+    )
+
+    override fun executeUpdate(value: EmbeddedValueEntity) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: EmbeddedValueEntity) = value
+      .update()
+      .observe()
+
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,
       result: EntityInsertResult.Inserted
@@ -102,4 +150,14 @@ internal object EmbeddedModelCatalog {
 
     override fun toString() = name
   }
+
+  private fun EmbeddedDetails.updated(sequence: Int, prefix: String) = copy(
+    label = "$prefix-label-updated-$sequence",
+    coordinates = coordinates
+      .copy(
+        latitude = coordinates.latitude + 100 + sequence,
+        longitude = coordinates.longitude + 100 + sequence
+      ),
+    transformedValue = TransformableObject(value = transformedValue.value + 100 + sequence)
+  )
 }

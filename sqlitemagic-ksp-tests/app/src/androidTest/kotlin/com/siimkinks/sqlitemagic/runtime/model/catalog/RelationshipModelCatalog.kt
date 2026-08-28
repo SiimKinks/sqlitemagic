@@ -1,14 +1,14 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
-import com.siimkinks.sqlitemagic.EntityWithRelationshipTable
+import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.EntityWithRelationships
-import com.siimkinks.sqlitemagic.EntityWithStringIdRelationshipTable
+import com.siimkinks.sqlitemagic.EntityWithStringIdRelationshipTable.Companion.ENTITY_WITH_STRING_ID_RELATIONSHIP
 import com.siimkinks.sqlitemagic.EntityWithStringIdRelationships
-import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipsTable
+import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipsTable.Companion.ENTITY_WITH_UNIQUE_RELATIONSHIPS
 import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipss
-import com.siimkinks.sqlitemagic.SimpleMutableEntityTable
-import com.siimkinks.sqlitemagic.StringIdEntityTable
-import com.siimkinks.sqlitemagic.UniqueRelatedEntityTable
+import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
+import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
+import com.siimkinks.sqlitemagic.UniqueRelatedEntityTable.Companion.UNIQUE_RELATED_ENTITY
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithStringIdRelationship
@@ -21,6 +21,8 @@ import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
+import com.siimkinks.sqlitemagic.update
 
 internal object RelationshipModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -30,10 +32,12 @@ internal object RelationshipModelCatalog {
     EntityWithUniqueRelationshipsCase,
   )
 
-  private object EntityWithRelationshipCase : RecursiveBulkInsertModelCase<EntityWithRelationship> {
+  private object EntityWithRelationshipCase :
+    RecursiveBulkInsertModelCase<EntityWithRelationship>,
+    UpdateModelCase<EntityWithRelationship> {
     override val name = "EntityWithRelationship"
-    override val table = EntityWithRelationshipTable.ENTITY_WITH_RELATIONSHIP
-    override val relatedTable = SimpleMutableEntityTable.SIMPLE_MUTABLE_ENTITY
+    override val table = ENTITY_WITH_RELATIONSHIP
+    override val relatedTable = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EntityWithRelationship().apply {
@@ -58,13 +62,33 @@ internal object RelationshipModelCatalog {
       result: EntityInsertResult.Inserted
     ) = value.copyWithGeneratedId(result = result)
 
+    override fun updatedValue(value: EntityWithRelationship, sequence: Int) = value.apply {
+      this.value = "relationship-entity-with-relationship-updated-$sequence"
+      count = 17 + sequence
+      relatedEntity?.let { related ->
+        related.value = "relationship-simple-mutable-entity-updated-$sequence"
+        related.boxedBoolean = sequence % 2 == 0
+        related.primitiveBoolean = sequence % 2 != 0
+      }
+    }
+
+    override fun executeUpdate(value: EntityWithRelationship) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: EntityWithRelationship) = value
+      .update()
+      .observe()
+
     override fun toString() = name
   }
 
-  private object EntityWithNullRelationshipCase : RecursiveBulkInsertModelCase<EntityWithRelationship> {
+  private object EntityWithNullRelationshipCase :
+    RecursiveBulkInsertModelCase<EntityWithRelationship>,
+    UpdateModelCase<EntityWithRelationship> {
     override val name = "EntityWithNullRelationship"
-    override val table = EntityWithRelationshipTable.ENTITY_WITH_RELATIONSHIP
-    override val relatedTable = SimpleMutableEntityTable.SIMPLE_MUTABLE_ENTITY
+    override val table = ENTITY_WITH_RELATIONSHIP
+    override val relatedTable = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EntityWithRelationship().apply {
@@ -84,13 +108,28 @@ internal object RelationshipModelCatalog {
       result: EntityInsertResult.Inserted
     ) = value.copyWithGeneratedId(result = result)
 
+    override fun updatedValue(value: EntityWithRelationship, sequence: Int) = value.apply {
+      this.value = "relationship-null-updated-$sequence"
+      count = 17 + sequence
+    }
+
+    override fun executeUpdate(value: EntityWithRelationship) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: EntityWithRelationship) = value
+      .update()
+      .observe()
+
     override fun toString() = name
   }
 
-  private object EntityWithStringIdRelationshipCase : RecursiveBulkInsertModelCase<EntityWithStringIdRelationship> {
+  private object EntityWithStringIdRelationshipCase :
+    RecursiveBulkInsertModelCase<EntityWithStringIdRelationship>,
+    UpdateModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
-    override val table = EntityWithStringIdRelationshipTable.ENTITY_WITH_STRING_ID_RELATIONSHIP
-    override val relatedTable = StringIdEntityTable.STRING_ID_ENTITY
+    override val table = ENTITY_WITH_STRING_ID_RELATIONSHIP
+    override val relatedTable = STRING_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EntityWithStringIdRelationship(
@@ -123,14 +162,32 @@ internal object RelationshipModelCatalog {
         .copy(id = persisted.id)
     }
 
+    override fun updatedValue(value: EntityWithStringIdRelationship, sequence: Int) = value.copy(
+      id = value.id,
+      value = "string-id-relationship-updated-$sequence",
+      relatedEntity = value.relatedEntity.copy(
+        id = value.relatedEntity.id,
+        value = "string-id-related-value-updated-$sequence"
+      )
+    )
+
+    override fun executeUpdate(value: EntityWithStringIdRelationship) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: EntityWithStringIdRelationship) = value
+      .update()
+      .observe()
+
     override fun toString() = name
   }
 
   private object EntityWithUniqueRelationshipsCase :
-    RecursiveInsertConflictModelCase<EntityWithUniqueRelationships> {
+    RecursiveInsertConflictModelCase<EntityWithUniqueRelationships>,
+    UpdateModelCase<EntityWithUniqueRelationships> {
     override val name = "EntityWithUniqueRelationships"
-    override val table = EntityWithUniqueRelationshipsTable.ENTITY_WITH_UNIQUE_RELATIONSHIPS
-    override val relatedTable = UniqueRelatedEntityTable.UNIQUE_RELATED_ENTITY
+    override val table = ENTITY_WITH_UNIQUE_RELATIONSHIPS
+    override val relatedTable = UNIQUE_RELATED_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
 
     override fun newValue(sequence: Int) = EntityWithUniqueRelationships(
@@ -198,6 +255,29 @@ internal object RelationshipModelCatalog {
         value = "unique-child-conflict-second-child-value-$sequence"
       )
     )
+
+    override fun updatedValue(value: EntityWithUniqueRelationships, sequence: Int) = value.copy(
+      id = value.id,
+      uniqueValue = value.uniqueValue,
+      firstRelatedEntity = value.firstRelatedEntity.copy(
+        id = value.firstRelatedEntity.id,
+        uniqueValue = value.firstRelatedEntity.uniqueValue,
+        value = "unique-first-child-updated-$sequence"
+      ),
+      secondRelatedEntity = value.secondRelatedEntity.copy(
+        id = value.secondRelatedEntity.id,
+        uniqueValue = value.secondRelatedEntity.uniqueValue,
+        value = "unique-second-child-updated-$sequence"
+      )
+    )
+
+    override fun executeUpdate(value: EntityWithUniqueRelationships) = value
+      .update()
+      .execute()
+
+    override fun observeUpdate(value: EntityWithUniqueRelationships) = value
+      .update()
+      .observe()
 
     override fun toString() = name
   }

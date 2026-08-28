@@ -18,6 +18,9 @@ object ModelCatalog {
   val insertCases: List<InsertModelCase<*>> = allCases
     .filterIsInstance<InsertModelCase<*>>()
 
+  val updateCases: List<UpdateModelCase<*>> = allCases
+    .filterIsInstance<UpdateModelCase<*>>()
+
   val bulkInsertCases: List<BulkInsertModelCase<*>> = allCases
     .filterIsInstance<BulkInsertModelCase<*>>()
 
