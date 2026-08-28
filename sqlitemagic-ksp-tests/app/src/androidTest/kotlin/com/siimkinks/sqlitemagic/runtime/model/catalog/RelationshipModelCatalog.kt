@@ -17,11 +17,12 @@ import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object RelationshipModelCatalog {
@@ -34,7 +35,7 @@ internal object RelationshipModelCatalog {
 
   private object EntityWithRelationshipCase :
     RecursiveBulkInsertModelCase<EntityWithRelationship>,
-    UpdateModelCase<EntityWithRelationship> {
+    PersistModelCase<EntityWithRelationship> {
     override val name = "EntityWithRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
@@ -80,12 +81,20 @@ internal object RelationshipModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: EntityWithRelationship) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: EntityWithRelationship) = value
+      .persist()
+      .observe()
+
     override fun toString() = name
   }
 
   private object EntityWithNullRelationshipCase :
     RecursiveBulkInsertModelCase<EntityWithRelationship>,
-    UpdateModelCase<EntityWithRelationship> {
+    PersistModelCase<EntityWithRelationship> {
     override val name = "EntityWithNullRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
@@ -121,12 +130,20 @@ internal object RelationshipModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: EntityWithRelationship) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: EntityWithRelationship) = value
+      .persist()
+      .observe()
+
     override fun toString() = name
   }
 
   private object EntityWithStringIdRelationshipCase :
     RecursiveBulkInsertModelCase<EntityWithStringIdRelationship>,
-    UpdateModelCase<EntityWithStringIdRelationship> {
+    PersistModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
     override val table = ENTITY_WITH_STRING_ID_RELATIONSHIP
     override val relatedTable = STRING_ID_ENTITY
@@ -179,12 +196,20 @@ internal object RelationshipModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: EntityWithStringIdRelationship) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: EntityWithStringIdRelationship) = value
+      .persist()
+      .observe()
+
     override fun toString() = name
   }
 
   private object EntityWithUniqueRelationshipsCase :
     RecursiveInsertConflictModelCase<EntityWithUniqueRelationships>,
-    UpdateModelCase<EntityWithUniqueRelationships> {
+    PersistModelCase<EntityWithUniqueRelationships> {
     override val name = "EntityWithUniqueRelationships"
     override val table = ENTITY_WITH_UNIQUE_RELATIONSHIPS
     override val relatedTable = UNIQUE_RELATED_ENTITY
@@ -277,6 +302,14 @@ internal object RelationshipModelCatalog {
 
     override fun observeUpdate(value: EntityWithUniqueRelationships) = value
       .update()
+      .observe()
+
+    override fun executePersist(value: EntityWithUniqueRelationships) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: EntityWithUniqueRelationships) = value
+      .persist()
       .observe()
 
     override fun toString() = name

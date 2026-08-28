@@ -8,10 +8,11 @@ import com.siimkinks.sqlitemagic.fixture.model.EmbeddedDetails
 import com.siimkinks.sqlitemagic.fixture.model.EmbeddedValueEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object EmbeddedModelCatalog {
@@ -22,7 +23,7 @@ internal object EmbeddedModelCatalog {
 
   private object EmbeddedValueEntityWithOptionalValueCase :
     BulkInsertModelCase<EmbeddedValueEntity>,
-    UpdateModelCase<EmbeddedValueEntity> {
+    PersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -72,6 +73,14 @@ internal object EmbeddedModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: EmbeddedValueEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: EmbeddedValueEntity) = value
+      .persist()
+      .observe()
+
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,
       result: EntityInsertResult.Inserted
@@ -91,7 +100,7 @@ internal object EmbeddedModelCatalog {
 
   private object EmbeddedValueEntityWithoutOptionalValueCase :
     BulkInsertModelCase<EmbeddedValueEntity>,
-    UpdateModelCase<EmbeddedValueEntity> {
+    PersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -132,6 +141,14 @@ internal object EmbeddedModelCatalog {
 
     override fun observeUpdate(value: EmbeddedValueEntity) = value
       .update()
+      .observe()
+
+    override fun executePersist(value: EmbeddedValueEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: EmbeddedValueEntity) = value
+      .persist()
       .observe()
 
     override fun expectedAfterInsert(

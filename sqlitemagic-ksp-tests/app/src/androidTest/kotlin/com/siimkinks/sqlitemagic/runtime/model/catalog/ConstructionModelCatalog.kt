@@ -11,10 +11,11 @@ import com.siimkinks.sqlitemagic.fixture.model.InheritedMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.MutableBodyEntity
 import com.siimkinks.sqlitemagic.fixture.model.NonDataConstructorEntity
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object ConstructionModelCatalog {
@@ -42,7 +43,7 @@ internal object ConstructionModelCatalog {
 
   private object MutableBodyEntityCase :
     BulkInsertModelCase<MutableBodyEntity>,
-    UpdateModelCase<MutableBodyEntity> {
+    PersistModelCase<MutableBodyEntity> {
     override val name = "MutableBodyEntity"
     override val table = MUTABLE_BODY_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -69,12 +70,20 @@ internal object ConstructionModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: MutableBodyEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: MutableBodyEntity) = value
+      .persist()
+      .observe()
+
     override fun toString() = name
   }
 
   private object InheritedMutableEntityCase :
     BulkInsertModelCase<InheritedMutableEntity>,
-    UpdateModelCase<InheritedMutableEntity> {
+    PersistModelCase<InheritedMutableEntity> {
     override val name = "InheritedMutableEntity"
     override val table = INHERITED_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -101,6 +110,14 @@ internal object ConstructionModelCatalog {
 
     override fun observeUpdate(value: InheritedMutableEntity) = value
       .update()
+      .observe()
+
+    override fun executePersist(value: InheritedMutableEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: InheritedMutableEntity) = value
+      .persist()
       .observe()
 
     override fun toString() = name

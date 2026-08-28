@@ -14,11 +14,12 @@ import com.siimkinks.sqlitemagic.fixture.model.NoIdUniqueEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.WithoutRowIdEntity
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object IdentityModelCatalog {
@@ -31,7 +32,7 @@ internal object IdentityModelCatalog {
 
   private object StringIdEntityCase :
     BulkInsertModelCase<StringIdEntity>,
-    UpdateModelCase<StringIdEntity> {
+    PersistModelCase<StringIdEntity> {
     override val name = "StringIdEntity"
     override val table = STRING_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -60,6 +61,14 @@ internal object IdentityModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: StringIdEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: StringIdEntity) = value
+      .persist()
+      .observe()
+
     override fun toString() = name
   }
 
@@ -81,7 +90,7 @@ internal object IdentityModelCatalog {
 
   private object WithoutRowIdEntityCase :
     BulkInsertModelCase<WithoutRowIdEntity>,
-    UpdateModelCase<WithoutRowIdEntity> {
+    PersistModelCase<WithoutRowIdEntity> {
     override val name = "WithoutRowIdEntity"
     override val table = WITHOUT_ROW_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.ABSENT
@@ -110,12 +119,20 @@ internal object IdentityModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: WithoutRowIdEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: WithoutRowIdEntity) = value
+      .persist()
+      .observe()
+
     override fun toString() = name
   }
 
   private object NoIdUniqueEntityCase :
     UniqueInsertModelCase<NoIdUniqueEntity>,
-    UpdateModelCase<NoIdUniqueEntity> {
+    PersistModelCase<NoIdUniqueEntity> {
     override val name = "NoIdUniqueEntity"
     override val table = NO_ID_UNIQUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -142,6 +159,14 @@ internal object IdentityModelCatalog {
 
     override fun observeUpdate(value: NoIdUniqueEntity) = value
       .update()
+      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun executePersist(value: NoIdUniqueEntity) = value
+      .persist()
+      .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun observePersist(value: NoIdUniqueEntity) = value
+      .persist()
       .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
     override fun conflictingValue(existing: NoIdUniqueEntity, sequence: Int) = existing.copy(

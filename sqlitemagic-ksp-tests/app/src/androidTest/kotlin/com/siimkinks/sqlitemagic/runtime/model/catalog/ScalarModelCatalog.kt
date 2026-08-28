@@ -24,10 +24,11 @@ import com.siimkinks.sqlitemagic.fixture.model.SelectiveColumnsEntity
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object ScalarModelCatalog {
@@ -44,7 +45,7 @@ internal object ScalarModelCatalog {
 
   private object SimpleMutableEntityCase :
     BulkInsertModelCase<SimpleMutableEntity>,
-    UpdateModelCase<SimpleMutableEntity> {
+    PersistModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -74,6 +75,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: SimpleMutableEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: SimpleMutableEntity) = value
+      .persist()
+      .observe()
+
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
@@ -81,7 +90,7 @@ internal object ScalarModelCatalog {
 
   private object SimpleMutableEntityWithPresetAutoIdCase :
     BulkInsertModelCase<SimpleMutableEntity>,
-    UpdateModelCase<SimpleMutableEntity> {
+    PersistModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntityWithPresetAutoId"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -111,6 +120,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: SimpleMutableEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: SimpleMutableEntity) = value
+      .persist()
+      .observe()
+
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
 
     override fun verifyAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) {
@@ -123,7 +140,7 @@ internal object ScalarModelCatalog {
 
   private object ImmutableValueWithNullableFieldsCase :
     BulkInsertModelCase<ImmutableValueWithNullableFields>,
-    UpdateModelCase<ImmutableValueWithNullableFields> {
+    PersistModelCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
     override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -154,6 +171,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: ImmutableValueWithNullableFields) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: ImmutableValueWithNullableFields) = value
+      .persist()
+      .observe()
+
     override fun expectedAfterInsert(
       value: ImmutableValueWithNullableFields,
       result: EntityInsertResult.Inserted
@@ -173,7 +198,7 @@ internal object ScalarModelCatalog {
 
   private object ImmutableValueWithFieldsCase :
     BulkInsertModelCase<ImmutableValueWithFields>,
-    UpdateModelCase<ImmutableValueWithFields> {
+    PersistModelCase<ImmutableValueWithFields> {
     override val name = "ImmutableValueWithFields"
     override val table = IMMUTABLE_VALUE_WITH_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -209,6 +234,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: ImmutableValueWithFields) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: ImmutableValueWithFields) = value
+      .persist()
+      .observe()
+
     override fun expectedAfterInsert(
       value: ImmutableValueWithFields,
       result: EntityInsertResult.Inserted
@@ -228,7 +261,7 @@ internal object ScalarModelCatalog {
 
   private object CustomColumnEntityCase :
     BulkInsertModelCase<CustomColumnEntity>,
-    UpdateModelCase<CustomColumnEntity> {
+    PersistModelCase<CustomColumnEntity> {
     override val name = "CustomColumnEntity"
     override val table = CUSTOM_COLUMN_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -254,6 +287,14 @@ internal object ScalarModelCatalog {
       .update()
       .observe()
 
+    override fun executePersist(value: CustomColumnEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: CustomColumnEntity) = value
+      .persist()
+      .observe()
+
     override fun expectedAfterInsert(value: CustomColumnEntity, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
@@ -261,7 +302,7 @@ internal object ScalarModelCatalog {
 
   private object SelectiveColumnsEntityCase :
     BulkInsertModelCase<SelectiveColumnsEntity>,
-    UpdateModelCase<SelectiveColumnsEntity> {
+    PersistModelCase<SelectiveColumnsEntity> {
     override val name = "SelectiveColumnsEntity"
     override val table = SELECTIVE_COLUMNS_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -287,6 +328,14 @@ internal object ScalarModelCatalog {
 
     override fun observeUpdate(value: SelectiveColumnsEntity) = value
       .update()
+      .observe()
+
+    override fun executePersist(value: SelectiveColumnsEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: SelectiveColumnsEntity) = value
+      .persist()
       .observe()
 
     override fun expectedAfterUpdate(value: SelectiveColumnsEntity) = SelectiveColumnsEntity().apply {
@@ -321,7 +370,7 @@ internal object ScalarModelCatalog {
 
   private object EntityWithIgnoredValueCase :
     BulkInsertModelCase<EntityWithIgnoredValue>,
-    UpdateModelCase<EntityWithIgnoredValue> {
+    PersistModelCase<EntityWithIgnoredValue> {
     override val name = "EntityWithIgnoredValue"
     override val table = ENTITY_WITH_IGNORED_VALUE
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -347,6 +396,14 @@ internal object ScalarModelCatalog {
 
     override fun observeUpdate(value: EntityWithIgnoredValue) = value
       .update()
+      .observe()
+
+    override fun executePersist(value: EntityWithIgnoredValue) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: EntityWithIgnoredValue) = value
+      .persist()
       .observe()
 
     override fun expectedAfterUpdate(value: EntityWithIgnoredValue) = EntityWithIgnoredValue().apply {
@@ -381,7 +438,7 @@ internal object ScalarModelCatalog {
 
   private object BlobEntityCase :
     BulkInsertModelCase<BlobEntity>,
-    UpdateModelCase<BlobEntity> {
+    PersistModelCase<BlobEntity> {
     override val name = "BlobEntity"
     override val table = BLOB_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -414,6 +471,14 @@ internal object ScalarModelCatalog {
 
     override fun observeUpdate(value: BlobEntity) = value
       .update()
+      .observe()
+
+    override fun executePersist(value: BlobEntity) = value
+      .persist()
+      .execute()
+
+    override fun observePersist(value: BlobEntity) = value
+      .persist()
       .observe()
 
     override fun expectedAfterInsert(
