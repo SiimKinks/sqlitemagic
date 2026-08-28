@@ -81,12 +81,20 @@ internal object ConstructionModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<MutableBodyEntity>) = MutableBodyEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<MutableBodyEntity>,
+      conflictAlgorithm: Int?
+    ) = MutableBodyEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<MutableBodyEntity>) = MutableBodyEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<MutableBodyEntity>,
+      conflictAlgorithm: Int?
+    ) = MutableBodyEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: MutableBodyEntity) = value
@@ -140,12 +148,20 @@ internal object ConstructionModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<InheritedMutableEntity>) = InheritedMutableEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<InheritedMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = InheritedMutableEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<InheritedMutableEntity>) = InheritedMutableEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<InheritedMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = InheritedMutableEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: InheritedMutableEntity) = value

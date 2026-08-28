@@ -189,12 +189,20 @@ internal object RelationshipModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<EntityWithRelationship>) = EntityWithRelationships
+    override fun executeBulkUpdate(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<EntityWithRelationship>) = EntityWithRelationships
+    override fun observeBulkUpdate(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: EntityWithRelationship) = value
@@ -254,12 +262,20 @@ internal object RelationshipModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<EntityWithRelationship>) = EntityWithRelationships
+    override fun executeBulkUpdate(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<EntityWithRelationship>) = EntityWithRelationships
+    override fun observeBulkUpdate(
+      values: Iterable<EntityWithRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithRelationships
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: EntityWithRelationship) = value
@@ -336,12 +352,20 @@ internal object RelationshipModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<EntityWithStringIdRelationship>) = EntityWithStringIdRelationships
+    override fun executeBulkUpdate(
+      values: Iterable<EntityWithStringIdRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithStringIdRelationships
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<EntityWithStringIdRelationship>) = EntityWithStringIdRelationships
+    override fun observeBulkUpdate(
+      values: Iterable<EntityWithStringIdRelationship>,
+      conflictAlgorithm: Int?
+    ) = EntityWithStringIdRelationships
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: EntityWithStringIdRelationship) = value
@@ -533,12 +557,20 @@ internal object RelationshipModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<EntityWithUniqueRelationships>) = EntityWithUniqueRelationshipss
+    override fun executeBulkUpdate(
+      values: Iterable<EntityWithUniqueRelationships>,
+      conflictAlgorithm: Int?
+    ) = EntityWithUniqueRelationshipss
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<EntityWithUniqueRelationships>) = EntityWithUniqueRelationshipss
+    override fun observeBulkUpdate(
+      values: Iterable<EntityWithUniqueRelationships>,
+      conflictAlgorithm: Int?
+    ) = EntityWithUniqueRelationshipss
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: EntityWithUniqueRelationships) = value

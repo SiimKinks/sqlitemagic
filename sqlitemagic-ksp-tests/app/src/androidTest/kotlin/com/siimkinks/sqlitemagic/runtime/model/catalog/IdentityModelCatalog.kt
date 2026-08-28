@@ -74,12 +74,20 @@ internal object IdentityModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<StringIdEntity>) = StringIdEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<StringIdEntity>,
+      conflictAlgorithm: Int?
+    ) = StringIdEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<StringIdEntity>) = StringIdEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<StringIdEntity>,
+      conflictAlgorithm: Int?
+    ) = StringIdEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: StringIdEntity) = value
@@ -149,12 +157,20 @@ internal object IdentityModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<WithoutRowIdEntity>) = WithoutRowIdEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<WithoutRowIdEntity>,
+      conflictAlgorithm: Int?
+    ) = WithoutRowIdEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<WithoutRowIdEntity>) = WithoutRowIdEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<WithoutRowIdEntity>,
+      conflictAlgorithm: Int?
+    ) = WithoutRowIdEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: WithoutRowIdEntity) = value
@@ -208,12 +224,20 @@ internal object IdentityModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
-    override fun executeBulkUpdate(values: List<NoIdUniqueEntity>) = NoIdUniqueEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<NoIdUniqueEntity>,
+      conflictAlgorithm: Int?
+    ) = NoIdUniqueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
-    override fun observeBulkUpdate(values: List<NoIdUniqueEntity>) = NoIdUniqueEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<NoIdUniqueEntity>,
+      conflictAlgorithm: Int?
+    ) = NoIdUniqueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
     override fun executePersist(value: NoIdUniqueEntity) = value

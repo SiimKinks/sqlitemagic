@@ -88,12 +88,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<SimpleMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = SimpleMutableEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<SimpleMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = SimpleMutableEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: SimpleMutableEntity) = value
@@ -150,12 +158,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<SimpleMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = SimpleMutableEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<SimpleMutableEntity>) = SimpleMutableEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<SimpleMutableEntity>,
+      conflictAlgorithm: Int?
+    ) = SimpleMutableEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: SimpleMutableEntity) = value
@@ -218,12 +234,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<ImmutableValueWithNullableFields>) = ImmutableValueWithNullableFieldss
+    override fun executeBulkUpdate(
+      values: Iterable<ImmutableValueWithNullableFields>,
+      conflictAlgorithm: Int?
+    ) = ImmutableValueWithNullableFieldss
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<ImmutableValueWithNullableFields>) = ImmutableValueWithNullableFieldss
+    override fun observeBulkUpdate(
+      values: Iterable<ImmutableValueWithNullableFields>,
+      conflictAlgorithm: Int?
+    ) = ImmutableValueWithNullableFieldss
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: ImmutableValueWithNullableFields) = value
@@ -298,12 +322,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<ImmutableValueWithFields>) = ImmutableValueWithFieldss
+    override fun executeBulkUpdate(
+      values: Iterable<ImmutableValueWithFields>,
+      conflictAlgorithm: Int?
+    ) = ImmutableValueWithFieldss
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<ImmutableValueWithFields>) = ImmutableValueWithFieldss
+    override fun observeBulkUpdate(
+      values: Iterable<ImmutableValueWithFields>,
+      conflictAlgorithm: Int?
+    ) = ImmutableValueWithFieldss
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: ImmutableValueWithFields) = value
@@ -368,12 +400,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<CustomColumnEntity>) = CustomColumnEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<CustomColumnEntity>,
+      conflictAlgorithm: Int?
+    ) = CustomColumnEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<CustomColumnEntity>) = CustomColumnEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<CustomColumnEntity>,
+      conflictAlgorithm: Int?
+    ) = CustomColumnEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: CustomColumnEntity) = value
@@ -428,12 +468,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<SelectiveColumnsEntity>) = SelectiveColumnsEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<SelectiveColumnsEntity>,
+      conflictAlgorithm: Int?
+    ) = SelectiveColumnsEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<SelectiveColumnsEntity>) = SelectiveColumnsEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<SelectiveColumnsEntity>,
+      conflictAlgorithm: Int?
+    ) = SelectiveColumnsEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: SelectiveColumnsEntity) = value
@@ -513,12 +561,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<EntityWithIgnoredValue>) = EntityWithIgnoredValues
+    override fun executeBulkUpdate(
+      values: Iterable<EntityWithIgnoredValue>,
+      conflictAlgorithm: Int?
+    ) = EntityWithIgnoredValues
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<EntityWithIgnoredValue>) = EntityWithIgnoredValues
+    override fun observeBulkUpdate(
+      values: Iterable<EntityWithIgnoredValue>,
+      conflictAlgorithm: Int?
+    ) = EntityWithIgnoredValues
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: EntityWithIgnoredValue) = value
@@ -605,12 +661,20 @@ internal object ScalarModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<BlobEntity>) = BlobEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<BlobEntity>,
+      conflictAlgorithm: Int?
+    ) = BlobEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<BlobEntity>) = BlobEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<BlobEntity>,
+      conflictAlgorithm: Int?
+    ) = BlobEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: BlobEntity) = value

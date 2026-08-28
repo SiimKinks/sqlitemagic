@@ -84,12 +84,20 @@ internal object EmbeddedModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: EmbeddedValueEntity) = value
@@ -171,12 +179,20 @@ internal object EmbeddedModelCatalog {
       .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
-    override fun executeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+    override fun executeBulkUpdate(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
+    override fun observeBulkUpdate(
+      values: Iterable<EmbeddedValueEntity>,
+      conflictAlgorithm: Int?
+    ) = EmbeddedValueEntitys
       .update(values)
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executePersist(value: EmbeddedValueEntity) = value

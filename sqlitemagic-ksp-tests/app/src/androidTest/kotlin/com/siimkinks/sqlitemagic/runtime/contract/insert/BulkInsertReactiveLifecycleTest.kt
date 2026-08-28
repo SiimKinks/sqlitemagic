@@ -111,7 +111,7 @@ class BulkInsertReactiveLifecycleTest(
         assertThat(actualParents)
           .containsExactlyElementsIn(
             modelCase.expectedAfterBulkInsert(
-              values = values.take(n = 1),
+              values = values.take(1),
               actual = actualParents
             )
           )
@@ -123,7 +123,7 @@ class BulkInsertReactiveLifecycleTest(
         assertThat(observedParents)
           .containsExactlyElementsIn(
             modelCase.expectedAfterBulkInsert(
-              values = values.take(n = 1),
+              values = values.take(1),
               actual = observedParents
             )
           )
