@@ -17,6 +17,7 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
 
 internal object ConstructionModelCatalog {
@@ -64,12 +65,20 @@ internal object ConstructionModelCatalog {
       this.value = "mutable-body-updated-$sequence"
     }
 
-    override fun executeUpdate(value: MutableBodyEntity) = value
+    override fun executeUpdate(
+      value: MutableBodyEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeUpdate(value: MutableBodyEntity) = value
+    override fun observeUpdate(
+      value: MutableBodyEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executeBulkUpdate(values: List<MutableBodyEntity>) = MutableBodyEntitys
@@ -115,12 +124,20 @@ internal object ConstructionModelCatalog {
       this.value = "child-updated-$sequence"
     }
 
-    override fun executeUpdate(value: InheritedMutableEntity) = value
+    override fun executeUpdate(
+      value: InheritedMutableEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeUpdate(value: InheritedMutableEntity) = value
+    override fun observeUpdate(
+      value: InheritedMutableEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executeBulkUpdate(values: List<InheritedMutableEntity>) = InheritedMutableEntitys

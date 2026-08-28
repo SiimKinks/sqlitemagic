@@ -21,6 +21,7 @@ import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
 
 internal object IdentityModelCatalog {
@@ -57,12 +58,20 @@ internal object IdentityModelCatalog {
       value = "string-value-updated-$sequence"
     )
 
-    override fun executeUpdate(value: StringIdEntity) = value
+    override fun executeUpdate(
+      value: StringIdEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeUpdate(value: StringIdEntity) = value
+    override fun observeUpdate(
+      value: StringIdEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executeBulkUpdate(values: List<StringIdEntity>) = StringIdEntitys
@@ -124,12 +133,20 @@ internal object IdentityModelCatalog {
       value = "without-rowid-value-updated-$sequence"
     )
 
-    override fun executeUpdate(value: WithoutRowIdEntity) = value
+    override fun executeUpdate(
+      value: WithoutRowIdEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeUpdate(value: WithoutRowIdEntity) = value
+    override fun observeUpdate(
+      value: WithoutRowIdEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executeBulkUpdate(values: List<WithoutRowIdEntity>) = WithoutRowIdEntitys
@@ -175,12 +192,20 @@ internal object IdentityModelCatalog {
       value = "no-id-unique-value-updated-$sequence"
     )
 
-    override fun executeUpdate(value: NoIdUniqueEntity) = value
+    override fun executeUpdate(
+      value: NoIdUniqueEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
-    override fun observeUpdate(value: NoIdUniqueEntity) = value
+    override fun observeUpdate(
+      value: NoIdUniqueEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
     override fun executeBulkUpdate(values: List<NoIdUniqueEntity>) = NoIdUniqueEntitys

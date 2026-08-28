@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
 
 internal object EmbeddedModelCatalog {
@@ -67,12 +68,20 @@ internal object EmbeddedModelCatalog {
         )
     )
 
-    override fun executeUpdate(value: EmbeddedValueEntity) = value
+    override fun executeUpdate(
+      value: EmbeddedValueEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeUpdate(value: EmbeddedValueEntity) = value
+    override fun observeUpdate(
+      value: EmbeddedValueEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
@@ -146,12 +155,20 @@ internal object EmbeddedModelCatalog {
         )
     )
 
-    override fun executeUpdate(value: EmbeddedValueEntity) = value
+    override fun executeUpdate(
+      value: EmbeddedValueEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .execute()
 
-    override fun observeUpdate(value: EmbeddedValueEntity) = value
+    override fun observeUpdate(
+      value: EmbeddedValueEntity,
+      conflictAlgorithm: Int?
+    ) = value
       .update()
+      .withConflictAlgorithm(conflictAlgorithm)
       .observe()
 
     override fun executeBulkUpdate(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys
