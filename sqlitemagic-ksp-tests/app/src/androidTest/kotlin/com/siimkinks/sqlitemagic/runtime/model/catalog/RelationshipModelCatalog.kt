@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipss
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.UniqueRelatedEntityTable.Companion.UNIQUE_RELATED_ENTITY
+import com.siimkinks.sqlitemagic.UniqueRelatedEntitys
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
@@ -19,18 +20,24 @@ import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
+import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
-import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursivePersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
+import kotlin.collections.List
+import kotlin.collections.copy
+import kotlin.collections.listOf
+import kotlin.collections.listOfNotNull
+import kotlin.collections.map
+import kotlin.collections.single
 
 internal object RelationshipModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -52,6 +59,10 @@ internal object RelationshipModelCatalog {
     UniqueRelatedEntityCase
   )
 
+  val bulkUpdateConflictCases: List<BulkUpdateConflictModelCase<*>> = listOf(
+    UniqueRelatedEntityCase
+  )
+
   val recursiveUpdateConflictCases: List<RecursiveUpdateConflictModelCase<*>> = listOf(
     EntityWithUniqueRelationshipsCase
   )
@@ -60,7 +71,7 @@ internal object RelationshipModelCatalog {
 
   private object UniqueRelatedEntityCase :
     PersistConflictModelCase<UniqueRelatedEntity>,
-    UpdateConflictModelCase<UniqueRelatedEntity> {
+    BulkUpdateConflictModelCase<UniqueRelatedEntity> {
     override val name = "UniqueRelatedEntity"
     override val table = UNIQUE_RELATED_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -74,6 +85,14 @@ internal object RelationshipModelCatalog {
     override fun insert(value: UniqueRelatedEntity) = value.insert()
 
     override fun update(value: UniqueRelatedEntity) = value.update()
+
+    override fun updatedValue(value: UniqueRelatedEntity, sequence: Int) = value.copy(
+      id = value.id,
+      uniqueValue = value.uniqueValue,
+      value = "unique-related-updated-value-$sequence"
+    )
+
+    override fun bulkUpdate(values: List<UniqueRelatedEntity>) = UniqueRelatedEntitys.update(values)
 
     override fun expectedAfterInsert(
       value: UniqueRelatedEntity,
@@ -367,6 +386,8 @@ internal object RelationshipModelCatalog {
 
     override fun bulkInsert(values: List<EntityWithUniqueRelationships>) =
       EntityWithUniqueRelationshipss.insert(values)
+
+    override fun bulkUpdate(values: List<EntityWithUniqueRelationships>) = EntityWithUniqueRelationshipss.update(values)
 
     override fun expectedAfterInsert(
       value: EntityWithUniqueRelationships,

@@ -30,6 +30,8 @@ object ModelCatalog {
 
   val updateConflictCases: List<UpdateConflictModelCase<*>> = RelationshipModelCatalog.updateConflictCases
 
+  val bulkUpdateConflictCases: List<BulkUpdateConflictModelCase<*>> = RelationshipModelCatalog.bulkUpdateConflictCases
+
   val recursiveUpdateConflictCases: List<RecursiveUpdateConflictModelCase<*>> =
     RelationshipModelCatalog.recursiveUpdateConflictCases
 
