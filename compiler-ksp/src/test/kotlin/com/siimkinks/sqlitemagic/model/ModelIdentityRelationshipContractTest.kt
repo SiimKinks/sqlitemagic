@@ -1226,6 +1226,9 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "EntityRecursiveAdapter<ImmutableGeneratedParent",
           "operations.insert(",
           "adapter = SqliteMagic_ImmutableGeneratedChild_Adapter",
+          "when (val result = operations.insert(",
+          "when (val result = operations.persist(",
+          "result.rowId?.let",
           "operations.rememberGeneratedId("
         )
       }

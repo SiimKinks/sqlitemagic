@@ -107,6 +107,25 @@ internal class RecursiveAdapterContractTest : ProcessingStepsTest {
       }
   }
 
+  @Test
+  fun `omits unused result bindings from recursive insert and persist hooks`() {
+    SqliteMagicCompilation
+      .compile(recursiveTeamSource())
+      .isOk()
+      .withGeneratedSource("SqliteMagic_TeamMember_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "if (operations.insert(",
+          "is EntityInsertResult.Ignored",
+          "if (operations.persist(",
+          "is EntityPersistResult.Ignored"
+        )
+        generatedSource.assertDoesNotContain(
+          "when (val result = operations.insert(",
+          "when (val result = operations.persist("
+        )
+      }
+  }
+
   private fun recursiveTeamSource() = SourceFile.kotlin(
     name = "RecursiveRelationshipContract.kt",
     contents = """

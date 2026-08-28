@@ -270,14 +270,19 @@ internal class ModelAdapterWriter(
         METHOD_INSERT_RELATIONSHIPS,
         METHOD_PERSIST_RELATIONSHIPS -> {
           val relationshipResultType = checkNotNull(resultType)
-          function
-            .beginControlFlow("when (val result = %L)", operation)
-            .addStatement("is %T.Ignored -> successful = false", relationshipResultType)
-          if (functionName == METHOD_PERSIST_RELATIONSHIPS) {
-            function.addStatement("is %T.Updated -> Unit", relationshipResultType)
-          }
           when {
-            column.needsGeneratedRelationshipId(environment) -> function
+            !column.needsGeneratedRelationshipId(environment) -> function
+              .beginControlFlow("if (%L is %T.Ignored)", operation, relationshipResultType)
+              .addStatement("successful = false")
+              .endControlFlow()
+            else -> function
+              .beginControlFlow("when (val result = %L)", operation)
+              .addStatement("is %T.Ignored -> successful = false", relationshipResultType)
+              .apply {
+                if (functionName == METHOD_PERSIST_RELATIONSHIPS) {
+                  addStatement("is %T.Updated -> Unit", relationshipResultType)
+                }
+              }
               .beginControlFlow("is %T.Inserted ->", relationshipResultType)
               .addStatement(
                 "result.rowId?.let { %N.%N(columnName = %S, rowId = it) }",
@@ -286,9 +291,8 @@ internal class ModelAdapterWriter(
                 column.columnName
               )
               .endControlFlow()
-            else -> function.addStatement("is %T.Inserted -> Unit", relationshipResultType)
+              .endControlFlow()
           }
-          function.endControlFlow()
         }
       }
       if (column.isModelPathNullable) {
