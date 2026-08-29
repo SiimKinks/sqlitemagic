@@ -2,15 +2,15 @@ package com.siimkinks.sqlitemagic.runtime.contract.update
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SqliteMagic
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -23,7 +23,7 @@ class MissingSingleUpdateTest(
   fun executeWithMissingRowAndDefaultAlgorithmReturnsFalse() {
     assertMissingRow(
       modelCase = modelCase,
-      terminal = UpdateTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -31,7 +31,7 @@ class MissingSingleUpdateTest(
   fun observeWithMissingRowAndDefaultAlgorithmEmitsOperationFailedException() {
     assertMissingRow(
       modelCase = modelCase,
-      terminal = UpdateTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
@@ -39,7 +39,7 @@ class MissingSingleUpdateTest(
   fun executeWithMissingRowAndConflictIgnoreReturnsFalse() {
     assertMissingRow(
       modelCase = modelCase,
-      terminal = UpdateTerminal.EXECUTE,
+      terminal = OperationTerminal.EXECUTE,
       conflictAlgorithm = CONFLICT_IGNORE
     )
   }
@@ -48,19 +48,19 @@ class MissingSingleUpdateTest(
   fun observeWithMissingRowAndConflictIgnoreCompletes() {
     assertMissingRow(
       modelCase = modelCase,
-      terminal = UpdateTerminal.OBSERVE,
+      terminal = OperationTerminal.OBSERVE,
       conflictAlgorithm = CONFLICT_IGNORE
     )
   }
 
   private fun <T> assertMissingRow(
     modelCase: UpdateModelCase<T>,
-    terminal: UpdateTerminal,
+    terminal: OperationTerminal,
     conflictAlgorithm: Int? = null
   ) {
     val value = missingValue(modelCase)
     when (terminal) {
-      UpdateTerminal.EXECUTE -> assertThat(
+      OperationTerminal.EXECUTE -> assertThat(
         when (conflictAlgorithm) {
           null -> modelCase.executeUpdate(value = value)
           else -> modelCase.executeUpdate(
@@ -69,7 +69,7 @@ class MissingSingleUpdateTest(
           )
         }
       ).isFalse()
-      UpdateTerminal.OBSERVE -> when (conflictAlgorithm) {
+      OperationTerminal.OBSERVE -> when (conflictAlgorithm) {
         null -> modelCase
           .observeUpdate(value = value)
           .test()
@@ -92,10 +92,7 @@ class MissingSingleUpdateTest(
       is EntityInsertResult.Inserted -> Unit
       EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
     }
-    val persisted = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val persisted = captureRows(table = modelCase.table)
       .single()
     SqliteMagic
       .getDefaultConnection()
@@ -109,16 +106,6 @@ class MissingSingleUpdateTest(
       is RecursiveBulkUpdateModelCase<*> -> assertThat(captureRows(table = modelCase.relatedTable)).isEmpty()
       else -> Unit
     }
-  }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private enum class UpdateTerminal {
-    EXECUTE,
-    OBSERVE
   }
 
   companion object {

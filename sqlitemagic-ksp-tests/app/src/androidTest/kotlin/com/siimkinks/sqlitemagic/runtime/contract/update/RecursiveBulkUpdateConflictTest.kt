@@ -3,12 +3,14 @@ package com.siimkinks.sqlitemagic.runtime.contract.update
 import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveUpdateConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.relatedRows
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,88 +22,113 @@ class RecursiveBulkUpdateConflictTest(
 ) : RuntimeDatabaseTest() {
   @Test
   fun executeWithParentConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRollsBackBatch() {
-    assertDefaultConflictExecute(
+    assertDefaultConflict(
       modelCase = modelCase,
-      scenarioFactory = ::parentConflictScenario
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
   @Test
   fun observeWithParentConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRollsBackBatch() {
-    assertDefaultConflictObserve(
+    assertDefaultConflict(
       modelCase = modelCase,
-      scenarioFactory = ::parentConflictScenario
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   @Test
   fun executeWithChildConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRollsBackBatch() {
-    assertDefaultConflictExecute(
+    assertDefaultConflict(
       modelCase = modelCase,
-      scenarioFactory = ::childConflictScenario
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
   @Test
   fun observeWithChildConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRollsBackBatch() {
-    assertDefaultConflictObserve(
+    assertDefaultConflict(
       modelCase = modelCase,
-      scenarioFactory = ::childConflictScenario
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   @Test
   fun executeWithParentConflictAndConflictIgnoreCommitsNonConflictingGraphs() {
-    assertConflictIgnoreMixedExecute(
+    assertConflictIgnoreMixed(
       modelCase = modelCase,
-      scenarioFactory = ::mixedParentConflictScenario
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
   @Test
   fun observeWithParentConflictAndConflictIgnoreCompletesWithNonConflictingGraphs() {
-    assertConflictIgnoreMixedObserve(
+    assertConflictIgnoreMixed(
       modelCase = modelCase,
-      scenarioFactory = ::mixedParentConflictScenario
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   @Test
   fun executeWithChildConflictAndConflictIgnoreCommitsNonConflictingGraphs() {
-    assertConflictIgnoreMixedExecute(
+    assertConflictIgnoreMixed(
       modelCase = modelCase,
-      scenarioFactory = ::mixedChildConflictScenario
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
   @Test
   fun observeWithChildConflictAndConflictIgnoreCompletesWithNonConflictingGraphs() {
-    assertConflictIgnoreMixedObserve(
+    assertConflictIgnoreMixed(
       modelCase = modelCase,
-      scenarioFactory = ::mixedChildConflictScenario
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   @Test
   fun executeWithAllParentAndChildConflictsAndConflictIgnoreReturnsFalseAndLeavesSeedUnchanged() {
-    assertAllConflictsExecute(modelCase = modelCase)
+    assertAllConflicts(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithAllParentAndChildConflictsAndConflictIgnoreCompletesAndLeavesSeedUnchanged() {
-    assertAllConflictsObserve(modelCase = modelCase)
+    assertAllConflicts(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
-  private fun <T> assertDefaultConflictExecute(
+  private fun <T> assertDefaultConflict(
     modelCase: RecursiveUpdateConflictModelCase<T>,
-    scenarioFactory: (RecursiveUpdateConflictModelCase<T>) -> RecursiveBulkUpdateScenario<T>
+    conflict: RecursiveConflictTarget,
+    terminal: OperationTerminal
   ) {
-    val scenario = scenarioFactory(modelCase)
+    val scenario = threeRowScenario(
+      modelCase = modelCase,
+      conflict = conflict
+    )
 
-    assertThrows(SQLiteConstraintException::class.java) {
-      modelCase
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
+        modelCase
+          .bulkUpdate(values = scenario.values)
+          .execute()
+      }
+      OperationTerminal.OBSERVE -> modelCase
         .bulkUpdate(values = scenario.values)
-        .execute()
+        .observe()
+        .test()
+        .assertFailure(SQLiteConstraintException::class.java)
     }
     assertSnapshot(
       modelCase = modelCase,
@@ -110,36 +137,31 @@ class RecursiveBulkUpdateConflictTest(
     )
   }
 
-  private fun <T> assertDefaultConflictObserve(
+  private fun <T> assertConflictIgnoreMixed(
     modelCase: RecursiveUpdateConflictModelCase<T>,
-    scenarioFactory: (RecursiveUpdateConflictModelCase<T>) -> RecursiveBulkUpdateScenario<T>
+    conflict: RecursiveConflictTarget,
+    terminal: OperationTerminal
   ) {
-    val scenario = scenarioFactory(modelCase)
-
-    modelCase
-      .bulkUpdate(values = scenario.values)
-      .observe()
-      .test()
-      .assertFailure(SQLiteConstraintException::class.java)
-    assertSnapshot(
+    val scenario = threeRowScenario(
       modelCase = modelCase,
-      expectedParents = scenario.expectedParents,
-      expectedRelated = scenario.expectedRelated
+      conflict = conflict,
+      expectPartialSuccess = true
     )
-  }
 
-  private fun <T> assertConflictIgnoreMixedExecute(
-    modelCase: RecursiveUpdateConflictModelCase<T>,
-    scenarioFactory: (RecursiveUpdateConflictModelCase<T>) -> RecursiveBulkUpdateScenario<T>
-  ) {
-    val scenario = scenarioFactory(modelCase)
-
-    assertThat(
-      modelCase
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThat(
+        modelCase
+          .bulkUpdate(values = scenario.values)
+          .conflictAlgorithm(CONFLICT_IGNORE)
+          .execute()
+      ).isTrue()
+      OperationTerminal.OBSERVE -> modelCase
         .bulkUpdate(values = scenario.values)
         .conflictAlgorithm(CONFLICT_IGNORE)
-        .execute()
-    ).isTrue()
+        .observe()
+        .test()
+        .assertResult()
+    }
     assertSnapshot(
       modelCase = modelCase,
       expectedParents = scenario.expectedParents,
@@ -147,90 +169,36 @@ class RecursiveBulkUpdateConflictTest(
     )
   }
 
-  private fun <T> assertConflictIgnoreMixedObserve(
+  private fun <T> assertAllConflicts(
     modelCase: RecursiveUpdateConflictModelCase<T>,
-    scenarioFactory: (RecursiveUpdateConflictModelCase<T>) -> RecursiveBulkUpdateScenario<T>
+    terminal: OperationTerminal
   ) {
-    val scenario = scenarioFactory(modelCase)
-
-    modelCase
-      .bulkUpdate(values = scenario.values)
-      .conflictAlgorithm(CONFLICT_IGNORE)
-      .observe()
-      .test()
-      .assertResult()
-    assertSnapshot(
-      modelCase = modelCase,
-      expectedParents = scenario.expectedParents,
-      expectedRelated = scenario.expectedRelated
-    )
-  }
-
-  private fun <T> assertAllConflictsExecute(modelCase: RecursiveUpdateConflictModelCase<T>) {
     val scenario = allConflictsScenario(modelCase = modelCase)
 
-    assertThat(
-      modelCase
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThat(
+        modelCase
+          .bulkUpdate(values = scenario.values)
+          .conflictAlgorithm(CONFLICT_IGNORE)
+          .execute()
+      ).isFalse()
+      OperationTerminal.OBSERVE -> modelCase
         .bulkUpdate(values = scenario.values)
         .conflictAlgorithm(CONFLICT_IGNORE)
-        .execute()
-    ).isFalse()
+        .observe()
+        .test()
+        .assertResult()
+    }
     assertSnapshot(
       modelCase = modelCase,
       expectedParents = scenario.expectedParents,
       expectedRelated = scenario.expectedRelated
     )
   }
-
-  private fun <T> assertAllConflictsObserve(modelCase: RecursiveUpdateConflictModelCase<T>) {
-    val scenario = allConflictsScenario(modelCase = modelCase)
-
-    modelCase
-      .bulkUpdate(values = scenario.values)
-      .conflictAlgorithm(CONFLICT_IGNORE)
-      .observe()
-      .test()
-      .assertResult()
-    assertSnapshot(
-      modelCase = modelCase,
-      expectedParents = scenario.expectedParents,
-      expectedRelated = scenario.expectedRelated
-    )
-  }
-
-  private fun <T> parentConflictScenario(
-    modelCase: RecursiveUpdateConflictModelCase<T>
-  ) = threeRowScenario(
-    modelCase = modelCase,
-    conflict = RecursiveConflict.PARENT
-  )
-
-  private fun <T> childConflictScenario(
-    modelCase: RecursiveUpdateConflictModelCase<T>
-  ) = threeRowScenario(
-    modelCase = modelCase,
-    conflict = RecursiveConflict.CHILD
-  )
-
-  private fun <T> mixedParentConflictScenario(
-    modelCase: RecursiveUpdateConflictModelCase<T>
-  ) = threeRowScenario(
-    modelCase = modelCase,
-    conflict = RecursiveConflict.PARENT,
-    expectPartialSuccess = true
-  )
-
-  private fun <T> mixedChildConflictScenario(
-    modelCase: RecursiveUpdateConflictModelCase<T>
-  ) = threeRowScenario(
-    modelCase = modelCase,
-    conflict = RecursiveConflict.CHILD,
-    expectPartialSuccess = true
-  )
 
   private fun <T> threeRowScenario(
     modelCase: RecursiveUpdateConflictModelCase<T>,
-    conflict: RecursiveConflict,
+    conflict: RecursiveConflictTarget,
     expectPartialSuccess: Boolean = false
   ): RecursiveBulkUpdateScenario<T> {
     val rows = seedRows(
@@ -242,12 +210,12 @@ class RecursiveBulkUpdateConflictTest(
       sequence = 4
     )
     val conflictingMiddle = when (conflict) {
-      RecursiveConflict.PARENT -> modelCase.valueWithParentConflict(
+      RecursiveConflictTarget.PARENT -> modelCase.valueWithParentConflict(
         existing = rows[1],
         conflicting = rows[2],
         sequence = 5
       )
-      RecursiveConflict.CHILD -> modelCase.valueWithChildConflict(
+      RecursiveConflictTarget.CHILD -> modelCase.valueWithChildConflict(
         existing = rows[1],
         conflicting = rows[2],
         sequence = 5
@@ -303,52 +271,26 @@ class RecursiveBulkUpdateConflictTest(
     )
   }
 
-  private fun <T> seedRows(
-    modelCase: RecursiveUpdateConflictModelCase<T>,
-    count: Int
-  ): List<T> {
-    List(size = count, init = modelCase::newValue).forEach { value ->
-      when (modelCase.insert(value = value).execute()) {
-        is EntityInsertResult.Inserted -> Unit
-        EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
-      }
-    }
-    return captureRows(table = modelCase.table)
-  }
-
-  private fun <T> relatedRows(
-    modelCase: RecursiveUpdateConflictModelCase<T>,
-    values: List<T>
-  ) = values.flatMap(modelCase::relatedValues)
-
   private fun <T> assertSnapshot(
     modelCase: RecursiveUpdateConflictModelCase<T>,
     expectedParents: List<T>,
     expectedRelated: List<Any?>
   ) {
-    assertThat(captureRows(table = modelCase.table))
-      .containsExactlyElementsIn(expectedParents)
-      .inOrder()
-    assertThat(captureRows(table = modelCase.relatedTable))
-      .containsExactlyElementsIn(expectedRelated)
-      .inOrder()
+    assertRowsInOrder(
+      table = modelCase.table,
+      expected = expectedParents
+    )
+    assertRowsInOrder(
+      table = modelCase.relatedTable,
+      expected = expectedRelated
+    )
   }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
 
   private data class RecursiveBulkUpdateScenario<T>(
     val values: List<T>,
     val expectedParents: List<T>,
     val expectedRelated: List<Any?>
   )
-
-  private enum class RecursiveConflict {
-    PARENT,
-    CHILD
-  }
 
   companion object {
     @JvmStatic

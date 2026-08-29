@@ -1,15 +1,17 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
-import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteConstraintException
+import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveUpdateConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,108 +23,85 @@ class RecursiveSingleUpdateConflictTest(
 ) : RuntimeDatabaseTest() {
   @Test
   fun executeWithParentConflictAndDefaultAlgorithmThrowsSQLiteConstraintException() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      assertThrows(SQLiteConstraintException::class.java) {
-        builder.execute()
-      }
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithParentConflictAndDefaultAlgorithmEmitsSQLiteConstraintException() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      builder
-        .observe()
-        .test()
-        .assertFailure(SQLiteConstraintException::class.java)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithParentConflictIgnoreReturnsFalse() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      assertThat(
-        builder
-          .conflictAlgorithm(CONFLICT_IGNORE)
-          .execute()
-      ).isFalse()
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.EXECUTE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun observeWithParentConflictIgnoreCompletes() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      builder
-        .conflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .test()
-        .assertComplete()
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.OBSERVE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun executeWithChildConflictAndDefaultAlgorithmThrowsSQLiteConstraintException() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      assertThrows(SQLiteConstraintException::class.java) {
-        builder.execute()
-      }
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithChildConflictAndDefaultAlgorithmEmitsSQLiteConstraintException() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      builder
-        .observe()
-        .test()
-        .assertFailure(SQLiteConstraintException::class.java)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithChildConflictIgnoreReturnsFalse() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      assertThat(
-        builder
-          .conflictAlgorithm(CONFLICT_IGNORE)
-          .execute()
-      ).isFalse()
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.EXECUTE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun observeWithChildConflictIgnoreCompletes() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      builder
-        .conflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .test()
-        .assertComplete()
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.OBSERVE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
-
-  private fun <T> assertParentConflict(
-    modelCase: RecursiveUpdateConflictModelCase<T>,
-    operation: (EntityUpdateBuilder) -> Unit
-  ) = assertConflict(
-    modelCase = modelCase,
-    conflict = RecursiveConflict.PARENT,
-    operation = operation
-  )
-
-  private fun <T> assertChildConflict(
-    modelCase: RecursiveUpdateConflictModelCase<T>,
-    operation: (EntityUpdateBuilder) -> Unit
-  ) = assertConflict(
-    modelCase = modelCase,
-    conflict = RecursiveConflict.CHILD,
-    operation = operation
-  )
 
   private fun <T> assertConflict(
     modelCase: RecursiveUpdateConflictModelCase<T>,
-    conflict: RecursiveConflict,
-    operation: (EntityUpdateBuilder) -> Unit
+    conflict: RecursiveConflictTarget,
+    terminal: OperationTerminal,
+    conflictAlgorithm: Int? = null
   ) {
     val target = modelCase.newValue(sequence = 1)
     val conflicting = modelCase.newValue(sequence = 2)
@@ -141,58 +120,46 @@ class RecursiveSingleUpdateConflictTest(
     val expectedParents = captureRows(table = modelCase.table)
     val expectedRelated = captureRows(table = modelCase.relatedTable)
     val candidateValue = when (conflict) {
-      RecursiveConflict.PARENT -> modelCase.valueWithParentConflict(
+      RecursiveConflictTarget.PARENT -> modelCase.valueWithParentConflict(
         existing = expectedParents[0],
         conflicting = expectedParents[1],
         sequence = 3
       )
-      RecursiveConflict.CHILD -> modelCase.valueWithChildConflict(
+      RecursiveConflictTarget.CHILD -> modelCase.valueWithChildConflict(
         existing = expectedParents[0],
         conflicting = expectedParents[1],
         sequence = 3
       )
     }
 
-    operation(modelCase.update(value = candidateValue))
+    val builder = modelCase
+      .update(value = candidateValue)
+      .withConflictAlgorithm(conflictAlgorithm)
+    when (terminal) {
+      OperationTerminal.EXECUTE -> when (conflictAlgorithm) {
+        null -> assertThrows(SQLiteConstraintException::class.java, builder::execute)
+        else -> assertThat(builder.execute()).isFalse()
+      }
+      OperationTerminal.OBSERVE -> when (conflictAlgorithm) {
+        null -> builder
+          .observe()
+          .test()
+          .assertFailure(SQLiteConstraintException::class.java)
+        else -> builder
+          .observe()
+          .test()
+          .assertComplete()
+      }
+    }
 
-    assertRowsUnchanged(
+    assertRowsInOrder(
       table = modelCase.table,
       expected = expectedParents
     )
-    assertRowsUnchanged(
+    assertRowsInOrder(
       table = modelCase.relatedTable,
       expected = expectedRelated
     )
-  }
-
-  private fun assertSeedInserted(
-    result: EntityInsertResult,
-    modelName: String
-  ) = when (result) {
-    is EntityInsertResult.Inserted -> Unit
-    EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for $modelName")
-  }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private fun assertRowsUnchanged(
-    table: Table<*>,
-    expected: List<*>
-  ) = assertThat(
-    Select
-      .from(table)
-      .queryDeep()
-      .execute()
-  )
-    .containsExactlyElementsIn(expected)
-    .inOrder()
-
-  private enum class RecursiveConflict {
-    PARENT,
-    CHILD
   }
 
   companion object {

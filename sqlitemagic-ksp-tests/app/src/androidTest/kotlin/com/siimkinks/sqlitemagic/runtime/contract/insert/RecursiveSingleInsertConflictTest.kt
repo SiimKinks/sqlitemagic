@@ -2,14 +2,17 @@ package com.siimkinks.sqlitemagic.runtime.contract.insert
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,108 +24,85 @@ class RecursiveSingleInsertConflictTest(
 ) : RuntimeDatabaseTest() {
   @Test
   fun executeWithParentConflictAndConflictIgnoreReturnsIgnored() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      assertThat(
-        builder
-          .conflictAlgorithm(CONFLICT_IGNORE)
-          .execute()
-      ).isEqualTo(EntityInsertResult.Ignored)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.EXECUTE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun observeWithParentConflictAndConflictIgnoreReturnsIgnored() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      builder
-        .conflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .test()
-        .assertResult(EntityInsertResult.Ignored)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.OBSERVE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun executeWithChildConflictAndConflictIgnoreReturnsIgnored() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      assertThat(
-        builder
-          .conflictAlgorithm(CONFLICT_IGNORE)
-          .execute()
-      ).isEqualTo(EntityInsertResult.Ignored)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.EXECUTE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun observeWithChildConflictAndConflictIgnoreReturnsIgnored() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      builder
-        .conflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .test()
-        .assertResult(EntityInsertResult.Ignored)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.OBSERVE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun executeWithParentConflictWithoutConflictAlgorithmThrowsOperationFailedException() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      assertThrows(OperationFailedException::class.java) {
-        builder.execute()
-      }
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithParentConflictWithoutConflictAlgorithmEmitsOperationFailedException() {
-    assertParentConflict(modelCase = modelCase) { builder ->
-      builder
-        .observe()
-        .test()
-        .assertFailure(OperationFailedException::class.java)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.PARENT,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithChildConflictWithoutConflictAlgorithmThrowsOperationFailedException() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      assertThrows(OperationFailedException::class.java) {
-        builder.execute()
-      }
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithChildConflictWithoutConflictAlgorithmEmitsOperationFailedException() {
-    assertChildConflict(modelCase = modelCase) { builder ->
-      builder
-        .observe()
-        .test()
-        .assertFailure(OperationFailedException::class.java)
-    }
+    assertConflict(
+      modelCase = modelCase,
+      conflict = RecursiveConflictTarget.CHILD,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
-
-  private fun <T> assertParentConflict(
-    modelCase: RecursiveInsertConflictModelCase<T>,
-    operation: (EntityInsertBuilder) -> Unit
-  ) = assertConflict(
-    modelCase = modelCase,
-    candidate = { existing -> modelCase.valueWithParentConflict(existing = existing, sequence = 2) },
-    operation = operation
-  )
-
-  private fun <T> assertChildConflict(
-    modelCase: RecursiveInsertConflictModelCase<T>,
-    operation: (EntityInsertBuilder) -> Unit
-  ) = assertConflict(
-    modelCase = modelCase,
-    candidate = { existing -> modelCase.valueWithChildConflict(existing = existing, sequence = 2) },
-    operation = operation
-  )
 
   private fun <T> assertConflict(
     modelCase: RecursiveInsertConflictModelCase<T>,
-    candidate: (T) -> T,
-    operation: (EntityInsertBuilder) -> Unit
+    conflict: RecursiveConflictTarget,
+    terminal: OperationTerminal,
+    conflictAlgorithm: Int? = null
   ) {
     val existing = modelCase.newValue(sequence = 1)
     assertSeedInserted(
@@ -133,28 +113,56 @@ class RecursiveSingleInsertConflictTest(
     )
     val parentBefore = captureRows(modelCase.table)
     val relatedBefore = captureRows(modelCase.relatedTable)
-    operation(modelCase.insert(value = candidate(existing)))
+    val builder = modelCase
+      .insert(
+        value = modelCase.valueWithConflict(
+          existing = existing,
+          conflict = conflict,
+          sequence = 2
+        )
+      )
+      .withConflictAlgorithm(conflictAlgorithm)
+    when (terminal) {
+      OperationTerminal.EXECUTE -> when (conflictAlgorithm) {
+        null -> assertThrows(OperationFailedException::class.java, builder::execute)
+        else -> assertThat(builder.execute()).isEqualTo(EntityInsertResult.Ignored)
+      }
+      OperationTerminal.OBSERVE -> when (conflictAlgorithm) {
+        null -> builder
+          .observe()
+          .test()
+          .assertFailure(OperationFailedException::class.java)
+        else -> builder
+          .observe()
+          .test()
+          .assertResult(EntityInsertResult.Ignored)
+      }
+    }
 
-    assertThat(captureRows(modelCase.table))
-      .containsExactlyElementsIn(parentBefore)
-      .inOrder()
-    assertThat(captureRows(modelCase.relatedTable))
-      .containsExactlyElementsIn(relatedBefore)
-      .inOrder()
+    assertRowsInOrder(
+      table = modelCase.table,
+      expected = parentBefore
+    )
+    assertRowsInOrder(
+      table = modelCase.relatedTable,
+      expected = relatedBefore
+    )
   }
 
-  private fun assertSeedInserted(
-    result: EntityInsertResult,
-    modelName: String
-  ) = when (result) {
-    is EntityInsertResult.Inserted -> Unit
-    EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for $modelName")
+  private fun <T> RecursiveInsertConflictModelCase<T>.valueWithConflict(
+    existing: T,
+    conflict: RecursiveConflictTarget,
+    sequence: Int
+  ) = when (conflict) {
+    RecursiveConflictTarget.PARENT -> valueWithParentConflict(
+      existing = existing,
+      sequence = sequence
+    )
+    RecursiveConflictTarget.CHILD -> valueWithChildConflict(
+      existing = existing,
+      sequence = sequence
+    )
   }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
 
   companion object {
     @JvmStatic

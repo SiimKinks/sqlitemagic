@@ -3,13 +3,19 @@ package com.siimkinks.sqlitemagic.runtime.contract.persist
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
+import com.siimkinks.sqlitemagic.runtime.support.relatedRows
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import io.reactivex.observers.TestObserver
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,10 +70,11 @@ class BulkPersistReactiveLifecycleTest(
     modelCase: BulkPersistModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    val originalValues = seedRows(
+    seedRows(
       modelCase = modelCase,
       count = 1
     )
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     val updatedValue = modelCase.updatedValue(
       value = captureRows(table = modelCase.table).single(),
       sequence = 2
@@ -89,9 +96,9 @@ class BulkPersistReactiveLifecycleTest(
       .subscribe(operationObserver)
 
     operationObserver.assertEmpty()
-    assertRows(
-      table = modelCase.table,
-      expected = originalValues
+    assertDatabaseSnapshotIgnoringOrder(
+      modelCase = modelCase,
+      expected = snapshotBefore
     )
   }
 
@@ -99,11 +106,11 @@ class BulkPersistReactiveLifecycleTest(
     modelCase: RecursiveBulkPersistModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    val originalValues = seedRows(
+    seedRows(
       modelCase = modelCase,
       count = 1
     )
-    val originalRelated = captureRows(table = modelCase.relatedTable)
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     val updatedValue = modelCase.updatedValue(
       value = captureRows(table = modelCase.table).single(),
       sequence = 2
@@ -126,19 +133,20 @@ class BulkPersistReactiveLifecycleTest(
 
     operationObserver.assertEmpty()
     when (conflictAlgorithm) {
-      CONFLICT_NONE -> assertSnapshot(
+      CONFLICT_NONE -> assertDatabaseSnapshotIgnoringOrder(
         modelCase = modelCase,
-        expectedParents = originalValues,
-        expectedRelated = originalRelated
+        expected = snapshotBefore
       )
       CONFLICT_IGNORE -> {
         val expectedParents = listOf(modelCase.expectedAfterUpdate(value = updatedValue))
-        assertSnapshot(
+        assertDatabaseSnapshotIgnoringOrder(
           modelCase = modelCase,
-          expectedParents = expectedParents,
-          expectedRelated = relatedRows(
-            modelCase = modelCase,
-            values = expectedParents
+          expected = DatabaseSnapshot(
+            parents = expectedParents,
+            related = relatedRows(
+              modelCase = modelCase,
+              values = expectedParents
+            )
           )
         )
       }
@@ -178,17 +186,9 @@ class BulkPersistReactiveLifecycleTest(
       updateSequence = 5,
       insertSequence = 6
     )
-    var traversalCount = 0
-    val values = object : Iterable<T> {
-      override fun iterator(): Iterator<T> {
-        traversalCount++
-        return when (traversalCount) {
-          1 -> firstValues.iterator()
-          2 -> secondValues.iterator()
-          else -> error("Unexpected traversal: $traversalCount")
-        }
-      }
-    }
+    val values = SuccessiveTraversalIterable(
+      traversalBatches = listOf(firstValues, secondValues)
+    )
     val operation = modelCase.observeBulkPersist(
       values = values,
       conflictAlgorithm = conflictAlgorithm
@@ -197,9 +197,9 @@ class BulkPersistReactiveLifecycleTest(
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(1)
+    assertThat(values.traversalCount).isEqualTo(1)
     val firstActual = captureRows(table = modelCase.table)
-    assertRows(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = expectedMixedParents(
         modelCase = modelCase,
@@ -214,9 +214,9 @@ class BulkPersistReactiveLifecycleTest(
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(2)
+    assertThat(values.traversalCount).isEqualTo(2)
     val secondActual = captureRows(table = modelCase.table)
-    assertRows(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = expectedMixedParents(
         modelCase = modelCase,
@@ -250,17 +250,9 @@ class BulkPersistReactiveLifecycleTest(
       updateSequence = 5,
       insertSequence = 6
     )
-    var traversalCount = 0
-    val values = object : Iterable<T> {
-      override fun iterator(): Iterator<T> {
-        traversalCount++
-        return when (traversalCount) {
-          1 -> firstValues.iterator()
-          2 -> secondValues.iterator()
-          else -> error("Unexpected traversal: $traversalCount")
-        }
-      }
-    }
+    val values = SuccessiveTraversalIterable(
+      traversalBatches = listOf(firstValues, secondValues)
+    )
     val operation = modelCase.observeBulkPersist(
       values = values,
       conflictAlgorithm = conflictAlgorithm
@@ -269,27 +261,23 @@ class BulkPersistReactiveLifecycleTest(
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(1)
+    assertThat(values.traversalCount).isEqualTo(1)
     val firstActual = captureRows(table = modelCase.table)
-    assertSnapshot(
+    val firstExpected = expectedMixedParents(
       modelCase = modelCase,
-      expectedParents = expectedMixedParents(
-        modelCase = modelCase,
-        before = originalValues,
-        updatedIndex = 0,
-        updatedValue = firstValues[0],
-        insertedValues = listOf(firstValues[1]),
-        actual = firstActual
-      ),
-      expectedRelated = relatedRows(
-        modelCase = modelCase,
-        values = expectedMixedParents(
+      before = originalValues,
+      updatedIndex = 0,
+      updatedValue = firstValues[0],
+      insertedValues = listOf(firstValues[1]),
+      actual = firstActual
+    )
+    assertDatabaseSnapshotIgnoringOrder(
+      modelCase = modelCase,
+      expected = DatabaseSnapshot(
+        parents = firstExpected,
+        related = relatedRows(
           modelCase = modelCase,
-          before = originalValues,
-          updatedIndex = 0,
-          updatedValue = firstValues[0],
-          insertedValues = listOf(firstValues[1]),
-          actual = firstActual
+          values = firstExpected
         )
       )
     )
@@ -297,7 +285,7 @@ class BulkPersistReactiveLifecycleTest(
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(2)
+    assertThat(values.traversalCount).isEqualTo(2)
     val secondActual = captureRows(table = modelCase.table)
     val secondExpected = expectedMixedParents(
       modelCase = modelCase,
@@ -307,12 +295,14 @@ class BulkPersistReactiveLifecycleTest(
       insertedValues = listOf(secondValues[1]),
       actual = secondActual
     )
-    assertSnapshot(
+    assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
-      expectedParents = secondExpected,
-      expectedRelated = relatedRows(
-        modelCase = modelCase,
-        values = secondExpected
+      expected = DatabaseSnapshot(
+        parents = secondExpected,
+        related = relatedRows(
+          modelCase = modelCase,
+          values = secondExpected
+        )
       )
     )
   }
@@ -364,7 +354,7 @@ class BulkPersistReactiveLifecycleTest(
       .assertResult()
 
     val actual = captureRows(table = modelCase.table)
-    assertRows(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = expectedChainedParents(
         modelCase = modelCase,
@@ -421,12 +411,14 @@ class BulkPersistReactiveLifecycleTest(
       insertedValues = listOf(firstValues[1], secondValues[1]),
       actual = actual
     )
-    assertSnapshot(
+    assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
-      expectedParents = expectedParents,
-      expectedRelated = relatedRows(
-        modelCase = modelCase,
-        values = expectedParents
+      expected = DatabaseSnapshot(
+        parents = expectedParents,
+        related = relatedRows(
+          modelCase = modelCase,
+          values = expectedParents
+        )
       )
     )
   }
@@ -486,70 +478,6 @@ class BulkPersistReactiveLifecycleTest(
     ),
     modelCase.newValue(sequence = insertSequence)
   )
-
-  private fun <T> seedRows(
-    modelCase: BulkPersistModelCase<T>,
-    count: Int
-  ): List<T> {
-    List(size = count, init = modelCase::newValue).forEach { value ->
-      when (modelCase.insert(value = value).execute()) {
-        is EntityInsertResult.Inserted -> Unit
-        EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
-      }
-    }
-    return captureRows(table = modelCase.table)
-  }
-
-  private fun <T> assertSnapshot(
-    modelCase: RecursiveBulkPersistModelCase<T>,
-    expectedParents: List<T>,
-    expectedRelated: List<Any?>
-  ) {
-    assertRows(
-      table = modelCase.table,
-      expected = expectedParents
-    )
-    assertThat(captureRows(table = modelCase.relatedTable))
-      .containsExactlyElementsIn(expectedRelated)
-  }
-
-  private fun <T> relatedRows(
-    modelCase: RecursiveBulkPersistModelCase<T>,
-    values: List<T>
-  ) = values.flatMap(modelCase::relatedValues)
-
-  private fun <T> assertRows(
-    table: Table<T>,
-    expected: List<T>
-  ) = assertThat(captureRows(table = table))
-    .containsExactlyElementsIn(expected)
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private fun <T> disposeAfterFirst(
-    values: List<T>,
-    observer: TestObserver<Void>
-  ) = object : AbstractList<T>() {
-    override val size get() = values.size
-
-    override fun get(index: Int) = values[index]
-
-    override fun iterator() = object : Iterator<T> {
-      private var index = 0
-
-      override fun hasNext(): Boolean {
-        if (index == 1) {
-          observer.dispose()
-        }
-        return index < values.size
-      }
-
-      override fun next() = values[index++]
-    }
-  }
 
   companion object {
     @JvmStatic

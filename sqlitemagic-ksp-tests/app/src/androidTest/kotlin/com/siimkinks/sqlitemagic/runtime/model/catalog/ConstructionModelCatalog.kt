@@ -13,10 +13,10 @@ import com.siimkinks.sqlitemagic.fixture.model.NonDataConstructorEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
 
 internal object ConstructionModelCatalog {
@@ -43,7 +43,7 @@ internal object ConstructionModelCatalog {
   }
 
   private object MutableBodyEntityCase :
-    BulkPersistModelCase<MutableBodyEntity> {
+    StandardBulkPersistModelCase<MutableBodyEntity> {
     override val name = "MutableBodyEntity"
     override val table = MUTABLE_BODY_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -52,9 +52,14 @@ internal object ConstructionModelCatalog {
       value = "mutable-body-$sequence"
     }
 
-    override fun insert(value: MutableBodyEntity) = value.insert()
-
-    override fun bulkInsert(values: List<MutableBodyEntity>) = MutableBodyEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = MutableBodyEntity::insert,
+      bulkInsert = MutableBodyEntitys::insert,
+      update = MutableBodyEntity::update,
+      bulkUpdate = MutableBodyEntitys::update,
+      persist = MutableBodyEntity::persist,
+      bulkPersist = MutableBodyEntitys::persist
+    )
 
     override fun expectedAfterInsert(value: MutableBodyEntity, result: EntityInsertResult.Inserted) = value
 
@@ -62,67 +67,11 @@ internal object ConstructionModelCatalog {
       this.value = "mutable-body-updated-$sequence"
     }
 
-    override fun executeUpdate(
-      value: MutableBodyEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: MutableBodyEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<MutableBodyEntity>,
-      conflictAlgorithm: Int?
-    ) = MutableBodyEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<MutableBodyEntity>,
-      conflictAlgorithm: Int?
-    ) = MutableBodyEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<MutableBodyEntity>,
-      conflictAlgorithm: Int?
-    ) = MutableBodyEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<MutableBodyEntity>,
-      conflictAlgorithm: Int?
-    ) = MutableBodyEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: MutableBodyEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: MutableBodyEntity) = value
-      .persist()
-      .observe()
-
     override fun toString() = name
   }
 
   private object InheritedMutableEntityCase :
-    BulkPersistModelCase<InheritedMutableEntity> {
+    StandardBulkPersistModelCase<InheritedMutableEntity> {
     override val name = "InheritedMutableEntity"
     override val table = INHERITED_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -132,9 +81,14 @@ internal object ConstructionModelCatalog {
       value = "child-$sequence"
     }
 
-    override fun insert(value: InheritedMutableEntity) = value.insert()
-
-    override fun bulkInsert(values: List<InheritedMutableEntity>) = InheritedMutableEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = InheritedMutableEntity::insert,
+      bulkInsert = InheritedMutableEntitys::insert,
+      update = InheritedMutableEntity::update,
+      bulkUpdate = InheritedMutableEntitys::update,
+      persist = InheritedMutableEntity::persist,
+      bulkPersist = InheritedMutableEntitys::persist
+    )
 
     override fun expectedAfterInsert(value: InheritedMutableEntity, result: EntityInsertResult.Inserted) = value
 
@@ -142,62 +96,6 @@ internal object ConstructionModelCatalog {
       inheritedValue = "base-updated-$sequence"
       this.value = "child-updated-$sequence"
     }
-
-    override fun executeUpdate(
-      value: InheritedMutableEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: InheritedMutableEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<InheritedMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = InheritedMutableEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<InheritedMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = InheritedMutableEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<InheritedMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = InheritedMutableEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<InheritedMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = InheritedMutableEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: InheritedMutableEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: InheritedMutableEntity) = value
-      .persist()
-      .observe()
 
     override fun toString() = name
   }

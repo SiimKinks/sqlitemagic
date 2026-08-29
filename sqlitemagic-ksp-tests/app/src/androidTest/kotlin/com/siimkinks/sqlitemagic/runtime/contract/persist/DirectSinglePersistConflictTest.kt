@@ -2,15 +2,16 @@ package com.siimkinks.sqlitemagic.runtime.contract.persist
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,89 +23,76 @@ class DirectSinglePersistConflictTest(
 ) : RuntimeDatabaseTest() {
   @Test
   fun executeWithInsertConflictAndDefaultAlgorithmThrowsOperationFailedException() {
-    assertInsertConflict(modelCase = modelCase) { builder ->
-      assertThrows(OperationFailedException::class.java) {
-        builder.execute()
-      }
-    }
+    assertInsertConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithInsertConflictAndDefaultAlgorithmEmitsOperationFailedException() {
-    assertInsertConflict(modelCase = modelCase) { builder ->
-      builder
-        .observe()
-        .test()
-        .assertFailure(OperationFailedException::class.java)
-    }
+    assertInsertConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithInsertConflictAndConflictIgnoreReturnsIgnored() {
-    assertInsertConflict(modelCase = modelCase) { builder ->
-      assertThat(
-        builder
-          .conflictAlgorithm(CONFLICT_IGNORE)
-          .execute()
-      ).isEqualTo(EntityPersistResult.Ignored)
-    }
+    assertInsertConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun observeWithInsertConflictAndConflictIgnoreReturnsIgnored() {
-    assertInsertConflict(modelCase = modelCase) { builder ->
-      builder
-        .conflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .test()
-        .assertResult(EntityPersistResult.Ignored)
-    }
+    assertInsertConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun executeWithUpdateConflictAndDefaultAlgorithmThrowsOperationFailedException() {
-    assertUpdateConflict(modelCase = modelCase) { builder ->
-      assertThrows(OperationFailedException::class.java) {
-        builder.execute()
-      }
-    }
+    assertUpdateConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithUpdateConflictAndDefaultAlgorithmEmitsOperationFailedException() {
-    assertUpdateConflict(modelCase = modelCase) { builder ->
-      builder
-        .observe()
-        .test()
-        .assertFailure(OperationFailedException::class.java)
-    }
+    assertUpdateConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithUpdateConflictAndConflictIgnoreReturnsIgnored() {
-    assertUpdateConflict(modelCase = modelCase) { builder ->
-      assertThat(
-        builder
-          .conflictAlgorithm(CONFLICT_IGNORE)
-          .execute()
-      ).isEqualTo(EntityPersistResult.Ignored)
-    }
+    assertUpdateConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   @Test
   fun observeWithUpdateConflictAndConflictIgnoreReturnsIgnored() {
-    assertUpdateConflict(modelCase = modelCase) { builder ->
-      builder
-        .conflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .test()
-        .assertResult(EntityPersistResult.Ignored)
-    }
+    assertUpdateConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE,
+      conflictAlgorithm = CONFLICT_IGNORE
+    )
   }
 
   private fun <T> assertInsertConflict(
     modelCase: PersistConflictModelCase<T>,
-    operation: (EntityPersistBuilder) -> Unit
+    terminal: OperationTerminal,
+    conflictAlgorithm: Int? = null
   ) {
     val existing = modelCase.newValue(sequence = 1)
     assertSeedInserted(
@@ -119,9 +107,27 @@ class DirectSinglePersistConflictTest(
       sequence = 2
     )
 
-    operation(modelCase.persist(value = candidate))
+    val builder = modelCase
+      .persist(value = candidate)
+      .withConflictAlgorithm(conflictAlgorithm)
+    when (terminal) {
+      OperationTerminal.EXECUTE -> when (conflictAlgorithm) {
+        null -> assertThrows(OperationFailedException::class.java, builder::execute)
+        else -> assertThat(builder.execute()).isEqualTo(EntityPersistResult.Ignored)
+      }
+      OperationTerminal.OBSERVE -> when (conflictAlgorithm) {
+        null -> builder
+          .observe()
+          .test()
+          .assertFailure(OperationFailedException::class.java)
+        else -> builder
+          .observe()
+          .test()
+          .assertResult(EntityPersistResult.Ignored)
+      }
+    }
 
-    assertRowsUnchanged(
+    assertRowsInOrder(
       table = modelCase.table,
       expected = before
     )
@@ -129,7 +135,8 @@ class DirectSinglePersistConflictTest(
 
   private fun <T> assertUpdateConflict(
     modelCase: PersistConflictModelCase<T>,
-    operation: (EntityPersistBuilder) -> Unit
+    terminal: OperationTerminal,
+    conflictAlgorithm: Int? = null
   ) {
     val existing = modelCase.newValue(sequence = 1)
     assertSeedInserted(
@@ -152,33 +159,31 @@ class DirectSinglePersistConflictTest(
       sequence = 3
     )
 
-    operation(modelCase.persist(value = candidate))
+    val builder = modelCase
+      .persist(value = candidate)
+      .withConflictAlgorithm(conflictAlgorithm)
+    when (terminal) {
+      OperationTerminal.EXECUTE -> when (conflictAlgorithm) {
+        null -> assertThrows(OperationFailedException::class.java, builder::execute)
+        else -> assertThat(builder.execute()).isEqualTo(EntityPersistResult.Ignored)
+      }
+      OperationTerminal.OBSERVE -> when (conflictAlgorithm) {
+        null -> builder
+          .observe()
+          .test()
+          .assertFailure(OperationFailedException::class.java)
+        else -> builder
+          .observe()
+          .test()
+          .assertResult(EntityPersistResult.Ignored)
+      }
+    }
 
-    assertRowsUnchanged(
+    assertRowsInOrder(
       table = modelCase.table,
       expected = before
     )
   }
-
-  private fun assertSeedInserted(
-    result: EntityInsertResult,
-    modelName: String
-  ) = when (result) {
-    is EntityInsertResult.Inserted -> Unit
-    EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for $modelName")
-  }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private fun <T> assertRowsUnchanged(
-    table: Table<T>,
-    expected: List<T>
-  ) = assertThat(captureRows(table = table))
-    .containsExactlyElementsIn(expected)
-    .inOrder()
 
   companion object {
     @JvmStatic

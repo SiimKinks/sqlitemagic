@@ -3,13 +3,19 @@ package com.siimkinks.sqlitemagic.runtime.contract.update
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
+import com.siimkinks.sqlitemagic.runtime.support.relatedRows
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import io.reactivex.observers.TestObserver
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,10 +70,11 @@ class BulkUpdateReactiveLifecycleTest(
     modelCase: BulkUpdateModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    val originalValues = seedRows(
+    seedRows(
       modelCase = modelCase,
       count = 2
     )
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     val updatedValues = updatedValues(
       modelCase = modelCase,
       values = captureRows(table = modelCase.table),
@@ -86,9 +93,9 @@ class BulkUpdateReactiveLifecycleTest(
       .subscribe(operationObserver)
 
     operationObserver.assertEmpty()
-    assertRows(
-      table = modelCase.table,
-      expected = originalValues
+    assertDatabaseSnapshotInOrder(
+      modelCase = modelCase,
+      expected = snapshotBefore
     )
   }
 
@@ -96,11 +103,11 @@ class BulkUpdateReactiveLifecycleTest(
     modelCase: RecursiveBulkUpdateModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    val originalValues = seedRows(
+    seedRows(
       modelCase = modelCase,
       count = 2
     )
-    val originalRelated = captureRows(table = modelCase.relatedTable)
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     val updatedValues = updatedValues(
       modelCase = modelCase,
       values = captureRows(table = modelCase.table),
@@ -120,22 +127,23 @@ class BulkUpdateReactiveLifecycleTest(
 
     operationObserver.assertEmpty()
     when (conflictAlgorithm) {
-      CONFLICT_NONE -> assertSnapshot(
+      CONFLICT_NONE -> assertDatabaseSnapshotInOrder(
         modelCase = modelCase,
-        expectedParents = originalValues,
-        expectedRelated = originalRelated
+        expected = snapshotBefore
       )
       CONFLICT_IGNORE -> {
         val expectedParents = listOf(
           modelCase.expectedAfterUpdate(value = updatedValues.first()),
-          originalValues[1]
+          snapshotBefore.parents[1]
         )
-        assertSnapshot(
+        assertDatabaseSnapshotInOrder(
           modelCase = modelCase,
-          expectedParents = expectedParents,
-          expectedRelated = relatedRows(
-            modelCase = modelCase,
-            values = expectedParents
+          expected = DatabaseSnapshot(
+            parents = expectedParents,
+            related = relatedRows(
+              modelCase = modelCase,
+              values = expectedParents
+            )
           )
         )
       }
@@ -172,17 +180,9 @@ class BulkUpdateReactiveLifecycleTest(
       values = captureRows(table = modelCase.table),
       firstSequence = 5
     )
-    var traversalCount = 0
-    val values = object : Iterable<T> {
-      override fun iterator(): Iterator<T> {
-        traversalCount++
-        return when (traversalCount) {
-          1 -> firstValues.iterator()
-          2 -> secondValues.iterator()
-          else -> error("Unexpected traversal: $traversalCount")
-        }
-      }
-    }
+    val values = SuccessiveTraversalIterable(
+      traversalBatches = listOf(firstValues, secondValues)
+    )
     val operation = modelCase.observeBulkUpdate(
       values = values,
       conflictAlgorithm = conflictAlgorithm
@@ -191,8 +191,8 @@ class BulkUpdateReactiveLifecycleTest(
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(1)
-    assertRows(
+    assertThat(values.traversalCount).isEqualTo(1)
+    assertRowsInOrder(
       table = modelCase.table,
       expected = firstValues.map(modelCase::expectedAfterUpdate)
     )
@@ -200,8 +200,8 @@ class BulkUpdateReactiveLifecycleTest(
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(2)
-    assertRows(
+    assertThat(values.traversalCount).isEqualTo(2)
+    assertRowsInOrder(
       table = modelCase.table,
       expected = secondValues.map(modelCase::expectedAfterUpdate)
     )
@@ -225,17 +225,9 @@ class BulkUpdateReactiveLifecycleTest(
       values = captureRows(table = modelCase.table),
       firstSequence = 5
     )
-    var traversalCount = 0
-    val values = object : Iterable<T> {
-      override fun iterator(): Iterator<T> {
-        traversalCount++
-        return when (traversalCount) {
-          1 -> firstValues.iterator()
-          2 -> secondValues.iterator()
-          else -> error("Unexpected traversal: $traversalCount")
-        }
-      }
-    }
+    val values = SuccessiveTraversalIterable(
+      traversalBatches = listOf(firstValues, secondValues)
+    )
     val operation = modelCase.observeBulkUpdate(
       values = values,
       conflictAlgorithm = conflictAlgorithm
@@ -244,28 +236,32 @@ class BulkUpdateReactiveLifecycleTest(
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(1)
+    assertThat(values.traversalCount).isEqualTo(1)
     val firstExpectedValues = firstValues.map(modelCase::expectedAfterUpdate)
-    assertSnapshot(
+    assertDatabaseSnapshotInOrder(
       modelCase = modelCase,
-      expectedParents = firstExpectedValues,
-      expectedRelated = relatedRows(
-        modelCase = modelCase,
-        values = firstExpectedValues
+      expected = DatabaseSnapshot(
+        parents = firstExpectedValues,
+        related = relatedRows(
+          modelCase = modelCase,
+          values = firstExpectedValues
+        )
       )
     )
 
     operation
       .test()
       .assertResult()
-    assertThat(traversalCount).isEqualTo(2)
+    assertThat(values.traversalCount).isEqualTo(2)
     val secondExpectedValues = secondValues.map(modelCase::expectedAfterUpdate)
-    assertSnapshot(
+    assertDatabaseSnapshotInOrder(
       modelCase = modelCase,
-      expectedParents = secondExpectedValues,
-      expectedRelated = relatedRows(
-        modelCase = modelCase,
-        values = secondExpectedValues
+      expected = DatabaseSnapshot(
+        parents = secondExpectedValues,
+        related = relatedRows(
+          modelCase = modelCase,
+          values = secondExpectedValues
+        )
       )
     )
   }
@@ -320,7 +316,7 @@ class BulkUpdateReactiveLifecycleTest(
       .test()
       .assertResult()
 
-    assertRows(
+    assertRowsInOrder(
       table = modelCase.table,
       expected = (firstValues + secondValues).map(modelCase::expectedAfterUpdate)
     )
@@ -366,12 +362,14 @@ class BulkUpdateReactiveLifecycleTest(
       .assertResult()
 
     val expectedValues = (firstValues + secondValues).map(modelCase::expectedAfterUpdate)
-    assertSnapshot(
+    assertDatabaseSnapshotInOrder(
       modelCase = modelCase,
-      expectedParents = expectedValues,
-      expectedRelated = relatedRows(
-        modelCase = modelCase,
-        values = expectedValues
+      expected = DatabaseSnapshot(
+        parents = expectedValues,
+        related = relatedRows(
+          modelCase = modelCase,
+          values = expectedValues
+        )
       )
     )
   }
@@ -385,72 +383,6 @@ class BulkUpdateReactiveLifecycleTest(
       value = value,
       sequence = firstSequence + index
     )
-  }
-
-  private fun <T> seedRows(
-    modelCase: BulkUpdateModelCase<T>,
-    count: Int
-  ): List<T> {
-    List(size = count, init = modelCase::newValue).forEach { value ->
-      when (modelCase.insert(value = value).execute()) {
-        is EntityInsertResult.Inserted -> Unit
-        EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
-      }
-    }
-    return captureRows(table = modelCase.table)
-  }
-
-  private fun <T> assertSnapshot(
-    modelCase: RecursiveBulkUpdateModelCase<T>,
-    expectedParents: List<T>,
-    expectedRelated: List<Any?>
-  ) {
-    assertRows(
-      table = modelCase.table,
-      expected = expectedParents
-    )
-    assertThat(captureRows(table = modelCase.relatedTable))
-      .containsExactlyElementsIn(expectedRelated)
-      .inOrder()
-  }
-
-  private fun <T> assertRows(
-    table: Table<T>,
-    expected: List<T>
-  ) = assertThat(captureRows(table = table))
-    .containsExactlyElementsIn(expected)
-    .inOrder()
-
-  private fun <T> relatedRows(
-    modelCase: RecursiveBulkUpdateModelCase<T>,
-    values: List<T>
-  ) = values.flatMap(modelCase::relatedValues)
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private fun <T> disposeAfterFirst(
-    values: List<T>,
-    observer: TestObserver<Void>
-  ) = object : AbstractList<T>() {
-    override val size get() = values.size
-
-    override fun get(index: Int) = values[index]
-
-    override fun iterator() = object : Iterator<T> {
-      private var index = 0
-
-      override fun hasNext(): Boolean {
-        if (index == 1) {
-          observer.dispose()
-        }
-        return index < values.size
-      }
-
-      override fun next() = values[index++]
-    }
   }
 
   companion object {

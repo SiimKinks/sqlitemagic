@@ -28,7 +28,8 @@ import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
 
 internal object ScalarModelCatalog {
@@ -43,10 +44,10 @@ internal object ScalarModelCatalog {
     BlobEntityCase,
   )
 
-  internal val emptyBulkUpdateCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
+  internal val representativeEmptyBulkCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
 
   private object SimpleMutableEntityCase :
-    BulkPersistModelCase<SimpleMutableEntity> {
+    StandardBulkPersistModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -58,9 +59,14 @@ internal object ScalarModelCatalog {
       primitiveBoolean = true
     )
 
-    override fun insert(value: SimpleMutableEntity) = value.insert()
-
-    override fun bulkInsert(values: List<SimpleMutableEntity>) = SimpleMutableEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = SimpleMutableEntity::insert,
+      bulkInsert = SimpleMutableEntitys::insert,
+      update = SimpleMutableEntity::update,
+      bulkUpdate = SimpleMutableEntitys::update,
+      persist = SimpleMutableEntity::persist,
+      bulkPersist = SimpleMutableEntitys::persist
+    )
 
     override fun updatedValue(value: SimpleMutableEntity, sequence: Int) = value.copy(
       value = "simple-mutable-entity-updated-$sequence",
@@ -68,69 +74,13 @@ internal object ScalarModelCatalog {
       primitiveBoolean = sequence % 2 != 0
     )
 
-    override fun executeUpdate(
-      value: SimpleMutableEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: SimpleMutableEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: SimpleMutableEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: SimpleMutableEntity) = value
-      .persist()
-      .observe()
-
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
   }
 
   private object SimpleMutableEntityWithPresetAutoIdCase :
-    BulkPersistModelCase<SimpleMutableEntity> {
+    StandardBulkPersistModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntityWithPresetAutoId"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -142,71 +92,20 @@ internal object ScalarModelCatalog {
       primitiveBoolean = false
     )
 
-    override fun insert(value: SimpleMutableEntity) = value.insert()
-
-    override fun bulkInsert(values: List<SimpleMutableEntity>) = SimpleMutableEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = SimpleMutableEntity::insert,
+      bulkInsert = SimpleMutableEntitys::insert,
+      update = SimpleMutableEntity::update,
+      bulkUpdate = SimpleMutableEntitys::update,
+      persist = SimpleMutableEntity::persist,
+      bulkPersist = SimpleMutableEntitys::persist
+    )
 
     override fun updatedValue(value: SimpleMutableEntity, sequence: Int) = value.copy(
       value = "preset-simple-mutable-entity-updated-$sequence",
       boxedBoolean = sequence % 2 != 0,
       primitiveBoolean = sequence % 2 == 0
     )
-
-    override fun executeUpdate(
-      value: SimpleMutableEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: SimpleMutableEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<SimpleMutableEntity>,
-      conflictAlgorithm: Int?
-    ) = SimpleMutableEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: SimpleMutableEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: SimpleMutableEntity) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
 
@@ -219,7 +118,7 @@ internal object ScalarModelCatalog {
   }
 
   private object ImmutableValueWithNullableFieldsCase :
-    BulkPersistModelCase<ImmutableValueWithNullableFields> {
+    StandardBulkPersistModelCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
     override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -231,72 +130,20 @@ internal object ScalarModelCatalog {
       integer = sequence
     )
 
-    override fun insert(value: ImmutableValueWithNullableFields) = value.insert()
-
-    override fun bulkInsert(values: List<ImmutableValueWithNullableFields>) =
-      ImmutableValueWithNullableFieldss.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = ImmutableValueWithNullableFields::insert,
+      bulkInsert = ImmutableValueWithNullableFieldss::insert,
+      update = ImmutableValueWithNullableFields::update,
+      bulkUpdate = ImmutableValueWithNullableFieldss::update,
+      persist = ImmutableValueWithNullableFields::persist,
+      bulkPersist = ImmutableValueWithNullableFieldss::persist
+    )
 
     override fun updatedValue(value: ImmutableValueWithNullableFields, sequence: Int) = value.copy(
       string = "immutable-value-updated-$sequence",
       aBoolean = sequence % 2 == 0,
       integer = 100 + sequence
     )
-
-    override fun executeUpdate(
-      value: ImmutableValueWithNullableFields,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: ImmutableValueWithNullableFields,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<ImmutableValueWithNullableFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithNullableFieldss
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<ImmutableValueWithNullableFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithNullableFieldss
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<ImmutableValueWithNullableFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithNullableFieldss
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<ImmutableValueWithNullableFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithNullableFieldss
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: ImmutableValueWithNullableFields) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: ImmutableValueWithNullableFields) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterInsert(
       value: ImmutableValueWithNullableFields,
@@ -316,7 +163,7 @@ internal object ScalarModelCatalog {
   }
 
   private object ImmutableValueWithFieldsCase :
-    BulkPersistModelCase<ImmutableValueWithFields> {
+    StandardBulkPersistModelCase<ImmutableValueWithFields> {
     override val name = "ImmutableValueWithFields"
     override val table = IMMUTABLE_VALUE_WITH_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -331,9 +178,14 @@ internal object ScalarModelCatalog {
       transformableObject = TransformableObject(value = 23 + sequence)
     )
 
-    override fun insert(value: ImmutableValueWithFields) = value.insert()
-
-    override fun bulkInsert(values: List<ImmutableValueWithFields>) = ImmutableValueWithFieldss.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = ImmutableValueWithFields::insert,
+      bulkInsert = ImmutableValueWithFieldss::insert,
+      update = ImmutableValueWithFields::update,
+      bulkUpdate = ImmutableValueWithFieldss::update,
+      persist = ImmutableValueWithFields::persist,
+      bulkPersist = ImmutableValueWithFieldss::persist
+    )
 
     override fun updatedValue(value: ImmutableValueWithFields, sequence: Int) = value.copy(
       stringValue = "transformed-updated-$sequence",
@@ -343,62 +195,6 @@ internal object ScalarModelCatalog {
       aShort = (10 + sequence).toShort(),
       transformableObject = TransformableObject(value = 100 + sequence)
     )
-
-    override fun executeUpdate(
-      value: ImmutableValueWithFields,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: ImmutableValueWithFields,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<ImmutableValueWithFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithFieldss
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<ImmutableValueWithFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithFieldss
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<ImmutableValueWithFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithFieldss
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<ImmutableValueWithFields>,
-      conflictAlgorithm: Int?
-    ) = ImmutableValueWithFieldss
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: ImmutableValueWithFields) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: ImmutableValueWithFields) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterInsert(
       value: ImmutableValueWithFields,
@@ -418,7 +214,7 @@ internal object ScalarModelCatalog {
   }
 
   private object CustomColumnEntityCase :
-    BulkPersistModelCase<CustomColumnEntity> {
+    StandardBulkPersistModelCase<CustomColumnEntity> {
     override val name = "CustomColumnEntity"
     override val table = CUSTOM_COLUMN_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -428,69 +224,18 @@ internal object ScalarModelCatalog {
       value = "custom-column-$sequence"
     )
 
-    override fun insert(value: CustomColumnEntity) = value.insert()
-
-    override fun bulkInsert(values: List<CustomColumnEntity>) = CustomColumnEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = CustomColumnEntity::insert,
+      bulkInsert = CustomColumnEntitys::insert,
+      update = CustomColumnEntity::update,
+      bulkUpdate = CustomColumnEntitys::update,
+      persist = CustomColumnEntity::persist,
+      bulkPersist = CustomColumnEntitys::persist
+    )
 
     override fun updatedValue(value: CustomColumnEntity, sequence: Int) = value.copy(
       value = "custom-column-updated-$sequence"
     )
-
-    override fun executeUpdate(
-      value: CustomColumnEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: CustomColumnEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<CustomColumnEntity>,
-      conflictAlgorithm: Int?
-    ) = CustomColumnEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<CustomColumnEntity>,
-      conflictAlgorithm: Int?
-    ) = CustomColumnEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<CustomColumnEntity>,
-      conflictAlgorithm: Int?
-    ) = CustomColumnEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<CustomColumnEntity>,
-      conflictAlgorithm: Int?
-    ) = CustomColumnEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: CustomColumnEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: CustomColumnEntity) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterInsert(value: CustomColumnEntity, result: EntityInsertResult.Inserted) = value
 
@@ -498,7 +243,7 @@ internal object ScalarModelCatalog {
   }
 
   private object SelectiveColumnsEntityCase :
-    BulkPersistModelCase<SelectiveColumnsEntity> {
+    StandardBulkPersistModelCase<SelectiveColumnsEntity> {
     override val name = "SelectiveColumnsEntity"
     override val table = SELECTIVE_COLUMNS_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -508,71 +253,20 @@ internal object ScalarModelCatalog {
       transientValue = "selective-transient-$sequence"
     }
 
-    override fun insert(value: SelectiveColumnsEntity) = value.insert()
-
-    override fun bulkInsert(values: List<SelectiveColumnsEntity>) = SelectiveColumnsEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = SelectiveColumnsEntity::insert,
+      bulkInsert = SelectiveColumnsEntitys::insert,
+      update = SelectiveColumnsEntity::update,
+      bulkUpdate = SelectiveColumnsEntitys::update,
+      persist = SelectiveColumnsEntity::persist,
+      bulkPersist = SelectiveColumnsEntitys::persist
+    )
 
     override fun updatedValue(value: SelectiveColumnsEntity, sequence: Int) = SelectiveColumnsEntity().apply {
       id = value.id
       persistedValue = "selective-updated-$sequence"
       transientValue = "selective-transient-updated-$sequence"
     }
-
-    override fun executeUpdate(
-      value: SelectiveColumnsEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: SelectiveColumnsEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<SelectiveColumnsEntity>,
-      conflictAlgorithm: Int?
-    ) = SelectiveColumnsEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<SelectiveColumnsEntity>,
-      conflictAlgorithm: Int?
-    ) = SelectiveColumnsEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<SelectiveColumnsEntity>,
-      conflictAlgorithm: Int?
-    ) = SelectiveColumnsEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<SelectiveColumnsEntity>,
-      conflictAlgorithm: Int?
-    ) = SelectiveColumnsEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: SelectiveColumnsEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: SelectiveColumnsEntity) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterUpdate(value: SelectiveColumnsEntity) = SelectiveColumnsEntity().apply {
       id = value.id
@@ -605,7 +299,7 @@ internal object ScalarModelCatalog {
   }
 
   private object EntityWithIgnoredValueCase :
-    BulkPersistModelCase<EntityWithIgnoredValue> {
+    StandardBulkPersistModelCase<EntityWithIgnoredValue> {
     override val name = "EntityWithIgnoredValue"
     override val table = ENTITY_WITH_IGNORED_VALUE
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -615,71 +309,20 @@ internal object ScalarModelCatalog {
       ignoredValue = "ignored-value-$sequence"
     }
 
-    override fun insert(value: EntityWithIgnoredValue) = value.insert()
-
-    override fun bulkInsert(values: List<EntityWithIgnoredValue>) = EntityWithIgnoredValues.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = EntityWithIgnoredValue::insert,
+      bulkInsert = EntityWithIgnoredValues::insert,
+      update = EntityWithIgnoredValue::update,
+      bulkUpdate = EntityWithIgnoredValues::update,
+      persist = EntityWithIgnoredValue::persist,
+      bulkPersist = EntityWithIgnoredValues::persist
+    )
 
     override fun updatedValue(value: EntityWithIgnoredValue, sequence: Int) = EntityWithIgnoredValue().apply {
       id = value.id
       persistedValue = "ignored-persisted-updated-$sequence"
       ignoredValue = "ignored-value-updated-$sequence"
     }
-
-    override fun executeUpdate(
-      value: EntityWithIgnoredValue,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: EntityWithIgnoredValue,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<EntityWithIgnoredValue>,
-      conflictAlgorithm: Int?
-    ) = EntityWithIgnoredValues
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<EntityWithIgnoredValue>,
-      conflictAlgorithm: Int?
-    ) = EntityWithIgnoredValues
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<EntityWithIgnoredValue>,
-      conflictAlgorithm: Int?
-    ) = EntityWithIgnoredValues
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<EntityWithIgnoredValue>,
-      conflictAlgorithm: Int?
-    ) = EntityWithIgnoredValues
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: EntityWithIgnoredValue) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: EntityWithIgnoredValue) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterUpdate(value: EntityWithIgnoredValue) = EntityWithIgnoredValue().apply {
       id = value.id
@@ -712,7 +355,7 @@ internal object ScalarModelCatalog {
   }
 
   private object BlobEntityCase :
-    BulkPersistModelCase<BlobEntity> {
+    StandardBulkPersistModelCase<BlobEntity> {
     override val name = "BlobEntity"
     override val table = BLOB_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -726,9 +369,14 @@ internal object ScalarModelCatalog {
       )
     )
 
-    override fun insert(value: BlobEntity) = value.insert()
-
-    override fun bulkInsert(values: List<BlobEntity>) = BlobEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = BlobEntity::insert,
+      bulkInsert = BlobEntitys::insert,
+      update = BlobEntity::update,
+      bulkUpdate = BlobEntitys::update,
+      persist = BlobEntity::persist,
+      bulkPersist = BlobEntitys::persist
+    )
 
     override fun updatedValue(value: BlobEntity, sequence: Int) = BlobEntity(
       id = value.id,
@@ -738,62 +386,6 @@ internal object ScalarModelCatalog {
         (sequence + 2).toByte()
       )
     )
-
-    override fun executeUpdate(
-      value: BlobEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: BlobEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<BlobEntity>,
-      conflictAlgorithm: Int?
-    ) = BlobEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<BlobEntity>,
-      conflictAlgorithm: Int?
-    ) = BlobEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<BlobEntity>,
-      conflictAlgorithm: Int?
-    ) = BlobEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<BlobEntity>,
-      conflictAlgorithm: Int?
-    ) = BlobEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: BlobEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: BlobEntity) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterInsert(
       value: BlobEntity,

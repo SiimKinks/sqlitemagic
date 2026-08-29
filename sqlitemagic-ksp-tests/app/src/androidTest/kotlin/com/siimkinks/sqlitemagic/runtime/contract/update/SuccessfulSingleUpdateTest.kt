@@ -1,11 +1,12 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -18,7 +19,7 @@ class SuccessfulSingleUpdateTest(
   fun executeUpdatesAndReadsBack() {
     captureUpdate(
       modelCase = modelCase,
-      terminal = UpdateTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -26,13 +27,13 @@ class SuccessfulSingleUpdateTest(
   fun observeUpdatesAndReadsBack() {
     captureUpdate(
       modelCase = modelCase,
-      terminal = UpdateTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   private fun <T> captureUpdate(
     modelCase: UpdateModelCase<T>,
-    terminal: UpdateTerminal
+    terminal: OperationTerminal
   ) {
     val insertedValue = modelCase.newValue(sequence = 1)
     val insertedResult = modelCase
@@ -42,18 +43,14 @@ class SuccessfulSingleUpdateTest(
       is EntityInsertResult.Inserted -> Unit
       EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
     }
-    val persistedValue = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
-      .single()
+    val persistedValue = captureRows(table = modelCase.table).single()
     val updatedValue = modelCase.updatedValue(
       value = persistedValue,
       sequence = 2
     )
     val success = when (terminal) {
-      UpdateTerminal.EXECUTE -> modelCase.executeUpdate(value = updatedValue)
-      UpdateTerminal.OBSERVE -> {
+      OperationTerminal.EXECUTE -> modelCase.executeUpdate(value = updatedValue)
+      OperationTerminal.OBSERVE -> {
         modelCase
           .observeUpdate(value = updatedValue)
           .blockingAwait()
@@ -61,17 +58,9 @@ class SuccessfulSingleUpdateTest(
       }
     }
     assertThat(success).isTrue()
-    val actual = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val actual = captureRows(table = modelCase.table)
     assertThat(actual)
       .containsExactly(modelCase.expectedAfterUpdate(value = updatedValue))
-  }
-
-  private enum class UpdateTerminal {
-    EXECUTE,
-    OBSERVE
   }
 
   companion object {

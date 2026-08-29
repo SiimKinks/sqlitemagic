@@ -1,13 +1,14 @@
 package com.siimkinks.sqlitemagic.runtime.contract.persist
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -20,7 +21,7 @@ class SuccessfulSinglePersistTest(
   fun executePersistsMissingRowAndReadsBack() {
     captureMissingRow(
       modelCase = modelCase,
-      terminal = PersistTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -28,7 +29,7 @@ class SuccessfulSinglePersistTest(
   fun observePersistsMissingRowAndReadsBack() {
     captureMissingRow(
       modelCase = modelCase,
-      terminal = PersistTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
@@ -36,7 +37,7 @@ class SuccessfulSinglePersistTest(
   fun executePersistsExistingRowAndReadsBack() {
     captureExistingRow(
       modelCase = modelCase,
-      terminal = PersistTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -44,18 +45,18 @@ class SuccessfulSinglePersistTest(
   fun observePersistsExistingRowAndReadsBack() {
     captureExistingRow(
       modelCase = modelCase,
-      terminal = PersistTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   private fun <T> captureMissingRow(
     modelCase: PersistModelCase<T>,
-    terminal: PersistTerminal
+    terminal: OperationTerminal
   ) {
     val value = modelCase.newValue(sequence = 1)
     val result = when (terminal) {
-      PersistTerminal.EXECUTE -> modelCase.executePersist(value = value)
-      PersistTerminal.OBSERVE -> modelCase
+      OperationTerminal.EXECUTE -> modelCase.executePersist(value = value)
+      OperationTerminal.OBSERVE -> modelCase
         .observePersist(value = value)
         .blockingGet()
     }
@@ -75,10 +76,7 @@ class SuccessfulSinglePersistTest(
       value = value,
       result = insertResult
     )
-    val actual = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val actual = captureRows(table = modelCase.table)
     val expected = modelCase.expectedAfterInsert(
       value = value,
       result = insertResult
@@ -89,7 +87,7 @@ class SuccessfulSinglePersistTest(
 
   private fun <T> captureExistingRow(
     modelCase: PersistModelCase<T>,
-    terminal: PersistTerminal
+    terminal: OperationTerminal
   ) {
     val insertedValue = modelCase.newValue(sequence = 1)
     val insertedResult = modelCase
@@ -99,34 +97,22 @@ class SuccessfulSinglePersistTest(
       is EntityInsertResult.Inserted -> Unit
       EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
     }
-    val persistedValue = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
-      .single()
+    val persistedValue = captureRows(table = modelCase.table).single()
     val updatedValue = modelCase.updatedValue(
       value = persistedValue,
       sequence = 2
     )
     val result = when (terminal) {
-      PersistTerminal.EXECUTE -> modelCase.executePersist(value = updatedValue)
-      PersistTerminal.OBSERVE -> modelCase
+      OperationTerminal.EXECUTE -> modelCase.executePersist(value = updatedValue)
+      OperationTerminal.OBSERVE -> modelCase
         .observePersist(value = updatedValue)
         .blockingGet()
     }
     assertThat(result)
       .isEqualTo(EntityPersistResult.Updated)
-    val actual = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val actual = captureRows(table = modelCase.table)
     assertThat(actual)
       .containsExactly(modelCase.expectedAfterUpdate(value = updatedValue))
-  }
-
-  private enum class PersistTerminal {
-    EXECUTE,
-    OBSERVE
   }
 
   companion object {

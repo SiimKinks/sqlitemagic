@@ -24,16 +24,23 @@ object ModelCatalog {
   val persistCases: List<PersistModelCase<*>> = allCases
     .filterIsInstance<PersistModelCase<*>>()
 
-  val persistConflictCases = RelationshipModelCatalog.persistConflictCases
+  val persistConflictCases: List<PersistConflictModelCase<*>> = allCases
+    .filterIsInstance<PersistConflictModelCase<*>>()
+    .filterNot { it is RecursivePersistConflictModelCase<*> }
 
-  val recursivePersistConflictCases = RelationshipModelCatalog.recursivePersistConflictCases
+  val recursivePersistConflictCases: List<RecursivePersistConflictModelCase<*>> = allCases
+    .filterIsInstance<RecursivePersistConflictModelCase<*>>()
 
-  val updateConflictCases: List<UpdateConflictModelCase<*>> = RelationshipModelCatalog.updateConflictCases
+  val updateConflictCases: List<UpdateConflictModelCase<*>> = allCases
+    .filterIsInstance<UpdateConflictModelCase<*>>()
+    .filterNot { it is RecursiveUpdateConflictModelCase<*> }
 
-  val bulkUpdateConflictCases: List<BulkUpdateConflictModelCase<*>> = RelationshipModelCatalog.bulkUpdateConflictCases
+  val bulkUpdateConflictCases: List<BulkUpdateConflictModelCase<*>> = allCases
+    .filterIsInstance<BulkUpdateConflictModelCase<*>>()
+    .filterNot { it is RecursiveUpdateConflictModelCase<*> }
 
-  val recursiveUpdateConflictCases: List<RecursiveUpdateConflictModelCase<*>> =
-    RelationshipModelCatalog.recursiveUpdateConflictCases
+  val recursiveUpdateConflictCases: List<RecursiveUpdateConflictModelCase<*>> = allCases
+    .filterIsInstance<RecursiveUpdateConflictModelCase<*>>()
 
   val bulkInsertCases: List<BulkInsertModelCase<*>> = allCases
     .filterIsInstance<BulkInsertModelCase<*>>()
@@ -45,15 +52,15 @@ object ModelCatalog {
     .filterIsInstance<BulkPersistModelCase<*>>()
 
   val emptyBulkPersistCases: List<BulkPersistModelCase<*>> = listOf(
-    ScalarModelCatalog.emptyBulkUpdateCase,
-    IdentityModelCatalog.emptyBulkUpdateCase,
-    RelationshipModelCatalog.emptyBulkUpdateCase
+    ScalarModelCatalog.representativeEmptyBulkCase,
+    IdentityModelCatalog.representativeEmptyBulkCase,
+    RelationshipModelCatalog.representativeEmptyBulkCase
   )
 
   val emptyBulkUpdateCases: List<BulkUpdateModelCase<*>> = listOf(
-    ScalarModelCatalog.emptyBulkUpdateCase,
-    IdentityModelCatalog.emptyBulkUpdateCase,
-    RelationshipModelCatalog.emptyBulkUpdateCase
+    ScalarModelCatalog.representativeEmptyBulkCase,
+    IdentityModelCatalog.representativeEmptyBulkCase,
+    RelationshipModelCatalog.representativeEmptyBulkCase
   )
 
   val uniqueInsertCases: List<UniqueInsertModelCase<*>> = allCases

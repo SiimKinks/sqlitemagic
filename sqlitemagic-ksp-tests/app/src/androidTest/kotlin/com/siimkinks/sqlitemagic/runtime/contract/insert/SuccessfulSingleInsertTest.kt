@@ -1,13 +1,13 @@
 package com.siimkinks.sqlitemagic.runtime.contract.insert
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -50,10 +50,7 @@ class SuccessfulSingleInsertTest(
       value = value,
       result = inserted
     )
-    val actual = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val actual = captureRows(table = modelCase.table)
     val expected = modelCase.expectedAfterInsert(
       value = value,
       result = inserted

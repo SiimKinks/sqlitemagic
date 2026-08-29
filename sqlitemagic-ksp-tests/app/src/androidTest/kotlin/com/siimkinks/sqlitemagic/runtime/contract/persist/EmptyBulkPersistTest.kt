@@ -1,13 +1,13 @@
 package com.siimkinks.sqlitemagic.runtime.contract.persist
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotInOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -20,7 +20,7 @@ class EmptyBulkPersistTest(
   fun executeWithEmptyInputReturnsFalseAndLeavesSnapshotUnchanged() {
     assertEmptyPersist(
       modelCase = modelCase,
-      terminal = BulkPersistTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -28,40 +28,30 @@ class EmptyBulkPersistTest(
   fun observeWithEmptyInputCompletesAndLeavesSnapshotUnchanged() {
     assertEmptyPersist(
       modelCase = modelCase,
-      terminal = BulkPersistTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   private fun <T> assertEmptyPersist(
     modelCase: BulkPersistModelCase<T>,
-    terminal: BulkPersistTerminal
+    terminal: OperationTerminal
   ) {
     seedRow(modelCase = modelCase)
-    val beforeParents = captureRows(table = modelCase.table)
-    val beforeRelated = when (modelCase) {
-      is RecursiveBulkPersistModelCase<*> -> captureRows(table = modelCase.relatedTable)
-      else -> emptyList()
-    }
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
 
     when (terminal) {
-      BulkPersistTerminal.EXECUTE -> assertThat(
+      OperationTerminal.EXECUTE -> assertThat(
         modelCase.executeBulkPersist(values = emptyList())
       ).isFalse()
-      BulkPersistTerminal.OBSERVE -> modelCase
+      OperationTerminal.OBSERVE -> modelCase
         .observeBulkPersist(values = emptyList())
         .blockingAwait()
     }
 
-    assertRows(
-      table = modelCase.table,
-      expected = beforeParents
+    assertDatabaseSnapshotInOrder(
+      modelCase = modelCase,
+      expected = snapshotBefore
     )
-    when (modelCase) {
-      is RecursiveBulkPersistModelCase<*> -> assertThat(captureRows(table = modelCase.relatedTable))
-        .containsExactlyElementsIn(beforeRelated)
-        .inOrder()
-      else -> Unit
-    }
   }
 
   private fun <T> seedRow(modelCase: BulkPersistModelCase<T>) {
@@ -70,23 +60,6 @@ class EmptyBulkPersistTest(
       is EntityInsertResult.Inserted -> Unit
       EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
     }
-  }
-
-  private fun <T> assertRows(
-    table: Table<T>,
-    expected: List<T>
-  ) = assertThat(captureRows(table = table))
-    .containsExactlyElementsIn(expected)
-    .inOrder()
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private enum class BulkPersistTerminal {
-    EXECUTE,
-    OBSERVE
   }
 
   companion object {

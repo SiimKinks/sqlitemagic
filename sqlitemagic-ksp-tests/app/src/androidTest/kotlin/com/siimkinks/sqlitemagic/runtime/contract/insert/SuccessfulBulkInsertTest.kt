@@ -1,13 +1,14 @@
 package com.siimkinks.sqlitemagic.runtime.contract.insert
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -90,14 +91,14 @@ class SuccessfulBulkInsertTest(
           actual = actual
         )
       )
-    assertThat(captureRows(modelCase.relatedTable))
-      .containsExactlyElementsIn(values.flatMap(modelCase::relatedValues))
+    assertRowsIgnoringOrder(
+      table = modelCase.relatedTable,
+      expected = relatedRows(
+        modelCase = modelCase,
+        values = values
+      )
+    )
   }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
 
   companion object {
     @JvmStatic

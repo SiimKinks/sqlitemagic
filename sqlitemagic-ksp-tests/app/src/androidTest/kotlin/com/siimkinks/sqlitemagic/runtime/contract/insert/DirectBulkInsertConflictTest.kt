@@ -2,12 +2,13 @@ package com.siimkinks.sqlitemagic.runtime.contract.insert
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -18,116 +19,122 @@ class DirectBulkInsertConflictTest(
 ) : RuntimeDatabaseTest() {
   @Test
   fun executeWithDefaultConflictReturnsFalseAndRollsBackBatch() {
-    assertDefaultConflictExecute(modelCase = modelCase)
+    assertDefaultConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithDefaultConflictEmitsOperationFailedExceptionAndRollsBackBatch() {
-    assertDefaultConflictObserve(modelCase = modelCase)
+    assertDefaultConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithConflictIgnoreReturnsTrueAndCommitsFreshRows() {
-    assertConflictIgnoreMixedExecute(modelCase = modelCase)
+    assertConflictIgnoreMixed(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithConflictIgnoreCompletesAndCommitsFreshRows() {
-    assertConflictIgnoreMixedObserve(modelCase = modelCase)
+    assertConflictIgnoreMixed(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithAllConflictsReturnsFalseAndLeavesSeedUnchanged() {
-    assertAllConflictsExecute(modelCase = modelCase)
+    assertAllConflicts(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithAllConflictsCompletesAndLeavesSeedUnchanged() {
-    assertAllConflictsObserve(modelCase = modelCase)
+    assertAllConflicts(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
-  private fun <T> assertDefaultConflictExecute(modelCase: UniqueInsertModelCase<T>) {
+  private fun <T> assertDefaultConflict(
+    modelCase: UniqueInsertModelCase<T>,
+    terminal: OperationTerminal
+  ) {
     val scenario = defaultConflictScenario(modelCase = modelCase)
 
-    assertThat(
-      modelCase
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThat(
+        modelCase
+          .bulkInsert(scenario.values)
+          .execute()
+      ).isFalse()
+      OperationTerminal.OBSERVE -> modelCase
         .bulkInsert(scenario.values)
-        .execute()
-    ).isFalse()
+        .observe()
+        .test()
+        .assertFailure(OperationFailedException::class.java)
+    }
     assertRows(
       modelCase = modelCase,
       expected = listOf(scenario.seed)
     )
   }
 
-  private fun <T> assertDefaultConflictObserve(modelCase: UniqueInsertModelCase<T>) {
-    val scenario = defaultConflictScenario(modelCase = modelCase)
-
-    modelCase
-      .bulkInsert(scenario.values)
-      .observe()
-      .test()
-      .assertFailure(OperationFailedException::class.java)
-    assertRows(
-      modelCase = modelCase,
-      expected = listOf(scenario.seed)
-    )
-  }
-
-  private fun <T> assertConflictIgnoreMixedExecute(modelCase: UniqueInsertModelCase<T>) {
+  private fun <T> assertConflictIgnoreMixed(
+    modelCase: UniqueInsertModelCase<T>,
+    terminal: OperationTerminal
+  ) {
     val scenario = mixedConflictScenario(modelCase = modelCase)
 
-    assertThat(
-      modelCase
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThat(
+        modelCase
+          .bulkInsert(scenario.values)
+          .conflictAlgorithm(CONFLICT_IGNORE)
+          .execute()
+      ).isTrue()
+      OperationTerminal.OBSERVE -> modelCase
         .bulkInsert(scenario.values)
         .conflictAlgorithm(CONFLICT_IGNORE)
-        .execute()
-    ).isTrue()
+        .observe()
+        .test()
+        .assertResult()
+    }
     assertRows(
       modelCase = modelCase,
       expected = scenario.expectedRows
     )
   }
 
-  private fun <T> assertConflictIgnoreMixedObserve(modelCase: UniqueInsertModelCase<T>) {
-    val scenario = mixedConflictScenario(modelCase = modelCase)
-
-    modelCase
-      .bulkInsert(scenario.values)
-      .conflictAlgorithm(CONFLICT_IGNORE)
-      .observe()
-      .test()
-      .assertResult()
-    assertRows(
-      modelCase = modelCase,
-      expected = scenario.expectedRows
-    )
-  }
-
-  private fun <T> assertAllConflictsExecute(modelCase: UniqueInsertModelCase<T>) {
+  private fun <T> assertAllConflicts(
+    modelCase: UniqueInsertModelCase<T>,
+    terminal: OperationTerminal
+  ) {
     val scenario = allConflictsScenario(modelCase = modelCase)
 
-    assertThat(
-      modelCase
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThat(
+        modelCase
+          .bulkInsert(scenario.values)
+          .conflictAlgorithm(CONFLICT_IGNORE)
+          .execute()
+      ).isFalse()
+      OperationTerminal.OBSERVE -> modelCase
         .bulkInsert(scenario.values)
         .conflictAlgorithm(CONFLICT_IGNORE)
-        .execute()
-    ).isFalse()
-    assertRows(
-      modelCase = modelCase,
-      expected = listOf(scenario.seed)
-    )
-  }
-
-  private fun <T> assertAllConflictsObserve(modelCase: UniqueInsertModelCase<T>) {
-    val scenario = allConflictsScenario(modelCase = modelCase)
-
-    modelCase
-      .bulkInsert(scenario.values)
-      .conflictAlgorithm(CONFLICT_IGNORE)
-      .observe()
-      .test()
-      .assertResult()
+        .observe()
+        .test()
+        .assertResult()
+    }
     assertRows(
       modelCase = modelCase,
       expected = listOf(scenario.seed)
@@ -212,10 +219,7 @@ class DirectBulkInsertConflictTest(
     modelCase: UniqueInsertModelCase<T>,
     expected: List<T>
   ) {
-    val actual = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val actual = captureRows(table = modelCase.table)
     assertThat(actual)
       .containsExactlyElementsIn(
         modelCase.expectedAfterBulkInsert(

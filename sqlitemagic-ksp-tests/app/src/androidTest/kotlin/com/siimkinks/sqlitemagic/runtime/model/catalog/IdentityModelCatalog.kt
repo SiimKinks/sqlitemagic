@@ -19,8 +19,10 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
 
 internal object IdentityModelCatalog {
@@ -31,10 +33,10 @@ internal object IdentityModelCatalog {
     WithoutRowIdEntityCase,
   )
 
-  internal val emptyBulkUpdateCase: BulkPersistModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
+  internal val representativeEmptyBulkCase: BulkPersistModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
 
   private object StringIdEntityCase :
-    BulkPersistModelCase<StringIdEntity> {
+    StandardBulkPersistModelCase<StringIdEntity> {
     override val name = "StringIdEntity"
     override val table = STRING_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -44,9 +46,14 @@ internal object IdentityModelCatalog {
       value = "string-value-$sequence"
     )
 
-    override fun insert(value: StringIdEntity) = value.insert()
-
-    override fun bulkInsert(values: List<StringIdEntity>) = StringIdEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = StringIdEntity::insert,
+      bulkInsert = StringIdEntitys::insert,
+      update = StringIdEntity::update,
+      bulkUpdate = StringIdEntitys::update,
+      persist = StringIdEntity::persist,
+      bulkPersist = StringIdEntitys::persist
+    )
 
     override fun expectedAfterInsert(value: StringIdEntity, result: EntityInsertResult.Inserted) = value
 
@@ -54,62 +61,6 @@ internal object IdentityModelCatalog {
       id = value.id,
       value = "string-value-updated-$sequence"
     )
-
-    override fun executeUpdate(
-      value: StringIdEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: StringIdEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<StringIdEntity>,
-      conflictAlgorithm: Int?
-    ) = StringIdEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<StringIdEntity>,
-      conflictAlgorithm: Int?
-    ) = StringIdEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<StringIdEntity>,
-      conflictAlgorithm: Int?
-    ) = StringIdEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<StringIdEntity>,
-      conflictAlgorithm: Int?
-    ) = StringIdEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: StringIdEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: StringIdEntity) = value
-      .persist()
-      .observe()
 
     override fun toString() = name
   }
@@ -131,7 +82,7 @@ internal object IdentityModelCatalog {
   }
 
   private object WithoutRowIdEntityCase :
-    BulkPersistModelCase<WithoutRowIdEntity> {
+    StandardBulkPersistModelCase<WithoutRowIdEntity> {
     override val name = "WithoutRowIdEntity"
     override val table = WITHOUT_ROW_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.ABSENT
@@ -141,9 +92,14 @@ internal object IdentityModelCatalog {
       value = "without-rowid-value-$sequence"
     )
 
-    override fun insert(value: WithoutRowIdEntity) = value.insert()
-
-    override fun bulkInsert(values: List<WithoutRowIdEntity>) = WithoutRowIdEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = WithoutRowIdEntity::insert,
+      bulkInsert = WithoutRowIdEntitys::insert,
+      update = WithoutRowIdEntity::update,
+      bulkUpdate = WithoutRowIdEntitys::update,
+      persist = WithoutRowIdEntity::persist,
+      bulkPersist = WithoutRowIdEntitys::persist
+    )
 
     override fun expectedAfterInsert(value: WithoutRowIdEntity, result: EntityInsertResult.Inserted) = value
 
@@ -151,62 +107,6 @@ internal object IdentityModelCatalog {
       id = value.id,
       value = "without-rowid-value-updated-$sequence"
     )
-
-    override fun executeUpdate(
-      value: WithoutRowIdEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: WithoutRowIdEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<WithoutRowIdEntity>,
-      conflictAlgorithm: Int?
-    ) = WithoutRowIdEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<WithoutRowIdEntity>,
-      conflictAlgorithm: Int?
-    ) = WithoutRowIdEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<WithoutRowIdEntity>,
-      conflictAlgorithm: Int?
-    ) = WithoutRowIdEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<WithoutRowIdEntity>,
-      conflictAlgorithm: Int?
-    ) = WithoutRowIdEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: WithoutRowIdEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: WithoutRowIdEntity) = value
-      .persist()
-      .observe()
 
     override fun toString() = name
   }

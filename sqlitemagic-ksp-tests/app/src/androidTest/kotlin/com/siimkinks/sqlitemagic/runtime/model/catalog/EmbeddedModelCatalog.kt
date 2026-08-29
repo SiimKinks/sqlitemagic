@@ -9,10 +9,10 @@ import com.siimkinks.sqlitemagic.fixture.model.EmbeddedValueEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
-import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
 
 internal object EmbeddedModelCatalog {
@@ -22,7 +22,7 @@ internal object EmbeddedModelCatalog {
   )
 
   private object EmbeddedValueEntityWithOptionalValueCase :
-    BulkPersistModelCase<EmbeddedValueEntity> {
+    StandardBulkPersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -47,9 +47,14 @@ internal object EmbeddedModelCatalog {
       )
     )
 
-    override fun insert(value: EmbeddedValueEntity) = value.insert()
-
-    override fun bulkInsert(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = EmbeddedValueEntity::insert,
+      bulkInsert = EmbeddedValueEntitys::insert,
+      update = EmbeddedValueEntity::update,
+      bulkUpdate = EmbeddedValueEntitys::update,
+      persist = EmbeddedValueEntity::persist,
+      bulkPersist = EmbeddedValueEntitys::persist
+    )
 
     override fun updatedValue(value: EmbeddedValueEntity, sequence: Int) = value.copy(
       requiredDetails = value.requiredDetails
@@ -63,62 +68,6 @@ internal object EmbeddedModelCatalog {
           prefix = "optional"
         )
     )
-
-    override fun executeUpdate(
-      value: EmbeddedValueEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: EmbeddedValueEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: EmbeddedValueEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: EmbeddedValueEntity) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,
@@ -138,7 +87,7 @@ internal object EmbeddedModelCatalog {
   }
 
   private object EmbeddedValueEntityWithoutOptionalValueCase :
-    BulkPersistModelCase<EmbeddedValueEntity> {
+    StandardBulkPersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -156,9 +105,14 @@ internal object EmbeddedModelCatalog {
       optionalDetails = null
     )
 
-    override fun insert(value: EmbeddedValueEntity) = value.insert()
-
-    override fun bulkInsert(values: List<EmbeddedValueEntity>) = EmbeddedValueEntitys.insert(values)
+    override val operationBuilders = StandardOperationBuilders(
+      insert = EmbeddedValueEntity::insert,
+      bulkInsert = EmbeddedValueEntitys::insert,
+      update = EmbeddedValueEntity::update,
+      bulkUpdate = EmbeddedValueEntitys::update,
+      persist = EmbeddedValueEntity::persist,
+      bulkPersist = EmbeddedValueEntitys::persist
+    )
 
     override fun updatedValue(value: EmbeddedValueEntity, sequence: Int) = value.copy(
       requiredDetails = value.requiredDetails
@@ -172,62 +126,6 @@ internal object EmbeddedModelCatalog {
           prefix = "optional"
         )
     )
-
-    override fun executeUpdate(
-      value: EmbeddedValueEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeUpdate(
-      value: EmbeddedValueEntity,
-      conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkUpdate(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkUpdate(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executeBulkPersist(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .execute()
-
-    override fun observeBulkPersist(
-      values: Iterable<EmbeddedValueEntity>,
-      conflictAlgorithm: Int?
-    ) = EmbeddedValueEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe()
-
-    override fun executePersist(value: EmbeddedValueEntity) = value
-      .persist()
-      .execute()
-
-    override fun observePersist(value: EmbeddedValueEntity) = value
-      .persist()
-      .observe()
 
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,

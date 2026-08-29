@@ -1,13 +1,14 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -20,7 +21,7 @@ class SuccessfulBulkUpdateTest(
   fun executeUpdatesAndReadsBack() {
     captureUpdate(
       modelCase = modelCase,
-      terminal = BulkUpdateTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -28,13 +29,13 @@ class SuccessfulBulkUpdateTest(
   fun observeUpdatesAndReadsBack() {
     captureUpdate(
       modelCase = modelCase,
-      terminal = BulkUpdateTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   private fun <T> captureUpdate(
     modelCase: BulkUpdateModelCase<T>,
-    terminal: BulkUpdateTerminal
+    terminal: OperationTerminal
   ) = when (modelCase) {
     is RecursiveBulkUpdateModelCase<*> -> captureRecursiveUpdate(
       modelCase = modelCase,
@@ -48,7 +49,7 @@ class SuccessfulBulkUpdateTest(
 
   private fun <T> captureDirectUpdate(
     modelCase: BulkUpdateModelCase<T>,
-    terminal: BulkUpdateTerminal
+    terminal: OperationTerminal
   ) {
     val values = List(3, init = modelCase::newValue)
     values.forEach { value ->
@@ -57,10 +58,7 @@ class SuccessfulBulkUpdateTest(
         EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
       }
     }
-    val persistedValues = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val persistedValues = captureRows(table = modelCase.table)
     assertThat(persistedValues).hasSize(values.size)
     val updatedValues = persistedValues.mapIndexed { index, value ->
       modelCase.updatedValue(
@@ -69,17 +67,14 @@ class SuccessfulBulkUpdateTest(
       )
     }
     when (terminal) {
-      BulkUpdateTerminal.EXECUTE -> assertThat(
+      OperationTerminal.EXECUTE -> assertThat(
         modelCase.executeBulkUpdate(values = updatedValues)
       ).isTrue()
-      BulkUpdateTerminal.OBSERVE -> modelCase
+      OperationTerminal.OBSERVE -> modelCase
         .observeBulkUpdate(values = updatedValues)
         .blockingAwait()
     }
-    val actual = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val actual = captureRows(table = modelCase.table)
     assertThat(actual).hasSize(persistedValues.size)
     val expectedValues = updatedValues.map(modelCase::expectedAfterUpdate)
     assertThat(actual)
@@ -88,7 +83,7 @@ class SuccessfulBulkUpdateTest(
 
   private fun <T> captureRecursiveUpdate(
     modelCase: RecursiveBulkUpdateModelCase<T>,
-    terminal: BulkUpdateTerminal
+    terminal: OperationTerminal
   ) {
     val values = List(3, init = modelCase::newValue)
     values.forEach { value ->
@@ -97,10 +92,7 @@ class SuccessfulBulkUpdateTest(
         EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
       }
     }
-    val persistedValues = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val persistedValues = captureRows(table = modelCase.table)
     assertThat(persistedValues).hasSize(values.size)
     val updatedValues = persistedValues.mapIndexed { index, value ->
       modelCase.updatedValue(
@@ -109,33 +101,22 @@ class SuccessfulBulkUpdateTest(
       )
     }
     when (terminal) {
-      BulkUpdateTerminal.EXECUTE -> assertThat(
+      OperationTerminal.EXECUTE -> assertThat(
         modelCase.executeBulkUpdate(values = updatedValues)
       ).isTrue()
-      BulkUpdateTerminal.OBSERVE -> modelCase
+      OperationTerminal.OBSERVE -> modelCase
         .observeBulkUpdate(values = updatedValues)
         .blockingAwait()
     }
-    val actual = Select
-      .from(modelCase.table)
-      .queryDeep()
-      .execute()
+    val actual = captureRows(table = modelCase.table)
     assertThat(actual).hasSize(persistedValues.size)
     val expectedValues = updatedValues.map(modelCase::expectedAfterUpdate)
     assertThat(actual)
       .containsExactlyElementsIn(expectedValues)
-    assertThat(captureRows(modelCase.relatedTable))
-      .containsExactlyElementsIn(expectedValues.flatMap(modelCase::relatedValues))
-  }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private enum class BulkUpdateTerminal {
-    EXECUTE,
-    OBSERVE
+    assertRowsIgnoringOrder(
+      table = modelCase.relatedTable,
+      expected = expectedValues.flatMap(modelCase::relatedValues)
+    )
   }
 
   companion object {

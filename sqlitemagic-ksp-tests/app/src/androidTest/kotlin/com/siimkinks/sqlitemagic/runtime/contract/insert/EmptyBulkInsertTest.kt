@@ -1,13 +1,12 @@
 package com.siimkinks.sqlitemagic.runtime.contract.insert
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -48,30 +47,18 @@ class EmptyBulkInsertTest(
         .execute()
     ).isTrue()
 
-    val parentBefore = captureRows(modelCase.table)
-    val relatedBefore = when (modelCase) {
-      is RecursiveInsertConflictModelCase<*> -> captureRows(modelCase.relatedTable)
-      else -> null
-    }
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
 
     assertThat(
       operation(
         modelCase.bulkInsert(values = emptyList())
       )
     ).isFalse()
-    assertThat(captureRows(modelCase.table))
-      .containsExactlyElementsIn(parentBefore)
-
-    if (modelCase is RecursiveInsertConflictModelCase<*>) {
-      assertThat(captureRows(modelCase.relatedTable))
-        .containsExactlyElementsIn(checkNotNull(relatedBefore))
-    }
+    assertDatabaseSnapshotIgnoringOrder(
+      modelCase = modelCase,
+      expected = snapshotBefore
+    )
   }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
 
   companion object {
     @JvmStatic

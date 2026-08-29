@@ -1,13 +1,13 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotInOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -20,7 +20,7 @@ class EmptyBulkUpdateTest(
   fun executeReturnsFalseAndLeavesDatabaseUnchanged() {
     assertEmptyUpdate(
       modelCase = modelCase,
-      terminal = BulkUpdateTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -28,50 +28,32 @@ class EmptyBulkUpdateTest(
   fun observeCompletesAndLeavesDatabaseUnchanged() {
     assertEmptyUpdate(
       modelCase = modelCase,
-      terminal = BulkUpdateTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   private fun <T> assertEmptyUpdate(
     modelCase: BulkUpdateModelCase<T>,
-    terminal: BulkUpdateTerminal
+    terminal: OperationTerminal
   ) {
     val seed = modelCase.newValue(sequence = 1)
     when (modelCase.insert(value = seed).execute()) {
       is EntityInsertResult.Inserted -> Unit
       EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
     }
-    val parentBefore = captureRows(modelCase.table)
-    val relatedBefore = when (modelCase) {
-      is RecursiveBulkUpdateModelCase<*> -> captureRows(modelCase.relatedTable)
-      else -> null
-    }
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     when (terminal) {
-      BulkUpdateTerminal.EXECUTE -> assertThat(
+      OperationTerminal.EXECUTE -> assertThat(
         modelCase.executeBulkUpdate(values = emptyList())
       ).isFalse()
-      BulkUpdateTerminal.OBSERVE -> modelCase
+      OperationTerminal.OBSERVE -> modelCase
         .observeBulkUpdate(values = emptyList())
         .blockingAwait()
     }
-    assertThat(captureRows(modelCase.table))
-      .containsExactlyElementsIn(parentBefore)
-      .inOrder()
-    if (modelCase is RecursiveBulkUpdateModelCase<*>) {
-      assertThat(captureRows(modelCase.relatedTable))
-        .containsExactlyElementsIn(checkNotNull(relatedBefore))
-        .inOrder()
-    }
-  }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private enum class BulkUpdateTerminal {
-    EXECUTE,
-    OBSERVE
+    assertDatabaseSnapshotInOrder(
+      modelCase = modelCase,
+      expected = snapshotBefore
+    )
   }
 
   companion object {

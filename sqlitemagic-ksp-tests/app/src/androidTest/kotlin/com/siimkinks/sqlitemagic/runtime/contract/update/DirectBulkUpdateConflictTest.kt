@@ -3,13 +3,13 @@ package com.siimkinks.sqlitemagic.runtime.contract.update
 import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.model.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,138 +21,132 @@ class DirectBulkUpdateConflictTest(
 ) : RuntimeDatabaseTest() {
   @Test
   fun executeWithDefaultConflictThrowsSQLiteConstraintExceptionAndRestoresSnapshot() {
-    assertDefaultConflictExecute(modelCase = modelCase)
+    assertDefaultConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithDefaultConflictEmitsSQLiteConstraintExceptionAndRestoresSnapshot() {
-    assertDefaultConflictObserve(modelCase = modelCase)
+    assertDefaultConflict(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithConflictIgnoreReturnsTrueAndUpdatesOnlyNonConflictingRows() {
-    assertConflictIgnoreExecute(modelCase = modelCase)
+    assertConflictIgnore(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithConflictIgnoreCompletesAndUpdatesOnlyNonConflictingRows() {
-    assertConflictIgnoreObserve(modelCase = modelCase)
+    assertConflictIgnore(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
   @Test
   fun executeWithAllConflictsAndConflictIgnoreReturnsFalseAndRestoresSnapshot() {
-    assertAllConflictsExecute(modelCase = modelCase)
+    assertAllConflicts(
+      modelCase = modelCase,
+      terminal = OperationTerminal.EXECUTE
+    )
   }
 
   @Test
   fun observeWithAllConflictsAndConflictIgnoreCompletesAndRestoresSnapshot() {
-    assertAllConflictsObserve(modelCase = modelCase)
+    assertAllConflicts(
+      modelCase = modelCase,
+      terminal = OperationTerminal.OBSERVE
+    )
   }
 
-  private fun <T> assertDefaultConflictExecute(
-    modelCase: BulkUpdateConflictModelCase<T>
+  private fun <T> assertDefaultConflict(
+    modelCase: BulkUpdateConflictModelCase<T>,
+    terminal: OperationTerminal
   ) {
     val scenario = threeRowScenario(modelCase = modelCase)
 
-    assertThrows(SQLiteConstraintException::class.java) {
-      bulkUpdate(
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
+        bulkUpdate(
+          modelCase = modelCase,
+          values = scenario.values
+        ).execute()
+      }
+      OperationTerminal.OBSERVE -> bulkUpdate(
         modelCase = modelCase,
         values = scenario.values
-      ).execute()
+      )
+        .observe()
+        .test()
+        .assertFailure(SQLiteConstraintException::class.java)
     }
-    assertRows(
+    assertRowsInOrder(
       table = modelCase.table,
       expected = scenario.before
     )
   }
 
-  private fun <T> assertDefaultConflictObserve(
-    modelCase: BulkUpdateConflictModelCase<T>
+  private fun <T> assertConflictIgnore(
+    modelCase: BulkUpdateConflictModelCase<T>,
+    terminal: OperationTerminal
   ) {
     val scenario = threeRowScenario(modelCase = modelCase)
 
-    bulkUpdate(
-      modelCase = modelCase,
-      values = scenario.values
-    )
-      .observe()
-      .test()
-      .assertFailure(SQLiteConstraintException::class.java)
-    assertRows(
-      table = modelCase.table,
-      expected = scenario.before
-    )
-  }
-
-  private fun <T> assertConflictIgnoreExecute(
-    modelCase: BulkUpdateConflictModelCase<T>
-  ) {
-    val scenario = threeRowScenario(modelCase = modelCase)
-
-    assertThat(
-      bulkUpdate(
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThat(
+        bulkUpdate(
+          modelCase = modelCase,
+          values = scenario.values,
+          conflictAlgorithm = CONFLICT_IGNORE
+        ).execute()
+      ).isTrue()
+      OperationTerminal.OBSERVE -> bulkUpdate(
         modelCase = modelCase,
         values = scenario.values,
         conflictAlgorithm = CONFLICT_IGNORE
-      ).execute()
-    ).isTrue()
-    assertRows(
+      )
+        .observe()
+        .test()
+        .assertComplete()
+    }
+    assertRowsInOrder(
       table = modelCase.table,
       expected = scenario.afterMixedConflict
     )
   }
 
-  private fun <T> assertConflictIgnoreObserve(
-    modelCase: BulkUpdateConflictModelCase<T>
-  ) {
-    val scenario = threeRowScenario(modelCase = modelCase)
-
-    bulkUpdate(
-      modelCase = modelCase,
-      values = scenario.values,
-      conflictAlgorithm = CONFLICT_IGNORE
-    )
-      .observe()
-      .test()
-      .assertComplete()
-    assertRows(
-      table = modelCase.table,
-      expected = scenario.afterMixedConflict
-    )
-  }
-
-  private fun <T> assertAllConflictsExecute(
-    modelCase: BulkUpdateConflictModelCase<T>
+  private fun <T> assertAllConflicts(
+    modelCase: BulkUpdateConflictModelCase<T>,
+    terminal: OperationTerminal
   ) {
     val scenario = allConflictScenario(modelCase = modelCase)
 
-    assertThat(
-      bulkUpdate(
+    when (terminal) {
+      OperationTerminal.EXECUTE -> assertThat(
+        bulkUpdate(
+          modelCase = modelCase,
+          values = scenario.values,
+          conflictAlgorithm = CONFLICT_IGNORE
+        ).execute()
+      ).isFalse()
+      OperationTerminal.OBSERVE -> bulkUpdate(
         modelCase = modelCase,
         values = scenario.values,
         conflictAlgorithm = CONFLICT_IGNORE
-      ).execute()
-    ).isFalse()
-    assertRows(
-      table = modelCase.table,
-      expected = scenario.before
-    )
-  }
-
-  private fun <T> assertAllConflictsObserve(
-    modelCase: BulkUpdateConflictModelCase<T>
-  ) {
-    val scenario = allConflictScenario(modelCase = modelCase)
-
-    bulkUpdate(
-      modelCase = modelCase,
-      values = scenario.values,
-      conflictAlgorithm = CONFLICT_IGNORE
-    )
-      .observe()
-      .test()
-      .assertComplete()
-    assertRows(
+      )
+        .observe()
+        .test()
+        .assertComplete()
+    }
+    assertRowsInOrder(
       table = modelCase.table,
       expected = scenario.before
     )
@@ -223,31 +217,6 @@ class DirectBulkUpdateConflictTest(
       afterMixedConflict = before
     )
   }
-
-  private fun <T> seedRows(
-    modelCase: BulkUpdateConflictModelCase<T>,
-    count: Int
-  ): List<T> {
-    List(size = count, init = modelCase::newValue).forEach { value ->
-      when (modelCase.insert(value = value).execute()) {
-        is EntityInsertResult.Inserted -> Unit
-        EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
-      }
-    }
-    return captureRows(table = modelCase.table)
-  }
-
-  private fun <T> assertRows(
-    table: Table<T>,
-    expected: List<T>
-  ) = assertThat(captureRows(table = table))
-    .containsExactlyElementsIn(expected)
-    .inOrder()
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
 
   private data class BulkUpdateScenario<T>(
     val before: List<T>,

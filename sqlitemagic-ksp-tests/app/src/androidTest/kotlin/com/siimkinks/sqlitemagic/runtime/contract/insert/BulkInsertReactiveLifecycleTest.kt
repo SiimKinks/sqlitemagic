@@ -8,7 +8,12 @@ import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
 import io.reactivex.observers.TestObserver
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,6 +62,7 @@ class BulkInsertReactiveLifecycleTest(
       modelCase.newValue(sequence = 1),
       modelCase.newValue(sequence = 2)
     )
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     val queryObserver = observeRows(modelCase.table)
     val operationObserver = TestObserver<Void>()
 
@@ -73,7 +79,10 @@ class BulkInsertReactiveLifecycleTest(
 
     operationObserver.assertEmpty()
     queryObserver.assertValue(emptyList())
-    assertThat(captureRows(table = modelCase.table)).isEmpty()
+    assertDatabaseSnapshotIgnoringOrder(
+      modelCase = modelCase,
+      expected = snapshotBefore
+    )
     queryObserver.dispose()
   }
 
@@ -87,6 +96,7 @@ class BulkInsertReactiveLifecycleTest(
     )
     val queryObserver = observeRows(modelCase.table)
     val operationObserver = TestObserver<Void>()
+    val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
 
     modelCase
       .bulkInsert(
@@ -103,20 +113,24 @@ class BulkInsertReactiveLifecycleTest(
     when (conflictAlgorithm) {
       CONFLICT_NONE -> {
         queryObserver.assertValue(emptyList())
-        assertThat(captureRows(table = modelCase.table)).isEmpty()
-        assertThat(captureRows(table = modelCase.relatedTable)).isEmpty()
+        assertDatabaseSnapshotIgnoringOrder(
+          modelCase = modelCase,
+          expected = snapshotBefore
+        )
       }
       CONFLICT_IGNORE -> {
-        val actualParents = captureRows(table = modelCase.table)
-        assertThat(actualParents)
-          .containsExactlyElementsIn(
-            modelCase.expectedAfterBulkInsert(
-              values = values.take(1),
-              actual = actualParents
-            )
+        val actualSnapshot = captureDatabaseSnapshot(modelCase = modelCase)
+        val expectedParents = modelCase.expectedAfterBulkInsert(
+          values = values.take(1),
+          actual = actualSnapshot.parents
+        )
+        assertDatabaseSnapshotIgnoringOrder(
+          modelCase = modelCase,
+          expected = DatabaseSnapshot(
+            parents = expectedParents,
+            related = modelCase.relatedValues(values.first())
           )
-        assertThat(captureRows(table = modelCase.relatedTable))
-          .containsExactlyElementsIn(modelCase.relatedValues(values.first()))
+        )
         assertThat(queryObserver.values()).hasSize(2)
         assertThat(queryObserver.values().first()).isEmpty()
         val observedParents = queryObserver.values()[1]
@@ -205,16 +219,17 @@ class BulkInsertReactiveLifecycleTest(
       .assertResult()
 
     val allValues = firstBatch + secondBatch
-    val actualParents = captureRows(table = modelCase.table)
-    assertThat(actualParents)
-      .containsExactlyElementsIn(
-        modelCase.expectedAfterBulkInsert(
+    val actualSnapshot = captureDatabaseSnapshot(modelCase = modelCase)
+    assertDatabaseSnapshotIgnoringOrder(
+      modelCase = modelCase,
+      expected = DatabaseSnapshot(
+        parents = modelCase.expectedAfterBulkInsert(
           values = allValues,
-          actual = actualParents
-        )
+          actual = actualSnapshot.parents
+        ),
+        related = allValues.flatMap(modelCase::relatedValues)
       )
-    assertThat(captureRows(table = modelCase.relatedTable))
-      .containsExactlyElementsIn(allValues.flatMap(modelCase::relatedValues))
+    )
   }
 
   private fun <T> observeRows(table: Table<T>) = Select
@@ -223,33 +238,6 @@ class BulkInsertReactiveLifecycleTest(
     .observe()
     .runQuery()
     .test()
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private fun <T> disposeAfterFirst(
-    values: List<T>,
-    observer: TestObserver<Void>
-  ) = object : AbstractList<T>() {
-    override val size get() = values.size
-
-    override fun get(index: Int) = values[index]
-
-    override fun iterator() = object : Iterator<T> {
-      private var index = 0
-
-      override fun hasNext(): Boolean {
-        if (index == 1) {
-          observer.dispose()
-        }
-        return index < values.size
-      }
-
-      override fun next() = values[index++]
-    }
-  }
 
   companion object {
     @JvmStatic

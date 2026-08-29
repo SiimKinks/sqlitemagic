@@ -1,13 +1,15 @@
 package com.siimkinks.sqlitemagic.runtime.contract.persist
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.relatedRows
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -20,7 +22,7 @@ class SuccessfulBulkPersistTest(
   fun executePersistsExistingAndMissingRowsAndReadsBack() {
     capturePersist(
       modelCase = modelCase,
-      terminal = BulkPersistTerminal.EXECUTE
+      terminal = OperationTerminal.EXECUTE
     )
   }
 
@@ -28,13 +30,13 @@ class SuccessfulBulkPersistTest(
   fun observePersistsExistingAndMissingRowsAndReadsBack() {
     capturePersist(
       modelCase = modelCase,
-      terminal = BulkPersistTerminal.OBSERVE
+      terminal = OperationTerminal.OBSERVE
     )
   }
 
   private fun <T> capturePersist(
     modelCase: BulkPersistModelCase<T>,
-    terminal: BulkPersistTerminal
+    terminal: OperationTerminal
   ) = when (modelCase) {
     is RecursiveBulkPersistModelCase<*> -> captureRecursivePersist(
       modelCase = modelCase,
@@ -48,7 +50,7 @@ class SuccessfulBulkPersistTest(
 
   private fun <T> captureDirectPersist(
     modelCase: BulkPersistModelCase<T>,
-    terminal: BulkPersistTerminal
+    terminal: OperationTerminal
   ) {
     seedRows(
       modelCase = modelCase,
@@ -65,10 +67,10 @@ class SuccessfulBulkPersistTest(
     val values = updatedValues + insertedValue
 
     when (terminal) {
-      BulkPersistTerminal.EXECUTE -> assertThat(
+      OperationTerminal.EXECUTE -> assertThat(
         modelCase.executeBulkPersist(values = values)
       ).isTrue()
-      BulkPersistTerminal.OBSERVE -> modelCase
+      OperationTerminal.OBSERVE -> modelCase
         .observeBulkPersist(values = values)
         .blockingAwait()
     }
@@ -87,7 +89,7 @@ class SuccessfulBulkPersistTest(
 
   private fun <T> captureRecursivePersist(
     modelCase: RecursiveBulkPersistModelCase<T>,
-    terminal: BulkPersistTerminal
+    terminal: OperationTerminal
   ) {
     seedRows(
       modelCase = modelCase,
@@ -104,10 +106,10 @@ class SuccessfulBulkPersistTest(
     val values = updatedValues + insertedValue
 
     when (terminal) {
-      BulkPersistTerminal.EXECUTE -> assertThat(
+      OperationTerminal.EXECUTE -> assertThat(
         modelCase.executeBulkPersist(values = values)
       ).isTrue()
-      BulkPersistTerminal.OBSERVE -> modelCase
+      OperationTerminal.OBSERVE -> modelCase
         .observeBulkPersist(values = values)
         .blockingAwait()
     }
@@ -122,29 +124,13 @@ class SuccessfulBulkPersistTest(
       .hasSize(3)
     assertThat(actual)
       .containsExactlyElementsIn(expectedParents)
-    assertThat(captureRows(table = modelCase.relatedTable))
-      .containsExactlyElementsIn(expectedParents.flatMap(modelCase::relatedValues))
-  }
-
-  private fun <T> seedRows(
-    modelCase: BulkPersistModelCase<T>,
-    count: Int
-  ) = List(size = count, init = modelCase::newValue)
-    .forEach { value ->
-      when (modelCase.insert(value = value).execute()) {
-        is EntityInsertResult.Inserted -> Unit
-        EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
-      }
-    }
-
-  private fun <T> captureRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .execute()
-
-  private enum class BulkPersistTerminal {
-    EXECUTE,
-    OBSERVE
+    assertRowsIgnoringOrder(
+      table = modelCase.relatedTable,
+      expected = relatedRows(
+        modelCase = modelCase,
+        values = expectedParents
+      )
+    )
   }
 
   companion object {
