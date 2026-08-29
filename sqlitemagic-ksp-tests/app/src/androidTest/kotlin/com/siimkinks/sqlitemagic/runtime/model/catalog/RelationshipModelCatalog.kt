@@ -23,11 +23,12 @@ import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
-import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.model.NullOmittingPersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
-import com.siimkinks.sqlitemagic.runtime.model.RecursivePersistConflictModelCase
-import com.siimkinks.sqlitemagic.runtime.model.RecursiveUpdateConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
 
@@ -43,7 +44,7 @@ internal object RelationshipModelCatalog {
   internal val representativeEmptyBulkCase: BulkPersistModelCase<EntityWithRelationship> = EntityWithRelationshipCase
 
   private object UniqueRelatedEntityCase :
-    PersistConflictModelCase<UniqueRelatedEntity>,
+    NullOmittingPersistConflictModelCase<UniqueRelatedEntity>,
     BulkUpdateConflictModelCase<UniqueRelatedEntity> {
     override val name = "UniqueRelatedEntity"
     override val table = UNIQUE_RELATED_ENTITY
@@ -75,6 +76,8 @@ internal object RelationshipModelCatalog {
     override fun persist(value: UniqueRelatedEntity): EntityPersistBuilder = value.persist()
 
     override fun bulkPersist(values: Iterable<UniqueRelatedEntity>) = UniqueRelatedEntitys.persist(values)
+
+    override fun withNullOmittingValues(value: UniqueRelatedEntity) = value.copy(value = null)
 
     override fun valueWithInsertConflict(
       existing: UniqueRelatedEntity,
@@ -109,7 +112,9 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithRelationshipCase :
-    RecursiveBulkPersistModelCase<EntityWithRelationship> {
+    RecursiveBulkPersistModelCase<EntityWithRelationship>,
+    RecursiveNullOmittingPersistModelCase<EntityWithRelationship>,
+    StandardNullOmittingPersistModelCase<EntityWithRelationship> {
     override val name = "EntityWithRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
@@ -150,6 +155,33 @@ internal object RelationshipModelCatalog {
         related.boxedBoolean = sequence % 2 == 0
         related.primitiveBoolean = sequence % 2 != 0
       }
+    }
+
+    override fun partialNullValue(sequence: Int) = newValue(sequence = sequence)
+      .copyForNullOmittingPersist(
+        sequence = sequence,
+        id = null
+      )
+
+    override fun partialNullUpdatedValue(value: EntityWithRelationship, sequence: Int) = value
+      .copyForNullOmittingPersist(
+        sequence = sequence,
+        id = value.id
+      )
+
+    override fun expectedAfterNullOmittingUpdate(
+      existing: EntityWithRelationship,
+      value: EntityWithRelationship
+    ) = EntityWithRelationship().apply {
+      id = existing.id
+      this.value = existing.value
+      count = value.count
+      relatedEntity = checkNotNull(existing.relatedEntity).copy(
+        id = checkNotNull(value.relatedEntity).id,
+        value = existing.relatedEntity?.value,
+        boxedBoolean = existing.relatedEntity?.boxedBoolean,
+        primitiveBoolean = checkNotNull(value.relatedEntity).primitiveBoolean
+      )
     }
 
     override fun toString() = name
@@ -246,8 +278,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithUniqueRelationshipsCase :
-    RecursivePersistConflictModelCase<EntityWithUniqueRelationships>,
-    RecursiveUpdateConflictModelCase<EntityWithUniqueRelationships>,
+    RecursiveNullOmittingPersistConflictModelCase<EntityWithUniqueRelationships>,
     RecursiveBulkPersistModelCase<EntityWithUniqueRelationships> {
     override val name = "EntityWithUniqueRelationships"
     override val table = ENTITY_WITH_UNIQUE_RELATIONSHIPS
@@ -276,6 +307,11 @@ internal object RelationshipModelCatalog {
       bulkUpdate = EntityWithUniqueRelationshipss::update,
       persist = EntityWithUniqueRelationships::persist,
       bulkPersist = EntityWithUniqueRelationshipss::persist
+    )
+
+    override fun withNullOmittingValues(value: EntityWithUniqueRelationships) = value.copy(
+      firstRelatedEntity = value.firstRelatedEntity.copy(value = null),
+      secondRelatedEntity = value.secondRelatedEntity.copy(value = null)
     )
 
     override fun expectedAfterInsert(
@@ -415,4 +451,19 @@ internal object RelationshipModelCatalog {
       entity.relatedEntity = relatedEntity
       entity.count = count
     }
+
+  private fun EntityWithRelationship.copyForNullOmittingPersist(
+    sequence: Int,
+    id: Long?
+  ) = EntityWithRelationship().also { entity ->
+    entity.id = id
+    entity.value = null
+    entity.count = 100 + sequence
+    entity.relatedEntity = checkNotNull(relatedEntity).copy(
+      id = relatedEntity?.id,
+      value = null,
+      boxedBoolean = null,
+      primitiveBoolean = sequence % 2 == 0
+    )
+  }
 }

@@ -27,8 +27,10 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.NullOmittingAllNullPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
 
@@ -118,7 +120,8 @@ internal object ScalarModelCatalog {
   }
 
   private object ImmutableValueWithNullableFieldsCase :
-    StandardBulkPersistModelCase<ImmutableValueWithNullableFields> {
+    StandardNullOmittingPersistModelCase<ImmutableValueWithNullableFields>,
+    NullOmittingAllNullPersistModelCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
     override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -144,6 +147,46 @@ internal object ScalarModelCatalog {
       aBoolean = sequence % 2 == 0,
       integer = 100 + sequence
     )
+
+    override fun partialNullValue(sequence: Int) = ImmutableValueWithNullableFields(
+      id = null,
+      string = "immutable-value-null-omitting-$sequence",
+      aBoolean = null,
+      integer = 200 + sequence
+    )
+
+    override fun partialNullUpdatedValue(value: ImmutableValueWithNullableFields, sequence: Int) = value.copy(
+      string = null,
+      aBoolean = null,
+      integer = 300 + sequence
+    )
+
+    override fun expectedAfterNullOmittingUpdate(
+      existing: ImmutableValueWithNullableFields,
+      value: ImmutableValueWithNullableFields
+    ) = existing.copy(integer = value.integer)
+
+    override fun allNullValueForMissingRow() = ImmutableValueWithNullableFields(
+      id = null,
+      string = null,
+      aBoolean = null,
+      integer = null
+    )
+
+    override fun allNullValueForExistingRow(value: ImmutableValueWithNullableFields) = value.copy(
+      string = null,
+      aBoolean = null,
+      integer = null
+    )
+
+    override fun expectedAfterAllNullBulkInsert(actual: List<ImmutableValueWithNullableFields>) = actual.map { value ->
+      ImmutableValueWithNullableFields(
+        id = value.id,
+        string = null,
+        aBoolean = null,
+        integer = null
+      )
+    }
 
     override fun expectedAfterInsert(
       value: ImmutableValueWithNullableFields,

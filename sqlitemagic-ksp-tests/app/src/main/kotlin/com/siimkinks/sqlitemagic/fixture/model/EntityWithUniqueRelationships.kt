@@ -8,7 +8,7 @@ import com.siimkinks.sqlitemagic.annotation.Unique
 data class UniqueRelatedEntity(
   @Id var id: Long? = null,
   @Unique val uniqueValue: String,
-  val value: String
+  val value: String?
 )
 
 @Table

@@ -12,6 +12,7 @@ import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
 
@@ -22,7 +23,7 @@ internal object EmbeddedModelCatalog {
   )
 
   private object EmbeddedValueEntityWithOptionalValueCase :
-    StandardBulkPersistModelCase<EmbeddedValueEntity> {
+    StandardNullOmittingPersistModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -68,6 +69,23 @@ internal object EmbeddedModelCatalog {
           prefix = "optional"
         )
     )
+
+    override fun partialNullValue(sequence: Int) = newValue(sequence = sequence)
+      .copy(optionalDetails = null)
+
+    override fun partialNullUpdatedValue(value: EmbeddedValueEntity, sequence: Int) = value.copy(
+      requiredDetails = value.requiredDetails
+        .updated(
+          sequence = sequence,
+          prefix = "required-null-omitting"
+        ),
+      optionalDetails = null
+    )
+
+    override fun expectedAfterNullOmittingUpdate(
+      existing: EmbeddedValueEntity,
+      value: EmbeddedValueEntity
+    ) = value.copy(optionalDetails = existing.optionalDetails)
 
     override fun expectedAfterInsert(
       value: EmbeddedValueEntity,

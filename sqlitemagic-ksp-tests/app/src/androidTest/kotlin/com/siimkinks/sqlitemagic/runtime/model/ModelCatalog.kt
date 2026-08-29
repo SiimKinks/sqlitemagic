@@ -51,6 +51,19 @@ object ModelCatalog {
   val bulkPersistCases: List<BulkPersistModelCase<*>> = allCases
     .filterIsInstance<BulkPersistModelCase<*>>()
 
+  val nullOmittingPersistCases: List<NullOmittingPersistModelCase<*>> = allCases
+    .filterIsInstance<NullOmittingPersistModelCase<*>>()
+
+  val nullOmittingAllNullPersistCases: List<NullOmittingAllNullPersistModelCase<*>> = allCases
+    .filterIsInstance<NullOmittingAllNullPersistModelCase<*>>()
+
+  val nullOmittingPersistConflictCases: List<NullOmittingPersistConflictModelCase<*>> = allCases
+    .filterIsInstance<NullOmittingPersistConflictModelCase<*>>()
+    .filterNot { it is RecursiveNullOmittingPersistConflictModelCase<*> }
+
+  val recursiveNullOmittingPersistConflictCases: List<RecursiveNullOmittingPersistConflictModelCase<*>> = allCases
+    .filterIsInstance<RecursiveNullOmittingPersistConflictModelCase<*>>()
+
   val emptyBulkPersistCases: List<BulkPersistModelCase<*>> = listOf(
     ScalarModelCatalog.representativeEmptyBulkCase,
     IdentityModelCatalog.representativeEmptyBulkCase,
