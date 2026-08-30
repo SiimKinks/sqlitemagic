@@ -32,6 +32,7 @@ import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistModel
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ReferencedDeleteModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RelationshipQueryModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
@@ -128,6 +129,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithRelationshipCase :
+    RelationshipQueryModelCase<EntityWithRelationship>,
     RecursiveTriggerModelCase<EntityWithRelationship>,
     RecursiveBulkPersistModelCase<EntityWithRelationship>,
     RecursiveNullOmittingPersistModelCase<EntityWithRelationship>,
@@ -195,6 +197,15 @@ internal object RelationshipModelCatalog {
       result: EntityInsertResult.Inserted
     ) = value.copyWithGeneratedId(result = result)
 
+    override fun expectedAfterShallowQuery(deepExpected: EntityWithRelationship) = EntityWithRelationship().also {
+      it.id = deepExpected.id
+      it.value = deepExpected.value
+      it.relatedEntity = deepExpected.relatedEntity?.let { related ->
+        SimpleMutableEntity(id = related.id)
+      }
+      it.count = deepExpected.count
+    }
+
     override fun updatedValue(value: EntityWithRelationship, sequence: Int) = value.apply {
       this.value = "relationship-entity-with-relationship-updated-$sequence"
       count = 17 + sequence
@@ -236,6 +247,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithNullRelationshipCase :
+    RelationshipQueryModelCase<EntityWithRelationship>,
     RecursiveBulkPersistModelCase<EntityWithRelationship>,
     StandardBulkDeleteModelCase<EntityWithRelationship> {
     override val name = "EntityWithNullRelationship"
@@ -271,6 +283,13 @@ internal object RelationshipModelCatalog {
       result: EntityInsertResult.Inserted
     ) = value.copyWithGeneratedId(result = result)
 
+    override fun expectedAfterShallowQuery(deepExpected: EntityWithRelationship) = EntityWithRelationship().also {
+      it.id = deepExpected.id
+      it.value = deepExpected.value
+      it.relatedEntity = null
+      it.count = deepExpected.count
+    }
+
     override fun updatedValue(value: EntityWithRelationship, sequence: Int) = value.apply {
       this.value = "relationship-null-updated-$sequence"
       count = 17 + sequence
@@ -280,6 +299,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithStringIdRelationshipCase :
+    RelationshipQueryModelCase<EntityWithStringIdRelationship>,
     RecursiveBulkPersistModelCase<EntityWithStringIdRelationship>,
     StandardBulkDeleteModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
@@ -318,6 +338,8 @@ internal object RelationshipModelCatalog {
       result: EntityInsertResult.Inserted
     ) = value.copy(id = checkNotNull(result.rowId))
 
+    override fun expectedAfterShallowQuery(deepExpected: EntityWithStringIdRelationship) = deepExpected
+
     override fun expectedAfterBulkInsert(
       values: List<EntityWithStringIdRelationship>,
       actual: List<EntityWithStringIdRelationship>
@@ -340,6 +362,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithUniqueRelationshipsCase :
+    RelationshipQueryModelCase<EntityWithUniqueRelationships>,
     RecursiveTriggerConflictModelCase<EntityWithUniqueRelationships>,
     RecursiveNullOmittingPersistConflictModelCase<EntityWithUniqueRelationships>,
     RecursiveBulkPersistModelCase<EntityWithUniqueRelationships>,
@@ -388,6 +411,8 @@ internal object RelationshipModelCatalog {
       value: EntityWithUniqueRelationships,
       result: EntityInsertResult.Inserted
     ) = value
+
+    override fun expectedAfterShallowQuery(deepExpected: EntityWithUniqueRelationships) = deepExpected
 
     override fun relatedValues(value: EntityWithUniqueRelationships): List<*> = listOf(
       value.firstRelatedEntity,
