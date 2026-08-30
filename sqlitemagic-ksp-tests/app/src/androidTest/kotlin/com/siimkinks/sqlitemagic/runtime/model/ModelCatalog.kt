@@ -93,4 +93,16 @@ object ModelCatalog {
 
   val recursiveInsertConflictCases: List<RecursiveInsertConflictModelCase<*>> = allCases
     .filterIsInstance<RecursiveInsertConflictModelCase<*>>()
+
+  val triggerCases: List<TriggerModelCase<*>> = allCases
+    .filterIsInstance<TriggerModelCase<*>>()
+
+  val recursiveTriggerCases: List<RecursiveTriggerModelCase<*>> = allCases
+    .filterIsInstance<RecursiveTriggerModelCase<*>>()
+
+  val triggerConflictCases: List<TriggerConflictModelCase<*>> = allCases
+    .filterIsInstance<TriggerConflictModelCase<*>>()
+
+  val recursiveTriggerConflictCases: List<RecursiveTriggerConflictModelCase<*>> = allCases
+    .filterIsInstance<RecursiveTriggerConflictModelCase<*>>()
 }

@@ -35,6 +35,7 @@ import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
+import com.siimkinks.sqlitemagic.runtime.model.TriggerModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object ScalarModelCatalog {
@@ -52,8 +53,7 @@ internal object ScalarModelCatalog {
   internal val representativeEmptyBulkCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
 
   private object SimpleMutableEntityCase :
-    StandardBulkPersistModelCase<SimpleMutableEntity>,
-    StandardBulkDeleteModelCase<SimpleMutableEntity> {
+    TriggerModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT

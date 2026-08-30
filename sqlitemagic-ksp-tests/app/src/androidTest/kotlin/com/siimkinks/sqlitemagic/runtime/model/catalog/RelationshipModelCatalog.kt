@@ -29,12 +29,15 @@ import com.siimkinks.sqlitemagic.runtime.model.NullOmittingPersistConflictModelC
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ReferencedDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
+import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object RelationshipModelCatalog {
@@ -49,6 +52,7 @@ internal object RelationshipModelCatalog {
   internal val representativeEmptyBulkCase: BulkPersistModelCase<EntityWithRelationship> = EntityWithRelationshipCase
 
   private object UniqueRelatedEntityCase :
+    TriggerConflictModelCase<UniqueRelatedEntity>,
     NullOmittingPersistConflictModelCase<UniqueRelatedEntity>,
     BulkUpdateConflictModelCase<UniqueRelatedEntity>,
     StandardBulkDeleteModelCase<UniqueRelatedEntity> {
@@ -124,10 +128,10 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithRelationshipCase :
+    RecursiveTriggerModelCase<EntityWithRelationship>,
     RecursiveBulkPersistModelCase<EntityWithRelationship>,
     RecursiveNullOmittingPersistModelCase<EntityWithRelationship>,
     StandardNullOmittingPersistModelCase<EntityWithRelationship>,
-    StandardBulkDeleteModelCase<EntityWithRelationship>,
     ReferencedDeleteModelCase<EntityWithRelationship, SimpleMutableEntity> {
     override val name = "EntityWithRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
@@ -336,6 +340,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithUniqueRelationshipsCase :
+    RecursiveTriggerConflictModelCase<EntityWithUniqueRelationships>,
     RecursiveNullOmittingPersistConflictModelCase<EntityWithUniqueRelationships>,
     RecursiveBulkPersistModelCase<EntityWithUniqueRelationships>,
     StandardBulkDeleteModelCase<EntityWithUniqueRelationships> {
