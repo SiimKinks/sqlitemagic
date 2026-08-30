@@ -18,6 +18,10 @@ object ModelCatalog {
   val insertCases: List<InsertModelCase<*>> = allCases
     .filterIsInstance<InsertModelCase<*>>()
 
+  val directModelQueryCases: List<InsertModelCase<*>> = allCases
+    .filterIsInstance<InsertModelCase<*>>()
+    .filterNot { it is RecursiveModelCase<*> }
+
   val updateCases: List<UpdateModelCase<*>> = allCases
     .filterIsInstance<UpdateModelCase<*>>()
 
