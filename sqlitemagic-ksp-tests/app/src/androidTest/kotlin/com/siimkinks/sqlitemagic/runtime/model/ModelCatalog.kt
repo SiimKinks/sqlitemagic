@@ -31,6 +31,9 @@ object ModelCatalog {
   val missingRequiredProjectionCases: List<MissingRequiredProjectionCase<*>> = allCases
     .filterIsInstance<MissingRequiredProjectionCase<*>>()
 
+  val rawCursorCases: List<RawCursorModelCase<*>> = allCases
+    .filterIsInstance<RawCursorModelCase<*>>()
+
   val updateCases: List<UpdateModelCase<*>> = allCases
     .filterIsInstance<UpdateModelCase<*>>()
 

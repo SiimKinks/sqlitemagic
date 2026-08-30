@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
+import android.database.Cursor
 import com.siimkinks.sqlitemagic.BlobEntityTable.Companion.BLOB_ENTITY
 import com.siimkinks.sqlitemagic.BlobEntitys
 import com.siimkinks.sqlitemagic.CustomColumnEntityTable.Companion.CUSTOM_COLUMN_ENTITY
@@ -10,6 +11,7 @@ import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTAB
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldss
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable.Companion.IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldss
+import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE_COLUMNS_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
@@ -30,6 +32,7 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingAllNullPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RawCursorModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
@@ -55,7 +58,8 @@ internal object ScalarModelCatalog {
   internal val representativeEmptyBulkCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
 
   private object SimpleMutableEntityCase :
-    TriggerModelCase<SimpleMutableEntity> {
+    TriggerModelCase<SimpleMutableEntity>,
+    RawCursorModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -89,6 +93,31 @@ internal object ScalarModelCatalog {
     )
 
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
+
+    override fun rawSelect() = Select
+      .raw("SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity ORDER BY id")
+      .from(table)
+      .compile()
+
+    override fun rawSelectWithArgs(value: SimpleMutableEntity) = Select
+      .raw("SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity WHERE value = ? ORDER BY id")
+      .from(table)
+      .withArgs(checkNotNull(value.value))
+      .compile()
+
+    override fun readCurrentPosition(cursor: Cursor) = SimpleMutableEntity(
+      id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+      value = cursor.getString(cursor.getColumnIndexOrThrow("value")),
+      boxedBoolean = cursor
+        .getColumnIndexOrThrow("boxed_boolean")
+        .let { index ->
+          when {
+            cursor.isNull(index) -> null
+            else -> cursor.getInt(index) != 0
+          }
+        },
+      primitiveBoolean = cursor.getInt(cursor.getColumnIndexOrThrow("primitive_boolean")) != 0
+    )
 
     override fun toString() = name
   }
