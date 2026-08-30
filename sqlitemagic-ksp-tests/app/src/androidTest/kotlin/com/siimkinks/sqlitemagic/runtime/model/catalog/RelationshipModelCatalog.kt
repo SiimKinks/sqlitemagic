@@ -7,9 +7,11 @@ import com.siimkinks.sqlitemagic.EntityWithStringIdRelationships
 import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipsTable.Companion.ENTITY_WITH_UNIQUE_RELATIONSHIPS
 import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipss
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
+import com.siimkinks.sqlitemagic.SimpleMutableEntitys
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.UniqueRelatedEntityTable.Companion.UNIQUE_RELATED_ENTITY
 import com.siimkinks.sqlitemagic.UniqueRelatedEntitys
+import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
@@ -25,9 +27,12 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingPersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
-import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.ReferencedDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
@@ -45,7 +50,8 @@ internal object RelationshipModelCatalog {
 
   private object UniqueRelatedEntityCase :
     NullOmittingPersistConflictModelCase<UniqueRelatedEntity>,
-    BulkUpdateConflictModelCase<UniqueRelatedEntity> {
+    BulkUpdateConflictModelCase<UniqueRelatedEntity>,
+    StandardBulkDeleteModelCase<UniqueRelatedEntity> {
     override val name = "UniqueRelatedEntity"
     override val table = UNIQUE_RELATED_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -76,6 +82,12 @@ internal object RelationshipModelCatalog {
     override fun persist(value: UniqueRelatedEntity): EntityPersistBuilder = value.persist()
 
     override fun bulkPersist(values: Iterable<UniqueRelatedEntity>) = UniqueRelatedEntitys.persist(values)
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = UniqueRelatedEntity::delete,
+      bulkDelete = UniqueRelatedEntitys::delete,
+      deleteTable = UniqueRelatedEntitys::deleteTable
+    )
 
     override fun withNullOmittingValues(value: UniqueRelatedEntity) = value.copy(value = null)
 
@@ -114,7 +126,9 @@ internal object RelationshipModelCatalog {
   private object EntityWithRelationshipCase :
     RecursiveBulkPersistModelCase<EntityWithRelationship>,
     RecursiveNullOmittingPersistModelCase<EntityWithRelationship>,
-    StandardNullOmittingPersistModelCase<EntityWithRelationship> {
+    StandardNullOmittingPersistModelCase<EntityWithRelationship>,
+    StandardBulkDeleteModelCase<EntityWithRelationship>,
+    ReferencedDeleteModelCase<EntityWithRelationship, SimpleMutableEntity> {
     override val name = "EntityWithRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
@@ -140,7 +154,37 @@ internal object RelationshipModelCatalog {
       bulkPersist = EntityWithRelationships::persist
     )
 
-    override fun relatedValues(value: EntityWithRelationship): List<*> = listOfNotNull(value.relatedEntity)
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = EntityWithRelationship::delete,
+      bulkDelete = EntityWithRelationships::delete,
+      deleteTable = EntityWithRelationships::deleteTable
+    )
+
+    override fun relatedDeleteValues(value: EntityWithRelationship) = listOfNotNull(value.relatedEntity)
+
+    override fun executeRelatedDelete(value: SimpleMutableEntity) = value
+      .delete()
+      .execute()
+
+    override fun observeRelatedDelete(value: SimpleMutableEntity) = value
+      .delete()
+      .observe()
+
+    override fun executeRelatedBulkDelete(values: Collection<SimpleMutableEntity>) = SimpleMutableEntitys
+      .delete(o = values)
+      .execute()
+
+    override fun observeRelatedBulkDelete(values: Collection<SimpleMutableEntity>) = SimpleMutableEntitys
+      .delete(o = values)
+      .observe()
+
+    override fun executeRelatedTableDelete() = SimpleMutableEntitys
+      .deleteTable()
+      .execute()
+
+    override fun observeRelatedTableDelete() = SimpleMutableEntitys
+      .deleteTable()
+      .observe()
 
     override fun expectedAfterInsert(
       value: EntityWithRelationship,
@@ -188,7 +232,8 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithNullRelationshipCase :
-    RecursiveBulkPersistModelCase<EntityWithRelationship> {
+    RecursiveBulkPersistModelCase<EntityWithRelationship>,
+    StandardBulkDeleteModelCase<EntityWithRelationship> {
     override val name = "EntityWithNullRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
@@ -209,6 +254,12 @@ internal object RelationshipModelCatalog {
       bulkPersist = EntityWithRelationships::persist
     )
 
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = EntityWithRelationship::delete,
+      bulkDelete = EntityWithRelationships::delete,
+      deleteTable = EntityWithRelationships::deleteTable
+    )
+
     override fun relatedValues(value: EntityWithRelationship): List<*> = listOfNotNull(value.relatedEntity)
 
     override fun expectedAfterInsert(
@@ -225,7 +276,8 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithStringIdRelationshipCase :
-    RecursiveBulkPersistModelCase<EntityWithStringIdRelationship> {
+    RecursiveBulkPersistModelCase<EntityWithStringIdRelationship>,
+    StandardBulkDeleteModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
     override val table = ENTITY_WITH_STRING_ID_RELATIONSHIP
     override val relatedTable = STRING_ID_ENTITY
@@ -247,6 +299,12 @@ internal object RelationshipModelCatalog {
       bulkUpdate = EntityWithStringIdRelationships::update,
       persist = EntityWithStringIdRelationship::persist,
       bulkPersist = EntityWithStringIdRelationships::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = EntityWithStringIdRelationship::delete,
+      bulkDelete = EntityWithStringIdRelationships::delete,
+      deleteTable = EntityWithStringIdRelationships::deleteTable
     )
 
     override fun relatedValues(value: EntityWithStringIdRelationship): List<*> = listOf(value.relatedEntity)
@@ -279,7 +337,8 @@ internal object RelationshipModelCatalog {
 
   private object EntityWithUniqueRelationshipsCase :
     RecursiveNullOmittingPersistConflictModelCase<EntityWithUniqueRelationships>,
-    RecursiveBulkPersistModelCase<EntityWithUniqueRelationships> {
+    RecursiveBulkPersistModelCase<EntityWithUniqueRelationships>,
+    StandardBulkDeleteModelCase<EntityWithUniqueRelationships> {
     override val name = "EntityWithUniqueRelationships"
     override val table = ENTITY_WITH_UNIQUE_RELATIONSHIPS
     override val relatedTable = UNIQUE_RELATED_ENTITY
@@ -307,6 +366,12 @@ internal object RelationshipModelCatalog {
       bulkUpdate = EntityWithUniqueRelationshipss::update,
       persist = EntityWithUniqueRelationships::persist,
       bulkPersist = EntityWithUniqueRelationshipss::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = EntityWithUniqueRelationships::delete,
+      bulkDelete = EntityWithUniqueRelationshipss::delete,
+      deleteTable = EntityWithUniqueRelationshipss::deleteTable
     )
 
     override fun withNullOmittingValues(value: EntityWithUniqueRelationships) = value.copy(

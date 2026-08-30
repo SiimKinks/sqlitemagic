@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.MutableBodyEntityTable.Companion.MUTABLE_BODY_E
 import com.siimkinks.sqlitemagic.MutableBodyEntitys
 import com.siimkinks.sqlitemagic.NonDataConstructorEntityTable.Companion.NON_DATA_CONSTRUCTOR_ENTITY
 import com.siimkinks.sqlitemagic.NonDataConstructorEntitys
+import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.InheritedMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.MutableBodyEntity
@@ -15,8 +16,11 @@ import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
+import com.siimkinks.sqlitemagic.runtime.model.StandardTableDeleteModelCase
 import com.siimkinks.sqlitemagic.update
 
 internal object ConstructionModelCatalog {
@@ -26,7 +30,9 @@ internal object ConstructionModelCatalog {
     InheritedMutableEntityCase,
   )
 
-  private object NonDataConstructorEntityCase : BulkInsertModelCase<NonDataConstructorEntity> {
+  private object NonDataConstructorEntityCase :
+    BulkInsertModelCase<NonDataConstructorEntity>,
+    StandardTableDeleteModelCase<NonDataConstructorEntity> {
     override val name = "NonDataConstructorEntity"
     override val table = NON_DATA_CONSTRUCTOR_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -37,13 +43,16 @@ internal object ConstructionModelCatalog {
 
     override fun bulkInsert(values: List<NonDataConstructorEntity>) = NonDataConstructorEntitys.insert(values)
 
+    override fun deleteTable() = NonDataConstructorEntitys.deleteTable()
+
     override fun expectedAfterInsert(value: NonDataConstructorEntity, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
   }
 
   private object MutableBodyEntityCase :
-    StandardBulkPersistModelCase<MutableBodyEntity> {
+    StandardBulkPersistModelCase<MutableBodyEntity>,
+    StandardBulkDeleteModelCase<MutableBodyEntity> {
     override val name = "MutableBodyEntity"
     override val table = MUTABLE_BODY_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -61,6 +70,12 @@ internal object ConstructionModelCatalog {
       bulkPersist = MutableBodyEntitys::persist
     )
 
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = MutableBodyEntity::delete,
+      bulkDelete = MutableBodyEntitys::delete,
+      deleteTable = MutableBodyEntitys::deleteTable
+    )
+
     override fun expectedAfterInsert(value: MutableBodyEntity, result: EntityInsertResult.Inserted) = value
 
     override fun updatedValue(value: MutableBodyEntity, sequence: Int) = value.apply {
@@ -71,7 +86,8 @@ internal object ConstructionModelCatalog {
   }
 
   private object InheritedMutableEntityCase :
-    StandardBulkPersistModelCase<InheritedMutableEntity> {
+    StandardBulkPersistModelCase<InheritedMutableEntity>,
+    StandardBulkDeleteModelCase<InheritedMutableEntity> {
     override val name = "InheritedMutableEntity"
     override val table = INHERITED_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -88,6 +104,12 @@ internal object ConstructionModelCatalog {
       bulkUpdate = InheritedMutableEntitys::update,
       persist = InheritedMutableEntity::persist,
       bulkPersist = InheritedMutableEntitys::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = InheritedMutableEntity::delete,
+      bulkDelete = InheritedMutableEntitys::delete,
+      deleteTable = InheritedMutableEntitys::deleteTable
     )
 
     override fun expectedAfterInsert(value: InheritedMutableEntity, result: EntityInsertResult.Inserted) = value

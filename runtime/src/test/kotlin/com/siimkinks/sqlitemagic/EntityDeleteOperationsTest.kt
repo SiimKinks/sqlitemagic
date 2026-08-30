@@ -70,7 +70,7 @@ internal class EntityDeleteOperationsTest {
         .isEqualTo(case.deletedRows)
       assertWithMessage(case.label)
         .that(recording.statementSql)
-        .containsExactly("DELETE FROM books")
+        .containsExactly("DELETE FROM books WHERE 1")
       assertWithMessage(case.label)
         .that(recording.triggers)
         .containsExactlyElementsIn(case.expectedTriggers)
@@ -91,7 +91,7 @@ internal class EntityDeleteOperationsTest {
     terminal
       .test()
       .assertResult(4)
-    assertThat(recording.statementSql).containsExactly("DELETE FROM books")
+    assertThat(recording.statementSql).containsExactly("DELETE FROM books WHERE 1")
     assertThat(recording.triggers).containsExactly(setOf("books"))
   }
 }

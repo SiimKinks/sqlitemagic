@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntitys
+import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.BlobEntity
 import com.siimkinks.sqlitemagic.fixture.model.CustomColumnEntity
@@ -29,7 +30,9 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingAllNullPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
@@ -49,7 +52,8 @@ internal object ScalarModelCatalog {
   internal val representativeEmptyBulkCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
 
   private object SimpleMutableEntityCase :
-    StandardBulkPersistModelCase<SimpleMutableEntity> {
+    StandardBulkPersistModelCase<SimpleMutableEntity>,
+    StandardBulkDeleteModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -70,6 +74,12 @@ internal object ScalarModelCatalog {
       bulkPersist = SimpleMutableEntitys::persist
     )
 
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = SimpleMutableEntity::delete,
+      bulkDelete = SimpleMutableEntitys::delete,
+      deleteTable = SimpleMutableEntitys::deleteTable
+    )
+
     override fun updatedValue(value: SimpleMutableEntity, sequence: Int) = value.copy(
       value = "simple-mutable-entity-updated-$sequence",
       boxedBoolean = sequence % 2 == 0,
@@ -82,7 +92,8 @@ internal object ScalarModelCatalog {
   }
 
   private object SimpleMutableEntityWithPresetAutoIdCase :
-    StandardBulkPersistModelCase<SimpleMutableEntity> {
+    StandardBulkPersistModelCase<SimpleMutableEntity>,
+    StandardBulkDeleteModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntityWithPresetAutoId"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -103,6 +114,12 @@ internal object ScalarModelCatalog {
       bulkPersist = SimpleMutableEntitys::persist
     )
 
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = SimpleMutableEntity::delete,
+      bulkDelete = SimpleMutableEntitys::delete,
+      deleteTable = SimpleMutableEntitys::deleteTable
+    )
+
     override fun updatedValue(value: SimpleMutableEntity, sequence: Int) = value.copy(
       value = "preset-simple-mutable-entity-updated-$sequence",
       boxedBoolean = sequence % 2 != 0,
@@ -121,6 +138,7 @@ internal object ScalarModelCatalog {
 
   private object ImmutableValueWithNullableFieldsCase :
     StandardNullOmittingPersistModelCase<ImmutableValueWithNullableFields>,
+    StandardBulkDeleteModelCase<ImmutableValueWithNullableFields>,
     NullOmittingAllNullPersistModelCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
     override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
@@ -140,6 +158,12 @@ internal object ScalarModelCatalog {
       bulkUpdate = ImmutableValueWithNullableFieldss::update,
       persist = ImmutableValueWithNullableFields::persist,
       bulkPersist = ImmutableValueWithNullableFieldss::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = ImmutableValueWithNullableFields::delete,
+      bulkDelete = ImmutableValueWithNullableFieldss::delete,
+      deleteTable = ImmutableValueWithNullableFieldss::deleteTable
     )
 
     override fun updatedValue(value: ImmutableValueWithNullableFields, sequence: Int) = value.copy(
@@ -206,7 +230,8 @@ internal object ScalarModelCatalog {
   }
 
   private object ImmutableValueWithFieldsCase :
-    StandardBulkPersistModelCase<ImmutableValueWithFields> {
+    StandardBulkPersistModelCase<ImmutableValueWithFields>,
+    StandardBulkDeleteModelCase<ImmutableValueWithFields> {
     override val name = "ImmutableValueWithFields"
     override val table = IMMUTABLE_VALUE_WITH_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -228,6 +253,12 @@ internal object ScalarModelCatalog {
       bulkUpdate = ImmutableValueWithFieldss::update,
       persist = ImmutableValueWithFields::persist,
       bulkPersist = ImmutableValueWithFieldss::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = ImmutableValueWithFields::delete,
+      bulkDelete = ImmutableValueWithFieldss::delete,
+      deleteTable = ImmutableValueWithFieldss::deleteTable
     )
 
     override fun updatedValue(value: ImmutableValueWithFields, sequence: Int) = value.copy(
@@ -257,7 +288,8 @@ internal object ScalarModelCatalog {
   }
 
   private object CustomColumnEntityCase :
-    StandardBulkPersistModelCase<CustomColumnEntity> {
+    StandardBulkPersistModelCase<CustomColumnEntity>,
+    StandardBulkDeleteModelCase<CustomColumnEntity> {
     override val name = "CustomColumnEntity"
     override val table = CUSTOM_COLUMN_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -276,6 +308,12 @@ internal object ScalarModelCatalog {
       bulkPersist = CustomColumnEntitys::persist
     )
 
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = CustomColumnEntity::delete,
+      bulkDelete = CustomColumnEntitys::delete,
+      deleteTable = CustomColumnEntitys::deleteTable
+    )
+
     override fun updatedValue(value: CustomColumnEntity, sequence: Int) = value.copy(
       value = "custom-column-updated-$sequence"
     )
@@ -286,7 +324,8 @@ internal object ScalarModelCatalog {
   }
 
   private object SelectiveColumnsEntityCase :
-    StandardBulkPersistModelCase<SelectiveColumnsEntity> {
+    StandardBulkPersistModelCase<SelectiveColumnsEntity>,
+    StandardBulkDeleteModelCase<SelectiveColumnsEntity> {
     override val name = "SelectiveColumnsEntity"
     override val table = SELECTIVE_COLUMNS_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -303,6 +342,12 @@ internal object ScalarModelCatalog {
       bulkUpdate = SelectiveColumnsEntitys::update,
       persist = SelectiveColumnsEntity::persist,
       bulkPersist = SelectiveColumnsEntitys::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = SelectiveColumnsEntity::delete,
+      bulkDelete = SelectiveColumnsEntitys::delete,
+      deleteTable = SelectiveColumnsEntitys::deleteTable
     )
 
     override fun updatedValue(value: SelectiveColumnsEntity, sequence: Int) = SelectiveColumnsEntity().apply {
@@ -342,7 +387,8 @@ internal object ScalarModelCatalog {
   }
 
   private object EntityWithIgnoredValueCase :
-    StandardBulkPersistModelCase<EntityWithIgnoredValue> {
+    StandardBulkPersistModelCase<EntityWithIgnoredValue>,
+    StandardBulkDeleteModelCase<EntityWithIgnoredValue> {
     override val name = "EntityWithIgnoredValue"
     override val table = ENTITY_WITH_IGNORED_VALUE
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -359,6 +405,12 @@ internal object ScalarModelCatalog {
       bulkUpdate = EntityWithIgnoredValues::update,
       persist = EntityWithIgnoredValue::persist,
       bulkPersist = EntityWithIgnoredValues::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = EntityWithIgnoredValue::delete,
+      bulkDelete = EntityWithIgnoredValues::delete,
+      deleteTable = EntityWithIgnoredValues::deleteTable
     )
 
     override fun updatedValue(value: EntityWithIgnoredValue, sequence: Int) = EntityWithIgnoredValue().apply {
@@ -398,7 +450,8 @@ internal object ScalarModelCatalog {
   }
 
   private object BlobEntityCase :
-    StandardBulkPersistModelCase<BlobEntity> {
+    StandardBulkPersistModelCase<BlobEntity>,
+    StandardBulkDeleteModelCase<BlobEntity> {
     override val name = "BlobEntity"
     override val table = BLOB_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -419,6 +472,12 @@ internal object ScalarModelCatalog {
       bulkUpdate = BlobEntitys::update,
       persist = BlobEntity::persist,
       bulkPersist = BlobEntitys::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = BlobEntity::delete,
+      bulkDelete = BlobEntitys::delete,
+      deleteTable = BlobEntitys::deleteTable
     )
 
     override fun updatedValue(value: BlobEntity, sequence: Int) = BlobEntity(

@@ -58,7 +58,7 @@ internal object DeleteExecutors {
     context: OperationContext
   ): Int = context
     .entityDbManager()
-    .compileStatement("DELETE FROM ${adapter.tableName}")
+    .compileStatement("DELETE FROM ${adapter.tableName} WHERE 1")
     .use(SupportSQLiteStatement::executeUpdateDelete)
     .also { deletedRowCount ->
       if (deletedRowCount > 0) {

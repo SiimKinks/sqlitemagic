@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.runtime.model.catalog
 
 import com.siimkinks.sqlitemagic.EmbeddedValueEntityTable.Companion.EMBEDDED_VALUE_ENTITY
 import com.siimkinks.sqlitemagic.EmbeddedValueEntitys
+import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.EmbeddedCoordinates
 import com.siimkinks.sqlitemagic.fixture.model.EmbeddedDetails
@@ -11,7 +12,9 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.update
@@ -23,7 +26,8 @@ internal object EmbeddedModelCatalog {
   )
 
   private object EmbeddedValueEntityWithOptionalValueCase :
-    StandardNullOmittingPersistModelCase<EmbeddedValueEntity> {
+    StandardNullOmittingPersistModelCase<EmbeddedValueEntity>,
+    StandardBulkDeleteModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -55,6 +59,12 @@ internal object EmbeddedModelCatalog {
       bulkUpdate = EmbeddedValueEntitys::update,
       persist = EmbeddedValueEntity::persist,
       bulkPersist = EmbeddedValueEntitys::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = EmbeddedValueEntity::delete,
+      bulkDelete = EmbeddedValueEntitys::delete,
+      deleteTable = EmbeddedValueEntitys::deleteTable
     )
 
     override fun updatedValue(value: EmbeddedValueEntity, sequence: Int) = value.copy(
@@ -105,7 +115,8 @@ internal object EmbeddedModelCatalog {
   }
 
   private object EmbeddedValueEntityWithoutOptionalValueCase :
-    StandardBulkPersistModelCase<EmbeddedValueEntity> {
+    StandardBulkPersistModelCase<EmbeddedValueEntity>,
+    StandardBulkDeleteModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -130,6 +141,12 @@ internal object EmbeddedModelCatalog {
       bulkUpdate = EmbeddedValueEntitys::update,
       persist = EmbeddedValueEntity::persist,
       bulkPersist = EmbeddedValueEntitys::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = EmbeddedValueEntity::delete,
+      bulkDelete = EmbeddedValueEntitys::delete,
+      deleteTable = EmbeddedValueEntitys::deleteTable
     )
 
     override fun updatedValue(value: EmbeddedValueEntity, sequence: Int) = value.copy(

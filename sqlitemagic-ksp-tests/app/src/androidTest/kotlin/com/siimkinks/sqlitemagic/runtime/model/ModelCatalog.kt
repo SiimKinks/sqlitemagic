@@ -51,6 +51,18 @@ object ModelCatalog {
   val bulkPersistCases: List<BulkPersistModelCase<*>> = allCases
     .filterIsInstance<BulkPersistModelCase<*>>()
 
+  val deleteCases: List<DeleteModelCase<*>> = allCases
+    .filterIsInstance<DeleteModelCase<*>>()
+
+  val bulkDeleteCases: List<BulkDeleteModelCase<*>> = allCases
+    .filterIsInstance<BulkDeleteModelCase<*>>()
+
+  val tableDeleteCases: List<TableDeleteModelCase<*>> = allCases
+    .filterIsInstance<TableDeleteModelCase<*>>()
+
+  val referencedDeleteCases: List<ReferencedDeleteModelCase<*, *>> = allCases
+    .filterIsInstance<ReferencedDeleteModelCase<*, *>>()
+
   val nullOmittingPersistCases: List<NullOmittingPersistModelCase<*>> = allCases
     .filterIsInstance<NullOmittingPersistModelCase<*>>()
 

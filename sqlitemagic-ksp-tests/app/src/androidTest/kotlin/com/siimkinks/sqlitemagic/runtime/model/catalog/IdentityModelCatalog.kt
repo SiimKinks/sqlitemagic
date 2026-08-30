@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntitys
 import com.siimkinks.sqlitemagic.WithoutRowIdEntityTable.Companion.WITHOUT_ROW_ID_ENTITY
 import com.siimkinks.sqlitemagic.WithoutRowIdEntitys
+import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.NoIdUniqueEntity
@@ -15,12 +16,16 @@ import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.WithoutRowIdEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
+import com.siimkinks.sqlitemagic.runtime.model.BulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
+import com.siimkinks.sqlitemagic.runtime.model.StandardTableDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.update
@@ -36,7 +41,8 @@ internal object IdentityModelCatalog {
   internal val representativeEmptyBulkCase: BulkPersistModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
 
   private object StringIdEntityCase :
-    StandardBulkPersistModelCase<StringIdEntity> {
+    StandardBulkPersistModelCase<StringIdEntity>,
+    StandardBulkDeleteModelCase<StringIdEntity> {
     override val name = "StringIdEntity"
     override val table = STRING_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -55,6 +61,12 @@ internal object IdentityModelCatalog {
       bulkPersist = StringIdEntitys::persist
     )
 
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = StringIdEntity::delete,
+      bulkDelete = StringIdEntitys::delete,
+      deleteTable = StringIdEntitys::deleteTable
+    )
+
     override fun expectedAfterInsert(value: StringIdEntity, result: EntityInsertResult.Inserted) = value
 
     override fun updatedValue(value: StringIdEntity, sequence: Int) = value.copy(
@@ -65,7 +77,9 @@ internal object IdentityModelCatalog {
     override fun toString() = name
   }
 
-  private object NoIdEntityCase : BulkInsertModelCase<NoIdEntity> {
+  private object NoIdEntityCase :
+    BulkInsertModelCase<NoIdEntity>,
+    StandardTableDeleteModelCase<NoIdEntity> {
     override val name = "NoIdEntity"
     override val table = NO_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -76,13 +90,16 @@ internal object IdentityModelCatalog {
 
     override fun bulkInsert(values: List<NoIdEntity>) = NoIdEntitys.insert(values)
 
+    override fun deleteTable() = NoIdEntitys.deleteTable()
+
     override fun expectedAfterInsert(value: NoIdEntity, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
   }
 
   private object WithoutRowIdEntityCase :
-    StandardBulkPersistModelCase<WithoutRowIdEntity> {
+    StandardBulkPersistModelCase<WithoutRowIdEntity>,
+    StandardBulkDeleteModelCase<WithoutRowIdEntity> {
     override val name = "WithoutRowIdEntity"
     override val table = WITHOUT_ROW_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.ABSENT
@@ -101,6 +118,12 @@ internal object IdentityModelCatalog {
       bulkPersist = WithoutRowIdEntitys::persist
     )
 
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = WithoutRowIdEntity::delete,
+      bulkDelete = WithoutRowIdEntitys::delete,
+      deleteTable = WithoutRowIdEntitys::deleteTable
+    )
+
     override fun expectedAfterInsert(value: WithoutRowIdEntity, result: EntityInsertResult.Inserted) = value
 
     override fun updatedValue(value: WithoutRowIdEntity, sequence: Int) = value.copy(
@@ -113,7 +136,9 @@ internal object IdentityModelCatalog {
 
   private object NoIdUniqueEntityCase :
     UniqueInsertModelCase<NoIdUniqueEntity>,
-    BulkPersistModelCase<NoIdUniqueEntity> {
+    BulkPersistModelCase<NoIdUniqueEntity>,
+    BulkDeleteModelCase<NoIdUniqueEntity>,
+    StandardTableDeleteModelCase<NoIdUniqueEntity> {
     override val name = "NoIdUniqueEntity"
     override val table = NO_ID_UNIQUE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
@@ -126,6 +151,24 @@ internal object IdentityModelCatalog {
     override fun insert(value: NoIdUniqueEntity) = value.insert()
 
     override fun bulkInsert(values: List<NoIdUniqueEntity>) = NoIdUniqueEntitys.insert(values)
+
+    override fun executeDelete(value: NoIdUniqueEntity) = value
+      .delete()
+      .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun observeDelete(value: NoIdUniqueEntity) = value
+      .delete()
+      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun executeBulkDelete(values: Collection<NoIdUniqueEntity>) = NoIdUniqueEntitys
+      .delete(o = values)
+      .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun observeBulkDelete(values: Collection<NoIdUniqueEntity>) = NoIdUniqueEntitys
+      .delete(o = values)
+      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+
+    override fun deleteTable() = NoIdUniqueEntitys.deleteTable()
 
     override fun expectedAfterInsert(value: NoIdUniqueEntity, result: EntityInsertResult.Inserted) = value
 
