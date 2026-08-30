@@ -28,6 +28,7 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingAllNullPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
@@ -35,6 +36,7 @@ import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
+import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.TriggerModelCase
 import com.siimkinks.sqlitemagic.update
 
@@ -139,10 +141,16 @@ internal object ScalarModelCatalog {
   private object ImmutableValueWithNullableFieldsCase :
     StandardNullOmittingPersistModelCase<ImmutableValueWithNullableFields>,
     StandardBulkDeleteModelCase<ImmutableValueWithNullableFields>,
-    NullOmittingAllNullPersistModelCase<ImmutableValueWithNullableFields> {
+    NullOmittingAllNullPersistModelCase<ImmutableValueWithNullableFields>,
+    SuccessfulModelProjectionCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
     override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override val projectionColumns = listOf(
+      IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.ID,
+      IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.STRING
+    )
 
     override fun newValue(sequence: Int) = ImmutableValueWithNullableFields(
       id = null,
@@ -217,6 +225,11 @@ internal object ScalarModelCatalog {
       result: EntityInsertResult.Inserted
     ) = value.copy(id = checkNotNull(result.rowId))
 
+    override fun expectedAfterProjection(value: ImmutableValueWithNullableFields) = value.copy(
+      aBoolean = null,
+      integer = null
+    )
+
     override fun expectedAfterBulkInsert(
       values: List<ImmutableValueWithNullableFields>,
       actual: List<ImmutableValueWithNullableFields>
@@ -231,10 +244,17 @@ internal object ScalarModelCatalog {
 
   private object ImmutableValueWithFieldsCase :
     StandardBulkPersistModelCase<ImmutableValueWithFields>,
-    StandardBulkDeleteModelCase<ImmutableValueWithFields> {
+    StandardBulkDeleteModelCase<ImmutableValueWithFields>,
+    MissingRequiredProjectionCase<ImmutableValueWithFields> {
     override val name = "ImmutableValueWithFields"
     override val table = IMMUTABLE_VALUE_WITH_FIELDS
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override val missingRequiredProjectionColumns = listOf(
+      IMMUTABLE_VALUE_WITH_FIELDS.ID
+    )
+    override val expectedSQLExceptionMessage =
+      """Selected columns did not contain table "immutable_value_with_fields" required column "string_value""""
 
     override fun newValue(sequence: Int) = ImmutableValueWithFields(
       id = null,

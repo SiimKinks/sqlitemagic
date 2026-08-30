@@ -25,6 +25,12 @@ object ModelCatalog {
   val relationshipModelQueryCases: List<RelationshipQueryModelCase<*>> = allCases
     .filterIsInstance<RelationshipQueryModelCase<*>>()
 
+  val successfulModelProjectionCases: List<SuccessfulModelProjectionCase<*>> = allCases
+    .filterIsInstance<SuccessfulModelProjectionCase<*>>()
+
+  val missingRequiredProjectionCases: List<MissingRequiredProjectionCase<*>> = allCases
+    .filterIsInstance<MissingRequiredProjectionCase<*>>()
+
   val updateCases: List<UpdateModelCase<*>> = allCases
     .filterIsInstance<UpdateModelCase<*>>()
 

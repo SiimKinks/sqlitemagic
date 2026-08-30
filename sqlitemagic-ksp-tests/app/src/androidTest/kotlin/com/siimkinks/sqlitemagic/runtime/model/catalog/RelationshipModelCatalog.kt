@@ -25,6 +25,7 @@ import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingPersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistConflictModelCase
@@ -38,6 +39,7 @@ import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
+import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
 import com.siimkinks.sqlitemagic.update
 
@@ -130,6 +132,7 @@ internal object RelationshipModelCatalog {
 
   private object EntityWithRelationshipCase :
     RelationshipQueryModelCase<EntityWithRelationship>,
+    SuccessfulModelProjectionCase<EntityWithRelationship>,
     RecursiveTriggerModelCase<EntityWithRelationship>,
     RecursiveBulkPersistModelCase<EntityWithRelationship>,
     RecursiveNullOmittingPersistModelCase<EntityWithRelationship>,
@@ -139,6 +142,11 @@ internal object RelationshipModelCatalog {
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override val projectionColumns = listOf(
+      ENTITY_WITH_RELATIONSHIP.ID,
+      ENTITY_WITH_RELATIONSHIP.VALUE
+    )
 
     override fun newValue(sequence: Int) = EntityWithRelationship().apply {
       value = "relationship-entity-with-relationship-$sequence"
@@ -196,6 +204,11 @@ internal object RelationshipModelCatalog {
       value: EntityWithRelationship,
       result: EntityInsertResult.Inserted
     ) = value.copyWithGeneratedId(result = result)
+
+    override fun expectedAfterProjection(value: EntityWithRelationship) = EntityWithRelationship().also {
+      it.id = value.id
+      it.value = value.value
+    }
 
     override fun expectedAfterShallowQuery(deepExpected: EntityWithRelationship) = EntityWithRelationship().also {
       it.id = deepExpected.id
@@ -300,12 +313,20 @@ internal object RelationshipModelCatalog {
 
   private object EntityWithStringIdRelationshipCase :
     RelationshipQueryModelCase<EntityWithStringIdRelationship>,
+    MissingRequiredProjectionCase<EntityWithStringIdRelationship>,
     RecursiveBulkPersistModelCase<EntityWithStringIdRelationship>,
     StandardBulkDeleteModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
     override val table = ENTITY_WITH_STRING_ID_RELATIONSHIP
     override val relatedTable = STRING_ID_ENTITY
     override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override val missingRequiredProjectionColumns = listOf(
+      ENTITY_WITH_STRING_ID_RELATIONSHIP.ID,
+      ENTITY_WITH_STRING_ID_RELATIONSHIP.VALUE
+    )
+    override val expectedSQLExceptionMessage =
+      "Column related_entity is not nullable and was not part of selected columns"
 
     override fun newValue(sequence: Int) = EntityWithStringIdRelationship(
       id = null,
