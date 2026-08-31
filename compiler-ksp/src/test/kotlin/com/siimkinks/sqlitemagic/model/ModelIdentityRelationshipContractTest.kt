@@ -716,6 +716,72 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `guards nullable final values in relationship-backed ID columns`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableRelationshipBackedId.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class NullableLeafId(
+              @Id val value: String?
+            )
+
+            @Table
+            data class NullableRelationshipId(
+              @Id
+              @Column(handleRecursively = false)
+              val id: NullableLeafId
+            )
+
+            @Table
+            data class NullableRelationshipOwner(
+              @Id val ownerId: String,
+              @Column(handleRecursively = false)
+              val relationshipId: NullableRelationshipId
+            )
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_NullableRelationshipOwner_Dao.kt",
+        "SqliteMagic_NullableRelationshipId_IdColumn.kt",
+        "SqliteMagic_NullableRelationshipOwner_RelationshipIdColumn.kt"
+      )
+      .withGeneratedSource("SqliteMagic_NullableRelationshipOwner_RelationshipIdColumn.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "val sqlValue = `value`.`value`",
+          "if (sqlValue == null)",
+          "throw NullPointerException(\"SQL argument cannot be null\")",
+          "return sqlValue"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_NullableRelationshipId_IdColumn.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "override fun toSqlArg(`value`: String): String = `value`"
+        )
+        generatedSource.assertDoesNotContain(
+          "val sqlValue",
+          "SQL argument cannot be null"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_NullableRelationshipOwner_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "entity.relationshipId.id.`value`",
+          """OperationFailedException("Relationship \"relationship_id\" resolved to a NULL ID")"""
+        )
+        generatedSource.assertDoesNotContain("entity.relationshipId.id?.`value`")
+      }
+  }
+
+  @Test
   fun `propagates nullable relationship-backed IDs through the declared ID boundary`() {
     SqliteMagicCompilation
       .compile(

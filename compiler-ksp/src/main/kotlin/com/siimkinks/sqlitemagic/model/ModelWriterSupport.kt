@@ -179,7 +179,7 @@ internal fun TableElement.serializedReadExpression(column: ColumnElement): CodeB
     )
     expression = relationship.serializedDeclaredIdValue(
       value = expression,
-      valueCanBeNull = column.isModelPathNullable || relationship.referencedIdIsNullable
+      valueCanBeNull = column.isModelPathNullable || relationship.referencedIdValueCanBeNull
     )
   }
   column.transformer?.let { transformer ->
@@ -207,7 +207,7 @@ internal fun RelationshipElement.serializedDeclaredIdValue(
     )
     return nestedRelationship.serializedDeclaredIdValue(
       value = nestedValue,
-      valueCanBeNull = valueCanBeNull || nestedRelationship.referencedIdIsNullable
+      valueCanBeNull = valueCanBeNull || nestedRelationship.referencedIdValueCanBeNull
     )
   }
   val transformer = referencedIdTransformer ?: return value

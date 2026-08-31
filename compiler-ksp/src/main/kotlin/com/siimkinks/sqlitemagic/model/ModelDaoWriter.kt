@@ -296,7 +296,11 @@ internal class ModelDaoWriter(
   ) = when (column.sqlStorageType) {
     SqlStorageType.BYTE_ARRAY,
     SqlStorageType.BOXED_BYTE_ARRAY,
-    SqlStorageType.BYTE -> CodeBlock.of("statement.bindBlob(%L, %L)\n", parameterIndex, column.databaseWriteValue(value))
+    SqlStorageType.BYTE -> CodeBlock.of(
+      "statement.bindBlob(%L, %L)\n",
+      parameterIndex,
+      column.databaseWriteValue(value)
+    )
     SqlStorageType.DOUBLE -> CodeBlock.of("statement.bindDouble(%L, %L)\n", parameterIndex, value)
     SqlStorageType.FLOAT -> CodeBlock.of("statement.bindDouble(%L, %L.toDouble())\n", parameterIndex, value)
     SqlStorageType.INT,
@@ -322,7 +326,7 @@ internal class ModelDaoWriter(
         path = relationship.referencedIdProperty,
         nullableReceiver = false
       ),
-      valueCanBeNull = relationship.referencedIdIsNullable
+      valueCanBeNull = relationship.referencedIdValueCanBeNull
     )
     val resolvedId = when {
       usesGeneratedRelationshipIds && column.needsGeneratedRelationshipId(environment) -> CodeBlock.of(

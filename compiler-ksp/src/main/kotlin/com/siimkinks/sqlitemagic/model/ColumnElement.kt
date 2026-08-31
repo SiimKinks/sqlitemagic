@@ -44,9 +44,10 @@ data class RelationshipElement(
   val referencedTableArtifactStem: String = ""
 ) {
   val referencedTableTypeKey get() = referencedTableType.typeKey
+  val referencedIdValueCanBeNull get() = referencedIdType.typeName.isNullable
   val serializedValueCanBeNull: Boolean
     get() = referencedIdTransformer?.serializedTypeCanBeNull == true ||
-        referencedIdRelationship?.serializedValueCanBeNull == true
+        referencedIdRelationship?.databaseValueCanBeNull == true
   val databaseValueCanBeNull get() = referencedIdIsNullable || serializedValueCanBeNull
 }
 
