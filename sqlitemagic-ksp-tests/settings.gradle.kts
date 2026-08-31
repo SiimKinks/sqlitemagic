@@ -14,3 +14,4 @@ pluginManagement {
 }
 
 include(":app")
+include(":submodule")

@@ -60,6 +60,7 @@ androidComponents {
 }
 
 dependencies {
+  implementation(project(":submodule"))
   implementation(libs.android.sqlite.framework)
   implementation(libs.rx.java2)
 
