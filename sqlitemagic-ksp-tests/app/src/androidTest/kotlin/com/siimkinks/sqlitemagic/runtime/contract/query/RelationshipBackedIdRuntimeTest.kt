@@ -68,13 +68,37 @@ class RelationshipBackedIdRuntimeTest : RuntimeDatabaseTest() {
     val seeded = seedOwner()
     val updated = seeded.owner.copy(value = "updated-owner-value")
 
-    assertThat(updated.update().execute()).isTrue()
-    assertThat(updated.persist().execute()).isEqualTo(EntityPersistResult.Updated)
-    assertThat(updated.delete().execute()).isEqualTo(1)
+    assertThat(
+      updated
+        .update()
+        .execute()
+    ).isTrue()
+    assertThat(
+      updated
+        .persist()
+        .execute()
+    ).isEqualTo(EntityPersistResult.Updated)
+    assertThat(
+      updated
+        .delete()
+        .execute()
+    ).isEqualTo(1)
 
-    assertThat(Select.from(LEAF_ID).execute()).containsExactly(seeded.leaf)
-    assertThat(Select.from(RELATIONSHIP_ID).execute()).containsExactly(seeded.relationship)
-    assertThat(Select.from(RELATIONSHIP_OWNER).execute()).isEmpty()
+    assertThat(
+      Select
+        .from(LEAF_ID)
+        .execute()
+    ).containsExactly(seeded.leaf)
+    assertThat(
+      Select
+        .from(RELATIONSHIP_ID)
+        .execute()
+    ).containsExactly(seeded.relationship)
+    assertThat(
+      Select
+        .from(RELATIONSHIP_OWNER)
+        .execute()
+    ).isEmpty()
   }
 
   @Test
@@ -86,28 +110,46 @@ class RelationshipBackedIdRuntimeTest : RuntimeDatabaseTest() {
     )
 
     val exception = assertThrows(OperationFailedException::class.java) {
-      owner.insert().execute()
+      owner
+        .insert()
+        .execute()
     }
 
     assertThat(exception)
       .hasMessageThat()
       .isEqualTo("Relationship \"relationship_id\" resolved to a NULL ID")
-    assertThat(Select.from(RELATIONSHIP_OWNER).execute()).isEmpty()
+    assertThat(
+      Select
+        .from(RELATIONSHIP_OWNER)
+        .execute()
+    ).isEmpty()
   }
 
   private fun seedOwner(): SeededValues {
     val leaf = LeafId(value = "leaf-id")
-    assertThat(leaf.insert().execute()).isInstanceOf(EntityInsertResult.Inserted::class.java)
+    assertThat(
+      leaf
+        .insert()
+        .execute()
+    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
 
     val relationship = RelationshipId(id = leaf)
-    assertThat(relationship.insert().execute()).isInstanceOf(EntityInsertResult.Inserted::class.java)
+    assertThat(
+      relationship
+        .insert()
+        .execute()
+    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
 
     val owner = RelationshipOwner(
       ownerId = "owner-id",
       relationshipId = relationship,
       value = "owner-value"
     )
-    assertThat(owner.insert().execute()).isInstanceOf(EntityInsertResult.Inserted::class.java)
+    assertThat(
+      owner
+        .insert()
+        .execute()
+    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
     return SeededValues(
       leaf = leaf,
       relationship = relationship,

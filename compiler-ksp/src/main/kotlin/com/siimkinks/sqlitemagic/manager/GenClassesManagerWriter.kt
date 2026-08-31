@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_NR_OF_TABLES
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_SUBMODULE_NAMES
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_IS_DEBUG
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_MIGRATE_VIEWS
+import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_DATABASE
 import com.siimkinks.sqlitemagic.WriterTypes.LOG_UTIL
@@ -354,7 +355,8 @@ internal class GenClassesManagerWriter(
     val deserializedType = deserializedType.typeName.copy(nullable = false)
     val serializedValue = serializedValueGetter(CodeBlock.of("input as %T", deserializedType))
     val columnClass = generatedColumnClassName()
-    val parser = checkNotNull(serializedType.sqlStorageType).parserName(nullable = false)
+    val storageType = checkNotNull(serializedType.sqlStorageType)
+    val parser = storageType.parserName(nullable = false)
     return CodeBlock
       .builder()
       .add("run {\n")
@@ -362,6 +364,11 @@ internal class GenClassesManagerWriter(
       .addStatement("val sqlValue = %L", serializedValue)
       .apply {
         when {
+          storageType == SqlStorageType.STRING && serializedTypeCanBeNull -> add("val stringValue = sqlValue\n")
+            .indent()
+            .addStatement("?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
+            .unindent()
+          storageType == SqlStorageType.STRING -> addStatement("val stringValue = sqlValue")
           serializedTypeCanBeNull -> add("val stringValue = sqlValue?.toString()\n")
             .indent()
             .addStatement("?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")

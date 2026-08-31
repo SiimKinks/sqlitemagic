@@ -125,9 +125,14 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "db.execSQL(\"DELETE FROM transformed_values\")",
           "allChangedTables.add(\"transformed_values\")",
           "TokenColumn<",
-          "TokenTransformers.toDatabaseValue(input as Token)",
+          "val sqlValue = TokenTransformers.toDatabaseValue(input as Token)\n" +
+              "        val stringValue = sqlValue\n" +
+              "        TokenColumn",
+          "val sqlValue = NumericTokenTransformers.toDatabaseValue(input as NumericToken)\n" +
+              "        val stringValue = sqlValue.toString()\n" +
+              "        NumericTokenColumn",
           "else -> Column<V, V, V, Any, NotNullable>(",
-          "\"'\${input}'\""
+          $$""""'${input}'""""
         )
       }
   }
@@ -241,9 +246,9 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
-          "NullableEmailTransformer.emailToString(input as Email)",
-          "val stringValue = sqlValue?.toString()",
-          "?: throw NullPointerException(\"SQL argument cannot be null\")",
+          "val sqlValue = NullableEmailTransformer.emailToString(input as Email)\n" +
+              "        val stringValue = sqlValue\n" +
+              "          ?: throw NullPointerException(\"SQL argument cannot be null\")",
           "throw UnsupportedOperationException(",
           "\"Unable to disambiguate transformer for kotlin.collections.List\""
         )
@@ -261,6 +266,8 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
 
       data class Token(val value: String)
 
+      data class NumericToken(val value: Long)
+
       object TokenTransformers {
         @ObjectToDbValue
         fun toDatabaseValue(value: Token): String = value.value
@@ -269,9 +276,18 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
         fun fromDatabaseValue(value: String): Token = Token(value)
       }
 
+      object NumericTokenTransformers {
+        @ObjectToDbValue
+        fun toDatabaseValue(value: NumericToken): Long = value.value
+
+        @DbValueToObject
+        fun fromDatabaseValue(value: Long): NumericToken = NumericToken(value)
+      }
+
       @Table("transformed_values")
       data class TransformedValue(
-        val token: Token
+        val token: Token,
+        val numericToken: NumericToken
       )
     """
   )
