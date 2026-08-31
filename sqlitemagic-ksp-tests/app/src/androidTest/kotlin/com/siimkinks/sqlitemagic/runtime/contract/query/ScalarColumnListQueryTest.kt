@@ -23,8 +23,7 @@ class ScalarColumnListQueryTest(
       .execute()
 
     assertThat(actual)
-      .containsExactlyElementsIn(scalarColumnCase.expectedValues)
-      .inOrder()
+      .isEqualTo(scalarColumnCase.expectedValues)
   }
 
   @Test

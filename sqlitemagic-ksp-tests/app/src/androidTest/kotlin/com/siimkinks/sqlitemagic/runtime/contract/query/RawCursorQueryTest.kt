@@ -96,8 +96,7 @@ class RawCursorQueryTest(
     )
 
     assertThat(actual)
-      .containsExactlyElementsIn(expected)
-      .inOrder()
+      .isEqualTo(expected)
   }
 
   private fun <T> assertObservedRawModels(
@@ -114,8 +113,7 @@ class RawCursorQueryTest(
     )
 
     assertThat(actual)
-      .containsExactlyElementsIn(expected)
-      .inOrder()
+      .isEqualTo(expected)
   }
 
   companion object {

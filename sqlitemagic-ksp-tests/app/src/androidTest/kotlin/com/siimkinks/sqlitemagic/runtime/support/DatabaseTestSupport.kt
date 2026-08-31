@@ -62,8 +62,7 @@ internal fun assertRowsInOrder(
   table: Table<*>,
   expected: List<*>
 ) = assertThat(captureRows(table = table))
-  .containsExactlyElementsIn(expected)
-  .inOrder()
+  .isEqualTo(expected)
 
 internal fun assertRowsIgnoringOrder(
   table: Table<*>,
