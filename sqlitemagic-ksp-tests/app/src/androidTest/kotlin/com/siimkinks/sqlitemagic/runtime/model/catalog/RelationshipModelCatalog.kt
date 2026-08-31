@@ -1,11 +1,14 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
+import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
+import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafss
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.EntityWithRelationships
 import com.siimkinks.sqlitemagic.EntityWithStringIdRelationshipTable.Companion.ENTITY_WITH_STRING_ID_RELATIONSHIP
 import com.siimkinks.sqlitemagic.EntityWithStringIdRelationships
 import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipsTable.Companion.ENTITY_WITH_UNIQUE_RELATIONSHIPS
 import com.siimkinks.sqlitemagic.EntityWithUniqueRelationshipss
+import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntitys
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
@@ -14,11 +17,14 @@ import com.siimkinks.sqlitemagic.UniqueRelatedEntitys
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
+import com.siimkinks.sqlitemagic.fixture.model.ComplexObjectWithSameLeafs
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithStringIdRelationship
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithUniqueRelationships
+import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
+import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
@@ -40,6 +46,8 @@ import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
+import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
+import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
 import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
 import com.siimkinks.sqlitemagic.update
 
@@ -50,6 +58,7 @@ internal object RelationshipModelCatalog {
     EntityWithStringIdRelationshipCase,
     EntityWithUniqueRelationshipsCase,
     UniqueRelatedEntityCase,
+    ComplexObjectWithSameLeafsCase,
   )
 
   internal val representativeEmptyBulkCase: BulkPersistModelCase<EntityWithRelationship> = EntityWithRelationshipCase
@@ -556,6 +565,140 @@ internal object RelationshipModelCatalog {
       )
     )
 
+
+    override fun toString() = name
+  }
+
+  private object ComplexObjectWithSameLeafsCase : TransitiveRelationshipModelCase<ComplexObjectWithSameLeafs> {
+    override val name = "ComplexObjectWithSameLeafs"
+    override val table = COMPLEX_OBJECT_WITH_SAME_LEAFS
+    override val relatedTable = IMMUTABLE_VALUE_WITH_FIELDS
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = ComplexObjectWithSameLeafs(
+      id = Long.MIN_VALUE,
+      name = "complex-object-with-same-leafs-$sequence",
+      simpleValue = ImmutableValueWithFields(
+        id = null,
+        stringValue = "complex-simple-value-$sequence",
+        aBoolean = sequence % 2 == 0,
+        integer = 100 + sequence,
+        aDouble = 1.25 + sequence,
+        aShort = (10 + sequence).toShort(),
+        transformableObject = TransformableObject(value = 1000 + sequence)
+      ),
+      entityWithRelationship = EntityWithRelationship().apply {
+        value = "complex-relationship-value-$sequence"
+        relatedEntity = SimpleMutableEntity(
+          id = null,
+          value = "complex-nested-simple-value-$sequence",
+          boxedBoolean = sequence % 2 == 0,
+          primitiveBoolean = sequence % 2 != 0
+        )
+        count = 300 + sequence
+      },
+      simpleValueDuplicate = ImmutableValueWithFields(
+        id = null,
+        stringValue = "complex-simple-value-duplicate-$sequence",
+        aBoolean = sequence % 2 != 0,
+        integer = 200 + sequence,
+        aDouble = 2.5 + sequence,
+        aShort = (20 + sequence).toShort(),
+        transformableObject = TransformableObject(value = 2000 + sequence)
+      )
+    )
+
+    override val operationBuilders = StandardOperationBuilders(
+      insert = ComplexObjectWithSameLeafs::insert,
+      bulkInsert = ComplexObjectWithSameLeafss::insert,
+      update = ComplexObjectWithSameLeafs::update,
+      bulkUpdate = ComplexObjectWithSameLeafss::update,
+      persist = ComplexObjectWithSameLeafs::persist,
+      bulkPersist = ComplexObjectWithSameLeafss::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = ComplexObjectWithSameLeafs::delete,
+      bulkDelete = ComplexObjectWithSameLeafss::delete,
+      deleteTable = ComplexObjectWithSameLeafss::deleteTable
+    )
+
+    override fun expectedAfterInsert(
+      value: ComplexObjectWithSameLeafs,
+      result: EntityInsertResult.Inserted
+    ) = value.copy(id = checkNotNull(result.rowId))
+
+    override fun expectedAfterBulkInsert(
+      values: List<ComplexObjectWithSameLeafs>,
+      actual: List<ComplexObjectWithSameLeafs>
+    ) = actual.map { persisted ->
+      val value = values.single { it.name == persisted.name }
+      value.copy(id = persisted.id)
+    }
+
+    override fun expectedAfterShallowQuery(deepExpected: ComplexObjectWithSameLeafs) = deepExpected.copy(
+      entityWithRelationship = EntityWithRelationship().also {
+        it.id = deepExpected.entityWithRelationship.id
+      }
+    )
+
+    override fun relatedValues(value: ComplexObjectWithSameLeafs): List<*> = listOf(
+      value.simpleValue,
+      value.simpleValueDuplicate
+    )
+
+    override fun transitiveRelatedTableRows(value: ComplexObjectWithSameLeafs) = listOf(
+      TransitiveRelationshipTableRows(
+        table = IMMUTABLE_VALUE_WITH_FIELDS,
+        rows = listOf(value.simpleValue, value.simpleValueDuplicate)
+      ),
+      TransitiveRelationshipTableRows(
+        table = ENTITY_WITH_RELATIONSHIP,
+        rows = listOf(value.entityWithRelationship)
+      ),
+      TransitiveRelationshipTableRows(
+        table = SIMPLE_MUTABLE_ENTITY,
+        rows = listOf(checkNotNull(value.entityWithRelationship.relatedEntity))
+      )
+    )
+
+    override fun withMissingRelationshipIdentity(value: ComplexObjectWithSameLeafs) = value.copy(
+      simpleValue = value.simpleValue.copy(id = Long.MAX_VALUE)
+    )
+
+    override fun updatedValue(value: ComplexObjectWithSameLeafs, sequence: Int) =
+      checkNotNull(value.entityWithRelationship.relatedEntity).let { relatedEntity ->
+        value.copy(
+          name = "complex-object-with-same-leafs-updated-$sequence",
+          simpleValue = value.simpleValue.copy(
+            stringValue = "complex-simple-value-updated-$sequence",
+            aBoolean = sequence % 2 != 0,
+            integer = 400 + sequence,
+            aDouble = 4.25 + sequence,
+            aShort = (40 + sequence).toShort(),
+            transformableObject = TransformableObject(value = 4000 + sequence)
+          ),
+          entityWithRelationship = EntityWithRelationship().apply {
+            id = value.entityWithRelationship.id
+            this.value = "complex-relationship-value-updated-$sequence"
+            this.relatedEntity = relatedEntity.copy(
+              id = relatedEntity.id,
+              value = "complex-nested-simple-value-updated-$sequence",
+              boxedBoolean = sequence % 2 != 0,
+              primitiveBoolean = sequence % 2 == 0
+            )
+            count = 600 + sequence
+          },
+          simpleValueDuplicate = value.simpleValueDuplicate.copy(
+            stringValue = "complex-simple-value-duplicate-updated-$sequence",
+            aBoolean = sequence % 2 == 0,
+            integer = 500 + sequence,
+            aDouble = 5.5 + sequence,
+            aShort = (50 + sequence).toShort(),
+            transformableObject = TransformableObject(value = 5000 + sequence)
+          )
+        )
+      }
 
     override fun toString() = name
   }

@@ -5,7 +5,7 @@ import com.siimkinks.sqlitemagic.annotation.Table
 
 @Table
 data class ImmutableValueWithFields(
-  @Id val id: Long?,
+  @Id var id: Long?,
   val stringValue: String,
   val aBoolean: Boolean,
   val integer: Int,
