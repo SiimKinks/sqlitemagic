@@ -1,5 +1,9 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
+import com.siimkinks.sqlitemagic.AccountTable.Companion.ACCOUNT
+import com.siimkinks.sqlitemagic.Accounts
+import com.siimkinks.sqlitemagic.AutomaticTransformedTable.Companion.AUTOMATIC_TRANSFORMED
+import com.siimkinks.sqlitemagic.AutomaticTransformeds
 import com.siimkinks.sqlitemagic.NoIdEntityTable.Companion.NO_ID_ENTITY
 import com.siimkinks.sqlitemagic.NoIdEntitys
 import com.siimkinks.sqlitemagic.NoIdUniqueEntityTable.Companion.NO_ID_UNIQUE_ENTITY
@@ -10,8 +14,12 @@ import com.siimkinks.sqlitemagic.WithoutRowIdEntityTable.Companion.WITHOUT_ROW_I
 import com.siimkinks.sqlitemagic.WithoutRowIdEntitys
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.fixture.model.Account
+import com.siimkinks.sqlitemagic.fixture.model.AccountId
+import com.siimkinks.sqlitemagic.fixture.model.AutomaticTransformed
 import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.NoIdUniqueEntity
+import com.siimkinks.sqlitemagic.fixture.model.SequenceId
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.WithoutRowIdEntity
 import com.siimkinks.sqlitemagic.insert
@@ -32,6 +40,8 @@ import com.siimkinks.sqlitemagic.update
 
 internal object IdentityModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
+    AutomaticTransformedCase,
+    AccountCase,
     StringIdEntityCase,
     NoIdEntityCase,
     NoIdUniqueEntityCase,
@@ -39,6 +49,92 @@ internal object IdentityModelCatalog {
   )
 
   internal val representativeEmptyBulkCase: BulkPersistModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
+
+  private object AutomaticTransformedCase :
+    StandardBulkPersistModelCase<AutomaticTransformed>,
+    StandardBulkDeleteModelCase<AutomaticTransformed> {
+    override val name = "AutomaticTransformed"
+    override val table = AUTOMATIC_TRANSFORMED
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = AutomaticTransformed(
+      id = SequenceId(0),
+      value = "automatic-transformed-value-$sequence"
+    )
+
+    override val operationBuilders = StandardOperationBuilders(
+      insert = AutomaticTransformed::insert,
+      bulkInsert = AutomaticTransformeds::insert,
+      update = AutomaticTransformed::update,
+      bulkUpdate = AutomaticTransformeds::update,
+      persist = AutomaticTransformed::persist,
+      bulkPersist = AutomaticTransformeds::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = AutomaticTransformed::delete,
+      bulkDelete = AutomaticTransformeds::delete,
+      deleteTable = AutomaticTransformeds::deleteTable
+    )
+
+    override fun expectedAfterInsert(
+      value: AutomaticTransformed,
+      result: EntityInsertResult.Inserted
+    ) = value.copy(id = SequenceId(checkNotNull(result.rowId)))
+
+    override fun expectedAfterBulkInsert(
+      values: List<AutomaticTransformed>,
+      actual: List<AutomaticTransformed>
+    ) = actual.map { persisted ->
+      values
+        .single { it.value == persisted.value }
+        .copy(id = persisted.id)
+    }
+
+    override fun updatedValue(value: AutomaticTransformed, sequence: Int) = value.copy(
+      id = value.id,
+      value = "automatic-transformed-updated-value-$sequence"
+    )
+
+    override fun toString() = name
+  }
+
+  private object AccountCase :
+    StandardBulkPersistModelCase<Account>,
+    StandardBulkDeleteModelCase<Account> {
+    override val name = "Account"
+    override val table = ACCOUNT
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = Account(
+      id = AccountId("account-id-$sequence"),
+      label = "account-label-$sequence"
+    )
+
+    override val operationBuilders = StandardOperationBuilders(
+      insert = Account::insert,
+      bulkInsert = Accounts::insert,
+      update = Account::update,
+      bulkUpdate = Accounts::update,
+      persist = Account::persist,
+      bulkPersist = Accounts::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = Account::delete,
+      bulkDelete = Accounts::delete,
+      deleteTable = Accounts::deleteTable
+    )
+
+    override fun expectedAfterInsert(value: Account, result: EntityInsertResult.Inserted) = value
+
+    override fun updatedValue(value: Account, sequence: Int) = value.copy(
+      id = value.id,
+      label = "account-updated-label-$sequence"
+    )
+
+    override fun toString() = name
+  }
 
   private object StringIdEntityCase :
     StandardBulkPersistModelCase<StringIdEntity>,

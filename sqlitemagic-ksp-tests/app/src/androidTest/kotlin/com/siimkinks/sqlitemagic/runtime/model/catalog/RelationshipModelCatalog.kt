@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
+import com.siimkinks.sqlitemagic.ArticleTable.Companion.ARTICLE
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafss
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
@@ -17,6 +18,9 @@ import com.siimkinks.sqlitemagic.UniqueRelatedEntitys
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
+import com.siimkinks.sqlitemagic.fixture.model.Account
+import com.siimkinks.sqlitemagic.fixture.model.AccountId
+import com.siimkinks.sqlitemagic.fixture.model.Article
 import com.siimkinks.sqlitemagic.fixture.model.ComplexObjectWithSameLeafs
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithStringIdRelationship
@@ -53,6 +57,7 @@ import com.siimkinks.sqlitemagic.update
 
 internal object RelationshipModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
+    ArticleCase,
     EntityWithRelationshipCase,
     EntityWithNullRelationshipCase,
     EntityWithStringIdRelationshipCase,
@@ -62,6 +67,19 @@ internal object RelationshipModelCatalog {
   )
 
   internal val representativeEmptyBulkCase: BulkPersistModelCase<EntityWithRelationship> = EntityWithRelationshipCase
+
+  private object ArticleCase : RuntimeModelCase<Article> {
+    override val name = "Article"
+    override val table = ARTICLE
+
+    override fun newValue(sequence: Int) = Article(
+      id = "article-$sequence",
+      account = Account(id = AccountId("account-$sequence")),
+      value = "article-value-$sequence"
+    )
+
+    override fun toString() = name
+  }
 
   private object UniqueRelatedEntityCase :
     TriggerConflictModelCase<UniqueRelatedEntity>,
