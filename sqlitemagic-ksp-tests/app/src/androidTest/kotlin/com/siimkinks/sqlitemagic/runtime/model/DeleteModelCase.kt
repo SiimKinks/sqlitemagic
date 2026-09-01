@@ -48,14 +48,12 @@ interface ReferencedDeleteModelCase<T, R> : InsertModelCase<T>, RecursiveModelCa
 }
 
 interface StandardDeleteModelCase<T> : DeleteModelCase<T> {
-  val deleteBuilders: StandardDeleteBuilders<T>
+  fun delete(value: T): EntityDeleteBuilder
 
-  override fun executeDelete(value: T) = deleteBuilders
-    .delete(value)
+  override fun executeDelete(value: T) = delete(value)
     .execute()
 
-  override fun observeDelete(value: T) = deleteBuilders
-    .delete(value)
+  override fun observeDelete(value: T) = delete(value)
     .observe()
 }
 
@@ -73,6 +71,10 @@ interface StandardBulkDeleteModelCase<T> :
   BulkDeleteModelCase<T>,
   StandardDeleteModelCase<T>,
   StandardTableDeleteModelCase<T> {
+  val deleteBuilders: StandardDeleteBuilders<T>
+
+  override fun delete(value: T) = deleteBuilders.delete(value)
+
   override fun executeBulkDelete(values: Collection<T>) = deleteBuilders
     .bulkDelete(values)
     .execute()

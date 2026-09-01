@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.runtime.model
 
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ConstructionModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.DeclarationShapeModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.EmbeddedModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.IdentityModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipModelCatalog
@@ -12,6 +13,7 @@ object ModelCatalog {
     ScalarModelCatalog.cases,
     EmbeddedModelCatalog.cases,
     ConstructionModelCatalog.cases,
+    DeclarationShapeModelCatalog.cases,
     IdentityModelCatalog.cases,
     RelationshipModelCatalog.cases,
     TransformerModelCatalog.cases
