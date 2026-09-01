@@ -10,6 +10,8 @@ import com.siimkinks.sqlitemagic.NoIdUniqueEntityTable.Companion.NO_ID_UNIQUE_EN
 import com.siimkinks.sqlitemagic.NoIdUniqueEntitys
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntitys
+import com.siimkinks.sqlitemagic.TemporaryWithoutRowIdEntityTable.Companion.TEMPORARY_WITHOUT_ROW_ID_ENTITY
+import com.siimkinks.sqlitemagic.TemporaryWithoutRowIdEntitys
 import com.siimkinks.sqlitemagic.WithoutRowIdEntityTable.Companion.WITHOUT_ROW_ID_ENTITY
 import com.siimkinks.sqlitemagic.WithoutRowIdEntitys
 import com.siimkinks.sqlitemagic.delete
@@ -21,6 +23,7 @@ import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.NoIdUniqueEntity
 import com.siimkinks.sqlitemagic.fixture.model.SequenceId
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
+import com.siimkinks.sqlitemagic.fixture.model.TemporaryWithoutRowIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.WithoutRowIdEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
@@ -46,6 +49,7 @@ internal object IdentityModelCatalog {
     NoIdEntityCase,
     NoIdUniqueEntityCase,
     WithoutRowIdEntityCase,
+    TemporaryWithoutRowIdEntityCase,
   )
 
   internal val representativeEmptyBulkCase: BulkPersistModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
@@ -225,6 +229,49 @@ internal object IdentityModelCatalog {
     override fun updatedValue(value: WithoutRowIdEntity, sequence: Int) = value.copy(
       id = value.id,
       value = "without-rowid-value-updated-$sequence"
+    )
+
+    override fun toString() = name
+  }
+
+  private object TemporaryWithoutRowIdEntityCase :
+    StandardBulkPersistModelCase<TemporaryWithoutRowIdEntity>,
+    StandardBulkDeleteModelCase<TemporaryWithoutRowIdEntity> {
+    override val name = "TemporaryWithoutRowIdEntity"
+    override val table = TEMPORARY_WITHOUT_ROW_ID_ENTITY
+    override val rowIdExpectation = InsertRowIdExpectation.ABSENT
+
+    override fun newValue(sequence: Int) = TemporaryWithoutRowIdEntity(
+      id = "temporary-without-rowid-$sequence",
+      value = "temporary-without-rowid-value-$sequence"
+    )
+
+    override val operationBuilders = StandardOperationBuilders(
+      insert = TemporaryWithoutRowIdEntity::insert,
+      bulkInsert = TemporaryWithoutRowIdEntitys::insert,
+      update = TemporaryWithoutRowIdEntity::update,
+      bulkUpdate = TemporaryWithoutRowIdEntitys::update,
+      persist = TemporaryWithoutRowIdEntity::persist,
+      bulkPersist = TemporaryWithoutRowIdEntitys::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = TemporaryWithoutRowIdEntity::delete,
+      bulkDelete = TemporaryWithoutRowIdEntitys::delete,
+      deleteTable = TemporaryWithoutRowIdEntitys::deleteTable
+    )
+
+    override fun expectedAfterInsert(
+      value: TemporaryWithoutRowIdEntity,
+      result: EntityInsertResult.Inserted
+    ) = value
+
+    override fun updatedValue(
+      value: TemporaryWithoutRowIdEntity,
+      sequence: Int
+    ) = value.copy(
+      id = value.id,
+      value = "temporary-without-rowid-value-updated-$sequence"
     )
 
     override fun toString() = name

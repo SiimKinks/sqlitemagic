@@ -11,6 +11,8 @@ import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTAB
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldss
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable.Companion.IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldss
+import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
+import com.siimkinks.sqlitemagic.LibraryBooks
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE_COLUMNS_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
@@ -24,6 +26,7 @@ import com.siimkinks.sqlitemagic.fixture.model.CustomColumnEntity
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithIgnoredValue
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithNullableFields
+import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
 import com.siimkinks.sqlitemagic.fixture.model.SelectiveColumnsEntity
 import com.siimkinks.sqlitemagic.fixture.model.ScalarStorageEntity
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
@@ -57,6 +60,7 @@ internal object ScalarModelCatalog {
     EntityWithIgnoredValueCase,
     BlobEntityCase,
     ScalarStorageEntityCase,
+    LibraryBookCase,
   )
 
   internal val representativeEmptyBulkCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
@@ -607,6 +611,43 @@ internal object ScalarModelCatalog {
       value: ScalarStorageEntity,
       result: EntityInsertResult.Inserted
     ) = value.copy(id = checkNotNull(result.rowId))
+
+    override fun toString() = name
+  }
+
+  private object LibraryBookCase :
+    StandardBulkPersistModelCase<LibraryBook>,
+    StandardBulkDeleteModelCase<LibraryBook> {
+    override val name = "LibraryBook"
+    override val table = LIBRARY_BOOK
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = LibraryBook(
+      id = "library-book-$sequence",
+      title = "library-book-title-$sequence"
+    )
+
+    override val operationBuilders = StandardOperationBuilders(
+      insert = LibraryBook::insert,
+      bulkInsert = LibraryBooks::insert,
+      update = LibraryBook::update,
+      bulkUpdate = LibraryBooks::update,
+      persist = LibraryBook::persist,
+      bulkPersist = LibraryBooks::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = LibraryBook::delete,
+      bulkDelete = LibraryBooks::delete,
+      deleteTable = LibraryBooks::deleteTable
+    )
+
+    override fun updatedValue(value: LibraryBook, sequence: Int) = value.copy(
+      id = value.id,
+      title = "library-book-updated-title-$sequence"
+    )
+
+    override fun expectedAfterInsert(value: LibraryBook, result: EntityInsertResult.Inserted) = value
 
     override fun toString() = name
   }

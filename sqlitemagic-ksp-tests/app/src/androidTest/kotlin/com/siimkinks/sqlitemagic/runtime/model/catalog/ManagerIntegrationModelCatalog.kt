@@ -76,5 +76,7 @@ internal object ManagerIntegrationModelCatalog {
 
   val submoduleCases = cases.filter(ManagerIntegrationModelCase<*>::isSubmodule)
   val temporaryCases = cases.filter(ManagerIntegrationModelCase<*>::isTemporary)
-  val temporaryTableNames = temporaryCases.map(ManagerIntegrationModelCase<*>::tableName)
+  val temporaryTableNames = temporaryCases
+    .map(ManagerIntegrationModelCase<*>::tableName)
+    .plus(SchemaOptionModelCatalog.temporaryTableNames)
 }
