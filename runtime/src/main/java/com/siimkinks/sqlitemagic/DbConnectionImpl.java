@@ -128,13 +128,22 @@ public class DbConnectionImpl implements DbConnection {
       return;
     }
     triggers.onComplete();
-    final EntityDbManager[] cachedEntityData = this.entityDbManagers;
-    for (int i = 0, length = cachedEntityData.length; i < length; i++) {
-      cachedEntityData[i].close();
-      cachedEntityData[i] = null;
+    closeEntityDbManagers(entityDbManagers);
+    final SimpleArrayMap<String, EntityDbManager[]> submoduleEntityDbManagers = this.submoduleEntityDbManagers;
+    if (submoduleEntityDbManagers != null) {
+      for (int i = 0, length = submoduleEntityDbManagers.size(); i < length; i++) {
+        closeEntityDbManagers(submoduleEntityDbManagers.valueAt(i));
+      }
     }
     dbHelper.close();
     LogUtil.logInfo("Closed database [name=%s]", dbHelper.getDatabaseName());
+  }
+
+  private void closeEntityDbManagers(@NonNull EntityDbManager[] managers) {
+    for (int i = 0, length = managers.length; i < length; i++) {
+      managers[i].close();
+      managers[i] = null;
+    }
   }
 
   @NonNull
