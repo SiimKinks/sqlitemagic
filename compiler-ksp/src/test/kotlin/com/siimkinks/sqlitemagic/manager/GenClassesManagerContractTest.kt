@@ -126,13 +126,13 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "allChangedTables.add(\"transformed_values\")",
           "TokenColumn<",
           "val sqlValue = TokenTransformers.toDatabaseValue(input as Token)\n" +
-              "        val stringValue = sqlValue\n" +
+              "        val stringValue = SqlUtil.quoteSqlStringLiteral(sqlValue)\n" +
               "        TokenColumn",
           "val sqlValue = NumericTokenTransformers.toDatabaseValue(input as NumericToken)\n" +
               "        val stringValue = sqlValue.toString()\n" +
               "        NumericTokenColumn",
           "else -> Column<V, V, V, Any, NotNullable>(",
-          $$""""'${input}'""""
+          "SqlUtil.quoteSqlStringLiteral(input.toString()),"
         )
       }
   }
@@ -247,8 +247,8 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
           "val sqlValue = NullableEmailTransformer.emailToString(input as Email)\n" +
-              "        val stringValue = sqlValue\n" +
-              "          ?: throw NullPointerException(\"SQL argument cannot be null\")",
+              "        val stringValue = SqlUtil.quoteSqlStringLiteral(sqlValue ?: " +
+              "throw NullPointerException(\"SQL argument cannot be null\"))",
           "throw UnsupportedOperationException(",
           "\"Unable to disambiguate transformer for kotlin.collections.List\""
         )

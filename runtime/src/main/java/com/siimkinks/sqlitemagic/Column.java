@@ -400,7 +400,15 @@ public class Column<T, R, ET, P, N> {
   @NonNull
   @CheckResult
   public final Column<String, String, CharSequence, ?, N> replace(@NonNull CharSequence target, @NonNull CharSequence replacement) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "replace(", ",'" + target + "','" + replacement + "')", STRING_PARSER, nullable, null);
+    return new FunctionColumn<>(
+        ANONYMOUS_TABLE,
+        this,
+        "replace(",
+        "," + SqlUtil.quoteSqlStringLiteral(target) + "," + SqlUtil.quoteSqlStringLiteral(replacement) + ")",
+        STRING_PARSER,
+        nullable,
+        null
+    );
   }
 
   /**
@@ -487,7 +495,7 @@ public class Column<T, R, ET, P, N> {
   @NonNull
   @CheckResult
   public final Column<String, String, CharSequence, ?, N> trim(@NonNull CharSequence trimString) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "trim(", ",'" + trimString + "')", STRING_PARSER, nullable, null);
+    return new FunctionColumn<>(ANONYMOUS_TABLE, this, "trim(", "," + SqlUtil.quoteSqlStringLiteral(trimString) + ")", STRING_PARSER, nullable, null);
   }
 
   /**

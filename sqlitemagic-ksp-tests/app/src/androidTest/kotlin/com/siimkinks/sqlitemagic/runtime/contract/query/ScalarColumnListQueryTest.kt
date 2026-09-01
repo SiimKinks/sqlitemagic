@@ -22,8 +22,8 @@ class ScalarColumnListQueryTest(
       .query()
       .execute()
 
-    assertThat(actual)
-      .isEqualTo(scalarColumnCase.expectedValues)
+    assertThat(scalarColumnCase.comparableValues(actual))
+      .isEqualTo(scalarColumnCase.comparableValues(scalarColumnCase.expectedValues))
   }
 
   @Test
@@ -38,8 +38,9 @@ class ScalarColumnListQueryTest(
       .query()
       .observe()
       .runQueryOnce()
+      .map(scalarColumnCase::comparableValues)
       .test()
-      .assertResult(scalarColumnCase.expectedValues)
+      .assertResult(scalarColumnCase.comparableValues(scalarColumnCase.expectedValues))
   }
 
   companion object {

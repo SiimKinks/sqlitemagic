@@ -23,7 +23,8 @@ class ScalarColumnFirstQueryTest(
       .takeFirst()
       .execute()
 
-    assertThat(actual).isEqualTo(scalarColumnCase.expectedValues.firstOrNull())
+    assertThat(scalarColumnCase.comparableValue(actual))
+      .isEqualTo(scalarColumnCase.comparableValue(scalarColumnCase.expectedValues.firstOrNull()))
   }
 
   @Test
@@ -39,9 +40,10 @@ class ScalarColumnFirstQueryTest(
       .takeFirst()
       .observe()
       .runQueryOnce()
+      .map(scalarColumnCase::comparableValue)
       .test()
 
-    when (val expected = scalarColumnCase.expectedValues.firstOrNull()) {
+    when (val expected = scalarColumnCase.comparableValue(scalarColumnCase.expectedValues.firstOrNull())) {
       null -> observer.assertResult()
       else -> observer.assertResult(expected)
     }

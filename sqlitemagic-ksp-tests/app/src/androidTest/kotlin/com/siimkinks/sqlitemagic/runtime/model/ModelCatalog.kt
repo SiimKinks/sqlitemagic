@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.runtime.model.catalog.EmbeddedModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.IdentityModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ScalarModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
 
 object ModelCatalog {
   val allCases: List<RuntimeModelCase<*>> = listOf(
@@ -12,7 +13,8 @@ object ModelCatalog {
     EmbeddedModelCatalog.cases,
     ConstructionModelCatalog.cases,
     IdentityModelCatalog.cases,
-    RelationshipModelCatalog.cases
+    RelationshipModelCatalog.cases,
+    TransformerModelCatalog.cases
   ).flatten()
 
   val insertCases: List<InsertModelCase<*>> = allCases

@@ -249,19 +249,24 @@ public final class Utils {
   static final ValueParser<Byte> BYTE_PARSER = new ValueParser<Byte>() {
     @Override
     public Byte parseFromCursor(@NonNull Cursor fastCursor) {
-      return (byte) fastCursor.getLong(0);
+      return fastCursor.getBlob(0)[0];
     }
 
     @Override
     public Byte parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       return (byte) statement.simpleQueryForLong();
     }
+
+    @Override
+    public boolean supportsStatementParsing() {
+      return false;
+    }
   };
 
   static final ValueParser<Byte> NULLABLE_BYTE_PARSER = new ValueParser<Byte>() {
     @Override
     public Byte parseFromCursor(@NonNull Cursor fastCursor) {
-      return (byte) fastCursor.getLong(0);
+      return fastCursor.getBlob(0)[0];
     }
 
     @Override
@@ -271,6 +276,11 @@ public final class Utils {
         return Byte.valueOf(rawVal);
       }
       return null;
+    }
+
+    @Override
+    public boolean supportsStatementParsing() {
+      return false;
     }
   };
 
@@ -284,6 +294,11 @@ public final class Utils {
     public byte[] parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       throw new UnsupportedOperationException("Querying byte array as column is not supported");
     }
+
+    @Override
+    public boolean supportsStatementParsing() {
+      return false;
+    }
   };
 
   static final ValueParser<Byte[]> BOXED_BYTE_ARRAY_PARSER = new ValueParser<Byte[]>() {
@@ -296,11 +311,20 @@ public final class Utils {
     public Byte[] parseFromStatement(@NonNull SupportSQLiteStatement statement) {
       throw new UnsupportedOperationException("Querying byte array as column is not supported");
     }
+
+    @Override
+    public boolean supportsStatementParsing() {
+      return false;
+    }
   };
 
   interface ValueParser<T> {
     T parseFromCursor(@NonNull Cursor fastCursor);
 
     T parseFromStatement(@NonNull SupportSQLiteStatement statement);
+
+    default boolean supportsStatementParsing() {
+      return true;
+    }
   }
 }

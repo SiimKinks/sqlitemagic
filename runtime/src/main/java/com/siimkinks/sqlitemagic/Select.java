@@ -174,7 +174,7 @@ public final class Select<S> extends SelectSqlNode<S> {
    */
   @CheckResult
   public static <T> From<T, T, SelectN, NotNullable> from(@NonNull SelectNode<T, ?, ?> select) {
-    return new From<>(all(), SelectionTable.<T>from(select.selectBuilder, null));
+    return new From<>(all(), SelectionTable.from(select.selectBuilder, null));
   }
 
   /**
@@ -249,7 +249,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      */
     @CheckResult
     public <T> From<T, R, Select1, N> from(@NonNull SelectNode<T, ?, ?> select) {
-      return new From<>(this, SelectionTable.<T>from(select.selectBuilder, null));
+      return new From<>(this, SelectionTable.from(select.selectBuilder, null));
     }
   }
 
@@ -356,7 +356,7 @@ public final class Select<S> extends SelectSqlNode<S> {
      */
     @CheckResult
     public <T> From<T, T, SelectN, NotNullable> from(@NonNull SelectNode<T, ?, ?> select) {
-      return new From<>(this, SelectionTable.<T>from(select.selectBuilder, null));
+      return new From<>(this, SelectionTable.from(select.selectBuilder, null));
     }
   }
 
@@ -1314,7 +1314,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   @NonNull
   @CheckResult
   public static <P, N, X extends Column<?, ?, ?, P, N>> Column<String, String, CharSequence, P, N> groupConcat(@NonNull X column, @NonNull String separator) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(", ",'" + separator + "')", STRING_PARSER, column.nullable, null);
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(", "," + SqlUtil.quoteSqlStringLiteral(separator) + ")", STRING_PARSER, column.nullable, null);
   }
 
   /**
@@ -1343,7 +1343,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   @NonNull
   @CheckResult
   public static <P, N, X extends Column<?, ?, ?, P, N>> Column<String, String, CharSequence, P, N> groupConcatDistinct(@NonNull X column, @NonNull String separator) {
-    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(DISTINCT ", ",'" + separator + "')", STRING_PARSER, column.nullable, null);
+    return new FunctionColumn<>(column.table.internalAlias(""), column, "group_concat(DISTINCT ", "," + SqlUtil.quoteSqlStringLiteral(separator) + ")", STRING_PARSER, column.nullable, null);
   }
 
   /**
@@ -1538,7 +1538,7 @@ public final class Select<S> extends SelectSqlNode<S> {
   @NonNull
   @CheckResult
   public static <V extends CharSequence> Column<V, V, CharSequence, ?, NotNullable> asColumn(@NonNull V val) {
-    return new Column<>(ANONYMOUS_TABLE, "'" + val.toString() + "'", false, STRING_PARSER, false, null);
+    return new Column<>(ANONYMOUS_TABLE, SqlUtil.quoteSqlStringLiteral(val), false, STRING_PARSER, false, null);
   }
 
   /**
@@ -1646,6 +1646,6 @@ public final class Select<S> extends SelectSqlNode<S> {
   @NonNull
   @CheckResult
   public static <X extends Column<?, ?, ?, ?, ?>> Column<String, String, CharSequence, ?, com.siimkinks.sqlitemagic.Nullable> format(@NonNull String format, @NonNull @Size(min = 1) X... columns) {
-    return new FunctionColumn<>(ANONYMOUS_TABLE, columns, "printf('" + format + "', ", ", ", ")", STRING_PARSER, true, null);
+    return new FunctionColumn<>(ANONYMOUS_TABLE, columns, "printf(" + SqlUtil.quoteSqlStringLiteral(format) + ", ", ", ", ")", STRING_PARSER, true, null);
   }
 }

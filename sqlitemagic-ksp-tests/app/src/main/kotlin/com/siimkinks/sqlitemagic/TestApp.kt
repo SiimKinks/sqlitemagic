@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.siimkinks.sqlitemagic.BuildConfig.*
 import com.siimkinks.sqlitemagic.annotation.Database
+import com.siimkinks.sqlitemagic.runtime.fixture.submodule.ExternalTransformer
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleDatabaseConfig
 import io.reactivex.schedulers.Schedulers
 
@@ -12,6 +13,9 @@ import io.reactivex.schedulers.Schedulers
   version = DB_VERSION,
   submodules = [
     SubmoduleDatabaseConfig::class,
+  ],
+  externalTransformers = [
+    ExternalTransformer::class,
   ]
 )
 class TestApp : Application() {

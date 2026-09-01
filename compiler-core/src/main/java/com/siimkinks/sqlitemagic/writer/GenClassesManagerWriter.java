@@ -421,9 +421,10 @@ public class GenClassesManagerWriter {
         i++;
       }
     });
-    switchBody.addStatement("return new $T<>($T.ANONYMOUS_TABLE, \"'\" + val.toString() + \"'\", false, $T.STRING_PARSER, false, null)",
+    switchBody.addStatement("return new $T<>($T.ANONYMOUS_TABLE, $T.quoteSqlStringLiteral(val.toString()), false, $T.STRING_PARSER, false, null)",
         COLUMN,
         TABLE,
+        SQL_UTIL,
         UTIL)
         .unindent();
     builder.addCode(switchBody.build())
@@ -493,7 +494,10 @@ public class GenClassesManagerWriter {
         switchBody.addStatement(String.format("strVal = $T.toString(%s)", valueGetter.getFormat()),
             valueGetter.getWithOtherArgsBefore(boxedType));
       } else if (serializedType.isStringType(environment)) {
-        switchBody.addStatement(valueGetter.formatInto("strVal = %s"), valueGetter.getArgs());
+        switchBody.addStatement(
+            valueGetter.formatInto("strVal = $T.quoteSqlStringLiteral(%s)"),
+            valueGetter.getWithOtherArgsBefore(SQL_UTIL)
+        );
       } else {
         switchBody.addStatement(String.format("strVal = %s.toString()", valueGetter.getFormat()),
             valueGetter.getArgs());

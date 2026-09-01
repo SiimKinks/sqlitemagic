@@ -260,7 +260,7 @@ internal class ModelDaoCursorWriter(
         .flattenedColumns()
         .takeIf { it.any { column -> column.requiresRecursiveCursorOffset(recursive) } }
         ?.let { skippedColumns ->
-          skippedRecursiveValue(
+          skippedRecursiveStatement(
             columns = skippedColumns,
             recursive = recursive
           )
@@ -269,7 +269,7 @@ internal class ModelDaoCursorWriter(
     return when {
       nullableCheck == null -> assignment
       skippedValue != null -> CodeBlock.of("if (%L) %L else %L", nullableCheck, skippedValue, assignment)
-      else -> CodeBlock.of("if (!%L) %L", nullableCheck, assignment)
+      else -> CodeBlock.of("if (!(%L)) %L", nullableCheck, assignment)
     }
   }
 
@@ -553,6 +553,17 @@ internal class ModelDaoCursorWriter(
       )
     }
   }
+
+  private fun skippedRecursiveStatement(
+    columns: List<ColumnElement>,
+    recursive: Boolean
+  ) = CodeBlock.of(
+    "columnOffset.value += %L",
+    recursiveCursorOffset(
+      columns = columns,
+      recursive = recursive
+    )
+  )
 
   private fun skippedRecursiveRelationshipFailure(
     columns: List<ColumnElement>,

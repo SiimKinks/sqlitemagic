@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldss
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE_COLUMNS_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
+import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntitys
 import com.siimkinks.sqlitemagic.delete
@@ -24,6 +25,7 @@ import com.siimkinks.sqlitemagic.fixture.model.EntityWithIgnoredValue
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithNullableFields
 import com.siimkinks.sqlitemagic.fixture.model.SelectiveColumnsEntity
+import com.siimkinks.sqlitemagic.fixture.model.ScalarStorageEntity
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
@@ -39,6 +41,7 @@ import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardNullOmittingPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
+import com.siimkinks.sqlitemagic.runtime.model.StandardUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.TriggerModelCase
 import com.siimkinks.sqlitemagic.update
@@ -53,6 +56,7 @@ internal object ScalarModelCatalog {
     SelectiveColumnsEntityCase,
     EntityWithIgnoredValueCase,
     BlobEntityCase,
+    ScalarStorageEntityCase,
   )
 
   internal val representativeEmptyBulkCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
@@ -559,6 +563,50 @@ internal object ScalarModelCatalog {
           )
         }
     }
+
+    override fun toString() = name
+  }
+
+  private object ScalarStorageEntityCase : StandardUpdateModelCase<ScalarStorageEntity> {
+    override val name = "ScalarStorageEntity"
+    override val table = SCALAR_STORAGE_ENTITY
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = ScalarStorageEntity(
+      id = null,
+      longValue = 1000L + sequence,
+      nullableLong = if (sequence % 2 == 0) null else 2000L + sequence,
+      floatValue = 1.5f + sequence,
+      nullableFloat = if (sequence % 2 == 0) null else 2.5f + sequence,
+      byteValue = (10 + sequence).toByte(),
+      nullableByte = if (sequence % 2 == 0) null else (20 + sequence).toByte(),
+      byteArray = byteArrayOf(sequence.toByte(), (sequence + 1).toByte()),
+      nullableByteArray = if (sequence % 2 == 0) null else byteArrayOf((sequence + 2).toByte()),
+      boxedByteArray = arrayOf(sequence.toByte(), (sequence + 3).toByte()),
+      nullableBoxedByteArray = if (sequence % 2 == 0) null else arrayOf((sequence + 4).toByte())
+    )
+
+    override fun insert(value: ScalarStorageEntity) = value.insert()
+
+    override fun update(value: ScalarStorageEntity) = value.update()
+
+    override fun updatedValue(value: ScalarStorageEntity, sequence: Int) = value.copy(
+      longValue = 3000L + sequence,
+      nullableLong = 4000L + sequence,
+      floatValue = 3.5f + sequence,
+      nullableFloat = 4.5f + sequence,
+      byteValue = (30 + sequence).toByte(),
+      nullableByte = (40 + sequence).toByte(),
+      byteArray = byteArrayOf((sequence + 5).toByte(), (sequence + 6).toByte()),
+      nullableByteArray = byteArrayOf((sequence + 7).toByte()),
+      boxedByteArray = arrayOf((sequence + 8).toByte(), (sequence + 9).toByte()),
+      nullableBoxedByteArray = arrayOf((sequence + 10).toByte())
+    )
+
+    override fun expectedAfterInsert(
+      value: ScalarStorageEntity,
+      result: EntityInsertResult.Inserted
+    ) = value.copy(id = checkNotNull(result.rowId))
 
     override fun toString() = name
   }

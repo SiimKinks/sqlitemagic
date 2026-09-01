@@ -114,7 +114,7 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
   }
 
   static final class CompiledFirstSelect1Impl<T, S> extends DatabaseQuery<T, T> implements CompiledFirstSelect<T, S> {
-    @NonNull
+    @Nullable
     private final SupportSQLiteStatement selectStm;
     @NonNull
     final String sql;
@@ -130,8 +130,13 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
       super(dbConnection, null);
       final String sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql);
       final String[] args = compiledSelect.args;
-      final SupportSQLiteStatement selectStm = dbConnection.compileStatement(sql);
-      bindAllArgsAsStrings(selectStm, args);
+      final SupportSQLiteStatement selectStm;
+      if (compiledSelect.selectedColumn.valueParser.supportsStatementParsing()) {
+        selectStm = dbConnection.compileStatement(sql);
+        bindAllArgsAsStrings(selectStm, args);
+      } else {
+        selectStm = null;
+      }
       this.selectStm = selectStm;
       this.sql = sql;
       this.args = args;
@@ -147,11 +152,38 @@ final class CompiledSelect1Impl<T, S> extends DatabaseQuery<List<T>, T> implemen
     @Nullable
     @Override
     public T execute() {
+      final SupportSQLiteStatement selectStm = this.selectStm;
+      if (selectStm == null) {
+        return executeFromCursor();
+      }
       final T val;
       final long startNanos;
       synchronized (selectStm) {
         startNanos = nanoTime();
         val = selectedColumn.getFromStatement(selectStm);
+      }
+      if (SqliteMagic.LOGGING_ENABLED) {
+        final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);
+        LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args);
+      }
+      return val;
+    }
+
+    @Nullable
+    private T executeFromCursor() {
+      final long startNanos = nanoTime();
+      final Cursor cursor = FastCursor.tryCreate(
+          SqlUtil.query(dbConnection.getReadableDatabase(), sql, args)
+      );
+      final T val;
+      try {
+        if (cursor.moveToNext()) {
+          val = selectedColumn.getFromCursor(cursor);
+        } else {
+          val = null;
+        }
+      } finally {
+        cursor.close();
       }
       if (SqliteMagic.LOGGING_ENABLED) {
         final long queryTimeInMillis = NANOSECONDS.toMillis(nanoTime() - startNanos);

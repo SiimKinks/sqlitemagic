@@ -151,15 +151,15 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagic_MutableNullableDefaults_Dao.kt")
       .withGeneratedSource("SqliteMagic_MutableNullableDefaults_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "if (!cursor.isNull(thisTableOffset + 1))",
+          "if (!(cursor.isNull(thisTableOffset + 1)))",
           "this.label = cursor.getString(thisTableOffset + 1)",
-          "if (!cursor.isNull(thisTableOffset + 2))",
+          "if (!(cursor.isNull(thisTableOffset + 2)))",
           "this.count = cursor.getInt(thisTableOffset + 2)"
         )
         generatedSource.assertContains(
-          "if (!(columnIndex1 < 0 || cursor.isNull(columnIndex1)))",
+          "if (!((columnIndex1 < 0 || cursor.isNull(columnIndex1))))",
           "this.label = cursor.getString(columnIndex1)",
-          "if (!(columnIndex2 < 0 || cursor.isNull(columnIndex2)))",
+          "if (!((columnIndex2 < 0 || cursor.isNull(columnIndex2))))",
           "this.count = cursor.getInt(columnIndex2)"
         )
       }
@@ -180,6 +180,7 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
 
             class MutableNullableDetails {
               var label: String = "default-label"
+              var count: Long = 42
             }
 
             @Table
@@ -203,9 +204,12 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt")
       .withGeneratedSource("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "if (!column1IsNull) this.details =",
+          "if (!(column1IsNull && column2IsNull)) this.details =",
+          "if (!((columnIndex1 < 0 && columnIndex2 < 0) || (columnIndex1IsNull && columnIndex2IsNull))) this.details =",
+          "this.label =",
+          "this.count =",
           "this.owner =",
-          "columnOffset.value +="
+          "if (cursor.isNull(thisTableOffset + 3)) columnOffset.value += 1 else this.owner ="
         )
       }
   }

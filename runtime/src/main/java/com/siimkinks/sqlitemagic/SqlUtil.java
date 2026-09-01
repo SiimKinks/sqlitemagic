@@ -18,6 +18,21 @@ public final class SqlUtil {
     throw new AssertionError("no instances");
   }
 
+  @NonNull
+  static String quoteSqlStringLiteral(@NonNull CharSequence value) {
+    final int length = value.length();
+    final StringBuilder result = new StringBuilder(length + 2);
+    result.append('\'');
+    for (int i = 0; i < length; i++) {
+      final char character = value.charAt(i);
+      if (character == '\'') {
+        result.append('\'');
+      }
+      result.append(character);
+    }
+    return result.append('\'').toString();
+  }
+
   static Cursor query(@NonNull SupportSQLiteDatabase db,
                       @NonNull String sql,
                       @Nullable String[] args) {

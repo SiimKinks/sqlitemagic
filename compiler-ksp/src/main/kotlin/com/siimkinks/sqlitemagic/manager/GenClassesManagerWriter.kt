@@ -21,6 +21,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.LOG_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_DATABASE
 import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_MAGIC
+import com.siimkinks.sqlitemagic.WriterTypes.SQL_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY_SET
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
@@ -364,11 +365,19 @@ internal class GenClassesManagerWriter(
       .addStatement("val sqlValue = %L", serializedValue)
       .apply {
         when {
-          storageType == SqlStorageType.STRING && serializedTypeCanBeNull -> add("val stringValue = sqlValue\n")
-            .indent()
-            .addStatement("?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
-            .unindent()
-          storageType == SqlStorageType.STRING -> addStatement("val stringValue = sqlValue")
+          storageType == SqlStorageType.STRING -> addStatement(
+            "val stringValue = %T.quoteSqlStringLiteral(%L)",
+            SQL_UTIL,
+            CodeBlock
+              .builder()
+              .add("sqlValue")
+              .apply {
+                if (serializedTypeCanBeNull) {
+                  add(" ?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
+                }
+              }
+              .build()
+          )
           serializedTypeCanBeNull -> add("val stringValue = sqlValue?.toString()\n")
             .indent()
             .addStatement("?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
@@ -419,7 +428,7 @@ internal class GenClassesManagerWriter(
     .add("%T<%T, %T, %T, %T, %T>(\n", COLUMN, valueType, valueType, valueType, ANY, NOT_NULLABLE)
     .indent()
     .add("%T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
-    .add($$"\"'${input}'\",\n")
+    .addStatement("%T.quoteSqlStringLiteral(input.toString()),", SQL_UTIL)
     .add("false,\n")
     .add("%T.STRING_PARSER,\n", UTILS)
     .add("false,\n")
