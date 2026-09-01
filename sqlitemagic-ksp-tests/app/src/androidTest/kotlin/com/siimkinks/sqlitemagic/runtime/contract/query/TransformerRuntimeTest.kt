@@ -12,23 +12,18 @@ import org.junit.Test
 
 class TransformerRuntimeTest : RuntimeDatabaseTest() {
   @Test
-  fun transformedValuesRoundTripThroughExecuteAndOneShotObservation() {
-    val nonNullValue = TransformerModelCatalog.runtimeCase
+  fun nullableTransformerRoundTripsThroughExecuteAndOneShotObservation() {
+    val value = TransformerModelCatalog.runtimeCase
       .newValue(sequence = 1)
-    val nullValue = TransformerModelCatalog.runtimeCase
-      .newValue(sequence = 2)
       .copy(nullableToken = null)
-    val expected = listOf(
-      insertValue(nonNullValue),
-      insertValue(nullValue)
-    )
+    val expected = insertValue(value)
 
     assertThat(
       Select
         .from(TRANSFORMER_RUNTIME_ENTITY)
         .orderBy(TRANSFORMER_RUNTIME_ENTITY.ID.asc())
         .execute()
-    ).isEqualTo(expected)
+    ).isEqualTo(listOf(expected))
 
     assertThat(
       Select
@@ -37,12 +32,12 @@ class TransformerRuntimeTest : RuntimeDatabaseTest() {
         .observe()
         .runQueryOnce()
         .blockingGet()
-    ).isEqualTo(expected)
+    ).isEqualTo(listOf(expected))
 
     val nullStorage = Select
       .raw("SELECT nullable_token FROM transformer_runtime_entity WHERE id = ?")
       .from(TRANSFORMER_RUNTIME_ENTITY)
-      .withArgs(checkNotNull(expected[1].id).toString())
+      .withArgs(checkNotNull(expected.id).toString())
       .execute()
       .use { cursor ->
         check(cursor.moveToFirst())

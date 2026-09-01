@@ -4,6 +4,8 @@ import com.siimkinks.sqlitemagic.runtime.model.catalog.ConstructionModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.DeclarationShapeModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.EmbeddedModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.IdentityModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.NoIdKeyModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipBackedIdModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ScalarModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
@@ -15,6 +17,8 @@ object ModelCatalog {
     ConstructionModelCatalog.cases,
     DeclarationShapeModelCatalog.cases,
     IdentityModelCatalog.cases,
+    NoIdKeyModelCatalog.cases,
+    RelationshipBackedIdModelCatalog.cases,
     RelationshipModelCatalog.cases,
     TransformerModelCatalog.cases
   ).flatten()

@@ -60,59 +60,6 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
   }
 
   @Test
-  fun automaticTransformedUpdatePersistAndDeleteUseTransformedIdentity() {
-    val insertedValue = AutomaticTransformed(
-      id = SequenceId(0),
-      value = "automatic-transformed-original"
-    )
-    val result = insertedValue
-      .insert()
-      .execute()
-    val inserted = when (result) {
-      is EntityInsertResult.Inserted -> result
-      EntityInsertResult.Ignored -> throw AssertionError("AutomaticTransformed insert was ignored")
-    }
-    val persistedValue = insertedValue.copy(id = SequenceId(checkNotNull(inserted.rowId)))
-
-    val updatedValue = persistedValue.copy(value = "automatic-transformed-updated")
-    assertThat(
-      updatedValue
-        .update()
-        .execute()
-    ).isTrue()
-    assertThat(
-      Select
-        .from(AUTOMATIC_TRANSFORMED)
-        .where(AUTOMATIC_TRANSFORMED.ID IS updatedValue.id)
-        .execute()
-    ).containsExactly(updatedValue)
-
-    val persistedUpdateValue = updatedValue.copy(value = "automatic-transformed-persisted")
-    assertThat(
-      persistedUpdateValue
-        .persist()
-        .execute()
-    ).isEqualTo(EntityPersistResult.Updated)
-    assertThat(
-      Select
-        .from(AUTOMATIC_TRANSFORMED)
-        .where(AUTOMATIC_TRANSFORMED.ID IS persistedUpdateValue.id)
-        .execute()
-    ).containsExactly(persistedUpdateValue)
-
-    assertThat(
-      persistedUpdateValue
-        .delete()
-        .execute()
-    ).isEqualTo(1)
-    assertThat(
-      Select
-        .from(AUTOMATIC_TRANSFORMED)
-        .execute()
-    ).isEmpty()
-  }
-
-  @Test
   fun articleUsesTransformedAccountKeyForStoragePredicatesAndReconstruction() {
     val account = Account(
       id = AccountId("account-runtime"),

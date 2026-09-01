@@ -6,17 +6,13 @@ import com.siimkinks.sqlitemagic.LeafIdTable.Companion.LEAF_ID
 import com.siimkinks.sqlitemagic.RelationshipIdTable.Companion.RELATIONSHIP_ID
 import com.siimkinks.sqlitemagic.RelationshipOwnerTable.Companion.RELATIONSHIP_OWNER
 import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.fixture.model.LeafId
 import com.siimkinks.sqlitemagic.fixture.model.RelationshipId
 import com.siimkinks.sqlitemagic.fixture.model.RelationshipOwner
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.update
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -61,44 +57,6 @@ class RelationshipBackedIdRuntimeTest : RuntimeDatabaseTest() {
         .where(RELATIONSHIP_OWNER.RELATIONSHIP_ID IS seeded.leaf)
         .execute()
     ).containsExactly(seeded.owner)
-  }
-
-  @Test
-  fun ownerOperationsLeaveSeededRelationshipIdRowsUnchanged() {
-    val seeded = seedOwner()
-    val updated = seeded.owner.copy(value = "updated-owner-value")
-
-    assertThat(
-      updated
-        .update()
-        .execute()
-    ).isTrue()
-    assertThat(
-      updated
-        .persist()
-        .execute()
-    ).isEqualTo(EntityPersistResult.Updated)
-    assertThat(
-      updated
-        .delete()
-        .execute()
-    ).isEqualTo(1)
-
-    assertThat(
-      Select
-        .from(LEAF_ID)
-        .execute()
-    ).containsExactly(seeded.leaf)
-    assertThat(
-      Select
-        .from(RELATIONSHIP_ID)
-        .execute()
-    ).containsExactly(seeded.relationship)
-    assertThat(
-      Select
-        .from(RELATIONSHIP_OWNER)
-        .execute()
-    ).isEmpty()
   }
 
   @Test
