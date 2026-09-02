@@ -17,6 +17,7 @@ import com.siimkinks.sqlitemagic.fixture.model.Article
 import com.siimkinks.sqlitemagic.fixture.model.ScalarStorageEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.runtime.model.CountQueryCase
 import com.siimkinks.sqlitemagic.runtime.model.ScalarColumnCase
 import com.siimkinks.sqlitemagic.runtime.model.identity
 import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
@@ -156,10 +157,28 @@ internal object ScalarColumnCatalog {
           .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
       }
     ),
+    emptyScalarColumnCase(
+      name = "empty non-null Boolean table",
+      query = {
+        Select
+          .column(IMMUTABLE_VALUE_WITH_FIELDS.A_BOOLEAN)
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
+      }
+    ),
     scalarColumnCase(
       name = "non-null Int",
       expectedValues = nonNullRows.map(ImmutableValueWithFields::integer),
       seed = ::seedNonNullRows,
+      query = {
+        Select
+          .column(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER)
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
+      }
+    ),
+    emptyScalarColumnCase(
+      name = "empty non-null Int table",
       query = {
         Select
           .column(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER)
@@ -178,6 +197,15 @@ internal object ScalarColumnCatalog {
           .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
       }
     ),
+    emptyScalarColumnCase(
+      name = "empty non-null Double table",
+      query = {
+        Select
+          .column(IMMUTABLE_VALUE_WITH_FIELDS.A_DOUBLE)
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
+      }
+    ),
     scalarColumnCase(
       name = "non-null Short",
       expectedValues = nonNullRows.map(ImmutableValueWithFields::aShort),
@@ -189,10 +217,28 @@ internal object ScalarColumnCatalog {
           .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
       }
     ),
+    emptyScalarColumnCase(
+      name = "empty non-null Short table",
+      query = {
+        Select
+          .column(IMMUTABLE_VALUE_WITH_FIELDS.A_SHORT)
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
+      }
+    ),
     scalarColumnCase(
       name = "non-null TransformableObject",
       expectedValues = nonNullRows.map(ImmutableValueWithFields::transformableObject),
       seed = ::seedNonNullRows,
+      query = {
+        Select
+          .column(IMMUTABLE_VALUE_WITH_FIELDS.TRANSFORMABLE_OBJECT)
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .orderBy(IMMUTABLE_VALUE_WITH_FIELDS.ID.asc())
+      }
+    ),
+    emptyScalarColumnCase(
+      name = "empty non-null TransformableObject table",
       query = {
         Select
           .column(IMMUTABLE_VALUE_WITH_FIELDS.TRANSFORMABLE_OBJECT)
@@ -222,10 +268,28 @@ internal object ScalarColumnCatalog {
           .orderBy(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.ID.asc())
       }
     ),
+    emptyScalarColumnCase(
+      name = "empty nullable Boolean table",
+      query = {
+        Select
+          .column(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.A_BOOLEAN)
+          .from(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS)
+          .orderBy(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.ID.asc())
+      }
+    ),
     scalarColumnCase(
       name = "nullable Int with null row",
       expectedValues = nullableRows.map(ImmutableValueWithNullableFields::integer),
       seed = ::seedNullableRows,
+      query = {
+        Select
+          .column(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.INTEGER)
+          .from(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS)
+          .orderBy(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.ID.asc())
+      }
+    ),
+    emptyScalarColumnCase(
+      name = "empty nullable Int table",
       query = {
         Select
           .column(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.INTEGER)
@@ -243,7 +307,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Long>(
+    emptyScalarColumnCase(
       name = "empty non-null Long",
       query = {
         Select
@@ -262,7 +326,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Long?>(
+    emptyScalarColumnCase(
       name = "empty nullable Long",
       query = {
         Select
@@ -281,7 +345,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Float>(
+    emptyScalarColumnCase(
       name = "empty non-null Float",
       query = {
         Select
@@ -300,7 +364,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Float?>(
+    emptyScalarColumnCase(
       name = "empty nullable Float",
       query = {
         Select
@@ -319,7 +383,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Byte>(
+    emptyScalarColumnCase(
       name = "empty non-null Byte",
       query = {
         Select
@@ -338,7 +402,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Byte?>(
+    emptyScalarColumnCase(
       name = "empty nullable Byte",
       query = {
         Select
@@ -358,7 +422,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<ByteArray>(
+    emptyScalarColumnCase(
       name = "empty non-null ByteArray",
       normalize = ::byteArrayComparable,
       query = {
@@ -379,7 +443,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<ByteArray?>(
+    emptyScalarColumnCase(
       name = "empty nullable ByteArray",
       normalize = ::nullableByteArrayComparable,
       query = {
@@ -400,7 +464,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Array<Byte>>(
+    emptyScalarColumnCase(
       name = "empty non-null Array<Byte>",
       normalize = ::boxedByteArrayComparable,
       query = {
@@ -421,7 +485,7 @@ internal object ScalarColumnCatalog {
           .orderBy(SCALAR_STORAGE_ENTITY.ID.asc())
       }
     ),
-    emptyScalarStorageCase<Array<Byte>?>(
+    emptyScalarColumnCase(
       name = "empty nullable Array<Byte>",
       normalize = ::nullableBoxedByteArrayComparable,
       query = {
@@ -465,6 +529,110 @@ internal object ScalarColumnCatalog {
           .from(ARTICLE)
           .orderBy(ARTICLE.ID.asc())
       }
+    ),
+    emptyScalarColumnCase(
+      name = "empty relationship Article.account declared AccountId",
+      query = {
+        Select
+          .column(ARTICLE.ACCOUNT)
+          .from(ARTICLE)
+          .orderBy(ARTICLE.ID.asc())
+      }
+    )
+  )
+
+  val countCases = listOf(
+    CountQueryCase(
+      name = "count all non-null rows",
+      seed = ::seedNonNullRows,
+      expectedCount = nonNullRows.size.toLong(),
+      execute = {
+        Select
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .count()
+          .execute()
+      },
+      observeOnce = {
+        Select
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .count()
+          .observe()
+          .runQueryOnce()
+      }
+    ),
+    CountQueryCase(
+      name = "count non-null nullable String values",
+      seed = ::seedNullableRows,
+      expectedCount = nullableRows
+        .map(ImmutableValueWithNullableFields::string)
+        .filterNotNull()
+        .size
+        .toLong(),
+      execute = {
+        checkNotNull(
+          Select
+            .column(Select.count(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.STRING))
+            .from(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS)
+            .takeFirst()
+            .execute()
+        )
+      },
+      observeOnce = {
+        Select
+          .column(Select.count(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.STRING))
+          .from(IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS)
+          .takeFirst()
+          .observe()
+          .runQueryOnce()
+      }
+    ),
+    CountQueryCase(
+      name = "count selected column",
+      seed = ::seedNonNullRows,
+      expectedCount = nonNullRows.size.toLong(),
+      execute = {
+        checkNotNull(
+          Select
+            .column(Select.count())
+            .from(IMMUTABLE_VALUE_WITH_FIELDS)
+            .takeFirst()
+            .execute()
+        )
+      },
+      observeOnce = {
+        Select
+          .column(Select.count())
+          .from(IMMUTABLE_VALUE_WITH_FIELDS)
+          .takeFirst()
+          .observe()
+          .runQueryOnce()
+      }
+    ),
+    CountQueryCase(
+      name = "count relationship Article.account",
+      seed = ::seedArticleRows,
+      expectedCount = articleRows
+        .map(Article::account)
+        .map(Account::id)
+        .size
+        .toLong(),
+      execute = {
+        checkNotNull(
+          Select
+            .column(Select.count(ARTICLE.ACCOUNT))
+            .from(ARTICLE)
+            .takeFirst()
+            .execute()
+        )
+      },
+      observeOnce = {
+        Select
+          .column(Select.count(ARTICLE.ACCOUNT))
+          .from(ARTICLE)
+          .takeFirst()
+          .observe()
+          .runQueryOnce()
+      }
     )
   )
 
@@ -482,7 +650,7 @@ internal object ScalarColumnCatalog {
     normalize = normalize
   ) {}
 
-  private fun <T> emptyScalarStorageCase(
+  private fun <T> emptyScalarColumnCase(
     name: String,
     query: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
     normalize: (T) -> Any? = ::identity
