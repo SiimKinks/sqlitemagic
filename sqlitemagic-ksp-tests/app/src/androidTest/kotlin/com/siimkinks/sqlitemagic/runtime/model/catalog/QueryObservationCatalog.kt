@@ -34,11 +34,7 @@ data class QueryObservationCase<T>(
 }
 
 internal object QueryObservationCatalog {
-  val cases: List<QueryObservationCase<*>> = listOf(
-    QueryObservationCase(
-      name = "explicit joined tables",
-      newScenario = ::newExplicitJoinScenario
-    ),
+  val subqueryCases: List<QueryObservationCase<*>> = listOf(
     QueryObservationCase(
       name = "simple scalar subquery in simple outer query",
       newScenario = ::newSimpleScalarSubqueryScenario
@@ -52,6 +48,13 @@ internal object QueryObservationCatalog {
       newScenario = ::newComplexSubqueryInComplexOuterScenario
     )
   )
+
+  val cases: List<QueryObservationCase<*>> = listOf(
+    QueryObservationCase(
+      name = "explicit joined tables",
+      newScenario = ::newExplicitJoinScenario
+    )
+  ) + subqueryCases
 
   private fun newExplicitJoinScenario(): QueryObservationScenario<EntityWithRelationship> {
     val related = newSimple(value = "explicit-join-match")
