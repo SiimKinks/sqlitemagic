@@ -46,11 +46,12 @@ internal class DebugMigrationCoordinator(
       return NO_DATABASE_VERSION_OVERRIDE
     }
 
-    val nextDatabaseVersion = readLatestDebugVersion(
+    val latestDatabaseVersion = readLatestDebugVersion(
       projectDir = projectDir,
       mainModulePath = configuration.mainModulePath,
       variantName = variantName
-    ) + 1
+    )
+    val nextDatabaseVersion = latestDatabaseVersion + 1
     val structureFile = File(projectDir, "db/latest.struct")
     val migrationFileName = when (val submoduleName = database.submoduleName) {
       null -> "$nextDatabaseVersion.sql"
@@ -70,18 +71,16 @@ internal class DebugMigrationCoordinator(
     }
 
     return when (val submoduleName = database.submoduleName) {
-      null -> {
-        val submoduleChangeHappened = determineSubmoduleChange(projectDir)
-        if (migrationHappened || submoduleChangeHappened) {
+      null -> when {
+        migrationHappened || determineSubmoduleChange(projectDir) -> {
           writeMainModuleDebugVersion(
             projectDir = projectDir,
             variantName = variantName,
             version = nextDatabaseVersion
           )
           DebugMigrationOutcome(databaseVersionOverride = nextDatabaseVersion)
-        } else {
-          NO_DATABASE_VERSION_OVERRIDE
         }
+        else -> DebugMigrationOutcome(databaseVersionOverride = latestDatabaseVersion)
       }
       else -> {
         configuration.mainModulePath?.let { mainModulePath ->
