@@ -1,0 +1,2 @@
+CREATE TABLE migration_should_rollback (id INTEGER PRIMARY KEY)
+THIS IS NOT VALID SQL

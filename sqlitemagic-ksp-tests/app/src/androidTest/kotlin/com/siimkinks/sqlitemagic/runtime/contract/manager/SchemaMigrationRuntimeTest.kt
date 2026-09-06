@@ -26,9 +26,13 @@ private const val MIGRATION_DATABASE_NAME = "schema-migration-runtime-test.db"
 private const val SQLITE_MASTER = "sqlite_master"
 private const val SQLITE_TEMP_MASTER = "sqlite_temp_master"
 private const val GENERATED_DATABASE_VERSION = 1020
+private const val INVALID_MIGRATION_VERSION = 1021
+private const val MISSING_MIGRATION_VERSION = 1022
 private const val VERSION_1019_BOOK_KEY = "migration-book-key"
 private const val VERSION_1019_BOOK_TITLE = "migration-book-title"
 private const val MIGRATION_FAILURE_MESSAGE = "intentional migration failure"
+private const val INVALID_MIGRATION_MESSAGE = "Error executing migration script 1021.sql at line 2"
+private const val ROLLED_BACK_TABLE = "migration_should_rollback"
 
 private val VERSION_1020_PERSISTENT_TABLES = setOf(
   "nested_model_container_nested_entity",
@@ -95,6 +99,97 @@ private val REBUILT_OLD_TABLES = setOf(
 
 class SchemaMigrationRuntimeTest {
   @Test
+  fun missingMigrationAssetsAreOptional() {
+    val application = application()
+    application.deleteDatabase(MIGRATION_DATABASE_NAME)
+    try {
+      seedLibraryDatabase(
+        application = application,
+        version = INVALID_MIGRATION_VERSION
+      )
+
+      openMigrationConnection(
+        application = application,
+        database = VersionedMigrationDatabase(version = MISSING_MIGRATION_VERSION)
+      ).use { connection ->
+        assertThat(userVersion(connection = connection))
+          .isEqualTo(MISSING_MIGRATION_VERSION)
+        assertThat(
+          Select
+            .from(LIBRARY_BOOK)
+            .usingConnection(connection)
+            .execute()
+        ).containsExactly(
+          LibraryBook(
+            id = VERSION_1019_BOOK_KEY,
+            title = VERSION_1019_BOOK_TITLE
+          )
+        )
+      }
+    } finally {
+      application.deleteDatabase(MIGRATION_DATABASE_NAME)
+    }
+  }
+
+  @Test
+  fun invalidMigrationSqlRollsBackUpgradeTransaction() {
+    val application = application()
+    application.deleteDatabase(MIGRATION_DATABASE_NAME)
+    try {
+      seedLibraryDatabase(
+        application = application,
+        version = GENERATED_DATABASE_VERSION
+      )
+
+      var connection: DbConnection? = null
+      try {
+        val exception = assertThrows(IllegalStateException::class.java) {
+          connection = openMigrationConnection(
+            application = application,
+            database = VersionedMigrationDatabase(version = INVALID_MIGRATION_VERSION)
+          )
+          userVersion(connection = connection)
+        }
+        assertThat(exception)
+          .hasMessageThat()
+          .isEqualTo(INVALID_MIGRATION_MESSAGE)
+      } finally {
+        connection?.close()
+      }
+
+      application
+        .openOrCreateDatabase(
+          MIGRATION_DATABASE_NAME,
+          Context.MODE_PRIVATE,
+          null
+        )
+        .use { database ->
+          assertThat(database.version).isEqualTo(GENERATED_DATABASE_VERSION)
+          assertThat(
+            database
+              .rawQuery(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+                arrayOf(ROLLED_BACK_TABLE)
+              )
+              .use(Cursor::readStrings)
+          ).isEmpty()
+          assertThat(
+            database
+              .rawQuery(
+                "SELECT book_key, title_text FROM library_books",
+                null
+              )
+              .use(Cursor::readRows)
+          ).containsExactly(
+            listOf(VERSION_1019_BOOK_KEY, VERSION_1019_BOOK_TITLE)
+          )
+        }
+    } finally {
+      application.deleteDatabase(MIGRATION_DATABASE_NAME)
+    }
+  }
+
+  @Test
   fun upgradesFromVersion1019AndPreservesLibraryBook() {
     val application = application()
     application.deleteDatabase(MIGRATION_DATABASE_NAME)
@@ -103,7 +198,10 @@ class SchemaMigrationRuntimeTest {
         id = VERSION_1019_BOOK_KEY,
         title = VERSION_1019_BOOK_TITLE
       )
-      seedVersion1019Database(application = application)
+      seedLibraryDatabase(
+        application = application,
+        version = 1019
+      )
 
       val connection = openMigrationConnection(application = application)
       try {
@@ -165,6 +263,8 @@ class SchemaMigrationRuntimeTest {
           "CREATE TABLE complex_object_with_same_leafs (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
               "name TEXT DEFAULT '', simple_value INTEGER DEFAULT NULL, magazine INTEGER DEFAULT NULL, " +
               "simple_value_duplicate INTEGER DEFAULT NULL)",
+          "CREATE TABLE submodule_persistent_values (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+              "value TEXT DEFAULT '')",
           "INSERT INTO author (id, name, boxed_boolean, primitive_boolean) " +
               "VALUES (7, 'legacy-author-name', 1, 0)",
           "INSERT INTO magazine (id, name, author, nr_of_releases) " +
@@ -175,65 +275,63 @@ class SchemaMigrationRuntimeTest {
         )
       )
 
-      val connection = openMigrationConnection(application = application)
-      try {
-        assertThat(userVersion(connection = connection))
-          .isEqualTo(GENERATED_DATABASE_VERSION)
-        assertThat(
-          tableNames(
+      openMigrationConnection(application = application)
+        .use { connection ->
+          assertThat(userVersion(connection = connection))
+            .isEqualTo(GENERATED_DATABASE_VERSION)
+          assertThat(
+            tableNames(
+              connection = connection,
+              master = SQLITE_MASTER,
+              names = REBUILT_CURRENT_TABLES
+            )
+          ).containsExactlyElementsIn(REBUILT_CURRENT_TABLES)
+          assertSchemaFragments(
             connection = connection,
-            master = SQLITE_MASTER,
-            names = REBUILT_CURRENT_TABLES
+            expectedFragments = REBUILT_CURRENT_SCHEMA_FRAGMENTS
           )
-        ).containsExactlyElementsIn(REBUILT_CURRENT_TABLES)
-        assertSchemaFragments(
-          connection = connection,
-          expectedFragments = REBUILT_CURRENT_SCHEMA_FRAGMENTS
-        )
-        assertThat(
-          tableNames(
-            connection = connection,
-            master = SQLITE_MASTER,
-            names = REBUILT_OLD_TABLES
+          assertThat(
+            tableNames(
+              connection = connection,
+              master = SQLITE_MASTER,
+              names = REBUILT_OLD_TABLES
+            )
+          ).isEmpty()
+          assertThat(
+            rawRows(
+              connection = connection,
+              table = SIMPLE_MUTABLE_ENTITY,
+              sql = "SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity"
+            )
+          ).containsExactlyElementsIn(
+            listOf(
+              listOf("7", null, "1", "0")
+            )
           )
-        ).isEmpty()
-        assertThat(
-          rawRows(
-            connection = connection,
-            table = SIMPLE_MUTABLE_ENTITY,
-            sql = "SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity"
+          assertThat(
+            rawRows(
+              connection = connection,
+              table = ENTITY_WITH_RELATIONSHIP,
+              sql = "SELECT id, value, related_entity, count FROM entity_with_relationship"
+            )
+          ).containsExactlyElementsIn(
+            listOf(
+              listOf("11", null, null, null)
+            )
           )
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf("7", null, "1", "0")
+          assertThat(
+            rawRows(
+              connection = connection,
+              table = COMPLEX_OBJECT_WITH_SAME_LEAFS,
+              sql = "SELECT id, name, simple_value, entity_with_relationship, simple_value_duplicate " +
+                  "FROM complex_object_with_same_leafs"
+            )
+          ).containsExactlyElementsIn(
+            listOf(
+              listOf("13", "legacy-complex-name", "17", null, "19")
+            )
           )
-        )
-        assertThat(
-          rawRows(
-            connection = connection,
-            table = ENTITY_WITH_RELATIONSHIP,
-            sql = "SELECT id, value, related_entity, count FROM entity_with_relationship"
-          )
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf("11", null, null, null)
-          )
-        )
-        assertThat(
-          rawRows(
-            connection = connection,
-            table = COMPLEX_OBJECT_WITH_SAME_LEAFS,
-            sql = "SELECT id, name, simple_value, entity_with_relationship, simple_value_duplicate " +
-                "FROM complex_object_with_same_leafs"
-          )
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf("13", "legacy-complex-name", "17", null, "19")
-          )
-        )
-      } finally {
-        connection.close()
-      }
+        }
     } finally {
       application.deleteDatabase(MIGRATION_DATABASE_NAME)
     }
@@ -244,7 +342,10 @@ class SchemaMigrationRuntimeTest {
     val application = application()
     application.deleteDatabase(MIGRATION_DATABASE_NAME)
     try {
-      seedVersion1019Database(application = application)
+      seedLibraryDatabase(
+        application = application,
+        version = 1019
+      )
 
       var connection: DbConnection? = null
       try {
@@ -262,45 +363,47 @@ class SchemaMigrationRuntimeTest {
         connection?.close()
       }
 
-      val database = application.openOrCreateDatabase(
-        MIGRATION_DATABASE_NAME,
-        Context.MODE_PRIVATE,
-        null
-      )
-      try {
-        assertThat(database.version).isEqualTo(1019)
-        assertThat(
-          database
-            .rawQuery(
-              "SELECT book_key, title_text FROM library_books",
-              null
-            )
-            .use(Cursor::readRows)
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf(VERSION_1019_BOOK_KEY, VERSION_1019_BOOK_TITLE)
-          )
+      application
+        .openOrCreateDatabase(
+          MIGRATION_DATABASE_NAME,
+          Context.MODE_PRIVATE,
+          null
         )
-        assertThat(
-          database
-            .rawQuery(
-              "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN " +
-                  "(${VERSION_1020_PERSISTENT_TABLES.joinToString(separator = ", ") { "?" }})",
-              VERSION_1020_PERSISTENT_TABLES.toTypedArray()
+        .use { database ->
+          assertThat(database.version).isEqualTo(1019)
+          assertThat(
+            database
+              .rawQuery(
+                "SELECT book_key, title_text FROM library_books",
+                null
+              )
+              .use(Cursor::readRows)
+          ).containsExactlyElementsIn(
+            listOf(
+              listOf(VERSION_1019_BOOK_KEY, VERSION_1019_BOOK_TITLE)
             )
-            .use(Cursor::readStrings)
-        ).isEmpty()
-      } finally {
-        database.close()
-      }
+          )
+          assertThat(
+            database
+              .rawQuery(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN " +
+                    "(${VERSION_1020_PERSISTENT_TABLES.joinToString(separator = ", ") { "?" }})",
+                VERSION_1020_PERSISTENT_TABLES.toTypedArray()
+              )
+              .use(Cursor::readStrings)
+          ).isEmpty()
+        }
     } finally {
       application.deleteDatabase(MIGRATION_DATABASE_NAME)
     }
   }
 
-  private fun seedVersion1019Database(application: Application) = seedDatabase(
+  private fun seedLibraryDatabase(
+    application: Application,
+    version: Int
+  ) = seedDatabase(
     application = application,
-    version = 1019,
+    version = version,
     statements = listOf(
       "CREATE TABLE library_books (book_key TEXT PRIMARY KEY, title_text TEXT DEFAULT 'untitled')",
       "INSERT INTO library_books (book_key, title_text) VALUES ('$VERSION_1019_BOOK_KEY', '$VERSION_1019_BOOK_TITLE')"
@@ -412,6 +515,12 @@ private class FailingMigrationDatabase : GeneratedDatabase by SqliteMagicDatabas
   override fun migrateViews(db: SupportSQLiteDatabase) {
     throw IllegalStateException(MIGRATION_FAILURE_MESSAGE)
   }
+}
+
+private class VersionedMigrationDatabase(
+  private val version: Int
+) : GeneratedDatabase by SqliteMagicDatabase() {
+  override fun getDbVersion() = version
 }
 
 private fun Cursor.readStrings() = buildList {

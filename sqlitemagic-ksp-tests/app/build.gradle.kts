@@ -34,6 +34,11 @@ android {
   buildFeatures {
     buildConfig = true
   }
+  sourceSets {
+    getByName("debug") {
+      assets.directories.add("src/migrationTest/assets")
+    }
+  }
   compileOptions {
     sourceCompatibility = javaVersion
     targetCompatibility = javaVersion

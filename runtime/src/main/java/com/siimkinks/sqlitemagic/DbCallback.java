@@ -8,7 +8,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 import androidx.sqlite.db.SupportSQLiteOpenHelper;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 
 final class DbCallback extends SupportSQLiteOpenHelper.Callback {
@@ -45,48 +47,58 @@ final class DbCallback extends SupportSQLiteOpenHelper.Callback {
   // this method already runs in transaction
   @Override
   public void onUpgrade(@NonNull SupportSQLiteDatabase db, int oldVersion, int newVersion) {
-    try {
-      if (SqliteMagic.LOGGING_ENABLED) {
-        LogUtil.logDebug("Executing upgrade scripts");
-      }
-      final AssetManager assets = context.getAssets();
-      final String[] submoduleNames = database.getSubmoduleNames();
-      for (int i = oldVersion; i < newVersion; i++) {
-        final int version = i + 1;
-        final String fileName = version + ".sql";
-        if (submoduleNames != null) {
-          final int submodulesCount = submoduleNames.length;
-          for (int j = 0; j < submodulesCount; j++) {
-            runMigrationScript(db, assets, submoduleNames[j] + fileName);
-          }
-        }
-        runMigrationScript(db, assets, fileName);
-      }
-      database.migrateViews(db);
-    } catch (IOException ioe) {
-      LogUtil.logError("Error executing upgrade scripts");
-      throw new RuntimeException(ioe);
+    if (SqliteMagic.LOGGING_ENABLED) {
+      LogUtil.logDebug("Executing upgrade scripts");
     }
+    final AssetManager assets = context.getAssets();
+    final String[] submoduleNames = database.getSubmoduleNames();
+    for (int i = oldVersion; i < newVersion; i++) {
+      final int version = i + 1;
+      final String fileName = version + ".sql";
+      if (submoduleNames != null) {
+        for (String submoduleName : submoduleNames) {
+          runMigrationScript(db, assets, submoduleName + fileName);
+        }
+      }
+      runMigrationScript(db, assets, fileName);
+    }
+    database.migrateViews(db);
   }
 
-  private void runMigrationScript(SupportSQLiteDatabase db, AssetManager assets, String fileName) throws IOException {
-    BufferedReader bfr = null;
+  private void runMigrationScript(SupportSQLiteDatabase db, AssetManager assets, String fileName) {
+    final InputStream inputStream;
     try {
-      bfr = new BufferedReader(new InputStreamReader(assets.open(fileName)));
+      inputStream = assets.open(fileName);
+    } catch (FileNotFoundException ignored) {
+      return;
+    } catch (IOException e) {
+      throw new IllegalStateException("Error opening migration script " + fileName, e);
+    }
+
+    int lineNumber = 0;
+    try (BufferedReader bfr = new BufferedReader(new InputStreamReader(inputStream))) {
       if (SqliteMagic.LOGGING_ENABLED) {
         LogUtil.logDebug("Executing script %s", fileName);
       }
       String sql;
       while ((sql = bfr.readLine()) != null) {
-        db.execSQL(sql);
+        lineNumber++;
+        try {
+          db.execSQL(sql);
+        } catch (RuntimeException e) {
+          throw migrationException(fileName, lineNumber, e);
+        }
       }
-    } catch (Throwable e) {
-      // ignore
-    } finally {
-      if (bfr != null) {
-        bfr.close();
-      }
+    } catch (IOException e) {
+      throw migrationException(fileName, Math.max(1, lineNumber), e);
     }
+  }
+
+  private IllegalStateException migrationException(String fileName, int lineNumber, Exception cause) {
+    return new IllegalStateException(
+        "Error executing migration script " + fileName + " at line " + lineNumber,
+        cause
+    );
   }
 
   @Override
