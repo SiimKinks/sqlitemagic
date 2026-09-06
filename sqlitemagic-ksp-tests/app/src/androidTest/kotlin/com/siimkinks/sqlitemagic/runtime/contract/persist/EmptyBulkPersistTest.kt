@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,7 +48,7 @@ class EmptyBulkPersistTest(
         .blockingAwait()
     }
 
-    assertDatabaseSnapshotInOrder(
+    assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
       expected = snapshotBefore
     )

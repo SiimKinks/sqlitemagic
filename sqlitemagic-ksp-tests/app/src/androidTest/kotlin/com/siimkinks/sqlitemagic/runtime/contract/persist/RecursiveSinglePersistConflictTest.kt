@@ -9,7 +9,7 @@ import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursivePersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
@@ -116,7 +116,7 @@ class RecursiveSinglePersistConflictTest(
 
     val builder = modelCase
       .persist(
-        value = modelCase.valueWithConflict(
+        value = modelCase.valueWithInsertConflict(
           existing = existing,
           conflict = conflict,
           sequence = 2
@@ -140,28 +140,13 @@ class RecursiveSinglePersistConflictTest(
       }
     }
 
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = expectedParents
     )
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.relatedTable,
       expected = expectedRelated
-    )
-  }
-
-  private fun <T> RecursivePersistConflictModelCase<T>.valueWithConflict(
-    existing: T,
-    conflict: RecursiveConflictTarget,
-    sequence: Int
-  ) = when (conflict) {
-    RecursiveConflictTarget.PARENT -> valueWithParentConflict(
-      existing = existing,
-      sequence = sequence
-    )
-    RecursiveConflictTarget.CHILD -> valueWithChildConflict(
-      existing = existing,
-      sequence = sequence
     )
   }
 

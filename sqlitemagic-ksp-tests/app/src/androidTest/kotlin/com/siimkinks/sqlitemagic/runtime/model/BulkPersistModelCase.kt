@@ -13,3 +13,5 @@ interface BulkPersistModelCase<T> : PersistModelCase<T>, BulkUpdateModelCase<T>,
     conflictAlgorithm: Int? = null
   ): Completable
 }
+
+interface RepresentativeEmptyBulkModelCase<T> : BulkPersistModelCase<T>

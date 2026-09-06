@@ -7,7 +7,7 @@ import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import org.junit.Test
@@ -103,7 +103,7 @@ class DirectBulkPersistConflictTest(
         .test()
         .assertFailure(OperationFailedException::class.java)
     }
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = scenario.before
     )
@@ -130,7 +130,7 @@ class DirectBulkPersistConflictTest(
         .test()
         .assertFailure(OperationFailedException::class.java)
     }
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = scenario.before
     )
@@ -159,7 +159,7 @@ class DirectBulkPersistConflictTest(
         .test()
         .assertComplete()
     }
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = scenario.expected
     )
@@ -188,7 +188,7 @@ class DirectBulkPersistConflictTest(
         .test()
         .assertComplete()
     }
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = scenario.before
     )

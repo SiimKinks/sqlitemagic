@@ -29,8 +29,8 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.RepresentativeEmptyBulkModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
@@ -51,8 +51,6 @@ internal object IdentityModelCatalog {
     WithoutRowIdEntityCase,
     TemporaryWithoutRowIdEntityCase,
   )
-
-  internal val representativeEmptyBulkCase: BulkPersistModelCase<NoIdUniqueEntity> = NoIdUniqueEntityCase
 
   private object AutomaticTransformedCase :
     StandardBulkPersistModelCase<AutomaticTransformed>,
@@ -279,7 +277,7 @@ internal object IdentityModelCatalog {
 
   private object NoIdUniqueEntityCase :
     UniqueInsertModelCase<NoIdUniqueEntity>,
-    BulkPersistModelCase<NoIdUniqueEntity>,
+    RepresentativeEmptyBulkModelCase<NoIdUniqueEntity>,
     BulkDeleteModelCase<NoIdUniqueEntity>,
     StandardTableDeleteModelCase<NoIdUniqueEntity> {
     override val name = "NoIdUniqueEntity"

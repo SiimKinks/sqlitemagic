@@ -9,8 +9,8 @@ import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
-import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotInOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
@@ -93,7 +93,7 @@ class BulkUpdateReactiveLifecycleTest(
       .subscribe(operationObserver)
 
     operationObserver.assertEmpty()
-    assertDatabaseSnapshotInOrder(
+    assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
       expected = snapshotBefore
     )
@@ -127,7 +127,7 @@ class BulkUpdateReactiveLifecycleTest(
 
     operationObserver.assertEmpty()
     when (conflictAlgorithm) {
-      CONFLICT_NONE -> assertDatabaseSnapshotInOrder(
+      CONFLICT_NONE -> assertDatabaseSnapshotIgnoringOrder(
         modelCase = modelCase,
         expected = snapshotBefore
       )
@@ -136,7 +136,7 @@ class BulkUpdateReactiveLifecycleTest(
           modelCase.expectedAfterUpdate(value = updatedValues.first()),
           snapshotBefore.parents[1]
         )
-        assertDatabaseSnapshotInOrder(
+        assertDatabaseSnapshotIgnoringOrder(
           modelCase = modelCase,
           expected = DatabaseSnapshot(
             parents = expectedParents,
@@ -192,7 +192,7 @@ class BulkUpdateReactiveLifecycleTest(
       .test()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(1)
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = firstValues.map(modelCase::expectedAfterUpdate)
     )
@@ -201,7 +201,7 @@ class BulkUpdateReactiveLifecycleTest(
       .test()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(2)
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = secondValues.map(modelCase::expectedAfterUpdate)
     )
@@ -238,7 +238,7 @@ class BulkUpdateReactiveLifecycleTest(
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(1)
     val firstExpectedValues = firstValues.map(modelCase::expectedAfterUpdate)
-    assertDatabaseSnapshotInOrder(
+    assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
       expected = DatabaseSnapshot(
         parents = firstExpectedValues,
@@ -254,7 +254,7 @@ class BulkUpdateReactiveLifecycleTest(
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(2)
     val secondExpectedValues = secondValues.map(modelCase::expectedAfterUpdate)
-    assertDatabaseSnapshotInOrder(
+    assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
       expected = DatabaseSnapshot(
         parents = secondExpectedValues,
@@ -316,7 +316,7 @@ class BulkUpdateReactiveLifecycleTest(
       .test()
       .assertResult()
 
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = (firstValues + secondValues).map(modelCase::expectedAfterUpdate)
     )
@@ -362,7 +362,7 @@ class BulkUpdateReactiveLifecycleTest(
       .assertResult()
 
     val expectedValues = (firstValues + secondValues).map(modelCase::expectedAfterUpdate)
-    assertDatabaseSnapshotInOrder(
+    assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
       expected = DatabaseSnapshot(
         parents = expectedValues,

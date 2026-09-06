@@ -1,19 +1,19 @@
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
 import android.database.Cursor
-import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.SubmoduleGeneratedClassesManager
-import com.siimkinks.sqlitemagic.TestApp
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.ManagerIntegrationModelCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ManagerIntegrationModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.readStrings
+import com.siimkinks.sqlitemagic.runtime.support.reopenDefaultConnection
 import org.junit.Test
 
 private const val SUBMODULE_NAME = "Submodule"
@@ -83,7 +83,10 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
     val result = modelCase
       .insert(value)
       .execute()
-    assertInserted(result = result)
+    assertSeedInserted(
+      result = result,
+      modelName = modelCase.name
+    )
     return SeededManagerModelCase(
       modelCase = modelCase,
       expected = value
@@ -94,15 +97,19 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
     assertSingleRowTyped(seededCase = seededCase)
 
   private fun <T> assertSingleRowTyped(seededCase: SeededManagerModelCase<T>) =
-    assertThat(captureRows(table = seededCase.modelCase.table))
-      .containsExactly(seededCase.expected)
+    assertRowsIgnoringOrder(
+      table = seededCase.modelCase.table,
+      expected = listOf(seededCase.expected)
+    )
 
   private fun assertEmpty(modelCase: ManagerIntegrationModelCase<*>) =
     assertEmptyTyped(modelCase = modelCase)
 
   private fun <T> assertEmptyTyped(modelCase: ManagerIntegrationModelCase<T>) =
-    assertThat(captureRows(table = modelCase.table))
-      .isEmpty()
+    assertRowsIgnoringOrder(
+      table = modelCase.table,
+      expected = emptyList()
+    )
 
   private fun assertReopenState(seededCase: SeededManagerModelCase<*>) =
     assertReopenStateTyped(seededCase = seededCase)
@@ -110,11 +117,6 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
   private fun <T> assertReopenStateTyped(seededCase: SeededManagerModelCase<T>) = when {
     seededCase.modelCase.isTemporary -> assertEmptyTyped(modelCase = seededCase.modelCase)
     else -> assertSingleRowTyped(seededCase = seededCase)
-  }
-
-  private fun assertInserted(result: EntityInsertResult) = when (result) {
-    is EntityInsertResult.Inserted -> Unit
-    EntityInsertResult.Ignored -> error("Deterministic seed insert was ignored")
   }
 
   private fun tableNames(master: String): Set<String> {
@@ -125,20 +127,7 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
       .from(SIMPLE_MUTABLE_ENTITY)
       .withArgs(*tableNames.toTypedArray())
       .execute()
-      .use(Cursor::readNames)
-  }
-
-  private fun reopenDefaultConnection() {
-    val application = InstrumentationRegistry
-      .getInstrumentation()
-      .targetContext
-      .applicationContext as TestApp
-    application.initDb(app = application)
-  }
-}
-
-private fun Cursor.readNames() = buildSet {
-  while (moveToNext()) {
-    add(getString(0))
+      .use(Cursor::readStrings)
+      .toSet()
   }
 }

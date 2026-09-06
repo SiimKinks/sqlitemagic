@@ -1,16 +1,16 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
-import android.R
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog.observeMatchingValues
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
-import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class TransactionQueryObservationTest : RuntimeDatabaseTest() {
   @Test
@@ -241,8 +241,6 @@ class TransactionQueryObservationTest : RuntimeDatabaseTest() {
       observer.dispose()
     }
   }
-
-  private fun observeMatchingValues() = TransactionObservationCatalog.observeMatchingValues()
 
   private fun assertRows(
     expectedSimpleRows: List<SimpleMutableEntity>,

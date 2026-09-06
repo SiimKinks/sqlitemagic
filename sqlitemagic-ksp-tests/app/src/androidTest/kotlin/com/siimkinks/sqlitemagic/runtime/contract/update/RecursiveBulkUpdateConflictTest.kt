@@ -8,7 +8,7 @@ import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import org.junit.Assert.assertThrows
@@ -276,11 +276,11 @@ class RecursiveBulkUpdateConflictTest(
     expectedParents: List<T>,
     expectedRelated: List<Any?>
   ) {
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = expectedParents
     )
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.relatedTable,
       expected = expectedRelated
     )

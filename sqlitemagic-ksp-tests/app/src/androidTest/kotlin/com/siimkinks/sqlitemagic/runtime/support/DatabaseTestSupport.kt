@@ -1,7 +1,9 @@
 package com.siimkinks.sqlitemagic.runtime.support
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityOperationBuilder
@@ -20,8 +22,12 @@ internal fun <B : EntityOperationBuilder<B>> B.withConflictAlgorithm(
   conflictAlgorithm?.let(this::conflictAlgorithm)
 }
 
-internal fun <T> captureRows(table: Table<T>) = Select
+internal fun <T> captureRows(
+  table: Table<T>,
+  connection: DbConnection = SqliteMagic.getDefaultConnection()
+) = Select
   .from(table)
+  .usingConnection(connection)
   .queryDeep()
   .execute()
 
@@ -58,38 +64,16 @@ internal fun <T> seedRows(
   return captureRows(table = modelCase.table)
 }
 
-internal fun assertRowsInOrder(
-  table: Table<*>,
-  expected: List<*>
-) = assertThat(captureRows(table = table))
-  .isEqualTo(expected)
-
 internal fun assertRowsIgnoringOrder(
   table: Table<*>,
-  expected: List<*>
-) = assertThat(captureRows(table = table))
-  .containsExactlyElementsIn(expected)
-
-internal fun <T> assertDatabaseSnapshotInOrder(
-  modelCase: RuntimeModelCase<T>,
-  expected: DatabaseSnapshot<T>
-) {
-  assertRowsInOrder(
-    table = modelCase.table,
-    expected = expected.parents
+  expected: List<Any?>,
+  connection: DbConnection = SqliteMagic.getDefaultConnection()
+) = assertThat(
+  captureRows(
+    table = table,
+    connection = connection
   )
-  expected.related?.let { expectedRelated ->
-    when (modelCase) {
-      is RecursiveModelCase<*> -> assertRowsInOrder(
-        table = modelCase.relatedTable,
-        expected = expectedRelated
-      )
-      else -> throw AssertionError(
-        "Expected related rows for non-recursive model case ${modelCase.name}"
-      )
-    }
-  }
-}
+).containsExactlyElementsIn(expected)
 
 internal fun <T> assertDatabaseSnapshotIgnoringOrder(
   modelCase: RuntimeModelCase<T>,

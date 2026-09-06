@@ -1,12 +1,10 @@
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
 import android.database.Cursor
-import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AccountTable.Companion.ACCOUNT
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
-import com.siimkinks.sqlitemagic.TestApp
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.fixture.model.Account
@@ -18,6 +16,7 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.catalog.SchemaOptionModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.reopenDefaultConnection
 import org.junit.Test
 
 private const val SQLITE_MASTER = "sqlite_master"
@@ -168,13 +167,6 @@ class SchemaOptionRuntimeTest : RuntimeDatabaseTest() {
     .execute()
     .use(Cursor::readSingleString)
 
-  private fun reopenDefaultConnection() {
-    val application = InstrumentationRegistry
-      .getInstrumentation()
-      .targetContext
-      .applicationContext as TestApp
-    application.initDb(app = application)
-  }
 }
 
 private fun Cursor.hasRow() = moveToFirst()

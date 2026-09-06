@@ -13,10 +13,10 @@ import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable.Companion
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldss
 import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
 import com.siimkinks.sqlitemagic.LibraryBooks
+import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE_COLUMNS_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
-import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntitys
 import com.siimkinks.sqlitemagic.delete
@@ -27,17 +27,17 @@ import com.siimkinks.sqlitemagic.fixture.model.EntityWithIgnoredValue
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithNullableFields
 import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
-import com.siimkinks.sqlitemagic.fixture.model.SelectiveColumnsEntity
 import com.siimkinks.sqlitemagic.fixture.model.ScalarStorageEntity
+import com.siimkinks.sqlitemagic.fixture.model.SelectiveColumnsEntity
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
-import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingAllNullPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RawCursorModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RepresentativeEmptyBulkModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
@@ -63,9 +63,8 @@ internal object ScalarModelCatalog {
     LibraryBookCase,
   )
 
-  internal val representativeEmptyBulkCase: BulkPersistModelCase<SimpleMutableEntity> = SimpleMutableEntityCase
-
   private object SimpleMutableEntityCase :
+    RepresentativeEmptyBulkModelCase<SimpleMutableEntity>,
     TriggerModelCase<SimpleMutableEntity>,
     RawCursorModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"

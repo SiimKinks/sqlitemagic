@@ -32,7 +32,6 @@ import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
-import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
@@ -44,6 +43,7 @@ import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ReferencedDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RelationshipQueryModelCase
+import com.siimkinks.sqlitemagic.runtime.model.RepresentativeEmptyBulkModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
@@ -54,6 +54,14 @@ import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
 import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
 import com.siimkinks.sqlitemagic.update
+import kotlin.collections.Collection
+import kotlin.collections.Iterable
+import kotlin.collections.List
+import kotlin.collections.copy
+import kotlin.collections.listOf
+import kotlin.collections.listOfNotNull
+import kotlin.collections.map
+import kotlin.collections.single
 
 internal object RelationshipModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -65,8 +73,6 @@ internal object RelationshipModelCatalog {
     UniqueRelatedEntityCase,
     ComplexObjectWithSameLeafsCase,
   )
-
-  internal val representativeEmptyBulkCase: BulkPersistModelCase<EntityWithRelationship> = EntityWithRelationshipCase
 
   private object ArticleCase : RuntimeModelCase<Article> {
     override val name = "Article"
@@ -158,6 +164,7 @@ internal object RelationshipModelCatalog {
   }
 
   private object EntityWithRelationshipCase :
+    RepresentativeEmptyBulkModelCase<EntityWithRelationship>,
     RelationshipQueryModelCase<EntityWithRelationship>,
     SuccessfulModelProjectionCase<EntityWithRelationship>,
     RecursiveTriggerModelCase<EntityWithRelationship>,

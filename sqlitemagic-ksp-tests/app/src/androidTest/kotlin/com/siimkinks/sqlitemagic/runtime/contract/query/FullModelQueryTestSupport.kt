@@ -35,24 +35,10 @@ internal fun <T> seedRelationshipQueryExpectedRows(
   modelCase: RelationshipQueryModelCase<T>,
   count: Int
 ): RelationshipQueryExpectedRows<T> {
-  val deep = List(size = count) { index ->
-    val value = modelCase.newValue(sequence = index + 1)
-    when (val result = modelCase.insert(value = value).execute()) {
-      is EntityInsertResult.Inserted -> {
-        modelCase.verifyAfterInsert(
-          value = value,
-          result = result
-        )
-        modelCase.expectedAfterInsert(
-          value = value,
-          result = result
-        )
-      }
-      EntityInsertResult.Ignored -> throw AssertionError(
-        "Seed insert was ignored for ${modelCase.name}"
-      )
-    }
-  }
+  val deep = seedExpectedRows(
+    modelCase = modelCase,
+    count = count
+  )
   return RelationshipQueryExpectedRows(
     deep = deep,
     shallow = deep.map(modelCase::expectedAfterShallowQuery)

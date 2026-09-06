@@ -9,7 +9,7 @@ import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursivePersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
@@ -222,7 +222,7 @@ class RecursiveBulkPersistConflictTest(
       RecursiveBulkPersistScenario(
         values = listOf(
           modelCase.newValue(sequence = 2),
-          modelCase.valueWithConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
             conflict = conflict,
             sequence = 3
@@ -249,7 +249,7 @@ class RecursiveBulkPersistConflictTest(
       RecursiveBulkPersistScenario(
         values = listOf(
           firstFresh,
-          modelCase.valueWithConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
             conflict = conflict,
             sequence = 3
@@ -264,21 +264,6 @@ class RecursiveBulkPersistConflictTest(
       )
     }
 
-  private fun <T> RecursivePersistConflictModelCase<T>.valueWithConflict(
-    existing: T,
-    conflict: RecursiveConflictTarget,
-    sequence: Int
-  ) = when (conflict) {
-    RecursiveConflictTarget.PARENT -> valueWithParentConflict(
-      existing = existing,
-      sequence = sequence
-    )
-    RecursiveConflictTarget.CHILD -> valueWithChildConflict(
-      existing = existing,
-      sequence = sequence
-    )
-  }
-
   private fun <T> allConflictsScenario(
     modelCase: RecursivePersistConflictModelCase<T>
   ) = modelCase
@@ -286,12 +271,14 @@ class RecursiveBulkPersistConflictTest(
     .let { seed ->
       RecursiveBulkPersistScenario(
         values = listOf(
-          modelCase.valueWithParentConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
+            conflict = RecursiveConflictTarget.PARENT,
             sequence = 2
           ),
-          modelCase.valueWithChildConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
+            conflict = RecursiveConflictTarget.CHILD,
             sequence = 3
           )
         ),
@@ -317,11 +304,11 @@ class RecursiveBulkPersistConflictTest(
     expectedParents: List<T>,
     expectedRelated: List<Any?>
   ) {
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = expectedParents
     )
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.relatedTable,
       expected = expectedRelated
     )

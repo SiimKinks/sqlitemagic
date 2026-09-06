@@ -2,8 +2,6 @@ package com.siimkinks.sqlitemagic.runtime.contract.manager
 
 import android.app.Application
 import android.database.Cursor
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.Delete
@@ -12,10 +10,8 @@ import com.siimkinks.sqlitemagic.MainSessionValueTable.Companion.MAIN_SESSION_VA
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SqliteMagic
-import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.SubmodulePersistentValueTable.Companion.SUBMODULE_PERSISTENT_VALUE
 import com.siimkinks.sqlitemagic.SubmoduleSessionValueTable.Companion.SUBMODULE_SESSION_VALUE
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.Update
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.fixture.model.MainSessionValue
@@ -25,8 +21,12 @@ import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmodulePersistentValue
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleSessionValue
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
+import com.siimkinks.sqlitemagic.runtime.support.readStrings
+import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import com.siimkinks.sqlitemagic.update
-import io.reactivex.schedulers.Schedulers
 import org.junit.Test
 
 private const val ALTERNATE_DATABASE_NAME = "cov03.db"
@@ -39,7 +39,7 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
       .insert()
       .usingConnection(connection)
       .execute()
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SIMPLE_MUTABLE_ENTITY,
       connection = connection,
       expected = listOf(mainInserted)
@@ -55,7 +55,7 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
       .persist()
       .usingConnection(connection)
       .execute()
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SIMPLE_MUTABLE_ENTITY,
       connection = connection,
       expected = listOf(mainPersisted)
@@ -83,7 +83,7 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
       .persist()
       .usingConnection(connection)
       .execute()
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SUBMODULE_PERSISTENT_VALUE,
       connection = connection,
       expected = listOf(submodulePersisted)
@@ -93,12 +93,12 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
       .usingConnection(connection)
       .execute()
 
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SIMPLE_MUTABLE_ENTITY,
       connection = connection,
       expected = emptyList()
     )
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SUBMODULE_PERSISTENT_VALUE,
       connection = connection,
       expected = emptyList()
@@ -116,7 +116,7 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
     val insertedId = checkNotNull(inserted.id)
 
     assertThat(
-      rows(
+      captureRows(
         table = SIMPLE_MUTABLE_ENTITY,
         connection = connection
       )
@@ -154,7 +154,7 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
         .usingConnection(connection)
         .execute()
     ).isEqualTo(1)
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SIMPLE_MUTABLE_ENTITY,
       connection = connection,
       expected = emptyList()
@@ -163,10 +163,7 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
   }
 
   @Test
-  fun observersAreIsolatedAndAlternateCloseCompletesOnlyItsObservers() {
-    val application = application()
-    application.deleteDatabase(ALTERNATE_DATABASE_NAME)
-    val connection = openAlternateConnection(application = application)
+  fun observersAreIsolatedAndAlternateCloseCompletesOnlyItsObservers() = withAlternateConnection { connection ->
     val defaultObserver = observeMainCount(connection = SqliteMagic.getDefaultConnection())
       .test()
       .assertValuesOnly(0L)
@@ -204,14 +201,13 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
       if (!connectionClosed) {
         connection.close()
       }
-      application.deleteDatabase(ALTERNATE_DATABASE_NAME)
     }
   }
 
   @Test
-  fun reopenRetainsPersistentRowsAndRecreatesIsolatedTemporaryTables() {
-    val application = application()
-    application.deleteDatabase(ALTERNATE_DATABASE_NAME)
+  fun reopenRetainsPersistentRowsAndRecreatesIsolatedTemporaryTables() = withNamedDatabase(
+    databaseName = ALTERNATE_DATABASE_NAME
+  ) { application ->
     var connection = openAlternateConnection(application = application)
     try {
       val mainPersistent = newMainValue(value = "main-persistent")
@@ -253,22 +249,22 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
 
       assertThat(temporaryTableNames(connection = connection))
         .containsExactly("main_session_value", "submodule_session_value")
-      assertRows(
+      assertRowsIgnoringOrder(
         table = SIMPLE_MUTABLE_ENTITY,
         connection = connection,
         expected = listOf(mainPersistent)
       )
-      assertRows(
+      assertRowsIgnoringOrder(
         table = SUBMODULE_PERSISTENT_VALUE,
         connection = connection,
         expected = listOf(submodulePersistent)
       )
-      assertRows(
+      assertRowsIgnoringOrder(
         table = MAIN_SESSION_VALUE,
         connection = connection,
         expected = emptyList()
       )
-      assertRows(
+      assertRowsIgnoringOrder(
         table = SUBMODULE_SESSION_VALUE,
         connection = connection,
         expected = emptyList()
@@ -282,36 +278,26 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
         .insert()
         .usingConnection(connection)
         .execute()
-      assertRows(
+      assertRowsIgnoringOrder(
         table = SUBMODULE_PERSISTENT_VALUE,
         connection = connection,
         expected = listOf(submodulePersistent, afterReopen)
       )
     } finally {
       connection.close()
-      application.deleteDatabase(ALTERNATE_DATABASE_NAME)
     }
   }
 
-  private fun withAlternateConnection(test: (DbConnection) -> Unit) {
-    val application = application()
-    application.deleteDatabase(ALTERNATE_DATABASE_NAME)
-    val connection = openAlternateConnection(application = application)
-    try {
-      test(connection)
-    } finally {
-      connection.close()
-      application.deleteDatabase(ALTERNATE_DATABASE_NAME)
+  private fun withAlternateConnection(test: (DbConnection) -> Unit) =
+    withNamedDatabase(databaseName = ALTERNATE_DATABASE_NAME) { application ->
+      openAlternateConnection(application = application)
+        .use(test)
     }
-  }
 
-  private fun openAlternateConnection(application: Application) = SqliteMagic
-    .builder(application)
-    .name(ALTERNATE_DATABASE_NAME)
-    .database(SqliteMagicDatabase())
-    .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
-    .scheduleRxQueriesOn(Schedulers.trampoline())
-    .openNewConnection()
+  private fun openAlternateConnection(application: Application) = openNamedConnection(
+    application = application,
+    databaseName = ALTERNATE_DATABASE_NAME
+  )
 
   private fun observeMainCount(connection: DbConnection) = Select
     .from(SIMPLE_MUTABLE_ENTITY)
@@ -339,31 +325,13 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
     .use(Cursor::readStrings)
     .toSet()
 
-  private fun <T> assertRows(
-    table: Table<T>,
-    connection: DbConnection,
-    expected: List<T>
-  ) {
-    assertThat(rows(table = table, connection = connection))
-      .containsExactlyElementsIn(expected)
-  }
-
-  private fun <T> rows(
-    table: Table<T>,
-    connection: DbConnection
-  ) = Select
-    .from(table)
-    .usingConnection(connection)
-    .queryDeep()
-    .execute()
-
   private fun assertDefaultPersistentTablesEmpty() {
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SIMPLE_MUTABLE_ENTITY,
       connection = SqliteMagic.getDefaultConnection(),
       expected = emptyList()
     )
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SUBMODULE_PERSISTENT_VALUE,
       connection = SqliteMagic.getDefaultConnection(),
       expected = emptyList()
@@ -372,12 +340,12 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
 
   private fun assertDefaultTablesEmpty() {
     assertDefaultPersistentTablesEmpty()
-    assertRows(
+    assertRowsIgnoringOrder(
       table = MAIN_SESSION_VALUE,
       connection = SqliteMagic.getDefaultConnection(),
       expected = emptyList()
     )
-    assertRows(
+    assertRowsIgnoringOrder(
       table = SUBMODULE_SESSION_VALUE,
       connection = SqliteMagic.getDefaultConnection(),
       expected = emptyList()
@@ -399,14 +367,4 @@ class AlternateConnectionManagerIntegrationTest : RuntimeDatabaseTest() {
     value = value
   )
 
-  private fun application() = InstrumentationRegistry
-    .getInstrumentation()
-    .targetContext
-    .applicationContext as Application
-}
-
-private fun Cursor.readStrings() = buildList {
-  while (moveToNext()) {
-    add(getString(0))
-  }
 }

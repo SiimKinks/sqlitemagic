@@ -18,13 +18,7 @@ class ScalarColumnFirstQueryTest(
   fun executeReturnsFirstExpectedValue() {
     scalarColumnCase.seed()
 
-    val actual = scalarColumnCase
-      .query()
-      .takeFirst()
-      .execute()
-
-    assertThat(scalarColumnCase.comparableValue(actual))
-      .isEqualTo(scalarColumnCase.comparableValue(scalarColumnCase.expectedValues.firstOrNull()))
+    assertExecutedFirst(scalarColumnCase)
   }
 
   @Test
@@ -32,6 +26,16 @@ class ScalarColumnFirstQueryTest(
     scalarColumnCase.seed()
 
     assertObservedFirst(scalarColumnCase)
+  }
+
+  private fun <T> assertExecutedFirst(scalarColumnCase: ScalarColumnCase<T>) {
+    val actual = scalarColumnCase
+      .query()
+      .takeFirst()
+      .execute()
+
+    assertThat(scalarColumnCase.comparableValue(actual))
+      .isEqualTo(scalarColumnCase.comparableValue(scalarColumnCase.expectedValues.firstOrNull()))
   }
 
   private fun <T> assertObservedFirst(scalarColumnCase: ScalarColumnCase<T>) {

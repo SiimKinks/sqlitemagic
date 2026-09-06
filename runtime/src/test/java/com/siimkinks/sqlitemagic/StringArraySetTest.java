@@ -6,8 +6,6 @@ import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import org.junit.Test;
 
-import java.util.UUID;
-
 import static com.google.common.truth.Truth.assertThat;
 
 public class StringArraySetTest {
@@ -15,12 +13,10 @@ public class StringArraySetTest {
   public void containsAllKeys() {
     final StringArraySet set = new StringArraySet();
     final int testSize = 100;
-    final String[] keys = new String[testSize];
+    final String[] keys = createKeys(testSize);
 
     for (int i = 0; i < testSize; i++) {
-      final String key = UUID.randomUUID().toString();
-      keys[i] = key;
-      set.add(key);
+      set.add(keys[i]);
     }
 
     assertThatSetContainsAllKeys(set, keys);
@@ -29,7 +25,7 @@ public class StringArraySetTest {
   @Test
   public void createWithStringArray() {
     final int testSize = 100;
-    final String[] keys = createRandomKeys(testSize);
+    final String[] keys = createKeys(testSize);
 
     final StringArraySet set = new StringArraySet(keys);
     assertThatSetContainsAllKeys(set, keys);
@@ -38,7 +34,7 @@ public class StringArraySetTest {
   @Test
   public void addAllFromStringArray() {
     final int testSize = 100;
-    final String[] keys = createRandomKeys(testSize);
+    final String[] keys = createKeys(testSize);
 
     final StringArraySet set = new StringArraySet(testSize);
     set.addAll(keys);
@@ -49,7 +45,7 @@ public class StringArraySetTest {
   @Test
   public void containsWorksAfterClear() {
     final int testSize = 100;
-    final String[] keys = createRandomKeys(testSize);
+    final String[] keys = createKeys(testSize);
 
     final StringArraySet set = new StringArraySet(keys);
     set.clear();
@@ -62,7 +58,7 @@ public class StringArraySetTest {
   @Test
   public void twoSetsAreEqual() {
     final int testSize = 100;
-    final String[] keys = createRandomKeys(testSize);
+    final String[] keys = createKeys(testSize);
 
     final StringArraySet set1 = new StringArraySet(keys);
     final StringArraySet set2 = new StringArraySet(keys);
@@ -73,7 +69,7 @@ public class StringArraySetTest {
   @Test
   public void twoObjectsAreEqual() {
     final int testSize = 100;
-    final String[] keys = createRandomKeys(testSize);
+    final String[] keys = createKeys(testSize);
 
     final StringArraySet set = new StringArraySet(keys);
 
@@ -81,11 +77,10 @@ public class StringArraySetTest {
   }
 
   @NonNull
-  private String[] createRandomKeys(int testSize) {
+  private String[] createKeys(int testSize) {
     final String[] keys = new String[testSize];
     for (int i = 0; i < testSize; i++) {
-      final String key = UUID.randomUUID().toString();
-      keys[i] = key;
+      keys[i] = "key-" + i;
     }
     return keys;
   }

@@ -204,7 +204,7 @@ class RecursiveBulkInsertConflictTest(
       RecursiveBulkScenario(
         values = listOf(
           modelCase.newValue(sequence = 2),
-          modelCase.valueWithConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
             conflict = conflict,
             sequence = 3
@@ -231,7 +231,7 @@ class RecursiveBulkInsertConflictTest(
       RecursiveBulkScenario(
         values = listOf(
           firstFresh,
-          modelCase.valueWithConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
             conflict = conflict,
             sequence = 3
@@ -246,21 +246,6 @@ class RecursiveBulkInsertConflictTest(
       )
     }
 
-  private fun <T> RecursiveInsertConflictModelCase<T>.valueWithConflict(
-    existing: T,
-    conflict: RecursiveConflictTarget,
-    sequence: Int
-  ) = when (conflict) {
-    RecursiveConflictTarget.PARENT -> valueWithParentConflict(
-      existing = existing,
-      sequence = sequence
-    )
-    RecursiveConflictTarget.CHILD -> valueWithChildConflict(
-      existing = existing,
-      sequence = sequence
-    )
-  }
-
   private fun <T> allConflictsScenario(
     modelCase: RecursiveInsertConflictModelCase<T>
   ) = modelCase
@@ -268,12 +253,14 @@ class RecursiveBulkInsertConflictTest(
     .let { seed ->
       RecursiveBulkScenario(
         values = listOf(
-          modelCase.valueWithParentConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
+            conflict = RecursiveConflictTarget.PARENT,
             sequence = 2
           ),
-          modelCase.valueWithChildConflict(
+          modelCase.valueWithInsertConflict(
             existing = seed,
+            conflict = RecursiveConflictTarget.CHILD,
             sequence = 3
           )
         ),

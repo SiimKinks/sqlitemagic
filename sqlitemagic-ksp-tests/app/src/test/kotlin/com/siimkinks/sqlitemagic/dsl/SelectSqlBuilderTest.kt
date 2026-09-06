@@ -849,10 +849,10 @@ class SelectSqlBuilderTest : DSLTests {
   @Test
   fun betweenComplex() {
     val expectedBase = "SELECT * FROM entity_with_relationship "
-    val randomSimpleMutableEntity = SimpleMutableEntity.newRandom()
-    val randomSimpleMutableEntity2 = SimpleMutableEntity.newRandom()
-    val simpleMutableEntityId = checkNotNull(randomSimpleMutableEntity.id)
-    val simpleMutableEntityId2 = checkNotNull(randomSimpleMutableEntity2.id)
+    val simpleMutableEntity = SimpleMutableEntity(id = 101L)
+    val simpleMutableEntity2 = SimpleMutableEntity(id = 202L)
+    val simpleMutableEntityId = checkNotNull(simpleMutableEntity.id)
+    val simpleMutableEntityId2 = checkNotNull(simpleMutableEntity2.id)
 
     var expected = expectedBase + "WHERE entity_with_relationship.related_entity BETWEEN ? AND ? "
     (SELECT
@@ -923,10 +923,10 @@ class SelectSqlBuilderTest : DSLTests {
   @Test
   fun betweenComplexAliased() {
     val expectedBase = "SELECT * FROM entity_with_relationship AS m "
-    val randomSimpleMutableEntity = SimpleMutableEntity.newRandom()
-    val randomSimpleMutableEntity2 = SimpleMutableEntity.newRandom()
-    val simpleMutableEntityId = checkNotNull(randomSimpleMutableEntity.id)
-    val simpleMutableEntityId2 = checkNotNull(randomSimpleMutableEntity2.id)
+    val simpleMutableEntity = SimpleMutableEntity(id = 101L)
+    val simpleMutableEntity2 = SimpleMutableEntity(id = 202L)
+    val simpleMutableEntityId = checkNotNull(simpleMutableEntity.id)
+    val simpleMutableEntityId2 = checkNotNull(simpleMutableEntity2.id)
     val a = SIMPLE_MUTABLE_ENTITY AS "a"
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
 
@@ -1138,53 +1138,53 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun complexExprWithSameType() {
-    val randomSimpleMutableEntity = SimpleMutableEntity.newRandom()
-    val randomSimpleMutableEntityId = checkNotNull(randomSimpleMutableEntity.id)
+    val simpleMutableEntity = SimpleMutableEntity(id = 101L)
+    val simpleMutableEntityId = checkNotNull(simpleMutableEntity.id)
 
     assertComplexSameTypeExpr(
       operator = "=?",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS randomSimpleMutableEntityId
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS simpleMutableEntityId
     )
     assertComplexSameTypeExpr(
       operator = "!=?",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.isNot(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.isNot(simpleMutableEntityId)
     )
     assertComplexSameTypeExpr(
       operator = " IN (?)",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.`in`(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.`in`(simpleMutableEntityId)
     )
     assertComplexSameTypeExpr(
       operator = " IN (?)",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.`in`(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.`in`(simpleMutableEntityId)
     )
     assertComplexSameTypeExpr(
       operator = " NOT IN (?)",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.notIn(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.notIn(simpleMutableEntityId)
     )
     assertComplexSameTypeExpr(
       operator = ">?",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.greaterThan(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.greaterThan(simpleMutableEntityId)
     )
     assertComplexSameTypeExpr(
       operator = ">=?",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.greaterOrEqual(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.greaterOrEqual(simpleMutableEntityId)
     )
     assertComplexSameTypeExpr(
       operator = "<?",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.lessThan(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.lessThan(simpleMutableEntityId)
     )
     assertComplexSameTypeExpr(
       operator = "<=?",
-      simple_mutable_entity = randomSimpleMutableEntity,
-      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.lessOrEqual(randomSimpleMutableEntityId)
+      simple_mutable_entity = simpleMutableEntity,
+      expr = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.lessOrEqual(simpleMutableEntityId)
     )
   }
 
@@ -1331,14 +1331,14 @@ class SelectSqlBuilderTest : DSLTests {
   @Test
   fun exprComplexAliased() {
     val expectedBase = "SELECT * FROM entity_with_relationship AS m "
-    val randomSimpleMutableEntity = SimpleMutableEntity.newRandom()
+    val simpleMutableEntity = SimpleMutableEntity(id = 101L)
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
 
     var expected = expectedBase + "WHERE m.related_entity=? "
     (SELECT
         FROM m
-        WHERE (m.RELATED_ENTITY IS checkNotNull(randomSimpleMutableEntity.id)))
-      .isEqualTo(expected, randomSimpleMutableEntity.id.toString())
+        WHERE (m.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id)))
+      .isEqualTo(expected, simpleMutableEntity.id.toString())
 
     expected = expectedBase + "WHERE m.related_entity=entity_with_relationship.related_entity "
     (SELECT
@@ -1367,7 +1367,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun joinComplex() {
-    val randomSimpleMutableEntity = SimpleMutableEntity.newRandom()
+    val simpleMutableEntity = SimpleMutableEntity(id = 101L)
     val expectedBase = "SELECT * FROM entity_with_relationship "
 
     var expected = expectedBase +
@@ -1394,14 +1394,14 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         LEFT_JOIN (ENTITY_WITH_RELATIONSHIP ON (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS checkNotNull(randomSimpleMutableEntity.id)
+          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id)
         )))
-      .isEqualTo(expected, randomSimpleMutableEntity.id.toString())
+      .isEqualTo(expected, simpleMutableEntity.id.toString())
   }
 
   @Test
   fun joinComplexAliased() {
-    val randomSimpleMutableEntity = SimpleMutableEntity.newRandom()
+    val simpleMutableEntity = SimpleMutableEntity(id = 101L)
     val expectedBase = "SELECT * FROM entity_with_relationship AS m "
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
 
@@ -1434,14 +1434,14 @@ class SelectSqlBuilderTest : DSLTests {
     expected = expectedBase + "LEFT JOIN entity_with_relationship ON m.related_entity=? "
     (SELECT
         FROM m
-        LEFT_JOIN (ENTITY_WITH_RELATIONSHIP.on(m.RELATED_ENTITY IS checkNotNull(randomSimpleMutableEntity.id))))
-      .isEqualTo(expected, randomSimpleMutableEntity.id.toString())
+        LEFT_JOIN (ENTITY_WITH_RELATIONSHIP.on(m.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id))))
+      .isEqualTo(expected, simpleMutableEntity.id.toString())
 
     expected = expectedBase + "LEFT JOIN entity_with_relationship AS m ON m.related_entity=? "
     (SELECT
         FROM m
-        LEFT_JOIN (m.on(m.RELATED_ENTITY IS checkNotNull(randomSimpleMutableEntity.id))))
-      .isEqualTo(expected, randomSimpleMutableEntity.id.toString())
+        LEFT_JOIN (m.on(m.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id))))
+      .isEqualTo(expected, simpleMutableEntity.id.toString())
   }
 
   @Test

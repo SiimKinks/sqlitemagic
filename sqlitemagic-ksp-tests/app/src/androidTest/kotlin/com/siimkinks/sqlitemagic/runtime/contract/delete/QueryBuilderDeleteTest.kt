@@ -5,12 +5,12 @@ import com.siimkinks.sqlitemagic.CompiledDelete
 import com.siimkinks.sqlitemagic.Delete
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
-import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.*
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertSimpleRows
+import com.siimkinks.sqlitemagic.runtime.support.insertSimpleRow
+import com.siimkinks.sqlitemagic.runtime.support.simpleRow
 import org.junit.Test
 
 class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
@@ -73,8 +73,8 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
       id = 102L,
       value = "second"
     )
-    insert(first)
-    insert(second)
+    insertSimpleRow(value = first)
+    insertSimpleRow(value = second)
 
     val affectedRows = execute(
       statement = Delete
@@ -85,7 +85,7 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
     )
 
     assertThat(affectedRows).isEqualTo(1)
-    assertRows(first)
+    assertSimpleRows(first)
   }
 
   private fun assertTypedPredicatePublishesOnlyForDeletedRows(terminal: OperationTerminal) {
@@ -97,8 +97,8 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
       id = 202L,
       value = "second"
     )
-    insert(first)
-    insert(second)
+    insertSimpleRow(value = first)
+    insertSimpleRow(value = second)
     val observer = Select
       .from(SIMPLE_MUTABLE_ENTITY)
       .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
@@ -133,20 +133,20 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
         listOf(first, second),
         listOf(first)
       )
-      assertRows(first)
+      assertSimpleRows(first)
     } finally {
       observer.dispose()
     }
   }
 
   private fun assertTypedWholeTableDelete(terminal: OperationTerminal) {
-    insert(
+    insertSimpleRow(
       simpleRow(
         id = 301L,
         value = "first"
       )
     )
-    insert(
+    insertSimpleRow(
       simpleRow(
         id = 302L,
         value = "second"
@@ -161,17 +161,17 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
     )
 
     assertThat(affectedRows).isEqualTo(2)
-    assertRows()
+    assertSimpleRows()
   }
 
   private fun assertRawWholeTableDelete(terminal: OperationTerminal) {
-    insert(
+    insertSimpleRow(
       simpleRow(
         id = 401L,
         value = "first"
       )
     )
-    insert(
+    insertSimpleRow(
       simpleRow(
         id = 402L,
         value = "second"
@@ -187,7 +187,7 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
     )
 
     assertThat(affectedRows).isEqualTo(2)
-    assertRows()
+    assertSimpleRows()
   }
 
   private fun assertAliasedTableDelete(terminal: OperationTerminal) {
@@ -195,7 +195,7 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
       id = 501L,
       value = "aliased-target"
     )
-    insert(row)
+    insertSimpleRow(value = row)
     val alias = SIMPLE_MUTABLE_ENTITY.`as`("target")
 
     val affectedRows = execute(
@@ -206,7 +206,7 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
     )
 
     assertThat(affectedRows).isEqualTo(1)
-    assertRows()
+    assertSimpleRows()
   }
 
   private fun execute(
@@ -217,30 +217,4 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
     OBSERVE -> statement.observe().blockingGet()
   }
 
-  private fun assertRows(vararg expected: SimpleMutableEntity) {
-    assertThat(
-      Select
-        .from(SIMPLE_MUTABLE_ENTITY)
-        .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
-        .execute()
-    ).isEqualTo(expected.toList())
-  }
-
-  private fun simpleRow(
-    id: Long,
-    value: String
-  ) = SimpleMutableEntity(
-    id = id,
-    value = value,
-    boxedBoolean = null,
-    primitiveBoolean = false
-  )
-
-  private fun insert(value: SimpleMutableEntity) {
-    assertThat(
-      value
-        .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
-  }
 }

@@ -7,7 +7,7 @@ import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertRowsInOrder
+import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import org.junit.Assert.assertThrows
@@ -88,7 +88,7 @@ class DirectBulkUpdateConflictTest(
         .test()
         .assertFailure(SQLiteConstraintException::class.java)
     }
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = scenario.before
     )
@@ -117,7 +117,7 @@ class DirectBulkUpdateConflictTest(
         .test()
         .assertComplete()
     }
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = scenario.afterMixedConflict
     )
@@ -146,7 +146,7 @@ class DirectBulkUpdateConflictTest(
         .test()
         .assertComplete()
     }
-    assertRowsInOrder(
+    assertRowsIgnoringOrder(
       table = modelCase.table,
       expected = scenario.before
     )

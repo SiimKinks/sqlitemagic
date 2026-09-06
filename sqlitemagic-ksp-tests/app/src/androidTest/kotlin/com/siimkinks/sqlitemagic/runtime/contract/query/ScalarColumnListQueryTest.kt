@@ -18,12 +18,7 @@ class ScalarColumnListQueryTest(
   fun executeReturnsExpectedValues() {
     scalarColumnCase.seed()
 
-    val actual = scalarColumnCase
-      .query()
-      .execute()
-
-    assertThat(scalarColumnCase.comparableValues(actual))
-      .isEqualTo(scalarColumnCase.comparableValues(scalarColumnCase.expectedValues))
+    assertExecutedValues(scalarColumnCase)
   }
 
   @Test
@@ -31,6 +26,15 @@ class ScalarColumnListQueryTest(
     scalarColumnCase.seed()
 
     assertObservedValues(scalarColumnCase = scalarColumnCase)
+  }
+
+  private fun <T> assertExecutedValues(scalarColumnCase: ScalarColumnCase<T>) {
+    val actual = scalarColumnCase
+      .query()
+      .execute()
+
+    assertThat(scalarColumnCase.comparableValues(actual))
+      .isEqualTo(scalarColumnCase.comparableValues(scalarColumnCase.expectedValues))
   }
 
   private fun <T> assertObservedValues(scalarColumnCase: ScalarColumnCase<T>) {

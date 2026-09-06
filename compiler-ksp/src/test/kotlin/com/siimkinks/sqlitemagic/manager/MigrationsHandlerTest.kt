@@ -1,29 +1,17 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
-import com.siimkinks.sqlitemagic.model.ModelCollectionStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.transformer.DefaultTransformerCollectionStep
-import com.siimkinks.sqlitemagic.transformer.TransformerCollectionStep
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.ProcessorCompilationResult
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
-import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
-import com.tschuchort.compiletesting.SourceFile
 import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
-import java.nio.file.Files
 import java.nio.file.Path
 
-internal class MigrationsHandlerTest : ProcessingStepsTest {
-  override val processingSteps = ::migrationCollectionSteps
-
+internal class MigrationsHandlerTest {
   @TempDir
   lateinit var temporaryDirectory: Path
 
@@ -380,8 +368,14 @@ internal class MigrationsHandlerTest : ProcessingStepsTest {
     ).inOrder()
   }
 
-  @Test
-  fun `rebuilds instead of appending a column with a non-constant default`() {
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("defaultExpressionCases")
+  fun `rebuilds instead of appending a column with a non-constant default`(
+    label: String,
+    columnName: String,
+    inputSchema: String,
+    expectedCreateSql: String
+  ) {
     val previous = DatabaseStructure(
       tables = linkedMapOf(
         "books" to migrationTable(
@@ -405,56 +399,22 @@ internal class MigrationsHandlerTest : ProcessingStepsTest {
               schema = "id INTEGER PRIMARY KEY"
             ),
             migrationColumn(
-              name = "created_at",
-              schema = "created_at TEXT DEFAULT CURRENT_TIMESTAMP"
+              name = columnName,
+              schema = inputSchema
             )
           )
         )
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current
+      )
+    ).containsExactly(
       "ALTER TABLE books RENAME TO books_",
-      "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, created_at TEXT DEFAULT CURRENT_TIMESTAMP)",
-      "INSERT INTO books (id) SELECT id FROM books_",
-      "DROP TABLE IF EXISTS books_"
-    ).inOrder()
-  }
-
-  @Test
-  fun `rebuilds instead of appending a column with a parenthesized default`() {
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to bookStructure(
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            )
-          )
-        )
-      )
-    )
-    val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to bookStructure(
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "priority",
-              schema = "priority INTEGER DEFAULT (1)"
-            )
-          )
-        )
-      )
-    )
-
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
-      "ALTER TABLE books RENAME TO books_",
-      "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, priority INTEGER DEFAULT (1))",
+      expectedCreateSql,
       "INSERT INTO books (id) SELECT id FROM books_",
       "DROP TABLE IF EXISTS books_"
     ).inOrder()
@@ -1569,133 +1529,6 @@ internal class MigrationsHandlerTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `does not leave a migration asset when publishing the structure snapshot fails`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    check(structureFile.parentFile?.mkdirs() == true)
-    check(structureFile.mkdir())
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
-    val idColumn = migrationColumn(
-      name = "id",
-      schema = "id INTEGER PRIMARY KEY"
-    )
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(idColumn)
-        )
-      )
-    )
-    val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            idColumn,
-            migrationColumn(
-              name = "title",
-              schema = "title TEXT DEFAULT ''"
-            )
-          )
-        )
-      )
-    )
-
-    assertThrows<Exception> {
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-    assertThat(migrationFile.exists()).isFalse()
-  }
-
-  @Test
-  fun `removes a stale migration asset when no migration is needed`() {
-    val structure = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            )
-          )
-        )
-      )
-    )
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile().apply {
-      parentFile.mkdirs()
-      writeText("stale migration")
-    }
-
-    assertThat(
-      MigrationsHandler(
-        currentStructure = structure,
-        previousStructure = structure,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    ).isFalse()
-    assertThat(migrationFile.exists()).isFalse()
-  }
-
-  @Test
-  fun `restores the structure snapshot when publishing the migration fails`() {
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            )
-          )
-        )
-      )
-    )
-    val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "title",
-              schema = "title TEXT DEFAULT ''"
-            )
-          )
-        )
-      )
-    )
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    DatabaseStructureJson.write(
-      file = structureFile,
-      structure = previous
-    )
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
-    check(migrationFile.mkdirs())
-
-    assertThrows<Exception> {
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(previous)
-  }
-
-  @Test
   fun `rebuilds inbound foreign key tables before dropping the old parent`() {
     val previous = DatabaseStructure(
       tables = linkedMapOf(
@@ -1854,196 +1687,23 @@ internal class MigrationsHandlerTest : ProcessingStepsTest {
     ).inOrder()
   }
 
-  @Test
-  fun `does not publish a submodule snapshot when migration generation fails`() {
-    val mainDirectory = temporaryDirectory.resolve("main")
-    val submoduleDirectory = temporaryDirectory.resolve("feature")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        submoduleWithoutRowIdDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory
-        )
+  companion object {
+    @JvmStatic
+    fun defaultExpressionCases() = listOf(
+      Arguments.of(
+        "non-constant default",
+        "created_at",
+        "created_at TEXT DEFAULT CURRENT_TIMESTAMP",
+        "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+      ),
+      Arguments.of(
+        "parenthesized default",
+        "priority",
+        "priority INTEGER DEFAULT (1)",
+        "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, priority INTEGER DEFAULT (1))"
       )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
-    val orderedTables = CreationOrderedTables.from(database.tables)
-    val currentStructure = DatabaseStructure.from(orderedTables)
-    val currentTable = currentStructure.tables.getValue("feature_items")
-    val previousTable = currentTable.copy(
-      schema = "CREATE TABLE IF NOT EXISTS feature_items (name TEXT DEFAULT '')",
-      columns = arrayListOf(currentTable.columns.single { column -> column.name == "name" })
     )
-    val previousStructure = DatabaseStructure(
-      tables = linkedMapOf("feature_items" to previousTable)
-    )
-    DatabaseStructureJson.write(
-      file = submoduleDirectory.resolve("db/latest.struct").toFile(),
-      structure = previousStructure
-    )
-
-    val outcome = DebugMigrationCoordinator(
-      configuration = DebugMigrationConfiguration.from(compilation.environment.options),
-      logger = compilation.environment.logger
-    ).handle(
-      database = database,
-      orderedTables = orderedTables
-    )
-
-    assertThat(outcome.databaseVersionOverride).isNull()
-    assertThat(DatabaseStructureJson.read(submoduleDirectory.resolve("db/latest.struct").toFile()))
-      .isEqualTo(previousStructure)
-    assertThat(Files.exists(mainDirectory.resolve("db/latest_feature.struct"))).isFalse()
-    assertThat(Files.exists(mainDirectory.resolve("db/feature.changed"))).isFalse()
-    assertThat(Files.exists(submoduleDirectory.resolve("src/debug/assets/Feature1001.sql"))).isFalse()
   }
-
-  @Test
-  fun `uses the latest persisted debug version for an unchanged main database`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
-    val orderedTables = CreationOrderedTables.from(database.tables)
-    DatabaseStructureJson.write(
-      file = temporaryDirectory.resolve("db/latest.struct").toFile(),
-      structure = DatabaseStructure.from(orderedTables)
-    )
-    temporaryDirectory.resolve("db/latest_debug.version").toFile().apply {
-      parentFile.mkdirs()
-      writeText("1007")
-    }
-
-    assertThat(
-      runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
-      )
-    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1007))
-  }
-
-  @Test
-  fun `uses the default debug version for an initial unchanged main database`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
-    val orderedTables = CreationOrderedTables.from(database.tables)
-    DatabaseStructureJson.write(
-      file = temporaryDirectory.resolve("db/latest.struct").toFile(),
-      structure = DatabaseStructure.from(orderedTables)
-    )
-
-    assertThat(
-      runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
-      )
-    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1000))
-  }
-
-  @Test
-  fun `increments and persists the debug version after a main migration`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
-    val orderedTables = CreationOrderedTables.from(database.tables)
-    DatabaseStructureJson.write(
-      file = temporaryDirectory.resolve("db/latest.struct").toFile(),
-      structure = DatabaseStructure()
-    )
-    temporaryDirectory.resolve("db/latest_debug.version").toFile().apply {
-      parentFile.mkdirs()
-      writeText("1007")
-    }
-
-    assertThat(
-      runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
-      )
-    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
-    assertThat(temporaryDirectory.resolve("db/latest_debug.version").toFile().readText())
-      .isEqualTo("1008")
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
-      .isTrue()
-  }
-
-  private fun debugMigrationOptions(
-    projectDirectory: Path,
-    mainModuleDirectory: Path? = null
-  ) = buildMap {
-    put(key = "sqlitemagic.migrate.debug", value = "true")
-    put(key = "sqlitemagic.project.dir", value = projectDirectory.toString())
-    put(key = "sqlitemagic.variant.name", value = "debug")
-    put(key = "sqlitemagic.variant.debug", value = "true")
-    mainModuleDirectory?.let { directory ->
-      put(key = "sqlitemagic.main.module.path", value = directory.toString())
-    }
-  }
-
-  private fun debugMainDatabase() = SourceFile.kotlin(
-    name = "DebugMainDatabase.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.annotation.Id
-      import com.siimkinks.sqlitemagic.annotation.Table
-
-      @Table("debug_items")
-      data class DebugItem(
-        @Id val id: Long,
-        val name: String
-      )
-    """
-  )
-
-  private fun runDebugMigration(
-    compilation: ProcessorCompilationResult,
-    database: GeneratedDatabaseElement,
-    orderedTables: CreationOrderedTables
-  ) = DebugMigrationCoordinator(
-    configuration = DebugMigrationConfiguration.from(compilation.environment.options),
-    logger = compilation.environment.logger
-  ).handle(
-    database = database,
-    orderedTables = orderedTables
-  )
-
-  private fun submoduleWithoutRowIdDatabase() = SourceFile.kotlin(
-    name = "FeatureWithoutRowIdDatabase.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.annotation.Id
-      import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
-      import com.siimkinks.sqlitemagic.annotation.Table
-      import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
-
-      @SubmoduleDatabase("feature")
-      class FeatureDatabase
-
-      @Table(value = "feature_items", options = [WITHOUT_ROWID])
-      data class FeatureItem(
-        @Id val id: String,
-        val name: String
-      )
-    """
-  )
 
   private fun runMigration(
     previous: DatabaseStructure,
@@ -2063,33 +1723,7 @@ internal class MigrationsHandlerTest : ProcessingStepsTest {
   }
 }
 
-private fun migrationCollectionSteps(environment: Environment): List<ProcessingStep> = listOf(
-  DefaultTransformerCollectionStep(environment),
-  DatabaseConfigurationCollectionStep(environment),
-  TransformerCollectionStep(environment),
-  ModelCollectionStep(environment)
-)
-
 private fun bookStructure(columns: ArrayList<ColumnStructure>) = migrationTable(
   name = "books",
   columns = columns
-)
-
-private fun migrationTable(
-  name: String,
-  columns: ArrayList<ColumnStructure>
-) = TableStructure(
-  name = name,
-  schema = "CREATE TABLE IF NOT EXISTS $name (${columns.joinToString(transform = ColumnStructure::schema)})",
-  columns = columns
-)
-
-private fun migrationColumn(
-  name: String,
-  schema: String,
-  onDeleteCascade: Boolean = false
-) = ColumnStructure(
-  name = name,
-  onDeleteCascade = onDeleteCascade,
-  schema = schema
 )

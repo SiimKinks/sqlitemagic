@@ -12,13 +12,9 @@ abstract class ScalarColumnCase<T>(
   val query: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
   private val normalize: (T) -> Any? = ::identity
 ) {
-  @Suppress("UNCHECKED_CAST")
-  fun comparableValue(value: Any?): Any? = when {
-    value == null -> null
-    else -> normalize(value as T)
-  }
+  fun comparableValue(value: T?): Any? = value?.let(normalize)
 
-  fun comparableValues(values: Iterable<*>) = values.map(::comparableValue)
+  fun comparableValues(values: Iterable<T>) = values.map(::comparableValue)
 
   override fun toString() = name
 }

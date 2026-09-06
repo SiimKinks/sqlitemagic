@@ -7,15 +7,19 @@ import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTAB
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.Update
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.*
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.assertSimpleRows
+import com.siimkinks.sqlitemagic.runtime.support.insertSimpleRow
+import com.siimkinks.sqlitemagic.runtime.support.simpleRow
 import org.junit.Test
 
 class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
@@ -88,8 +92,8 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       id = 102L,
       value = "second"
     )
-    insert(first)
-    insert(second)
+    insertSimpleRow(value = first)
+    insertSimpleRow(value = second)
 
     val affectedRows = execute(
       statement = Update
@@ -101,7 +105,7 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     )
 
     assertThat(affectedRows).isEqualTo(1)
-    assertRows(
+    assertSimpleRows(
       first,
       second.copy(value = "raw-updated")
     )
@@ -116,8 +120,8 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       id = 202L,
       value = null
     )
-    insert(first)
-    insert(second)
+    insertSimpleRow(value = first)
+    insertSimpleRow(value = second)
 
     val affectedRows = execute(
       statement = Update
@@ -130,7 +134,7 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     )
 
     assertThat(affectedRows).isEqualTo(2)
-    assertRows(
+    assertSimpleRows(
       first.copy(
         value = "typed-updated",
         boxedBoolean = false,
@@ -153,8 +157,8 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       id = 302L,
       value = "second"
     )
-    insert(first)
-    insert(second)
+    insertSimpleRow(value = first)
+    insertSimpleRow(value = second)
     val expected = listOf(first.copy(value = null), second)
     val observer = Select
       .from(SIMPLE_MUTABLE_ENTITY)
@@ -192,18 +196,28 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
         listOf(first, second),
         expected
       )
-      assertRows(*expected.toTypedArray())
+      assertSimpleRows(*expected.toTypedArray())
     } finally {
       observer.dispose()
     }
   }
 
   private fun assertTransformedAssignment(terminal: OperationTerminal) {
-    val row = immutableRow(
+    val row = ImmutableValueWithFields(
       id = 401L,
+      stringValue = "immutable-401",
+      aBoolean = false,
+      integer = 401,
+      aDouble = 401.0,
+      aShort = 401.toShort(),
       transformableObject = TransformableObject(41)
     )
-    insert(row)
+    assertSeedInserted(
+      result = row
+        .insert()
+        .execute(),
+      modelName = "immutable-value-with-fields"
+    )
     val replacement = TransformableObject(42)
 
     val affectedRows = execute(
@@ -232,15 +246,20 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       id = 502L,
       value = "second-related"
     )
-    insert(firstRelated)
-    insert(secondRelated)
+    insertSimpleRow(value = firstRelated)
+    insertSimpleRow(value = secondRelated)
     val owner = EntityWithRelationship().apply {
       id = 503L
       value = "owner"
       relatedEntity = firstRelated
       count = 1
     }
-    insert(owner)
+    assertSeedInserted(
+      result = owner
+        .insert()
+        .execute(),
+      modelName = "entity-with-relationship"
+    )
 
     val affectedRows = execute(
       statement = Update
@@ -270,7 +289,7 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       id = 601L,
       value = "before-alias"
     )
-    insert(row)
+    insertSimpleRow(value = row)
     val alias = SIMPLE_MUTABLE_ENTITY.`as`("target")
 
     val affectedRows = execute(
@@ -282,7 +301,7 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     )
 
     assertThat(affectedRows).isEqualTo(1)
-    assertRows(row.copy(value = "after-alias"))
+    assertSimpleRows(row.copy(value = "after-alias"))
   }
 
   private fun execute(
@@ -293,51 +312,4 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     OBSERVE -> statement.observe().blockingGet()
   }
 
-  private fun assertRows(vararg expected: SimpleMutableEntity) {
-    assertThat(
-      Select
-        .from(SIMPLE_MUTABLE_ENTITY)
-        .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
-        .execute()
-    ).isEqualTo(expected.toList())
-  }
-
-  private fun simpleRow(
-    id: Long,
-    value: String?
-  ) = SimpleMutableEntity(
-    id = id,
-    value = value,
-    boxedBoolean = null,
-    primitiveBoolean = false
-  )
-
-  private fun immutableRow(
-    id: Long,
-    transformableObject: TransformableObject
-  ) = ImmutableValueWithFields(
-    id = id,
-    stringValue = "immutable-$id",
-    aBoolean = false,
-    integer = id.toInt(),
-    aDouble = id.toDouble(),
-    aShort = id.toShort(),
-    transformableObject = transformableObject
-  )
-
-  private fun insert(value: SimpleMutableEntity) {
-    assertInserted(result = value.insert().execute())
-  }
-
-  private fun insert(value: ImmutableValueWithFields) {
-    assertInserted(result = value.insert().execute())
-  }
-
-  private fun insert(value: EntityWithRelationship) {
-    assertInserted(result = value.insert().execute())
-  }
-
-  private fun assertInserted(result: EntityInsertResult) {
-    assertThat(result).isInstanceOf(EntityInsertResult.Inserted::class.java)
-  }
 }
