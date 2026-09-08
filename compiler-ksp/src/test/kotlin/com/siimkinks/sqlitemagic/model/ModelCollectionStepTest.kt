@@ -128,7 +128,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
                 relationship = null,
                 id = null,
                 isUnique = true,
-                index = IndexElement(
+                index = FieldIndexElement(
                   name = "title_lookup",
                   isUnique = true
                 ),

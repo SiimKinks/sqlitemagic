@@ -187,7 +187,7 @@ internal class ModelCollector(
     val isSchemaNullable = inheritedNullable || isNullable
     val indexAnnotation = annotations.index
     val index = indexAnnotation?.let { annotation ->
-      IndexElement(
+      FieldIndexElement(
         name = annotation.value
           .takeIf(String::isNotEmpty)
           ?: "index_${tableName}_$columnName",

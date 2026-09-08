@@ -73,7 +73,7 @@ internal class MigrationsHandlerTest {
             "schema":"id INTEGER PRIMARY KEY"
           }]
         }
-      },"indices":{}}
+      },"indices":{},"temporaryTables":{},"temporaryIndices":{}}
     """
       .trimIndent()
       .lines()

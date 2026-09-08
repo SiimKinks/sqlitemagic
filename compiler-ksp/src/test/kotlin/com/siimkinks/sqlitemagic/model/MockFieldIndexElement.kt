@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic.model
 
-fun mockIndexElement(
+fun mockFieldIndexElement(
   name: String = "index_test_table_value",
   isUnique: Boolean = false
-) = IndexElement(
+) = FieldIndexElement(
   name = name,
   isUnique = isUnique
 )

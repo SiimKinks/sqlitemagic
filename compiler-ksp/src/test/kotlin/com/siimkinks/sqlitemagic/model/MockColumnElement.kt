@@ -22,7 +22,7 @@ fun mockColumnElement(
   ).affinity.defaultValue,
   id: IdElement? = null,
   isUnique: Boolean = false,
-  index: IndexElement? = null,
+  index: FieldIndexElement? = null,
   belongsToIndex: String? = null,
   embeddedPrefixes: List<String> = emptyList()
 ) = ColumnElement(

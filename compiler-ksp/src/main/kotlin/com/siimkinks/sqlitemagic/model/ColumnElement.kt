@@ -23,7 +23,7 @@ data class IdElement(
   val canAssignGeneratedId: Boolean
 )
 
-data class IndexElement(
+data class FieldIndexElement(
   val name: String,
   val isUnique: Boolean
 )
@@ -63,7 +63,7 @@ data class ColumnElement(
   val relationship: RelationshipElement?,
   val id: IdElement?,
   val isUnique: Boolean,
-  val index: IndexElement?,
+  val index: FieldIndexElement?,
   val belongsToIndex: String?,
   val embeddedPrefixes: List<String>
 ) : PropertyMetadata {

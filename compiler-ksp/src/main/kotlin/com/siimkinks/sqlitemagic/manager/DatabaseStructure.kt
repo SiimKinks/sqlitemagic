@@ -58,7 +58,9 @@ data class IndexStructure(
 @Serializable
 data class DatabaseStructure(
   val tables: LinkedHashMap<String, TableStructure> = linkedMapOf(),
-  val indices: LinkedHashMap<String, IndexStructure> = linkedMapOf()
+  val indices: LinkedHashMap<String, IndexStructure> = linkedMapOf(),
+  val temporaryTables: LinkedHashMap<String, TableStructure> = linkedMapOf(),
+  val temporaryIndices: LinkedHashMap<String, IndexStructure> = linkedMapOf()
 ) {
   companion object {
     internal fun from(orderedTables: CreationOrderedTables) = with(orderedTables) {
@@ -74,6 +76,8 @@ data class DatabaseStructure(
 
   operator fun plus(other: DatabaseStructure) = DatabaseStructure(
     tables = LinkedHashMap(tables).apply { putAll(other.tables) },
-    indices = LinkedHashMap(indices).apply { putAll(other.indices) }
+    indices = LinkedHashMap(indices).apply { putAll(other.indices) },
+    temporaryTables = LinkedHashMap(temporaryTables).apply { putAll(other.temporaryTables) },
+    temporaryIndices = LinkedHashMap(temporaryIndices).apply { putAll(other.temporaryIndices) }
   )
 }

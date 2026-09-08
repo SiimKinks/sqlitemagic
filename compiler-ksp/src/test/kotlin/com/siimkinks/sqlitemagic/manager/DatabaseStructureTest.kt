@@ -26,7 +26,15 @@ internal class DatabaseStructureTest {
     )
     val actual = DatabaseStructure(
       tables = linkedMapOf("books" to table),
-      indices = linkedMapOf("books_key" to index)
+      indices = linkedMapOf("books_key" to index),
+      temporaryTables = linkedMapOf("book_drafts" to TableStructure(name = "book_drafts")),
+      temporaryIndices = linkedMapOf(
+        "book_drafts_key" to IndexStructure(
+          name = "book_drafts_key",
+          indexSql = "CREATE INDEX book_drafts_key ON book_drafts (book_key)",
+          forTable = "book_drafts"
+        )
+      )
     )
 
     assertThat(actual).isEqualTo(
@@ -53,6 +61,16 @@ internal class DatabaseStructureTest {
             indexSql = "CREATE UNIQUE INDEX IF NOT EXISTS books_key ON books (book_key)",
             forTable = "books"
           )
+        ),
+        temporaryTables = linkedMapOf(
+          "book_drafts" to TableStructure(name = "book_drafts")
+        ),
+        temporaryIndices = linkedMapOf(
+          "book_drafts_key" to IndexStructure(
+            name = "book_drafts_key",
+            indexSql = "CREATE INDEX book_drafts_key ON book_drafts (book_key)",
+            forTable = "book_drafts"
+          )
         )
       )
     )
@@ -61,11 +79,13 @@ internal class DatabaseStructureTest {
   @Test
   fun `combines structures without mutating either input`() {
     val main = DatabaseStructure(
-      tables = linkedMapOf("main" to TableStructure(name = "main"))
+      tables = linkedMapOf("main" to TableStructure(name = "main")),
+      temporaryTables = linkedMapOf("main_temp" to TableStructure(name = "main_temp"))
     )
     val feature = DatabaseStructure(
       tables = linkedMapOf("feature" to TableStructure(name = "feature")),
-      indices = linkedMapOf("feature_index" to IndexStructure(name = "feature_index"))
+      indices = linkedMapOf("feature_index" to IndexStructure(name = "feature_index")),
+      temporaryIndices = linkedMapOf("feature_temp_index" to IndexStructure(name = "feature_temp_index"))
     )
 
     assertThat(main + feature).isEqualTo(
@@ -76,18 +96,26 @@ internal class DatabaseStructureTest {
         ),
         indices = linkedMapOf(
           "feature_index" to IndexStructure(name = "feature_index")
+        ),
+        temporaryTables = linkedMapOf(
+          "main_temp" to TableStructure(name = "main_temp")
+        ),
+        temporaryIndices = linkedMapOf(
+          "feature_temp_index" to IndexStructure(name = "feature_temp_index")
         )
       )
     )
     assertThat(main).isEqualTo(
       DatabaseStructure(
-        tables = linkedMapOf("main" to TableStructure(name = "main"))
+        tables = linkedMapOf("main" to TableStructure(name = "main")),
+        temporaryTables = linkedMapOf("main_temp" to TableStructure(name = "main_temp"))
       )
     )
     assertThat(feature).isEqualTo(
       DatabaseStructure(
         tables = linkedMapOf("feature" to TableStructure(name = "feature")),
-        indices = linkedMapOf("feature_index" to IndexStructure(name = "feature_index"))
+        indices = linkedMapOf("feature_index" to IndexStructure(name = "feature_index")),
+        temporaryIndices = linkedMapOf("feature_temp_index" to IndexStructure(name = "feature_temp_index"))
       )
     )
   }

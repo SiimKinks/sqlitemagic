@@ -24,7 +24,7 @@ internal data class ColumnSeed(
   val onDeleteCascade: Boolean,
   val idAnnotation: KSAnnotation?,
   val isUnique: Boolean,
-  val index: IndexElement?,
+  val index: FieldIndexElement?,
   val belongsToIndex: String?,
   val embeddedPrefixes: List<String>
 ) : PropertySeed

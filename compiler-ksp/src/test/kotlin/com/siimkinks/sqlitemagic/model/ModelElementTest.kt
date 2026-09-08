@@ -38,7 +38,7 @@ internal class ModelElementTest {
       defaultValue = "NULL",
       relationship = relationship,
       isUnique = true,
-      index = mockIndexElement(
+      index = mockFieldIndexElement(
         name = "index_project_meta_owner",
         isUnique = true
       ),
@@ -59,7 +59,7 @@ internal class ModelElementTest {
           relationship = relationship,
           id = null,
           isUnique = true,
-          index = IndexElement(
+          index = FieldIndexElement(
             name = "index_project_meta_owner",
             isUnique = true
           ),
