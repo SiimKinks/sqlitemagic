@@ -2,11 +2,9 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.transformer.DefaultTransformerCollectionStep
-import com.siimkinks.sqlitemagic.transformer.TransformerCollectionStep
+import com.siimkinks.sqlitemagic.transformer.transformerCollectionProcessingSteps
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.ProcessorCompilationResult
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
@@ -263,9 +261,5 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     )
 }
 
-private fun migrationCollectionSteps(environment: Environment): List<ProcessingStep> = listOf(
-  DefaultTransformerCollectionStep(environment),
-  DatabaseConfigurationCollectionStep(environment),
-  TransformerCollectionStep(environment),
-  ModelCollectionStep(environment)
-)
+private fun migrationCollectionSteps(environment: Environment): List<ProcessingStep> =
+  transformerCollectionProcessingSteps(environment) + ModelCollectionStep(environment)

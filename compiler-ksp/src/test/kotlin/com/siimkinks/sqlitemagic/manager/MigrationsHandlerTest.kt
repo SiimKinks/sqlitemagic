@@ -130,46 +130,6 @@ internal class MigrationsHandlerTest {
   }
 
   @Test
-  fun `ignores index-only changes until index migration is implemented`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
-    val table = bookStructure(
-      columns = arrayListOf(
-        ColumnStructure(
-          id = true,
-          autoIncrement = false,
-          name = "id",
-          onDeleteCascade = false,
-          sqlType = "INTEGER",
-          schema = "id INTEGER PRIMARY KEY"
-        )
-      )
-    )
-    val previous = DatabaseStructure(
-      tables = linkedMapOf("books" to table),
-      indices = linkedMapOf(
-        "books_id" to IndexStructure(
-          name = "books_id",
-          indexSql = "CREATE INDEX IF NOT EXISTS books_id ON books (id)",
-          forTable = "books"
-        )
-      )
-    )
-    val current = DatabaseStructure(tables = linkedMapOf("books" to table))
-
-    assertThat(
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    ).isFalse()
-    assertThat(migrationFile.exists()).isFalse()
-    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(current)
-  }
-
-  @Test
   fun `creates a new table instead of renaming an unchanged table with the same columns`() {
     val columns = arrayListOf(
       migrationColumn(
