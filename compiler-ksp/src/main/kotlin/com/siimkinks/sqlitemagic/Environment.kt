@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_GENERATED_CLASSES_MANAGER
 import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER
@@ -16,12 +18,18 @@ import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VAR
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
 import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.index.IndexRoundElement
+import com.siimkinks.sqlitemagic.index.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.model.PropertySourceKey
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.TableRoundElement
+import com.siimkinks.sqlitemagic.model.toPropertySourceKey
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
+import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
 import com.squareup.kotlinpoet.ClassName
 
 class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
@@ -42,6 +50,14 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
     field = linkedMapOf()
   val tableRoundElementsForCurrentRound: List<TableRoundElement>
     field = mutableListOf()
+  internal val persistedPropertySourceKeys: Set<PropertySourceKey>
+    field = linkedSetOf()
+  internal val deferredTableSourceKeys: Set<String>
+    field = linkedSetOf()
+  val indexElements: Map<SqliteSchemaIdentity, IndexElement>
+    field = linkedMapOf()
+  val indexRoundElementsForCurrentRound: List<IndexRoundElement>
+    field = mutableListOf()
   val isSubmodule get() = !submoduleName.isNullOrEmpty()
   val hasSubmodules get() = !submoduleDatabases.isNullOrEmpty()
 
@@ -59,6 +75,8 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
     processingRounds++
     transformerElementsForCurrentRound.clear()
     tableRoundElementsForCurrentRound.clear()
+    deferredTableSourceKeys.clear()
+    indexRoundElementsForCurrentRound.clear()
   }
 
   fun setDatabaseMetadata(
@@ -98,11 +116,34 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
 
   fun addTableElement(roundElement: TableRoundElement) {
     val table = roundElement.table
+    persistedPropertySourceKeys.addAll(
+      roundElement.sourceProperties
+        .values
+        .map(KSPropertyDeclaration::toPropertySourceKey)
+    )
     when {
       tableElements[table.typeKey] == table -> return
       else -> {
         tableElements[table.typeKey] = table
         tableRoundElementsForCurrentRound += roundElement
+      }
+    }
+  }
+
+  internal fun setDeferredTableSourceKeys(declarations: Collection<KSClassDeclaration>) {
+    deferredTableSourceKeys.clear()
+    deferredTableSourceKeys.addAll(declarations.map(
+      KSClassDeclaration::qualifiedNameOrSimpleName
+    ))
+  }
+
+  fun addIndexElement(roundElement: IndexRoundElement) {
+    val index = roundElement.index
+    when {
+      indexElements[index.identity] == index -> return
+      else -> {
+        indexElements[index.identity] = index
+        indexRoundElementsForCurrentRound += roundElement
       }
     }
   }

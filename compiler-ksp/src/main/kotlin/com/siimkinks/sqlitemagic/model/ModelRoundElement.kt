@@ -2,7 +2,9 @@ package com.siimkinks.sqlitemagic.model
 
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Id
@@ -12,7 +14,13 @@ import com.siimkinks.sqlitemagic.annotation.Unique
 import com.siimkinks.sqlitemagic.element.RoundTypeElement
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.firstUncheckedAnnotation
+import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
+
+internal data class PropertySourceKey(
+  val parentName: String,
+  val propertyName: String
+)
 
 data class PropertyRoundAnnotations(
   val column: Column?,
@@ -51,5 +59,12 @@ data class PropertyRoundElement(
 
 data class TableRoundElement(
   val table: TableElement,
-  val originatingFiles: OriginatingFiles
+  val originatingFiles: OriginatingFiles,
+  val sourceDeclaration: KSClassDeclaration,
+  val sourceProperties: Map<PropertyPath, KSPropertyDeclaration>
+)
+
+internal fun KSPropertyDeclaration.toPropertySourceKey() = PropertySourceKey(
+  parentName = parentDeclaration?.qualifiedNameOrSimpleName().orEmpty(),
+  propertyName = simpleName.asString()
 )

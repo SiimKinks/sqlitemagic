@@ -191,14 +191,8 @@ internal class IndexCodeGenerationContractTest : ProcessingStepsTest {
           contents = "package $PACKAGE\nclass Initial"
         ),
         processingStepsFactory = { environment ->
-          indexProcessingSteps(environment)
-            .toMutableList()
-            .apply {
-              add(
-                index = lastIndex,
-                element = LateIndexedTableStep(environment)
-              )
-            }
+          val steps = indexProcessingSteps(environment)
+          steps.dropLast(1) + listOf(LateIndexedTableStep(environment), steps.last())
         }
       )
       .isOk()

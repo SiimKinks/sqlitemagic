@@ -211,14 +211,8 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           contents = "package $PACKAGE\nclass Initial"
         ),
         processingStepsFactory = { environment ->
-          genClassesManagerProcessingSteps(environment)
-            .toMutableList()
-            .apply {
-              add(
-                index = lastIndex,
-                element = LateTableGenerationStep(environment)
-              )
-            }
+          val steps = genClassesManagerProcessingSteps(environment)
+          steps.dropLast(1) + listOf(LateTableGenerationStep(environment), steps.last())
         }
       )
       .isOk()

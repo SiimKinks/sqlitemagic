@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.model
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.Modifier.ABSTRACT
 import com.google.devtools.ksp.symbol.Modifier.INNER
 import com.siimkinks.sqlitemagic.Environment
@@ -56,7 +57,12 @@ internal class ModelCollector(
           originatingFiles = OriginatingFilesCollector(
             environment = environment,
             tableSeeds = tableSeeds
-          ).collect(seed)
+          ).collect(seed),
+          sourceDeclaration = seed.classDeclaration,
+          sourceProperties = sourceProperties(
+            seed = seed,
+            table = table
+          )
         )
       )
     }
@@ -392,6 +398,21 @@ internal class ModelCollector(
     }
   }
 
+  private fun sourceProperties(
+    seed: TableSeed,
+    table: TableElement
+  ): Map<PropertyPath, KSPropertyDeclaration> {
+    val materializedPaths = table.allColumns
+      .map(ColumnElement::access)
+      .map(PropertyAccess::path)
+      .toSet()
+    return seed.propertySeeds
+      .asSequence()
+      .flatMap(PropertySeed::sourceProperties)
+      .filter { (path, _) -> path in materializedPaths }
+      .toMap()
+  }
+
   private fun error(
     message: String,
     symbol: KSAnnotated?
@@ -399,6 +420,15 @@ internal class ModelCollector(
     message = message,
     symbol = symbol
   )
+}
+
+private fun PropertySeed.sourceProperties(): Sequence<Pair<PropertyPath, KSPropertyDeclaration>> = when (this) {
+  is ColumnSeed -> sequenceOf(roundElement.sourceDeclaration)
+    .filterIsInstance<KSPropertyDeclaration>()
+    .map { sourceDeclaration -> access.path to sourceDeclaration }
+  is EmbeddedSeed -> properties
+    .asSequence()
+    .flatMap(PropertySeed::sourceProperties)
 }
 
 private fun KSClassDeclaration.isSupportedEmbeddedDeclaration() =

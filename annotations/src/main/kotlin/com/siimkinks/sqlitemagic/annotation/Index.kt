@@ -11,8 +11,10 @@ import kotlin.annotation.AnnotationTarget.FIELD
  * and updates. Add indices only when this additional cost is worth the gain.
  *
  * An index can be defined on a column to create an index for that column, or on a table to create
- * a composite index. Every column in a composite index must have a [Column] annotation whose
- * [Column.belongsToIndex] property references the composite index name.
+ * a composite index. Every column in a named composite index must have a [Column] annotation whose
+ * [Column.belongsToIndex] property references that index name. When a table index has no explicit
+ * name, it includes every persisted column whose [Column.belongsToIndex] is also empty, including
+ * columns without an explicit [Column] annotation.
  *
  * See [SQLite documentation: CREATE INDEX](https://www.sqlite.org/lang_createindex.html).
  *

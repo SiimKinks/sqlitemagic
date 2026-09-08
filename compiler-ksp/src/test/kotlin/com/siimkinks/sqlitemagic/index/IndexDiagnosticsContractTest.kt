@@ -1,5 +1,11 @@
 package com.siimkinks.sqlitemagic.index
 
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.Resolver
+import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.processing.ProcessingStep
+import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
+import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
@@ -19,6 +25,43 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
       )
       .assertCompilationError(
         "Composite membership 'declared_lookup' has no matching class-level @Index"
+      )
+  }
+
+  @Test
+  fun `rejects unmatched composite membership despite an unrelated deferred table`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "UnmatchedMembershipWithDeferredTable.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("deferred_tables")
+            data class DeferredTable(
+              val value: GeneratedDeferredValue
+            )
+
+            @Table("unmatched_memberships")
+            class UnmatchedMembershipTable {
+              var persistedValue: String = ""
+
+              @IgnoreColumn
+              @Column(belongsToIndex = "unmatched_lookup")
+              var unmatchedValue: String = ""
+            }
+          """
+        ),
+        processingStepsFactory = { environment ->
+          listOf(GeneratedDeferredValueStep(environment)) + indexProcessingSteps(environment)
+        }
+      )
+      .assertCompilationError(
+        "belongsToIndex 'unmatched_lookup' is only valid on a persisted property of a @Table"
       )
   }
 
@@ -297,6 +340,33 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `rejects an index on a static table field`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.java(
+          name = "StaticIndex.java",
+          contents = """
+            package $PACKAGE;
+
+            import com.siimkinks.sqlitemagic.annotation.Index;
+            import com.siimkinks.sqlitemagic.annotation.Table;
+
+            @Table("static_indexes")
+            public class StaticIndex {
+              public String persistedValue = "";
+
+              @Index("static_value")
+              public static String staticValue = "";
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "@Index is only valid on instance table properties: StaticIndex.staticValue"
+      )
+  }
+
+  @Test
   fun `rejects a composite membership on a non-table declaration`() {
     SqliteMagicCompilation
       .compile(
@@ -317,5 +387,39 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
       .assertCompilationError(
         "belongsToIndex 'orphan_lookup' is only valid on a persisted property of a @Table"
       )
+  }
+}
+
+private class GeneratedDeferredValueStep(
+  private val environment: Environment
+) : ProcessingStep {
+  private var generated = false
+
+  override fun process(resolver: Resolver): ProcessingStepResult {
+    if (generated) return Continue
+    generated = true
+    environment.codeGenerator
+      .createNewFile(
+        dependencies = Dependencies(aggregating = false),
+        packageName = PACKAGE,
+        fileName = "GeneratedDeferredValue"
+      )
+      .bufferedWriter()
+      .use { writer ->
+        writer.write(
+          """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("generated_deferred_values")
+            data class GeneratedDeferredValue(
+              @Id(autoIncrement = false) val value: String
+            )
+          """
+        )
+      }
+    return Continue
   }
 }

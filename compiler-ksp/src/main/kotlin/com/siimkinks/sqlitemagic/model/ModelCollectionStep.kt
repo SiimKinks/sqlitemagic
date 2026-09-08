@@ -19,6 +19,9 @@ class ModelCollectionStep(
     val symbols = resolver.getSymbolsWithAnnotation(TABLE_ANNOTATION)
     val (valid, deferred) = symbols.partition(KSAnnotated::validate)
     val declarations = valid.filterIsInstance<KSClassDeclaration>()
+    environment.setDeferredTableSourceKeys(
+      deferred.filterIsInstance<KSClassDeclaration>()
+    )
     val isCollectionSuccessful = ModelCollector(environment).collect(declarations)
     return when {
       declarations.isNotEmpty() && !isCollectionSuccessful -> Failed

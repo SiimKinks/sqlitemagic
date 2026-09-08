@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseConfigurationCollectionStep
+import com.siimkinks.sqlitemagic.index.IndexCollectionStep
 import com.siimkinks.sqlitemagic.manager.GenClassesManagerStep
 import com.siimkinks.sqlitemagic.model.ModelCodeGenerationStep
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
@@ -26,6 +27,7 @@ class SqliteMagicSymbolProcessor(
       TransformerCodeGenerationStep(env),
       ModelCollectionStep(env),
       ModelCodeGenerationStep(env),
+      IndexCollectionStep(env),
       GenClassesManagerStep(env),
     )
   }
