@@ -77,6 +77,8 @@ class SqliteMagicSymbolProcessor(
     const val OPTION_MIGRATE_DEBUG = "sqlitemagic.migrate.debug"
     const val OPTION_PROJECT_DIR = "sqlitemagic.project.dir"
     const val OPTION_PUBLIC_EXTENSIONS = "sqlitemagic.kotlin.public.extensions"
+    const val OPTION_STRUCTURE_INPUT_DIRS = "sqlitemagic.structure.input.dirs"
+    const val OPTION_STRUCTURE_OUTPUT_DIR = "sqlitemagic.structure.output.dir"
     const val OPTION_VARIANT_NAME = "sqlitemagic.variant.name"
   }
 }

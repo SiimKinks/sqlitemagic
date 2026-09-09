@@ -13,6 +13,8 @@ import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MAI
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MIGRATE_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PROJECT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PUBLIC_EXTENSIONS
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_INPUT_DIRS
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_OUTPUT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_NAME
 import com.siimkinks.sqlitemagic.dbconfig.DatabaseMetadata
@@ -31,6 +33,7 @@ import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
 import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
 import com.squareup.kotlinpoet.ClassName
+import java.io.File
 
 class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   val codeGenerator = symbolProcessorEnvironment.codeGenerator
@@ -169,6 +172,8 @@ data class CompilerOptions internal constructor(
   val projectDir: String?,
   val variantName: String?,
   val mainModulePath: String?,
+  val structureInputDirectories: List<String> = emptyList(),
+  val structureOutputDirectory: String? = null,
   val publicExtensions: Boolean,
 ) {
   companion object {
@@ -185,6 +190,12 @@ data class CompilerOptions internal constructor(
       projectDir = options[OPTION_PROJECT_DIR].takeUnless(String?::isNullOrEmpty),
       variantName = options[OPTION_VARIANT_NAME].takeUnless(String?::isNullOrEmpty),
       mainModulePath = options[OPTION_MAIN_MODULE_PATH].takeUnless(String?::isNullOrEmpty),
+      structureInputDirectories = options[OPTION_STRUCTURE_INPUT_DIRS]
+        ?.split(File.pathSeparator)
+        ?.filter(String::isNotEmpty)
+        .orEmpty(),
+      structureOutputDirectory = options[OPTION_STRUCTURE_OUTPUT_DIR]
+        .takeUnless(String?::isNullOrEmpty),
       publicExtensions = options[OPTION_PUBLIC_EXTENSIONS].toBoolean(),
     )
   }

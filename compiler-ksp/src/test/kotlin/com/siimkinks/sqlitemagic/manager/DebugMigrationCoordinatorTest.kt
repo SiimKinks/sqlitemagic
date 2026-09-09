@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_OUTPUT_DIR
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.transformer.transformerCollectionProcessingSteps
@@ -20,6 +21,87 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
   @TempDir
   lateinit var temporaryDirectory: Path
+
+  @Test
+  fun `publishes a complete staged submodule snapshot without debug migration`() {
+    val mainDirectory = temporaryDirectory.resolve("main")
+    val submoduleDirectory = temporaryDirectory.resolve("feature")
+    val structureOutputDirectory = temporaryDirectory.resolve("staged")
+    val staleStructure = DatabaseStructure(
+      tables = linkedMapOf(
+        "stale_items" to TableStructure(name = "stale_items")
+      )
+    )
+    DatabaseStructureJson.write(
+      file = structureOutputDirectory.resolve("latest_feature.struct").toFile(),
+      structure = staleStructure
+    )
+    DatabaseStructureJson.write(
+      file = structureOutputDirectory.resolve("latest_old.struct").toFile(),
+      structure = staleStructure
+    )
+    structureOutputDirectory.resolve("feature.changed").toFile().writeText("")
+    structureOutputDirectory.resolve("old.changed").toFile().writeText("")
+
+    val compilation = SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "FeatureDatabase.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @SubmoduleDatabase("feature")
+            class FeatureDatabase
+
+            @Table("feature_items")
+            data class FeatureItem(
+              @Id val id: Long,
+              val name: String
+            )
+          """
+        ),
+        kspOptions = debugMigrationOptions(
+          projectDirectory = submoduleDirectory,
+          mainModuleDirectory = mainDirectory,
+          migrateDebug = false,
+          structureOutputDirectory = structureOutputDirectory
+        )
+      )
+      .isOk()
+    val database = GeneratedDatabaseElement.from(compilation.environment)
+    val orderedTables = CreationOrderedTables.from(database.tables)
+    val expectedStructure = DatabaseStructure.from(
+      orderedTables = orderedTables,
+      indexes = database.indices
+    )
+
+    assertThat(
+      DebugMigrationCoordinator(
+        configuration = DebugMigrationConfiguration.from(compilation.environment.options),
+        logger = compilation.environment.logger
+      ).handle(
+        database = database,
+        orderedTables = orderedTables
+      )
+    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = null))
+    assertThat(
+      DatabaseStructureJson.read(
+        structureOutputDirectory.resolve("latest_feature.struct").toFile()
+      )
+    ).isEqualTo(expectedStructure)
+    assertThat(Files.exists(structureOutputDirectory.resolve("latest_old.struct")))
+      .isFalse()
+    assertThat(Files.exists(structureOutputDirectory.resolve("feature.changed")))
+      .isFalse()
+    assertThat(Files.exists(structureOutputDirectory.resolve("old.changed")))
+      .isFalse()
+    assertThat(Files.exists(mainDirectory.resolve("db/latest_feature.struct")))
+      .isFalse()
+  }
 
   @Test
   fun `does not publish a submodule snapshot when migration generation fails`() {
@@ -205,11 +287,13 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
   private fun debugMigrationOptions(
     projectDirectory: Path,
-    mainModuleDirectory: Path? = null
+    mainModuleDirectory: Path? = null,
+    migrateDebug: Boolean = true,
+    structureOutputDirectory: Path? = null
   ) = buildMap {
     put(
       key = "sqlitemagic.migrate.debug",
-      value = "true"
+      value = migrateDebug.toString()
     )
     put(
       key = "sqlitemagic.project.dir",
@@ -226,6 +310,12 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     mainModuleDirectory?.let { directory ->
       put(
         key = "sqlitemagic.main.module.path",
+        value = directory.toString()
+      )
+    }
+    structureOutputDirectory?.let { directory ->
+      put(
+        key = OPTION_STRUCTURE_OUTPUT_DIR,
         value = directory.toString()
       )
     }

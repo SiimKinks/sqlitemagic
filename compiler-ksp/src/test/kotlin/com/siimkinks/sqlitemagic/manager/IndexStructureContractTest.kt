@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -70,7 +71,7 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `release snapshots strip temporary tables and indexes from complete current structures`() {
+  fun `release snapshots contain only persistent tables and indexes from complete current structures`() {
     writeStructure(
       file = temporaryDirectory.resolve("db/module.struct"),
       json = structureJson(
@@ -107,15 +108,25 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
 
     migrateRelease()
 
-    val releaseJson = Files.readString(
-      temporaryDirectory.resolve("db/releases/1.struct")
+    val releaseStructure = DatabaseStructureJson.read(
+      Files.readString(
+        temporaryDirectory.resolve("db/releases/1.struct")
+      )
     )
-    releaseJson.assertContains("persistent_items", "persistent_name_index")
-    releaseJson.assertDoesNotContain(
-      "temporaryTables",
-      "temporaryIndices",
-      "temporary_items",
-      "temporary_name_index"
+
+    assertThat(releaseStructure).isEqualTo(
+      DatabaseStructure(
+        tables = linkedMapOf(
+          "persistent_items" to TableStructure(name = "persistent_items")
+        ),
+        indices = linkedMapOf(
+          "persistent_name_index" to IndexStructure(
+            name = "persistent_name_index",
+            indexSql = "CREATE INDEX persistent_name_index ON persistent_items (name)",
+            forTable = "persistent_items"
+          )
+        )
+      )
     )
   }
 
@@ -149,7 +160,7 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `main compilation ignores current structures for unconfigured submodules`() {
+  fun `main compilation ignores unrelated staged snapshots`() {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submodule = SqliteMagicCompilation
       .compile(featureDatabaseDeclaration())
@@ -179,6 +190,55 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
         kspOptions = mainCompilationOptions(mainDirectory)
       )
       .isOk()
+  }
+
+  @Test
+  fun `main compilation rejects a missing configured submodule snapshot`() {
+    val mainDirectory = temporaryDirectory.resolve("main")
+    val stagedDirectory = temporaryDirectory.resolve("staged")
+    val submodule = SqliteMagicCompilation
+      .compile(featureDatabaseDeclaration())
+      .isOk()
+    writeStructure(
+      file = stagedDirectory.resolve("latest_unrelated.struct"),
+      json = structureJson()
+    )
+
+    submodule
+      .compile(
+        mainDatabaseWithoutTables(),
+        kspOptions = mainCompilationOptions(
+          mainDirectory = mainDirectory,
+          structureInputDirectories = listOf(stagedDirectory)
+        )
+      )
+      .assertCompilationError("Missing staged current structure snapshot")
+  }
+
+  @Test
+  fun `main compilation rejects duplicate configured submodule snapshots`() {
+    val mainDirectory = temporaryDirectory.resolve("main")
+    val firstStagedDirectory = temporaryDirectory.resolve("staged-one")
+    val secondStagedDirectory = temporaryDirectory.resolve("staged-two")
+    val submodule = SqliteMagicCompilation
+      .compile(featureDatabaseDeclaration())
+      .isOk()
+    listOf(firstStagedDirectory, secondStagedDirectory).forEach { directory ->
+      writeStructure(
+        file = directory.resolve("latest_feature.struct"),
+        json = structureJson()
+      )
+    }
+
+    submodule
+      .compile(
+        mainDatabaseWithoutTables(),
+        kspOptions = mainCompilationOptions(
+          mainDirectory = mainDirectory,
+          structureInputDirectories = listOf(firstStagedDirectory, secondStagedDirectory)
+        )
+      )
+      .assertCompilationError("Multiple staged current structure snapshots")
   }
 
   @Test
@@ -296,9 +356,13 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
     )
   }
 
-  private fun mainCompilationOptions(mainDirectory: Path) = mapOf(
+  private fun mainCompilationOptions(
+    mainDirectory: Path,
+    structureInputDirectories: List<Path> = listOf(mainDirectory.resolve("db"))
+  ) = mapOf(
     "sqlitemagic.migrate.debug" to "true",
     "sqlitemagic.project.dir" to mainDirectory.toString(),
+    "sqlitemagic.structure.input.dirs" to structureInputDirectories.joinToString(separator = File.pathSeparator),
     "sqlitemagic.variant.name" to "debug",
     "sqlitemagic.variant.debug" to "true"
   )

@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
-import java.io.File
 import kotlinx.serialization.json.Json
+import java.io.File
 
 internal object DatabaseStructureJson {
   private val json = Json {

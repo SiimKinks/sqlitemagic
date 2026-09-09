@@ -12,7 +12,6 @@ internal fun indexCollectionProcessingSteps(environment: Environment): List<Proc
 internal fun indexProcessingSteps(environment: Environment): List<ProcessingStep> =
   modelProcessingSteps(environment) + listOf(
     IndexCollectionStep(environment),
-    // TODO Phase 5: add index SQL generation and manager integration after index collection exists.
     // TODO Views: add view collection and generation only when the views slice is authorized.
     GenClassesManagerStep(environment)
   )

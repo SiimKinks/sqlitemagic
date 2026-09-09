@@ -2,8 +2,13 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 
 internal class DatabaseStructureTest {
+  @TempDir
+  lateinit var temporaryDirectory: Path
+
   @Test
   fun `stores complete table column and future index state`() {
     val column = ColumnStructure(
@@ -118,5 +123,72 @@ internal class DatabaseStructureTest {
         temporaryIndices = linkedMapOf("feature_temp_index" to IndexStructure(name = "feature_temp_index"))
       )
     )
+  }
+
+  @Test
+  fun `publication comparison ignores temporary changes and detects persistent indexes`() {
+    val previousFile = temporaryDirectory.resolve("previous.struct").toFile()
+    val currentFile = temporaryDirectory.resolve("current.struct").toFile()
+    val previousStructure = DatabaseStructure(
+      tables = linkedMapOf(
+        "books" to TableStructure(name = "books")
+      )
+    )
+    val temporaryCurrentStructure = previousStructure.copy(
+      temporaryTables = linkedMapOf(
+        "book_drafts" to TableStructure(name = "book_drafts")
+      ),
+      temporaryIndices = linkedMapOf(
+        "book_drafts_key" to IndexStructure(
+          name = "book_drafts_key",
+          indexSql = "CREATE INDEX book_drafts_key ON book_drafts (book_key)",
+          forTable = "book_drafts"
+        )
+      )
+    )
+    DatabaseStructureJson.write(
+      file = previousFile,
+      structure = previousStructure
+    )
+    DatabaseStructureJson.write(
+      file = currentFile,
+      structure = temporaryCurrentStructure
+    )
+
+    assertThat(DatabaseStructureJson.read(currentFile))
+      .isEqualTo(temporaryCurrentStructure)
+    assertThat(
+      DatabaseStructurePublication.hasPersistentChanges(
+        previousFile = previousFile,
+        currentFile = currentFile
+      )
+    ).isFalse()
+
+    val persistentCurrentStructure = temporaryCurrentStructure.copy(
+      indices = linkedMapOf(
+        "books_key" to IndexStructure(
+          name = "books_key",
+          indexSql = "CREATE INDEX books_key ON books (book_key)",
+          forTable = "books"
+        )
+      )
+    )
+    DatabaseStructureJson.write(
+      file = currentFile,
+      structure = persistentCurrentStructure
+    )
+
+    assertThat(DatabaseStructureJson.read(currentFile))
+      .isEqualTo(persistentCurrentStructure)
+    assertThat(
+      DatabaseStructurePublication.hasPersistentChanges(
+        previousFile = previousFile,
+        currentFile = currentFile
+      )
+    ).isTrue()
+    assertThat(
+      DatabaseStructurePublication
+        .hasPersistentObjects(currentFile)
+    ).isTrue()
   }
 }

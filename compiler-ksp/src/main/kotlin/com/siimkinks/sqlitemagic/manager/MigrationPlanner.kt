@@ -1,5 +1,10 @@
 package com.siimkinks.sqlitemagic.manager
 
+internal enum class TableMigrationOperation {
+  APPEND_COLUMNS,
+  REBUILD
+}
+
 internal object MigrationPlanner {
   fun plan(diff: SchemaDiff): TableMigrationPlan {
     val currentReferencesByTableName = linkedMapOf<String, Set<String>>()
@@ -54,7 +59,12 @@ internal object MigrationPlanner {
       .map { transition ->
         TableChange(
           from = transition.previous,
-          to = transition.current
+          to = transition.current,
+          operation = tableMigrationOperation(
+            from = transition.previous.structure,
+            to = transition.current.structure,
+            renamed = transition.renamed
+          )
         )
       }
       .toList()
@@ -64,7 +74,8 @@ internal object MigrationPlanner {
       .map { table ->
         TableChange(
           from = diff.transitionByCurrentName.getValue(table.name).previous,
-          to = table
+          to = table,
+          operation = TableMigrationOperation.REBUILD
         )
       }
       .toList()
@@ -82,29 +93,84 @@ internal object MigrationPlanner {
     val remainingNewTables = diff.currentTables.filter { table ->
       table.name in diff.newTableNames && table.name !in prerequisiteNewTableNames
     }
+    val simpleRenames = diff.transitions
+      .asSequence()
+      .filter { transition ->
+        transition.renamed &&
+            !transition.changed &&
+            transition.current.name !in dependentRebuildTables
+      }
+      .map { transition ->
+        TableRename(
+          previousName = transition.previous.name,
+          currentName = transition.current.name
+        )
+      }
+      .toList()
+    val rebuiltPreviousTableNames = (directRebuilds + batchedRebuilds)
+      .asSequence()
+      .filter { it.operation == TableMigrationOperation.REBUILD }
+      .mapTo(linkedSetOf(), transform = { it.from.name })
+    val rebuiltCurrentTableNames = (directRebuilds + batchedRebuilds)
+      .asSequence()
+      .filter { it.operation == TableMigrationOperation.REBUILD }
+      .mapTo(linkedSetOf(), transform = { it.to.name })
+    val indexTransitionsByName = diff.indexTransitions.associateBy { it.previous.name }
+    val indexTransitionsByCurrentName = diff.indexTransitions.associateBy { it.current.name }
+    val indexDrops = diff.previousIndices.filterTo(arrayListOf()) { index ->
+      val transition = indexTransitionsByName[index.name]
+      transition == null ||
+          transition.changed ||
+          index.structure.forTable in rebuiltPreviousTableNames
+    }
+    val indexCreates = diff.currentIndices.filterTo(arrayListOf()) { index ->
+      val transition = indexTransitionsByCurrentName[index.name]
+      transition == null ||
+          transition.changed ||
+          index.structure.forTable in rebuiltCurrentTableNames ||
+          index.structure.forTable in diff.newTableNames
+    }
     return TableMigrationPlan(
       prerequisiteNewTables = prerequisiteNewTables,
-      simpleRenames = diff.transitions
-        .asSequence()
-        .filter { transition ->
-          transition.renamed &&
-              !transition.changed &&
-              transition.current.name !in dependentRebuildTables
-        }
-        .map { transition ->
-          TableRename(
-            previousName = transition.previous.name,
-            currentName = transition.current.name
-          )
-        }
-        .toList(),
+      simpleRenames = simpleRenames,
       directRebuilds = directRebuilds,
       batchedRebuilds = batchedRebuilds,
       removedTables = orderedRemovedTableNames.map(removedTablesByName::getValue),
-      remainingNewTables = remainingNewTables
+      remainingNewTables = remainingNewTables,
+      indexDrops = indexDrops,
+      indexCreates = indexCreates
     )
   }
 }
+
+private fun tableMigrationOperation(
+  from: TableStructure,
+  to: TableStructure,
+  renamed: Boolean
+) = when {
+  renamed || from.name != to.name -> TableMigrationOperation.REBUILD
+  from.columns.size >= to.columns.size -> TableMigrationOperation.REBUILD
+  !from.columns.indices.all { index -> from.columns[index] == to.columns[index] } -> TableMigrationOperation.REBUILD
+  !equivalentTableOptionsForMigration(from = from, to = to) -> TableMigrationOperation.REBUILD
+  !to.columns
+    .asSequence()
+    .drop(from.columns.size)
+    .all(ColumnStructure::canBeAddedWithAlterTable) -> TableMigrationOperation.REBUILD
+  else -> TableMigrationOperation.APPEND_COLUMNS
+}
+
+private fun equivalentTableOptionsForMigration(
+  from: TableStructure,
+  to: TableStructure
+) = normalizeSql(
+  schema = from.schema.withoutTableColumns(),
+  ownTableName = from.name,
+  renames = emptyMap()
+) == normalizeSql(
+  schema = to.schema.withoutTableColumns(),
+  ownTableName = to.name,
+  renames = emptyMap()
+)
 
 internal data class TableRename(
   val previousName: String,
@@ -113,7 +179,8 @@ internal data class TableRename(
 
 internal data class TableChange(
   val from: TableSnapshot,
-  val to: TableSnapshot
+  val to: TableSnapshot,
+  val operation: TableMigrationOperation
 )
 
 internal data class TableMigrationPlan(
@@ -122,5 +189,7 @@ internal data class TableMigrationPlan(
   val directRebuilds: List<TableChange>,
   val batchedRebuilds: List<TableChange>,
   val removedTables: List<TableSnapshot>,
-  val remainingNewTables: List<TableSnapshot>
+  val remainingNewTables: List<TableSnapshot>,
+  val indexDrops: List<IndexSnapshot>,
+  val indexCreates: List<IndexSnapshot>
 )

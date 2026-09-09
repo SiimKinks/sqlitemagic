@@ -4,7 +4,8 @@ import java.io.File
 
 internal class MigrationArtifactsPublisher(
   private val structureFile: File,
-  private val migrationFile: File
+  private val migrationFile: File,
+  private val persistentStructureOnly: Boolean = false
 ) {
   fun publish(
     structure: DatabaseStructure,
@@ -13,10 +14,16 @@ internal class MigrationArtifactsPublisher(
     val previousStructure = structureFile.takeIf(File::isFile)?.readBytes()
     val previousMigration = migrationFile.takeIf(File::isFile)?.readBytes()
     try {
-      DatabaseStructureJson.write(
-        file = structureFile,
-        structure = structure
-      )
+      when {
+        persistentStructureOnly -> DatabaseStructureJson.write(
+          file = structureFile,
+          structure = structure.persistentOnly()
+        )
+        else -> DatabaseStructureJson.write(
+          file = structureFile,
+          structure = structure
+        )
+      }
       publishMigration(migrationStatements)
     } catch (exception: Exception) {
       restoreArtifact(

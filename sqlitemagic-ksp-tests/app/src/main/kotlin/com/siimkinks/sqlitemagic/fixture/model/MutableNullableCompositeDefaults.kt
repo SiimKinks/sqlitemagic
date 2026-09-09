@@ -1,11 +1,16 @@
 package com.siimkinks.sqlitemagic.fixture.model
 
+import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Id
+import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 
 class MutableNullableDetails {
+  @Column(belongsToIndex = "mutable_nullable_details_index")
   var label: String = "default-label"
+
+  @Column(belongsToIndex = "mutable_nullable_details_index")
   var count: Long = 42
 
   override fun equals(other: Any?) = when {
@@ -29,6 +34,7 @@ class MutableNullableOwner {
   override fun hashCode() = id.hashCode()
 }
 
+@Index("mutable_nullable_details_index")
 @Table
 class MutableNullableCompositeDefaults {
   @Id

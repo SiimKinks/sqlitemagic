@@ -239,10 +239,17 @@ private fun indexedMainDatabase() = SourceFile.kotlin(
     @Table("main_parents")
     data class MainParent(
       @Id val id: Long,
-      @Index(value = "main_parent_name_index", unique = true) val name: String
+      @Index(
+        value = "main_parent_name_index",
+        unique = true
+      )
+      val name: String
     )
 
-    @Table(value = "main_sessions", options = [TEMPORARY])
+    @Table(
+      value = "main_sessions",
+      options = [TEMPORARY]
+    )
     data class MainSession(
       @Id val id: Long,
       @Index("main_session_name_index") val name: String
@@ -251,7 +258,8 @@ private fun indexedMainDatabase() = SourceFile.kotlin(
 )
 
 private fun indexedTemporaryTable(
-  tableName: String = "session_items"
+  tableName: String = "session_items",
+  indexName: String = "session_name_index"
 ) = SourceFile.kotlin(
   name = "SessionItem.kt",
   contents = """
@@ -262,10 +270,17 @@ private fun indexedTemporaryTable(
     import com.siimkinks.sqlitemagic.annotation.Table
     import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 
-    @Table(value = "$tableName", options = [TEMPORARY])
+    @Table(
+      value = "$tableName",
+      options = [TEMPORARY]
+    )
     data class SessionItem(
       @Id val id: Long,
-      @Index(value = "session_name_index", unique = true) val name: String
+      @Index(
+        value = "$indexName",
+        unique = true
+      )
+      val name: String
     )
   """
 )
@@ -287,5 +302,8 @@ private fun indexedPersistentAndTemporaryTables() = listOf(
       )
     """
   ),
-  indexedTemporaryTable()
+  indexedTemporaryTable(
+    tableName = "temporary_items",
+    indexName = "temporary_name_index"
+  )
 )

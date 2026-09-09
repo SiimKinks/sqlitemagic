@@ -320,6 +320,36 @@ internal class ReleaseMigrationCoordinatorTest {
   }
 
   @Test
+  fun `reports all current structure identity conflicts`() {
+    val index = IndexStructure(
+      name = "books_index",
+      indexSql = "CREATE INDEX books_index ON books (id)",
+      forTable = "books"
+    )
+    val structure = databaseStructure("books").copy(
+      indices = linkedMapOf(index.name to index)
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("a.struct"),
+      structure = structure
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("b.struct"),
+      structure = structure
+    )
+
+    val exception = assertThrows<IllegalStateException>(::migrate)
+
+    assertThat(exception)
+      .hasMessageThat()
+      .isEqualTo(
+        "Duplicate table 'books' in current database structure snapshots: books (a.struct) and books (b.struct)\n" +
+            "Duplicate index 'books_index' in current database structure snapshots: " +
+            "books_index (a.struct) and books_index (b.struct)"
+      )
+  }
+
+  @Test
   fun `fails when current structures claim the same SQLite schema identifier across table and index`() {
     val index = IndexStructure(
       name = "books",

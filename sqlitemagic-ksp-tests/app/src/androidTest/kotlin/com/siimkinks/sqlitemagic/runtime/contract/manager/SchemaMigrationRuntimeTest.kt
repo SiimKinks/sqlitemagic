@@ -25,22 +25,29 @@ import org.junit.Test
 private const val MIGRATION_DATABASE_NAME = "schema-migration-runtime-test.db"
 private const val SQLITE_MASTER = "sqlite_master"
 private const val SQLITE_TEMP_MASTER = "sqlite_temp_master"
-private const val GENERATED_DATABASE_VERSION = 1020
-private const val INVALID_MIGRATION_VERSION = 1021
-private const val MISSING_MIGRATION_VERSION = 1022
-private const val VERSION_1019_BOOK_KEY = "migration-book-key"
-private const val VERSION_1019_BOOK_TITLE = "migration-book-title"
+private const val MIGRATION_VERSION_OFFSET = 1_000_000
+private const val INVALID_MIGRATION_INITIAL_VERSION = MIGRATION_VERSION_OFFSET
+private const val INVALID_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 1
+private const val MISSING_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 2
+private const val LIBRARY_MIGRATION_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 100
+private const val LIBRARY_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 101
+private const val REBUILD_MIGRATION_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 200
+private const val REBUILD_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 201
+private const val FAILING_MIGRATION_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 300
+private const val FAILING_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 301
+private const val MIGRATION_BOOK_KEY = "migration-book-key"
+private const val MIGRATION_BOOK_TITLE = "migration-book-title"
 private const val MIGRATION_FAILURE_MESSAGE = "intentional migration failure"
-private const val INVALID_MIGRATION_MESSAGE = "Error executing migration script 1021.sql at line 2"
+private const val INVALID_MIGRATION_MESSAGE = "Error executing migration script 1000001.sql at line 2"
 private const val ROLLED_BACK_TABLE = "migration_should_rollback"
 
-private val VERSION_1020_PERSISTENT_TABLES = setOf(
+private val VERSION_101_PERSISTENT_TABLES = setOf(
   "nested_model_container_nested_entity",
   "value_class_entity",
   "java_mutable_entity"
 )
 
-private val VERSION_1020_PERSISTENT_SCHEMA_FRAGMENTS = mapOf(
+private val VERSION_101_PERSISTENT_SCHEMA_FRAGMENTS = mapOf(
   "nested_model_container_nested_entity" to setOf(
     "id TEXT PRIMARY KEY",
     "value TEXT DEFAULT ''"
@@ -120,8 +127,8 @@ class SchemaMigrationRuntimeTest {
           .execute()
       ).containsExactly(
         LibraryBook(
-          id = VERSION_1019_BOOK_KEY,
-          title = VERSION_1019_BOOK_TITLE
+          id = MIGRATION_BOOK_KEY,
+          title = MIGRATION_BOOK_TITLE
         )
       )
     }
@@ -133,7 +140,7 @@ class SchemaMigrationRuntimeTest {
   ) { application ->
     seedLibraryDatabase(
       application = application,
-      version = GENERATED_DATABASE_VERSION
+      version = INVALID_MIGRATION_INITIAL_VERSION
     )
 
     val exception = assertThrows(IllegalStateException::class.java) {
@@ -153,7 +160,8 @@ class SchemaMigrationRuntimeTest {
         null
       )
       .use { database ->
-        assertThat(database.version).isEqualTo(GENERATED_DATABASE_VERSION)
+        assertThat(database.version)
+          .isEqualTo(INVALID_MIGRATION_INITIAL_VERSION)
         assertThat(
           database
             .rawQuery(
@@ -170,69 +178,71 @@ class SchemaMigrationRuntimeTest {
             )
             .use(Cursor::readRows)
         ).containsExactly(
-          listOf(VERSION_1019_BOOK_KEY, VERSION_1019_BOOK_TITLE)
+          listOf(MIGRATION_BOOK_KEY, MIGRATION_BOOK_TITLE)
         )
       }
   }
 
   @Test
-  fun upgradesFromVersion1019AndPreservesLibraryBook() = withNamedDatabase(
+  fun upgradesFromVersion100AndPreservesLibraryBook() = withNamedDatabase(
     databaseName = MIGRATION_DATABASE_NAME
   ) { application ->
     val expectedBook = LibraryBook(
-      id = VERSION_1019_BOOK_KEY,
-      title = VERSION_1019_BOOK_TITLE
+      id = MIGRATION_BOOK_KEY,
+      title = MIGRATION_BOOK_TITLE
     )
     seedLibraryDatabase(
       application = application,
-      version = 1019
+      version = LIBRARY_MIGRATION_INITIAL_VERSION
     )
 
-    openMigrationConnection(application = application)
-      .use { connection ->
-        assertThat(userVersion(connection = connection))
-          .isEqualTo(GENERATED_DATABASE_VERSION)
-        assertThat(
-          Select
-            .from(LIBRARY_BOOK)
-            .usingConnection(connection)
-            .execute()
-        ).containsExactly(expectedBook)
-        assertThat(
-          tableNames(
-            connection = connection,
-            master = SQLITE_MASTER,
-            names = VERSION_1020_PERSISTENT_TABLES
-          )
-        ).containsExactlyElementsIn(VERSION_1020_PERSISTENT_TABLES)
-        assertSchemaFragments(
+    openMigrationConnection(
+      application = application,
+      database = VersionedMigrationDatabase(version = LIBRARY_MIGRATION_VERSION)
+    ).use { connection ->
+      assertThat(userVersion(connection = connection))
+        .isEqualTo(LIBRARY_MIGRATION_VERSION)
+      assertThat(
+        Select
+          .from(LIBRARY_BOOK)
+          .usingConnection(connection)
+          .execute()
+      ).containsExactly(expectedBook)
+      assertThat(
+        tableNames(
           connection = connection,
-          expectedFragments = VERSION_1020_PERSISTENT_SCHEMA_FRAGMENTS
+          master = SQLITE_MASTER,
+          names = VERSION_101_PERSISTENT_TABLES
         )
-        assertThat(
-          tableNames(
-            connection = connection,
-            master = SQLITE_TEMP_MASTER,
-            names = GENERATED_TEMPORARY_TABLES
-          )
-        ).containsExactlyElementsIn(GENERATED_TEMPORARY_TABLES)
-        assertThat(
-          tableNames(
-            connection = connection,
-            master = SQLITE_MASTER,
-            names = GENERATED_TEMPORARY_TABLES
-          )
-        ).isEmpty()
-      }
+      ).containsExactlyElementsIn(VERSION_101_PERSISTENT_TABLES)
+      assertSchemaFragments(
+        connection = connection,
+        expectedFragments = VERSION_101_PERSISTENT_SCHEMA_FRAGMENTS
+      )
+      assertThat(
+        tableNames(
+          connection = connection,
+          master = SQLITE_TEMP_MASTER,
+          names = GENERATED_TEMPORARY_TABLES
+        )
+      ).containsExactlyElementsIn(GENERATED_TEMPORARY_TABLES)
+      assertThat(
+        tableNames(
+          connection = connection,
+          master = SQLITE_MASTER,
+          names = GENERATED_TEMPORARY_TABLES
+        )
+      ).isEmpty()
+    }
   }
 
   @Test
-  fun upgradesFromVersion1008RebuildsAndRenamesLegacyTables() = withNamedDatabase(
+  fun upgradesFromVersion200RebuildsAndRenamesLegacyTables() = withNamedDatabase(
     databaseName = MIGRATION_DATABASE_NAME
   ) { application ->
     seedDatabase(
       application = application,
-      version = 1008,
+      version = REBUILD_MIGRATION_INITIAL_VERSION,
       statements = listOf(
         "CREATE TABLE author (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT DEFAULT NULL, " +
             "boxed_boolean INTEGER DEFAULT NULL, primitive_boolean INTEGER DEFAULT 0)",
@@ -254,63 +264,65 @@ class SchemaMigrationRuntimeTest {
       )
     )
 
-    openMigrationConnection(application = application)
-      .use { connection ->
-        assertThat(userVersion(connection = connection))
-          .isEqualTo(GENERATED_DATABASE_VERSION)
-        assertThat(
-          tableNames(
-            connection = connection,
-            master = SQLITE_MASTER,
-            names = REBUILT_CURRENT_TABLES
-          )
-        ).containsExactlyElementsIn(REBUILT_CURRENT_TABLES)
-        assertSchemaFragments(
+    openMigrationConnection(
+      application = application,
+      database = VersionedMigrationDatabase(version = REBUILD_MIGRATION_VERSION)
+    ).use { connection ->
+      assertThat(userVersion(connection = connection))
+        .isEqualTo(REBUILD_MIGRATION_VERSION)
+      assertThat(
+        tableNames(
           connection = connection,
-          expectedFragments = REBUILT_CURRENT_SCHEMA_FRAGMENTS
+          master = SQLITE_MASTER,
+          names = REBUILT_CURRENT_TABLES
         )
-        assertThat(
-          tableNames(
-            connection = connection,
-            master = SQLITE_MASTER,
-            names = REBUILT_OLD_TABLES
-          )
-        ).isEmpty()
-        assertThat(
-          rawRows(
-            connection = connection,
-            table = SIMPLE_MUTABLE_ENTITY,
-            sql = "SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity"
-          )
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf("7", null, "1", "0")
-          )
+      ).containsExactlyElementsIn(REBUILT_CURRENT_TABLES)
+      assertSchemaFragments(
+        connection = connection,
+        expectedFragments = REBUILT_CURRENT_SCHEMA_FRAGMENTS
+      )
+      assertThat(
+        tableNames(
+          connection = connection,
+          master = SQLITE_MASTER,
+          names = REBUILT_OLD_TABLES
         )
-        assertThat(
-          rawRows(
-            connection = connection,
-            table = ENTITY_WITH_RELATIONSHIP,
-            sql = "SELECT id, value, related_entity, count FROM entity_with_relationship"
-          )
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf("11", null, null, null)
-          )
+      ).isEmpty()
+      assertThat(
+        rawRows(
+          connection = connection,
+          table = SIMPLE_MUTABLE_ENTITY,
+          sql = "SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity"
         )
-        assertThat(
-          rawRows(
-            connection = connection,
-            table = COMPLEX_OBJECT_WITH_SAME_LEAFS,
-            sql = "SELECT id, name, simple_value, entity_with_relationship, simple_value_duplicate " +
-                "FROM complex_object_with_same_leafs"
-          )
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf("13", "legacy-complex-name", "17", null, "19")
-          )
+      ).containsExactlyElementsIn(
+        listOf(
+          listOf("7", null, "1", "0")
         )
-      }
+      )
+      assertThat(
+        rawRows(
+          connection = connection,
+          table = ENTITY_WITH_RELATIONSHIP,
+          sql = "SELECT id, value, related_entity, count FROM entity_with_relationship"
+        )
+      ).containsExactlyElementsIn(
+        listOf(
+          listOf("11", null, null, null)
+        )
+      )
+      assertThat(
+        rawRows(
+          connection = connection,
+          table = COMPLEX_OBJECT_WITH_SAME_LEAFS,
+          sql = "SELECT id, name, simple_value, entity_with_relationship, simple_value_duplicate " +
+              "FROM complex_object_with_same_leafs"
+        )
+      ).containsExactlyElementsIn(
+        listOf(
+          listOf("13", "legacy-complex-name", "17", null, "19")
+        )
+      )
+    }
   }
 
   @Test
@@ -319,13 +331,13 @@ class SchemaMigrationRuntimeTest {
   ) { application ->
     seedLibraryDatabase(
       application = application,
-      version = 1019
+      version = FAILING_MIGRATION_INITIAL_VERSION
     )
 
     val exception = assertThrows(IllegalStateException::class.java) {
       openMigrationConnection(
         application = application,
-        database = FailingMigrationDatabase()
+        database = FailingMigrationDatabase(version = FAILING_MIGRATION_VERSION)
       ).use(::userVersion)
     }
     assertThat(exception)
@@ -339,7 +351,7 @@ class SchemaMigrationRuntimeTest {
         null
       )
       .use { database ->
-        assertThat(database.version).isEqualTo(1019)
+        assertThat(database.version).isEqualTo(FAILING_MIGRATION_INITIAL_VERSION)
         assertThat(
           database
             .rawQuery(
@@ -349,15 +361,15 @@ class SchemaMigrationRuntimeTest {
             .use(Cursor::readRows)
         ).containsExactlyElementsIn(
           listOf(
-            listOf(VERSION_1019_BOOK_KEY, VERSION_1019_BOOK_TITLE)
+            listOf(MIGRATION_BOOK_KEY, MIGRATION_BOOK_TITLE)
           )
         )
         assertThat(
           database
             .rawQuery(
               "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN " +
-                  "(${VERSION_1020_PERSISTENT_TABLES.joinToString(separator = ", ") { "?" }})",
-              VERSION_1020_PERSISTENT_TABLES.toTypedArray()
+                  "(${VERSION_101_PERSISTENT_TABLES.joinToString(separator = ", ") { "?" }})",
+              VERSION_101_PERSISTENT_TABLES.toTypedArray()
             )
             .use(Cursor::readStrings)
         ).isEmpty()
@@ -372,7 +384,7 @@ class SchemaMigrationRuntimeTest {
     version = version,
     statements = listOf(
       "CREATE TABLE library_books (book_key TEXT PRIMARY KEY, title_text TEXT DEFAULT 'untitled')",
-      "INSERT INTO library_books (book_key, title_text) VALUES ('$VERSION_1019_BOOK_KEY', '$VERSION_1019_BOOK_TITLE')"
+      "INSERT INTO library_books (book_key, title_text) VALUES ('$MIGRATION_BOOK_KEY', '$MIGRATION_BOOK_TITLE')"
     )
   )
 
@@ -395,7 +407,7 @@ class SchemaMigrationRuntimeTest {
 
   private fun openMigrationConnection(
     application: Application,
-    database: GeneratedDatabase = SqliteMagicDatabase()
+    database: GeneratedDatabase
   ) = openNamedConnection(
     application = application,
     databaseName = MIGRATION_DATABASE_NAME,
@@ -470,14 +482,29 @@ class SchemaMigrationRuntimeTest {
     .use(Cursor::readRows)
 }
 
-private class FailingMigrationDatabase : GeneratedDatabase by SqliteMagicDatabase() {
+private class FailingMigrationDatabase(
+  private val version: Int,
+  private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
+) : GeneratedDatabase by delegate {
+  override fun getDbVersion() = version
+
+  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
+
   override fun migrateViews(db: SupportSQLiteDatabase) {
+    val migratedTables = db
+      .query("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .use(Cursor::readStrings)
+      .toSet()
+    check(migratedTables.containsAll(VERSION_101_PERSISTENT_TABLES))
     throw IllegalStateException(MIGRATION_FAILURE_MESSAGE)
   }
 }
 
 private class VersionedMigrationDatabase(
-  private val version: Int
-) : GeneratedDatabase by SqliteMagicDatabase() {
+  private val version: Int,
+  private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
+) : GeneratedDatabase by delegate {
   override fun getDbVersion() = version
+
+  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
 }

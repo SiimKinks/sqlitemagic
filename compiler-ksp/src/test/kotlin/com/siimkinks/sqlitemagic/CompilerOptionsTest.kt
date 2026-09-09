@@ -8,9 +8,12 @@ import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MAI
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MIGRATE_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PROJECT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PUBLIC_EXTENSIONS
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_INPUT_DIRS
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_OUTPUT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_NAME
 import org.junit.jupiter.api.Test
+import java.io.File
 
 internal class CompilerOptionsTest {
   @Test
@@ -25,6 +28,11 @@ internal class CompilerOptionsTest {
         OPTION_PROJECT_DIR to "/project",
         OPTION_VARIANT_NAME to "demoDebug",
         OPTION_MAIN_MODULE_PATH to "/main",
+        OPTION_STRUCTURE_INPUT_DIRS to listOf(
+          "/staged/one",
+          "/staged/two"
+        ).joinToString(File.pathSeparator),
+        OPTION_STRUCTURE_OUTPUT_DIR to "/staged/output",
         OPTION_PUBLIC_EXTENSIONS to "true"
       )
     )
@@ -39,6 +47,11 @@ internal class CompilerOptionsTest {
         projectDir = "/project",
         variantName = "demoDebug",
         mainModulePath = "/main",
+        structureInputDirectories = listOf(
+          "/staged/one",
+          "/staged/two"
+        ),
+        structureOutputDirectory = "/staged/output",
         publicExtensions = true
       )
     )
@@ -56,6 +69,8 @@ internal class CompilerOptionsTest {
         projectDir = null,
         variantName = null,
         mainModulePath = null,
+        structureInputDirectories = emptyList(),
+        structureOutputDirectory = null,
         publicExtensions = false
       )
     )

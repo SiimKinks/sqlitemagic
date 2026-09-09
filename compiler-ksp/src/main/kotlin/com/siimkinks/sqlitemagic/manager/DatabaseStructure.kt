@@ -1,5 +1,8 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.index.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.index.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.schemaSql
@@ -53,26 +56,62 @@ data class IndexStructure(
   val name: String = "",
   val indexSql: String = "",
   val forTable: String = ""
-)
+) {
+  companion object {
+    fun from(index: IndexElement) = IndexStructure(
+      name = index.name,
+      indexSql = index.createSql(),
+      forTable = index.tableName
+    )
+  }
+}
 
 @Serializable
 data class DatabaseStructure(
-  val tables: LinkedHashMap<String, TableStructure> = linkedMapOf(),
-  val indices: LinkedHashMap<String, IndexStructure> = linkedMapOf(),
-  val temporaryTables: LinkedHashMap<String, TableStructure> = linkedMapOf(),
-  val temporaryIndices: LinkedHashMap<String, IndexStructure> = linkedMapOf()
+  val tables: Map<String, TableStructure> = emptyMap(),
+  val indices: Map<String, IndexStructure> = emptyMap(),
+  val temporaryTables: Map<String, TableStructure> = emptyMap(),
+  val temporaryIndices: Map<String, IndexStructure> = emptyMap()
 ) {
   companion object {
-    internal fun from(orderedTables: CreationOrderedTables) = with(orderedTables) {
+    internal fun from(
+      orderedTables: CreationOrderedTables,
+      indexes: Iterable<IndexElement> = emptyList()
+    ) = with(orderedTables) {
+      val orderedIndexes = sortedIndexes(indexes)
       DatabaseStructure(
         tables = persistent.associateByTo(
           destination = linkedMapOf(),
           keySelector = TableElement::tableName,
           valueTransform = TableStructure::from
-        )
+        ),
+        indices = orderedIndexes
+          .filter { it.schema == MAIN }
+          .associateByTo(
+            destination = linkedMapOf(),
+            keySelector = IndexElement::name,
+            valueTransform = IndexStructure::from
+          ),
+        temporaryTables = temporary.associateByTo(
+          destination = linkedMapOf(),
+          keySelector = TableElement::tableName,
+          valueTransform = TableStructure::from
+        ),
+        temporaryIndices = orderedIndexes
+          .filter { it.schema == TEMPORARY }
+          .associateByTo(
+            destination = linkedMapOf(),
+            keySelector = IndexElement::name,
+            valueTransform = IndexStructure::from
+          )
       )
     }
   }
+
+  fun persistentOnly() = DatabaseStructure(
+    tables = tables,
+    indices = indices
+  )
 
   operator fun plus(other: DatabaseStructure) = DatabaseStructure(
     tables = LinkedHashMap(tables).apply { putAll(other.tables) },

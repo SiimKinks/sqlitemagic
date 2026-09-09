@@ -4,19 +4,22 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.siimkinks.sqlitemagic.CompilerOptions
 import com.siimkinks.sqlitemagic.manager.DebugMigrationOutcome.Companion.NO_DATABASE_VERSION_OVERRIDE
 import java.io.File
+import java.util.Locale
 
 internal data class DebugMigrationConfiguration(
   val enabled: Boolean,
   val projectDir: String?,
   val variantName: String?,
-  val mainModulePath: String?
+  val mainModulePath: String?,
+  val structureOutputDirectory: String?
 ) {
   companion object {
     fun from(options: CompilerOptions) = DebugMigrationConfiguration(
       enabled = options.isDebugVariant && options.migrateDebug,
       projectDir = options.projectDir,
       variantName = options.variantName,
-      mainModulePath = options.mainModulePath
+      mainModulePath = options.mainModulePath,
+      structureOutputDirectory = options.structureOutputDirectory
     )
   }
 }
@@ -37,7 +40,24 @@ internal class DebugMigrationCoordinator(
     database: GeneratedDatabaseElement,
     orderedTables: CreationOrderedTables
   ): DebugMigrationOutcome {
-    if (!configuration.enabled) return NO_DATABASE_VERSION_OVERRIDE
+    val currentStructure = DatabaseStructure.from(
+      orderedTables = orderedTables,
+      indexes = database.indices
+    )
+    if (!configuration.enabled) {
+      if (database.isSubmodule) {
+        submoduleStructureDirectory()?.let { structureDirectory ->
+          persistSubmoduleState(
+            structureDirectory = structureDirectory,
+            submoduleName = checkNotNull(database.submoduleName),
+            structure = currentStructure,
+            migrationHappened = false,
+            replaceExistingStructures = configuration.structureOutputDirectory != null
+          )
+        }
+      }
+      return NO_DATABASE_VERSION_OVERRIDE
+    }
 
     val projectDir = configuration.projectDir
     val variantName = configuration.variantName
@@ -57,7 +77,6 @@ internal class DebugMigrationCoordinator(
       null -> "$nextDatabaseVersion.sql"
       else -> "$submoduleName$nextDatabaseVersion.sql"
     }
-    val currentStructure = DatabaseStructure.from(orderedTables)
     val migrationHappened = try {
       MigrationsHandler(
         currentStructure = currentStructure,
@@ -83,18 +102,24 @@ internal class DebugMigrationCoordinator(
         else -> DebugMigrationOutcome(databaseVersionOverride = latestDatabaseVersion)
       }
       else -> {
-        configuration.mainModulePath?.let { mainModulePath ->
+        submoduleStructureDirectory()?.let { structureDirectory ->
           persistSubmoduleState(
-            mainModulePath = mainModulePath,
+            structureDirectory = structureDirectory,
             submoduleName = submoduleName,
             structure = currentStructure,
-            migrationHappened = migrationHappened
+            migrationHappened = migrationHappened && configuration.structureOutputDirectory == null,
+            replaceExistingStructures = configuration.structureOutputDirectory != null
           )
         }
         NO_DATABASE_VERSION_OVERRIDE
       }
     }
   }
+
+  private fun submoduleStructureDirectory() = configuration
+    .structureOutputDirectory
+    ?.let(::File)
+    ?: configuration.mainModulePath?.let { File(it, "db") }
 }
 
 private fun readLatestDebugVersion(
@@ -124,19 +149,40 @@ private fun writeMainModuleDebugVersion(
 }
 
 private fun persistSubmoduleState(
-  mainModulePath: String,
+  structureDirectory: File,
   submoduleName: String,
   structure: DatabaseStructure,
-  migrationHappened: Boolean
+  migrationHappened: Boolean,
+  replaceExistingStructures: Boolean
 ) {
-  val normalizedName = submoduleName.lowercase()
-  val databaseDirectory = File(mainModulePath, "db")
+  val normalizedName = submoduleName.lowercase(Locale.ROOT)
+  if (replaceExistingStructures) {
+    structureDirectory
+      .listFiles()
+      .orEmpty()
+      .filter { file ->
+        file.isFile && file.name.startsWith("latest_") && file.name.endsWith(".struct")
+      }
+      .forEach { file ->
+        check(file.delete()) {
+          "Failed to remove stale staged SqliteMagic structure ${file.absolutePath}"
+        }
+      }
+    structureDirectory
+      .listFiles { file -> file.isFile && file.extension == "changed" }
+      .orEmpty()
+      .forEach { file ->
+        check(file.delete()) {
+          "Failed to remove stale staged SqliteMagic change marker ${file.absolutePath}"
+        }
+      }
+  }
   DatabaseStructureJson.write(
-    file = databaseDirectory.resolve("latest_$normalizedName.struct"),
+    file = structureDirectory.resolve("latest_$normalizedName.struct"),
     structure = structure
   )
   if (migrationHappened) {
-    databaseDirectory
+    structureDirectory
       .resolve("$normalizedName.changed")
       .createNewFile()
   }

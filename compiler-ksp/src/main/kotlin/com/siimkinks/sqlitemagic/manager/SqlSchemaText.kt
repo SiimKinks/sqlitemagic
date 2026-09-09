@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.manager
 
-import java.util.Locale
-
 private val unsupportedAppendConstraintPattern = Regex(
   """(?i)\b(PRIMARY\s+KEY|UNIQUE|REFERENCES)\b"""
 )
@@ -212,7 +210,13 @@ internal fun ColumnStructure.canBeAddedWithAlterTable(): Boolean {
 internal fun TableStructure.normalizedReferencedTableNames() = schema
   .normalizedReferencedTableNames()
 
-internal fun String.normalizedSqlIdentifier() = lowercase(Locale.ROOT)
+internal fun String.normalizedSqlIdentifier() = map(Char::asciiLowercase)
+  .joinToString(separator = "")
+
+private fun Char.asciiLowercase() = when (this) {
+  in 'A'..'Z' -> this + ('a' - 'A')
+  else -> this
+}
 
 private fun String.normalizeSqlWhitespace(): String {
   val result = StringBuilder(length)

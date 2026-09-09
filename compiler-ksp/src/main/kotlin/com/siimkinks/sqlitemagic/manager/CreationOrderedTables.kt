@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.index.IndexKind
 import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.TableElement
 
@@ -8,6 +10,41 @@ internal data class CreationOrderedTables(
   val persistent: List<TableElement>,
   val temporary: List<TableElement>
 ) {
+  internal fun sortedIndexes(indexes: Iterable<IndexElement>): List<IndexElement> {
+    val ordered = persistent + temporary
+    val tableOrder = ordered.withIndex().associate { (index, table) ->
+      table.typeKey to index
+    }
+    val columnOrder = ordered.associate { table ->
+      table.typeKey to table.allColumns.withIndex().associate { (index, column) ->
+        column.columnName to index
+      }
+    }
+    return indexes.sortedWith(
+      compareBy<IndexElement> {
+        tableOrder[it.tableTypeKey] ?: Int.MAX_VALUE
+      }
+        .thenBy { index ->
+          when (index.kind) {
+            IndexKind.COMPOSITE -> 0
+            IndexKind.FIELD -> 1
+          }
+        }
+        .thenBy { index ->
+          val positions = columnOrder[index.tableTypeKey].orEmpty()
+          index.columns.minOf { positions[it.columnName] ?: Int.MAX_VALUE }
+        }
+        .thenBy { index ->
+          val positions = columnOrder[index.tableTypeKey].orEmpty()
+          index.columns.joinToString(separator = ",") { column ->
+            (positions[column.columnName] ?: Int.MAX_VALUE).toString()
+          }
+        }
+        .thenBy(IndexElement::name)
+        .thenBy(IndexElement::tableName)
+    )
+  }
+
   companion object {
     fun from(tables: Iterable<TableElement>): CreationOrderedTables {
       val (temporaryTables, persistentTables) = tables.partition { TEMPORARY in it.options }

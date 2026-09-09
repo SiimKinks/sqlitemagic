@@ -28,6 +28,9 @@ import com.siimkinks.sqlitemagic.WriterTypes.TABLE
 import com.siimkinks.sqlitemagic.WriterTypes.UNCHECKED_CAST
 import com.siimkinks.sqlitemagic.WriterTypes.UTILS
 import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
+import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.index.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.index.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.parserName
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
@@ -56,6 +59,7 @@ internal class GenClassesManagerWriter(
     database: GeneratedDatabaseElement,
     orderedTables: CreationOrderedTables
   ) {
+    val orderedIndexes = orderedTables.sortedIndexes(database.indices)
     val genClassesManager = with(database) {
       when {
         isSubmodule -> TypeSpec.objectBuilder(className)
@@ -64,8 +68,18 @@ internal class GenClassesManagerWriter(
       }
         .addModifiers(PUBLIC)
         .addFunction(configureDatabase())
-        .addFunction(createSchema(tables = orderedTables.persistent))
-        .addFunction(createTemporarySchema(tables = orderedTables.temporary))
+        .addFunction(
+          createSchema(
+            tables = orderedTables.persistent,
+            indexes = orderedIndexes.filter { it.schema == MAIN }
+          )
+        )
+        .addFunction(
+          createTemporarySchema(
+            tables = orderedTables.temporary,
+            indexes = orderedIndexes.filter { it.schema == TEMPORARY }
+          )
+        )
         .addFunction(clearData())
         .addFunction(migrateViews())
         .addFunction(getNrOfTables())
@@ -106,31 +120,38 @@ internal class GenClassesManagerWriter(
       }
       .build()
 
-  private fun GeneratedDatabaseElement.createSchema(tables: List<TableElement>) =
-    schemaCreationFunction(
-      functionName = METHOD_CREATE_SCHEMA,
-      tables = tables,
-      submoduleMethod = METHOD_CREATE_SCHEMA,
-      logMessage = "Creating tables"
-    )
+  private fun GeneratedDatabaseElement.createSchema(
+    tables: List<TableElement>,
+    indexes: List<IndexElement>
+  ) = schemaCreationFunction(
+    functionName = METHOD_CREATE_SCHEMA,
+    tables = tables,
+    indexes = indexes,
+    submoduleMethod = METHOD_CREATE_SCHEMA,
+    logMessage = "Creating tables"
+  )
 
-  private fun GeneratedDatabaseElement.createTemporarySchema(tables: List<TableElement>) =
-    schemaCreationFunction(
-      functionName = METHOD_CREATE_TEMPORARY_SCHEMA,
-      tables = tables,
-      submoduleMethod = METHOD_CREATE_TEMPORARY_SCHEMA,
-      logMessage = "Creating temporary tables"
-    )
+  private fun GeneratedDatabaseElement.createTemporarySchema(
+    tables: List<TableElement>,
+    indexes: List<IndexElement>
+  ) = schemaCreationFunction(
+    functionName = METHOD_CREATE_TEMPORARY_SCHEMA,
+    tables = tables,
+    indexes = indexes,
+    submoduleMethod = METHOD_CREATE_TEMPORARY_SCHEMA,
+    logMessage = "Creating temporary tables"
+  )
 
   private fun GeneratedDatabaseElement.schemaCreationFunction(
     functionName: String,
     tables: List<TableElement>,
+    indexes: List<IndexElement>,
     submoduleMethod: String,
     logMessage: String
   ): FunSpec {
     val builder = databaseFunction(functionName)
       .addParameter(name = "db", type = SQLITE_DATABASE)
-    if (tables.isEmpty() && submodules.isEmpty()) {
+    if (tables.isEmpty() && indexes.isEmpty() && submodules.isEmpty()) {
       return builder.addStatement("return Unit").build()
     }
     builder
@@ -143,6 +164,12 @@ internal class GenClassesManagerWriter(
       builder.addRuntimeDebugLog(logMessage)
       tables.forEach { table ->
         builder.addStatement("db.execSQL(%T.TABLE_SCHEMA)", table.generationNames.adapterClassName)
+      }
+    }
+    if (indexes.isNotEmpty()) {
+      builder.addRuntimeDebugLog("Creating indexes")
+      indexes.forEach { index ->
+        builder.addStatement("db.execSQL(%S)", index.createSql())
       }
     }
     return builder

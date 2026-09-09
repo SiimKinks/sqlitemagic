@@ -175,7 +175,7 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `persists table-only debug migration state and excludes temporary tables`() {
+  fun `persists complete debug migration state`() {
     SqliteMagicCompilation
       .compile(
         schemaTables(),
@@ -195,10 +195,11 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
         assertContains(
           "\"parents\"",
           "\"children\"",
-          "\"indices\":{}"
+          "\"indices\":{}",
+          "\"temporaryTables\"",
+          "session_owners",
+          "session_cache"
         )
-        assertDoesNotContain("session_cache")
-        assertDoesNotContain("session_owners")
       }
   }
 

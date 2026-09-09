@@ -43,7 +43,7 @@ internal class GeneratedDatabaseElementTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `provides persistent structures in dependency order and excludes temporary tables`() {
+  fun `provides complete structures in dependency order`() {
     SqliteMagicCompilation
       .compile(schemaTables())
       .isOk()
@@ -52,6 +52,8 @@ internal class GeneratedDatabaseElementTest : ProcessingStepsTest {
         val tablesByName = database.tables.associateBy(TableElement::tableName)
         val parent = tablesByName.getValue("parents")
         val child = tablesByName.getValue("children")
+        val sessionCache = tablesByName.getValue("session_cache")
+        val sessionOwner = tablesByName.getValue("session_owners")
         val orderedTables = CreationOrderedTables.from(database.tables)
 
         assertThat(DatabaseStructure.from(orderedTables)).isEqualTo(
@@ -60,7 +62,12 @@ internal class GeneratedDatabaseElementTest : ProcessingStepsTest {
               "parents" to TableStructure.from(parent),
               "children" to TableStructure.from(child)
             ),
-            indices = linkedMapOf()
+            indices = linkedMapOf(),
+            temporaryTables = linkedMapOf(
+              "session_owners" to TableStructure.from(sessionOwner),
+              "session_cache" to TableStructure.from(sessionCache)
+            ),
+            temporaryIndices = linkedMapOf()
           )
         )
       }

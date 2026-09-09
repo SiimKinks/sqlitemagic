@@ -8,11 +8,15 @@ internal object MigrationSqlRenderer {
     plan: TableMigrationPlan
   ): List<String> {
     val migrationStatements = arrayListOf<String>()
-    val usedTemporaryNames = diff.previousTableNames
-      .toMutableSet()
-      .apply {
-        diff.currentTables.forEach { add(it.name) }
-      }
+    val usedTemporaryNames = mutableSetOf<String>().apply {
+      addAll(diff.previousTableNames)
+      diff.currentTables.forEach { add(it.name) }
+      diff.previousIndices.forEach { add(it.name) }
+      diff.currentIndices.forEach { add(it.name) }
+    }
+    plan.indexDrops.forEach { index ->
+      migrationStatements += dropMainSchemaIndexSql(index.name)
+    }
     createNewTables(
       names = plan.prerequisiteNewTables,
       migrationStatements = migrationStatements
@@ -29,6 +33,7 @@ internal object MigrationSqlRenderer {
           tableName = rebuild.to.structure.name,
           usedNames = usedTemporaryNames
         ),
+        operation = rebuild.operation,
         migrationStatements = migrationStatements
       )
     }
@@ -44,6 +49,9 @@ internal object MigrationSqlRenderer {
       names = plan.remainingNewTables,
       migrationStatements = migrationStatements
     )
+    plan.indexCreates.forEach { index ->
+      migrationStatements += index.structure.indexSql
+    }
     return migrationStatements
   }
 
@@ -52,19 +60,10 @@ internal object MigrationSqlRenderer {
     to: TableStructure,
     sourceTableName: String,
     temporaryTableName: String,
+    operation: TableMigrationOperation,
     migrationStatements: MutableList<String>
   ) {
-    val unchangedPrefix = from.columns.size < to.columns.size &&
-        from.columns.indices.all { index -> from.columns[index] == to.columns[index] } &&
-        equivalentTableOptions(
-          from = from,
-          to = to
-        ) &&
-        to.columns
-          .asSequence()
-          .drop(from.columns.size)
-          .all(ColumnStructure::canBeAddedWithAlterTable)
-    if (unchangedPrefix) {
+    if (operation == TableMigrationOperation.APPEND_COLUMNS) {
       to.columns
         .asSequence()
         .drop(from.columns.size)
@@ -152,22 +151,10 @@ internal object MigrationSqlRenderer {
         separator = ",",
         transform = Pair<String, String>::second
       )
-      migrationStatements += "INSERT INTO ${to.name} ($destinationColumnNames) SELECT $sourceColumnNames FROM $temporaryTableName"
+      migrationStatements += "INSERT INTO ${to.name} ($destinationColumnNames) " +
+          "SELECT $sourceColumnNames FROM $temporaryTableName"
     }
   }
-
-  private fun equivalentTableOptions(
-    from: TableStructure,
-    to: TableStructure
-  ) = normalizeSql(
-    schema = from.schema.withoutTableColumns(),
-    ownTableName = from.name,
-    renames = emptyMap()
-  ) == normalizeSql(
-    schema = to.schema.withoutTableColumns(),
-    ownTableName = to.name,
-    renames = emptyMap()
-  )
 
   private fun createNewTables(
     names: Iterable<TableSnapshot>,
@@ -202,7 +189,7 @@ internal object MigrationSqlRenderer {
     usedNames: MutableSet<String>
   ): String {
     var temporaryName = "${tableName}_"
-    while (usedNames.any { usedName -> usedName.equals(temporaryName, ignoreCase = true) }) {
+    while (usedNames.any { it.normalizedSqlIdentifier() == temporaryName.normalizedSqlIdentifier() }) {
       temporaryName += "_"
     }
     usedNames += temporaryName

@@ -6,28 +6,29 @@ internal class MigrationsHandler(
   private val currentStructure: DatabaseStructure,
   private val previousStructure: DatabaseStructure?,
   private val outputStructureFile: File,
-  private val migrationOutputFile: File
+  private val migrationOutputFile: File,
+  private val persistentStructureOnly: Boolean = false
 ) {
   fun migrate(): Boolean {
     val previous = previousStructure
-    val migrationHappened = previous != null && previous.tables != currentStructure.tables
+    val diff = previous?.let {
+      SchemaDiffer.diff(
+        from = it,
+        to = currentStructure
+      )
+    }
+    val migrationHappened = diff?.hasPersistentChanges == true
     val migrationStatements = when {
-      migrationHappened -> {
-        val diff = SchemaDiffer.diff(
-          from = previous,
-          to = currentStructure
-        )
-        val plan = MigrationPlanner.plan(diff)
-        MigrationSqlRenderer.render(
-          diff = diff,
-          plan = plan
-        )
-      }
-      else -> emptyList()
+      diff == null || !migrationHappened -> emptyList()
+      else -> MigrationSqlRenderer.render(
+        diff = diff,
+        plan = MigrationPlanner.plan(diff)
+      )
     }
     MigrationArtifactsPublisher(
       structureFile = outputStructureFile,
-      migrationFile = migrationOutputFile
+      migrationFile = migrationOutputFile,
+      persistentStructureOnly = persistentStructureOnly
     ).publish(
       structure = currentStructure,
       migrationStatements = migrationStatements

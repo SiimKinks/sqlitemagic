@@ -13,12 +13,28 @@ internal data class TableTransition(
   val renamed get() = previous.name != current.name
 }
 
+internal data class IndexSnapshot(
+  val name: String,
+  val structure: IndexStructure
+)
+
+internal data class IndexTransition(
+  val previous: IndexSnapshot,
+  val current: IndexSnapshot,
+  val changed: Boolean
+)
+
 internal data class SchemaDiff(
   val previousTableNames: List<String>,
   val currentTables: List<TableSnapshot>,
   val transitions: List<TableTransition>,
   val newTables: List<TableSnapshot>,
-  val removedTables: List<TableSnapshot>
+  val removedTables: List<TableSnapshot>,
+  val previousIndices: List<IndexSnapshot> = emptyList(),
+  val currentIndices: List<IndexSnapshot> = emptyList(),
+  val indexTransitions: List<IndexTransition> = emptyList(),
+  val newIndices: List<IndexSnapshot> = emptyList(),
+  val removedIndices: List<IndexSnapshot> = emptyList()
 ) {
   val renamedTables = transitions
     .asSequence()
@@ -43,6 +59,16 @@ internal data class SchemaDiff(
   )
 
   val transitionByCurrentName = transitions.associateBy { it.current.name }
+
+  val changedIndexTransitions = indexTransitions.filter(IndexTransition::changed)
+
+  val hasPersistentChanges get() =
+    transitions.any { it.changed || it.renamed } ||
+        newTables.isNotEmpty() ||
+        removedTables.isNotEmpty() ||
+        changedIndexTransitions.isNotEmpty() ||
+        newIndices.isNotEmpty() ||
+        removedIndices.isNotEmpty()
 }
 
 internal object SchemaDiffer {
@@ -92,6 +118,22 @@ internal object SchemaDiffer {
       }
       .toList()
 
+    val previousIndices = from.indices.entries.mapTo(arrayListOf(), ::indexSnapshot)
+    val currentIndices = to.indices.entries.mapTo(arrayListOf(), ::indexSnapshot)
+    val previousIndicesByName = previousIndices.associateBy(IndexSnapshot::name)
+    val currentIndicesByName = currentIndices.associateBy(IndexSnapshot::name)
+    val indexTransitions = currentIndices.mapNotNull { currentIndex ->
+      previousIndicesByName[currentIndex.name]?.let { previousIndex ->
+        IndexTransition(
+          previous = previousIndex,
+          current = currentIndex,
+          changed = previousIndex.structure != currentIndex.structure
+        )
+      }
+    }
+    val newIndices = currentIndices.filterTo(arrayListOf()) { it.name !in previousIndicesByName }
+    val removedIndices = previousIndices.filterTo(arrayListOf()) { it.name !in currentIndicesByName }
+
     return SchemaDiff(
       previousTableNames = from.tables.keys.toList(),
       currentTables = to.tables.map { (tableName, table) ->
@@ -102,9 +144,21 @@ internal object SchemaDiffer {
       },
       transitions = transitions,
       newTables = newTables,
-      removedTables = removedTables
+      removedTables = removedTables,
+      previousIndices = previousIndices,
+      currentIndices = currentIndices,
+      indexTransitions = indexTransitions,
+      newIndices = newIndices,
+      removedIndices = removedIndices
     )
   }
+
+  private fun indexSnapshot(
+    entry: Map.Entry<String, IndexStructure>
+  ) = IndexSnapshot(
+    name = entry.value.name.ifEmpty { entry.key },
+    structure = entry.value
+  )
 }
 
 private data class RenameDetection(

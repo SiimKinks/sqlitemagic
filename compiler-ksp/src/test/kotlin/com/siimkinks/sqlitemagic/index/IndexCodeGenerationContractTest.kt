@@ -35,7 +35,7 @@ internal class IndexCodeGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContainsInOrder(
           "id INTEGER PRIMARY KEY",
           "title TEXT DEFAULT ''",
-          "isbn TEXT UNIQUE",
+          "isbn TEXT DEFAULT ''",
           "author TEXT DEFAULT ''",
           "edition INTEGER DEFAULT 0"
         )
@@ -89,10 +89,10 @@ internal class IndexCodeGenerationContractTest : ProcessingStepsTest {
           "second_part"
         )
         generatedSource.assertContainsInOrder(
-          "index_profiles_home_geo_city",
-          "index_profiles_work_geo_city",
           "inherited_value",
-          "local_value"
+          "local_value",
+          "index_profiles_home_geo_city",
+          "index_profiles_work_geo_city"
         )
       }
       .withGeneratedSource("SqliteMagic_Profile_Adapter.kt") { generatedSource ->

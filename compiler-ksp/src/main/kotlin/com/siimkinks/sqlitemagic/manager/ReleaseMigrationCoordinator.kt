@@ -21,19 +21,22 @@ object ReleaseMigrationCoordinator {
       )?.version
       ?: 0L
     val releaseVersion = previousVersion.inc()
-    val currentStructure = readCurrentStructure(databaseDirectory)
+    val currentStructures = readCurrentStructures(databaseDirectory)
+    validateCurrentStructures(currentStructures)
+    val currentStructure = aggregatePersistentStructures(currentStructures)
     val previousStructure = latestRelease?.let { versionedFile ->
       readStructure(
         file = versionedFile.file,
         description = "latest release"
-      )
+      ).persistentOnly()
     }
 
     MigrationsHandler(
       currentStructure = currentStructure,
       previousStructure = previousStructure,
       outputStructureFile = releaseStructuresDirectory.resolve("$releaseVersion.struct"),
-      migrationOutputFile = releaseAssetsDirectory.resolve("$releaseVersion.sql")
+      migrationOutputFile = releaseAssetsDirectory.resolve("$releaseVersion.sql"),
+      persistentStructureOnly = true
     ).migrate()
   }
 
@@ -71,36 +74,37 @@ object ReleaseMigrationCoordinator {
     return latest
   }
 
-  private fun readCurrentStructure(databaseDirectory: File): DatabaseStructure {
-    val structureFiles = listDirectoryFiles(databaseDirectory)
-      .filter { it.isFile && it.extension == "struct" }
-      .sortedBy(File::getName)
-    check(structureFiles.isNotEmpty()) {
-      "No current database structure snapshots found in ${databaseDirectory.absolutePath}"
+  private fun validateCurrentStructures(structures: List<Pair<String, DatabaseStructure>>) {
+    val conflicts = findSchemaIdentityConflicts(structures)
+    if (conflicts.isNotEmpty()) {
+      throw IllegalStateException(
+        conflicts.joinToString(
+          separator = "\n",
+          transform = { conflict ->
+            conflict.run {
+              when {
+                previousOwner.objectKind == objectKind -> "Duplicate ${objectKind.label} '$name' in current " +
+                    "database structure snapshots: ${previousOwner.name} (${previousOwner.source}) and " +
+                    "$name ($source)"
+                else -> "Duplicate SQLite schema identifier '$name' in current database structure snapshots: " +
+                    "${previousOwner.objectKind.label} '${previousOwner.name}' (${previousOwner.source}) and " +
+                    "${objectKind.label} '$name' ($source)"
+              }
+            }
+          }
+        )
+      )
     }
+  }
 
+  private fun aggregatePersistentStructures(
+    structures: Iterable<Pair<String, DatabaseStructure>>
+  ): DatabaseStructure {
     val tables = linkedMapOf<String, TableStructure>()
     val indices = linkedMapOf<String, IndexStructure>()
-    val schemaObjectOwners = linkedMapOf<String, StructureOwner>()
-    structureFiles.forEach { structureFile ->
-      val structure = readStructure(
-        file = structureFile,
-        description = "current"
-      )
-      mergeStructureObjects(
-        objects = structure.tables,
-        destination = tables,
-        structureFile = structureFile,
-        objectKind = StructureObjectKind.TABLE,
-        owners = schemaObjectOwners
-      )
-      mergeStructureObjects(
-        objects = structure.indices,
-        destination = indices,
-        structureFile = structureFile,
-        objectKind = StructureObjectKind.INDEX,
-        owners = schemaObjectOwners
-      )
+    structures.forEach { (_, structure) ->
+      tables.putAll(structure.tables)
+      indices.putAll(structure.indices)
     }
     return DatabaseStructure(
       tables = tables,
@@ -108,33 +112,18 @@ object ReleaseMigrationCoordinator {
     )
   }
 
-  private fun <T> mergeStructureObjects(
-    objects: Map<String, T>,
-    destination: MutableMap<String, T>,
-    structureFile: File,
-    objectKind: StructureObjectKind,
-    owners: MutableMap<String, StructureOwner>
-  ) {
-    objects.forEach { (name, value) ->
-      val normalizedName = name.normalizedSqlIdentifier()
-      val previousOwner = owners[normalizedName]
-      if (previousOwner != null) {
-        error(
-          when {
-            previousOwner.kind == objectKind -> "Duplicate ${objectKind.label} '$name' in current " +
-                "database structure snapshots: ${previousOwner.name} (${previousOwner.file.name}) and " +
-                "$name (${structureFile.name})"
-            else -> "Duplicate SQLite schema identifier '$name' in current database structure snapshots: " +
-                "${previousOwner.kind.label} '${previousOwner.name}' (${previousOwner.file.name}) and " +
-                "${objectKind.label} '$name' (${structureFile.name})"
-          }
-        )
-      }
-      destination[name] = value
-      owners[normalizedName] = StructureOwner(
-        kind = objectKind,
-        name = name,
-        file = structureFile
+  private fun readCurrentStructures(databaseDirectory: File): List<Pair<String, DatabaseStructure>> {
+    val structureFiles = listDirectoryFiles(databaseDirectory)
+      .filter { it.isFile && it.extension == "struct" }
+      .sortedBy(File::getName)
+    check(structureFiles.isNotEmpty()) {
+      "No current database structure snapshots found in ${databaseDirectory.absolutePath}"
+    }
+
+    return structureFiles.map { structureFile ->
+      structureFile.name to readStructure(
+        file = structureFile,
+        description = "current"
       )
     }
   }
@@ -161,16 +150,3 @@ private data class VersionedFile(
   val file: File,
   val version: Long
 )
-
-private data class StructureOwner(
-  val kind: StructureObjectKind,
-  val name: String,
-  val file: File
-)
-
-private enum class StructureObjectKind(
-  val label: String
-) {
-  TABLE("table"),
-  INDEX("index")
-}

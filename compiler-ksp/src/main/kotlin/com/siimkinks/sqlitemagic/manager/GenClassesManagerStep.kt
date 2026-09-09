@@ -42,6 +42,13 @@ class GenClassesManagerStep(
     if (!database.shouldGenerate) return Continue
     return try {
       val orderedTables = CreationOrderedTables.from(database.tables)
+      val currentStructure = DatabaseStructure.from(
+        orderedTables = orderedTables,
+        indexes = database.indices
+      )
+      if (!validateConfiguredSubmoduleStructures(environment, database, currentStructure)) {
+        return Failed
+      }
       val migrationOutcome = DebugMigrationCoordinator(
         configuration = DebugMigrationConfiguration.from(environment.options),
         logger = environment.logger
