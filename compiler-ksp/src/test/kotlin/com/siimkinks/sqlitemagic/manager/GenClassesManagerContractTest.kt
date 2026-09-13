@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.nullab
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.mainDatabaseWithSubmodule
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.tschuchort.compiletesting.SourceFile
@@ -284,18 +285,6 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
         val token: Token,
         val numericToken: NumericToken
       )
-    """
-  )
-
-  private fun mainDatabaseWithSubmodule() = SourceFile.kotlin(
-    name = "MainDatabase.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.annotation.Database
-
-      @Database(submodules = [FeatureDatabase::class])
-      class MainDatabase
     """
   )
 

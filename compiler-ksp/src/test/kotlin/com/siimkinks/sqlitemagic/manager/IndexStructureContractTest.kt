@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.index.indexProcessingSteps
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.mainDatabaseWithSubmodule
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.tschuchort.compiletesting.SourceFile
@@ -206,7 +207,7 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
 
     submodule
       .compile(
-        mainDatabaseWithoutTables(),
+        mainDatabaseWithSubmodule(),
         kspOptions = mainCompilationOptions(
           mainDirectory = mainDirectory,
           structureInputDirectories = listOf(stagedDirectory)
@@ -232,7 +233,7 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
 
     submodule
       .compile(
-        mainDatabaseWithoutTables(),
+        mainDatabaseWithSubmodule(),
         kspOptions = mainCompilationOptions(
           mainDirectory = mainDirectory,
           structureInputDirectories = listOf(firstStagedDirectory, secondStagedDirectory)
@@ -303,7 +304,7 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
 
     submodule
       .compile(
-        mainDatabaseWithoutTables(),
+        mainDatabaseWithSubmodule(),
         kspOptions = mainCompilationOptions(mainDirectory)
       )
       .assertCompilationError("Duplicate SQLite schema identifier")
@@ -435,17 +436,5 @@ private fun mainDatabaseWithTable(
 
     @Table("$tableName")
     data class MainTable(@Id val id: Long)
-  """
-)
-
-private fun mainDatabaseWithoutTables() = SourceFile.kotlin(
-  name = "MainDatabase.kt",
-  contents = """
-    package $PACKAGE
-
-    import com.siimkinks.sqlitemagic.annotation.Database
-
-    @Database(submodules = [FeatureDatabase::class])
-    class MainDatabase
   """
 )

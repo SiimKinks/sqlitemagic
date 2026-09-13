@@ -48,6 +48,11 @@ data class ProcessorCompilationResult(
       .containsAtLeastElementsIn(fileNames.asList())
   }
 
+  fun assertNotGeneratedSources(vararg fileNames: String) = apply {
+    assertThat(generatedSourceNames())
+      .containsNoneIn(fileNames.asList())
+  }
+
   fun withGeneratedSource(
     fileName: String,
     assert: (String) -> Unit

@@ -1,0 +1,15 @@
+package com.siimkinks.sqlitemagic.view
+
+import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.index.IndexCollectionStep
+import com.siimkinks.sqlitemagic.manager.GenClassesManagerStep
+import com.siimkinks.sqlitemagic.model.modelProcessingSteps
+import com.siimkinks.sqlitemagic.processing.ProcessingStep
+
+internal fun viewProcessingSteps(environment: Environment): List<ProcessingStep> =
+  modelProcessingSteps(environment) + listOf(
+    // TODO Phase 4: add ViewCollectionStep(environment).
+    // TODO Phase 5: add ViewCodeGenerationStep(environment).
+    IndexCollectionStep(environment),
+    GenClassesManagerStep(environment)
+  )
