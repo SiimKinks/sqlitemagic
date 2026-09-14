@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+
 private val unsupportedAppendConstraintPattern = Regex(
   """(?i)\b(PRIMARY\s+KEY|UNIQUE|REFERENCES)\b"""
 )
@@ -210,13 +212,9 @@ internal fun ColumnStructure.canBeAddedWithAlterTable(): Boolean {
 internal fun TableStructure.normalizedReferencedTableNames() = schema
   .normalizedReferencedTableNames()
 
-internal fun String.normalizedSqlIdentifier() = map(Char::asciiLowercase)
-  .joinToString(separator = "")
-
-private fun Char.asciiLowercase() = when (this) {
-  in 'A'..'Z' -> this + ('a' - 'A')
-  else -> this
-}
+internal fun String.normalizedSqlIdentifier() = SqliteIdentifier
+  .from(this)
+  .normalizedName
 
 private fun String.normalizeSqlWhitespace(): String {
   val result = StringBuilder(length)
@@ -366,13 +364,9 @@ private fun String.substringMatchesIdentifier(
   startIndex: Int
 ): Boolean {
   val endIndex = startIndex + identifier.length
-  if (
-    startIndex > 0 && this[startIndex - 1].isSqlIdentifierPart() ||
-    endIndex < length && this[endIndex].isSqlIdentifierPart()
-  ) {
-    return false
-  }
-  return endIndex <= length &&
+  return !(startIndex > 0 && this[startIndex - 1].isSqlIdentifierPart() ||
+      endIndex < length && this[endIndex].isSqlIdentifierPart()) &&
+      endIndex <= length &&
       regionMatches(
         thisOffset = startIndex,
         other = identifier,

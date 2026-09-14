@@ -22,6 +22,28 @@ internal data class PropertySourceKey(
   val propertyName: String
 )
 
+interface RoundPropertyShape {
+  val sourceDeclaration: KSDeclaration
+  val isConstructorProperty: Boolean
+  val isInherited: Boolean
+  val isMutable: Boolean
+  val isReadable: Boolean
+  val isWritable: Boolean
+  val name: String
+}
+
+data class RoundPropertyMetadata(
+  val roundTypeElement: RoundTypeElement,
+  override val sourceDeclaration: KSDeclaration,
+  override val isConstructorProperty: Boolean,
+  override val isInherited: Boolean,
+  override val isMutable: Boolean,
+  override val isReadable: Boolean,
+  override val isWritable: Boolean
+) : RoundTypeElement by roundTypeElement, RoundPropertyShape {
+  override val name get() = sourceDeclaration.simpleName.asString()
+}
+
 data class PropertyRoundAnnotations(
   val column: Column?,
   val embedded: Embedded?,
@@ -45,17 +67,9 @@ data class PropertyRoundAnnotations(
 }
 
 data class PropertyRoundElement(
-  val sourceDeclaration: KSDeclaration,
-  val roundTypeElement: RoundTypeElement,
-  val isConstructorProperty: Boolean,
+  val metadata: RoundPropertyMetadata,
   val annotations: PropertyRoundAnnotations,
-  val isInherited: Boolean,
-  val isMutable: Boolean,
-  val isReadable: Boolean,
-  val isWritable: Boolean
-) : RoundTypeElement by roundTypeElement {
-  val name get() = sourceDeclaration.simpleName.asString()
-}
+) : RoundTypeElement by metadata, RoundPropertyShape by metadata
 
 data class TableRoundElement(
   val table: TableElement,

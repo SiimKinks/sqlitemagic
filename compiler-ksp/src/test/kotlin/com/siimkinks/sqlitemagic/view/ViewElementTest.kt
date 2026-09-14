@@ -2,13 +2,14 @@ package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
-import com.siimkinks.sqlitemagic.index.SqliteIdentifier
-import com.siimkinks.sqlitemagic.index.SqliteSchema
-import com.siimkinks.sqlitemagic.index.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.element.mockParsedType
 import com.siimkinks.sqlitemagic.model.mockModelConstruction
 import com.siimkinks.sqlitemagic.model.mockPropertyAccess
 import com.siimkinks.sqlitemagic.model.mockPropertyPath
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.schema.SqliteSchema
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.transformer.mockTransformerElement
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName
@@ -271,13 +272,28 @@ internal class ViewElementTest {
       .isEqualTo(PACKAGE)
     assertThat(view.viewName)
       .isEqualTo("active_reports")
+    assertThat(view.rawName)
+      .isEqualTo(view.identity.identifier.rawName)
+    assertThat(view.identifier)
+      .isEqualTo(view.identity.identifier)
+    assertThat(view.normalizedName)
+      .isEqualTo("active_reports")
     assertThat(view.schema)
       .isEqualTo(SqliteSchema.MAIN)
+    assertThat(view.normalizedKey)
+      .isEqualTo(
+        SqliteSchemaKey(
+          schema = SqliteSchema.MAIN,
+          normalizedName = "active_reports"
+        )
+      )
     assertThat(view.generationNames)
-      .isEqualTo(mockViewGenerationNames(
-        packageName = PACKAGE,
-        artifactStem = "Nested_ReportView"
-      ))
+      .isEqualTo(
+        mockViewGenerationNames(
+          packageName = PACKAGE,
+          artifactStem = "Nested_ReportView"
+        )
+      )
     assertThat(view.generationNames.daoClassName)
       .isEqualTo(ClassName(PACKAGE, "SqliteMagic_Nested_ReportView_Dao"))
     assertThat(view.generationNames.tableClassName)

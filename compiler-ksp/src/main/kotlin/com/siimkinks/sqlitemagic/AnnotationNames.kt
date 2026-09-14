@@ -6,6 +6,8 @@ import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.View
+import com.siimkinks.sqlitemagic.annotation.ViewColumn
+import com.siimkinks.sqlitemagic.annotation.ViewQuery
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
@@ -17,5 +19,7 @@ internal object AnnotationNames {
   val OBJECT_TO_DB_VALUE_ANNOTATION = ObjectToDbValue::class.qualifiedName!!
   val DB_VALUE_TO_OBJECT_ANNOTATION = DbValueToObject::class.qualifiedName!!
   val VIEW_ANNOTATION = View::class.qualifiedName!!
+  val VIEW_COLUMN_ANNOTATION = ViewColumn::class.qualifiedName!!
+  val VIEW_QUERY_ANNOTATION = ViewQuery::class.qualifiedName!!
   val INDEX_ANNOTATION = Index::class.qualifiedName!!
 }

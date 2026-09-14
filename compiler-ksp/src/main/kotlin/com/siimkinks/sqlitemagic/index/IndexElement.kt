@@ -1,34 +1,11 @@
 package com.siimkinks.sqlitemagic.index
 
 import com.siimkinks.sqlitemagic.model.PropertyPath
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.utils.typeKey
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
 import com.squareup.kotlinpoet.ClassName
-
-enum class SqliteSchema(
-  val qualifier: String
-) {
-  MAIN("main"),
-  TEMPORARY("temp")
-}
-
-@ConsistentCopyVisibility
-data class SqliteIdentifier private constructor(
-  val rawName: String,
-  val normalizedName: String
-) {
-  companion object {
-    fun from(rawName: String) = SqliteIdentifier(
-      rawName = rawName,
-      normalizedName = rawName.asciiLowercase()
-    )
-  }
-}
-
-data class SqliteSchemaIdentity(
-  val schema: SqliteSchema,
-  val identifier: SqliteIdentifier
-)
 
 enum class IndexKind {
   COMPOSITE,
@@ -43,13 +20,16 @@ data class IndexColumnElement(
 data class IndexElement(
   val identity: SqliteSchemaIdentity,
   val tableType: ClassName,
-  val tableName: String,
+  val tableIdentity: SqliteSchemaIdentity,
   val kind: IndexKind,
   val columns: List<IndexColumnElement>,
   val isUnique: Boolean,
   val sourcePropertyPath: PropertyPath?
-) {
+) : SqliteSchemaProvider by identity {
   init {
+    require(identity.schema == tableIdentity.schema) {
+      "Index and table identities must belong to the same schema"
+    }
     require(columns.isNotEmpty()) {
       "An index must contain at least one physical column"
     }
@@ -61,9 +41,8 @@ data class IndexElement(
     }
   }
 
-  val name get() = identity.identifier.rawName
-  val normalizedName get() = identity.identifier.normalizedName
-  val schema get() = identity.schema
+  val name get() = rawName
+  val tableName get() = tableIdentity.rawName
   val tableTypeKey get() = tableType.typeKey()
 }
 
@@ -71,12 +50,3 @@ data class IndexRoundElement(
   val index: IndexElement,
   val originatingFiles: OriginatingFiles
 )
-
-private fun String.asciiLowercase() = map(Char::asciiLowercase)
-  .joinToString(separator = "")
-
-private fun Char.asciiLowercase() =
-  when (this) {
-    in 'A'..'Z' -> this + ('a' - 'A')
-    else -> this
-  }

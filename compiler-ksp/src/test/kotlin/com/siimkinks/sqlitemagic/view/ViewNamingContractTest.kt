@@ -213,4 +213,38 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
         "ConflictingSchemaView"
       )
   }
+
+  @Test
+  fun `rejects a view name colliding with an index identity`() {
+    SqliteMagicCompilation
+      .compile(
+        ViewSources.view(
+          name = "ViewIndexNameCollision",
+          body = """
+            import com.siimkinks.sqlitemagic.annotation.Index
+
+            @Table
+            data class IndexedTable(
+              @Column
+              @Index("shared_schema_name")
+              val value: String
+            )
+
+            @View("SHARED_SCHEMA_NAME")
+            data class ConflictingSchemaView(
+              @ViewColumn("value")
+              val value: String
+            ) {
+              companion object {
+                @ViewQuery
+                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+              }
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "Index name 'shared_schema_name' conflicts with view name 'SHARED_SCHEMA_NAME'"
+      )
+  }
 }

@@ -6,6 +6,9 @@ import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.schema.SqliteSchema
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
@@ -24,14 +27,25 @@ data class ModelGenerationNames(
 
 data class TableElement(
   val parsedType: ParsedType,
-  val tableName: String,
+  val identity: SqliteSchemaIdentity,
   val artifactStem: String,
   val declarationOrder: Int,
   val options: Set<TableOption>,
   val construction: ModelConstruction,
   val properties: List<PropertyElement>,
   val isPublic: Boolean = true
-) : ParsedType by parsedType {
+) : ParsedType by parsedType, SqliteSchemaProvider by identity {
+  init {
+    val expectedSchema = when {
+      TableOption.TEMPORARY in options -> SqliteSchema.TEMPORARY
+      else -> SqliteSchema.MAIN
+    }
+    require(identity.schema == expectedSchema) {
+      "Table identity schema must agree with table options"
+    }
+  }
+
+  val tableName get() = rawName
   val modelClassName = checkNotNull(typeName as? ClassName) {
     "Table type [$typeName] is not a class name"
   }

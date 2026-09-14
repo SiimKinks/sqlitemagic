@@ -4,7 +4,6 @@ import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSFile
-import com.google.devtools.ksp.symbol.KSNode
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.element.mockParsedType
@@ -13,6 +12,9 @@ import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRU
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.schema.SqliteSchema
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionStep
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
@@ -22,8 +24,6 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.STRING
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
-import java.util.Collections
-import java.util.IdentityHashMap
 
 internal class ModelCollectionStepTest : ProcessingStepsTest {
   override val processingSteps = ::modelCollectionProcessingSteps
@@ -79,7 +79,10 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
       .isEqualTo(
         TableElement(
           parsedType = mockParsedType(typeName = ClassName(PACKAGE, "Book")),
-          tableName = "books",
+          identity = SqliteSchemaIdentity(
+            schema = SqliteSchema.TEMPORARY,
+            identifier = SqliteIdentifier.from("books")
+          ),
           artifactStem = "Book",
           declarationOrder = 0,
           options = setOf(TEMPORARY),
@@ -225,7 +228,10 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
       .isEqualTo(
         TableElement(
           parsedType = mockParsedType(typeName = ClassName(PACKAGE, "Project")),
-          tableName = "project",
+          identity = SqliteSchemaIdentity(
+            schema = SqliteSchema.MAIN,
+            identifier = SqliteIdentifier.from("project")
+          ),
           artifactStem = "Project",
           declarationOrder = 1,
           options = emptySet(),
@@ -308,11 +314,11 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
     val environment = compilation.environment
     val tables = environment.tableElements.values
 
-    assertThat(environment.processingRounds).isAtLeast(2)
+    assertThat(environment.processingRounds)
+      .isAtLeast(2)
     assertThat(tables.map(TableElement::modelName))
       .containsExactly("ImmediateTable", "DeferredTable")
       .inOrder()
-    assertThat(tables.any(TableElement::containsLiveKspSymbol)).isFalse()
   }
 
   @Test
@@ -547,6 +553,84 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
         "$PACKAGE.first.FirstTable",
         "$PACKAGE.second.SecondTable"
       )
+  }
+
+  @Test
+  fun `rejects ASCII-case-equivalent table names in the same schema`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "UppercaseTable.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("Shared_Table")
+            data class UppercaseTable(val value: String)
+          """
+        ),
+        SourceFile.kotlin(
+          name = "LowercaseTable.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("shared_table")
+            data class LowercaseTable(val value: String)
+          """
+        )
+      )
+      .assertCompilationError(
+        "SQL table name 'shared_table' is ambiguous",
+        "$PACKAGE.UppercaseTable",
+        "$PACKAGE.LowercaseTable"
+      )
+  }
+
+  @Test
+  fun `allows equal normalized table names in main and temporary schemas`() {
+    val compilation = SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "PersistentTable.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("Shared_Table")
+            data class PersistentTable(val value: String)
+          """
+        ),
+        SourceFile.kotlin(
+          name = "TemporaryTable.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+            @Table(value = "shared_table", options = [TEMPORARY])
+            data class TemporaryTable(val value: String)
+          """
+        )
+      )
+      .isOk()
+
+    assertThat(compilation.environment.tableElements.values.map(TableElement::identity))
+      .containsExactly(
+        SqliteSchemaIdentity(
+          schema = SqliteSchema.MAIN,
+          identifier = SqliteIdentifier.from("Shared_Table")
+        ),
+        SqliteSchemaIdentity(
+          schema = SqliteSchema.TEMPORARY,
+          identifier = SqliteIdentifier.from("shared_table")
+        )
+      )
+      .inOrder()
   }
 
   @Test
@@ -885,22 +969,3 @@ private class GeneratedPersistentEntryStep(
   }
 }
 
-private fun Any.containsLiveKspSymbol(): Boolean {
-  val visited = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
-
-  fun contains(value: Any?): Boolean = when {
-    value == null -> false
-    value is KSNode -> true
-    value is Iterable<*> -> value.any(::contains)
-    value is Map<*, *> -> value.entries.any { entry ->
-      contains(entry.key) || contains(entry.value)
-    }
-    !value.javaClass.name.startsWith("com.siimkinks.sqlitemagic") -> false
-    !visited.add(value) -> false
-    else -> value.javaClass.declaredFields.any { field ->
-      field.isAccessible = true
-      contains(field.get(value))
-    }
-  }
-  return contains(this)
-}

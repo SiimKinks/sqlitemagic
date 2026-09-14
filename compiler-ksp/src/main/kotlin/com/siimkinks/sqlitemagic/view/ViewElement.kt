@@ -1,11 +1,12 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
-import com.siimkinks.sqlitemagic.index.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.PropertyAccess
 import com.siimkinks.sqlitemagic.model.PropertyMetadata
-import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.TypeName
@@ -96,14 +97,13 @@ data class ViewElement(
   val query: ViewQueryElement,
   val properties: List<ViewPropertyElement>,
   val isPublic: Boolean = true
-) : ParsedType by parsedType {
+) : ParsedType by parsedType, SqliteSchemaProvider by identity {
   val modelClassName = checkNotNull(typeName as? ClassName) {
     "View type [$typeName] is not a class name"
   }
   val modelName = modelClassName.simpleName
   val packageName = modelClassName.packageName
-  val viewName get() = identity.identifier.rawName
-  val schema get() = identity.schema
+  val viewName get() = rawName
   val generationNames = ViewGenerationNames(
     packageName = packageName,
     artifactStem = artifactStem

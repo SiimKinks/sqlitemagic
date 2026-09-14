@@ -1,23 +1,27 @@
 package com.siimkinks.sqlitemagic.model
 
-import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
-import com.google.devtools.ksp.symbol.Modifier.ABSTRACT
-import com.google.devtools.ksp.symbol.Modifier.INNER
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Table
+import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.element.toParsedType
 import com.siimkinks.sqlitemagic.model.ModelKind.EMBEDDED
 import com.siimkinks.sqlitemagic.model.ModelKind.TABLE
+import com.siimkinks.sqlitemagic.schema.ArtifactStemOwner
+import com.siimkinks.sqlitemagic.schema.ArtifactStemRegistry
+import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
+import com.siimkinks.sqlitemagic.schema.SchemaIdentityRegistry
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.schema.SqliteSchema
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
-import com.siimkinks.sqlitemagic.utils.declarationPathNames
 import com.siimkinks.sqlitemagic.utils.displayName
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
-import com.siimkinks.sqlitemagic.utils.isEffectivelyAccessibleFromGeneratedCode
 import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
 import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
@@ -74,14 +78,27 @@ internal class ModelCollector(
     declarationOrder: Int
   ): TableSeed? {
     val tableAnnotation = declaration.findAnnotationWithType<Table>() ?: return null
-    if (!validateTableDeclaration(declaration)) return null
+    val isValidDeclaration = validateRootModelDeclaration(
+      declaration = declaration,
+      modelKind = TABLE,
+      reporter = reporter
+    )
+    if (!isValidDeclaration) return null
     val parsedType = declaration
       .asStarProjectedType()
       .toParsedType(declaration.typeParameterResolver())
     val tableName = tableAnnotation
       .value
       .takeIf(String::isNotEmpty)
-      ?: declaration.defaultTableName()
+      ?: declaration.defaultSqlName()
+    val options = tableAnnotation.options.toSet()
+    val identity = SqliteSchemaIdentity(
+      schema = when {
+        TEMPORARY in options -> SqliteSchema.TEMPORARY
+        else -> SqliteSchema.MAIN
+      },
+      identifier = SqliteIdentifier.from(tableName)
+    )
     val rootPath = PropertyPath(listOf(declaration.simpleName.asString()))
     val shape = shapeCollector.collect(
       declaration = declaration,
@@ -112,37 +129,14 @@ internal class ModelCollector(
     return TableSeed(
       classDeclaration = declaration,
       parsedType = parsedType,
-      tableName = tableName,
-      artifactStem = declaration.artifactStem(),
+      identity = identity,
+      artifactStem = declaration.generatedArtifactStem(),
       declarationOrder = declarationOrder,
-      options = tableAnnotation.options.toSet(),
+      options = options,
       construction = shape.construction,
       propertySeeds = logicalProperties,
       isPublic = declaration.isEffectivelyPublic()
     )
-  }
-
-  private fun validateTableDeclaration(declaration: KSClassDeclaration): Boolean {
-    val name = declaration.displayName()
-    return when {
-      declaration.typeParameters.isNotEmpty() -> error(
-        message = "Generic @Table models are unsupported: $name",
-        symbol = declaration
-      )
-      INNER in declaration.modifiers -> error(
-        message = "Inner @Table models are unsupported: $name",
-        symbol = declaration
-      )
-      !declaration.isEffectivelyAccessibleFromGeneratedCode() -> error(
-        message = "@Table model must be accessible to generated code: $name",
-        symbol = declaration
-      )
-      declaration.classKind != ClassKind.CLASS || ABSTRACT in declaration.modifiers -> error(
-        message = "Unsupported @Table model shape: $name",
-        symbol = declaration
-      )
-      else -> true
-    }
   }
 
   private fun collectPropertySeed(
@@ -331,16 +325,23 @@ internal class ModelCollector(
   }
 
   private fun validateArtifactStems() {
-    for (seed in tableSeeds.values) {
-      val existing = environment.tableElements.values.firstOrNull { table ->
-        table.artifactStem == seed.artifactStem &&
-            table.typeKey != seed.typeKey
+    val accepted = ArtifactStemRegistry(
+      owners = environment.tableElements.values.map { table ->
+        ArtifactStemOwner(
+          typeKey = table.typeKey,
+          qualifiedName = table.qualifiedName,
+          artifactStem = table.artifactStem
+        )
       }
-      if (existing != null) {
+    )
+    for (seed in tableSeeds.values) {
+      val existing = accepted.lookup(seed.artifactStem)
+      if (existing != null && existing.typeKey != seed.typeKey) {
         error(
           message = artifactStemCollisionMessage(
             artifactStem = seed.artifactStem,
-            qualifiedNames = listOf(existing.qualifiedName, seed.qualifiedName)
+            qualifiedNames = listOf(existing.qualifiedName, seed.qualifiedName),
+            includeRenameSuggestion = true
           ),
           symbol = seed.classDeclaration
         )
@@ -355,7 +356,8 @@ internal class ModelCollector(
         error(
           message = artifactStemCollisionMessage(
             artifactStem = first.artifactStem,
-            qualifiedNames = seeds.map(TableSeed::qualifiedName)
+            qualifiedNames = seeds.map(TableSeed::qualifiedName),
+            includeRenameSuggestion = true
           ),
           symbol = first.classDeclaration
         )
@@ -363,20 +365,31 @@ internal class ModelCollector(
   }
 
   private fun validateTableNames() {
-    for (seed in tableSeeds.values) {
-      val existing = environment.tableElements.values.firstOrNull { table ->
-        table.tableName == seed.tableName &&
-            table.typeKey != seed.typeKey
+    val accepted = SchemaIdentityRegistry(
+      owners = environment.tableElements.values.map { table ->
+        SchemaIdentityOwner(
+          kind = "table",
+          rawName = table.tableName,
+          identity = table.identity,
+          typeKey = table.typeKey
+        )
       }
-      if (existing != null) {
+    )
+    for (seed in tableSeeds.values) {
+      val existing = accepted.lookup(seed.normalizedKey)
+      if (existing != null && existing.typeKey != seed.typeKey) {
+        val existingQualifiedName = existing.typeKey
+          ?.let(environment.tableElements::get)
+          ?.qualifiedName
+          ?: existing.rawName
         error(
-          message = "SQL table name '${seed.tableName}' is ambiguous: ${existing.qualifiedName}, ${seed.qualifiedName}",
+          message = "SQL table name '${seed.tableName}' is ambiguous: $existingQualifiedName, ${seed.qualifiedName}",
           symbol = seed.classDeclaration
         )
       }
     }
     tableSeeds.values
-      .groupBy(TableSeed::tableName)
+      .groupBy(TableSeed::normalizedKey)
       .values
       .filter { it.size > 1 }
       .forEach { seeds ->
@@ -429,27 +442,4 @@ private fun PropertySeed.sourceProperties(): Sequence<Pair<PropertyPath, KSPrope
   is EmbeddedSeed -> properties
     .asSequence()
     .flatMap(PropertySeed::sourceProperties)
-}
-
-private fun KSClassDeclaration.isSupportedEmbeddedDeclaration() =
-  classKind == ClassKind.CLASS &&
-      ABSTRACT !in modifiers &&
-      INNER !in modifiers &&
-      typeParameters.isEmpty() &&
-      isEffectivelyAccessibleFromGeneratedCode()
-
-private fun KSClassDeclaration.defaultTableName() = declarationPathNames()
-  .joinToString(separator = "_") { name ->
-    name.camelCaseToSnakeCase().lowercase()
-  }
-
-private fun KSClassDeclaration.artifactStem() =
-  declarationPathNames().joinToString(separator = "_")
-
-private fun artifactStemCollisionMessage(
-  artifactStem: String,
-  qualifiedNames: List<String>
-): String {
-  val declarations = qualifiedNames.joinToString(separator = "', '", prefix = "'", postfix = "'")
-  return "Cannot generate code for declarations $declarations: their declaration paths map to the same generated name '$artifactStem'. Rename one model or an enclosing class to make the generated names unique."
 }

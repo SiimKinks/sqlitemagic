@@ -16,6 +16,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.transformer.DefaultTransformerCollectionStep
 import com.siimkinks.sqlitemagic.transformer.TransformerCodeGenerationStep
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionStep
+import com.siimkinks.sqlitemagic.view.ViewCollectionStep
 
 class SqliteMagicSymbolProcessor(
   symbolProcessorEnvironment: SymbolProcessorEnvironment,
@@ -27,6 +28,7 @@ class SqliteMagicSymbolProcessor(
       TransformerCodeGenerationStep(env),
       ModelCollectionStep(env),
       ModelCodeGenerationStep(env),
+      ViewCollectionStep(env),
       IndexCollectionStep(env),
       GenClassesManagerStep(env),
     )

@@ -5,6 +5,10 @@ import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.mockParsedType
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.schema.SqliteSchema
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.transformer.mockTransformerElement
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.BYTE_ARRAY
@@ -184,12 +188,32 @@ internal class ModelElementTest {
       .isEqualTo(
         TableElement(
           parsedType = tableType,
-          tableName = "accounts",
+          identity = SqliteSchemaIdentity(
+            schema = SqliteSchema.TEMPORARY,
+            identifier = SqliteIdentifier.from("accounts")
+          ),
           artifactStem = "Container_Account",
           declarationOrder = 3,
           options = setOf(TableOption.TEMPORARY, TableOption.WITHOUT_ROWID),
           construction = construction,
           properties = listOf(idProperty, detailsProperty, emailProperty)
+        )
+      )
+    assertThat(actual.tableName)
+      .isEqualTo("accounts")
+    assertThat(actual.rawName)
+      .isEqualTo(actual.identity.identifier.rawName)
+    assertThat(actual.identifier)
+      .isEqualTo(actual.identity.identifier)
+    assertThat(actual.normalizedName)
+      .isEqualTo("accounts")
+    assertThat(actual.schema)
+      .isEqualTo(SqliteSchema.TEMPORARY)
+    assertThat(actual.normalizedKey)
+      .isEqualTo(
+        SqliteSchemaKey(
+          schema = SqliteSchema.TEMPORARY,
+          normalizedName = "accounts"
         )
       )
     assertThat(actual.allColumns)

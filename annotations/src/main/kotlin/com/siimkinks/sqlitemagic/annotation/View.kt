@@ -6,7 +6,7 @@ import kotlin.annotation.AnnotationTarget.CLASS
 /**
  * Defines a view corresponding to a [SQLite view](https://www.sqlite.org/lang_createview.html).
  *
- * Supported view models are Kotlin data classes and mutable classes that can be constructed and
+ * Supported view models are constructor-backed and mutable classes that can be constructed and
  * populated by generated code.
  *
  * Each view must declare exactly one query of type `CompiledSelect` annotated with [ViewQuery].
@@ -29,9 +29,11 @@ import kotlin.annotation.AnnotationTarget.CLASS
  * Each view must declare [ViewColumn] mappings from the view query to its columns.
  *
  * @property value View name. Defaults to the lower-cased class name with camel case replaced by `_`.
+ * @property options SQLite view definition options. See [ViewOption].
  */
 @Target(CLASS)
 @Retention(BINARY)
 annotation class View(
-  val value: String = ""
+  val value: String = "",
+  val options: Array<ViewOption> = []
 )

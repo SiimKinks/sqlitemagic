@@ -12,13 +12,15 @@ import com.siimkinks.sqlitemagic.model.mockPropertyPath
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.schema.SqliteSchema
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
-import com.siimkinks.sqlitemagic.index.SqliteSchema.TEMPORARY as TEMPORARY_SCHEMA
 
 internal class IndexCollectionStepTest : ProcessingStepsTest {
   override val processingSteps = ::indexCollectionProcessingSteps
@@ -58,6 +60,10 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
     val tableType = ClassName(PACKAGE, "SearchEntry")
+    val tableIdentity = SqliteSchemaIdentity(
+      schema = SqliteSchema.TEMPORARY,
+      identifier = SqliteIdentifier.from("search_entries")
+    )
     val titlePath = mockPropertyPath("title")
     val rankPath = mockPropertyPath("rank")
 
@@ -65,11 +71,11 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
       .containsExactly(
         IndexElement(
           identity = SqliteSchemaIdentity(
-            schema = TEMPORARY_SCHEMA,
+            schema = SqliteSchema.TEMPORARY,
             identifier = SqliteIdentifier.from("entry_lookup")
           ),
+          tableIdentity = tableIdentity,
           tableType = tableType,
-          tableName = "search_entries",
           kind = COMPOSITE,
           columns = listOf(
             IndexColumnElement(
@@ -86,11 +92,11 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
         ),
         IndexElement(
           identity = SqliteSchemaIdentity(
-            schema = TEMPORARY_SCHEMA,
+            schema = SqliteSchema.TEMPORARY,
             identifier = SqliteIdentifier.from("title_lookup")
           ),
+          tableIdentity = tableIdentity,
           tableType = tableType,
-          tableName = "search_entries",
           kind = FIELD,
           columns = listOf(
             IndexColumnElement(

@@ -5,6 +5,8 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 
 internal sealed interface PropertySeed {
@@ -41,14 +43,15 @@ internal data class EmbeddedSeed(
 internal data class TableSeed(
   val classDeclaration: KSClassDeclaration,
   val parsedType: ParsedType,
-  val tableName: String,
+  val identity: SqliteSchemaIdentity,
   val artifactStem: String,
   val declarationOrder: Int,
   val options: Set<TableOption>,
   val construction: ModelConstruction,
   val propertySeeds: List<PropertySeed>,
   val isPublic: Boolean
-) : ParsedType by parsedType {
+) : ParsedType by parsedType, SqliteSchemaProvider by identity {
+  val tableName get() = rawName
   val idSeed = propertySeeds
     .filterIsInstance<ColumnSeed>()
     .singleOrNull { it.idAnnotation != null }

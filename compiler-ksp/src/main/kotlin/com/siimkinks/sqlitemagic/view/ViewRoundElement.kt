@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.view
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
@@ -14,6 +13,8 @@ import com.siimkinks.sqlitemagic.annotation.Unique
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.element.RoundTypeElement
 import com.siimkinks.sqlitemagic.model.PropertyPath
+import com.siimkinks.sqlitemagic.model.RoundPropertyMetadata
+import com.siimkinks.sqlitemagic.model.RoundPropertyShape
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.firstUncheckedAnnotation
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
@@ -42,18 +43,10 @@ data class ViewPropertyRoundAnnotations(
   }
 }
 
-data class ViewPropertyRoundElement(
-  val sourceDeclaration: KSDeclaration,
-  val roundTypeElement: RoundTypeElement,
-  val isConstructorProperty: Boolean,
+internal data class ViewPropertyRoundElement(
+  val metadata: RoundPropertyMetadata,
   val annotations: ViewPropertyRoundAnnotations,
-  val isInherited: Boolean,
-  val isMutable: Boolean,
-  val isReadable: Boolean,
-  val isWritable: Boolean
-) : RoundTypeElement by roundTypeElement {
-  val name get() = sourceDeclaration.simpleName.asString()
-}
+) : RoundTypeElement by metadata, RoundPropertyShape by metadata
 
 data class ViewQueryRoundElement(
   val sourceDeclaration: KSPropertyDeclaration,

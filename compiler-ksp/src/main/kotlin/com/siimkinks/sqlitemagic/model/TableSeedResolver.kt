@@ -39,7 +39,7 @@ internal class TableSeedResolver(
       }
       TableElement(
         parsedType = seed.parsedType,
-        tableName = seed.tableName,
+        identity = seed.identity,
         artifactStem = seed.artifactStem,
         declarationOrder = seed.declarationOrder,
         options = seed.options,

@@ -15,7 +15,6 @@ import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.index.IndexKind.COMPOSITE
 import com.siimkinks.sqlitemagic.index.IndexKind.FIELD
-import com.siimkinks.sqlitemagic.index.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.TableRoundElement
@@ -25,11 +24,17 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
+import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
+import com.siimkinks.sqlitemagic.schema.SchemaIdentityRegistry
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
-import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY as TEMPORARY_TABLE
-import com.siimkinks.sqlitemagic.index.SqliteSchema.TEMPORARY as TEMPORARY_SCHEMA
 
 class IndexCollectionStep(
   private val environment: Environment
@@ -185,7 +190,6 @@ class IndexCollectionStep(
     val table = roundTable.table
     val compositeMetadata = compositeQueries[roundTable.sourceDeclaration.qualifiedNameOrSimpleName()]
     val candidates = mutableListOf<IndexCandidate>()
-    val schema = table.schema()
 
     val compositeColumns = compositeMetadata?.let { metadata ->
       table.allColumns.filter { column ->
@@ -204,7 +208,6 @@ class IndexCollectionStep(
         else -> candidates += roundTable.candidate(
           index = compositeIndex(
             table = table,
-            schema = schema,
             name = compositeMetadata.name,
             isUnique = compositeMetadata.isUnique,
             columns = compositeColumns
@@ -219,11 +222,11 @@ class IndexCollectionStep(
         candidates += roundTable.candidate(
           index = IndexElement(
             identity = SqliteSchemaIdentity(
-              schema = schema,
+              schema = table.schema,
               identifier = SqliteIdentifier.from(fieldIndex.name)
             ),
             tableType = table.modelClassName,
-            tableName = table.tableName,
+            tableIdentity = table.identity,
             kind = FIELD,
             columns = listOf(column.toIndexColumn()),
             isUnique = fieldIndex.isUnique,
@@ -250,47 +253,81 @@ class IndexCollectionStep(
     candidates: List<IndexCandidate>,
     reporter: IndexCollectionReporter
   ) {
-    val accepted = environment.indexElements.values.associateByTo(
-      destination = linkedMapOf(),
-      keySelector = IndexElement::normalizedKey
+    val accepted = environment.indexElements.toMutableMap()
+    val names = SchemaIdentityRegistry(
+      owners = buildList {
+        environment.tableElements.values.forEach { table ->
+          add(
+            SchemaIdentityOwner(
+              kind = "table",
+              rawName = table.tableName,
+              identity = table.identity,
+              typeKey = table.typeKey
+            )
+          )
+        }
+        environment.viewElements.values.forEach { view ->
+          add(
+            SchemaIdentityOwner(
+              kind = "view",
+              rawName = view.viewName,
+              identity = view.identity,
+              typeKey = view.typeKey
+            )
+          )
+        }
+        environment.indexElements.values.forEach { index ->
+          add(
+            SchemaIdentityOwner(
+              kind = "index",
+              rawName = index.name,
+              identity = index.identity
+            )
+          )
+        }
+      }
     )
-    val tablesByName = environment.tableElements.values.associateBy { table ->
-      NormalizedIndexKey(
-        schema = table.schema(),
-        name = SqliteIdentifier.from(table.tableName).normalizedName
-      )
-    }
     candidates.forEach { candidate ->
       val index = candidate.roundElement.index
-      val table = tablesByName[
-        NormalizedIndexKey(
-          schema = index.schema,
-          name = index.normalizedName
-        )
-      ]
-      when {
-        index.name.contains('\n') || index.name.contains('\r') -> reporter.error(
+      val owner = names.lookup(index.normalizedKey)
+      when (index.sqliteIdentifierProblem()) {
+        LINE_BREAK -> reporter.error(
           message = "Index name must not contain line breaks: ${index.name}",
           symbol = candidate.symbol
         )
-        index.name.contains('\u0000') -> reporter.error(
+        NUL -> reporter.error(
           message = "Index name must not contain NUL characters",
           symbol = candidate.symbol
         )
-        index.normalizedName.startsWith(prefix = "sqlite_") -> reporter.error(
+        RESERVED_PREFIX -> reporter.error(
           message = "Index name '${index.name}' is reserved",
           symbol = candidate.symbol
         )
-        table != null -> reporter.error(
-          message = "Index name '${index.name}' conflicts with table name '${table.tableName}'",
-          symbol = candidate.symbol
-        )
-        accepted[index.normalizedKey] == index -> Unit
-        accepted.containsKey(index.normalizedKey) -> reporter.error(
-          message = "Duplicate index name '${accepted.getValue(index.normalizedKey).name}'",
-          symbol = candidate.symbol
-        )
-        else -> accepted[index.normalizedKey] = index
+        null -> when {
+          owner?.kind == "table" -> reporter.error(
+            message = "Index name '${index.name}' conflicts with table name '${owner.rawName}'",
+            symbol = candidate.symbol
+          )
+          owner?.kind == "view" -> reporter.error(
+            message = "Index name '${index.name}' conflicts with view name '${owner.rawName}'",
+            symbol = candidate.symbol
+          )
+          accepted[index.normalizedKey] == index -> Unit
+          accepted.containsKey(index.normalizedKey) -> reporter.error(
+            message = "Duplicate index name '${accepted.getValue(index.normalizedKey).name}'",
+            symbol = candidate.symbol
+          )
+          else -> {
+            accepted[index.normalizedKey] = index
+            names.register(
+              SchemaIdentityOwner(
+                kind = "index",
+                rawName = index.name,
+                identity = index.identity
+              )
+            )
+          }
+        }
       }
     }
   }
@@ -388,11 +425,6 @@ private data class IndexCandidate(
   val symbol: KSAnnotated?
 )
 
-private data class NormalizedIndexKey(
-  val schema: SqliteSchema,
-  val name: String
-)
-
 private fun parseIndexQuery(symbol: KSAnnotated) = symbol
   .findAnnotationWithType<Index>()
   ?.let { annotation ->
@@ -427,13 +459,12 @@ private fun TableRoundElement.candidate(
 
 private fun compositeIndex(
   table: TableElement,
-  schema: SqliteSchema,
   name: String,
   isUnique: Boolean,
   columns: List<ColumnElement>
 ) = IndexElement(
   identity = SqliteSchemaIdentity(
-    schema = schema,
+    schema = table.schema,
     identifier = SqliteIdentifier.from(
       name.ifEmpty {
         "index_${table.tableName}_${columns.joinToString(separator = "_", transform = ColumnElement::columnName)}"
@@ -441,7 +472,7 @@ private fun compositeIndex(
     )
   ),
   tableType = table.modelClassName,
-  tableName = table.tableName,
+  tableIdentity = table.identity,
   kind = COMPOSITE,
   columns = columns.map(ColumnElement::toIndexColumn),
   isUnique = isUnique,
@@ -452,17 +483,6 @@ private fun ColumnElement.toIndexColumn() = IndexColumnElement(
   propertyPath = access.path,
   columnName = columnName
 )
-
-private val IndexElement.normalizedKey
-  get() = NormalizedIndexKey(
-    schema = schema,
-    name = normalizedName
-  )
-
-private fun TableElement.schema() = when {
-  TEMPORARY_TABLE in options -> TEMPORARY_SCHEMA
-  else -> MAIN
-}
 
 private fun KSPropertyDeclaration.tableDisplayName() = parentDeclaration
   ?.parentDeclaration

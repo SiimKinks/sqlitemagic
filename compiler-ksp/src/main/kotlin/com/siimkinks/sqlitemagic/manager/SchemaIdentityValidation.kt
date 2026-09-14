@@ -1,38 +1,43 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.schema.SqliteSchema
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
+
 internal fun findSchemaIdentityConflicts(
   structures: Iterable<Pair<String, DatabaseStructure>>
 ): List<SchemaIdentityConflict> {
-  val ownersByNamespace = linkedMapOf<SchemaNamespace, MutableMap<String, SchemaIdentityOwner>>()
+  val ownersByKey = linkedMapOf<SqliteSchemaKey, SchemaIdentityOwner>()
   return buildList {
     structures.forEach { (source, structure) ->
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.tables.keys,
         objectKind = SchemaObjectKind.TABLE,
-        namespace = SchemaNamespace.PERSISTENT,
-        ownersByNamespace = ownersByNamespace
+        schema = SqliteSchema.MAIN,
+        ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.indices.keys,
         objectKind = SchemaObjectKind.INDEX,
-        namespace = SchemaNamespace.PERSISTENT,
-        ownersByNamespace = ownersByNamespace
+        schema = SqliteSchema.MAIN,
+        ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.temporaryTables.keys,
         objectKind = SchemaObjectKind.TABLE,
-        namespace = SchemaNamespace.TEMPORARY,
-        ownersByNamespace = ownersByNamespace
+        schema = SqliteSchema.TEMPORARY,
+        ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.temporaryIndices.keys,
         objectKind = SchemaObjectKind.INDEX,
-        namespace = SchemaNamespace.TEMPORARY,
-        ownersByNamespace = ownersByNamespace
+        schema = SqliteSchema.TEMPORARY,
+        ownersByKey = ownersByKey
       )
     }
   }
@@ -42,21 +47,24 @@ private fun MutableList<SchemaIdentityConflict>.collectSchemaIdentityConflicts(
   source: String,
   objects: Set<String>,
   objectKind: SchemaObjectKind,
-  namespace: SchemaNamespace,
-  ownersByNamespace: MutableMap<SchemaNamespace, MutableMap<String, SchemaIdentityOwner>>
+  schema: SqliteSchema,
+  ownersByKey: MutableMap<SqliteSchemaKey, SchemaIdentityOwner>
 ) {
-  val owners = ownersByNamespace.getOrPut(namespace, defaultValue = ::linkedMapOf)
   objects.forEach { name ->
+    val identity = SqliteSchemaIdentity(
+      schema = schema,
+      identifier = SqliteIdentifier.from(name)
+    )
     val owner = SchemaIdentityOwner(
       source = source,
       objectKind = objectKind,
       name = name
     )
-    val previousOwner = owners.putIfAbsent(name.normalizedSqlIdentifier(), owner)
+    val previousOwner = ownersByKey.putIfAbsent(identity.normalizedKey, owner)
     if (previousOwner != null) {
       add(
         SchemaIdentityConflict(
-          namespace = namespace,
+          schema = schema,
           source = source,
           objectKind = objectKind,
           name = name,
@@ -68,7 +76,7 @@ private fun MutableList<SchemaIdentityConflict>.collectSchemaIdentityConflicts(
 }
 
 internal data class SchemaIdentityConflict(
-  val namespace: SchemaNamespace,
+  val schema: SqliteSchema,
   val source: String,
   val objectKind: SchemaObjectKind,
   val name: String,
@@ -80,13 +88,6 @@ internal data class SchemaIdentityOwner(
   val objectKind: SchemaObjectKind,
   val name: String
 )
-
-internal enum class SchemaNamespace(
-  val displayName: String
-) {
-  PERSISTENT("main"),
-  TEMPORARY("temp")
-}
 
 internal enum class SchemaObjectKind(
   val label: String

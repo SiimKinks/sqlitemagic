@@ -8,7 +8,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStep
 
 internal fun viewProcessingSteps(environment: Environment): List<ProcessingStep> =
   modelProcessingSteps(environment) + listOf(
-    // TODO Phase 4: add ViewCollectionStep(environment).
+    ViewCollectionStep(environment),
     // TODO Phase 5: add ViewCodeGenerationStep(environment).
     IndexCollectionStep(environment),
     GenClassesManagerStep(environment)

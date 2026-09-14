@@ -57,7 +57,7 @@ internal fun validateConfiguredSubmoduleStructures(
   val conflicts = findSchemaIdentityConflicts(structures)
   conflicts.forEach { conflict ->
     environment.logger.error(conflict.run {
-      "Duplicate SQLite schema identifier '$name' in ${namespace.displayName} namespace: " +
+      "Duplicate SQLite schema identifier '$name' in ${schema.qualifier} namespace: " +
           "${objectKind.label} '$name' from $source conflicts with " +
           "${previousOwner.objectKind.label} '${previousOwner.name}' from ${previousOwner.source}"
     })

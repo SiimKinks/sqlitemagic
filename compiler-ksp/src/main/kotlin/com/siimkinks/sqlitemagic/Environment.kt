@@ -22,16 +22,18 @@ import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.index.IndexRoundElement
-import com.siimkinks.sqlitemagic.index.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.PropertySourceKey
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.TableRoundElement
 import com.siimkinks.sqlitemagic.model.toPropertySourceKey
+import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
 import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
+import com.siimkinks.sqlitemagic.view.ViewElement
+import com.siimkinks.sqlitemagic.view.ViewRoundElement
 import com.squareup.kotlinpoet.ClassName
 import java.io.File
 
@@ -53,11 +55,17 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
     field = linkedMapOf()
   val tableRoundElementsForCurrentRound: List<TableRoundElement>
     field = mutableListOf()
+  val viewElements: Map<TypeKey, ViewElement>
+    field = linkedMapOf()
+  val viewRoundElementsForCurrentRound: List<ViewRoundElement>
+    field = mutableListOf()
   internal val persistedPropertySourceKeys: Set<PropertySourceKey>
     field = linkedSetOf()
   internal val deferredTableSourceKeys: Set<String>
     field = linkedSetOf()
-  val indexElements: Map<SqliteSchemaIdentity, IndexElement>
+  internal val deferredViewSourceKeys: Set<String>
+    field = linkedSetOf()
+  val indexElements: Map<SqliteSchemaKey, IndexElement>
     field = linkedMapOf()
   val indexRoundElementsForCurrentRound: List<IndexRoundElement>
     field = mutableListOf()
@@ -78,7 +86,9 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
     processingRounds++
     transformerElementsForCurrentRound.clear()
     tableRoundElementsForCurrentRound.clear()
+    viewRoundElementsForCurrentRound.clear()
     deferredTableSourceKeys.clear()
+    deferredViewSourceKeys.clear()
     indexRoundElementsForCurrentRound.clear()
   }
 
@@ -135,19 +145,43 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
 
   internal fun setDeferredTableSourceKeys(declarations: Collection<KSClassDeclaration>) {
     deferredTableSourceKeys.clear()
-    deferredTableSourceKeys.addAll(declarations.map(
-      KSClassDeclaration::qualifiedNameOrSimpleName
-    ))
+    deferredTableSourceKeys.addAll(
+      declarations.map(
+        KSClassDeclaration::qualifiedNameOrSimpleName
+      )
+    )
+  }
+
+  internal fun setDeferredViewSourceKeys(declarations: Collection<KSClassDeclaration>) {
+    deferredViewSourceKeys.clear()
+    deferredViewSourceKeys.addAll(
+      declarations.map(
+        KSClassDeclaration::qualifiedNameOrSimpleName
+      )
+    )
+  }
+
+  fun addViewElement(roundElement: ViewRoundElement) {
+    val view = roundElement.view
+    when {
+      viewElements[view.typeKey] == view -> return
+      else -> {
+        viewElements[view.typeKey] = view
+        viewRoundElementsForCurrentRound += roundElement
+      }
+    }
   }
 
   fun addIndexElement(roundElement: IndexRoundElement) {
     val index = roundElement.index
-    when {
-      indexElements[index.identity] == index -> return
-      else -> {
-        indexElements[index.identity] = index
+    val key = index.normalizedKey
+    when (val existing = indexElements[key]) {
+      null -> {
+        indexElements[key] = index
         indexRoundElementsForCurrentRound += roundElement
       }
+      index -> return
+      else -> error("Different index elements share normalized key [$key]")
     }
   }
 
