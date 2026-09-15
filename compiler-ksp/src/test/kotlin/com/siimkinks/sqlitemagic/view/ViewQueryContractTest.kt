@@ -84,6 +84,32 @@ internal class ViewQueryContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `rejects a defining query in an inaccessible companion object`() {
+    SqliteMagicCompilation
+      .compile(
+        ViewSources.view(
+          name = "PrivateCompanionQueryView",
+          body = """
+            @View
+            data class PrivateCompanionQueryView(
+              @ViewColumn("value")
+              val value: String
+            ) {
+              private companion object {
+                @ViewQuery
+                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+              }
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "@ViewQuery property must be accessible to generated code",
+        "PrivateCompanionQueryView.QUERY"
+      )
+  }
+
+  @Test
   fun `rejects an instance defining query`() {
     SqliteMagicCompilation
       .compile(

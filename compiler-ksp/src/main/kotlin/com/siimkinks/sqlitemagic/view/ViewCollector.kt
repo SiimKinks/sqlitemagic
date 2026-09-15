@@ -24,9 +24,8 @@ import com.siimkinks.sqlitemagic.model.generatedArtifactStem
 import com.siimkinks.sqlitemagic.model.isSupportedEmbeddedDeclaration
 import com.siimkinks.sqlitemagic.model.validateRootModelDeclaration
 import com.siimkinks.sqlitemagic.schema.ArtifactStemOwner
-import com.siimkinks.sqlitemagic.schema.ArtifactStemRegistry
+import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
 import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
-import com.siimkinks.sqlitemagic.schema.SchemaIdentityRegistry
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
@@ -38,7 +37,7 @@ import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.utils.displayName
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
-import com.siimkinks.sqlitemagic.utils.isAccessibleFromGeneratedCode
+import com.siimkinks.sqlitemagic.utils.isEffectivelyAccessibleFromGeneratedCode
 import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
 import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
@@ -61,8 +60,9 @@ internal class ViewCollector(
         seeds[seed.typeKey] = seed
       }
     }
-    validateArtifactStems()
-    validateSchemaIdentities()
+    val validation = environment.collectionObjectValidationRegistry
+    validateArtifactStems(validation)
+    validateSchemaIdentities(validation)
     if (reporter.hasErrors) return false
 
     val views = ViewSeedResolver(
@@ -180,7 +180,7 @@ internal class ViewCollector(
         message = "@ViewQuery property must be immutable: $displayName",
         symbol = query
       )
-      !query.isAccessibleFromGeneratedCode() -> return errorQuery(
+      !query.isEffectivelyAccessibleFromGeneratedCode() -> return errorQuery(
         message = "@ViewQuery property must be accessible to generated code: $displayName",
         symbol = query
       )
@@ -341,29 +341,8 @@ internal class ViewCollector(
     )
   }
 
-  private fun validateArtifactStems() {
-    val accepted = ArtifactStemRegistry(
-      owners = buildList {
-        environment.tableElements.values.forEach { table ->
-          add(
-            ArtifactStemOwner(
-              typeKey = table.typeKey,
-              qualifiedName = table.qualifiedName,
-              artifactStem = table.artifactStem
-            )
-          )
-        }
-        environment.viewElements.values.forEach { view ->
-          add(
-            ArtifactStemOwner(
-              typeKey = view.typeKey,
-              qualifiedName = view.qualifiedName,
-              artifactStem = view.artifactStem
-            )
-          )
-        }
-      }
-    )
+  private fun validateArtifactStems(validation: CollectionObjectValidationRegistry) {
+    val accepted = validation.artifactStemRegistry
     seeds.values.forEach { seed ->
       val previous = accepted.lookup(seed.artifactStem)
       when {
@@ -386,40 +365,8 @@ internal class ViewCollector(
     }
   }
 
-  private fun validateSchemaIdentities() {
-    val accepted = SchemaIdentityRegistry(
-      owners = buildList {
-        environment.tableElements.values.forEach { table ->
-          add(
-            SchemaIdentityOwner(
-              kind = "table",
-              rawName = table.tableName,
-              identity = table.identity,
-              typeKey = table.typeKey
-            )
-          )
-        }
-        environment.viewElements.values.forEach { view ->
-          add(
-            SchemaIdentityOwner(
-              kind = "view",
-              rawName = view.viewName,
-              identity = view.identity,
-              typeKey = view.typeKey
-            )
-          )
-        }
-        environment.indexElements.values.forEach { index ->
-          add(
-            SchemaIdentityOwner(
-              kind = "index",
-              rawName = index.name,
-              identity = index.identity
-            )
-          )
-        }
-      }
-    )
+  private fun validateSchemaIdentities(validation: CollectionObjectValidationRegistry) {
+    val accepted = validation.schemaIdentityRegistry
     seeds.values.forEach { seed ->
       val name = seed.rawName
       when (seed.sqliteIdentifierProblem()) {

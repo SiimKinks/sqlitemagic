@@ -25,7 +25,6 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
-import com.siimkinks.sqlitemagic.schema.SchemaIdentityRegistry
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
@@ -254,39 +253,9 @@ class IndexCollectionStep(
     reporter: IndexCollectionReporter
   ) {
     val accepted = environment.indexElements.toMutableMap()
-    val names = SchemaIdentityRegistry(
-      owners = buildList {
-        environment.tableElements.values.forEach { table ->
-          add(
-            SchemaIdentityOwner(
-              kind = "table",
-              rawName = table.tableName,
-              identity = table.identity,
-              typeKey = table.typeKey
-            )
-          )
-        }
-        environment.viewElements.values.forEach { view ->
-          add(
-            SchemaIdentityOwner(
-              kind = "view",
-              rawName = view.viewName,
-              identity = view.identity,
-              typeKey = view.typeKey
-            )
-          )
-        }
-        environment.indexElements.values.forEach { index ->
-          add(
-            SchemaIdentityOwner(
-              kind = "index",
-              rawName = index.name,
-              identity = index.identity
-            )
-          )
-        }
-      }
-    )
+    val names = environment
+      .collectionObjectValidationRegistry
+      .schemaIdentityRegistry
     candidates.forEach { candidate ->
       val index = candidate.roundElement.index
       val owner = names.lookup(index.normalizedKey)

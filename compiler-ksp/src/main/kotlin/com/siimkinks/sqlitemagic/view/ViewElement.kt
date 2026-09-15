@@ -1,10 +1,11 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
+import com.siimkinks.sqlitemagic.ReadModelGenerationNames
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.PropertyAccess
 import com.siimkinks.sqlitemagic.model.PropertyMetadata
+import com.siimkinks.sqlitemagic.readModelGenerationNames
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
@@ -12,12 +13,12 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.TypeName
 
 data class ViewGenerationNames(
-  val packageName: String,
-  val artifactStem: String
-) {
-  val daoClassName = ClassName(packageName, "SqliteMagic_${artifactStem}_Dao")
-  val tableClassName = ClassName(PACKAGE_ROOT, "${artifactStem}Table")
-}
+  override val packageName: String,
+  override val artifactStem: String
+) : ReadModelGenerationNames by readModelGenerationNames(
+  packageName = packageName,
+  artifactStem = artifactStem
+)
 
 data class ViewQueryElement(
   val ownerType: ClassName,

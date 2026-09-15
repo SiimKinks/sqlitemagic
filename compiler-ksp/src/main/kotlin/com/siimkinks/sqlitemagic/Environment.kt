@@ -26,6 +26,7 @@ import com.siimkinks.sqlitemagic.model.PropertySourceKey
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.TableRoundElement
 import com.siimkinks.sqlitemagic.model.toPropertySourceKey
+import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
@@ -69,6 +70,7 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
     field = linkedMapOf()
   val indexRoundElementsForCurrentRound: List<IndexRoundElement>
     field = mutableListOf()
+  internal val collectionObjectValidationRegistry = CollectionObjectValidationRegistry()
   val isSubmodule get() = !submoduleName.isNullOrEmpty()
   val hasSubmodules get() = !submoduleDatabases.isNullOrEmpty()
 
@@ -129,6 +131,7 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
 
   fun addTableElement(roundElement: TableRoundElement) {
     val table = roundElement.table
+    val previous = tableElements[table.typeKey]
     persistedPropertySourceKeys.addAll(
       roundElement.sourceProperties
         .values
@@ -139,6 +142,10 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
       else -> {
         tableElements[table.typeKey] = table
         tableRoundElementsForCurrentRound += roundElement
+        collectionObjectValidationRegistry.replaceTable(
+          previous = previous,
+          replacement = table
+        )
       }
     }
   }
@@ -163,11 +170,16 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
 
   fun addViewElement(roundElement: ViewRoundElement) {
     val view = roundElement.view
+    val previous = viewElements[view.typeKey]
     when {
       viewElements[view.typeKey] == view -> return
       else -> {
         viewElements[view.typeKey] = view
         viewRoundElementsForCurrentRound += roundElement
+        collectionObjectValidationRegistry.replaceView(
+          previous = previous,
+          replacement = view
+        )
       }
     }
   }
@@ -179,6 +191,7 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
       null -> {
         indexElements[key] = index
         indexRoundElementsForCurrentRound += roundElement
+        collectionObjectValidationRegistry.registerIndex(index)
       }
       index -> return
       else -> error("Different index elements share normalized key [$key]")

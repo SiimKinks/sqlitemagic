@@ -1,9 +1,12 @@
 package com.siimkinks.sqlitemagic.schema
 
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
+import com.siimkinks.sqlitemagic.view.ViewElement
 
 internal data class SchemaIdentityOwner(
   val kind: String,
@@ -14,19 +17,20 @@ internal data class SchemaIdentityOwner(
   val normalizedKey get() = identity.normalizedKey
 }
 
-internal class SchemaIdentityRegistry(
-  owners: Iterable<SchemaIdentityOwner> = emptyList()
-) {
-  private val ownersByKey = linkedMapOf<SqliteSchemaKey, SchemaIdentityOwner>()
+internal class SchemaIdentityRegistry {
+  private val ownersByKey = KeyedCollisionRegistry<SqliteSchemaKey, SchemaIdentityOwner>()
 
-  init {
-    owners.forEach(::register)
-  }
+  fun lookup(key: SqliteSchemaKey) = ownersByKey.lookup(key)
 
-  fun lookup(key: SqliteSchemaKey) = ownersByKey[key]
+  fun register(owner: SchemaIdentityOwner) = ownersByKey.register(
+    key = owner.normalizedKey,
+    value = owner
+  )
 
-  fun register(owner: SchemaIdentityOwner) = ownersByKey
-    .putIfAbsent(owner.normalizedKey, owner)
+  fun unregister(owner: SchemaIdentityOwner) = ownersByKey.unregister(
+    key = owner.normalizedKey,
+    value = owner
+  )
 }
 
 internal data class ArtifactStemOwner(
@@ -35,19 +39,123 @@ internal data class ArtifactStemOwner(
   val artifactStem: String
 )
 
-internal class ArtifactStemRegistry(
-  owners: Iterable<ArtifactStemOwner> = emptyList()
-) {
-  private val ownersByStem = linkedMapOf<String, ArtifactStemOwner>()
+internal class ArtifactStemRegistry {
+  private val ownersByStem = KeyedCollisionRegistry<String, ArtifactStemOwner>()
 
-  init {
-    owners.forEach(::register)
+  fun lookup(artifactStem: String) = ownersByStem.lookup(artifactStem)
+
+  fun register(owner: ArtifactStemOwner) = ownersByStem.register(
+    key = owner.artifactStem,
+    value = owner
+  )
+
+  fun unregister(owner: ArtifactStemOwner) = ownersByStem.unregister(
+    key = owner.artifactStem,
+    value = owner
+  )
+}
+
+internal class CollectionObjectValidationRegistry {
+  val schemaIdentityRegistry = SchemaIdentityRegistry()
+  val artifactStemRegistry = ArtifactStemRegistry()
+
+  fun registerTable(table: TableElement) {
+    schemaIdentityRegistry.register(
+      SchemaIdentityOwner(
+        kind = "table",
+        rawName = table.tableName,
+        identity = table.identity,
+        typeKey = table.typeKey
+      )
+    )
+    artifactStemRegistry.register(
+      ArtifactStemOwner(
+        typeKey = table.typeKey,
+        qualifiedName = table.qualifiedName,
+        artifactStem = table.artifactStem
+      )
+    )
   }
 
-  fun lookup(artifactStem: String) = ownersByStem[artifactStem]
+  fun unregisterTable(table: TableElement) {
+    schemaIdentityRegistry.unregister(
+      SchemaIdentityOwner(
+        kind = "table",
+        rawName = table.tableName,
+        identity = table.identity,
+        typeKey = table.typeKey
+      )
+    )
+    artifactStemRegistry.unregister(
+      ArtifactStemOwner(
+        typeKey = table.typeKey,
+        qualifiedName = table.qualifiedName,
+        artifactStem = table.artifactStem
+      )
+    )
+  }
 
-  fun register(owner: ArtifactStemOwner) = ownersByStem
-    .putIfAbsent(owner.artifactStem, owner)
+  fun replaceTable(
+    previous: TableElement?,
+    replacement: TableElement
+  ) {
+    previous?.let(::unregisterTable)
+    registerTable(replacement)
+  }
+
+  fun registerView(view: ViewElement) {
+    schemaIdentityRegistry.register(
+      SchemaIdentityOwner(
+        kind = "view",
+        rawName = view.viewName,
+        identity = view.identity,
+        typeKey = view.typeKey
+      )
+    )
+    artifactStemRegistry.register(
+      ArtifactStemOwner(
+        typeKey = view.typeKey,
+        qualifiedName = view.qualifiedName,
+        artifactStem = view.artifactStem
+      )
+    )
+  }
+
+  fun unregisterView(view: ViewElement) {
+    schemaIdentityRegistry.unregister(
+      SchemaIdentityOwner(
+        kind = "view",
+        rawName = view.viewName,
+        identity = view.identity,
+        typeKey = view.typeKey
+      )
+    )
+    artifactStemRegistry.unregister(
+      ArtifactStemOwner(
+        typeKey = view.typeKey,
+        qualifiedName = view.qualifiedName,
+        artifactStem = view.artifactStem
+      )
+    )
+  }
+
+  fun replaceView(
+    previous: ViewElement?,
+    replacement: ViewElement
+  ) {
+    previous?.let(::unregisterView)
+    registerView(replacement)
+  }
+
+  fun registerIndex(index: IndexElement) {
+    schemaIdentityRegistry.register(
+      SchemaIdentityOwner(
+        kind = "index",
+        rawName = index.name,
+        identity = index.identity
+      )
+    )
+  }
 }
 
 internal enum class SqliteIdentifierProblem {

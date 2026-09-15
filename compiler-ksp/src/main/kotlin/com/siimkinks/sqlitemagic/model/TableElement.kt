@@ -2,10 +2,12 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
+import com.siimkinks.sqlitemagic.ReadModelGenerationNames
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.readModelGenerationNames
 import com.siimkinks.sqlitemagic.schema.SqliteSchema
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
@@ -15,12 +17,13 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STAR
 
 data class ModelGenerationNames(
-  val packageName: String,
-  val artifactStem: String
+  override val packageName: String,
+  override val artifactStem: String
+) : ReadModelGenerationNames by readModelGenerationNames(
+  packageName = packageName,
+  artifactStem = artifactStem
 ) {
-  val daoClassName = ClassName(packageName, "SqliteMagic_${artifactStem}_Dao")
   val adapterClassName = ClassName(PACKAGE_ROOT, "SqliteMagic_${artifactStem}_Adapter")
-  val tableClassName = ClassName(PACKAGE_ROOT, "${artifactStem}Table")
   val extensionsFileName = "_$artifactStem"
   val bulkOperationsObjectName = "${artifactStem}s"
 }

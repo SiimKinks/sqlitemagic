@@ -11,10 +11,7 @@ import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.element.toParsedType
 import com.siimkinks.sqlitemagic.model.ModelKind.EMBEDDED
 import com.siimkinks.sqlitemagic.model.ModelKind.TABLE
-import com.siimkinks.sqlitemagic.schema.ArtifactStemOwner
-import com.siimkinks.sqlitemagic.schema.ArtifactStemRegistry
-import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
-import com.siimkinks.sqlitemagic.schema.SchemaIdentityRegistry
+import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
 import com.siimkinks.sqlitemagic.schema.SqliteSchema
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
@@ -42,8 +39,9 @@ internal class ModelCollector(
         tableSeeds[seed.typeKey] = seed
       }
     }
-    validateTableNames()
-    validateArtifactStems()
+    val validation = environment.collectionObjectValidationRegistry
+    validateTableNames(validation)
+    validateArtifactStems(validation)
     if (reporter.hasErrors) return false
 
     val tables = TableSeedResolver(
@@ -324,16 +322,8 @@ internal class ModelCollector(
     )
   }
 
-  private fun validateArtifactStems() {
-    val accepted = ArtifactStemRegistry(
-      owners = environment.tableElements.values.map { table ->
-        ArtifactStemOwner(
-          typeKey = table.typeKey,
-          qualifiedName = table.qualifiedName,
-          artifactStem = table.artifactStem
-        )
-      }
-    )
+  private fun validateArtifactStems(validation: CollectionObjectValidationRegistry) {
+    val accepted = validation.artifactStemRegistry
     for (seed in tableSeeds.values) {
       val existing = accepted.lookup(seed.artifactStem)
       if (existing != null && existing.typeKey != seed.typeKey) {
@@ -364,28 +354,27 @@ internal class ModelCollector(
       }
   }
 
-  private fun validateTableNames() {
-    val accepted = SchemaIdentityRegistry(
-      owners = environment.tableElements.values.map { table ->
-        SchemaIdentityOwner(
-          kind = "table",
-          rawName = table.tableName,
-          identity = table.identity,
-          typeKey = table.typeKey
-        )
-      }
-    )
+  private fun validateTableNames(validation: CollectionObjectValidationRegistry) {
+    val accepted = validation.schemaIdentityRegistry
     for (seed in tableSeeds.values) {
       val existing = accepted.lookup(seed.normalizedKey)
       if (existing != null && existing.typeKey != seed.typeKey) {
-        val existingQualifiedName = existing.typeKey
-          ?.let(environment.tableElements::get)
-          ?.qualifiedName
-          ?: existing.rawName
-        error(
-          message = "SQL table name '${seed.tableName}' is ambiguous: $existingQualifiedName, ${seed.qualifiedName}",
-          symbol = seed.classDeclaration
-        )
+        when (existing.kind) {
+          "table" -> {
+            val existingQualifiedName = existing.typeKey
+              ?.let(environment.tableElements::get)
+              ?.qualifiedName
+              ?: existing.rawName
+            error(
+              message = "SQL table name '${seed.tableName}' is ambiguous: $existingQualifiedName, ${seed.qualifiedName}",
+              symbol = seed.classDeclaration
+            )
+          }
+          else -> error(
+            message = "SQL table name '${seed.tableName}' conflicts with ${existing.kind} name '${existing.rawName}': ${seed.qualifiedName}",
+            symbol = seed.classDeclaration
+          )
+        }
       }
     }
     tableSeeds.values

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.schema.KeyedCollisionRegistry
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
 import com.siimkinks.sqlitemagic.schema.SqliteSchema
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
@@ -8,7 +9,7 @@ import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 internal fun findSchemaIdentityConflicts(
   structures: Iterable<Pair<String, DatabaseStructure>>
 ): List<SchemaIdentityConflict> {
-  val ownersByKey = linkedMapOf<SqliteSchemaKey, SchemaIdentityOwner>()
+  val ownersByKey = KeyedCollisionRegistry<SqliteSchemaKey, SchemaIdentityOwner>()
   return buildList {
     structures.forEach { (source, structure) ->
       collectSchemaIdentityConflicts(
@@ -48,7 +49,7 @@ private fun MutableList<SchemaIdentityConflict>.collectSchemaIdentityConflicts(
   objects: Set<String>,
   objectKind: SchemaObjectKind,
   schema: SqliteSchema,
-  ownersByKey: MutableMap<SqliteSchemaKey, SchemaIdentityOwner>
+  ownersByKey: KeyedCollisionRegistry<SqliteSchemaKey, SchemaIdentityOwner>
 ) {
   objects.forEach { name ->
     val identity = SqliteSchemaIdentity(
@@ -60,7 +61,10 @@ private fun MutableList<SchemaIdentityConflict>.collectSchemaIdentityConflicts(
       objectKind = objectKind,
       name = name
     )
-    val previousOwner = ownersByKey.putIfAbsent(identity.normalizedKey, owner)
+    val previousOwner = ownersByKey.register(
+      key = identity.normalizedKey,
+      value = owner
+    )
     if (previousOwner != null) {
       add(
         SchemaIdentityConflict(
