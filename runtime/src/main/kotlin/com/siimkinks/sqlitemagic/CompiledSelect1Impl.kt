@@ -19,7 +19,12 @@ internal class CompiledSelect1Impl<T, S>(
   val selectedColumn: Column<*, T, *, *, *>,
   @JvmField
   val observedTables: Array<String>
-) : DatabaseQuery<List<T>, T>(dbConnection, selectedColumn::getFromCursor), CompiledSelect<T, S> {
+) : DatabaseQuery<List<T>, T>(
+  dbConnection = dbConnection,
+  mapper = Mapper { cursor ->
+    selectedColumn.getFromCursor<T>(cursor) as T
+  }
+), CompiledSelect<T, S> {
   override fun rawQuery(inStream: Boolean): Cursor {
     super.rawQuery(inStream)
     val db = dbConnection.readableDatabase
@@ -32,8 +37,8 @@ internal class CompiledSelect1Impl<T, S>(
     return FastCursor.tryCreate(cursor)
   }
 
-  override fun map(cursor: Cursor): List<T> {
-    cursor.use { cursor ->
+  override fun map(cursor: Cursor?): List<T> {
+    checkNotNull(cursor).use { cursor ->
       val rowCount = cursor.count
       if (rowCount == 0) {
         return emptyList()
@@ -184,7 +189,7 @@ internal class CompiledSelect1Impl<T, S>(
       return FastCursor.tryCreate(cursor)
     }
 
-    override fun map(cursor: Cursor) = cursor
+    override fun map(cursor: Cursor?) = cursor
 
     override fun execute() = rawQuery(false)
 

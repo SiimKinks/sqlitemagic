@@ -42,8 +42,8 @@ internal class CompiledSelectImpl<T, S>(
     return FastCursor.tryCreate(cursor)
   }
 
-  override fun map(cursor: Cursor): List<T> {
-    cursor.use { cursor ->
+  override fun map(cursor: Cursor?): List<T> {
+    checkNotNull(cursor).use { cursor ->
       val rowCount = cursor.count
       if (rowCount == 0) {
         return emptyList()
@@ -172,7 +172,7 @@ internal class CompiledSelectImpl<T, S>(
       return FastCursor.tryCreate(cursor)
     }
 
-    override fun map(cursor: Cursor) = cursor
+    override fun map(cursor: Cursor?) = cursor
 
     override fun execute() = rawQuery(false)
 
@@ -223,8 +223,8 @@ internal class CompiledSelectImpl<T, S>(
       return FastCursor.tryCreate(cursor)
     }
 
-    override fun map(cursor: Cursor): T? {
-      cursor.use { cursor ->
+    override fun map(cursor: Cursor?): T? {
+      checkNotNull(cursor).use { cursor ->
         if (cursor.moveToNext()) {
           return checkNotNull(mapper).apply(cursor)
         }
