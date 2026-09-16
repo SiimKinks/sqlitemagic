@@ -96,4 +96,116 @@ internal class SchemaIdentityValidationTest {
       )
     ).inOrder()
   }
+
+  @Test
+  fun `validates views with tables and indexes while keeping namespaces separate`() {
+    val conflicts = findSchemaIdentityConflicts(
+      structures = listOf(
+        "main" to DatabaseStructure(
+          tables = linkedMapOf(
+            "Users" to TableStructure(name = "Users")
+          ),
+          indices = linkedMapOf(
+            "user_index" to IndexStructure(name = "user_index")
+          ),
+          views = linkedMapOf(
+            "USERS" to ViewStructure(name = "USERS"),
+            "Cache" to ViewStructure(name = "Cache")
+          ),
+          temporaryTables = linkedMapOf(
+            "Cache" to TableStructure(name = "Cache")
+          ),
+          temporaryIndices = linkedMapOf(
+            "cache_index" to IndexStructure(name = "cache_index")
+          ),
+          temporaryViews = linkedMapOf(
+            "CACHE_INDEX" to ViewStructure(name = "CACHE_INDEX")
+          )
+        ),
+        "feature" to DatabaseStructure(
+          tables = linkedMapOf(
+            "users" to TableStructure(name = "users")
+          ),
+          indices = linkedMapOf(
+            "USERS" to IndexStructure(name = "USERS")
+          ),
+          views = linkedMapOf(
+            "USER_INDEX" to ViewStructure(name = "USER_INDEX")
+          ),
+          temporaryViews = linkedMapOf(
+            "cache" to ViewStructure(name = "cache")
+          )
+        )
+      )
+    )
+
+    assertThat(conflicts).containsExactly(
+      SchemaIdentityConflict(
+        schema = MAIN,
+        source = "main",
+        objectKind = SchemaObjectKind.VIEW,
+        name = "USERS",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = SchemaObjectKind.TABLE,
+          name = "Users"
+        )
+      ),
+      SchemaIdentityConflict(
+        schema = TEMPORARY,
+        source = "main",
+        objectKind = SchemaObjectKind.VIEW,
+        name = "CACHE_INDEX",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = SchemaObjectKind.INDEX,
+          name = "cache_index"
+        )
+      ),
+      SchemaIdentityConflict(
+        schema = MAIN,
+        source = "feature",
+        objectKind = SchemaObjectKind.TABLE,
+        name = "users",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = SchemaObjectKind.TABLE,
+          name = "Users"
+        )
+      ),
+      SchemaIdentityConflict(
+        schema = MAIN,
+        source = "feature",
+        objectKind = SchemaObjectKind.INDEX,
+        name = "USERS",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = SchemaObjectKind.TABLE,
+          name = "Users"
+        )
+      ),
+      SchemaIdentityConflict(
+        schema = MAIN,
+        source = "feature",
+        objectKind = SchemaObjectKind.VIEW,
+        name = "USER_INDEX",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = SchemaObjectKind.INDEX,
+          name = "user_index"
+        )
+      ),
+      SchemaIdentityConflict(
+        schema = TEMPORARY,
+        source = "feature",
+        objectKind = SchemaObjectKind.VIEW,
+        name = "cache",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = SchemaObjectKind.TABLE,
+          name = "Cache"
+        )
+      )
+    ).inOrder()
+  }
 }

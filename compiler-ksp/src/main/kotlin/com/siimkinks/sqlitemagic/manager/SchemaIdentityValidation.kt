@@ -28,6 +28,13 @@ internal fun findSchemaIdentityConflicts(
       )
       collectSchemaIdentityConflicts(
         source = source,
+        objects = structure.views.keys,
+        objectKind = SchemaObjectKind.VIEW,
+        schema = SqliteSchema.MAIN,
+        ownersByKey = ownersByKey
+      )
+      collectSchemaIdentityConflicts(
+        source = source,
         objects = structure.temporaryTables.keys,
         objectKind = SchemaObjectKind.TABLE,
         schema = SqliteSchema.TEMPORARY,
@@ -37,6 +44,13 @@ internal fun findSchemaIdentityConflicts(
         source = source,
         objects = structure.temporaryIndices.keys,
         objectKind = SchemaObjectKind.INDEX,
+        schema = SqliteSchema.TEMPORARY,
+        ownersByKey = ownersByKey
+      )
+      collectSchemaIdentityConflicts(
+        source = source,
+        objects = structure.temporaryViews.keys,
+        objectKind = SchemaObjectKind.VIEW,
         schema = SqliteSchema.TEMPORARY,
         ownersByKey = ownersByKey
       )
@@ -97,5 +111,6 @@ internal enum class SchemaObjectKind(
   val label: String
 ) {
   TABLE("table"),
-  INDEX("index")
+  INDEX("index"),
+  VIEW("view")
 }

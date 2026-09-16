@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.schemaSql
 import com.siimkinks.sqlitemagic.schema.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.view.ViewElement
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -67,18 +68,28 @@ data class IndexStructure(
 }
 
 @Serializable
+data class ViewStructure(
+  val name: String = "",
+  val moduleName: String? = null
+)
+
+@Serializable
 data class DatabaseStructure(
   val tables: Map<String, TableStructure> = emptyMap(),
   val indices: Map<String, IndexStructure> = emptyMap(),
   val temporaryTables: Map<String, TableStructure> = emptyMap(),
-  val temporaryIndices: Map<String, IndexStructure> = emptyMap()
+  val temporaryIndices: Map<String, IndexStructure> = emptyMap(),
+  val views: Map<String, ViewStructure> = emptyMap(),
+  val temporaryViews: Map<String, ViewStructure> = emptyMap()
 ) {
   companion object {
     internal fun from(
       orderedTables: CreationOrderedTables,
-      indexes: Iterable<IndexElement> = emptyList()
+      indexes: Iterable<IndexElement> = emptyList(),
+      views: Iterable<ViewElement> = emptyList()
     ) = with(orderedTables) {
       val orderedIndexes = sortedIndexes(indexes)
+      val orderedViews = views.sortedBy(ViewElement::declarationOrder)
       DatabaseStructure(
         tables = persistent.associateByTo(
           destination = linkedMapOf(),
@@ -103,20 +114,39 @@ data class DatabaseStructure(
             destination = linkedMapOf(),
             keySelector = IndexElement::name,
             valueTransform = IndexStructure::from
-          )
+          ),
+        views = orderedViews
+          .filter { it.schema == MAIN }
+          .associate { view ->
+            view.viewName to ViewStructure(
+              name = view.viewName,
+              moduleName = view.moduleName
+            )
+          },
+        temporaryViews = orderedViews
+          .filter { it.schema == TEMPORARY }
+          .associate { view ->
+            view.viewName to ViewStructure(
+              name = view.viewName,
+              moduleName = view.moduleName
+            )
+          }
       )
     }
   }
 
   fun persistentOnly() = DatabaseStructure(
     tables = tables,
-    indices = indices
+    indices = indices,
+    views = views
   )
 
   operator fun plus(other: DatabaseStructure) = DatabaseStructure(
     tables = LinkedHashMap(tables).apply { putAll(other.tables) },
     indices = LinkedHashMap(indices).apply { putAll(other.indices) },
     temporaryTables = LinkedHashMap(temporaryTables).apply { putAll(other.temporaryTables) },
-    temporaryIndices = LinkedHashMap(temporaryIndices).apply { putAll(other.temporaryIndices) }
+    temporaryIndices = LinkedHashMap(temporaryIndices).apply { putAll(other.temporaryIndices) },
+    views = LinkedHashMap(views).apply { putAll(other.views) },
+    temporaryViews = LinkedHashMap(temporaryViews).apply { putAll(other.temporaryViews) }
   )
 }

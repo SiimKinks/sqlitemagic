@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
+import com.siimkinks.sqlitemagic.view.ViewElement
 import com.squareup.kotlinpoet.ClassName
 
 data class GeneratedDatabaseElement(
@@ -14,6 +15,7 @@ data class GeneratedDatabaseElement(
   val databaseMetadata: DatabaseMetadata,
   val isDebug: Boolean,
   val tables: List<TableElement>,
+  val views: List<ViewElement> = emptyList(),
   val indices: List<IndexElement> = emptyList(),
   val transformers: List<TransformerElement>,
   val submodules: List<SubmoduleDatabaseMetadata>
@@ -35,6 +37,7 @@ data class GeneratedDatabaseElement(
         databaseMetadata = dbMetadata,
         isDebug = options.isDebugVariant,
         tables = tableElements.values.sortedBy(TableElement::declarationOrder),
+        views = viewElements.values.sortedBy(ViewElement::declarationOrder),
         indices = indexElements.values.toList(),
         transformers = transformerElements.values.toList(),
         submodules = submoduleDatabases.orEmpty()
