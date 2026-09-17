@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic;
 import android.database.Cursor;
 
 import androidx.annotation.NonNull;
+
 import io.reactivex.ObservableOperator;
 import io.reactivex.Observer;
 import io.reactivex.exceptions.Exceptions;
@@ -53,8 +54,9 @@ final class OperatorCountZeroOrNot implements ObservableOperator<Boolean, Query<
     public void onNext(Query<Long> query) {
       try {
         // returns null every time, but is needed for transaction checks
-        final Cursor cursor = query.rawQuery(true);
-        final Long count = query.map(cursor);
+        final DbConnectionImpl dbConnection = query.resolveConnection();
+        final Cursor cursor = query.rawQuery(true, dbConnection);
+        final Long count = query.map(cursor, dbConnection);
         if (!isDisposed()) {
           downstream.onNext(count > 0 ^ countZero ? Boolean.TRUE : Boolean.FALSE);
         }

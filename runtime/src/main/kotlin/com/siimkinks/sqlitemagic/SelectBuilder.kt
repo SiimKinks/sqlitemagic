@@ -30,7 +30,7 @@ internal class SelectBuilder<S> {
   var deep = false
 
   @JvmField
-  var dbConnection: DbConnectionImpl = SqliteMagic.getDefaultDbConnection()
+  var dbConnection: DbConnectionImpl? = null
 
   private var compiled = false
 

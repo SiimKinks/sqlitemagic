@@ -5,6 +5,7 @@ import android.database.Cursor;
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
 import io.reactivex.ObservableOperator;
 import io.reactivex.Observer;
 import io.reactivex.exceptions.Exceptions;
@@ -64,8 +65,9 @@ final class OperatorRunSingleItemQuery<T> implements ObservableOperator<T, Query
     public void onNext(Query<T> query) {
       try {
         // null cursor here is valid
-        final Cursor cursor = query.rawQuery(true);
-        final T item = query.map(cursor);
+        final DbConnectionImpl dbConnection = query.resolveConnection();
+        final Cursor cursor = query.rawQuery(true, dbConnection);
+        final T item = query.map(cursor, dbConnection);
         if (!isDisposed()) {
           if (item != null) {
             downstream.onNext(item);

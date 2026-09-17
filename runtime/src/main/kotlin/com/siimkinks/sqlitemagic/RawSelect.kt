@@ -93,26 +93,36 @@ class RawSelect internal constructor(
     var observedTables: Array<String> = EMPTY_STRINGS
 
     @JvmField
-    var dbConnection: DbConnectionImpl = SqliteMagic.getDefaultDbConnection()
+    var dbConnection: DbConnectionImpl? = null
   }
 
   internal class CompiledRawSelectImpl internal constructor(
-    builder: Builder
+    @JvmField
+    val sql: String,
+    @JvmField
+    val args: Array<out String>?,
+    dbConnection: DbConnectionImpl?,
+    @JvmField
+    val observedTables: Array<String>
   ) : Query.DatabaseQuery<Cursor, Cursor>(
-    dbConnection = builder.dbConnection,
+    dbConnection = dbConnection,
     mapper = null
   ), CompiledObservableRawSelect {
-    @JvmField
-    val sql: String = builder.sql
+    internal constructor(builder: Builder) : this(
+      sql = builder.sql,
+      args = builder.args,
+      dbConnection = builder.dbConnection,
+      observedTables = builder.observedTables
+    )
 
-    @JvmField
-    val args: Array<out String>? = builder.args
-
-    @JvmField
-    val observedTables: Array<String> = builder.observedTables
-
-    override fun rawQuery(inStream: Boolean): Cursor {
-      super.rawQuery(inStream)
+    override fun rawQuery(
+      inStream: Boolean,
+      dbConnection: DbConnectionImpl
+    ): Cursor {
+      super.rawQuery(
+        inStream = inStream,
+        dbConnection = dbConnection
+      )
       val db = dbConnection.readableDatabase
       val startNanos = System.nanoTime()
       val cursor = SqlUtil.query(db, sql, args)
@@ -123,9 +133,12 @@ class RawSelect internal constructor(
       return FastCursor.tryCreate(cursor)
     }
 
-    override fun map(cursor: Cursor?) = cursor
+    override fun map(
+      cursor: Cursor?,
+      dbConnection: DbConnectionImpl
+    ) = cursor
 
-    override fun execute(): Cursor = rawQuery(inStream = false)
+    override fun execute(): Cursor = checkNotNull(rawQuery(inStream = false))
 
     override fun observe(): SingleItemQueryObservable<Cursor> = SingleItemQueryObservable(
       createQueryObservable(

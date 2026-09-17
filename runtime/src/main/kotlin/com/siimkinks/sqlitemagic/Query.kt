@@ -10,8 +10,10 @@ import io.reactivex.functions.Function
 
 /** An executable query. */
 abstract class Query<T> internal constructor(
-  internal val dbConnection: DbConnectionImpl
+  internal val dbConnection: DbConnectionImpl?
 ) {
+  fun resolveConnection() = dbConnection ?: SqliteMagic.getDefaultDbConnection()
+
   /**
    * Execute this query against a database and return the resulting data.
    * This method runs synchronously in the calling thread.
@@ -25,7 +27,16 @@ abstract class Query<T> internal constructor(
    */
   @CheckResult
   @WorkerThread
-  fun runBlocking(): T? = map(rawQuery(inStream = true))
+  fun runBlocking(): T? = resolveConnection()
+    .let { dbConnection ->
+      map(
+        cursor = rawQuery(
+          inStream = true,
+          dbConnection = dbConnection
+        ),
+        dbConnection = dbConnection
+      )
+    }
 
   /**
    * Creates [Maybe] that when subscribed to executes the query against a database
@@ -41,12 +52,19 @@ abstract class Query<T> internal constructor(
    */
   @CheckResult
   fun run(): Maybe<T> = Maybe.create { emitter ->
-    val cursor = rawQuery(inStream = true)
+    val dbConnection = resolveConnection()
+    val cursor = rawQuery(
+      inStream = true,
+      dbConnection = dbConnection
+    )
     if (emitter.isDisposed) {
       cursor?.close()
       return@create
     }
-    val result = map(cursor)
+    val result = map(
+      cursor = cursor,
+      dbConnection = dbConnection
+    )
     when {
       result != null -> emitter.onSuccess(result)
       else -> emitter.onComplete()
@@ -58,20 +76,27 @@ abstract class Query<T> internal constructor(
    *
    * @param inStream Whether query is executed in observable stream or synchronously
    * @return Query result, maybe `null`
-  */
+   */
   @CallSuper
-  protected open fun rawQuery(inStream: Boolean): Cursor? {
+  @JvmOverloads
+  protected open fun rawQuery(
+    inStream: Boolean,
+    dbConnection: DbConnectionImpl = resolveConnection()
+  ): Cursor? {
     if (inStream && dbConnection.transactions.get() != null) {
       throw IllegalStateException("Cannot execute observable query in a transaction.")
     }
     return null
   }
 
-  protected abstract fun map(cursor: Cursor?): T?
+  protected abstract fun map(
+    cursor: Cursor?,
+    dbConnection: DbConnectionImpl
+  ): T?
 
   /** A query implementation that can be used as an RxJava trigger mapper. */
   internal abstract class DatabaseQuery<T, E> internal constructor(
-    dbConnection: DbConnectionImpl,
+    dbConnection: DbConnectionImpl?,
     @JvmField
     internal val mapper: Mapper<E>?
   ) : Query<T>(dbConnection), Function<Set<String>, Query<T>> {

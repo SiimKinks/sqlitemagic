@@ -230,6 +230,10 @@ public final class SqliteMagic {
      * <p>
      * This will create and open the default DB connection; creates tables on the first
      * initialization; runs any upgrade scripts if needed.
+     * <p>
+     * Call this once during application creation, before accessing the database. The default
+     * connection remains open and unchanged for the application lifetime and must not be closed
+     * or replaced during normal application operation.
      */
     public void openDefaultConnection() {
       final SqliteMagic sqliteMagic = SingletonHolder.instance;

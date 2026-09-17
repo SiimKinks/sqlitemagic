@@ -6,6 +6,7 @@ plugins {
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
 
+def mockitoAgentConfiguration = configurations.create('mockitoAgent')
 
 dependencies {
   implementation project(':annotations')
@@ -18,10 +19,16 @@ dependencies {
   implementation libs.rx.java2
 
   testImplementation libs.junit
+  testImplementation libs.mockito.kotlin
   testImplementation libs.truth
+
+  mockitoAgent(libs.mockito) {
+    transitive = false
+  }
 }
 
 tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include "**/*Test.class"
+  jvmArgs "-javaagent:${mockitoAgentConfiguration.singleFile.absolutePath}"
 }

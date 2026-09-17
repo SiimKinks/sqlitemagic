@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic
 import android.database.Cursor
 import android.database.SQLException
 import androidx.annotation.CheckResult
-import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.Query.DatabaseQuery
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 import io.reactivex.Observable
@@ -17,7 +16,7 @@ internal class CompiledSelectImpl<T, S>(
   val args: Array<String>?,
   @JvmField
   val table: Table<T>,
-  dbConnection: DbConnectionImpl,
+  dbConnection: DbConnectionImpl?,
   @JvmField
   val observedTables: Array<String>,
   @JvmField
@@ -27,11 +26,17 @@ internal class CompiledSelectImpl<T, S>(
   @JvmField
   val queryDeep: Boolean
 ) : DatabaseQuery<List<T>, T>(
-  dbConnection,
-  table.mapper(columns, tableGraphNodeNames, queryDeep)
+  dbConnection = dbConnection,
+  mapper = table.mapper(columns, tableGraphNodeNames, queryDeep)
 ), CompiledSelect<T, S> {
-  override fun rawQuery(inStream: Boolean): Cursor {
-    super.rawQuery(inStream)
+  override fun rawQuery(
+    inStream: Boolean,
+    dbConnection: DbConnectionImpl
+  ): Cursor {
+    super.rawQuery(
+      inStream = inStream,
+      dbConnection = dbConnection
+    )
     val db = dbConnection.readableDatabase
     val startNanos = System.nanoTime()
     val cursor = SqlUtil.query(db, sql, args)
@@ -42,7 +47,10 @@ internal class CompiledSelectImpl<T, S>(
     return FastCursor.tryCreate(cursor)
   }
 
-  override fun map(cursor: Cursor?): List<T> {
+  override fun map(
+    cursor: Cursor?,
+    dbConnection: DbConnectionImpl
+  ): List<T> {
     checkNotNull(cursor).use { cursor ->
       val rowCount = cursor.count
       if (rowCount == 0) {
@@ -59,7 +67,16 @@ internal class CompiledSelectImpl<T, S>(
 
   override fun toString() = "[deepQuery=$queryDeep;sql=$sql]"
 
-  override fun execute() = map(rawQuery(false))
+  override fun execute() = resolveConnection()
+    .let { dbConnection ->
+      map(
+        cursor = rawQuery(
+          inStream = false,
+          dbConnection = dbConnection
+        ),
+        dbConnection = dbConnection
+      )
+    }
 
   override fun observe() = ListQueryObservable(
     createQueryObservable(
@@ -87,40 +104,39 @@ internal class CompiledSelectImpl<T, S>(
 
   internal class CompiledCountSelectImpl<S>(
     parentSql: String,
-    args: Array<String>?,
-    dbConnection: DbConnectionImpl,
-    observedTables: Array<String>
-  ) : DatabaseQuery<Long, Long>(dbConnection, null), CompiledCountSelect<S> {
-    private val countStm: SupportSQLiteStatement
-    private val sql: String
+    private val args: Array<String>?,
+    dbConnection: DbConnectionImpl?,
     private val observedTables: Array<String>
-    private val args: Array<String>?
+  ) : DatabaseQuery<Long, Long>(
+    dbConnection = dbConnection,
+    mapper = null
+  ), CompiledCountSelect<S> {
+    private val sql = addCountFunction(parentSql)
+    private val countStatement = ConnectionStatement(
+      sql = sql,
+      args = args,
+      initialConnection = dbConnection
+    )
 
-    init {
-      val sql = addCountFunction(parentSql)
-      val countStm = dbConnection.compileStatement(sql)
-      SqlUtil.bindAllArgsAsStrings(countStm, args)
-      this.countStm = countStm
-      this.sql = sql
-      this.observedTables = observedTables
-      this.args = args
-    }
+    override fun map(
+      cursor: Cursor?,
+      dbConnection: DbConnectionImpl
+    ) = execute(dbConnection)
 
-    override fun map(cursor: Cursor?) = execute()
+    override fun execute(): Long = execute(resolveConnection())
 
-    override fun execute(): Long {
-      val count: Long
-      val startNanos: Long
-      synchronized(countStm) {
-        startNanos = System.nanoTime()
-        count = countStm.simpleQueryForLong()
+    private fun execute(dbConnection: DbConnectionImpl): Long = countStatement.execute(
+      dbConnection = dbConnection,
+      operation = { statement ->
+        val startNanos = System.nanoTime()
+        val count = statement.simpleQueryForLong()
+        if (SqliteMagic.LOGGING_ENABLED) {
+          val queryTimeInMillis = NANOSECONDS.toMillis(System.nanoTime() - startNanos)
+          LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args)
+        }
+        count
       }
-      if (SqliteMagic.LOGGING_ENABLED) {
-        val queryTimeInMillis = NANOSECONDS.toMillis(System.nanoTime() - startNanos)
-        LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args)
-      }
-      return count
-    }
+    )
 
     override fun observe() = CountQueryObservable(
       createQueryObservable(
@@ -144,8 +160,11 @@ internal class CompiledSelectImpl<T, S>(
 
   internal class CompiledCursorSelectImpl<T, S>(
     compiledSelect: CompiledSelectImpl<T, S>,
-    dbConnection: DbConnectionImpl
-  ) : DatabaseQuery<Cursor, T>(dbConnection, compiledSelect.mapper), CompiledCursorSelect<T, S> {
+    dbConnection: DbConnectionImpl?
+  ) : DatabaseQuery<Cursor, T>(
+    dbConnection = dbConnection,
+    mapper = compiledSelect.mapper
+  ), CompiledCursorSelect<T, S> {
     private val sql = compiledSelect.sql
     private val args = compiledSelect.args
     private val observedTables = compiledSelect.observedTables
@@ -160,8 +179,14 @@ internal class CompiledSelectImpl<T, S>(
       return mapper.apply(cursor)
     }
 
-    override fun rawQuery(inStream: Boolean): Cursor {
-      super.rawQuery(inStream)
+    override fun rawQuery(
+      inStream: Boolean,
+      dbConnection: DbConnectionImpl
+    ): Cursor {
+      super.rawQuery(
+        inStream = inStream,
+        dbConnection = dbConnection
+      )
       val db = dbConnection.readableDatabase
       val startNanos = System.nanoTime()
       val cursor = SqlUtil.query(db, sql, args)
@@ -172,9 +197,12 @@ internal class CompiledSelectImpl<T, S>(
       return FastCursor.tryCreate(cursor)
     }
 
-    override fun map(cursor: Cursor?) = cursor
+    override fun map(
+      cursor: Cursor?,
+      dbConnection: DbConnectionImpl
+    ) = cursor
 
-    override fun execute() = rawQuery(false)
+    override fun execute() = checkNotNull(rawQuery(false))
 
     override fun observe() = SingleItemQueryObservable(
       createQueryObservable(
@@ -188,8 +216,11 @@ internal class CompiledSelectImpl<T, S>(
 
   internal class CompiledFirstSelectImpl<T, S>(
     compiledSelect: CompiledSelectImpl<T, S>,
-    dbConnection: DbConnectionImpl
-  ) : DatabaseQuery<T, T>(dbConnection, compiledSelect.mapper), CompiledFirstSelect<T, S> {
+    dbConnection: DbConnectionImpl?
+  ) : DatabaseQuery<T, T>(
+    dbConnection = dbConnection,
+    mapper = compiledSelect.mapper
+  ), CompiledFirstSelect<T, S> {
     @JvmField
     val sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql)
 
@@ -211,8 +242,14 @@ internal class CompiledSelectImpl<T, S>(
     @JvmField
     val queryDeep = compiledSelect.queryDeep
 
-    override fun rawQuery(inStream: Boolean): Cursor {
-      super.rawQuery(inStream)
+    override fun rawQuery(
+      inStream: Boolean,
+      dbConnection: DbConnectionImpl
+    ): Cursor {
+      super.rawQuery(
+        inStream = inStream,
+        dbConnection = dbConnection
+      )
       val db = dbConnection.readableDatabase
       val startNanos = System.nanoTime()
       val cursor = SqlUtil.query(db, sql, args)
@@ -223,7 +260,10 @@ internal class CompiledSelectImpl<T, S>(
       return FastCursor.tryCreate(cursor)
     }
 
-    override fun map(cursor: Cursor?): T? {
+    override fun map(
+      cursor: Cursor?,
+      dbConnection: DbConnectionImpl
+    ): T? {
       checkNotNull(cursor).use { cursor ->
         if (cursor.moveToNext()) {
           return checkNotNull(mapper).apply(cursor)
@@ -232,7 +272,16 @@ internal class CompiledSelectImpl<T, S>(
       }
     }
 
-    override fun execute() = map(rawQuery(false))
+    override fun execute() = resolveConnection()
+      .let { dbConnection ->
+        map(
+          cursor = rawQuery(
+            inStream = false,
+            dbConnection = dbConnection
+          ),
+          dbConnection = dbConnection
+        )
+      }
 
     override fun observe() = SingleItemQueryObservable(
       createQueryObservable(
@@ -277,13 +326,13 @@ internal class CompiledSelectImpl<T, S>(
           Predicate<Set<String>> { table in it }
         }
       }
-      val dbConnectionImpl = query.dbConnection
-      return dbConnectionImpl.triggers
+      val dbConnection = query.resolveConnection()
+      return dbConnection.triggers
         .filter(tableFilter) // Only trigger on tables we care about.
         .map(query)
         .startWith(query)
-        .observeOn(dbConnectionImpl.queryScheduler)
-        .doOnSubscribe(dbConnectionImpl.ensureNotInTransaction)
+        .observeOn(dbConnection.queryScheduler)
+        .doOnSubscribe(dbConnection.ensureNotInTransaction)
     }
   }
 }
