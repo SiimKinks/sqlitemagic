@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.Select.asColumn
 import com.siimkinks.sqlitemagic.Select.format
 import com.siimkinks.sqlitemagic.Select.groupConcat
 import com.siimkinks.sqlitemagic.Select.groupConcatDistinct
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -126,14 +127,38 @@ class SqlUtilTest {
   }
 
   @Test
-  fun `create view uses args execSQL overload when query args are present`() {
+  fun `create view rejects definition args before database interaction`() {
     val database = mock<SupportSQLiteDatabase>()
     val args = arrayOf("first", "second")
     val query = compiledSelect(
       sql = "SELECT id FROM books WHERE id=?",
       args = args
     )
-    val expectedSql = "CREATE VIEW IF NOT EXISTS books_view AS SELECT id FROM books WHERE id=?"
+
+    val exception = assertThrows(IllegalArgumentException::class.java) {
+      SqlUtil.createView(
+        db = database,
+        query = query,
+        viewName = "books_view"
+      )
+    }
+
+    assertThat(exception.message)
+      .contains("books_view")
+    verifyNoInteractions(database)
+  }
+
+  @Test
+  fun `create view supports single-column compiled select`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val query = CompiledSelect1Impl<String, Any>(
+      sql = "SELECT books.id FROM books",
+      args = null,
+      dbConnection = null,
+      selectedColumn = TestSchema.id,
+      observedTables = arrayOf("books")
+    )
+    val expectedSql = "CREATE VIEW IF NOT EXISTS books_view AS SELECT books.id FROM books"
 
     SqlUtil.createView(
       db = database,
@@ -141,8 +166,28 @@ class SqlUtilTest {
       viewName = "books_view"
     )
 
-    verify(database).execSQL(expectedSql, args)
-    verify(database, never()).execSQL(expectedSql)
+    verify(database).execSQL(expectedSql)
+    verify(database, never()).execSQL(eq(expectedSql), any())
+  }
+
+  @Test
+  fun `create view rejects unsupported query implementation`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val query = mock<CompiledSelect<Any, Any>>()
+
+    val exception = assertThrows(IllegalArgumentException::class.java) {
+      SqlUtil.createView(
+        db = database,
+        query = query,
+        viewName = "books_view"
+      )
+    }
+
+    assertThat(exception.message)
+      .contains("books_view")
+    assertThat(exception.message)
+      .contains(query.javaClass.name)
+    verifyNoInteractions(database)
   }
 
   @Test

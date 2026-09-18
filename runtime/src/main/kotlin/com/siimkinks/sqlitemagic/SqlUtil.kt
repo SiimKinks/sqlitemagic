@@ -36,12 +36,17 @@ object SqlUtil {
     query: CompiledSelect<*, *>,
     viewName: String
   ) {
-    val queryImpl = query as CompiledSelectImpl
-    val sql = "CREATE VIEW IF NOT EXISTS $viewName AS ${queryImpl.sql}"
-    when (val args = queryImpl.args) {
-      null -> db.execSQL(sql)
-      else -> db.execSQL(sql, args)
+    val (sql, args) = when (query) {
+      is CompiledSelectImpl<*, *> -> query.sql to query.args
+      is CompiledSelect1Impl<*, *> -> query.sql to query.args
+      else -> throw IllegalArgumentException(
+        "Cannot create view '$viewName': defining query uses unsupported implementation ${query.javaClass.name}"
+      )
     }
+    require(args.isNullOrEmpty()) {
+      "Cannot create view '$viewName': defining query has bound arguments"
+    }
+    db.execSQL("CREATE VIEW IF NOT EXISTS $viewName AS $sql")
   }
 
   @JvmStatic
