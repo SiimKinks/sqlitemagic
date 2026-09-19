@@ -45,7 +45,7 @@ public final class ComplexColumnTest {
 
     @NonNull
     @Override
-    String toSqlArg(AccountId value) {
+    public String toSqlArg(AccountId value) {
       return "db:" + value.value;
     }
   }
@@ -57,7 +57,7 @@ public final class ComplexColumnTest {
 
     @NonNull
     @Override
-    String toSqlArg(AccountId value) {
+    public String toSqlArg(AccountId value) {
       return "db:" + value.value;
     }
   }

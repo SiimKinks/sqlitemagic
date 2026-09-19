@@ -339,7 +339,7 @@ class UpdateTest : DSLTests {
         SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
         WHERE (
         (((SIMPLE_MUTABLE_ENTITY.ID IS 2)
-            AND SIMPLE_MUTABLE_ENTITY.VALUE.isNotNull)
+            AND SIMPLE_MUTABLE_ENTITY.VALUE.isNotNull())
             AND (SIMPLE_MUTABLE_ENTITY.VALUE IS_NOT "asd"))
             AND (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS false)
         ))
@@ -357,9 +357,9 @@ class UpdateTest : DSLTests {
         SET (SIMPLE_MUTABLE_ENTITY.VALUE to "asd")
         WHERE (
         ((((SIMPLE_MUTABLE_ENTITY.ID IS 2)
-            AND SIMPLE_MUTABLE_ENTITY.VALUE.isNotNull)
+            AND SIMPLE_MUTABLE_ENTITY.VALUE.isNotNull())
             OR (SIMPLE_MUTABLE_ENTITY.VALUE IS_NOT "asd"))
-            OR ((SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS false) AND SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN.isNotNull))
+            OR ((SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS false) AND SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN.isNotNull()))
         ))
       .isEqualTo(
         sql = "UPDATE  OR FAIL simple_mutable_entity SET value=? WHERE " +

@@ -80,9 +80,7 @@ fun Expr.isEqualTo(
 
 fun generateSql(sqlNode: SelectSqlNode<*>): String {
   val selectBuilder = sqlNode.selectBuilder
-  if (selectBuilder.columnsNode != null) {
-    selectBuilder.columnsNode.compileColumns(null)
-  }
+  selectBuilder.columnsNode?.compileColumns(null)
   return SqlCreator.getSql(sqlNode, selectBuilder.sqlNodeCount)
 }
 

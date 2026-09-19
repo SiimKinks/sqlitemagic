@@ -31,6 +31,26 @@ public final class UpdateComplexNumericColumnTest {
     assertUpdate(update, "UPDATE article SET title=?,account=? ", "Title", "42");
   }
 
+  @Test
+  public void typedThenRawAssignmentsPreserveSqlAndArgumentOrder() {
+    final Update.Set<Article> update = Update
+        .table(ARTICLE)
+        .set(TITLE, "Title")
+        .set("account", "42");
+
+    assertUpdate(update, "UPDATE article SET title=?,account=? ", "Title", "42");
+  }
+
+  @Test
+  public void rawThenTypedAssignmentsPreserveSqlAndArgumentOrder() {
+    final Update.Set<Article> update = Update
+        .table(ARTICLE)
+        .set("title", "Title")
+        .set(ACCOUNT, new AccountId(41L));
+
+    assertUpdate(update, "UPDATE article SET title=?,account=? ", "Title", "42");
+  }
+
   private static void assertUpdate(
       Update.Set<Article> update,
       String expectedSql,

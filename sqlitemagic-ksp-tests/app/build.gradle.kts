@@ -1,4 +1,5 @@
 import com.android.build.api.variant.BuildConfigField
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
   alias(libs.plugins.android.application)
@@ -8,6 +9,11 @@ plugins {
 
 val javaVersion = JavaVersion.toVersion(libs.versions.java.version.get())
 val mockitoAgent = configurations.create("mockitoAgent")
+val sqliteMagicRuntimeFriend = configurations.create("sqliteMagicRuntimeFriend").apply {
+  isCanBeConsumed = false
+  isCanBeResolved = true
+  isTransitive = false
+}
 
 android {
   namespace = "com.siimkinks.sqlitemagic"
@@ -65,6 +71,8 @@ androidComponents {
 }
 
 dependencies {
+  sqliteMagicRuntimeFriend(libs.sqlitemagic.runtime)
+
   implementation(project(":submodule"))
   implementation(libs.android.sqlite.framework)
   implementation(libs.rx.java2)
@@ -87,6 +95,13 @@ dependencies {
 tasks.withType<Test>().configureEach {
   jvmArgumentProviders.add(MockitoAgentArgumentProvider(mockitoAgent))
 }
+
+tasks
+  .withType<KotlinJvmCompile>()
+  .matching { it.name.endsWith("UnitTestKotlin") }
+  .configureEach {
+    friendPaths.from(sqliteMagicRuntimeFriend)
+  }
 
 private class MockitoAgentArgumentProvider(
   @get:Classpath val classpath: FileCollection

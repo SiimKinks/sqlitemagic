@@ -664,8 +664,8 @@ class SelectSqlBuilderTest : DSLTests {
     val titleIs = ENTITY_WITH_RELATIONSHIP.VALUE IS "asd"
     val intIs = ENTITY_WITH_RELATIONSHIP.COUNT IS 1920
     val titleIsNot = ENTITY_WITH_RELATIONSHIP.VALUE IS_NOT "asd"
-    val titleIsNotNull = ENTITY_WITH_RELATIONSHIP.VALUE.isNotNull
-    val titleIsNull = ENTITY_WITH_RELATIONSHIP.VALUE.isNull
+    val titleIsNotNull = ENTITY_WITH_RELATIONSHIP.VALUE.isNotNull()
+    val titleIsNull = ENTITY_WITH_RELATIONSHIP.VALUE.isNull()
     val titleGlob = ENTITY_WITH_RELATIONSHIP.VALUE GLOB "asd"
     val titleLike = ENTITY_WITH_RELATIONSHIP.VALUE LIKE "asd"
     val lessThan = ENTITY_WITH_RELATIONSHIP.COUNT LESS_THAN 1990
@@ -750,8 +750,8 @@ class SelectSqlBuilderTest : DSLTests {
     val titleIs = m.VALUE IS "asd"
     val intIs = m.COUNT IS 1920
     val titleIsNot = m.VALUE IS_NOT "asd"
-    val titleIsNotNull = m.VALUE.isNotNull
-    val titleIsNull = m.VALUE.isNull
+    val titleIsNotNull = m.VALUE.isNotNull()
+    val titleIsNull = m.VALUE.isNull()
     val titleGlob = m.VALUE GLOB "asd"
     val titleLike = m.VALUE LIKE "asd"
     val lessThan = m.COUNT LESS_THAN 1990
@@ -1060,13 +1060,13 @@ class SelectSqlBuilderTest : DSLTests {
   fun unaryExpr() {
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
-        WHERE !(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN.isNotNull))
+        WHERE !(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN.isNotNull()))
       .isEqualTo("SELECT * FROM simple_mutable_entity WHERE NOT(simple_mutable_entity.primitive_boolean IS NOT NULL) ")
 
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         WHERE !((SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN GREATER_THAN SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN) AND
-          SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN.isNotNull))
+          SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN.isNotNull()))
       .isEqualTo(
         "SELECT * FROM simple_mutable_entity WHERE NOT((simple_mutable_entity.primitive_boolean>" +
             "simple_mutable_entity.boxed_boolean AND simple_mutable_entity.boxed_boolean IS NOT NULL)) "

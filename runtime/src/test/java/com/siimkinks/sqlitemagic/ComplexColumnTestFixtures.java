@@ -24,7 +24,7 @@ final class ComplexColumnTestFixtures {
 
     @NonNull
     @Override
-    String toSqlArg(AccountId value) {
+    public String toSqlArg(AccountId value) {
       return Long.toString(value.value + 1L);
     }
   }

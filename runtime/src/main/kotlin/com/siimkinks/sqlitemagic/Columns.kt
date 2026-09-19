@@ -80,11 +80,11 @@ inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_GLOB(regex: String)
 
 /** @see [Column.in] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(values: Collection<T>) = this.`in`(values)
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(values: Collection<T & Any>) = this.`in`(values)
 
 /** @see [Column.in] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(values: Array<T>) = this.`in`(*values)
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(values: Array<T & Any>) = this.`in`(*values)
 
 /** @see [Column.in] */
 @CheckResult
@@ -92,11 +92,11 @@ inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(select: SelectNode<o
 
 /** @see [Column.notIn] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(values: Collection<T>) = this.notIn(values)
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(values: Collection<T & Any>) = this.notIn(values)
 
 /** @see [Column.notIn] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(values: Array<T>) = this.notIn(*values)
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(values: Array<T & Any>) = this.notIn(*values)
 
 /** @see [Column.notIn] */
 @CheckResult

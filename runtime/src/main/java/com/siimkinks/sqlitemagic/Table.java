@@ -1,15 +1,17 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.Size;
+
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 import com.siimkinks.sqlitemagic.internal.StringArraySet;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.Size;
+import static com.siimkinks.sqlitemagic.Utils.TABLE_ALL_PARSER;
 
 /**
  * Metadata of a table in a database.
@@ -36,7 +38,7 @@ public class Table<T> {
     final boolean hasAlias = alias != null;
     this.hasAlias = hasAlias;
     this.nameInQuery = hasAlias ? alias : name;
-    this.selectAllColumn = new Column<>(this, "*", true, null, false, null);
+    this.selectAllColumn = new Column<>(this, "*", true, TABLE_ALL_PARSER, false, null);
   }
 
   void appendToSqlFromClause(@NonNull StringBuilder sb) {

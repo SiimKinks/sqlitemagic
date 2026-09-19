@@ -2,16 +2,16 @@ package com.siimkinks.sqlitemagic;
 
 import android.database.Cursor;
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
-
-import java.util.LinkedList;
-import java.util.Random;
-
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.sqlite.db.SupportSQLiteStatement;
+
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
+
+import java.util.LinkedList;
+import java.util.Random;
 
 import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_BYTES;
 import static com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_PRIMITIVE_BYTES;
@@ -35,7 +35,7 @@ public final class Utils {
     final Random r = RANDOM;
     final char[] charSet = CHAR_SET;
     final int charSetLen = charSet.length;
-    final char buf[] = new char[TABLE_NAME_LEN];
+    final char[] buf = new char[TABLE_NAME_LEN];
     for (int i = 0; i < TABLE_NAME_LEN; i++) {
       buf[i] = charSet[r.nextInt(charSetLen)];
     }
@@ -318,7 +318,24 @@ public final class Utils {
     }
   };
 
-  interface ValueParser<T> {
+  static final ValueParser<Object> TABLE_ALL_PARSER = new ValueParser<>() {
+    @Override
+    public Object parseFromCursor(@NonNull Cursor cursor) {
+      throw new UnsupportedOperationException("A table wildcard cannot be parsed as a single column");
+    }
+
+    @Override
+    public Object parseFromStatement(@NonNull SupportSQLiteStatement statement) {
+      throw new UnsupportedOperationException("A table wildcard cannot be parsed as a single column");
+    }
+
+    @Override
+    public boolean supportsStatementParsing() {
+      return false;
+    }
+  };
+
+  public interface ValueParser<T> {
     T parseFromCursor(@NonNull Cursor fastCursor);
 
     T parseFromStatement(@NonNull SupportSQLiteStatement statement);

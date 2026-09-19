@@ -85,7 +85,7 @@ internal class CompiledSelectImpl<T, S>(
     )
   )
 
-  override fun takeFirst() = CompiledFirstSelectImpl(
+  override fun takeFirst(): CompiledFirstSelect<T, S> = CompiledFirstSelectImpl(
     compiledSelect = this,
     dbConnection = dbConnection
   )
@@ -97,7 +97,7 @@ internal class CompiledSelectImpl<T, S>(
     observedTables = observedTables
   )
 
-  override fun toCursor() = CompiledCursorSelectImpl(
+  override fun toCursor(): CompiledCursorSelect<T, S> = CompiledCursorSelectImpl(
     compiledSelect = this,
     dbConnection = dbConnection
   )
