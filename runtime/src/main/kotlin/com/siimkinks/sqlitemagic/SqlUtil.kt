@@ -4,9 +4,39 @@ import android.database.Cursor
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteStatement
+import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 
 /** Internal utility functions. */
 object SqlUtil {
+  @JvmStatic
+  fun viewDefinition(
+    query: CompiledSelect<*, *>
+  ): ViewDefinition = when (query) {
+    is CompiledSelectImpl<*, *> -> ViewDefinition(
+      sql = query.sql,
+      args = query.args,
+      observedTables = query.observedTables,
+      columns = query.columns,
+      tableGraphNodeNames = query.tableGraphNodeNames,
+      queryDeep = query.queryDeep
+    )
+    is CompiledSelect1Impl<*, *> -> ViewDefinition(
+      sql = query.sql,
+      args = query.args,
+      observedTables = query.observedTables,
+      columns = SimpleArrayMap<String, Int>().apply {
+        val selectedColumn = query.selectedColumn
+        put(selectedColumn.nameInQuery, 0)
+        query.selectedColumn.alias?.let { alias ->
+          put(alias, 0)
+        }
+      },
+      tableGraphNodeNames = SimpleArrayMap(),
+      queryDeep = false
+    )
+    else -> error("Unreachable supported query implementation")
+  }
+
   @JvmStatic
   fun quoteSqlStringLiteral(value: CharSequence) =
     buildString(value.length + 2) {

@@ -376,6 +376,29 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `fails instead of silently accepting a changed view with the same type identity`() {
+    SqliteMagicCompilation
+      .compile(
+        persistentViewSource(
+          className = "ChangedIdentityLifecycleView",
+          viewName = "changed_identity_lifecycle_view"
+        ),
+        processingStepsFactory = { environment ->
+          val steps = viewProcessingSteps(environment).toMutableList()
+          steps.add(
+            index = steps.indexOfFirst { it is ViewCodeGenerationStep },
+            element = ChangedViewElementStep(environment)
+          )
+          steps
+        }
+      )
+      .assertCompilationError(
+        "FileAlreadyExistsException",
+        "SqliteMagic_ChangedIdentityLifecycleView_Dao.kt"
+      )
+  }
+
+  @Test
   fun `does not publish a manager after a later-round view validation failure`() {
     SqliteMagicCompilation
       .compile(
@@ -644,6 +667,25 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         )
         .bufferedWriter()
         .use { it.write(contents) }
+      return Continue
+    }
+  }
+
+  private class ChangedViewElementStep(
+    private val environment: Environment
+  ) : ProcessingStep {
+    private var changed = false
+
+    override fun process(resolver: Resolver): ProcessingStepResult {
+      if (changed) return Continue
+      val roundElement = environment.viewRoundElementsForCurrentRound.singleOrNull()
+        ?: return Continue
+      changed = true
+      environment.addViewElement(
+        roundElement.copy(
+          view = roundElement.view.copy(isPublic = !roundElement.view.isPublic)
+        )
+      )
       return Continue
     }
   }

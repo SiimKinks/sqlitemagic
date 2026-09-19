@@ -265,8 +265,10 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "Table<JoinedSummary>",
           "AUTHOR_NAME",
-          "observedTables",
-          "queryDeep"
+          "query.addObservedTablesTo(observedTables)",
+          "query.putTableGraphNodeNamesInto(tableGraphNodeNames)",
+          "query.putColumnsInto(columnPositions)",
+          "return query.queryDeep"
         )
       }
       .withGeneratedSource("SqliteMagic_JoinedSummary_Dao.kt") { generatedSource ->
@@ -275,9 +277,9 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "fullObjectFromCursorPosition",
           "tableGraphNodeNames",
           "author",
-          "magazine",
-          "observedTables"
+          "query = JoinedSummary.query as CompiledSelect<Magazine, Select.SelectN>"
         )
+        generatedSource.assertDoesNotContain("viewName =")
         generatedSource.assertDoesNotContain("title =")
       }
   }
