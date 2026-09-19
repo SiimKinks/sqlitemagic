@@ -11,7 +11,6 @@ include ':gradle-plugin-ksp'
 include ':annotations'
 include ':legacy-annotations'
 include ':runtime'
-include ':kotlin'
 include ':compiler-core'
 include 'compiler'
 //include ':compiler-magic' not supported
