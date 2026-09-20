@@ -8,14 +8,12 @@ internal class QueryAliasContextTest {
   fun `first canonical occurrence uses canonical table`() {
     val rootTable = Table<Any>("root", null, 1)
     val canonicalTable = Table<Any>("child", null, 1)
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = emptyList()
-    )
+    val context = queryAliasContext(rootTable)
 
     val actual = context.tableForAutomaticJoin(canonicalTable)
 
-    assertThat(actual).isSameInstanceAs(canonicalTable)
+    assertThat(actual)
+      .isSameInstanceAs(canonicalTable)
     assertTable(
       table = actual,
       expectedName = "child",
@@ -28,10 +26,7 @@ internal class QueryAliasContextTest {
   fun `repeated canonical table uses deterministic aliases`() {
     val rootTable = Table<Any>("root", null, 1)
     val canonicalTable = Table<Any>("child", null, 1)
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = emptyList()
-    )
+    val context = queryAliasContext(rootTable)
 
     val first = context.tableForAutomaticJoin(canonicalTable)
     val second = context.tableForAutomaticJoin(canonicalTable)
@@ -57,10 +52,7 @@ internal class QueryAliasContextTest {
   @Test
   fun `self join avoids root identifier`() {
     val rootTable = Table<Any>("node", null, 1)
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = emptyList()
-    )
+    val context = queryAliasContext(rootTable)
 
     val actual = context.tableForAutomaticJoin(rootTable)
 
@@ -82,10 +74,7 @@ internal class QueryAliasContextTest {
   fun `aliased root leaves its physical canonical name available`() {
     val rootTable = Table<Any>("node", "root_alias", 1)
     val canonicalTable = Table<Any>("node", null, 1)
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = emptyList()
-    )
+    val context = queryAliasContext(rootTable)
 
     val actual = context.tableForAutomaticJoin(canonicalTable)
 
@@ -102,10 +91,7 @@ internal class QueryAliasContextTest {
   fun `existing unaliased join reserves target physical name`() {
     val rootTable = Table<Any>("root", null, 1)
     val existingJoin = Table<Any>("target", null, 1)
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = listOf(JoinClause(existingJoin, "", null))
-    )
+    val context = queryAliasContext(rootTable, JoinClause(existingJoin, "", null))
 
     val actual = context.tableForAutomaticJoin(Table<Any>("target", null, 1))
 
@@ -121,10 +107,7 @@ internal class QueryAliasContextTest {
   fun `ordinary user alias equal to target canonical name is reserved`() {
     val rootTable = Table<Any>("root", null, 1)
     val userAlias = Table<Any>("other", "target", 1)
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = listOf(JoinClause(userAlias, "", null))
-    )
+    val context = queryAliasContext(rootTable, JoinClause(userAlias, "", null))
 
     val actual = context.tableForAutomaticJoin(Table<Any>("target", null, 1))
 
@@ -141,12 +124,10 @@ internal class QueryAliasContextTest {
     val rootTable = Table<Any>("target", null, 1)
     val smZero = Table<Any>("other_zero", "sm_0", 1)
     val smOne = Table<Any>("other_one", "sm_1", 1)
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = listOf(
-        JoinClause(smZero, "", null),
-        JoinClause(smOne, "", null)
-      )
+    val context = queryAliasContext(
+      rootTable,
+      JoinClause(smZero, "", null),
+      JoinClause(smOne, "", null)
     )
 
     val actual = context.tableForAutomaticJoin(Table<Any>("target", null, 1))
@@ -163,11 +144,7 @@ internal class QueryAliasContextTest {
   fun `user alias sm zero is reserved`() {
     val rootTable = Table<Any>("root", null, 1)
     val userAlias = Table<Any>("other", "sm_0", 1)
-    val joins = arrayListOf(JoinClause(userAlias, "", null))
-    val context = QueryAliasContext(
-      rootTable = rootTable,
-      joins = joins
-    )
+    val context = queryAliasContext(rootTable, JoinClause(userAlias, "", null))
 
     val actual = context.tableForAutomaticJoin(rootTable)
 
@@ -180,19 +157,32 @@ internal class QueryAliasContextTest {
   }
 
   @Test
+  fun `context owns join lookup and mutation for a select`() {
+    val rootTable = Table<Any>("root", null, 1)
+    val joinedTable = Table<Any>("joined", null, 1)
+    val from = Select.from(rootTable)
+    val context = QueryAliasContext(from)
+    val join = JoinClause(joinedTable, "", null)
+
+    assertThat(context.findJoin(joinedTable, rootTable.all()))
+      .isNull()
+
+    context.addJoin(join)
+
+    assertThat(context.findJoin(joinedTable, rootTable.all()))
+      .isSameInstanceAs(join)
+    assertThat(context.tableForAutomaticJoin(joinedTable).nameInQuery)
+      .isEqualTo("sm_0")
+  }
+
+  @Test
   fun `independent contexts produce identical aliases`() {
     val firstRoot = Table<Any>("root", null, 1)
     val secondRoot = Table<Any>("root", null, 1)
     val firstCanonical = Table<Any>("child", null, 1)
     val secondCanonical = Table<Any>("child", null, 1)
-    val firstContext = QueryAliasContext(
-      rootTable = firstRoot,
-      joins = emptyList()
-    )
-    val secondContext = QueryAliasContext(
-      rootTable = secondRoot,
-      joins = emptyList()
-    )
+    val firstContext = queryAliasContext(firstRoot)
+    val secondContext = queryAliasContext(secondRoot)
 
     val firstNames = listOf(
       firstContext.tableForAutomaticJoin(firstCanonical).nameInQuery,
@@ -203,8 +193,21 @@ internal class QueryAliasContextTest {
       secondContext.tableForAutomaticJoin(secondCanonical).nameInQuery
     )
 
-    assertThat(firstNames).containsExactlyElementsIn(secondNames).inOrder()
-    assertThat(firstNames).containsExactly("child", "sm_0").inOrder()
+    assertThat(firstNames)
+      .containsExactlyElementsIn(secondNames)
+      .inOrder()
+    assertThat(firstNames)
+      .containsExactly("child", "sm_0")
+      .inOrder()
+  }
+
+  private fun queryAliasContext(
+    rootTable: Table<*>,
+    vararg joins: JoinClause
+  ): QueryAliasContext {
+    val from = Select.from(rootTable)
+    joins.forEach(from::join)
+    return QueryAliasContext(from)
   }
 
   private fun assertTable(

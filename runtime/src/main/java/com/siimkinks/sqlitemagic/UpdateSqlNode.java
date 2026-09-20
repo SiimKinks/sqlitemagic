@@ -1,14 +1,15 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.WorkerThread;
+
 import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation;
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.LinkedList;
 
-import androidx.annotation.CheckResult;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.WorkerThread;
 import io.reactivex.Single;
 
 public abstract class UpdateSqlNode extends SqlNode {
@@ -29,7 +30,7 @@ public abstract class UpdateSqlNode extends SqlNode {
   }
 
   @Override
-  protected final void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
+  public final void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
     throw new UnsupportedOperationException();
   }
 

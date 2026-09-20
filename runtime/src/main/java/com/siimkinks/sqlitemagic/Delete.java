@@ -1,10 +1,10 @@
 package com.siimkinks.sqlitemagic;
 
-import java.util.Collections;
-
 import androidx.annotation.CheckResult;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.util.Collections;
 
 /**
  * Builder for SQL DELETE statement.
@@ -15,7 +15,7 @@ public final class Delete extends DeleteSqlNode {
   }
 
   @Override
-  protected void appendSql(@NonNull StringBuilder sb) {
+  public void appendSql(@NonNull StringBuilder sb) {
     sb.append("DELETE");
   }
 
@@ -75,7 +75,7 @@ public final class Delete extends DeleteSqlNode {
     }
 
     @Override
-    protected void appendSql(@NonNull StringBuilder sb) {
+    public void appendSql(@NonNull StringBuilder sb) {
       sb.append("FROM ");
       sb.append(tableName);
     }
@@ -118,7 +118,7 @@ public final class Delete extends DeleteSqlNode {
     }
 
     @Override
-    protected void appendSql(@NonNull StringBuilder sb) {
+    public void appendSql(@NonNull StringBuilder sb) {
       sb.append("WHERE ");
       expr.appendToSql(sb);
     }
@@ -140,7 +140,7 @@ public final class Delete extends DeleteSqlNode {
     }
 
     @Override
-    protected void appendSql(@NonNull StringBuilder sb) {
+    public void appendSql(@NonNull StringBuilder sb) {
       sb.append("WHERE ");
       sb.append(clause);
     }

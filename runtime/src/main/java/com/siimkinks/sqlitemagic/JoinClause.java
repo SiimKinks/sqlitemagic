@@ -1,12 +1,12 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 /**
  * An SQL join clause.
@@ -26,7 +26,7 @@ public class JoinClause extends SqlClause {
   }
 
   @Override
-  void appendSql(@NonNull StringBuilder sb) {
+  public void appendSql(@NonNull StringBuilder sb) {
     sb.append(operator)
         .append(' ');
     this.table.appendToSqlFromClause(sb);
@@ -38,7 +38,7 @@ public class JoinClause extends SqlClause {
   }
 
   @Override
-  void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
+  public void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
     sb.append(operator)
         .append(' ');
     this.table.appendToSqlFromClause(sb);

@@ -3,7 +3,7 @@
 package com.siimkinks.sqlitemagic
 
 import androidx.annotation.CheckResult
-import com.siimkinks.sqlitemagic.Select.ALL
+import com.siimkinks.sqlitemagic.Select.Companion.ALL
 import com.siimkinks.sqlitemagic.Select.Columns
 import com.siimkinks.sqlitemagic.Select.From
 import com.siimkinks.sqlitemagic.Select.GroupBy

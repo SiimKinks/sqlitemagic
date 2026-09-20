@@ -105,13 +105,13 @@ public class Table<T> {
   public final JoinClause on(@NonNull final Expr expr) {
     return new JoinClause(this, "", "ON ") {
       @Override
-      void appendSql(@NonNull StringBuilder sb) {
+      public void appendSql(@NonNull StringBuilder sb) {
         super.appendSql(sb);
         expr.appendToSql(sb);
       }
 
       @Override
-      void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
+      public void appendSql(@NonNull StringBuilder sb, @NonNull SimpleArrayMap<String, LinkedList<String>> systemRenamedTables) {
         super.appendSql(sb, systemRenamedTables);
         expr.appendToSql(sb, systemRenamedTables);
       }

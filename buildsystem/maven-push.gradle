@@ -1,47 +1,43 @@
 apply plugin: 'maven-publish'
 
-tasks.register('sourcesJar', Jar) {
-  from sourceSets.main.allSource
-  archiveClassifier.set('sources')
+java {
+  withSourcesJar()
+  withJavadocJar()
 }
 
-tasks.register('javadocJar', Jar) {
-  archiveClassifier.set('javadoc')
-  from tasks.named('javadoc')
-}
+def publicationName = plugins.hasPlugin('java-gradle-plugin') ? 'pluginMaven' : 'mavenJava'
 
 publishing {
   publications {
-    mavenJava(MavenPublication) {
-      artifactId POM_ARTIFACT_ID
+    if (publicationName == 'mavenJava') {
+      mavenJava(MavenPublication) {
+        from components.java
+      }
+    }
 
-      from components.java
-
-      artifact sourcesJar
-      artifact javadocJar
-
-      pom.withXml {
-        asNode().children().last() + {
-          resolveStrategy = Closure.DELEGATE_FIRST
-          name POM_NAME
-          description POM_DESCRIPTION
-          url POM_URL
-          scm {
-            url POM_SCM_URL
-            connection POM_SCM_CONNECTION
-            developerConnection POM_SCM_DEV_CONNECTION
+    withType(MavenPublication).configureEach { publication ->
+      if (publication.name == publicationName) {
+        publication.artifactId = POM_ARTIFACT_ID
+        publication.pom { pom ->
+          pom.name = POM_NAME
+          pom.description = POM_DESCRIPTION
+          pom.url = POM_URL
+          pom.scm { scm ->
+            scm.url = POM_SCM_URL
+            scm.connection = POM_SCM_CONNECTION
+            scm.developerConnection = POM_SCM_DEV_CONNECTION
           }
-          licenses {
-            license {
-              name POM_LICENCE_NAME
-              url POM_LICENCE_URL
-              distribution POM_LICENCE_DIST
+          pom.licenses { licenses ->
+            licenses.license { license ->
+              license.name = POM_LICENCE_NAME
+              license.url = POM_LICENCE_URL
+              license.distribution = POM_LICENCE_DIST
             }
           }
-          developers {
-            developer {
-              id POM_DEVELOPER_ID
-              name POM_DEVELOPER_NAME
+          pom.developers { developers ->
+            developers.developer { developer ->
+              developer.id = POM_DEVELOPER_ID
+              developer.name = POM_DEVELOPER_NAME
             }
           }
         }

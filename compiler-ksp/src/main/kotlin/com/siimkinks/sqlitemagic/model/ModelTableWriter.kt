@@ -10,12 +10,10 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_P
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
-import com.siimkinks.sqlitemagic.WriterTypes.ARRAY_LIST
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_NUMERIC_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.JOIN_CLAUSE
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NUMERIC_COLUMN
@@ -330,12 +328,11 @@ internal class ModelTableWriter(
     .addStatement("null -> null")
     .addStatement("else -> %T()", SYSTEM_RENAMED_TABLES)
     .endControlFlow()
-    .addStatement("val queryAliasContext = %T(rootTable = from.table, joins = from.joins)", QUERY_ALIAS_CONTEXT)
+    .addStatement("val queryAliasContext = %T(from)", QUERY_ALIAS_CONTEXT)
     .addCode(
       queryPartsCall(
         methodName = queryPartsInternalMethodName(shallow = shallow),
-        tableAlias = CodeBlock.of("from.table"),
-        joinsExpression = CodeBlock.of("from.joins"),
+        tableAlias = CodeBlock.of("this"),
         nodeName = CodeBlock.of("%S", "")
       )
     )
@@ -353,7 +350,6 @@ internal class ModelTableWriter(
       .builder(queryPartsInternalMethodName(shallow = shallow))
       .addModifiers(INTERNAL)
       .addParameter(name = "tableAlias", type = TABLE.parameterizedBy(STAR))
-      .addParameter(name = "joins", type = ARRAY_LIST.parameterizedBy(JOIN_CLAUSE))
       .addParameter(name = "selectFromTables", type = STRING_ARRAY_SET.copy(nullable = true))
       .addParameter(name = "systemRenamedTables", type = SYSTEM_RENAMED_TABLES.copy(nullable = true))
       .addParameter(
@@ -375,7 +371,6 @@ internal class ModelTableWriter(
         val referencedId = checkNotNull(referencedTable.idColumn)
         val referencedTableName = "referencedTable$index"
         val joinedTableName = "joinedTable$index"
-        val joinIndexName = "joinIndex$index"
         val relationshipNodeName = "relationshipNodeName$index"
         val parentColumnName = "parentColumn$index"
         val referencedIdName = "referencedId$index"
@@ -398,14 +393,11 @@ internal class ModelTableWriter(
             column.fieldName
           )
           .addStatement(
-            "val %N = %T.indexOf(%N, joins, %N)",
-            joinIndexName,
-            JOIN_CLAUSE,
+            "val userJoin = queryAliasContext.findJoin(table = %N, joinedOnColumn = %N)",
             referencedTableName,
             parentColumnName
           )
-          .beginControlFlow("if (%N != -1)", joinIndexName)
-          .addStatement("val userJoin = joins[%N]", joinIndexName)
+          .beginControlFlow("if (userJoin != null)")
           .addStatement("tableGraphNodeNames?.put(%N, userJoin.tableNameInQuery())", relationshipNodeName)
         if (
           referencedTable.hasRecursiveRelationships &&
@@ -420,7 +412,6 @@ internal class ModelTableWriter(
                 referencedTable.structureFieldName
               ),
               tableAlias = CodeBlock.of("userJoin.table"),
-              joinsExpression = CodeBlock.of("joins"),
               nodeName = CodeBlock.of("%N", relationshipNodeName)
             )
           )
@@ -456,7 +447,7 @@ internal class ModelTableWriter(
             referencedIdName
           )
           .addStatement("%N.operator = %T.LEFT_JOIN", joinClauseName, SELECT_FROM_RAW)
-          .addStatement("joins.add(%N)", joinClauseName)
+          .addStatement("queryAliasContext.addJoin(%N)", joinClauseName)
         if (
           referencedTable.hasRecursiveRelationships &&
           (!shallow || referencedTable.needsShallowQueryParts)
@@ -470,7 +461,6 @@ internal class ModelTableWriter(
                 referencedTable.structureFieldName
               ),
               tableAlias = CodeBlock.of("%N", joinedTableName),
-              joinsExpression = CodeBlock.of("joins"),
               nodeName = CodeBlock.of("%N", relationshipNodeName)
             )
           )
@@ -499,7 +489,6 @@ internal class ModelTableWriter(
   private fun queryPartsCall(
     methodName: String,
     tableAlias: CodeBlock,
-    joinsExpression: CodeBlock,
     nodeName: CodeBlock,
     receiver: CodeBlock? = null
   ) = CodeBlock
@@ -510,7 +499,6 @@ internal class ModelTableWriter(
     .add("%N(\n", methodName)
     .indent()
     .add("tableAlias = %L,\n", tableAlias)
-    .add("joins = %L,\n", joinsExpression)
     .add("selectFromTables = selectFromTables,\n")
     .add("systemRenamedTables = systemRenamedTables,\n")
     .add("tableGraphNodeNames = tableGraphNodeNames,\n")

@@ -6,8 +6,8 @@ import android.database.sqlite.SQLiteDoneException
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.Select.OrderingTerm
-import com.siimkinks.sqlitemagic.Select.OrderingTerm.ASC
-import com.siimkinks.sqlitemagic.Select.OrderingTerm.DESC
+import com.siimkinks.sqlitemagic.Select.OrderingTerm.Companion.ASC
+import com.siimkinks.sqlitemagic.Select.OrderingTerm.Companion.DESC
 import com.siimkinks.sqlitemagic.Select.Select1
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode
 import com.siimkinks.sqlitemagic.SqlUtil.quoteSqlStringLiteral

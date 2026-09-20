@@ -42,8 +42,8 @@ import com.siimkinks.sqlitemagic.ORDER_BY
 import com.siimkinks.sqlitemagic.RAW
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.Select.Select1
-import com.siimkinks.sqlitemagic.Select.avg
-import com.siimkinks.sqlitemagic.Select.concat
+import com.siimkinks.sqlitemagic.Select.Companion.avg
+import com.siimkinks.sqlitemagic.Select.Companion.concat
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.UNION

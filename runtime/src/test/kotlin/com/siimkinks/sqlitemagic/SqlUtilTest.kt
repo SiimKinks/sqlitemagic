@@ -5,10 +5,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.Select.asColumn
-import com.siimkinks.sqlitemagic.Select.format
-import com.siimkinks.sqlitemagic.Select.groupConcat
-import com.siimkinks.sqlitemagic.Select.groupConcatDistinct
+import com.siimkinks.sqlitemagic.Select.Companion.asColumn
+import com.siimkinks.sqlitemagic.Select.Companion.format
+import com.siimkinks.sqlitemagic.Select.Companion.groupConcat
+import com.siimkinks.sqlitemagic.Select.Companion.groupConcatDistinct
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.any
