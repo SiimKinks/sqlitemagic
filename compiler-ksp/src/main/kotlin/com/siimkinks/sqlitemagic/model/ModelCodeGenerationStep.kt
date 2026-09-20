@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
+import com.siimkinks.sqlitemagic.transformer.hasGeneratedTransformerColumn
 import com.siimkinks.sqlitemagic.writer.ColumnClassWriter
 import java.io.IOException
 
@@ -25,7 +26,7 @@ class ModelCodeGenerationStep(
   override fun process(resolver: Resolver): ProcessingStepResult {
     for (roundTable in environment.tableRoundElementsForCurrentRound) {
       try {
-        generateUniqueTransformerColumns(roundTable)
+        generateUniqueTransformerColumns(roundTable, resolver)
         generateRelationshipColumns(roundTable)
         writers.forEach { it.write(roundTable) }
       } catch (exception: IOException) {
@@ -36,12 +37,19 @@ class ModelCodeGenerationStep(
     return Continue
   }
 
-  private fun generateUniqueTransformerColumns(roundTable: TableRoundElement) {
+  private fun generateUniqueTransformerColumns(
+    roundTable: TableRoundElement,
+    resolver: Resolver
+  ) {
     for (column in roundTable.table.allColumns) {
       val transformer = column.transformer ?: continue
       when {
         !column.isUnique && !column.isId -> continue
         !generatedUniqueTransformerColumns.add(transformer.transformerName) -> continue
+        resolver.hasGeneratedTransformerColumn(
+          transformer = transformer,
+          unique = true
+        ) -> continue
       }
       ColumnClassWriter
         .from(

@@ -54,7 +54,8 @@ internal class ColumnClassWriter private constructor(
   private val initBlock: CodeBlock?,
   private val parser: ParserData?,
   private val unique: Boolean,
-  private val isInternal: Boolean
+  private val isInternal: Boolean,
+  private val isConstructorInternal: Boolean
 ) {
   private val parentTableType = TypeVariableName("T")
   private val nullabilityType = TypeVariableName("N")
@@ -128,7 +129,9 @@ internal class ColumnClassWriter private constructor(
 
   private fun constructor() = FunSpec
     .constructorBuilder()
-    .addModifiers(INTERNAL)
+    .apply {
+      if (isConstructorInternal) addModifiers(INTERNAL)
+    }
     .addParameter(name = "table", type = TABLE.parameterizedBy(parentTableType))
     .addParameter(name = "name", type = STRING)
     .addParameter(name = "valueParser", type = VALUE_PARSER)
@@ -245,7 +248,8 @@ internal class ColumnClassWriter private constructor(
           acceptsNullDatabaseValue = transformerElement.serializedTypeCanBeNull
         ),
         unique = createUniqueClass,
-        isInternal = false
+        isInternal = false,
+        isConstructorInternal = false
       )
     }
 
@@ -297,7 +301,8 @@ internal class ColumnClassWriter private constructor(
           else -> null
         },
         unique = column.isUnique || column.isId,
-        isInternal = !table.isPublic
+        isInternal = !table.isPublic,
+        isConstructorInternal = true
       )
     }
   }

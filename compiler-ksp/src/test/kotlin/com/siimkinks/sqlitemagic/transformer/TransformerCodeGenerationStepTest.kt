@@ -48,7 +48,7 @@ internal class TransformerCodeGenerationStepTest : ProcessingStepsTest {
             import kotlin.String
             import kotlin.Suppress
 
-            public class EmailColumn<T, N> internal constructor(
+            public class EmailColumn<T, N>(
               table: Table<T>,
               name: String,
               valueParser: Utils.ValueParser<*>,

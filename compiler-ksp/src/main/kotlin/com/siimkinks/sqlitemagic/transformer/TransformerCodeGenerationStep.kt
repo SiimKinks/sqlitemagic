@@ -15,7 +15,13 @@ class TransformerCodeGenerationStep(
   override fun process(resolver: Resolver): ProcessingStepResult {
     for (roundTransformer in environment.transformerElementsForCurrentRound) {
       val transformer = roundTransformer.toTransformerElement()
-      if (transformer.isDefaultTransformer) continue
+      when {
+        transformer.isDefaultTransformer -> continue
+        resolver.hasGeneratedTransformerColumn(
+          transformer = transformer,
+          unique = false
+        ) -> continue
+      }
       try {
         ColumnClassWriter
           .from(

@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.transformer
 
+import com.google.devtools.ksp.getClassDeclarationByName
+import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Const.DEFAULT_TRANSFORMERS
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
@@ -109,3 +111,12 @@ class TransformerRoundElement private constructor(
     }
   }
 }
+
+internal fun Resolver.hasGeneratedTransformerColumn(
+  transformer: TransformerElement,
+  unique: Boolean
+) = getClassDeclarationByName(
+  transformer
+    .generatedColumnClassName(unique = unique)
+    .canonicalName
+) != null

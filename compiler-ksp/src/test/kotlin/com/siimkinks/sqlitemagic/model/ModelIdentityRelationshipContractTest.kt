@@ -161,7 +161,8 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagic_UniqueRelationshipOwner_TargetColumn.kt") { generatedSource ->
         generatedSource.assertContains(
           "ComplexColumn<String, String, CharSequence",
-          "Unique<N>"
+          "Unique<N>",
+          "internal constructor("
         )
       }
       .withGeneratedSource("SqliteMagic_UniqueRelationshipOwner_Adapter.kt") { generatedSource ->
