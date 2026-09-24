@@ -3,13 +3,9 @@ package com.siimkinks.sqlitemagic.runtime.contract.query
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
 import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.minus
-import com.siimkinks.sqlitemagic.plus
-import com.siimkinks.sqlitemagic.rem
 import com.siimkinks.sqlitemagic.replace
 import com.siimkinks.sqlitemagic.runtime.model.catalog.QueryPredicateCatalog
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.times
 import org.junit.Test
 
 class SqlExpressionQueryTest : RuntimeDatabaseTest() {

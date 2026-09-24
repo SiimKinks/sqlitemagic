@@ -22,7 +22,6 @@ import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.WHERE
 import com.siimkinks.sqlitemagic.WITH_CONFLICT_ALGORITHM
 import com.siimkinks.sqlitemagic.isEqualTo
-import com.siimkinks.sqlitemagic.plus
 import org.junit.jupiter.api.Test
 
 class UpdateTest : DSLTests {

@@ -25,12 +25,15 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
   nullable: Boolean,
   alias: String?
 ) : NumericColumn<T, R, ET, P, N>(
-  table,
-  prefix + suffix,
-  false,
-  valueParser,
-  nullable,
-  if (alias != null || wrappedColumns.size > 1) alias else wrappedColumns[0].alias
+  table = table,
+  name = prefix + suffix,
+  allFromTable = false,
+  valueParser = valueParser,
+  nullable = nullable,
+  alias = when {
+    alias != null || wrappedColumns.size > 1 -> alias
+    else -> wrappedColumns[0].alias
+  }
 ) {
   private var isCompiledToSelection = false
 
@@ -58,14 +61,9 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
       sb.append(getAppendableAlias())
       return
     }
-    sb.append(prefix)
-    wrappedColumns.forEachIndexed { index, column ->
-      if (index > 0) {
-        sb.append(separator)
-      }
-      column.appendSql(sb)
+    sb.appendFunction {
+      it.appendSql(sb)
     }
-    sb.append(suffix)
   }
 
   override fun appendSql(
@@ -76,14 +74,22 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
       sb.append(getAppendableAlias())
       return
     }
-    sb.append(prefix)
+    sb.appendFunction {
+      it.appendSql(sb, systemRenamedTables)
+    }
+  }
+
+  private inline fun StringBuilder.appendFunction(
+    appendColumn: (Column<*, *, *, *, *>) -> Unit
+  ) {
+    append(prefix)
     wrappedColumns.forEachIndexed { index, column ->
       if (index > 0) {
-        sb.append(separator)
+        append(separator)
       }
-      column.appendSql(sb, systemRenamedTables)
+      appendColumn(column)
     }
-    sb.append(suffix)
+    append(suffix)
   }
 
   override fun addSelectedTables(result: StringArraySet) {
@@ -92,7 +98,7 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
     }
   }
 
-  override fun addArgs(args: ArrayList<String>) {
+  override fun addArgs(args: ArrayList<String?>) {
     for (wrappedColumn in wrappedColumns) {
       wrappedColumn.addArgs(args)
     }

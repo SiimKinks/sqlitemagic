@@ -116,6 +116,6 @@ internal class ConnectionStatementTest {
 
   companion object {
     private const val SQL = "SELECT count(*) FROM model"
-    private val ARGS = arrayOf("first", "second")
+    private val ARGS: Array<String?> = arrayOf("first", "second")
   }
 }

@@ -11,7 +11,7 @@ import com.siimkinks.sqlitemagic.Select.OrderingTerm.Companion.DESC
 import com.siimkinks.sqlitemagic.Select.Select1
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode
 import com.siimkinks.sqlitemagic.SqlUtil.quoteSqlStringLiteral
-import com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE
+import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.Utils.STRING_PARSER
 import com.siimkinks.sqlitemagic.Utils.ValueParser
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
@@ -28,39 +28,23 @@ import java.util.LinkedList
  * @param N Column nullability
  */
 open class Column<T, R, ET, P, N>(
-  @JvmField val table: Table<P>,
-  @JvmField val name: String,
-  @JvmField val allFromTable: Boolean,
-  @JvmField val valueParser: ValueParser<*>,
-  @JvmField val nullable: Boolean,
-  @JvmField val alias: String?,
-  @JvmField val nameInQuery: String
+  internal val table: Table<P>,
+  internal val name: String,
+  internal val allFromTable: Boolean = false,
+  internal val valueParser: ValueParser<*>,
+  internal val nullable: Boolean,
+  internal val alias: String?,
+  internal val nameInQuery: String = when {
+    table.nameInQuery.isEmpty() -> name
+    else -> "${table.nameInQuery}.$name"
+  },
+  internal val valueAdapter: ColumnValueAdapter<T>? = null
 ) {
-  constructor(
-    table: Table<P>,
-    name: String,
-    allFromTable: Boolean,
-    valueParser: ValueParser<*>,
-    nullable: Boolean,
-    alias: String?
-  ) : this(
-    table = table,
-    name = name,
-    allFromTable = allFromTable,
-    valueParser = valueParser,
-    nullable = nullable,
-    alias = alias,
-    nameInQuery = when {
-      table.nameInQuery.isEmpty() -> name
-      else -> "${table.nameInQuery}.$name"
-    }
-  )
-
-  open fun appendSql(sb: StringBuilder) {
+  internal open fun appendSql(sb: StringBuilder) {
     sb.append(nameInQuery)
   }
 
-  open fun appendSql(
+  internal open fun appendSql(
     sb: StringBuilder,
     systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
   ) {
@@ -77,7 +61,7 @@ open class Column<T, R, ET, P, N>(
       .append(name)
   }
 
-  open fun appendAliasDeclarationIfNeeded(sb: StringBuilder) {
+  internal fun appendAliasDeclarationIfNeeded(sb: StringBuilder) {
     if (hasAlias()) {
       sb.append(" AS '")
         .append(getAppendableAlias())
@@ -85,24 +69,24 @@ open class Column<T, R, ET, P, N>(
     }
   }
 
-  open fun hasAlias() = !alias.isNullOrEmpty() && !allFromTable
+  internal fun hasAlias() = !alias.isNullOrEmpty() && !allFromTable
 
-  open fun getAppendableAlias() = alias
+  internal fun getAppendableAlias() = alias
     ?.substringAfterLast('.')
     ?: throw NullPointerException("Column alias == null")
 
-  open fun addSelectedTables(result: StringArraySet) {
+  internal open fun addSelectedTables(result: StringArraySet) {
     result.add(table.name)
   }
 
-  open fun addArgs(args: ArrayList<String>) = Unit
+  internal open fun addArgs(args: ArrayList<String?>) = Unit
 
   /**
    * This method gives columns the ability to add any extra tables that need to be observed by the main query.
    *
    * @param tables Already observed tables
    */
-  open fun addObservedTables(tables: ArrayList<String>) = Unit
+  internal open fun addObservedTables(tables: ArrayList<String>) = Unit
 
   /**
    * Compile columns.
@@ -114,7 +98,7 @@ open class Column<T, R, ET, P, N>(
    * - Must return columnOffset + selected columns count
    */
   @CheckResult
-  open fun compile(
+  internal open fun compile(
     columnPositions: SimpleArrayMap<String, Int>,
     compiledCols: StringBuilder,
     columnOffset: Int
@@ -157,7 +141,7 @@ open class Column<T, R, ET, P, N>(
    * - Must return columnOffset + selected columns count
    */
   @CheckResult
-  open fun compile(
+  internal open fun compile(
     columnPositions: SimpleArrayMap<String, Int>,
     compiledCols: StringBuilder,
     systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>,
@@ -208,22 +192,27 @@ open class Column<T, R, ET, P, N>(
     return offset
   }
 
-  open fun toSqlArg(value: T & Any) = value.toString()
+  internal open fun toSqlArg(value: T & Any) = valueAdapter?.toSqlArg(value) ?: value.toString()
 
   @Suppress("UNCHECKED_CAST")
-  open fun <V> getFromCursor(cursor: Cursor): V? {
-    if (nullable && cursor.isNull(0)) {
-      return null
-    }
-    return valueParser.parseFromCursor(cursor) as V?
+  internal open fun <V> getFromCursor(cursor: Cursor): V? = when {
+    valueAdapter != null -> valueAdapter.getFromCursor(
+      cursor = cursor,
+      nullable = nullable
+    )
+    nullable && cursor.isNull(0) -> null
+    else -> valueParser.parseFromCursor(cursor) as V?
   }
 
   @Suppress("UNCHECKED_CAST")
-  open fun <V> getFromStatement(statement: SupportSQLiteStatement): V? = try {
-    valueParser.parseFromStatement(statement) as V?
-  } catch (_: SQLiteDoneException) {
-    // query returned no results
-    null
+  internal open fun <V> getFromStatement(statement: SupportSQLiteStatement): V? = when {
+    valueAdapter != null -> valueAdapter.getFromStatement(statement)
+    else -> try {
+      valueParser.parseFromStatement(statement) as V?
+    } catch (_: SQLiteDoneException) {
+      // query returned no results
+      null
+    }
   }
 
   /**
@@ -241,7 +230,8 @@ open class Column<T, R, ET, P, N>(
     allFromTable = allFromTable,
     valueParser = valueParser,
     nullable = nullable,
-    alias = alias
+    alias = alias,
+    valueAdapter = valueAdapter
   )
 
   /**
@@ -257,7 +247,8 @@ open class Column<T, R, ET, P, N>(
     allFromTable = allFromTable,
     valueParser = valueParser,
     nullable = nullable,
-    alias = alias
+    alias = alias,
+    valueAdapter = valueAdapter
   )
 
   /**
@@ -302,7 +293,7 @@ open class Column<T, R, ET, P, N>(
    * @param column Column to concatenate
    * @param X Column type that extends [Column]
    * @return Column representing the result of this function
-   * @see <a href="http://www.sqlite.org/lang_expr.html">SQLite documentation: Expression</a>
+   * @see [SQLite documentation: Expression](http://www.sqlite.org/lang_expr.html)
    */
   @CheckResult
   fun <X : Column<*, *, *, *, *>> concat(
@@ -329,7 +320,7 @@ open class Column<T, R, ET, P, N>(
    * @param target The sequence of char values to be replaced
    * @param replacement The replacement sequence of char values
    * @return Column representing the result of this function
-   * @see <a href="https://www.sqlite.org/lang_corefunc.html">SQLite documentation: Core Functions</a>
+   * @see [SQLite documentation: Core Functions](https://www.sqlite.org/lang_corefunc.html)
    */
   @CheckResult
   fun replace(
@@ -357,7 +348,7 @@ open class Column<T, R, ET, P, N>(
    * If X is a BLOB then the indices refer to bytes.
    *
    * Examples:
-   * <blockquote><pre>
+   * ```
    * "zero".substring(0) returns "zero"
    * "first".substring(1) returns "first"
    * "unhappy".substring(3) returns "happy"
@@ -365,11 +356,11 @@ open class Column<T, R, ET, P, N>(
    * "emptiness".substring(10) returns "" (an empty string)
    * "last".substring(-1) returns "t"
    * "substring".substring(-6) returns "string"
-   * </pre></blockquote>
+   * ```
    *
    * @param beginPos The begin position (`Y`). The first position in the string is always 1
    * @return Column representing the result of this function
-   * @see <a href="https://www.sqlite.org/lang_corefunc.html">SQLite documentation: Core Functions</a>
+   * @see [SQLite documentation: Core Functions](https://www.sqlite.org/lang_corefunc.html)
    */
   @CheckResult
   fun substring(beginPos: Int): Column<String, String, CharSequence, *, N> = FunctionColumn(
@@ -393,17 +384,17 @@ open class Column<T, R, ET, P, N>(
    * If X is a BLOB then the indices refer to bytes.
    *
    * Examples:
-   * <blockquote><pre>
+   * ```
    * "first".substring(1, 2) returns "fi"
    * "smiles".substring(2, 5) returns "mile"
    * "hamburger".substring(4, -3) returns "ham"
    * "last".substring(-1, -2) returns "as"
-   * </pre></blockquote>
+   * ```
    *
    * @param beginPos The begin position (`Y`). The first position in the string is always 1
    * @param charsToReturn Number of characters to be returned (`Z`)
    * @return Column representing the result of this function
-   * @see <a href="https://www.sqlite.org/lang_corefunc.html">SQLite documentation: Core Functions</a>
+   * @see [SQLite documentation: Core Functions](https://www.sqlite.org/lang_corefunc.html)
    */
   @CheckResult
   fun substring(
@@ -423,7 +414,7 @@ open class Column<T, R, ET, P, N>(
    * The trim(X) function removes spaces from both ends of X.
    *
    * @return Column representing the result of this function
-   * @see <a href="https://www.sqlite.org/lang_corefunc.html">SQLite documentation: Core Functions</a>
+   * @see [SQLite documentation: Core Functions](https://www.sqlite.org/lang_corefunc.html)
    */
   @CheckResult
   fun trim(): Column<String, String, CharSequence, *, N> = FunctionColumn(
@@ -442,7 +433,7 @@ open class Column<T, R, ET, P, N>(
    *
    * @param trimString The string that will be removed from both sides of the target column
    * @return Column representing the result of this function
-   * @see <a href="https://www.sqlite.org/lang_corefunc.html">SQLite documentation: Core Functions</a>
+   * @see [SQLite documentation: Core Functions](https://www.sqlite.org/lang_corefunc.html)
    */
   @CheckResult
   fun trim(trimString: CharSequence): Column<String, String, CharSequence, *, N> = FunctionColumn(
@@ -489,7 +480,7 @@ open class Column<T, R, ET, P, N>(
    * @return Expression
    */
   @CheckResult
-  fun `is`(select: SelectNode<out ET, Select1, *>): Expr = ExprS(this, "=", select)
+  fun `is`(select: SelectNode<out ET?, Select1, *>): Expr = ExprS(this, "=", select)
 
   /**
    * This column != value.
@@ -517,7 +508,7 @@ open class Column<T, R, ET, P, N>(
    * @return Expression
    */
   @CheckResult
-  fun isNot(select: SelectNode<out ET, Select1, *>): Expr = ExprS(this, "!=", select)
+  fun isNot(select: SelectNode<out ET?, Select1, *>): Expr = ExprS(this, "!=", select)
 
   /**
    * This column IS NULL.
@@ -572,7 +563,7 @@ open class Column<T, R, ET, P, N>(
    * @return Expression
    */
   @CheckResult
-  open fun glob(globRegex: String): Expr = Expr1(this, " GLOB ?", globRegex)
+  fun glob(globRegex: String): Expr = Expr1(this, " GLOB ?", globRegex)
 
   /**
    * Uses the GLOB operation. Similar to LIKE except it uses case sensitive comparisons.
@@ -585,7 +576,7 @@ open class Column<T, R, ET, P, N>(
    * @return Expression
    */
   @CheckResult
-  open fun notGlob(globRegex: String): Expr = Expr1(this, " NOT GLOB ?", globRegex)
+  fun notGlob(globRegex: String): Expr = Expr1(this, " NOT GLOB ?", globRegex)
 
   /**
    * Create an expression to check this column against several values.
@@ -611,7 +602,6 @@ open class Column<T, R, ET, P, N>(
    * @param values The values to test against this column
    * @return Expression
    */
-  @SafeVarargs
   @CheckResult
   fun `in`(vararg values: T & Any): Expr = createMembershipExpression(
     values = values.asIterable(),
@@ -621,7 +611,7 @@ open class Column<T, R, ET, P, N>(
   )
 
   /**
-   * Create an expression to check this column against a subquery.<br>
+   * Create an expression to check this column against a subquery.
    * Note that the subquery must return exactly one column.
    *
    * SQL: this IN (SELECT...)
@@ -630,7 +620,7 @@ open class Column<T, R, ET, P, N>(
    * @return Expression
    */
   @CheckResult
-  fun `in`(select: SelectNode<out ET, Select1, *>): Expr = ExprS(this, " IN ", select)
+  fun `in`(select: SelectNode<out ET?, Select1, *>): Expr = ExprS(this, " IN ", select)
 
   /**
    * Create an expression to check this column against several values.
@@ -656,7 +646,6 @@ open class Column<T, R, ET, P, N>(
    * @param values The values to test against this column
    * @return Expression
    */
-  @SafeVarargs
   @CheckResult
   fun notIn(vararg values: T & Any): Expr = createMembershipExpression(
     values = values.asIterable(),
@@ -666,7 +655,7 @@ open class Column<T, R, ET, P, N>(
   )
 
   /**
-   * Create an expression to check this column against a subquery.<br>
+   * Create an expression to check this column against a subquery.
    * Note that the subquery must return exactly one column.
    *
    * SQL: this NOT IN (SELECT...)
@@ -675,7 +664,7 @@ open class Column<T, R, ET, P, N>(
    * @return Expression
    */
   @CheckResult
-  fun notIn(select: SelectNode<out ET, Select1, *>): Expr = ExprS(this, " NOT IN ", select)
+  fun notIn(select: SelectNode<out ET?, Select1, *>): Expr = ExprS(this, " NOT IN ", select)
 
   private fun createMembershipExpression(
     values: Iterable<T & Any>,
@@ -718,8 +707,7 @@ open class Column<T, R, ET, P, N>(
      * constants -- we don't have to consider any internal column type here.
      * Typically used in making renamed joins.
      */
-    @JvmStatic
-    fun <T, R, ET, P, N> internalCopy(
+    internal fun <T, R, ET, P, N> internalCopy(
       newTable: Table<P>,
       column: Column<T, R, ET, *, N>
     ): Column<T, R, ET, P, N> = object : Column<T, R, ET, P, N>(
@@ -732,9 +720,11 @@ open class Column<T, R, ET, P, N>(
     ) {
       override fun toSqlArg(value: T & Any) = column.toSqlArg(value)
 
-      override fun <V> getFromCursor(cursor: Cursor): V? = column.getFromCursor(cursor)
+      override fun <V> getFromCursor(cursor: Cursor): V? =
+        column.getFromCursor(cursor)
 
-      override fun <V> getFromStatement(statement: SupportSQLiteStatement): V? = column.getFromStatement(statement)
+      override fun <V> getFromStatement(statement: SupportSQLiteStatement): V? =
+        column.getFromStatement(statement)
 
       override fun appendSql(
         sb: StringBuilder,
@@ -742,19 +732,14 @@ open class Column<T, R, ET, P, N>(
       ) = super.appendSql(sb)
     }
 
-    @JvmStatic
-    fun <T, R, ET, P, N> putColumnPosition(
+    internal fun <T, R, ET, P, N> putColumnPosition(
       columnPositions: SimpleArrayMap<String, Int>,
       columnId: String?,
       pos: Int,
       column: Column<T, R, ET, P, N>
     ) {
-      if (columnId != null) {
-        columnPositions.put(columnId, pos)
-      }
-      column.alias?.let { alias ->
-        columnPositions.put(alias, pos)
-      }
+      columnId?.let { columnPositions.put(it, pos) }
+      column.alias?.let { columnPositions.put(it, pos) }
     }
   }
 }

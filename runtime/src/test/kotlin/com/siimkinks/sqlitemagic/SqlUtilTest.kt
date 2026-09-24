@@ -129,7 +129,7 @@ class SqlUtilTest {
   @Test
   fun `create view rejects definition args before database interaction`() {
     val database = mock<SupportSQLiteDatabase>()
-    val args = arrayOf("first", "second")
+    val args: Array<String?> = arrayOf("first", "second")
     val query = compiledSelect(
       sql = "SELECT id FROM books WHERE id=?",
       args = args
@@ -233,7 +233,7 @@ class SqlUtilTest {
   @Test
   fun `firstColumnForTable skips non-columns and returns first matching column`() {
     val columnFromOtherTable = TestSchema.id.inTable(
-      Table<Any>("authors", null, 1)
+      testTable<Any>(name = "authors")
     )
 
     val actual = SqlUtil.firstColumnForTable(
@@ -248,7 +248,7 @@ class SqlUtilTest {
   @Test
   fun `firstColumnForTable returns null when no column matches`() {
     val columnFromOtherTable = TestSchema.id.inTable(
-      Table<Any>("authors", null, 1)
+      testTable<Any>(name = "authors")
     )
 
     val actual = SqlUtil.firstColumnForTable(
@@ -285,13 +285,30 @@ class SqlUtilTest {
     verify(statement).bindString(3, "third")
   }
 
+  @Test
+  fun `bindAllArgsAsStrings binds null as null`() {
+    val statement = mock<SupportSQLiteStatement>()
+
+    SqlUtil.bindAllArgsAsStrings(
+      statement = statement,
+      args = arrayOf("first", null, "third")
+    )
+
+    verify(statement).bindString(1, "first")
+    verify(statement).bindNull(2)
+    verify(statement).bindString(3, "third")
+  }
+
   private fun compiledSelect(
     sql: String,
-    args: Array<String>?
+    args: Array<String?>?
   ) = CompiledSelectImpl<Any, Any>(
     sql = sql,
     args = args,
-    table = mock<Table<Any>>(),
+    table = testTable(
+      name = "test",
+      mapper = { _, _, _ -> Query.Mapper { Any() } }
+    ),
     dbConnection = null,
     observedTables = emptyArray(),
     columns = null,

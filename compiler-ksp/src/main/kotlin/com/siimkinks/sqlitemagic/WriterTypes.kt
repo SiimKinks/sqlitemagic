@@ -59,6 +59,7 @@ internal object WriterTypes {
   val GENERATED_DATABASE = GeneratedDatabase::class.asClassName()
   val TABLE = Table::class.asClassName()
   val COLUMN = Column::class.asClassName()
+  val COLUMN_VALUE_ADAPTER = ColumnValueAdapter::class.asClassName()
   val CHAR_SEQUENCE = CharSequence::class.asClassName()
   val NUMERIC_COLUMN = NumericColumn::class.asClassName()
   val UNIQUE_COLUMN = UniqueColumn::class.asClassName()
@@ -81,7 +82,7 @@ internal object WriterTypes {
   val CONFLICT_ALGORITHM = ConflictAlgorithm::class.asClassName()
   val LOG_UTIL = LogUtil::class.asClassName()
   val JOIN_CLAUSE = JoinClause::class.asClassName()
-  val QUERY_ALIAS_CONTEXT = QueryAliasContext::class.asClassName()
+  val QUERY_GRAPH_SCOPE = QueryGraphScope::class.asClassName()
   val VALUE_PARSER = Utils.ValueParser::class
     .asClassName()
     .parameterizedBy(STAR)

@@ -64,12 +64,8 @@ import com.siimkinks.sqlitemagic.expr
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.isEqualTo
-import com.siimkinks.sqlitemagic.minus
 import com.siimkinks.sqlitemagic.parsesWith
-import com.siimkinks.sqlitemagic.plus
-import com.siimkinks.sqlitemagic.rem
 import com.siimkinks.sqlitemagic.replace
-import com.siimkinks.sqlitemagic.times
 import com.siimkinks.sqlitemagic.transformer.BooleanTransformer
 import com.siimkinks.sqlitemagic.with
 import org.junit.jupiter.api.Test

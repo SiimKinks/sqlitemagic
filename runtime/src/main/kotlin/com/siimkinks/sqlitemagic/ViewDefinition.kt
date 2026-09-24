@@ -4,7 +4,7 @@ import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 
 class ViewDefinition(
   val sql: String,
-  val args: Array<String>?,
+  val args: Array<String?>?,
   private val observedTables: Array<String>,
   private val columns: SimpleArrayMap<String, Int>?,
   private val tableGraphNodeNames: SimpleArrayMap<String, String>?,

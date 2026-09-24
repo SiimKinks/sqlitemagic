@@ -83,27 +83,18 @@ class RawSelect internal constructor(
   }
 
   internal class Builder internal constructor(
-    @JvmField
-    val sql: String
+    internal val sql: String
   ) {
-    @JvmField
-    var args: Array<out String>? = null
-
-    @JvmField
-    var observedTables: Array<String> = EMPTY_STRINGS
-
-    @JvmField
-    var dbConnection: DbConnectionImpl? = null
+    internal var args: Array<out String?>? = null
+    internal var observedTables: Array<String> = EMPTY_STRINGS
+    internal var dbConnection: DbConnectionImpl? = null
   }
 
   internal class CompiledRawSelectImpl internal constructor(
-    @JvmField
-    val sql: String,
-    @JvmField
-    val args: Array<out String>?,
+    internal val sql: String,
+    internal val args: Array<out String?>?,
     dbConnection: DbConnectionImpl?,
-    @JvmField
-    val observedTables: Array<String>
+    internal val observedTables: Array<String>
   ) : Query.DatabaseQuery<Cursor, Cursor>(
     dbConnection = dbConnection,
     mapper = null

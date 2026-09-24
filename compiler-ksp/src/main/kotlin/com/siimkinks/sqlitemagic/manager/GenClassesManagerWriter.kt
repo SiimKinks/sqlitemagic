@@ -15,6 +15,7 @@ import com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_SUBMODULE_NAMES
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_IS_DEBUG
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_MIGRATE_VIEWS
 import com.siimkinks.sqlitemagic.SqlStorageType
+import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_DATABASE
 import com.siimkinks.sqlitemagic.WriterTypes.LOG_UTIL
@@ -51,6 +52,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.writeTo
+import com.squareup.kotlinpoet.withIndent
 
 internal class GenClassesManagerWriter(
   private val codeGenerator: CodeGenerator
@@ -430,23 +432,26 @@ internal class GenClassesManagerWriter(
     parser: String
   ) = CodeBlock
     .builder()
-    .add("%T<%T, %T>(\n", columnClass, ANY, NOT_NULLABLE)
-    .indent()
     .apply {
       when {
-        isDefaultTransformer -> add("%T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
-          .add("stringValue,\n")
-          .add("%T.%N,\n", UTILS, parser)
-          .add("false,\n")
-          .add("null\n")
-        else -> add("table = %T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
-          .add("name = stringValue,\n")
-          .add("valueParser = %T.%N,\n", UTILS, parser)
-          .add("nullable = false,\n")
-          .add("alias = null\n")
+        isDefaultTransformer -> add("%T<%T, %T>(\n", BOOLEAN_COLUMN, ANY, NOT_NULLABLE)
+        else -> add("%T<%T, %T>(\n", columnClass, ANY, NOT_NULLABLE)
+      }
+      withIndent {
+        when {
+          isDefaultTransformer -> add("table = %T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
+            .add("name = stringValue,\n")
+            .add("valueParser = %T.%N,\n", UTILS, parser)
+            .add("nullable = false,\n")
+            .add("alias = null\n")
+          else -> add("table = %T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
+            .add("name = stringValue,\n")
+            .add("valueParser = %T.%N,\n", UTILS, parser)
+            .add("nullable = false,\n")
+            .add("alias = null\n")
+        }
       }
     }
-    .unindent()
     .add(") as %T\n", returnType)
     .build()
 
@@ -454,12 +459,11 @@ internal class GenClassesManagerWriter(
     .builder()
     .add("%T<%T, %T, %T, %T, %T>(\n", COLUMN, valueType, valueType, valueType, ANY, NOT_NULLABLE)
     .indent()
-    .add("%T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
-    .addStatement("%T.quoteSqlStringLiteral(input.toString()),", SQL_UTIL)
-    .add("false,\n")
-    .add("%T.STRING_PARSER,\n", UTILS)
-    .add("false,\n")
-    .add("null\n")
+    .add("table = %T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
+    .addStatement("name = %T.quoteSqlStringLiteral(input.toString()),", SQL_UTIL)
+    .add("valueParser = %T.STRING_PARSER,\n", UTILS)
+    .add("nullable = false,\n")
+    .add("alias = null\n")
     .unindent()
     .add(")")
     .build()

@@ -53,8 +53,9 @@ inline infix fun <V, R, ET, T, N> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, N
 /** @see [Update.TableNode.set] */
 @JvmName("setSelect")
 @CheckResult
-inline infix fun <V, R, ET, T, N> TableNode<T>.SET(v: Pair<Column<V, R, ET, T, N>, SelectNode<out ET, Select1, in N>>) =
-  this.set(v.first, v.second)
+inline infix fun <V, R, ET, T, N> TableNode<T>.SET(
+  v: Pair<Column<V, R, ET, T, N>, SelectNode<out ET?, Select1, in N>>
+) = this.set(v.first, v.second)
 
 /** @see [Update.TableNode.set] */
 @JvmName("setRaw")
@@ -82,8 +83,9 @@ inline infix fun <V, R, ET, T, N> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, 
 /** @see [Update.Set.set] */
 @JvmName("setSelect")
 @CheckResult
-inline infix fun <V, R, ET, T, N> Update.Set<T>.SET(v: Pair<Column<V, R, ET, T, N>, SelectNode<out ET, Select1, in N>>) =
-  this.set(v.first, v.second)
+inline infix fun <V, R, ET, T, N> Update.Set<T>.SET(
+  v: Pair<Column<V, R, ET, T, N>, SelectNode<out ET?, Select1, in N>>
+) = this.set(v.first, v.second)
 
 /** @see [Update.Set.set] */
 @JvmName("setRaw")

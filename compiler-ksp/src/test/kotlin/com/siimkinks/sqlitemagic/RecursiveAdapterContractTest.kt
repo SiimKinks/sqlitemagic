@@ -38,9 +38,13 @@ internal class RecursiveAdapterContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("TeamMemberTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "override fun addDeepQueryParts(",
-          "internal fun addDeepQueryPartsInternal(",
+          "addDeepQueryParts = QueryGraphScope::addDeepQueryParts",
+          "private fun QueryGraphScope.addDeepQueryParts(",
           "val referencedTable0 = TeamTable.TEAM"
+        )
+        generatedSource.assertDoesNotContain(
+          "override fun addDeepQueryParts(",
+          "addDeepQueryPartsInternal"
         )
       }
   }

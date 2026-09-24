@@ -72,7 +72,7 @@ private typealias RecursiveChildColumn = Column<*, *, *, RecursiveChild, NotNull
 private typealias RecursiveParentColumn = Column<*, *, *, RecursiveParent, NotNullable>
 
 private object RecursiveTestSchema {
-  val grandchildTable = Table<RecursiveGrandchild>(RECURSIVE_GRANDCHILD_TABLE, null, 1)
+  val grandchildTable = testTable<RecursiveGrandchild>(name = RECURSIVE_GRANDCHILD_TABLE)
   val grandchildId = UniqueColumn<String, String, String, RecursiveGrandchild, NotNullable>(
     grandchildTable,
     "id",
@@ -81,7 +81,7 @@ private object RecursiveTestSchema {
     false,
     null
   )
-  val childTable = Table<RecursiveChild>(RECURSIVE_CHILD_TABLE, null, 1)
+  val childTable = testTable<RecursiveChild>(name = RECURSIVE_CHILD_TABLE)
   val childId = UniqueColumn<String, String, String, RecursiveChild, NotNullable>(
     childTable,
     "id",
@@ -90,7 +90,7 @@ private object RecursiveTestSchema {
     false,
     null
   )
-  val parentTable = Table<RecursiveParent>(RECURSIVE_PARENT_TABLE, null, 1)
+  val parentTable = testTable<RecursiveParent>(name = RECURSIVE_PARENT_TABLE)
   val parentId = UniqueColumn<String, String, String, RecursiveParent, NotNullable>(
     parentTable,
     "id",

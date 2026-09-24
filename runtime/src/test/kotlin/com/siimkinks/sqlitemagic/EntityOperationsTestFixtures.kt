@@ -16,22 +16,20 @@ internal data class TestEntity(
 )
 
 internal object TestSchema {
-  val table = Table<TestEntity>("books", null, 3)
+  val table = testTable<TestEntity>(name = "books", nrOfColumns = 3)
   val id = UniqueColumn<String, String, String, TestEntity, NotNullable>(
-    table,
-    "id",
-    false,
-    Utils.STRING_PARSER,
-    false,
-    null
+    table = table,
+    name = "id",
+    valueParser = Utils.STRING_PARSER,
+    nullable = false,
+    alias = null
   )
   val key = UniqueColumn<String, String, String, TestEntity, NotNullable>(
-    table,
-    "key",
-    false,
-    Utils.STRING_PARSER,
-    false,
-    null
+    table = table,
+    name = "key",
+    valueParser = Utils.STRING_PARSER,
+    nullable = false,
+    alias = null
   )
 }
 

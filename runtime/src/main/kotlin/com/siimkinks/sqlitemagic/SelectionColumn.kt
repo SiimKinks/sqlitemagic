@@ -18,26 +18,25 @@ import java.util.LinkedList
 internal class SelectionColumn<T, R, ET, P, N> private constructor(
   table: Table<P>,
   name: String,
-  allFromTable: Boolean,
+  allFromTable: Boolean = false,
   valueParser: ValueParser<*>,
   nullable: Boolean,
   alias: String?,
   nameInQuery: String,
   private val selectBuilder: SelectBuilder<*>
 ) : NumericColumn<T, R, ET, P, N>(
-  table,
-  name,
-  allFromTable,
-  valueParser,
-  nullable,
-  alias,
-  nameInQuery
+  table = table,
+  name = name,
+  allFromTable = allFromTable,
+  valueParser = valueParser,
+  nullable = nullable,
+  alias = alias,
+  nameInQuery = nameInQuery
 ) {
   private var parentObservedTables: ArrayList<String>? = null
   private var isCompiledToSelection = false
 
   companion object {
-    @JvmStatic
     fun <T, N> from(
       selectBuilder: SelectBuilder<*>,
       alias: String
@@ -51,7 +50,6 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
       return SelectionColumn(
         table = table,
         name = alias,
-        allFromTable = false,
         valueParser = column.valueParser,
         nullable = column.nullable,
         alias = alias,
@@ -81,7 +79,7 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
     // an autonomous column
   }
 
-  override fun addArgs(args: ArrayList<String>) {
+  override fun addArgs(args: ArrayList<String?>) {
     args.addAll(selectBuilder.args)
   }
 

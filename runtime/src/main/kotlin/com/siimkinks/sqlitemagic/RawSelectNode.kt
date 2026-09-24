@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation
 
 @Suppress("UNCHECKED_CAST")
 open class RawSelectNode<R, CompiledType : CompiledRawSelect> internal constructor(
-  @JvmField
   internal val rawSelectBuilder: RawSelect.Builder
 ) : ConnectionProvidedOperation<R> {
   @CheckResult

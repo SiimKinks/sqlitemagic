@@ -305,9 +305,12 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("NullableEmbeddedProjectTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "fun addDeepQueryParts(",
-          "internal fun addDeepQueryPartsInternal("
+          "addDeepQueryParts = QueryGraphScope::addDeepQueryParts",
+          "addShallowQueryParts = QueryGraphScope::addShallowQueryParts",
+          "private fun QueryGraphScope.addDeepQueryParts(",
+          "private fun QueryGraphScope.addShallowQueryParts("
         )
+        generatedSource.assertDoesNotContain("QueryPartsInternal")
       }
   }
 

@@ -1,5 +1,11 @@
 package com.siimkinks.sqlitemagic;
 
+import androidx.annotation.CheckResult;
+import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteStatement;
+
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap;
 
 import java.io.Closeable;
@@ -7,16 +13,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 
-import androidx.annotation.CheckResult;
-import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.sqlite.db.SupportSQLiteStatement;
-
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT;
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE;
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_NONE;
-import static com.siimkinks.sqlitemagic.SqlUtil.opByColumnSql;
 
 public final class OperationHelper implements Closeable {
   @IntDef({
@@ -94,7 +93,10 @@ public final class OperationHelper implements Closeable {
     if (customSqlNeededForConflictAlgorithm || customSqlNeededForUpdates) {
       SupportSQLiteStatement update = updates.get(tableName);
       if (update == null) {
-        update = manager.compileStatement(opByColumnSql(sql, tableName, operationByColumns), conflictAlgorithm);
+        update = manager.compileStatement(
+            SqlUtil.INSTANCE.opByColumnSql(sql, tableName, operationByColumns),
+            conflictAlgorithm
+        );
         updates.put(tableName, update);
       }
       return update;
@@ -122,6 +124,7 @@ public final class OperationHelper implements Closeable {
       for (int i = 0; i < size; i++) {
         statements.valueAt(i).close();
       }
-    } catch (Exception ignore) {}
+    } catch (Exception ignore) {
+    }
   }
 }

@@ -185,7 +185,7 @@ public final class VariableArgsOperationHelper {
         }
       }
       case byte[] bytes -> statement.bindBlob(pos, bytes);
-      case Byte[] bytes -> statement.bindBlob(pos, Utils.toByteArray(bytes));
+      case Byte[] bytes -> statement.bindBlob(pos, Utils.INSTANCE.toByteArray(bytes));
       default -> statement.bindString(pos, value.toString());
     }
   }

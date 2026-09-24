@@ -5,33 +5,15 @@ import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 
 @Suppress("UNCHECKED_CAST")
 internal class SelectBuilder<S> {
-  @JvmField
-  var sqlTreeRoot: SqlNode? = null
-
-  @JvmField
-  var sqlNodeCount = 0
-
-  @JvmField
-  var from: Select.From<*, *, *, *>? = null
-
-  @JvmField
-  var columnsNode: Select.Columns? = null
-
-  @JvmField
-  var columnNode: Select.SingleColumn<*, *>? = null
-
-  @JvmField
-  val args = ArrayList<String>()
-
-  @JvmField
-  val observedTables = ArrayList<String>()
-
-  @JvmField
-  var deep = false
-
-  @JvmField
-  var dbConnection: DbConnectionImpl? = null
-
+  internal var sqlTreeRoot: SqlNode? = null
+  internal var sqlNodeCount = 0
+  internal var from: Select.From<*, *, *, *>? = null
+  internal var columnsNode: Select.Columns? = null
+  internal var columnNode: Select.SingleColumn<*, *>? = null
+  internal val args = ArrayList<String?>()
+  internal val observedTables = ArrayList<String>()
+  internal var deep = false
+  internal var dbConnection: DbConnectionImpl? = null
   private var compiled = false
 
   /**
@@ -53,10 +35,19 @@ internal class SelectBuilder<S> {
     }
     val from = checkNotNull(from)
     val table = from.table
-    val systemRenamedTables = when {
-      deep -> table.addDeepQueryParts(from, selectFromTables, tableGraphNodeNames, select1)
-      else -> table.addShallowQueryParts(from, selectFromTables, tableGraphNodeNames, select1)
-    }
+    val queryGraphScope = QueryGraphScope(
+      from = from,
+      selectFromTables = selectFromTables,
+      tableGraphNodeNames = tableGraphNodeNames,
+      queryDeep = deep,
+      select1 = select1
+    )
+    queryGraphScope.visit(
+      table = table,
+      tableAlias = table,
+      nodeName = ""
+    )
+    val systemRenamedTables = queryGraphScope.renamedTablesOrNull()
     if (!select1) {
       checkNotNull(columnsNode).compileColumns(systemRenamedTables)
     }
@@ -94,10 +85,19 @@ internal class SelectBuilder<S> {
     }
     val from = from as Select.From<T, *, *, *>
     val table = from.table
-    val systemRenamedTables = when {
-      deep -> table.addDeepQueryParts(from, selectFromTables, tableGraphNodeNames, select1)
-      else -> table.addShallowQueryParts(from, selectFromTables, tableGraphNodeNames, select1)
-    }
+    val queryGraphScope = QueryGraphScope(
+      from = from,
+      selectFromTables = selectFromTables,
+      tableGraphNodeNames = tableGraphNodeNames,
+      queryDeep = deep,
+      select1 = select1
+    )
+    queryGraphScope.visit(
+      table = table,
+      tableAlias = table,
+      nodeName = ""
+    )
+    val systemRenamedTables = queryGraphScope.renamedTablesOrNull()
     val argsSize = args.size
 
     val sqlTreeRoot = checkNotNull(sqlTreeRoot)
@@ -164,12 +164,16 @@ internal class SelectBuilder<S> {
     columnPositions: SimpleArrayMap<String, Int>?
   ): Boolean {
     val joins = from.joins
-    var forcedDeepSelection = from.table.perfectSelection(observedTables, tableGraphNodeNames, columnPositions)
+    var forcedDeepSelection = from.table.perfectSelection(
+      observedTables = observedTables,
+      tableGraphNodeNames = tableGraphNodeNames,
+      columnPositions = columnPositions
+    )
     for (join in joins) {
       forcedDeepSelection = forcedDeepSelection or join.table.perfectSelection(
-        observedTables,
-        tableGraphNodeNames,
-        columnPositions
+        observedTables = observedTables,
+        tableGraphNodeNames = tableGraphNodeNames,
+        columnPositions = columnPositions
       )
     }
     return forcedDeepSelection

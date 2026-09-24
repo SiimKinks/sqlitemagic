@@ -160,15 +160,24 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "UniqueColumn<",
           "NumericColumn<",
           "Column<",
+          "UniqueColumn(table = this,",
+          "NumericColumn(table = this,",
+          "Column(table = this,",
           "BOOK_KEY",
           "TITLE_TEXT",
           "RATING",
           "SUBTITLE",
           "COVER",
           "override fun `as`(",
+          "mapper = ::createMapper",
+          "private fun createMapper(",
           "Query.Mapper<LibraryBook>",
           "checkNotNull(",
           "SqliteMagic_LibraryBook_Dao::shallowObjectFromCursorPosition"
+        )
+        generatedSource.assertDoesNotContain(
+          "override fun mapper(",
+          "internal fun mapper("
         )
       }
       .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
@@ -490,7 +499,7 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
       .withGeneratedSource("StorageMatrixTable.kt") { generatedSource ->
         generatedSource.assertContains(
           "BooleanColumn<StorageMatrix",
-          "BooleanColumn(this, \"enabled\", Utils.INTEGER_PARSER",
+          "BooleanColumn(table = this, name = \"enabled\", valueParser = Utils.INTEGER_PARSER",
           "val TEXT: Column<String, String, CharSequence, StorageMatrix, NotNullable>",
           "val NULLABLE_TEXT: Column<String, String?, CharSequence, StorageMatrix, Nullable>"
         )
@@ -499,8 +508,8 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "class UniqueBooleanColumn",
           "Unique<N>",
-          "BooleanTransformer.objectToDbValue",
-          "BooleanTransformer.dbValueToObject"
+          "toDb = BooleanTransformer::objectToDbValue",
+          "fromDb = BooleanTransformer::dbValueToObject"
         )
       }
   }

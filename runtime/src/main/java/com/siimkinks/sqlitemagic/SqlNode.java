@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic;
 
 import androidx.annotation.Nullable;
 
-abstract class SqlNode extends SqlClause {
+public abstract class SqlNode extends SqlClause {
   @Nullable
   final SqlNode parent;
 

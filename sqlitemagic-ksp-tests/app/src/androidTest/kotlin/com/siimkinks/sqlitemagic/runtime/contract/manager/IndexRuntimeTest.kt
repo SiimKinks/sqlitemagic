@@ -9,7 +9,7 @@ import com.siimkinks.sqlitemagic.GeneratedDatabase
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
-import com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE
+import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
 import com.siimkinks.sqlitemagic.insert

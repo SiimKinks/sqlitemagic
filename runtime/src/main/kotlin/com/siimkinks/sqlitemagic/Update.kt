@@ -17,7 +17,6 @@ class Update internal constructor() : UpdateSqlNode(null) {
      * @param conflictAlgorithm Conflict resolution algorithm to use
      * @return A new builder for SQL UPDATE statement
      */
-    @JvmStatic
     @CheckResult
     fun withConflictAlgorithm(
       @ConflictAlgorithm conflictAlgorithm: Int
@@ -46,7 +45,6 @@ class Update internal constructor() : UpdateSqlNode(null) {
      * @param T Table object type
      * @return A new builder for SQL UPDATE statement
      */
-    @JvmStatic
     @CheckResult
     fun <T> table(table: Table<T>) = TableNode<T>(
       parent = Update(),
@@ -64,7 +62,6 @@ class Update internal constructor() : UpdateSqlNode(null) {
      * @param tableName Table to update
      * @return A new builder for SQL UPDATE statement
      */
-    @JvmStatic
     @CheckResult
     fun table(tableName: String): TableNode<*> = TableNode<Any>(
       parent = Update(),
@@ -133,7 +130,6 @@ class Update internal constructor() : UpdateSqlNode(null) {
    */
   class TableNode<T> internal constructor(
     parent: UpdateSqlNode,
-    @JvmField
     internal val tableName: String
   ) : UpdateSqlNode(parent) {
     init {
@@ -223,7 +219,7 @@ class Update internal constructor() : UpdateSqlNode(null) {
     @CheckResult
     fun <V, R, ET, N> set(
       column: Column<V, R, ET, T, N>,
-      select: SelectNode<out ET, Select1, in N>
+      select: SelectNode<out ET?, Select1, in N>
     ): Set<T> = Set(
       parent = this,
       firstUpdate = UpdateColumn(column) IS select
@@ -250,12 +246,12 @@ class Update internal constructor() : UpdateSqlNode(null) {
   private class UpdateColumn<T, R, ET, P, N>(
     private val parentColumn: Column<T, R, ET, P, N>
   ) : Column<T, R, ET, P, N>(
-    parentColumn.table,
-    parentColumn.name,
-    parentColumn.allFromTable,
-    parentColumn.valueParser,
-    parentColumn.nullable,
-    parentColumn.alias
+    table = parentColumn.table,
+    name = parentColumn.name,
+    allFromTable = parentColumn.allFromTable,
+    valueParser = parentColumn.valueParser,
+    nullable = parentColumn.nullable,
+    alias = parentColumn.alias
   ) {
     fun isNullable(value: T?): Expr = Expr1(this, "=?", value?.let(::toSqlArg))
 
@@ -275,11 +271,11 @@ class Update internal constructor() : UpdateSqlNode(null) {
     private sealed interface Assignment {
       fun appendSql(sb: StringBuilder)
 
-      class Expression(private val expr: Expr) : Assignment {
+      data class Expression(private val expr: Expr) : Assignment {
         override fun appendSql(sb: StringBuilder) = expr.appendToSql(sb)
       }
 
-      class Raw(private val columnName: String) : Assignment {
+      data class Raw(private val columnName: String) : Assignment {
         override fun appendSql(sb: StringBuilder) {
           sb.append(columnName)
             .append("=?")
@@ -397,7 +393,7 @@ class Update internal constructor() : UpdateSqlNode(null) {
     @CheckResult
     fun <V, R, ET, N> set(
       column: Column<V, R, ET, T, N>,
-      select: SelectNode<out ET, Select1, in N>
+      select: SelectNode<out ET?, Select1, in N>
     ): Set<T> = add(UpdateColumn(column) IS select)
 
     /**

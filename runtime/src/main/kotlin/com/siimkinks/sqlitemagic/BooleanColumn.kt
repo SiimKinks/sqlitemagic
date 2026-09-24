@@ -13,7 +13,11 @@ class BooleanColumn<T, N>(
   nullable: Boolean,
   alias: String?
 ) : NumericColumn<Boolean, Boolean, Boolean, T, N>(
-  table, name, false, valueParser, nullable, alias
+  table = table,
+  name = name,
+  valueParser = valueParser,
+  nullable = nullable,
+  alias = alias
 ) {
   override fun toSqlArg(value: Boolean) = BooleanTransformer
     .objectToDbValue(value)

@@ -162,7 +162,17 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "ComplexColumn<String, String, CharSequence",
           "Unique<N>",
-          "internal constructor("
+          "internal constructor(",
+          "valueAdapter = ColumnValueAdapter.serializing(",
+          "private val valueParser: Utils.ValueParser<String>",
+          "SqliteMagic_UniqueRelationshipOwner_TargetColumn<T, N>(",
+          "valueParser = valueParser,",
+          "toDb = { `value` -> `value` }"
+        )
+        generatedSource.assertDoesNotContain(
+          "table, name, false, valueParser, nullable, alias",
+          "super(source = source, alias = alias)",
+          "private fun serializeColumnValue"
         )
       }
       .withGeneratedSource("SqliteMagic_UniqueRelationshipOwner_Adapter.kt") { generatedSource ->
@@ -648,7 +658,7 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagic_OptionalIdOwner_AccountColumn.kt")
       .withGeneratedSource("SqliteMagic_OptionalIdOwner_AccountColumn.kt") { generatedSource ->
         generatedSource.assertContains(
-          "val dbValue = super.getFromCursor<String>(cursor)",
+          "ColumnValueAdapter.transformedNullableInput(",
           "stringToOptionalAccountId(dbValue)"
         )
         generatedSource.assertDoesNotContain(
@@ -758,15 +768,14 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("SqliteMagic_NullableRelationshipOwner_RelationshipIdColumn.kt") { generatedSource ->
         generatedSource.assertContains(
-          "val sqlValue = `value`.`value`",
-          "if (sqlValue == null)",
-          "throw NullPointerException(\"SQL argument cannot be null\")",
-          "return sqlValue"
+          "ColumnValueAdapter.transformedNullableInput(",
+          "toDb = { `value` -> `value`.`value` }",
+          "fromDb = { dbValue -> SqliteMagic_NullableLeafId_Dao.newInstanceWithOnlyId(dbValue) }"
         )
       }
       .withGeneratedSource("SqliteMagic_NullableRelationshipId_IdColumn.kt") { generatedSource ->
         generatedSource.assertContains(
-          "override fun toSqlArg(`value`: String): String = `value`"
+          "toDb = { `value` -> `value` }"
         )
         generatedSource.assertDoesNotContain(
           "val sqlValue",
@@ -1474,12 +1483,15 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("TeamMemberTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "addDeepQueryParts",
-          "internal fun addDeepQueryPartsInternal(",
-          "val queryAliasContext = QueryAliasContext(from)",
-          "tableAlias = this,",
-          "queryAliasContext: QueryAliasContext",
-          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)",
+          "mapper = ::createMapper",
+          "addDeepQueryParts = QueryGraphScope::addDeepQueryParts",
+          "private fun QueryGraphScope.addDeepQueryParts(",
+          "val sourceTable = table as TeamMemberTable",
+          "rebindColumn(newTable = tableAlias, column = sourceTable.TEAM)",
+          "val joinedTable0 = tableForAutomaticJoin(referencedTable0)",
+          "recordAutomaticTableOccurrence(joinedTable0)",
+          "addLeftJoin(table = joinedTable0, on = parentColumn0.`is`(referencedId0))",
+          "visit(table = referencedTable0, tableAlias = joinedTable0, nodeName = relationshipNodeName0)",
           "TeamTable.TEAM",
           "queryDeep ->",
           "checkNotNull(",
@@ -1487,17 +1499,25 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
           "SqliteMagic_TeamMember_Dao::shallowObjectFromCursorPosition"
         )
         generatedSource.assertContainsInOrder(
-          "val userJoin = queryAliasContext.findJoin(",
+          "val userJoin = findJoin(",
           "table = referencedTable0,",
           "joinedOnColumn = parentColumn0",
           "if (userJoin != null)",
-          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)"
+          "val joinedTable0 = tableForAutomaticJoin(referencedTable0)"
         )
         generatedSource.assertDoesNotContain(
+          "addDeepQueryPartsInternal",
+          "QueryAliasContext",
           "from.table",
           "from.joins",
           "joins: ArrayList<JoinClause>",
-          "randomTableName()"
+          "randomTableName()",
+          "internalCopy(",
+          "userJoin.table",
+          "userJoin.tableNameInQuery()",
+          "joinedTable0.nameInQuery",
+          "Utils.addTableAlias",
+          "operator = Select.From.LEFT_JOIN"
         )
       }
   }
@@ -1546,29 +1566,35 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("RecursiveTargetOwnerTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "addShallowQueryParts",
-          "internal fun addShallowQueryPartsInternal(",
-          "fun addShallowQueryPartsInternal",
-          "userJoin.tableNameInQuery()",
-          "val queryAliasContext = QueryAliasContext(from)",
-          "tableAlias = this,",
-          "queryAliasContext: QueryAliasContext",
-          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)",
-          "RequiredRecursiveTargetTable.REQUIRED_RECURSIVE_TARGET.addDeepQueryPartsInternal(",
-          "queryAliasContext"
+          "addDeepQueryParts = QueryGraphScope::addDeepQueryParts",
+          "addShallowQueryParts = QueryGraphScope::addShallowQueryParts",
+          "private fun QueryGraphScope.addShallowQueryParts(",
+          "rebindColumn(newTable = tableAlias, column = sourceTable.TARGET)",
+          "val joinedTable0 = tableForAutomaticJoin(referencedTable0)",
+          "recordAutomaticTableOccurrence(joinedTable0)",
+          "addLeftJoin(table = joinedTable0, on = parentColumn0.`is`(referencedId0))",
+          "visit(table = referencedTable0, tableAlias = joinedTable0, nodeName = relationshipNodeName0)"
         )
         generatedSource.assertContainsInOrder(
-          "val userJoin = queryAliasContext.findJoin(",
+          "val userJoin = findJoin(",
           "table = referencedTable0,",
           "joinedOnColumn = parentColumn0",
           "if (userJoin != null)",
-          "val joinedTable0 = queryAliasContext.tableForAutomaticJoin(referencedTable0)"
+          "val joinedTable0 = tableForAutomaticJoin(referencedTable0)"
         )
         generatedSource.assertDoesNotContain(
+          "addShallowQueryPartsInternal",
+          "QueryAliasContext",
           "from.table",
           "from.joins",
           "joins: ArrayList<JoinClause>",
-          "randomTableName()"
+          "randomTableName()",
+          "internalCopy(",
+          "userJoin.table",
+          "userJoin.tableNameInQuery()",
+          "joinedTable0.nameInQuery",
+          "Utils.addTableAlias",
+          "operator = Select.From.LEFT_JOIN"
         )
       }
       .withGeneratedSource("SqliteMagic_RecursiveTargetOwner_Dao.kt") { generatedSource ->
@@ -1822,9 +1848,12 @@ internal class ModelIdentityRelationshipContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("LeafEntityTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "fun addDeepQueryParts(",
-          "internal fun addDeepQueryPartsInternal("
+          "addDeepQueryParts = QueryGraphScope::addDeepQueryParts",
+          "addShallowQueryParts = QueryGraphScope::addShallowQueryParts",
+          "private fun QueryGraphScope.addDeepQueryParts(",
+          "private fun QueryGraphScope.addShallowQueryParts("
         )
+        generatedSource.assertDoesNotContain("QueryPartsInternal")
       }
   }
 

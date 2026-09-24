@@ -4,7 +4,7 @@ import androidx.annotation.CheckResult
 import androidx.annotation.Size
 import com.siimkinks.sqlitemagic.GlobalConst.ERROR_NOT_INITIALIZED
 import com.siimkinks.sqlitemagic.SqlUtil.quoteSqlStringLiteral
-import com.siimkinks.sqlitemagic.Table.ANONYMOUS_TABLE
+import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER
 import com.siimkinks.sqlitemagic.Utils.LONG_PARSER
 import com.siimkinks.sqlitemagic.Utils.STRING_PARSER
@@ -584,7 +584,6 @@ class Select<S> internal constructor(
      * @return Column representing the result of this function
      * @see [SQLite documentation: Expression](http://www.sqlite.org/lang_expr.html)
      */
-    @SafeVarargs
     @CheckResult
     fun <X : Column<*, *, *, *, *>> concat(
       @Size(min = 2) vararg columns: X
@@ -752,7 +751,6 @@ class Select<S> internal constructor(
      * @return Column representing the result of this function
      * @see [SQLite documentation: Core Functions](https://www.sqlite.org/lang_corefunc.html#format)
      */
-    @SafeVarargs
     @CheckResult
     fun <X : Column<*, *, *, *, *>> format(
       format: String,
@@ -1546,7 +1544,7 @@ class Select<S> internal constructor(
     private val expr: Expr?,
     private val ordering: String?
   ) : SqlClause() {
-    fun addArgs(args: ArrayList<String>) {
+    fun addArgs(args: ArrayList<String?>) {
       column?.addArgs(args)
       expr?.addArgs(args)
     }

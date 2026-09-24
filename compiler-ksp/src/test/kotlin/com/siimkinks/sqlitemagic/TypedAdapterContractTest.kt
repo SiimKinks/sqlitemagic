@@ -163,8 +163,13 @@ internal class TypedAdapterContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("AdapterOwnerTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "fun addDeepQueryParts(",
-          "internal fun addDeepQueryPartsInternal("
+          "mapper = ::createMapper",
+          "addDeepQueryParts = QueryGraphScope::addDeepQueryParts",
+          "private fun QueryGraphScope.addDeepQueryParts("
+        )
+        generatedSource.assertDoesNotContain(
+          "override fun addDeepQueryParts(",
+          "addDeepQueryPartsInternal"
         )
       }
   }

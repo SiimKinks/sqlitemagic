@@ -15,7 +15,7 @@ import java.util.LinkedList
  * @param P Parent table type
  * @param N Column nullability
  */
-internal class FunctionCopyColumn<T, R, ET, P, N> internal constructor(
+internal class FunctionCopyColumn<T, R, ET, P, N>(
   table: Table<P>,
   private val wrappedColumn: Column<T, R, ET, P, N>,
   private val prefix: String,
@@ -23,12 +23,12 @@ internal class FunctionCopyColumn<T, R, ET, P, N> internal constructor(
   nullable: Boolean,
   alias: String?
 ) : NumericColumn<T, R, ET, P, N>(
-  table,
-  prefix + wrappedColumn.nameInQuery + suffix,
-  wrappedColumn.allFromTable,
-  wrappedColumn.valueParser,
-  nullable,
-  alias ?: wrappedColumn.alias
+  table = table,
+  name = prefix + wrappedColumn.nameInQuery + suffix,
+  allFromTable = wrappedColumn.allFromTable,
+  valueParser = wrappedColumn.valueParser,
+  nullable = nullable,
+  alias = alias ?: wrappedColumn.alias
 ) {
   private var isCompiledToSelection = false
 
@@ -36,16 +36,17 @@ internal class FunctionCopyColumn<T, R, ET, P, N> internal constructor(
 
   override fun <V> getFromCursor(cursor: Cursor): V? = wrappedColumn.getFromCursor(cursor)
 
-  override fun <V> getFromStatement(statement: SupportSQLiteStatement): V? = wrappedColumn.getFromStatement(statement)
+  override fun <V> getFromStatement(statement: SupportSQLiteStatement): V? =
+    wrappedColumn.getFromStatement(statement)
 
   override fun appendSql(sb: StringBuilder) {
     if (isCompiledToSelection && hasAlias()) {
       sb.append(getAppendableAlias())
       return
     }
-    sb.append(prefix)
-    wrappedColumn.appendSql(sb)
-    sb.append(suffix)
+    sb.appendFunction {
+      wrappedColumn.appendSql(sb)
+    }
   }
 
   override fun appendSql(
@@ -56,14 +57,22 @@ internal class FunctionCopyColumn<T, R, ET, P, N> internal constructor(
       sb.append(getAppendableAlias())
       return
     }
-    sb.append(prefix)
-    wrappedColumn.appendSql(sb, systemRenamedTables)
-    sb.append(suffix)
+    sb.appendFunction {
+      wrappedColumn.appendSql(sb, systemRenamedTables)
+    }
+  }
+
+  private inline fun StringBuilder.appendFunction(
+    appendWrapped: () -> Unit
+  ) {
+    append(prefix)
+    appendWrapped()
+    append(suffix)
   }
 
   override fun addSelectedTables(result: StringArraySet) = wrappedColumn.addSelectedTables(result)
 
-  override fun addArgs(args: ArrayList<String>) = wrappedColumn.addArgs(args)
+  override fun addArgs(args: ArrayList<String?>) = wrappedColumn.addArgs(args)
 
   override fun addObservedTables(tables: ArrayList<String>) = wrappedColumn.addObservedTables(tables)
 

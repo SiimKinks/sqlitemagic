@@ -4,7 +4,7 @@ import androidx.sqlite.db.SupportSQLiteStatement
 
 internal class ConnectionStatement(
   private val sql: String,
-  private val args: Array<String>?,
+  private val args: Array<String?>?,
   initialConnection: DbConnectionImpl?
 ) {
   private val lock = Any()

@@ -35,7 +35,7 @@ fun UpdateSqlNode.isEqualTo(
   vararg args: String?
 ) {
   val updateBuilder = updateBuilder
-  val actualSql = SqlCreator.getSql(updateBuilder.sqlTreeRoot, updateBuilder.sqlNodeCount)
+  val actualSql = SqlCreator.getSql(checkNotNull(updateBuilder.sqlTreeRoot), updateBuilder.sqlNodeCount)
   assertThat(actualSql).isEqualTo(sql)
   assertThat(updateBuilder.sqlNodeCount).isEqualTo(nodeCount)
   assertThat(updateBuilder.args).isNotNull()

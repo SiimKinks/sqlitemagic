@@ -19,7 +19,7 @@ internal data class GeneratedIdParent(
 private typealias GeneratedIdParentColumn = Column<*, *, *, GeneratedIdParent, NotNullable>
 
 private object GeneratedIdTestSchema {
-  val parentTable = Table<GeneratedIdParent>("generated_id_parent", null, 1)
+  val parentTable = testTable<GeneratedIdParent>(name = "generated_id_parent")
   val parentId = UniqueColumn<String, String, String, GeneratedIdParent, NotNullable>(
     parentTable,
     "id",

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.AccountTable.Companion.ACCOUNT
 import com.siimkinks.sqlitemagic.ArticleTable.Companion.ARTICLE
 import com.siimkinks.sqlitemagic.AutomaticTransformedTable.Companion.AUTOMATIC_TRANSFORMED
@@ -21,6 +22,64 @@ import com.siimkinks.sqlitemagic.update
 import org.junit.Test
 
 class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
+  @Test
+  fun reboundTransformedIdBindsPredicateUsingStoredValue() {
+    val expected = insertAccount(id = "rebound-predicate")
+    val reboundTable = ACCOUNT AS "rebound_account"
+    val reboundId = ACCOUNT.ID.inTable(reboundTable)
+
+    assertThat(
+      Select
+        .from(reboundTable)
+        .where(reboundId IS expected.id)
+        .execute()
+    ).containsExactly(expected)
+  }
+
+  @Test
+  fun reboundTransformedIdReadsDeclaredValueType() {
+    val expected = insertAccount(id = "rebound-selection")
+    val reboundTable = ACCOUNT AS "rebound_account"
+    val reboundId = ACCOUNT.ID.inTable(reboundTable)
+
+    assertThat(
+      Select
+        .column(reboundId)
+        .from(reboundTable)
+        .takeFirst()
+        .execute()
+    ).isEqualTo(expected.id)
+  }
+
+  @Test
+  fun reboundNumericTransformedIdBindsPredicateUsingStoredValue() {
+    val expected = insertAutomaticTransformed(value = "rebound-numeric-predicate")
+    val reboundTable = AUTOMATIC_TRANSFORMED AS "rebound_numeric"
+    val reboundId = AUTOMATIC_TRANSFORMED.ID.inTable(reboundTable)
+
+    assertThat(
+      Select
+        .from(reboundTable)
+        .where(reboundId IS expected.id)
+        .execute()
+    ).containsExactly(expected)
+  }
+
+  @Test
+  fun reboundNumericTransformedIdReadsDeclaredValueType() {
+    val expected = insertAutomaticTransformed(value = "rebound-numeric-selection")
+    val reboundTable = AUTOMATIC_TRANSFORMED AS "rebound_numeric"
+    val reboundId = AUTOMATIC_TRANSFORMED.ID.inTable(reboundTable)
+
+    assertThat(
+      Select
+        .column(reboundId)
+        .from(reboundTable)
+        .takeFirst()
+        .execute()
+    ).isEqualTo(expected.id)
+  }
+
   @Test
   fun automaticTransformedInsertAssignsAndReconstructsTransformedId() {
     val value = AutomaticTransformed(
@@ -224,5 +283,31 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
         .from(ACCOUNT)
         .execute()
     ).containsExactly(account)
+  }
+
+  private fun insertAccount(id: String) = Account(
+    id = AccountId(id),
+    label = "rebound-account"
+  ).also { account ->
+    assertThat(
+      account
+        .insert()
+        .execute()
+    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+  }
+
+  private fun insertAutomaticTransformed(value: String): AutomaticTransformed {
+    val model = AutomaticTransformed(
+      id = SequenceId(0),
+      value = value
+    )
+    val result = model
+      .insert()
+      .execute()
+    val inserted = when (result) {
+      is EntityInsertResult.Inserted -> result
+      EntityInsertResult.Ignored -> throw AssertionError("AutomaticTransformed insert was ignored")
+    }
+    return model.copy(id = SequenceId(checkNotNull(inserted.rowId)))
   }
 }

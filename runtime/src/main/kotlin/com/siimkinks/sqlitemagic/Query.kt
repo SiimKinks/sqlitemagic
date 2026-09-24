@@ -82,11 +82,9 @@ abstract class Query<T> internal constructor(
   protected open fun rawQuery(
     inStream: Boolean,
     dbConnection: DbConnectionImpl = resolveConnection()
-  ): Cursor? {
-    if (inStream && dbConnection.transactions.get() != null) {
-      throw IllegalStateException("Cannot execute observable query in a transaction.")
-    }
-    return null
+  ): Cursor? = when {
+    inStream && dbConnection.transactions.get() != null -> error("Cannot execute observable query in a transaction.")
+    else -> null
   }
 
   protected abstract fun map(

@@ -457,7 +457,7 @@ internal object ScalarColumnCatalog {
     name: String,
     emptyName: String,
     expectedValues: List<T>,
-    query: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
+    query: () -> SelectSqlNode.SelectNode<out T, Select.Select1, *>,
     seed: () -> Unit = ::seedScalarStorageRows,
     normalize: (T) -> Any? = ::identity
   ): List<ScalarColumnCase<*>> = listOf(
@@ -478,7 +478,7 @@ internal object ScalarColumnCatalog {
   private fun <T> scalarColumnCase(
     name: String,
     expectedValues: List<T>,
-    query: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
+    query: () -> SelectSqlNode.SelectNode<out T, Select.Select1, *>,
     seed: () -> Unit = ::seedScalarStorageRows,
     normalize: (T) -> Any? = ::identity
   ) = object : ScalarColumnCase<T>(
@@ -491,7 +491,7 @@ internal object ScalarColumnCatalog {
 
   private fun <T> emptyScalarColumnCase(
     name: String,
-    query: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
+    query: () -> SelectSqlNode.SelectNode<out T, Select.Select1, *>,
     normalize: (T) -> Any? = ::identity
   ) = scalarColumnCase(
     name = name,

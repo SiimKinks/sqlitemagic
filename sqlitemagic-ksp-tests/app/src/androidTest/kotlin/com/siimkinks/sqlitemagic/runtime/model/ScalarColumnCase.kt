@@ -9,7 +9,7 @@ abstract class ScalarColumnCase<T>(
   val name: String,
   val expectedValues: List<T>,
   val seed: () -> Unit,
-  val query: () -> SelectSqlNode.SelectNode<T, Select.Select1, *>,
+  val query: () -> SelectSqlNode.SelectNode<out T, Select.Select1, *>,
   private val normalize: (T) -> Any? = ::identity
 ) {
   fun comparableValue(value: T?): Any? = value?.let(normalize)

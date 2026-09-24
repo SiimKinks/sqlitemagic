@@ -9,21 +9,17 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 
 @Suppress("UNCHECKED_CAST")
 internal class CompiledSelect1Impl<T, S>(
-  @JvmField
-  val sql: String,
-  @JvmField
-  val args: Array<String>?,
+  override val sql: String,
+  override val args: Array<String?>?,
   dbConnection: DbConnectionImpl?,
-  @JvmField
-  val selectedColumn: Column<*, T, *, *, *>,
-  @JvmField
-  val observedTables: Array<String>
+  internal val selectedColumn: Column<*, T, *, *, *>,
+  override val observedTables: Array<String>
 ) : DatabaseQuery<List<T>, T>(
   dbConnection = dbConnection,
   mapper = Mapper { cursor ->
     selectedColumn.getFromCursor<T>(cursor) as T
   }
-), CompiledSelect<T, S> {
+), CompiledSelect<T, S>, CompiledSelectDetails {
   override fun rawQuery(
     inStream: Boolean,
     dbConnection: DbConnectionImpl
@@ -104,17 +100,10 @@ internal class CompiledSelect1Impl<T, S>(
     dbConnection = dbConnection,
     mapper = null
   ), CompiledFirstSelect<T, S> {
-    @JvmField
-    val sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql)
-
-    @JvmField
-    val args = compiledSelect.args
-
-    @JvmField
-    val selectedColumn = compiledSelect.selectedColumn
-
-    @JvmField
-    val observedTables = compiledSelect.observedTables
+    private val sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql)
+    private val args = compiledSelect.args
+    private val selectedColumn = compiledSelect.selectedColumn
+    private val observedTables = compiledSelect.observedTables
 
     private val selectStatement = when {
       compiledSelect.selectedColumn.valueParser.supportsStatementParsing() -> ConnectionStatement(
@@ -192,8 +181,7 @@ internal class CompiledSelect1Impl<T, S>(
     dbConnection = dbConnection,
     mapper = null
   ), CompiledCursorSelect<T, S> {
-    @JvmField
-    val selectedColumn = compiledSelect.selectedColumn
+    private val selectedColumn = compiledSelect.selectedColumn
     private val sql = compiledSelect.sql
     private val args = compiledSelect.args
     private val observedTables = compiledSelect.observedTables

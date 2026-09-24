@@ -10,25 +10,18 @@ import io.reactivex.functions.Predicate
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 internal class CompiledSelectImpl<T, S>(
-  @JvmField
-  val sql: String,
-  @JvmField
-  val args: Array<String>?,
-  @JvmField
-  val table: Table<T>,
+  override val sql: String,
+  override val args: Array<String?>?,
+  table: Table<T>,
   dbConnection: DbConnectionImpl?,
-  @JvmField
-  val observedTables: Array<String>,
-  @JvmField
-  val columns: SimpleArrayMap<String, Int>?,
-  @JvmField
-  val tableGraphNodeNames: SimpleArrayMap<String, String>?,
-  @JvmField
-  val queryDeep: Boolean
+  override val observedTables: Array<String>,
+  internal val columns: SimpleArrayMap<String, Int>?,
+  internal val tableGraphNodeNames: SimpleArrayMap<String, String>?,
+  internal val queryDeep: Boolean
 ) : DatabaseQuery<List<T>, T>(
   dbConnection = dbConnection,
   mapper = table.mapper(columns, tableGraphNodeNames, queryDeep)
-), CompiledSelect<T, S> {
+), CompiledSelect<T, S>, CompiledSelectDetails {
   override fun rawQuery(
     inStream: Boolean,
     dbConnection: DbConnectionImpl
@@ -104,7 +97,7 @@ internal class CompiledSelectImpl<T, S>(
 
   internal class CompiledCountSelectImpl<S>(
     parentSql: String,
-    private val args: Array<String>?,
+    private val args: Array<String?>?,
     dbConnection: DbConnectionImpl?,
     private val observedTables: Array<String>
   ) : DatabaseQuery<Long, Long>(
@@ -221,26 +214,10 @@ internal class CompiledSelectImpl<T, S>(
     dbConnection = dbConnection,
     mapper = compiledSelect.mapper
   ), CompiledFirstSelect<T, S> {
-    @JvmField
-    val sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql)
-
-    @JvmField
-    val args = compiledSelect.args
-
-    @JvmField
-    val table = compiledSelect.table
-
-    @JvmField
-    val observedTables = compiledSelect.observedTables
-
-    @JvmField
-    val columns = compiledSelect.columns
-
-    @JvmField
-    val tableGraphNodeNames = compiledSelect.tableGraphNodeNames
-
-    @JvmField
-    val queryDeep = compiledSelect.queryDeep
+    private val sql = addTakeFirstLimitClauseIfNeeded(compiledSelect.sql)
+    private val args = compiledSelect.args
+    private val observedTables = compiledSelect.observedTables
+    private val queryDeep = compiledSelect.queryDeep
 
     override fun rawQuery(
       inStream: Boolean,
@@ -293,7 +270,6 @@ internal class CompiledSelectImpl<T, S>(
     override fun toString() = "[TAKE FIRST; deepQuery=$queryDeep;sql=$sql]"
 
     companion object {
-      @JvmStatic
       fun addTakeFirstLimitClauseIfNeeded(sql: String): String {
         val limitIndex = sql.lastIndexOf("LIMIT")
         return when {
@@ -311,7 +287,6 @@ internal class CompiledSelectImpl<T, S>(
   }
 
   companion object {
-    @JvmStatic
     @CheckResult
     fun <T> createQueryObservable(
       observedTables: Array<String>,

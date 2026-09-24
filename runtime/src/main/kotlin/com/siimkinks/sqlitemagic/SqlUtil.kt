@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 
 /** Internal utility functions. */
 object SqlUtil {
-  @JvmStatic
   fun viewDefinition(
     query: CompiledSelect<*, *>
   ): ViewDefinition = when (query) {
@@ -37,7 +36,6 @@ object SqlUtil {
     else -> error("Unreachable supported query implementation")
   }
 
-  @JvmStatic
   fun quoteSqlStringLiteral(value: CharSequence) =
     buildString(value.length + 2) {
       append('\'')
@@ -50,36 +48,30 @@ object SqlUtil {
       append('\'')
     }
 
-  @JvmStatic
   fun query(
     db: SupportSQLiteDatabase,
     sql: String,
-    args: Array<out String>?
+    args: Array<out String?>?
   ): Cursor = when (args) {
     null -> db.query(sql)
     else -> db.query(sql, args)
   }
 
-  @JvmStatic
   fun createView(
     db: SupportSQLiteDatabase,
     query: CompiledSelect<*, *>,
     viewName: String
   ) {
-    val (sql, args) = when (query) {
-      is CompiledSelectImpl<*, *> -> query.sql to query.args
-      is CompiledSelect1Impl<*, *> -> query.sql to query.args
-      else -> throw IllegalArgumentException(
+    val details = (query as? CompiledSelectDetails)
+      ?: throw IllegalArgumentException(
         "Cannot create view '$viewName': defining query uses unsupported implementation ${query.javaClass.name}"
       )
-    }
-    require(args.isNullOrEmpty()) {
+    require(details.args.isNullOrEmpty()) {
       "Cannot create view '$viewName': defining query has bound arguments"
     }
-    db.execSQL("CREATE VIEW IF NOT EXISTS $viewName AS $sql")
+    db.execSQL("CREATE VIEW IF NOT EXISTS $viewName AS ${details.sql}")
   }
 
-  @JvmStatic
   @CheckResult
   fun opByColumnSql(
     sql: String,
@@ -99,7 +91,6 @@ object SqlUtil {
     }
   }
 
-  @JvmStatic
   fun firstColumnForTable(
     tableName: String,
     columns: List<*>
@@ -107,11 +98,13 @@ object SqlUtil {
     .filterIsInstance<Column<*, *, *, *, *>>()
     .firstOrNull { it.table.name == tableName }
 
-  @JvmStatic
   fun bindAllArgsAsStrings(
     statement: SupportSQLiteStatement,
-    args: Array<out String>?
+    args: Array<out String?>?
   ) = args?.forEachIndexed { index, arg ->
-    statement.bindString(index + 1, arg)
+    when (arg) {
+      null -> statement.bindNull(index + 1)
+      else -> statement.bindString(index + 1, arg)
+    }
   }
 }

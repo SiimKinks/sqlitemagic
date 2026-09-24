@@ -46,7 +46,7 @@ inline infix fun <T, R, ET, P, N, C : Column<*, *, out ET, *, *>> Column<T, R, E
 
 /** @see [Column.is] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IS(select: SelectNode<out ET, Select1, *>) = this.`is`(select)
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IS(select: SelectNode<out ET?, Select1, *>) = this.`is`(select)
 
 /** @see [Column.isNot] */
 @CheckResult
@@ -59,7 +59,7 @@ inline infix fun <T, R, ET, P, N, C : Column<*, *, out ET, *, *>> Column<T, R, E
 
 /** @see [Column.isNot] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IS_NOT(select: SelectNode<out ET, Select1, *>) =
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IS_NOT(select: SelectNode<out ET?, Select1, *>) =
   this.isNot(select)
 
 /** @see [Column.like] */
@@ -88,7 +88,7 @@ inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(values: Array<T & An
 
 /** @see [Column.in] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(select: SelectNode<out ET, Select1, *>) = this.`in`(select)
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.IN(select: SelectNode<out ET?, Select1, *>) = this.`in`(select)
 
 /** @see [Column.notIn] */
 @CheckResult
@@ -100,7 +100,7 @@ inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(values: Array<T 
 
 /** @see [Column.notIn] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(select: SelectNode<out ET, Select1, *>) =
+inline infix fun <T, R, ET, P, N> Column<T, R, ET, P, N>.NOT_IN(select: SelectNode<out ET?, Select1, *>) =
   this.notIn(select)
 
 /** @see [NumericColumn.greaterThan] */
@@ -115,7 +115,7 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 
 /** @see [NumericColumn.greaterThan] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.GREATER_THAN(select: SelectNode<out ET, Select1, *>) =
+inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.GREATER_THAN(select: SelectNode<out ET?, Select1, *>) =
   this.greaterThan(select)
 
 /** @see [NumericColumn.greaterOrEqual] */
@@ -131,8 +131,9 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 
 /** @see [NumericColumn.greaterOrEqual] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.GREATER_OR_EQUAL(select: SelectNode<out ET, Select1, *>) =
-  this.greaterOrEqual(select)
+inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.GREATER_OR_EQUAL(
+  select: SelectNode<out ET?, Select1, *>
+) = this.greaterOrEqual(select)
 
 /** @see [NumericColumn.lessThan] */
 @CheckResult
@@ -140,13 +141,15 @@ inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_THAN(value:
 
 /** @see [NumericColumn.lessThan] */
 @CheckResult
-inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.LESS_THAN(column: C) =
-  this.lessThan(column)
+inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.LESS_THAN(
+  column: C
+) = this.lessThan(column)
 
 /** @see [NumericColumn.lessThan] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_THAN(select: SelectNode<out ET, Select1, *>) =
-  this.lessThan(select)
+inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_THAN(
+  select: SelectNode<out ET?, Select1, *>
+) = this.lessThan(select)
 
 /** @see [NumericColumn.lessOrEqual] */
 @CheckResult
@@ -160,8 +163,9 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 
 /** @see [NumericColumn.lessOrEqual] */
 @CheckResult
-inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_OR_EQUAL(select: SelectNode<out ET, Select1, *>) =
-  this.lessOrEqual(select)
+inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.LESS_OR_EQUAL(
+  select: SelectNode<out ET?, Select1, *>
+) = this.lessOrEqual(select)
 
 typealias Between<A, B> = Pair<A, B>
 
@@ -176,20 +180,23 @@ inline infix fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.BETWEEN(between:
 /** @see [NumericColumn.between] */
 @JvmName("betweenColumns")
 @CheckResult
-inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.BETWEEN(between: Between<C, C>) =
-  this.between(between.first).and(between.second)
+inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.BETWEEN(
+  between: Between<C, C>
+) = this.between(between.first).and(between.second)
 
 /** @see [NumericColumn.between] */
 @JvmName("betweenValueAndColumn")
 @CheckResult
-inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.BETWEEN(between: Between<T & Any, C>) =
-  this.between(between.first).and(between.second)
+inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.BETWEEN(
+  between: Between<T & Any, C>
+) = this.between(between.first).and(between.second)
 
 /** @see [NumericColumn.between] */
 @JvmName("betweenColumnAndValue")
 @CheckResult
-inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.BETWEEN(between: Between<C, T & Any>) =
-  this.between(between.first).and(between.second)
+inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.BETWEEN(
+  between: Between<C, T & Any>
+) = this.between(between.first).and(between.second)
 
 /** @see [NumericColumn.notBetween] */
 @CheckResult
@@ -216,42 +223,3 @@ inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> Numeric
 inline infix fun <T, R, ET, P, N, C : NumericColumn<*, *, out ET, *, *>> NumericColumn<T, R, ET, P, N>.NOT_BETWEEN(
   between: Between<C, T & Any>
 ) = this.notBetween(between.first).and(between.second)
-
-/** @see [NumericColumn.add] */
-@CheckResult
-inline operator fun <T, R, ET, P, N, X : NumericColumn<*, *, out Number, *, *>> NumericColumn<T, R, ET, P, N>.plus(
-  column: X
-) = this.add(column)
-
-/** @see [NumericColumn.add] */
-@CheckResult
-inline operator fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.plus(value: T & Any) = this.add(value)
-
-/** @see [NumericColumn.sub] */
-@CheckResult
-inline operator fun <T, R, ET, P, N, X : NumericColumn<*, *, out Number, *, *>> NumericColumn<T, R, ET, P, N>.minus(
-  column: X
-) = this.sub(column)
-
-/** @see [NumericColumn.sub] */
-@CheckResult
-inline operator fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.minus(value: T & Any) = this.sub(value)
-
-/** @see [NumericColumn.mul] */
-@CheckResult
-inline operator fun <T, R, ET, P, N, X : NumericColumn<*, *, out Number, *, *>> NumericColumn<T, R, ET, P, N>.times(
-  column: X
-) = this.mul(column)
-
-/** @see [NumericColumn.mul] */
-@CheckResult
-inline operator fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.times(value: T & Any) = this.mul(value)
-
-/** @see [NumericColumn.mod] */
-@CheckResult
-inline operator fun <T, R, ET, P, N, X : NumericColumn<*, *, out Number, *, *>> NumericColumn<T, R, ET, P, N>.rem(column: X) =
-  this.mod(column)
-
-/** @see [NumericColumn.mod] */
-@CheckResult
-inline operator fun <T, R, ET, P, N> NumericColumn<T, R, ET, P, N>.rem(value: T & Any) = this.mod(value)
