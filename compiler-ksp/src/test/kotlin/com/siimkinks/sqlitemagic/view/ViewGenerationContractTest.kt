@@ -67,7 +67,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "AUTHOR_NAME",
           "RATING",
           "override fun `as`(",
-          "mapper(",
+          "mapper =",
           "QUERY"
         )
         generatedSource.assertDoesNotContain(
@@ -265,10 +265,19 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "Table<JoinedSummary>",
           "AUTHOR_NAME",
-          "query.addObservedTablesTo(observedTables)",
-          "query.putTableGraphNodeNamesInto(tableGraphNodeNames)",
-          "query.putColumnsInto(columnPositions)",
-          "return query.queryDeep"
+          "viewDefinition = { SqliteMagic_JoinedSummary_Dao.QUERY }",
+          "mapper =",
+          "createMapper(",
+          """viewIdentifier = alias ?: "joined_summary"""",
+          "private fun createMapper(",
+          "queryDeep: Boolean",
+          "queryDeep ->",
+          "SqliteMagic_JoinedSummary_Dao::fullObjectFromCursorPosition",
+          "SqliteMagic_JoinedSummary_Dao::shallowObjectFromCursorPosition",
+          "SqliteMagic_JoinedSummary_Dao.fullObjectFromCursorPosition(" +
+              "it, columnPositions, tableGraphNodeNames, viewIdentifier",
+          "SqliteMagic_JoinedSummary_Dao.shallowObjectFromCursorPosition(" +
+              "it, columnPositions, tableGraphNodeNames, viewIdentifier"
         )
       }
       .withGeneratedSource("SqliteMagic_JoinedSummary_Dao.kt") { generatedSource ->
@@ -277,7 +286,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "fullObjectFromCursorPosition",
           "tableGraphNodeNames",
           "author",
-          "query = JoinedSummary.query as CompiledSelect<Magazine, Select.SelectN>"
+          "SqlUtil.viewDefinition(query = JoinedSummary.query)"
         )
         generatedSource.assertDoesNotContain("viewName =")
         generatedSource.assertDoesNotContain("title =")
@@ -326,7 +335,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagic_OpaqueView_Dao.kt")
       .withGeneratedSource("SqliteMagic_OpaqueView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains("QUERY", "CompiledSelect")
+        generatedSource.assertContains("QUERY", "SqlUtil.viewDefinition(query = OpaqueView.query)")
         generatedSource.assertDoesNotContain("CompiledSelectImpl", "CompiledSelect1Impl")
       }
   }

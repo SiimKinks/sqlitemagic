@@ -10,23 +10,48 @@ class ViewDefinition(
   private val tableGraphNodeNames: SimpleArrayMap<String, String>?,
   val queryDeep: Boolean
 ) {
-  /** Append the defining query's observed tables to a generated table's destination. */
-  fun addObservedTablesTo(destination: ArrayList<String>) {
-    destination.ensureCapacity(destination.size + observedTables.size)
-    observedTables.forEach(destination::add)
-  }
+  internal val hasColumnPositions get() = columns?.isEmpty == false
 
-  /** Merge the defining query's selection positions into a generated table's destination. */
-  fun putColumnsInto(destination: SimpleArrayMap<String, Int>?) {
-    if (destination != null) {
-      columns?.let(destination::putAll)
+  internal fun contributeTo(
+    tableIdentifier: String,
+    observedTables: ArrayList<String>,
+    tableGraphNodeNames: SimpleArrayMap<String, String>?,
+    columnPositions: SimpleArrayMap<String, Int>?,
+    implicitOffset: Int,
+    implicitSelection: Boolean
+  ) {
+    addObservedTablesTo(observedTables)
+    when {
+      columnPositions == null -> null
+      implicitSelection -> implicitOffset
+      else -> columnPositions[tableIdentifier]
+    }?.let { offset ->
+      val source = columns
+      when {
+        source?.isEmpty == false -> {
+          columnPositions?.remove(tableIdentifier)
+          for (index in 0 until source.size()) {
+            columnPositions?.put("$tableIdentifier.${source.keyAt(index)}", offset + source.valueAt(index))
+          }
+        }
+        else -> columnPositions?.put(tableIdentifier, offset)
+      }
+    }
+    if (tableGraphNodeNames != null) {
+      this.tableGraphNodeNames?.let { source ->
+        for (index in 0 until source.size()) {
+          tableGraphNodeNames.put("$tableIdentifier.${source.keyAt(index)}", source.valueAt(index))
+        }
+      }
     }
   }
 
-  /** Merge the defining query's selection graph into a generated table's destination. */
-  fun putTableGraphNodeNamesInto(destination: SimpleArrayMap<String, String>?) {
-    if (destination != null) {
-      tableGraphNodeNames?.let(destination::putAll)
+  private fun addObservedTablesTo(destination: ArrayList<String>) {
+    destination.ensureCapacity(destination.size + observedTables.size)
+    observedTables.forEach { table ->
+      if (table !in destination) {
+        destination.add(table)
+      }
     }
   }
 }

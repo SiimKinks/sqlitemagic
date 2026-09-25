@@ -49,6 +49,7 @@ import com.squareup.kotlinpoet.ANY
 import com.squareup.kotlinpoet.ARRAY
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
@@ -150,6 +151,9 @@ internal object WriterTypes {
   val SINGLE = ClassName("io.reactivex", "Single")
   val COMPLETABLE = ClassName("io.reactivex", "Completable")
   val CANCELLATION_EXCEPTION = CancellationException::class.asClassName()
+
+  val CHECK_NOT_NULL = MemberName("kotlin", "checkNotNull")
+  val LAZY = MemberName("kotlin", "lazy")
 
   val UNCHECKED_CAST = AnnotationSpec
     .builder(Suppress::class)

@@ -31,12 +31,12 @@ internal class SelectionTable<T> private constructor(
   override fun perfectSelection(
     observedTables: ArrayList<String>,
     tableGraphNodeNames: SimpleArrayMap<String, String>?,
-    columnPositions: SimpleArrayMap<String, Int>?
+    columnPositions: SimpleArrayMap<String, Int>?,
+    implicitOffset: Int,
+    implicitSelection: Boolean
   ): Boolean {
-    this.observedTables.forEach { tableName ->
-      if (tableName !in observedTables) {
-        observedTables.add(tableName)
-      }
+    this.observedTables.filterNotTo(observedTables) {
+      it in observedTables
     }
     return false
   }

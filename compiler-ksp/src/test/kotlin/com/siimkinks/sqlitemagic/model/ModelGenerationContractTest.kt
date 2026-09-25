@@ -173,6 +173,7 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "private fun createMapper(",
           "Query.Mapper<LibraryBook>",
           "checkNotNull(",
+          """SqliteMagic_LibraryBook_Dao.shallowObjectFromCursorPosition(it, columnPositions, tableGraphNodeNames, """"",
           "SqliteMagic_LibraryBook_Dao::shallowObjectFromCursorPosition"
         )
         generatedSource.assertDoesNotContain(

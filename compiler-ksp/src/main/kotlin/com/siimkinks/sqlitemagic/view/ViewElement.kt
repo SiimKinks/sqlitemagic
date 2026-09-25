@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.model.PropertyMetadata
 import com.siimkinks.sqlitemagic.readModelGenerationNames
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
+import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.TypeName
@@ -104,6 +105,7 @@ data class ViewElement(
   }
   val modelName = modelClassName.simpleName
   val packageName = modelClassName.packageName
+  val structureFieldName = viewName.camelCaseToSnakeCase().uppercase()
   val viewName get() = rawName
   val generationNames = ViewGenerationNames(
     packageName = packageName,

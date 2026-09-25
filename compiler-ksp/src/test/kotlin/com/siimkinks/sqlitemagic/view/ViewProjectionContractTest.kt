@@ -65,11 +65,11 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagic_CompleteProjectionView_Dao.kt")
       .withGeneratedSource("SqliteMagic_CompleteProjectionView_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "NoIdRow(",
-          "TextIdRow(",
-          "LateIdRow(",
+          "noId = NoIdRow(",
+          "textId = TextIdRow(",
+          "lateId = LateIdRow(",
           "columnOffset.value",
-          "cursor.isNull"
+          "cursor.getString"
         )
         generatedSource.assertDoesNotContain(
           "newInstanceWithOnlyId",
@@ -121,7 +121,8 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
           "first_no_id",
           "second_no_id",
           "columnIndex",
-          "&&",
+          "first = if (",
+          "second = if (",
           "NoIdRow("
         )
         generatedSource.assertDoesNotContain("newInstanceWithOnlyId")
@@ -181,9 +182,8 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagic_OuterAuthor_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "InnerAuthor(",
-          "inner =",
+          "`inner` =",
           "columnIndex",
-          "cursor.isNull",
           "shallowObjectFromCursorPosition"
         )
         generatedSource.assertDoesNotContain(
@@ -215,7 +215,7 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
             import com.siimkinks.sqlitemagic.annotation.ViewQuery
-            import com.siimkinks.sqlitemagic.BaseViewTable.BASE
+            import com.siimkinks.sqlitemagic.BaseViewTable.Companion.BASE
 
             @Table
             data class Author(
@@ -275,14 +275,14 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "Table<ComposedView>",
           "TAIL",
-          "BASE",
-          "mapper(",
+          "mapper =",
+          "viewDefinition =",
           "QUERY"
         )
       }
       .withGeneratedSource("SqliteMagic_ComposedView_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "BaseView(",
+          "base = BaseView(",
           "tail =",
           "columnOffset.value",
           "shallowObjectFromCursorPosition",

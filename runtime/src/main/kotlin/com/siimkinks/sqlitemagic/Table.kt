@@ -37,9 +37,11 @@ open class Table<T> protected constructor(
     error("Table does not provide row mapping")
   },
   internal val addDeepQueryParts: TableQueryGraphContributor = { _, _, _ -> },
-  internal val addShallowQueryParts: TableQueryGraphContributor = { _, _, _ -> }
+  internal val addShallowQueryParts: TableQueryGraphContributor = { _, _, _ -> },
+  private val viewDefinition: (() -> ViewDefinition)? = null
 ) {
   internal val hasAlias = alias != null
+  internal val hasViewDefinitionPositions get() = viewDefinition?.invoke()?.hasColumnPositions == true
   internal val nameInQuery = alias ?: name
   private val selectAllColumn = Column<Any, Any, Any, T, NotNullable>(
     table = this,
@@ -69,8 +71,21 @@ open class Table<T> protected constructor(
   internal open fun perfectSelection(
     observedTables: ArrayList<String>,
     tableGraphNodeNames: SimpleArrayMap<String, String>?,
-    columnPositions: SimpleArrayMap<String, Int>?
+    columnPositions: SimpleArrayMap<String, Int>?,
+    implicitOffset: Int = 0,
+    implicitSelection: Boolean = columnPositions?.isEmpty == true
   ): Boolean {
+    viewDefinition?.invoke()?.let { definition ->
+      definition.contributeTo(
+        tableIdentifier = nameInQuery,
+        observedTables = observedTables,
+        tableGraphNodeNames = tableGraphNodeNames,
+        columnPositions = columnPositions,
+        implicitOffset = implicitOffset,
+        implicitSelection = implicitSelection
+      )
+      return definition.queryDeep
+    }
     if (name !in observedTables) {
       observedTables.add(name)
     }

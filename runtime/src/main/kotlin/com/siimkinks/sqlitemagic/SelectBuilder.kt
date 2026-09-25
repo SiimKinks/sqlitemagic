@@ -135,7 +135,7 @@ internal class SelectBuilder<S> {
       tableGraphNodeNames = tableGraphNodeNames,
       columnPositions = columnPositions
     )
-    val fromSelection = columnPositions.isEmpty
+    val selectedRoot = !columnPositions.isEmpty || from.table.hasViewDefinitionPositions
     return CompiledSelectImpl(
       sql = sql,
       args = when {
@@ -146,11 +146,11 @@ internal class SelectBuilder<S> {
       dbConnection = dbConnection,
       observedTables = observedTables.toTypedArray(),
       columns = when {
-        fromSelection -> null
+        !selectedRoot -> null
         else -> columnPositions
       },
       tableGraphNodeNames = when {
-        fromSelection -> null
+        !selectedRoot -> null
         else -> tableGraphNodeNames
       },
       queryDeep = deep || forcedDeepSelection
@@ -164,17 +164,24 @@ internal class SelectBuilder<S> {
     columnPositions: SimpleArrayMap<String, Int>?
   ): Boolean {
     val joins = from.joins
-    var forcedDeepSelection = from.table.perfectSelection(
+    val implicitSelection = columnPositions?.isEmpty == true
+    val forcedDeepSelection = from.table.perfectSelection(
       observedTables = observedTables,
       tableGraphNodeNames = tableGraphNodeNames,
-      columnPositions = columnPositions
+      columnPositions = columnPositions,
+      implicitOffset = 0,
+      implicitSelection = implicitSelection
     )
+    var implicitOffset = from.table.nrOfColumns
     for (join in joins) {
-      forcedDeepSelection = forcedDeepSelection or join.table.perfectSelection(
+      join.table.perfectSelection(
         observedTables = observedTables,
         tableGraphNodeNames = tableGraphNodeNames,
-        columnPositions = columnPositions
+        columnPositions = columnPositions,
+        implicitOffset = implicitOffset,
+        implicitSelection = implicitSelection
       )
+      implicitOffset += join.table.nrOfColumns
     }
     return forcedDeepSelection
   }

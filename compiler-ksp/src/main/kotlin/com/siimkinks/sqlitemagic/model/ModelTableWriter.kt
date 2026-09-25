@@ -3,12 +3,6 @@ package com.siimkinks.sqlitemagic.model
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_DEEP_QUERY_PARTS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_SHALLOW_QUERY_PARTS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_MAPPER
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
-import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_COLUMN
@@ -17,101 +11,45 @@ import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NUMERIC_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.QUERY_GRAPH_SCOPE
-import com.siimkinks.sqlitemagic.WriterTypes.QUERY_MAPPER
-import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
 import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_NUMERIC_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.UTILS
-import com.squareup.kotlinpoet.BOOLEAN
+import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
-import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
-import com.squareup.kotlinpoet.INT
-import com.squareup.kotlinpoet.KModifier.INTERNAL
-import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PRIVATE
-import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
-import com.squareup.kotlinpoet.TypeSpec
 
 internal class ModelTableWriter(
   private val environment: Environment
 ) : ModelWriter {
   override fun write(tableRoundElement: TableRoundElement) = with(tableRoundElement) {
-    val tableType = table.generationNames.tableClassName
-    FileSpec
-      .builder(tableType)
-      .addType(
-        TypeSpec
-          .classBuilder(tableType)
-          .primaryConstructor(
-            FunSpec
-              .constructorBuilder()
-              .addModifiers(PRIVATE)
-              .addParameter(name = VARIABLE_ALIAS, type = STRING.copy(nullable = true))
-              .build()
+    ReadTableStructureWriter
+      .from(
+        table = table,
+        columns = table.allColumns.map { column ->
+          columnProperty(
+            table = table,
+            column = column
           )
-          .superclass(TABLE.parameterizedBy(table.modelClassName))
-          .addSuperclassConstructorParameter("name = %S", table.tableName)
-          .addSuperclassConstructorParameter("alias = %N", VARIABLE_ALIAS)
-          .addSuperclassConstructorParameter("nrOfColumns = %L", table.allColumns.size)
-          .addSuperclassConstructorParameter("%N = ::%N", METHOD_MAPPER, METHOD_CREATE_MAPPER)
-          .apply {
-            if (!table.isPublic) {
-              addModifiers(INTERNAL)
-            }
-            if (table.hasRecursiveRelationships) {
-              addSuperclassConstructorParameter(
-                "%N = %T::%N",
-                METHOD_ADD_DEEP_QUERY_PARTS,
-                QUERY_GRAPH_SCOPE,
-                METHOD_ADD_DEEP_QUERY_PARTS
-              )
-            }
-            if (table.needsShallowQueryParts) {
-              addSuperclassConstructorParameter(
-                "%N = %T::%N",
-                METHOD_ADD_SHALLOW_QUERY_PARTS,
-                QUERY_GRAPH_SCOPE,
-                METHOD_ADD_SHALLOW_QUERY_PARTS
-              )
-            }
-            table.allColumns.forEach { column ->
-              addProperty(
-                columnProperty(
-                  table = table,
-                  column = column
-                )
-              )
-            }
+        },
+        otherFunctions = buildList {
+          if (table.hasRecursiveRelationships) {
+            add(queryGraphContributor(table = table))
           }
-          .addFunction(aliasFunction(table))
-          .addType(companionObject(table))
-          .build()
+          if (table.needsShallowQueryParts) {
+            add(queryGraphContributor(table = table, shallow = true))
+          }
+        }
       )
-      .addFunction(mapperFunction(table))
-      .apply {
-        if (table.hasRecursiveRelationships) {
-          addFunction(queryGraphContributor(table = table))
-        }
-        if (table.needsShallowQueryParts) {
-          addFunction(
-            queryGraphContributor(
-              table = table,
-              shallow = true
-            )
-          )
-        }
-      }
-      .build()
-      .writeModelSource(
+      .write(
         codeGenerator = environment.codeGenerator,
         originatingFiles = originatingFiles
       )
@@ -168,13 +106,13 @@ internal class ModelTableWriter(
       else -> NOT_NULLABLE
     }
     val transformer = column.transformer
-    if (column.hasGeneratedColumnClass) {
-      return generatedColumnClass(table = table, column = column)
+    when {
+      column.hasGeneratedColumnClass -> return generatedColumnClass(table, column)
         .parameterizedBy(table.modelClassName, nullability)
-    }
-    if (transformer?.isDefaultTransformer == true) {
-      return BOOLEAN_COLUMN
-        .parameterizedBy(table.modelClassName, nullability)
+      transformer?.isDefaultTransformer == true -> return BOOLEAN_COLUMN.parameterizedBy(
+        table.modelClassName,
+        nullability
+      )
     }
     val valueType = when {
       column.relationship != null -> column.relationship.referencedIdType.typeName
@@ -225,98 +163,6 @@ internal class ModelTableWriter(
   private fun parserName(column: ColumnElement) = column
     .sqlStorageType
     .parserName(column.isSchemaNullable)
-
-  private fun aliasFunction(table: TableElement): FunSpec {
-    val tableClassName = table.generationNames.tableClassName
-    return FunSpec
-      .builder(METHOD_AS)
-      .addModifiers(OVERRIDE)
-      .addParameter(name = VARIABLE_ALIAS, type = STRING)
-      .returns(tableClassName)
-      .addStatement("return %T(%N)", tableClassName, VARIABLE_ALIAS)
-      .build()
-  }
-
-  private fun mapperFunction(table: TableElement): FunSpec {
-    val columnPositions = ParameterSpec
-      .builder(
-        name = "columnPositions",
-        type = SIMPLE_ARRAY_MAP
-          .parameterizedBy(STRING, INT)
-          .copy(nullable = true)
-      )
-      .build()
-    val tableGraphNodeNames = ParameterSpec
-      .builder(
-        name = "tableGraphNodeNames",
-        type = SIMPLE_ARRAY_MAP
-          .parameterizedBy(STRING, STRING)
-          .copy(nullable = true)
-      )
-      .build()
-    val queryDeep = ParameterSpec
-      .builder(name = "queryDeep", type = BOOLEAN)
-      .build()
-    val mapperType = QUERY_MAPPER.parameterizedBy(table.modelClassName)
-    val daoClassName = table.generationNames.daoClassName
-    val function = FunSpec
-      .builder(METHOD_CREATE_MAPPER)
-      .addModifiers(PRIVATE)
-      .addParameter(columnPositions)
-      .addParameter(tableGraphNodeNames)
-      .addParameter(queryDeep)
-      .returns(mapperType)
-      .beginControlFlow("return when")
-    when {
-      table.hasRecursiveRelationships -> function
-        .beginControlFlow("%N == null || %N.isEmpty() -> when", columnPositions, columnPositions)
-        .addStatement("%N -> %T(%T::%N)", queryDeep, mapperType, daoClassName, METHOD_FULL_OBJECT_FROM_CURSOR_POSITION)
-        .addStatement("else -> %T(%T::%N)", mapperType, daoClassName, METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION)
-        .endControlFlow()
-        .beginControlFlow("%N -> %T", queryDeep, mapperType)
-        .addStatement(
-          "checkNotNull(%T.%N(it, %N, %N, %S))",
-          daoClassName,
-          METHOD_FULL_OBJECT_FROM_CURSOR_POSITION,
-          columnPositions,
-          tableGraphNodeNames,
-          ""
-        )
-        .endControlFlow()
-        .beginControlFlow("else -> %T", mapperType)
-        .addStatement(
-          "checkNotNull(%T.%N(it, %N, %N, %S))",
-          daoClassName,
-          METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION,
-          columnPositions,
-          tableGraphNodeNames,
-          ""
-        )
-        .endControlFlow()
-      else -> function
-        .addStatement(
-          "%N == null || %N.isEmpty() -> %T(%T::%N)",
-          columnPositions,
-          columnPositions,
-          mapperType,
-          daoClassName,
-          METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
-        )
-        .beginControlFlow("else -> %T", mapperType)
-        .addStatement(
-          "checkNotNull(%T.%N(it, %N, %N, %S))",
-          daoClassName,
-          METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION,
-          columnPositions,
-          tableGraphNodeNames,
-          ""
-        )
-        .endControlFlow()
-    }
-    return function
-      .endControlFlow()
-      .build()
-  }
 
   private fun queryGraphContributor(
     table: TableElement,
@@ -412,16 +258,4 @@ internal class ModelTableWriter(
     return function.build()
   }
 
-  private fun companionObject(table: TableElement): TypeSpec {
-    val tableClassName = table.generationNames.tableClassName
-    return TypeSpec
-      .companionObjectBuilder()
-      .addProperty(
-        PropertySpec
-          .builder(name = table.structureFieldName, type = tableClassName)
-          .initializer("%T(null)", tableClassName)
-          .build()
-      )
-      .build()
-  }
 }

@@ -4,13 +4,17 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_NEW_INSTANCE_WITH_ONLY_ID
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
-import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
 import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_INT
 import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
-import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
-import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERTIES
-import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
+import com.siimkinks.sqlitemagic.writer.CursorAbsence
+import com.siimkinks.sqlitemagic.writer.CursorPosition
+import com.siimkinks.sqlitemagic.writer.CursorPositions
+import com.siimkinks.sqlitemagic.writer.CursorReadNode
+import com.siimkinks.sqlitemagic.writer.CursorReadProperty
+import com.siimkinks.sqlitemagic.writer.CursorReadTree
+import com.siimkinks.sqlitemagic.writer.CursorReadTreeWriter
+import com.siimkinks.sqlitemagic.writer.databaseCursorGetter
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.INT
@@ -19,11 +23,12 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.joinToCode
 
 internal class ModelDaoCursorWriter(
   private val environment: Environment
 ) {
+  private val tableReadLayout = TableReadLayout(environment.tableElements)
+
   fun write(
     table: TableElement,
     daoBuilder: TypeSpec.Builder
@@ -58,33 +63,97 @@ internal class ModelDaoCursorWriter(
     }
   }
 
+  internal fun completeProjectionTree(
+    table: TableElement,
+    recursive: Boolean,
+    resolvePosition: (CompleteProjectionColumn) -> CursorPosition
+  ): CursorReadTree = completeProjectionTree(
+    table = table,
+    recursive = recursive,
+    relationshipPath = emptyList(),
+    expandedOffset = 0,
+    resolvePosition = resolvePosition
+  )
+
+  private fun completeProjectionTree(
+    table: TableElement,
+    recursive: Boolean,
+    relationshipPath: List<String>,
+    expandedOffset: Int,
+    resolvePosition: (CompleteProjectionColumn) -> CursorPosition
+  ): CursorReadTree {
+    val columnIndexes = table.allColumns
+      .withIndex()
+      .associate { (index, column) ->
+        column to resolvePosition(
+          CompleteProjectionColumn(
+            column = column,
+            columnIndex = index,
+            relationshipPath = relationshipPath,
+            expandedOffset = expandedOffset + index
+          )
+        )
+      }
+    val relationshipTrees = linkedMapOf<ColumnElement, CursorReadTree>()
+    var childOffset = expandedOffset + table.allColumns.size
+    for (column in table.relationshipColumns) {
+      val relationship = checkNotNull(column.relationship)
+      val width = tableReadLayout.relationshipWidth(
+        column = column,
+        recursive = recursive
+      )
+      if (width > 0) {
+        val target = checkNotNull(environment.tableElements[relationship.referencedTableTypeKey])
+        relationshipTrees[column] = completeProjectionTree(
+          table = target,
+          recursive = recursive,
+          relationshipPath = relationshipPath + column.columnName,
+          expandedOffset = childOffset,
+          resolvePosition = resolvePosition
+        )
+      }
+      childOffset += width
+    }
+    return readTree(
+      type = table.modelClassName,
+      construction = table.construction,
+      tableName = table.tableName,
+      properties = table.properties,
+      columnIndexes = columnIndexes,
+      recursive = recursive,
+      selection = null,
+      relationshipTrees = relationshipTrees,
+      completeProjection = true
+    )
+  }
+
   private fun TableElement.cursorConstructor(
     functionName: String,
     recursive: Boolean
   ): FunSpec {
-    val cursorNullChecks = CursorNullChecks()
+    val positions = CursorPositions()
     val columnIndexes = allColumns
-      .mapIndexed { index, column ->
-        column to CursorPosition(
+      .withIndex()
+      .associate { (index, column) ->
+        column to positions.positional(
           code = CodeBlock.of("thisTableOffset + %L", index),
-          mayBeMissing = false,
-          nullCheckName = "column${index}IsNull",
-          nullChecks = cursorNullChecks
+          nullCheckName = "column${index}IsNull"
         )
       }
-      .toMap()
-    val construction = cursorNullChecks.generate {
-      constructionCode(
-        type = modelClassName,
-        construction = construction,
-        tableName = tableName,
-        properties = properties,
-        columnIndexes = columnIndexes,
-        recursive = recursive,
-        selection = null
-      )
+    val tree = readTree(
+      type = modelClassName,
+      construction = construction,
+      tableName = tableName,
+      properties = properties,
+      columnIndexes = columnIndexes,
+      recursive = recursive,
+      selection = null
+    )
+    val result = positions.generate {
+      CursorReadTreeWriter()
+        .construct(tree)
     }
-    return FunSpec
+    val function = FunSpec
       .builder(functionName)
       .addParameter(name = "cursor", type = CURSOR)
       .addParameter(
@@ -96,8 +165,9 @@ internal class ModelDaoCursorWriter(
       .returns(modelClassName)
       .addStatement("val thisTableOffset = columnOffset.value")
       .addStatement("columnOffset.value += %L", allColumns.size)
-      .addCursorNullCheckDeclarations(cursorNullChecks)
-      .addStatement("return %L", construction)
+    positions.addNullCheckDeclarations(function)
+    return function
+      .addStatement("return %L", result)
       .build()
   }
 
@@ -105,7 +175,7 @@ internal class ModelDaoCursorWriter(
     functionName: String,
     recursive: Boolean
   ): FunSpec {
-    val cursorNullChecks = CursorNullChecks()
+    val positions = CursorPositions()
     val function = FunSpec
       .builder(functionName)
       .addParameter(name = "cursor", type = CURSOR)
@@ -125,8 +195,8 @@ internal class ModelDaoCursorWriter(
       .addStatement("val effectiveTableName = tableName ?: %S", tableName)
       .addStatement("val thisTableOffset = columns[effectiveTableName]")
     val columnIndexes = allColumns
-      .mapIndexed { index, column ->
-        val indexName = "columnIndex$index"
+      .withIndex()
+      .associate { (index, column) ->
         val tableOffset = when (index) {
           0 -> CodeBlock.of("thisTableOffset")
           else -> CodeBlock.of("thisTableOffset?.plus(%L)", index)
@@ -136,266 +206,169 @@ internal class ModelDaoCursorWriter(
           tableOffset,
           $$"$effectiveTableName.$${column.columnName}"
         )
-        when {
-          column.isModelPathNullable -> function.addStatement("val %N = %L ?: -1", indexName, lookup)
-          else -> function.addStatement(
-            "val %N = %L ?: throw %T(%S)",
-            indexName,
-            lookup,
-            SQL_EXCEPTION,
-            "Selected columns did not contain table \"${tableName}\" required column \"${column.columnName}\""
-          )
-        }
-        column to CursorPosition(
-          code = CodeBlock.of("%N", indexName),
-          mayBeMissing = column.isModelPathNullable,
-          nullCheckName = "${indexName}IsNull",
-          nullChecks = cursorNullChecks
+        column to positions.selected(
+          function = function,
+          indexName = "columnIndex$index",
+          lookup = lookup,
+          required = !column.isModelPathNullable,
+          missingMessage = "Selected columns did not contain table \"${tableName}\" required column \"${column.columnName}\""
         )
       }
-      .toMap()
-    val construction = cursorNullChecks.generate {
-      constructionCode(
-        type = modelClassName,
-        construction = construction,
-        tableName = tableName,
-        properties = properties,
-        columnIndexes = columnIndexes,
-        recursive = recursive,
-        selection = CursorSelection(
-          columns = CodeBlock.of("columns"),
-          tableGraphNodeNames = CodeBlock.of("tableGraphNodeNames"),
-          nodeName = CodeBlock.of("nodeName")
-        )
+    val tree = readTree(
+      type = modelClassName,
+      construction = construction,
+      tableName = tableName,
+      properties = properties,
+      columnIndexes = columnIndexes,
+      recursive = recursive,
+      selection = CursorSelection(
+        columns = CodeBlock.of("%N", "columns"),
+        tableGraphNodeNames = CodeBlock.of("%N", "tableGraphNodeNames"),
+        nodeName = CodeBlock.of("%N", "nodeName")
       )
+    )
+    val result = positions.generate {
+      CursorReadTreeWriter()
+        .construct(tree)
     }
+    positions.addNullCheckDeclarations(function)
     return function
-      .addCursorNullCheckDeclarations(cursorNullChecks)
-      .addStatement("return %L", construction)
+      .addStatement("return %L", result)
       .build()
   }
 
-  private fun constructionCode(
+  private fun readTree(
     type: TypeName,
     construction: ModelConstruction,
     tableName: String,
     properties: List<PropertyElement>,
     columnIndexes: Map<ColumnElement, CursorPosition>,
     recursive: Boolean,
-    selection: CursorSelection?
-  ): CodeBlock = when (construction.strategy) {
-    PRIMARY_CONSTRUCTOR -> CodeBlock
-      .builder()
-      .add("%T(\n", type.copy(nullable = false))
-      .indent()
-      .apply {
-        properties.forEachIndexed { index, property ->
-          add(
-            "%N = %L",
-            property.access.path.propertyName,
-            propertyValueCode(
-              property = property,
-              tableName = tableName,
-              columnIndexes = columnIndexes,
-              recursive = recursive,
-              selection = selection
-            )
-          )
-          if (index != properties.lastIndex) {
-            add(",")
-          }
-          add("\n")
-        }
-      }
-      .unindent()
-      .add(")")
-      .build()
-    MUTABLE_PROPERTIES -> CodeBlock
-      .builder()
-      .add("%T().apply {\n", type.copy(nullable = false))
-      .indent()
-      .apply {
-        properties.forEach { property ->
-          add(
-            "%L\n",
-            mutablePropertyAssignmentCode(
-              property = property,
-              tableName = tableName,
-              columnIndexes = columnIndexes,
-              recursive = recursive,
-              selection = selection
-            )
-          )
-        }
-      }
-      .unindent()
-      .add("}")
-      .build()
-  }
-
-  private fun mutablePropertyAssignmentCode(
-    property: PropertyElement,
-    tableName: String,
-    columnIndexes: Map<ColumnElement, CursorPosition>,
-    recursive: Boolean,
-    selection: CursorSelection?
-  ): CodeBlock {
-    val nullableCheck = mutablePropertyNullCheck(
-      property = property,
-      columnIndexes = columnIndexes,
-      selection = selection
-    )
-    val value = propertyValueCode(
-      property = property,
-      tableName = tableName,
-      columnIndexes = columnIndexes,
-      recursive = recursive,
-      selection = selection,
-      nullableValueGuarded = nullableCheck != null
-    )
-    val assignment = CodeBlock.of("this.%N = %L", property.access.path.propertyName, value)
-    val skippedValue = when {
-      nullableCheck == null || selection != null -> null
-      else -> property
-        .flattenedColumns()
-        .takeIf { it.any { column -> column.requiresRecursiveCursorOffset(recursive) } }
-        ?.let { skippedColumns ->
-          skippedRecursiveStatement(
-            columns = skippedColumns,
-            recursive = recursive
-          )
-        }
-    }
-    return when {
-      nullableCheck == null -> assignment
-      skippedValue != null -> CodeBlock.of("if (%L) %L else %L", nullableCheck, skippedValue, assignment)
-      else -> CodeBlock.of("if (!(%L)) %L", nullableCheck, assignment)
-    }
-  }
-
-  private fun mutablePropertyNullCheck(
-    property: PropertyElement,
-    columnIndexes: Map<ColumnElement, CursorPosition>,
-    selection: CursorSelection?
-  ): CodeBlock? = when (property) {
-    is ColumnPropertyElement -> when {
-      property.column.isNullable -> checkNotNull(columnIndexes[property.column]).nullCheck()
-      else -> null
-    }
-    is EmbeddedPropertyElement -> when {
-      property.isNullable -> nullableEmbeddedNullCheck(
-        property = property,
-        columnIndexes = columnIndexes,
-        selection = selection
-      )
-      else -> null
-    }
-  }
-
-  private fun nullableEmbeddedNullCheck(
-    property: EmbeddedPropertyElement,
-    columnIndexes: Map<ColumnElement, CursorPosition>,
-    selection: CursorSelection?
-  ): CodeBlock {
-    val columnPositions = property.properties
-      .flatMap(PropertyElement::flattenedColumns)
-      .map { checkNotNull(columnIndexes[it]) }
-    val nullCheck = columnPositions
-      .map(CursorPosition::presentNullCheck)
-      .joinToCode(separator = " && ")
-    val missingCheck = selection?.let {
-      columnPositions
-        .map(CursorPosition::missingCheck)
-        .joinToCode(separator = " && ")
-    }
-    return when (missingCheck) {
-      null -> nullCheck
-      else -> CodeBlock.of("(%L) || (%L)", missingCheck, nullCheck)
-    }
-  }
-
-  private fun propertyValueCode(
-    property: PropertyElement,
-    tableName: String,
-    columnIndexes: Map<ColumnElement, CursorPosition>,
-    recursive: Boolean,
     selection: CursorSelection?,
-    nullableValueGuarded: Boolean = false
-  ): CodeBlock = when (property) {
-    is ColumnPropertyElement -> columnValueCode(
-      column = property.column,
-      tableName = tableName,
-      columnPosition = checkNotNull(columnIndexes[property.column]),
-      recursive = recursive,
-      selection = selection,
-      nullableValueGuarded = nullableValueGuarded
-    )
-    is EmbeddedPropertyElement -> {
-      val construction = constructionCode(
-        type = property.deserializedType.typeName,
-        construction = property.construction,
-        tableName = tableName,
-        properties = property.properties,
-        columnIndexes = columnIndexes,
-        recursive = recursive,
-        selection = selection
-      )
-      when {
-        property.isNullable && !nullableValueGuarded -> {
-          val embeddedNullCheck = nullableEmbeddedNullCheck(
-            property = property,
-            columnIndexes = columnIndexes,
-            selection = selection
-          )
-          when {
-            selection == null -> CodeBlock.of(
-              "if (%L) %L else %L",
-              embeddedNullCheck,
-              skippedRecursiveValue(
-                columns = property.flattenedColumns(),
+    relationshipTrees: Map<ColumnElement, CursorReadTree> = emptyMap(),
+    completeProjection: Boolean = false
+  ): CursorReadTree = CursorReadTree(
+    type = type,
+    construction = construction,
+    nodes = properties.map { property ->
+      when (property) {
+        is ColumnPropertyElement -> columnNode(
+          column = property.column,
+          tableName = tableName,
+          position = checkNotNull(columnIndexes[property.column]),
+          recursive = recursive,
+          selection = selection,
+          nestedTree = relationshipTrees[property.column],
+          completeProjection = completeProjection
+        )
+        is EmbeddedPropertyElement -> {
+          val flattened = property.flattenedColumns()
+          CursorReadNode.Embedded(
+            source = CursorReadProperty.from(property),
+            tree = readTree(
+              type = property.deserializedType.typeName,
+              construction = property.construction,
+              tableName = tableName,
+              properties = property.properties,
+              columnIndexes = columnIndexes,
+              recursive = recursive,
+              selection = selection,
+              relationshipTrees = relationshipTrees,
+              completeProjection = completeProjection
+            ),
+            absence = CursorAbsence.TableEmbedded(
+              positions = flattened.map { checkNotNull(columnIndexes[it]) },
+              selected = selection != null
+            ),
+            skipWidthOnAbsent = when {
+              selection == null && !completeProjection -> recursiveCursorOffset(
+                columns = flattened,
                 recursive = recursive
-              ),
-              construction
-            )
-            else -> CodeBlock.of("if (%L) null else %L", embeddedNullCheck, construction)
-          }
+              )
+              else -> 0
+            },
+            mutableValueGuarded = true
+          )
         }
-        else -> construction
       }
     }
-  }
+  )
 
-  private fun columnValueCode(
+  private fun columnNode(
     column: ColumnElement,
     tableName: String,
-    columnPosition: CursorPosition,
+    position: CursorPosition,
     recursive: Boolean,
     selection: CursorSelection?,
-    nullableValueGuarded: Boolean = false
-  ): CodeBlock {
-    val index = columnPosition.code
-    val relationship = column.relationship ?: return columnValueFromDatabase(
-      column = column,
-      tableName = tableName,
-      columnPosition = columnPosition,
-      nullableValueGuarded = nullableValueGuarded
+    nestedTree: CursorReadTree?,
+    completeProjection: Boolean
+  ): CursorReadNode {
+    val relationship = column.relationship ?: return CursorReadNode.Scalar(
+      source = CursorReadProperty.from(column),
+      position = position,
+      storageType = column.sqlStorageType,
+      transformer = column.transformer,
+      serializedInputNullable = column.transformer?.serializedTypeCanBeNull == true,
+      enclosingPathNullable = column.isModelPathNullable,
+      requirePresentValue = completeProjection,
+      missingMessage = "Selected columns did not contain table \"$tableName\" required column \"${column.columnName}\"",
+      nullMessage = "Column \"${column.columnName}\" was NULL",
+      mutableValueGuarded = true
     )
+    val retrievesRelationship = relationship.isHandledRecursively &&
+        (recursive || !relationship.canConstructWithOnlyId)
+    val relationshipKind = if (column.isHandledRecursively) "recursive " else ""
+    return CursorReadNode.PersistedRelationship(
+      source = CursorReadProperty.from(column),
+      position = position,
+      read = {
+        relationshipRead(
+          column = column,
+          position = position,
+          recursive = recursive,
+          selection = selection,
+          retrievesRelationship = retrievesRelationship
+        )
+      },
+      nestedTree = nestedTree,
+      readCanBeNull = retrievesRelationship && selection != null && nestedTree == null,
+      nullMessage = "Required ${relationshipKind}relationship \"${column.columnName}\" had a NULL ID",
+      missingMessage = "Selected columns did not contain required relationship \"${column.columnName}\"",
+      skipWidthOnAbsent = when {
+        selection == null && !completeProjection && retrievesRelationship -> recursiveCursorOffset(
+          columns = listOf(column),
+          recursive = recursive
+        )
+        else -> 0
+      },
+      selected = selection != null || completeProjection
+    )
+  }
+
+  private fun relationshipRead(
+    column: ColumnElement,
+    position: CursorPosition,
+    recursive: Boolean,
+    selection: CursorSelection?,
+    retrievesRelationship: Boolean
+  ): CodeBlock {
+    val relationship = checkNotNull(column.relationship)
     val storedDatabaseId = when {
       !column.isNullable -> databaseCursorGetter(
-        column = column,
-        index = index
+        storageType = column.sqlStorageType,
+        index = position.code
       )
       relationship.referencedIdIsNullable -> CodeBlock.of(
         "(if (%L) null else %L)",
-        columnPosition.presentNullCheck(),
+        position.presentNullCheck(),
         databaseCursorGetter(
-          column = column,
-          index = index
+          storageType = column.sqlStorageType,
+          index = position.code
         )
       )
       else -> databaseCursorGetter(
-        column = column,
-        index = index
+        storageType = column.sqlStorageType,
+        index = position.code
       )
     }
     val databaseId = relationship.deserializedDeclaredIdValue(
@@ -403,14 +376,9 @@ internal class ModelDaoCursorWriter(
       databaseValueCanBeNull = relationship.databaseValueCanBeNull,
       databaseValueIsNonNull = !column.isNullable
     )
-    val referencedTable = checkNotNull(
-      environment.tableElements[relationship.referencedTableTypeKey]
-    )
-    val retrievesRelationship = relationship.isHandledRecursively &&
-        (recursive || !relationship.canConstructWithOnlyId)
+    val referencedTable = checkNotNull(environment.tableElements[relationship.referencedTableTypeKey])
     val daoClassName = referencedTable.generationNames.daoClassName
-    val idOnlyValue = CodeBlock.of("%T.%N(%L)", daoClassName, METHOD_NEW_INSTANCE_WITH_ONLY_ID, databaseId)
-    val value = when {
+    return when {
       retrievesRelationship && selection != null -> CodeBlock.of(
         "%T.%N(cursor, %L, %L, %L + %S)",
         daoClassName,
@@ -431,100 +399,17 @@ internal class ModelDaoCursorWriter(
           recursive = recursive
         )
       )
-      relationship.canConstructWithOnlyId -> idOnlyValue
-      else -> CodeBlock.of("%T.%N(cursor, %L)", daoClassName, METHOD_FULL_OBJECT_FROM_CURSOR_POSITION, index)
-    }
-    val skippedRelationship = when {
-      selection == null && retrievesRelationship -> skippedRecursiveValue(
-        columns = listOf(column),
-        recursive = recursive
-      )
-      else -> null
-    }
-    return when {
-      !column.isNullable -> requiredRelationshipValue(
-        column = column,
-        columnPosition = columnPosition,
-        recursive = recursive,
-        selection = selection,
-        value = value,
-        valueCanBeNull = retrievesRelationship && selection != null,
-        skippedRelationship = skippedRelationship
-      )
-      !nullableValueGuarded && column.isNullable && skippedRelationship != null -> CodeBlock.of(
-        "if (%L) %L else %L",
-        columnPosition.nullCheck(),
-        skippedRelationship,
-        value
-      )
-      !nullableValueGuarded && column.isNullable -> CodeBlock.of(
-        "if (%L) null else %L",
-        columnPosition.nullCheck(),
-        value
-      )
-      retrievesRelationship && selection != null -> CodeBlock.of(
-        "%L ?: throw %T(%S)",
-        value,
-        SQL_EXCEPTION,
-        "Selected columns did not contain required relationship \"${column.columnName}\""
-      )
-      else -> value
-    }
-  }
-
-  private fun requiredRelationshipValue(
-    column: ColumnElement,
-    columnPosition: CursorPosition,
-    recursive: Boolean,
-    selection: CursorSelection?,
-    value: CodeBlock,
-    valueCanBeNull: Boolean,
-    skippedRelationship: CodeBlock?
-  ): CodeBlock {
-    val relationshipKind = if (column.isHandledRecursively) "recursive " else ""
-    val nullIdMessage = "Required ${relationshipKind}relationship \"${column.columnName}\" had a NULL ID"
-    val missingRelationshipMessage = "Selected columns did not contain required relationship \"${column.columnName}\""
-    val valueOrMissingFailure = when {
-      valueCanBeNull -> CodeBlock.of("%L ?: throw %T(%S)", value, SQL_EXCEPTION, missingRelationshipMessage)
-      else -> value
-    }
-    val skippedValue = skippedRecursiveRelationshipFailure(
-      columns = listOf(column),
-      recursive = recursive,
-      message = nullIdMessage
-    )
-    return when {
-      selection != null && columnPosition.mayBeMissing -> CodeBlock.of(
-        "if (%L) throw %T(%S)\n" +
-            "else if (%L) throw %T(%S)\n" +
-            "else %L",
-        columnPosition.missingCheck(),
-        SQL_EXCEPTION,
-        missingRelationshipMessage,
-        columnPosition.presentNullCheck(),
-        SQL_EXCEPTION,
-        nullIdMessage,
-        valueOrMissingFailure
-      )
-      selection != null -> CodeBlock.of(
-        "if (%L) throw %T(%S) else %L",
-        columnPosition.presentNullCheck(),
-        SQL_EXCEPTION,
-        nullIdMessage,
-        valueOrMissingFailure
-      )
-      skippedRelationship != null -> CodeBlock.of(
-        "if (%L) %L else %L",
-        columnPosition.presentNullCheck(),
-        skippedValue,
-        value
+      relationship.canConstructWithOnlyId -> CodeBlock.of(
+        "%T.%N(%L)",
+        daoClassName,
+        METHOD_NEW_INSTANCE_WITH_ONLY_ID,
+        databaseId
       )
       else -> CodeBlock.of(
-        "if (%L) throw %T(%S) else %L",
-        columnPosition.presentNullCheck(),
-        SQL_EXCEPTION,
-        nullIdMessage,
-        value
+        "%T.%N(cursor, %L)",
+        daoClassName,
+        METHOD_FULL_OBJECT_FROM_CURSOR_POSITION,
+        position.code
       )
     }
   }
@@ -537,300 +422,40 @@ internal class ModelDaoCursorWriter(
     else -> METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
   }
 
-  private fun skippedRecursiveValue(
-    columns: List<ColumnElement>,
-    recursive: Boolean
-  ): CodeBlock {
-    val skippedColumns = recursiveCursorOffset(
-      columns = columns,
-      recursive = recursive
-    )
-    return when {
-      skippedColumns == 0 -> CodeBlock.of("null")
-      else -> CodeBlock.of(
-        "run { columnOffset.value += %L; null }",
-        skippedColumns
-      )
-    }
-  }
-
-  private fun skippedRecursiveStatement(
-    columns: List<ColumnElement>,
-    recursive: Boolean
-  ) = CodeBlock.of(
-    "columnOffset.value += %L",
-    recursiveCursorOffset(
-      columns = columns,
-      recursive = recursive
-    )
-  )
-
-  private fun skippedRecursiveRelationshipFailure(
-    columns: List<ColumnElement>,
-    recursive: Boolean,
-    message: String
-  ): CodeBlock {
-    val skippedColumns = recursiveCursorOffset(
-      columns = columns,
-      recursive = recursive
-    )
-    return when {
-      skippedColumns == 0 -> CodeBlock.of("throw %T(%S)", SQL_EXCEPTION, message)
-      else -> CodeBlock.of(
-        "run { columnOffset.value += %L; throw %T(%S) }",
-        skippedColumns,
-        SQL_EXCEPTION,
-        message
-      )
-    }
-  }
-
   private fun recursiveCursorOffset(
     columns: List<ColumnElement>,
     recursive: Boolean
   ): Int = columns.sumOf { column ->
-    if (!column.requiresRecursiveCursorOffset(recursive)) {
-      return@sumOf 0
-    }
-    val relationship = checkNotNull(column.relationship)
-    val referencedTable = checkNotNull(
-      environment.tableElements[relationship.referencedTableTypeKey]
-    )
-    cursorColumnCount(
-      table = referencedTable,
-      recursive = recursive
-    )
-  }
-
-  private fun ColumnElement.requiresRecursiveCursorOffset(recursive: Boolean): Boolean =
-    relationship?.let {
-      it.isHandledRecursively &&
-          (recursive || !it.canConstructWithOnlyId)
-    } == true
-
-  private fun cursorColumnCount(
-    table: TableElement,
-    recursive: Boolean
-  ): Int = table.allColumns.size + table.relationshipColumns.sumOf { column ->
-    val relationship = checkNotNull(column.relationship)
     when {
-      !relationship.isHandledRecursively -> 0
-      !recursive && relationship.canConstructWithOnlyId -> 0
-      else -> cursorColumnCount(
-        table = checkNotNull(
-          environment.tableElements[relationship.referencedTableTypeKey]
-        ),
-        recursive = recursive
-      )
-    }
-  }
-
-  private fun columnValueFromDatabase(
-    column: ColumnElement,
-    tableName: String,
-    columnPosition: CursorPosition,
-    nullableValueGuarded: Boolean = false
-  ): CodeBlock {
-    val index = columnPosition.code
-    val databaseValue = databaseCursorGetter(
-      column = column,
-      index = index
-    )
-    val value = column.transformer
-      ?.deserializedValueGetter(
-        when {
-          column.transformer.serializedTypeCanBeNull -> CodeBlock.of(
-            "if (%L) null else %L",
-            columnPosition.presentNullCheck(),
-            databaseValue
-          )
-          else -> databaseValue
-        }
-      )
-      ?: databaseValue
-    val result = when {
-      column.isModelPathNullable && !column.isNullable -> requiredNonNullColumnValue(
-        column = column,
-        tableName = tableName,
-        columnPosition = columnPosition,
-        value = value
-      )
-      !nullableValueGuarded && column.isNullable -> CodeBlock.of(
-        "if (%L) null else %L",
-        columnPosition.nullCheck(),
-        value
-      )
-      else -> value
-    }
-    return result
-  }
-
-  private fun requiredNonNullColumnValue(
-    column: ColumnElement,
-    tableName: String,
-    columnPosition: CursorPosition,
-    value: CodeBlock
-  ): CodeBlock = when {
-    columnPosition.mayBeMissing -> CodeBlock.of(
-      "if (%L) throw %T(%S)\n" +
-          "else if (%L) throw %T(%S)\n" +
-          "else %L",
-      columnPosition.missingCheck(),
-      SQL_EXCEPTION,
-      "Selected columns did not contain table \"$tableName\" required column \"${column.columnName}\"",
-      columnPosition.presentNullCheck(),
-      SQL_EXCEPTION,
-      "Column \"${column.columnName}\" was NULL",
-      value
-    )
-    else -> CodeBlock.of(
-      "if (%L) throw %T(%S) else %L",
-      columnPosition.presentNullCheck(),
-      SQL_EXCEPTION,
-      "Column \"${column.columnName}\" was NULL",
-      value
-    )
-  }
-
-  private fun databaseCursorGetter(
-    column: ColumnElement,
-    index: CodeBlock
-  ) = when (column.sqlStorageType) {
-    SqlStorageType.BYTE_ARRAY -> CodeBlock.of("cursor.getBlob(%L)", index)
-    SqlStorageType.BOXED_BYTE_ARRAY -> CodeBlock.of("cursor.getBlob(%L).toTypedArray()", index)
-    SqlStorageType.BYTE -> CodeBlock.of("cursor.getBlob(%L)[0]", index)
-    SqlStorageType.DOUBLE -> CodeBlock.of("cursor.getDouble(%L)", index)
-    SqlStorageType.FLOAT -> CodeBlock.of("cursor.getFloat(%L)", index)
-    SqlStorageType.INT -> CodeBlock.of("cursor.getInt(%L)", index)
-    SqlStorageType.LONG -> CodeBlock.of("cursor.getLong(%L)", index)
-    SqlStorageType.SHORT -> CodeBlock.of("cursor.getShort(%L)", index)
-    SqlStorageType.STRING -> CodeBlock.of("cursor.getString(%L)", index)
-  }
-
-}
-
-private fun FunSpec.Builder.addCursorNullCheckDeclarations(
-  cursorNullChecks: CursorNullChecks
-) = apply {
-  cursorNullChecks.declarations.forEach { declaration ->
-    addStatement(
-      "val %N = %L",
-      declaration.name,
-      when {
-        declaration.mayBeMissing -> CodeBlock.of(
-          "(%L >= 0 && cursor.isNull(%L))",
-          declaration.code,
-          declaration.code
-        )
-        else -> CodeBlock.of("cursor.isNull(%L)", declaration.code)
-      }
-    )
-  }
-}
-
-private class CursorNullChecks {
-  private val usages = linkedMapOf<CursorNullCheckKey, CursorNullCheckUsage>()
-  private var prepared = false
-
-  val declarations: List<CursorNullCheckDeclaration>
-    get() = usages.values
-      .filter { it.count > 1 }
-      .map { usage ->
-        CursorNullCheckDeclaration(
-          name = usage.name,
-          code = usage.code,
-          mayBeMissing = usage.mayBeMissing
+      !column.requiresRecursiveCursorOffset(recursive) -> 0
+      else -> {
+        val relationship = checkNotNull(column.relationship)
+        val referencedTable = checkNotNull(environment.tableElements[relationship.referencedTableTypeKey])
+        tableReadLayout.width(
+          table = referencedTable,
+          recursive = recursive
         )
       }
-
-  fun generate(construction: () -> CodeBlock): CodeBlock {
-    // The first pass counts repeated checks; the second pass can then reuse their generated locals.
-    construction()
-    prepared = true
-    return construction()
-  }
-
-  fun nullCheck(position: CursorPosition): CodeBlock {
-    val cached = cachedValue(position)
-    return when {
-      cached != null && position.mayBeMissing -> CodeBlock.of(
-        "(%L < 0 || %L)",
-        position.code,
-        cached
-      )
-      cached != null -> cached
-      position.mayBeMissing -> CodeBlock.of("(%L < 0 || cursor.isNull(%L))", position.code, position.code)
-      else -> CodeBlock.of("cursor.isNull(%L)", position.code)
     }
   }
 
-  fun presentNullCheck(position: CursorPosition): CodeBlock {
-    val cached = cachedValue(position)
-    return when {
-      cached != null -> cached
-      position.mayBeMissing -> CodeBlock.of("(%L >= 0 && cursor.isNull(%L))", position.code, position.code)
-      else -> CodeBlock.of("cursor.isNull(%L)", position.code)
-    }
+  private fun ColumnElement.requiresRecursiveCursorOffset(
+    recursive: Boolean
+  ) = when (val relationship = this.relationship) {
+    null -> false
+    else -> relationship.isHandledRecursively && (recursive || !relationship.canConstructWithOnlyId)
   }
-
-  private fun cachedValue(position: CursorPosition): CodeBlock? {
-    val key = CursorNullCheckKey(
-      code = position.code.toString(),
-      mayBeMissing = position.mayBeMissing
-    )
-    val usage = usages.getOrPut(key) {
-      CursorNullCheckUsage(
-        name = position.nullCheckName,
-        code = position.code,
-        mayBeMissing = position.mayBeMissing
-      )
-    }
-    if (!prepared) {
-      usage.count++
-    }
-    return when {
-      prepared && usage.count > 1 -> CodeBlock.of("%N", usage.name)
-      else -> null
-    }
-  }
-}
-
-private data class CursorNullCheckKey(
-  val code: String,
-  val mayBeMissing: Boolean
-)
-
-private data class CursorNullCheckUsage(
-  val name: String,
-  val code: CodeBlock,
-  val mayBeMissing: Boolean,
-  var count: Int = 0
-)
-
-private data class CursorNullCheckDeclaration(
-  val name: String,
-  val code: CodeBlock,
-  val mayBeMissing: Boolean
-)
-
-private data class CursorPosition(
-  val code: CodeBlock,
-  val mayBeMissing: Boolean,
-  val nullCheckName: String,
-  val nullChecks: CursorNullChecks
-) {
-  fun missingCheck() = when {
-    mayBeMissing -> CodeBlock.of("%L < 0", code)
-    else -> CodeBlock.of("false")
-  }
-
-  fun nullCheck() = nullChecks.nullCheck(this)
-
-  fun presentNullCheck() = nullChecks.presentNullCheck(this)
 }
 
 private data class CursorSelection(
   val columns: CodeBlock,
   val tableGraphNodeNames: CodeBlock,
   val nodeName: CodeBlock
+)
+
+internal data class CompleteProjectionColumn(
+  val column: ColumnElement,
+  val columnIndex: Int,
+  val relationshipPath: List<String>,
+  val expandedOffset: Int
 )

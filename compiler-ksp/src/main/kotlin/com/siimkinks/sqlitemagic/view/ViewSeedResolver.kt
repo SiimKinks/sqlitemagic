@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.model.ModelCollectionReporter
 import com.siimkinks.sqlitemagic.model.TableElement
+import com.siimkinks.sqlitemagic.model.TableReadLayout
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.utils.displayName
 import com.squareup.kotlinpoet.ClassName
@@ -15,6 +16,7 @@ internal class ViewSeedResolver(
   private val reporter: ModelCollectionReporter
 ) {
   private val resolvedViews = mutableMapOf<TypeKey, ViewElement?>()
+  private val tableReadLayout = TableReadLayout(environment.tableElements)
 
   fun resolve(): List<ViewElement> = seeds.values.mapNotNull { seed ->
     resolveView(
@@ -147,7 +149,10 @@ internal class ViewSeedResolver(
     targetKind = ViewProjectionKind.TABLE,
     targetArtifactStem = target.artifactStem,
     targetConstruction = target.construction,
-    expandedWidth = target.allColumns.size
+    expandedWidth = tableReadLayout.width(
+      table = target,
+      recursive = true
+    )
   )
 
   private fun validatePropertyNames(view: ViewElement) {

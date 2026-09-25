@@ -13,6 +13,8 @@ import com.tschuchort.compiletesting.symbolProcessorProviders
 import com.tschuchort.compiletesting.useKsp2
 import java.io.File
 
+private const val TEST_JVM_TARGET_PROPERTY = "sqlitemagic.test.jvmTarget"
+
 interface ProcessingStepsTest {
   val processingSteps: (Environment) -> List<ProcessingStep>
 
@@ -49,6 +51,9 @@ object SqliteMagicCompilation {
     val result = KotlinCompilation()
       .apply {
         useKsp2()
+        jvmTarget = requireNotNull(System.getProperty(TEST_JVM_TARGET_PROPERTY)) {
+          "Run compiler-ksp tests via Gradle to supply $TEST_JVM_TARGET_PROPERTY"
+        }
         this.sources = sources.toList()
         inheritClassPath = true
         this.classpaths = classpaths

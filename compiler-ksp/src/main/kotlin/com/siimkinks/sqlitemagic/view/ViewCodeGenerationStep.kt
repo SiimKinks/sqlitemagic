@@ -12,9 +12,8 @@ class ViewCodeGenerationStep(
   private val environment: Environment
 ) : ProcessingStep {
   private val writers = listOf<ViewWriter>(
-    // TODO implement
-//    ViewDaoWriter(environment),
-//    ViewTableWriter(environment),
+    ViewDaoWriter(environment),
+    ViewTableWriter(environment)
   )
 
   override fun process(resolver: Resolver): ProcessingStepResult {
