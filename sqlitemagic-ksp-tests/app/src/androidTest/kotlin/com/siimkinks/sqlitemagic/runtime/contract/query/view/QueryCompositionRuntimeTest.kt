@@ -1,25 +1,20 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query.view
 
-import android.content.Context
 import android.database.Cursor
 import android.database.SQLException
-import android.database.sqlite.SQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SqliteMagicDatabase
+import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.testApplication
-import org.junit.After
 import org.junit.Assert.assertThrows
-import org.junit.Before
 import org.junit.Test
 
 private const val AUTHOR_VIEW_NAME = "query_composition_author_view"
@@ -46,15 +41,21 @@ class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
     )
   )
 
-  @Before
-  fun createSqlView() = withManualDatabase { database ->
-    database.execSQL("DROP VIEW IF EXISTS $AUTHOR_VIEW_NAME")
-    database.execSQL("CREATE VIEW $AUTHOR_VIEW_NAME AS SELECT id, name FROM query_composition_author")
-  }
+  @Test
+  fun generatedManagerCreatesAuthorView() {
+    val names = Select
+      .raw("SELECT name FROM sqlite_master WHERE type = 'view' AND name = '$AUTHOR_VIEW_NAME'")
+      .from(ANONYMOUS_TABLE)
+      .execute()
+      .use { cursor ->
+        buildList {
+          while (cursor.moveToNext()) {
+            add(cursor.getString(0))
+          }
+        }
+      }
 
-  @After
-  fun dropSqlView() = withManualDatabase { database ->
-    database.execSQL("DROP VIEW IF EXISTS $AUTHOR_VIEW_NAME")
+    assertThat(names).containsExactly(AUTHOR_VIEW_NAME)
   }
 
   @Test
@@ -231,11 +232,4 @@ class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
     }
   }
 
-  private fun withManualDatabase(block: (SQLiteDatabase) -> Unit) = testApplication()
-    .openOrCreateDatabase(
-      checkNotNull(SqliteMagicDatabase().dbName),
-      Context.MODE_PRIVATE,
-      null
-    )
-    .use(block)
 }

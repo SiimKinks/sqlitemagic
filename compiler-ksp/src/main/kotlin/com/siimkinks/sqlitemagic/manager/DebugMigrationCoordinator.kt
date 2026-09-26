@@ -42,7 +42,8 @@ internal class DebugMigrationCoordinator(
   ): DebugMigrationOutcome {
     val currentStructure = DatabaseStructure.from(
       orderedTables = orderedTables,
-      indexes = database.indices
+      indexes = database.indices,
+      views = database.views
     )
     if (!configuration.enabled) {
       if (database.isSubmodule) {

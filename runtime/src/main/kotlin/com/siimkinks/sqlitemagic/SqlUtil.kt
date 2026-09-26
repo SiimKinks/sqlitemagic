@@ -9,8 +9,9 @@ import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 /** Internal utility functions. */
 object SqlUtil {
   fun viewDefinition(
-    query: CompiledSelect<*, *>
-  ): ViewDefinition = when (query) {
+    query: CompiledSelect<*, *>,
+    viewName: String
+  ) = when (query) {
     is CompiledSelectImpl<*, *> -> ViewDefinition(
       sql = query.sql,
       args = query.args,
@@ -33,7 +34,7 @@ object SqlUtil {
       tableGraphNodeNames = SimpleArrayMap(),
       queryDeep = false
     )
-    else -> error("Unreachable supported query implementation")
+    else -> error("Cannot create view '$viewName': defining query uses unsupported implementation ${query.javaClass.name}")
   }
 
   fun quoteSqlStringLiteral(value: CharSequence) =
@@ -61,15 +62,40 @@ object SqlUtil {
     db: SupportSQLiteDatabase,
     query: CompiledSelect<*, *>,
     viewName: String
+  ) = createView(
+    db = db,
+    definition = viewDefinition(
+      query = query,
+      viewName = viewName
+    ),
+    viewName = viewName
+  )
+
+  fun createView(
+    db: SupportSQLiteDatabase,
+    definition: ViewDefinition,
+    viewName: String
+  ) = createViewSql(
+    db = db,
+    sql = definition.sql,
+    args = definition.args,
+    viewName = viewName
+  )
+
+  private fun createViewSql(
+    db: SupportSQLiteDatabase,
+    sql: String,
+    args: Array<String?>?,
+    viewName: String
   ) {
-    val details = (query as? CompiledSelectDetails)
-      ?: throw IllegalArgumentException(
-        "Cannot create view '$viewName': defining query uses unsupported implementation ${query.javaClass.name}"
-      )
-    require(details.args.isNullOrEmpty()) {
+    require(args.isNullOrEmpty()) {
       "Cannot create view '$viewName': defining query has bound arguments"
     }
-    db.execSQL("CREATE VIEW IF NOT EXISTS $viewName AS ${details.sql}")
+    val quotedViewName = viewName.replace(
+      oldValue = "\"",
+      newValue = "\"\""
+    )
+    db.execSQL("CREATE VIEW IF NOT EXISTS \"$quotedViewName\" AS $sql")
   }
 
   @CheckResult

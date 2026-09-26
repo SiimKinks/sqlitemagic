@@ -86,13 +86,12 @@ internal class ViewDaoWriter(
     .builder(name = FIELD_VIEW_QUERY, type = VIEW_DEFINITION)
     .addModifiers(INTERNAL)
     .delegate(
-      CodeBlock.of(
-        "%M { %T.viewDefinition(query = %T.%N) }",
-        LAZY,
-        SQL_UTIL,
-        view.query.ownerType,
-        view.query.propertyName
-      )
+      "%M { %T.viewDefinition(query = %T.%N, viewName = %S) }",
+      LAZY,
+      SQL_UTIL,
+      view.query.ownerType,
+      view.query.propertyName,
+      view.viewName
     )
     .build()
 
@@ -414,7 +413,7 @@ internal class ViewDaoWriter(
         add("%N?.let { path ->\n", checkNotNull(graphPathName))
         withIndent {
           add(
-            "tableGraphNodeNames?.get(path + %S)\n",
+            "tableGraphNodeNames.get(path + %S)\n",
             column.relationshipPath.joinToString(separator = "")
           )
         }

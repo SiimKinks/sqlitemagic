@@ -21,7 +21,7 @@ data class GeneratedDatabaseElement(
   val submodules: List<SubmoduleDatabaseMetadata>
 ) {
   val isSubmodule get() = submoduleName != null
-  val shouldGenerate get() = tables.isNotEmpty() || submodules.isNotEmpty()
+  val shouldGenerate get() = tables.isNotEmpty() || views.isNotEmpty() || submodules.isNotEmpty()
 
   fun withDatabaseVersion(version: Int?) = copy(
     databaseMetadata = databaseMetadata.copy(

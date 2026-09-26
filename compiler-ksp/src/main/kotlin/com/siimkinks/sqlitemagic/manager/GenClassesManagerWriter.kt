@@ -2,7 +2,10 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.siimkinks.sqlitemagic.Const.GENERATION_COMMENT
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_VIEW_QUERY
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLUMN_FOR_VALUE_OR_NULL
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_SQL_VALUE
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_CLEAR_DATA
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_COLUMN_FOR_VALUE
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_CONFIGURE_DATABASE
@@ -35,6 +38,7 @@ import com.siimkinks.sqlitemagic.model.parserName
 import com.siimkinks.sqlitemagic.schema.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
+import com.siimkinks.sqlitemagic.view.ViewElement
 import com.squareup.kotlinpoet.ANY
 import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.ClassName
@@ -50,9 +54,9 @@ import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
+import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.writeTo
-import com.squareup.kotlinpoet.withIndent
 
 internal class GenClassesManagerWriter(
   private val codeGenerator: CodeGenerator
@@ -73,6 +77,7 @@ internal class GenClassesManagerWriter(
         .addFunction(
           createSchema(
             tables = orderedTables.persistent,
+            views = database.views.filter { it.schema == MAIN },
             indexes = orderedIndexes.filter { it.schema == MAIN }
           )
         )
@@ -124,10 +129,12 @@ internal class GenClassesManagerWriter(
 
   private fun GeneratedDatabaseElement.createSchema(
     tables: List<TableElement>,
+    views: List<ViewElement>,
     indexes: List<IndexElement>
   ) = schemaCreationFunction(
     functionName = METHOD_CREATE_SCHEMA,
     tables = tables,
+    views = views,
     indexes = indexes,
     submoduleMethod = METHOD_CREATE_SCHEMA,
     logMessage = "Creating tables"
@@ -139,6 +146,7 @@ internal class GenClassesManagerWriter(
   ) = schemaCreationFunction(
     functionName = METHOD_CREATE_TEMPORARY_SCHEMA,
     tables = tables,
+    views = emptyList(),
     indexes = indexes,
     submoduleMethod = METHOD_CREATE_TEMPORARY_SCHEMA,
     logMessage = "Creating temporary tables"
@@ -147,13 +155,14 @@ internal class GenClassesManagerWriter(
   private fun GeneratedDatabaseElement.schemaCreationFunction(
     functionName: String,
     tables: List<TableElement>,
+    views: List<ViewElement>,
     indexes: List<IndexElement>,
     submoduleMethod: String,
     logMessage: String
   ): FunSpec {
     val builder = databaseFunction(functionName)
       .addParameter(name = "db", type = SQLITE_DATABASE)
-    if (tables.isEmpty() && indexes.isEmpty() && submodules.isEmpty()) {
+    if (tables.isEmpty() && views.isEmpty() && indexes.isEmpty() && submodules.isEmpty()) {
       return builder.addStatement("return Unit").build()
     }
     builder
@@ -165,7 +174,19 @@ internal class GenClassesManagerWriter(
     if (tables.isNotEmpty()) {
       builder.addRuntimeDebugLog(logMessage)
       tables.forEach { table ->
-        builder.addStatement("db.execSQL(%T.TABLE_SCHEMA)", table.generationNames.adapterClassName)
+        builder.addStatement("db.execSQL(%T.%N)", table.generationNames.adapterClassName, FIELD_TABLE_SCHEMA)
+      }
+    }
+    if (views.isNotEmpty()) {
+      builder.addRuntimeDebugLog("Creating views")
+      views.forEach { view ->
+        builder.addStatement(
+          "%T.createView(db = db, definition = %T.%N, viewName = %S)",
+          SQL_UTIL,
+          view.generationNames.daoClassName,
+          FIELD_VIEW_QUERY,
+          view.viewName
+        )
       }
     }
     if (indexes.isNotEmpty()) {
@@ -178,6 +199,7 @@ internal class GenClassesManagerWriter(
       .addStatement("db.setTransactionSuccessful()")
       .nextControlFlow("catch (exception: %T)", Exception::class)
       .addRuntimeErrorLog()
+      .addStatement("throw exception")
       .nextControlFlow("finally")
       .addStatement("db.endTransaction()")
       .endControlFlow()
@@ -237,15 +259,12 @@ internal class GenClassesManagerWriter(
     if (submodules.isEmpty()) {
       return builder.addStatement("return %L", tables.size).build()
     }
-    val total = CodeBlock
-      .builder()
-      .add("%L", tables.size)
-      .apply {
-        submodules.forEach { submodule ->
-          add(" + %T.%N(null)", submodule.managerClassName, METHOD_GET_NR_OF_TABLES)
-        }
+    val total = buildCodeBlock {
+      add("%L", tables.size)
+      submodules.forEach { submodule ->
+        add(" + %T.%N(null)", submodule.managerClassName, METHOD_GET_NR_OF_TABLES)
       }
-      .build()
+    }
     builder
       .beginControlFlow("return when (moduleName)")
       .addStatement("null -> %L", total)
@@ -305,26 +324,23 @@ internal class GenClassesManagerWriter(
   private fun GeneratedDatabaseElement.columnForValue(): FunSpec {
     val valueType = TypeVariableName("V", ANY)
     val returnType = columnReturnType(valueType)
-    val builder = databaseFunction(METHOD_COLUMN_FOR_VALUE)
+    return databaseFunction(METHOD_COLUMN_FOR_VALUE)
       .addAnnotation(UNCHECKED_CAST)
       .addTypeVariable(valueType)
       .addParameter(name = "input", type = valueType)
       .returns(returnType)
       .addStatement("val className = input::class.qualifiedName")
       .beginControlFlow("return when (className)")
-    addTransformerBranches(
-      builder = builder,
-      returnType = returnType,
-      includeDefaults = true
-    )
-    val fallback = submodules
-      .asReversed()
-      .fold(
-        initial = fallbackColumn(valueType),
-        operation = ::submoduleFallback
+      .addCode(transformerBranches(returnType = returnType, includeDefaults = true))
+      .addCode(
+        "else -> %L\n",
+        submodules
+          .asReversed()
+          .fold(
+            initial = fallbackColumn(valueType),
+            operation = ::submoduleFallback
+          )
       )
-    return builder
-      .addCode("else -> %L\n", fallback)
       .endControlFlow()
       .build()
   }
@@ -332,47 +348,36 @@ internal class GenClassesManagerWriter(
   private fun GeneratedDatabaseElement.columnForValueOrNull(): FunSpec {
     val valueType = TypeVariableName("V", ANY)
     val returnType = columnReturnType(valueType)
-    val builder = databaseFunction(METHOD_COLUMN_FOR_VALUE_OR_NULL)
+    return databaseFunction(METHOD_COLUMN_FOR_VALUE_OR_NULL)
       .addAnnotation(UNCHECKED_CAST)
       .addTypeVariable(valueType)
       .addParameter(name = "className", type = STRING.copy(nullable = true))
       .addParameter(name = "input", type = valueType)
       .returns(returnType.copy(nullable = true))
       .beginControlFlow("return when (className)")
-    addTransformerBranches(
-      builder = builder,
-      returnType = returnType,
-      includeDefaults = false
-    )
-    return builder
+      .addCode(transformerBranches(returnType = returnType, includeDefaults = false))
       .addStatement("else -> null")
       .endControlFlow()
       .build()
   }
 
-  private fun GeneratedDatabaseElement.addTransformerBranches(
-    builder: FunSpec.Builder,
+  private fun GeneratedDatabaseElement.transformerBranches(
     returnType: TypeName,
     includeDefaults: Boolean
-  ) {
+  ) = buildCodeBlock {
     transformers
       .asSequence()
       .filter { includeDefaults || !it.isDefaultTransformer }
       .groupBy { it.deserializedType.qualifiedName }
       .forEach { (qualifiedName, matchingTransformers) ->
-        builder.addCode("%S -> ", qualifiedName)
+        add("%S -> ", qualifiedName)
         when {
-          matchingTransformers.size > 1 -> builder.addCode(
-            CodeBlock
-              .builder()
-              .add("throw %T(\n", UnsupportedOperationException::class)
-              .indent()
-              .add("%S\n", "Unable to disambiguate transformer for $qualifiedName")
-              .unindent()
-              .add(")\n")
-              .build()
+          matchingTransformers.size > 1 -> addStatement(
+            "throw %T(%S)",
+            UnsupportedOperationException::class,
+            "Unable to disambiguate transformer for $qualifiedName"
           )
-          else -> builder.addCode(
+          else -> add(
             matchingTransformers
               .single()
               .columnForValue(returnType)
@@ -387,86 +392,72 @@ internal class GenClassesManagerWriter(
     val columnClass = generatedColumnClassName()
     val storageType = checkNotNull(serializedType.sqlStorageType)
     val parser = storageType.parserName(nullable = false)
-    return CodeBlock
-      .builder()
-      .add("run {\n")
-      .indent()
-      .addStatement("val sqlValue = %L", serializedValue)
-      .apply {
-        when {
-          storageType == SqlStorageType.STRING -> addStatement(
-            "val stringValue = %T.quoteSqlStringLiteral(%L)",
-            SQL_UTIL,
-            CodeBlock
-              .builder()
-              .add("sqlValue")
-              .apply {
-                if (serializedTypeCanBeNull) {
-                  add(" ?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
-                }
-              }
-              .build()
-          )
-          serializedTypeCanBeNull -> add("val stringValue = sqlValue?.toString()\n")
-            .indent()
-            .addStatement("?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
-            .unindent()
-          else -> addStatement("val stringValue = sqlValue.toString()")
-        }
+    return buildCodeBlock {
+      beginControlFlow("run")
+      addStatement("val %N = %L", VARIABLE_SQL_VALUE, serializedValue)
+      when {
+        storageType == SqlStorageType.STRING -> addStatement(
+          "val stringValue = %T.quoteSqlStringLiteral(%L)",
+          SQL_UTIL,
+          buildCodeBlock {
+            add("%N", VARIABLE_SQL_VALUE)
+            if (serializedTypeCanBeNull) {
+              add(" ?: throw %T(%S)", NullPointerException::class, "SQL argument cannot be null")
+            }
+          }
+        )
+        serializedTypeCanBeNull -> addStatement(
+          "val stringValue = %N?.toString() ?: throw %T(%S)",
+          VARIABLE_SQL_VALUE,
+          NullPointerException::class,
+          "SQL argument cannot be null"
+        )
+        else -> addStatement("val stringValue = %N.toString()", VARIABLE_SQL_VALUE)
       }
-      .add(
+      add(
         columnConstructor(
           returnType = returnType,
           columnClass = columnClass,
           parser = parser
         )
       )
-      .unindent()
-      .add("}\n")
-      .build()
+      endControlFlow()
+    }
   }
 
   private fun TransformerElement.columnConstructor(
     returnType: TypeName,
     columnClass: ClassName,
     parser: String
-  ) = CodeBlock
-    .builder()
-    .apply {
-      when {
-        isDefaultTransformer -> add("%T<%T, %T>(\n", BOOLEAN_COLUMN, ANY, NOT_NULLABLE)
-        else -> add("%T<%T, %T>(\n", columnClass, ANY, NOT_NULLABLE)
-      }
-      withIndent {
-        when {
-          isDefaultTransformer -> add("table = %T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
-            .add("name = stringValue,\n")
-            .add("valueParser = %T.%N,\n", UTILS, parser)
-            .add("nullable = false,\n")
-            .add("alias = null\n")
-          else -> add("table = %T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
-            .add("name = stringValue,\n")
-            .add("valueParser = %T.%N,\n", UTILS, parser)
-            .add("nullable = false,\n")
-            .add("alias = null\n")
-        }
-      }
-    }
-    .add(") as %T\n", returnType)
-    .build()
+  ): CodeBlock {
+    val generatedType = when {
+      isDefaultTransformer -> BOOLEAN_COLUMN
+      else -> columnClass
+    }.parameterizedBy(ANY, NOT_NULLABLE)
+    val tableType = TABLE.parameterizedBy(ANY)
+    return CodeBlock.of(
+      "%T(table = %T.ANONYMOUS_TABLE as %T, name = stringValue, valueParser = %T.%N, nullable = false, alias = null) as %T\n",
+      generatedType,
+      TABLE,
+      tableType,
+      UTILS,
+      parser,
+      returnType
+    )
+  }
 
-  private fun fallbackColumn(valueType: TypeName) = CodeBlock
-    .builder()
-    .add("%T<%T, %T, %T, %T, %T>(\n", COLUMN, valueType, valueType, valueType, ANY, NOT_NULLABLE)
-    .indent()
-    .add("table = %T.ANONYMOUS_TABLE as %T<%T>,\n", TABLE, TABLE, ANY)
-    .addStatement("name = %T.quoteSqlStringLiteral(input.toString()),", SQL_UTIL)
-    .add("valueParser = %T.STRING_PARSER,\n", UTILS)
-    .add("nullable = false,\n")
-    .add("alias = null\n")
-    .unindent()
-    .add(")")
-    .build()
+  private fun fallbackColumn(valueType: TypeName): CodeBlock {
+    val columnType = COLUMN.parameterizedBy(valueType, valueType, valueType, ANY, NOT_NULLABLE)
+    val tableType = TABLE.parameterizedBy(ANY)
+    return CodeBlock.of(
+      "%T(table = %T.ANONYMOUS_TABLE as %T, name = %T.quoteSqlStringLiteral(input.toString()), valueParser = %T.STRING_PARSER, nullable = false, alias = null)",
+      columnType,
+      TABLE,
+      tableType,
+      SQL_UTIL,
+      UTILS
+    )
+  }
 
   private fun GeneratedDatabaseElement.databaseFunction(name: String) = FunSpec
     .builder(name)

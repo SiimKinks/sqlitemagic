@@ -12,7 +12,7 @@ internal class GeneratedDatabaseElementViewTest : ProcessingStepsTest {
   override val processingSteps = ::viewProcessingSteps
 
   @Test
-  fun `exposes views in declaration order without changing the generation gate`() {
+  fun `exposes views in declaration order and opens the view-only generation gate`() {
     SqliteMagicCompilation
       .compile(
         ViewSources.view(
@@ -51,7 +51,7 @@ internal class GeneratedDatabaseElementViewTest : ProcessingStepsTest {
           .containsExactlyElementsIn(database.views.map(ViewElement::declarationOrder).sorted())
           .inOrder()
         assertThat(database.shouldGenerate)
-          .isFalse()
+          .isTrue()
       }
   }
 }

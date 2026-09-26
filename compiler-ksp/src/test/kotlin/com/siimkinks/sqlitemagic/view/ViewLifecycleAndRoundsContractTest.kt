@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MIGRATE_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PROJECT_DIR
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_INPUT_DIRS
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_OUTPUT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_NAME
@@ -54,11 +55,67 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
-          "CREATE VIEW view_only_lifecycle AS",
+          "SqlUtil.createView(",
+          "definition = SqliteMagic_ViewOnlyLifecycle_Dao.QUERY",
+          "viewName = \"view_only_lifecycle\"",
           "migrateViews",
           "getNrOfTables(moduleName: String?): Int = 0"
         )
         generatedSource.assertDoesNotContain("DELETE FROM view_only_lifecycle")
+      }
+  }
+
+  @Test
+  fun `creates a persistent view between its table and index and rethrows schema failures`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "MixedLifecycleRow.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Index
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("mixed_lifecycle_rows")
+            data class MixedLifecycleRow(
+              @Id val id: Long,
+              @Index("mixed_lifecycle_index") val value: String
+            )
+          """
+        ),
+        persistentViewSource(
+          className = "MixedLifecycleView",
+          viewName = "mixed_lifecycle_view"
+        ),
+        databaseSource(
+          className = "MixedLifecycleDatabase",
+          version = 15
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagicDatabase.kt")
+      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
+        val createSchema = generatedSource
+          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+        createSchema.assertContainsInOrder(
+          "db.execSQL(SqliteMagic_MixedLifecycleRow_Adapter.TABLE_SCHEMA)",
+          "SqlUtil.createView(",
+          "SqliteMagic_MixedLifecycleView_Dao.QUERY",
+          "viewName = \"mixed_lifecycle_view\"",
+          "db.execSQL(\"CREATE INDEX IF NOT EXISTS main."
+        )
+        createSchema.assertContainsInOrder(
+          "catch (exception: Exception)",
+          "throw exception"
+        )
+        generatedSource.assertContains(
+          "getNrOfTables(moduleName: String?): Int = 1",
+          "DELETE FROM mixed_lifecycle_rows"
+        )
+        generatedSource.assertDoesNotContain("DELETE FROM mixed_lifecycle_view")
       }
   }
 
@@ -82,6 +139,35 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "throwing_query_lifecycle",
           "migrateViews"
+        )
+      }
+  }
+
+  @Test
+  fun `generated retained definition carries view identity into schema creation`() {
+    SqliteMagicCompilation
+      .compile(
+        unsupportedQueryViewSource(),
+        databaseSource(
+          className = "UnsupportedQueryDatabase",
+          version = 16
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_UnsupportedDefinitionView_Dao.kt",
+        "SqliteMagicDatabase.kt"
+      )
+      .withGeneratedSource("SqliteMagic_UnsupportedDefinitionView_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "query = UnsupportedDefinitionView.QUERY",
+          "viewName = \"unsupported_definition_view\""
+        )
+      }
+      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "definition = SqliteMagic_UnsupportedDefinitionView_Dao.QUERY",
+          "viewName = \"unsupported_definition_view\""
         )
       }
   }
@@ -125,12 +211,16 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
 
   @Test
   fun `aggregates a configured view-only submodule in the main manager`() {
+    val structureOutputDirectory = temporaryDirectory.resolve("aggregated-staged")
     val submodule = SqliteMagicCompilation
       .compile(
         submoduleDatabaseSource(),
         persistentViewSource(
           className = "AggregatedFeatureView",
           viewName = "aggregated_feature_view"
+        ),
+        kspOptions = debugOptions(
+          structureOutputDirectory = structureOutputDirectory
         )
       )
       .isOk()
@@ -138,7 +228,10 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
     submodule
       .compile(
         mainDatabaseWithSubmodule(),
-        kspOptions = debugOptions()
+        kspOptions = debugOptions(
+          projectDirectory = temporaryDirectory.resolve("aggregated-main"),
+          structureInputDirectory = structureOutputDirectory
+        )
       )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
@@ -300,6 +393,42 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `rejects a main view colliding with a staged submodule table before publishing its manager`() {
+    val structureOutputDirectory = temporaryDirectory.resolve("staged")
+    val submodule = SqliteMagicCompilation
+      .compile(
+        submoduleDatabaseSource(),
+        tableSource(
+          className = "FeatureCollisionRow",
+          tableName = "SHARED_STAGED_IDENTITY"
+        ),
+        kspOptions = debugOptions(
+          structureOutputDirectory = structureOutputDirectory
+        )
+      )
+      .isOk()
+    assertThat(Files.exists(structureOutputDirectory.resolve("latest_feature.struct"))).isTrue()
+
+    submodule
+      .compile(
+        mainDatabaseWithSubmodule(),
+        persistentViewSource(
+          className = "MainCollisionView",
+          viewName = "shared_staged_identity"
+        ),
+        kspOptions = debugOptions(
+          projectDirectory = temporaryDirectory.resolve("main"),
+          structureInputDirectory = structureOutputDirectory
+        )
+      )
+      .assertCompilationError(
+        "Duplicate SQLite schema identifier 'SHARED_STAGED_IDENTITY'",
+        "table 'SHARED_STAGED_IDENTITY' from Feature conflicts with view 'shared_staged_identity' from main"
+      )
+      .assertNotGeneratedSources("SqliteMagicDatabase.kt")
+  }
+
+  @Test
   fun `does not publish a manager after view validation fails`() {
     SqliteMagicCompilation
       .compile(
@@ -424,6 +553,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
 
   private fun debugOptions(
     projectDirectory: Path = temporaryDirectory,
+    structureInputDirectory: Path? = null,
     structureOutputDirectory: Path? = null
   ) = buildMap {
     put(
@@ -442,6 +572,12 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       key = OPTION_VARIANT_DEBUG,
       value = "true"
     )
+    structureInputDirectory?.let { directory ->
+      put(
+        key = OPTION_STRUCTURE_INPUT_DIRS,
+        value = directory.toString()
+      )
+    }
     structureOutputDirectory?.let { directory ->
       put(
         key = OPTION_STRUCTURE_OUTPUT_DIR,
@@ -468,6 +604,35 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       }
     """,
     packageName = PACKAGE
+  )
+
+  private fun unsupportedQueryViewSource() = SourceFile.kotlin(
+    name = "UnsupportedDefinitionView.kt",
+    contents = """
+      package $PACKAGE
+
+      import com.siimkinks.sqlitemagic.CompiledSelect
+      import com.siimkinks.sqlitemagic.annotation.View
+      import com.siimkinks.sqlitemagic.annotation.ViewColumn
+      import com.siimkinks.sqlitemagic.annotation.ViewQuery
+      import java.lang.reflect.Proxy
+
+      @Suppress("UNCHECKED_CAST")
+      private val unsupportedQuery = Proxy.newProxyInstance(
+        CompiledSelect::class.java.classLoader,
+        arrayOf(CompiledSelect::class.java)
+      ) { _, _, _ -> null } as CompiledSelect<Any, Any>
+
+      @View("unsupported_definition_view")
+      data class UnsupportedDefinitionView(
+        @ViewColumn("value") val value: String
+      ) {
+        companion object {
+          @ViewQuery
+          val QUERY: CompiledSelect<Any, Any> = unsupportedQuery
+        }
+      }
+    """
   )
 
   private fun temporaryViewSource() = SourceFile.kotlin(

@@ -286,9 +286,9 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "fullObjectFromCursorPosition",
           "tableGraphNodeNames",
           "author",
-          "SqlUtil.viewDefinition(query = JoinedSummary.query)"
+          "query = JoinedSummary.query",
+          "viewName = \"joined_summary\""
         )
-        generatedSource.assertDoesNotContain("viewName =")
         generatedSource.assertDoesNotContain("title =")
       }
   }
@@ -335,7 +335,11 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagic_OpaqueView_Dao.kt")
       .withGeneratedSource("SqliteMagic_OpaqueView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains("QUERY", "SqlUtil.viewDefinition(query = OpaqueView.query)")
+        generatedSource.assertContains(
+          "QUERY",
+          "query = OpaqueView.query",
+          "viewName = \"opaque_view\""
+        )
         generatedSource.assertDoesNotContain("CompiledSelectImpl", "CompiledSelect1Impl")
       }
   }

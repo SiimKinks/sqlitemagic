@@ -114,7 +114,7 @@ class SqlUtilTest {
       sql = "SELECT id FROM books",
       args = null
     )
-    val expectedSql = "CREATE VIEW IF NOT EXISTS books_view AS SELECT id FROM books"
+    val expectedSql = "CREATE VIEW IF NOT EXISTS \"books_view\" AS SELECT id FROM books"
 
     SqlUtil.createView(
       db = database,
@@ -124,6 +124,55 @@ class SqlUtilTest {
 
     verify(database).execSQL(expectedSql)
     verify(database, never()).execSQL(eq(expectedSql), any())
+  }
+
+  @Test
+  fun `create view uses retained definition SQL and quotes the view identifier`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val definition = ViewDefinition(
+      sql = "SELECT id FROM books",
+      args = null,
+      observedTables = arrayOf("books"),
+      columns = null,
+      tableGraphNodeNames = null,
+      queryDeep = false
+    )
+    val expectedSql = "CREATE VIEW IF NOT EXISTS \"books\"\"view\" AS SELECT id FROM books"
+
+    SqlUtil.createView(
+      db = database,
+      definition = definition,
+      viewName = "books\"view"
+    )
+
+    verify(database).execSQL(expectedSql)
+    verify(database, never()).execSQL(eq(expectedSql), any())
+  }
+
+  @Test
+  fun `create view rejects retained definition args before database interaction`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val definition = ViewDefinition(
+      sql = "SELECT id FROM books WHERE id=?",
+      args = arrayOf("first"),
+      observedTables = arrayOf("books"),
+      columns = null,
+      tableGraphNodeNames = null,
+      queryDeep = false
+    )
+    val viewName = "books\"view"
+
+    val exception = assertThrows(IllegalArgumentException::class.java) {
+      SqlUtil.createView(
+        db = database,
+        definition = definition,
+        viewName = viewName
+      )
+    }
+
+    assertThat(exception.message)
+      .contains(viewName)
+    verifyNoInteractions(database)
   }
 
   @Test
@@ -158,7 +207,7 @@ class SqlUtilTest {
       selectedColumn = TestSchema.id,
       observedTables = arrayOf("books")
     )
-    val expectedSql = "CREATE VIEW IF NOT EXISTS books_view AS SELECT books.id FROM books"
+    val expectedSql = "CREATE VIEW IF NOT EXISTS \"books_view\" AS SELECT books.id FROM books"
 
     SqlUtil.createView(
       db = database,
@@ -175,7 +224,7 @@ class SqlUtilTest {
     val database = mock<SupportSQLiteDatabase>()
     val query = mock<CompiledSelect<Any, Any>>()
 
-    val exception = assertThrows(IllegalArgumentException::class.java) {
+    val exception = assertThrows(IllegalStateException::class.java) {
       SqlUtil.createView(
         db = database,
         query = query,
@@ -188,6 +237,23 @@ class SqlUtilTest {
     assertThat(exception.message)
       .contains(query.javaClass.name)
     verifyNoInteractions(database)
+  }
+
+  @Test
+  fun `view definition rejects unsupported query implementation with view identity`() {
+    val query = mock<CompiledSelect<Any, Any>>()
+
+    val exception = assertThrows(IllegalStateException::class.java) {
+      SqlUtil.viewDefinition(
+        query = query,
+        viewName = "books_view"
+      )
+    }
+
+    assertThat(exception.message)
+      .contains("books_view")
+    assertThat(exception.message)
+      .contains(query.javaClass.name)
   }
 
   @Test

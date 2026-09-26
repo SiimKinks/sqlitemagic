@@ -80,6 +80,56 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `generates warning-free relationship graph lookups for complete table projections`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "RelationshipGraphProjection.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.CompiledSelect
+            import com.siimkinks.sqlitemagic.Select.SelectN
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+            @Table
+            data class ProjectionAuthor(
+              @Id val id: Long,
+              val name: String
+            )
+
+            @Table
+            data class ProjectionBook(
+              @Id val id: Long,
+              @Column(handleRecursively = true) val author: ProjectionAuthor
+            )
+
+            @View
+            data class RelationshipGraphProjection(
+              @ViewColumn("book") val book: ProjectionBook
+            ) {
+              companion object {
+                @ViewQuery
+                val query: CompiledSelect<ProjectionBook, SelectN> = error("compile-only")
+              }
+            }
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_RelationshipGraphProjection_Dao.kt")
+      .withGeneratedSource("SqliteMagic_RelationshipGraphProjection_Dao.kt") { generatedSource ->
+        generatedSource.assertContains("""tableGraphNodeNames.get(path + "author")""")
+        generatedSource.assertDoesNotContain("tableGraphNodeNames?.get(path")
+      }
+  }
+
+  @Test
   fun `keeps repeated nullable projections isolated and applies all-null presence`() {
     SqliteMagicCompilation
       .compile(

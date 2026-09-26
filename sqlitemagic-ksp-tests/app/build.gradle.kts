@@ -90,6 +90,8 @@ dependencies {
   androidTestImplementation(libs.android.test.runner)
   androidTestImplementation(libs.junit.runner)
   androidTestImplementation(libs.truth)
+  androidTestCompileOnly(libs.sqlitemagic.annotations)
+  kspAndroidTest(libs.sqlitemagic.ksp)
 }
 
 tasks.withType<Test>().configureEach {

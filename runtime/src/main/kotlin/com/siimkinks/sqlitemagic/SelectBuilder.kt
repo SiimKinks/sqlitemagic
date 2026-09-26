@@ -125,6 +125,7 @@ internal class SelectBuilder<S> {
     }
 
     val columnPositions = checkNotNull(columnsNode).compileColumns(systemRenamedTables)
+    val implicitSelection = columnPositions.isEmpty
     val sql = when {
       systemRenamedTables != null -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, systemRenamedTables)
       else -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount)
@@ -135,7 +136,7 @@ internal class SelectBuilder<S> {
       tableGraphNodeNames = tableGraphNodeNames,
       columnPositions = columnPositions
     )
-    val selectedRoot = !columnPositions.isEmpty || from.table.hasViewDefinitionPositions
+    val selectedRoot = !implicitSelection || from.table.hasViewDefinitionPositions
     return CompiledSelectImpl(
       sql = sql,
       args = when {

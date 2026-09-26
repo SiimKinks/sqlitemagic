@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.AnnotationNames.DB_VALUE_TO_OBJECT_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.OBJECT_TO_DB_VALUE_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.SUBMODULE_DATABASE_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.TABLE_ANNOTATION
+import com.siimkinks.sqlitemagic.AnnotationNames.VIEW_ANNOTATION
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
@@ -44,7 +45,8 @@ class GenClassesManagerStep(
       val orderedTables = CreationOrderedTables.from(database.tables)
       val currentStructure = DatabaseStructure.from(
         orderedTables = orderedTables,
-        indexes = database.indices
+        indexes = database.indices,
+        views = database.views
       )
       if (!validateConfiguredSubmoduleStructures(environment, database, currentStructure)) {
         return Failed
@@ -75,6 +77,7 @@ class GenClassesManagerStep(
       DATABASE_ANNOTATION,
       SUBMODULE_DATABASE_ANNOTATION,
       TABLE_ANNOTATION,
+      VIEW_ANNOTATION,
       OBJECT_TO_DB_VALUE_ANNOTATION,
       DB_VALUE_TO_OBJECT_ANNOTATION
     )
