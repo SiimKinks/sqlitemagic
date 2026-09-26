@@ -146,20 +146,20 @@ class SelectSqlBuilderTest : DSLTests {
   @Test
   fun selectAllFrom() {
     (SELECT FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT * FROM entity_with_relationship ")
+      .isEqualTo("SELECT * FROM main.entity_with_relationship ")
 
     (SELECT.DISTINCT FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT DISTINCT * FROM entity_with_relationship ")
+      .isEqualTo("SELECT DISTINCT * FROM main.entity_with_relationship ")
   }
 
   @Test
   fun selectAllFromSubquery() {
     (SELECT FROM (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT * FROM (SELECT * FROM simple_mutable_entity ) ")
+      .isEqualTo("SELECT * FROM (SELECT * FROM main.simple_mutable_entity ) ")
 
     (SELECT.DISTINCT
         FROM (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT DISTINCT * FROM (SELECT * FROM simple_mutable_entity ) ")
+      .isEqualTo("SELECT DISTINCT * FROM (SELECT * FROM main.simple_mutable_entity ) ")
   }
 
   @Test
@@ -171,8 +171,8 @@ class SelectSqlBuilderTest : DSLTests {
             FROM SIMPLE_MUTABLE_ENTITY
             WHERE (SIMPLE_MUTABLE_ENTITY.VALUE IS "foo")))
       .isEqualTo(
-        "SELECT * FROM simple_mutable_entity UNION " +
-            "SELECT * FROM simple_mutable_entity WHERE simple_mutable_entity.value=?  "
+        "SELECT * FROM main.simple_mutable_entity UNION " +
+            "SELECT * FROM main.simple_mutable_entity WHERE simple_mutable_entity.value=?  "
       )
   }
 
@@ -186,8 +186,8 @@ class SelectSqlBuilderTest : DSLTests {
             FROM SIMPLE_MUTABLE_ENTITY
             WHERE (SIMPLE_MUTABLE_ENTITY.VALUE IS "foo")))
       .isEqualTo(
-        "SELECT * FROM simple_mutable_entity WHERE simple_mutable_entity.value=? UNION " +
-            "SELECT * FROM simple_mutable_entity WHERE simple_mutable_entity.value=?  "
+        "SELECT * FROM main.simple_mutable_entity WHERE simple_mutable_entity.value=? UNION " +
+            "SELECT * FROM main.simple_mutable_entity WHERE simple_mutable_entity.value=?  "
       )
   }
 
@@ -196,7 +196,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         UNION (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT * FROM simple_mutable_entity UNION SELECT * FROM simple_mutable_entity  ")
+      .isEqualTo("SELECT * FROM main.simple_mutable_entity UNION SELECT * FROM main.simple_mutable_entity  ")
   }
 
   @Test
@@ -212,10 +212,10 @@ class SelectSqlBuilderTest : DSLTests {
           SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN
         ) FROM SIMPLE_MUTABLE_ENTITY))
       .isEqualTo(
-        "SELECT * FROM simple_mutable_entity UNION " +
+        "SELECT * FROM main.simple_mutable_entity UNION " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
@@ -241,10 +241,10 @@ class SelectSqlBuilderTest : DSLTests {
       .isEqualTo(
         "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity UNION " +
+            "FROM main.simple_mutable_entity UNION " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
@@ -253,7 +253,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         UNION_ALL (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT * FROM simple_mutable_entity UNION ALL SELECT * FROM simple_mutable_entity  ")
+      .isEqualTo("SELECT * FROM main.simple_mutable_entity UNION ALL SELECT * FROM main.simple_mutable_entity  ")
   }
 
   @Test
@@ -270,10 +270,10 @@ class SelectSqlBuilderTest : DSLTests {
         )
             FROM SIMPLE_MUTABLE_ENTITY))
       .isEqualTo(
-        "SELECT * FROM simple_mutable_entity UNION ALL " +
+        "SELECT * FROM main.simple_mutable_entity UNION ALL " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
@@ -299,10 +299,10 @@ class SelectSqlBuilderTest : DSLTests {
       .isEqualTo(
         "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity UNION ALL " +
+            "FROM main.simple_mutable_entity UNION ALL " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
@@ -311,7 +311,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         INTERSECT (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT * FROM simple_mutable_entity INTERSECT SELECT * FROM simple_mutable_entity  ")
+      .isEqualTo("SELECT * FROM main.simple_mutable_entity INTERSECT SELECT * FROM main.simple_mutable_entity  ")
   }
 
   @Test
@@ -328,10 +328,10 @@ class SelectSqlBuilderTest : DSLTests {
         )
             FROM SIMPLE_MUTABLE_ENTITY))
       .isEqualTo(
-        "SELECT * FROM simple_mutable_entity INTERSECT " +
+        "SELECT * FROM main.simple_mutable_entity INTERSECT " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
@@ -357,10 +357,10 @@ class SelectSqlBuilderTest : DSLTests {
       .isEqualTo(
         "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity INTERSECT " +
+            "FROM main.simple_mutable_entity INTERSECT " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
@@ -369,7 +369,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         EXCEPT (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT * FROM simple_mutable_entity EXCEPT SELECT * FROM simple_mutable_entity  ")
+      .isEqualTo("SELECT * FROM main.simple_mutable_entity EXCEPT SELECT * FROM main.simple_mutable_entity  ")
   }
 
   @Test
@@ -386,10 +386,10 @@ class SelectSqlBuilderTest : DSLTests {
         )
             FROM SIMPLE_MUTABLE_ENTITY))
       .isEqualTo(
-        "SELECT * FROM simple_mutable_entity EXCEPT " +
+        "SELECT * FROM main.simple_mutable_entity EXCEPT " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
@@ -415,22 +415,22 @@ class SelectSqlBuilderTest : DSLTests {
       .isEqualTo(
         "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity EXCEPT " +
+            "FROM main.simple_mutable_entity EXCEPT " +
             "SELECT simple_mutable_entity.id,simple_mutable_entity.value," +
             "simple_mutable_entity.boxed_boolean,simple_mutable_entity.primitive_boolean " +
-            "FROM simple_mutable_entity  "
+            "FROM main.simple_mutable_entity  "
       )
   }
 
   @Test
   fun selectAllFromAliased() {
     (SELECT FROM (ENTITY_WITH_RELATIONSHIP AS "b"))
-      .isEqualTo("SELECT * FROM entity_with_relationship AS b ")
+      .isEqualTo("SELECT * FROM main.entity_with_relationship AS b ")
   }
 
   @Test
   fun selectAllFromAliasedSubquery() {
-    val expected = "SELECT * FROM (SELECT * FROM simple_mutable_entity ) AS b "
+    val expected = "SELECT * FROM (SELECT * FROM main.simple_mutable_entity ) AS b "
 
     val b = (SELECT
         FROM SIMPLE_MUTABLE_ENTITY)
@@ -449,12 +449,12 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT entity_with_relationship.related_entity FROM entity_with_relationship ")
+      .isEqualTo("SELECT entity_with_relationship.related_entity FROM main.entity_with_relationship ")
 
     (SELECT
         DISTINCT ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT DISTINCT entity_with_relationship.related_entity FROM entity_with_relationship ")
+      .isEqualTo("SELECT DISTINCT entity_with_relationship.related_entity FROM main.entity_with_relationship ")
   }
 
   @Test
@@ -462,12 +462,15 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT entity_with_relationship.related_entity FROM (SELECT * FROM simple_mutable_entity ) ")
+      .isEqualTo("SELECT entity_with_relationship.related_entity FROM (SELECT * FROM main.simple_mutable_entity ) ")
 
     (SELECT
         DISTINCT ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM (SELECT FROM SIMPLE_MUTABLE_ENTITY))
-      .isEqualTo("SELECT DISTINCT entity_with_relationship.related_entity FROM (SELECT * FROM simple_mutable_entity ) ")
+      .isEqualTo(
+        "SELECT DISTINCT entity_with_relationship.related_entity " +
+            "FROM (SELECT * FROM main.simple_mutable_entity ) "
+      )
   }
 
   @Test
@@ -477,12 +480,12 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM b)
-      .isEqualTo("SELECT entity_with_relationship.related_entity FROM entity_with_relationship AS b ")
+      .isEqualTo("SELECT entity_with_relationship.related_entity FROM main.entity_with_relationship AS b ")
 
     (SELECT
         DISTINCT ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM b)
-      .isEqualTo("SELECT DISTINCT entity_with_relationship.related_entity FROM entity_with_relationship AS b ")
+      .isEqualTo("SELECT DISTINCT entity_with_relationship.related_entity FROM main.entity_with_relationship AS b ")
   }
 
   @Test
@@ -494,14 +497,17 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM a)
-      .isEqualTo("SELECT entity_with_relationship.related_entity FROM (SELECT * FROM simple_mutable_entity ) AS a ")
+      .isEqualTo(
+        "SELECT entity_with_relationship.related_entity " +
+            "FROM (SELECT * FROM main.simple_mutable_entity ) AS a "
+      )
 
     (SELECT
         DISTINCT ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM a)
       .isEqualTo(
         "SELECT DISTINCT entity_with_relationship.related_entity FROM " +
-            "(SELECT * FROM simple_mutable_entity ) AS a "
+            "(SELECT * FROM main.simple_mutable_entity ) AS a "
       )
   }
 
@@ -510,12 +516,12 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMN ENTITY_WITH_RELATIONSHIP.VALUE
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT entity_with_relationship.value FROM entity_with_relationship ")
+      .isEqualTo("SELECT entity_with_relationship.value FROM main.entity_with_relationship ")
 
     (SELECT
         DISTINCT ENTITY_WITH_RELATIONSHIP.VALUE
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT DISTINCT entity_with_relationship.value FROM entity_with_relationship ")
+      .isEqualTo("SELECT DISTINCT entity_with_relationship.value FROM main.entity_with_relationship ")
   }
 
   @Test
@@ -524,38 +530,38 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMN m.VALUE
         FROM m)
-      .isEqualTo("SELECT m.value FROM entity_with_relationship AS m ")
+      .isEqualTo("SELECT m.value FROM main.entity_with_relationship AS m ")
 
     (SELECT
         DISTINCT m.VALUE
         FROM m)
-      .isEqualTo("SELECT DISTINCT m.value FROM entity_with_relationship AS m ")
+      .isEqualTo("SELECT DISTINCT m.value FROM main.entity_with_relationship AS m ")
   }
 
   @Test
   fun selectColumns() {
     (SELECT
         COLUMNS arrayOf(
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
-          ENTITY_WITH_RELATIONSHIP.VALUE,
-          ENTITY_WITH_RELATIONSHIP.COUNT
-        )
+      ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
+      ENTITY_WITH_RELATIONSHIP.VALUE,
+      ENTITY_WITH_RELATIONSHIP.COUNT
+    )
         FROM ENTITY_WITH_RELATIONSHIP)
       .isEqualTo(
         "SELECT entity_with_relationship.related_entity,entity_with_relationship.value," +
-            "entity_with_relationship.count FROM entity_with_relationship "
+            "entity_with_relationship.count FROM main.entity_with_relationship "
       )
 
     (SELECT
         DISTINCT arrayOf(
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
-          ENTITY_WITH_RELATIONSHIP.VALUE,
-          ENTITY_WITH_RELATIONSHIP.COUNT
-        )
+      ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
+      ENTITY_WITH_RELATIONSHIP.VALUE,
+      ENTITY_WITH_RELATIONSHIP.COUNT
+    )
         FROM ENTITY_WITH_RELATIONSHIP)
       .isEqualTo(
         "SELECT DISTINCT entity_with_relationship.related_entity,entity_with_relationship.value," +
-            "entity_with_relationship.count FROM entity_with_relationship "
+            "entity_with_relationship.count FROM main.entity_with_relationship "
       )
   }
 
@@ -566,62 +572,66 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMNS arrayOf(m.RELATED_ENTITY, m.VALUE, countColumn)
         FROM m)
-      .isEqualTo("SELECT m.related_entity,m.value,m.count AS 'count_alias' FROM entity_with_relationship AS m ")
+      .isEqualTo("SELECT m.related_entity,m.value,m.count AS 'count_alias' FROM main.entity_with_relationship AS m ")
 
     (SELECT
         DISTINCT arrayOf(m.RELATED_ENTITY, m.VALUE, countColumn)
         FROM m)
       .isEqualTo(
         "SELECT DISTINCT m.related_entity,m.value,m.count AS 'count_alias' " +
-            "FROM entity_with_relationship AS m "
+            "FROM main.entity_with_relationship AS m "
       )
   }
 
   @Test
   fun joins() {
-    var expected = "SELECT * FROM entity_with_relationship LEFT OUTER JOIN simple_mutable_entity ON " +
+    var expected = "SELECT * FROM main.entity_with_relationship LEFT OUTER JOIN main.simple_mutable_entity ON " +
         "entity_with_relationship.related_entity=simple_mutable_entity.id "
     var sqlNode = (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         LEFT_OUTER_JOIN (
-          SIMPLE_MUTABLE_ENTITY ON (
+        SIMPLE_MUTABLE_ENTITY ON (
             ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS SIMPLE_MUTABLE_ENTITY.ID
-          )
+            )
         ))
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode NATURAL_JOIN SIMPLE_MUTABLE_ENTITY)
-    expected += "NATURAL JOIN simple_mutable_entity "
+    expected += "NATURAL JOIN main.simple_mutable_entity "
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode INNER_JOIN (
-      SIMPLE_MUTABLE_ENTITY USING arrayOf(
-        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
-        SIMPLE_MUTABLE_ENTITY.ID
-      )
-    ))
-    expected += "INNER JOIN simple_mutable_entity USING (related_entity,id) "
+        SIMPLE_MUTABLE_ENTITY USING arrayOf(
+          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
+          SIMPLE_MUTABLE_ENTITY.ID
+        )
+        ))
+    expected += "INNER JOIN main.simple_mutable_entity USING (related_entity,id) "
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode CROSS_JOIN (
-      SIMPLE_MUTABLE_ENTITY USING arrayOf(
-        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
-        SIMPLE_MUTABLE_ENTITY.ID
-      )
-    ))
-    expected += "CROSS JOIN simple_mutable_entity USING (related_entity,id) "
+        SIMPLE_MUTABLE_ENTITY USING arrayOf(
+          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY,
+          SIMPLE_MUTABLE_ENTITY.ID
+        )
+        ))
+    expected += "CROSS JOIN main.simple_mutable_entity USING (related_entity,id) "
     sqlNode.isEqualTo(expected)
 
     (SELECT
         FROM COMPLEX_OBJECT_WITH_SAME_LEAFS
         JOIN ENTITY_WITH_RELATIONSHIP
         JOIN SIMPLE_MUTABLE_ENTITY)
-      .isEqualTo("SELECT * FROM complex_object_with_same_leafs , entity_with_relationship , simple_mutable_entity ")
+      .isEqualTo(
+        "SELECT * FROM main.complex_object_with_same_leafs , " +
+            "main.entity_with_relationship , main.simple_mutable_entity "
+      )
   }
 
   @Test
   fun joinsAliased() {
-    var expected = "SELECT * FROM entity_with_relationship AS m LEFT OUTER JOIN simple_mutable_entity AS a ON " +
+    var expected = "SELECT * FROM main.entity_with_relationship AS m " +
+        "LEFT OUTER JOIN main.simple_mutable_entity AS a ON " +
         "m.related_entity=a.id "
 
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
@@ -632,15 +642,15 @@ class SelectSqlBuilderTest : DSLTests {
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode NATURAL_JOIN a)
-    expected += "NATURAL JOIN simple_mutable_entity AS a "
+    expected += "NATURAL JOIN main.simple_mutable_entity AS a "
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode INNER_JOIN (a USING arrayOf(m.RELATED_ENTITY, a.ID)))
-    expected += "INNER JOIN simple_mutable_entity AS a USING (related_entity,id) "
+    expected += "INNER JOIN main.simple_mutable_entity AS a USING (related_entity,id) "
     sqlNode.isEqualTo(expected)
 
     sqlNode = (sqlNode CROSS_JOIN (a USING arrayOf(m.RELATED_ENTITY, a.ID)))
-    expected += "CROSS JOIN simple_mutable_entity AS a USING (related_entity,id) "
+    expected += "CROSS JOIN main.simple_mutable_entity AS a USING (related_entity,id) "
     sqlNode.isEqualTo(expected)
 
     (SELECT
@@ -648,14 +658,14 @@ class SelectSqlBuilderTest : DSLTests {
         JOIN m
         JOIN a)
       .isEqualTo(
-        "SELECT * FROM complex_object_with_same_leafs AS c , entity_with_relationship AS m , " +
-            "simple_mutable_entity AS a "
+        "SELECT * FROM main.complex_object_with_same_leafs AS c , main.entity_with_relationship AS m , " +
+            "main.simple_mutable_entity AS a "
       )
   }
 
   @Test
   fun whereCondition() {
-    val expectedBase = "SELECT * FROM entity_with_relationship WHERE "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship WHERE "
 
     val titleIs = ENTITY_WITH_RELATIONSHIP.VALUE IS "asd"
     val intIs = ENTITY_WITH_RELATIONSHIP.COUNT IS 1920
@@ -740,7 +750,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun whereConditionAliased() {
-    val expectedBase = "SELECT * FROM entity_with_relationship AS m WHERE "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship AS m WHERE "
 
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
     val titleIs = m.VALUE IS "asd"
@@ -818,7 +828,7 @@ class SelectSqlBuilderTest : DSLTests {
   fun columnNotRedefinedWhenAliased() {
     var expected = "SELECT entity_with_relationship.*,entity_with_relationship.value || ' ' || " +
         "entity_with_relationship.count AS 'search_column' " +
-        "FROM entity_with_relationship " +
+        "FROM main.entity_with_relationship " +
         "WHERE entity_with_relationship.value=search_column "
     val searchColumn = concat(
       ENTITY_WITH_RELATIONSHIP.VALUE,
@@ -832,7 +842,7 @@ class SelectSqlBuilderTest : DSLTests {
       .isEqualTo(expected)
 
     expected = "SELECT trim(entity_with_relationship.value) AS 'trimmed_title' " +
-        "FROM entity_with_relationship " +
+        "FROM main.entity_with_relationship " +
         "WHERE trim(entity_with_relationship.value)=trimmed_title "
     val trimmedTitle = ENTITY_WITH_RELATIONSHIP.VALUE.trim() AS "trimmed_title"
     (SELECT
@@ -844,7 +854,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun betweenComplex() {
-    val expectedBase = "SELECT * FROM entity_with_relationship "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship "
     val simpleMutableEntity = SimpleMutableEntity(id = 101L)
     val simpleMutableEntity2 = SimpleMutableEntity(id = 202L)
     val simpleMutableEntityId = checkNotNull(simpleMutableEntity.id)
@@ -874,9 +884,9 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
+        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
             SIMPLE_MUTABLE_ENTITY.ID AND ENTITY_WITH_RELATIONSHIP.ID
-          )
+            )
         ))
       .isEqualTo(expected)
 
@@ -886,9 +896,9 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
+        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
             ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY AND ENTITY_WITH_RELATIONSHIP.ID
-          )
+            )
         ))
       .isEqualTo(expected)
 
@@ -898,9 +908,9 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
+        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
             ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY AND ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
-          )
+            )
         ))
       .isEqualTo(expected)
 
@@ -909,16 +919,16 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
+        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY BETWEEN (
             ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY AND simpleMutableEntityId
-          )
+            )
         ))
       .isEqualTo(expected, simpleMutableEntityId.toString())
   }
 
   @Test
   fun betweenComplexAliased() {
-    val expectedBase = "SELECT * FROM entity_with_relationship AS m "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship AS m "
     val simpleMutableEntity = SimpleMutableEntity(id = 101L)
     val simpleMutableEntity2 = SimpleMutableEntity(id = 202L)
     val simpleMutableEntityId = checkNotNull(simpleMutableEntity.id)
@@ -1037,7 +1047,7 @@ class SelectSqlBuilderTest : DSLTests {
   }
 
   private fun assertSimpleExpr(operator: String, expr: Expr) {
-    val expectedBase = "SELECT * FROM simple_mutable_entity WHERE simple_mutable_entity.value%s "
+    val expectedBase = "SELECT * FROM main.simple_mutable_entity WHERE simple_mutable_entity.value%s "
 
     (SELECT FROM SIMPLE_MUTABLE_ENTITY WHERE expr)
       .isEqualTo(String.format(expectedBase, operator), "asd")
@@ -1045,7 +1055,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertSimpleColumnExpr(operator: String, expr: Expr) {
     val expectedBase =
-      "SELECT * FROM simple_mutable_entity WHERE simple_mutable_entity.value%s" +
+      "SELECT * FROM main.simple_mutable_entity WHERE simple_mutable_entity.value%s" +
           "entity_with_relationship.value "
 
     (SELECT FROM SIMPLE_MUTABLE_ENTITY WHERE expr)
@@ -1057,14 +1067,17 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         WHERE !(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN.isNotNull()))
-      .isEqualTo("SELECT * FROM simple_mutable_entity WHERE NOT(simple_mutable_entity.primitive_boolean IS NOT NULL) ")
+      .isEqualTo(
+        "SELECT * FROM main.simple_mutable_entity " +
+            "WHERE NOT(simple_mutable_entity.primitive_boolean IS NOT NULL) "
+      )
 
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         WHERE !((SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN GREATER_THAN SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN) AND
-          SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN.isNotNull()))
+        SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN.isNotNull()))
       .isEqualTo(
-        "SELECT * FROM simple_mutable_entity WHERE NOT((simple_mutable_entity.primitive_boolean>" +
+        "SELECT * FROM main.simple_mutable_entity WHERE NOT((simple_mutable_entity.primitive_boolean>" +
             "simple_mutable_entity.boxed_boolean AND simple_mutable_entity.boxed_boolean IS NOT NULL)) "
       )
   }
@@ -1108,7 +1121,7 @@ class SelectSqlBuilderTest : DSLTests {
   }
 
   private fun assertNumericExpr(operator: String, expr: Expr) {
-    val expectedBase = "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.count%s "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.count%s "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
       .isEqualTo(String.format(expectedBase, operator), "4")
@@ -1116,7 +1129,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertNumericSameTypeExpr(operator: String, expr: Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.count%s" +
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.count%s" +
           "immutable_value_with_fields.integer "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
@@ -1125,7 +1138,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertNumericEquivalentTypeExpr(operator: String, expr: Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.count%s" +
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.count%s" +
           "immutable_value_with_fields.id "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
@@ -1287,7 +1300,7 @@ class SelectSqlBuilderTest : DSLTests {
   }
 
   private fun assertComplexSameTypeExpr(operator: String, simple_mutable_entity: SimpleMutableEntity, expr: Expr) {
-    val expectedBase = "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.related_entity%s "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.related_entity%s "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
       .isEqualTo(
@@ -1297,7 +1310,7 @@ class SelectSqlBuilderTest : DSLTests {
   }
 
   private fun assertComplexEquivalentTypeExpr(operator: String, value: Long, expr: Expr) {
-    val expectedBase = "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.related_entity%s "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.related_entity%s "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
       .isEqualTo(
@@ -1308,7 +1321,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertComplexSameColumnTypeExpr(operator: String, expr: Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
           "entity_with_relationship.related_entity "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
@@ -1317,7 +1330,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertComplexEquivalentColumnTypeExpr(operator: String, expr: Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
           "entity_with_relationship.id "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
@@ -1326,7 +1339,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun exprComplexAliased() {
-    val expectedBase = "SELECT * FROM entity_with_relationship AS m "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship AS m "
     val simpleMutableEntity = SimpleMutableEntity(id = 101L)
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
 
@@ -1364,33 +1377,33 @@ class SelectSqlBuilderTest : DSLTests {
   @Test
   fun joinComplex() {
     val simpleMutableEntity = SimpleMutableEntity(id = 101L)
-    val expectedBase = "SELECT * FROM entity_with_relationship "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship "
 
     var expected = expectedBase +
-        "LEFT JOIN entity_with_relationship ON " +
+        "LEFT JOIN main.entity_with_relationship ON " +
         "entity_with_relationship.related_entity!=entity_with_relationship.related_entity "
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         LEFT_JOIN (ENTITY_WITH_RELATIONSHIP ON (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS_NOT ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
+        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS_NOT ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         )))
       .isEqualTo(expected)
 
     expected = expectedBase +
-        "LEFT JOIN entity_with_relationship ON " +
+        "LEFT JOIN main.entity_with_relationship ON " +
         "entity_with_relationship.related_entity!=entity_with_relationship.id "
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         LEFT_JOIN (ENTITY_WITH_RELATIONSHIP ON (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS_NOT ENTITY_WITH_RELATIONSHIP.ID
+        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS_NOT ENTITY_WITH_RELATIONSHIP.ID
         )))
       .isEqualTo(expected)
 
-    expected = expectedBase + "LEFT JOIN entity_with_relationship ON entity_with_relationship.related_entity=? "
+    expected = expectedBase + "LEFT JOIN main.entity_with_relationship ON entity_with_relationship.related_entity=? "
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         LEFT_JOIN (ENTITY_WITH_RELATIONSHIP ON (
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id)
+        ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id)
         )))
       .isEqualTo(expected, simpleMutableEntity.id.toString())
   }
@@ -1398,42 +1411,43 @@ class SelectSqlBuilderTest : DSLTests {
   @Test
   fun joinComplexAliased() {
     val simpleMutableEntity = SimpleMutableEntity(id = 101L)
-    val expectedBase = "SELECT * FROM entity_with_relationship AS m "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship AS m "
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
 
     var expected = expectedBase +
-        "LEFT JOIN entity_with_relationship ON " +
+        "LEFT JOIN main.entity_with_relationship ON " +
         "m.related_entity!=entity_with_relationship.related_entity "
     (SELECT
         FROM m
         LEFT_JOIN (ENTITY_WITH_RELATIONSHIP.on(m.RELATED_ENTITY IS_NOT ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY)))
       .isEqualTo(expected)
 
-    expected = expectedBase + "LEFT JOIN entity_with_relationship AS m ON m.related_entity!=m.related_entity "
+    expected = expectedBase + "LEFT JOIN main.entity_with_relationship AS m ON m.related_entity!=m.related_entity "
     (SELECT
         FROM m
         LEFT_JOIN (m.on(m.RELATED_ENTITY IS_NOT m.RELATED_ENTITY)))
       .isEqualTo(expected)
 
-    expected = expectedBase + "LEFT JOIN entity_with_relationship ON m.related_entity!=entity_with_relationship.id "
+    expected = expectedBase +
+        "LEFT JOIN main.entity_with_relationship ON m.related_entity!=entity_with_relationship.id "
     (SELECT
         FROM m
         LEFT_JOIN (ENTITY_WITH_RELATIONSHIP.on(m.RELATED_ENTITY IS_NOT ENTITY_WITH_RELATIONSHIP.ID)))
       .isEqualTo(expected)
 
-    expected = expectedBase + "LEFT JOIN entity_with_relationship AS m ON m.related_entity!=m.id "
+    expected = expectedBase + "LEFT JOIN main.entity_with_relationship AS m ON m.related_entity!=m.id "
     (SELECT
         FROM m
         LEFT_JOIN (m.on(m.RELATED_ENTITY IS_NOT m.ID)))
       .isEqualTo(expected)
 
-    expected = expectedBase + "LEFT JOIN entity_with_relationship ON m.related_entity=? "
+    expected = expectedBase + "LEFT JOIN main.entity_with_relationship ON m.related_entity=? "
     (SELECT
         FROM m
         LEFT_JOIN (ENTITY_WITH_RELATIONSHIP.on(m.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id))))
       .isEqualTo(expected, simpleMutableEntity.id.toString())
 
-    expected = expectedBase + "LEFT JOIN entity_with_relationship AS m ON m.related_entity=? "
+    expected = expectedBase + "LEFT JOIN main.entity_with_relationship AS m ON m.related_entity=? "
     (SELECT
         FROM m
         LEFT_JOIN (m.on(m.RELATED_ENTITY IS checkNotNull(simpleMutableEntity.id))))
@@ -1442,7 +1456,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun groupByTest() {
-    val expectedBase = "SELECT * FROM entity_with_relationship "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship "
 
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
@@ -1458,10 +1472,10 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         GROUP_BY arrayOf(
-          ENTITY_WITH_RELATIONSHIP.ID,
-          ENTITY_WITH_RELATIONSHIP.VALUE,
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
-        ))
+      ENTITY_WITH_RELATIONSHIP.ID,
+      ENTITY_WITH_RELATIONSHIP.VALUE,
+      ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
+    ))
       .isEqualTo(
         expectedBase +
             "GROUP BY entity_with_relationship.id,entity_with_relationship.value," +
@@ -1498,7 +1512,7 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (ENTITY_WITH_RELATIONSHIP.COUNT IS IMMUTABLE_VALUE_WITH_FIELDS.INTEGER))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN immutable_value_with_fields GROUP BY entity_with_relationship.value," +
+            "LEFT JOIN main.immutable_value_with_fields GROUP BY entity_with_relationship.value," +
             "entity_with_relationship.related_entity HAVING entity_with_relationship.count=" +
             "immutable_value_with_fields.integer "
       )
@@ -1511,7 +1525,7 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS true))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
+            "LEFT JOIN main.simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
             "HAVING simple_mutable_entity.primitive_boolean=? ",
         BooleanTransformer.objectToDbValue(true)!!.toString()
       )
@@ -1524,14 +1538,14 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
+            "LEFT JOIN main.simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
             "HAVING simple_mutable_entity.primitive_boolean=simple_mutable_entity.primitive_boolean "
       )
   }
 
   @Test
   fun groupByTestAliased() {
-    val expectedBase = "SELECT * FROM entity_with_relationship AS m "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship AS m "
     val m = ENTITY_WITH_RELATIONSHIP AS "m"
     val s = IMMUTABLE_VALUE_WITH_FIELDS AS "s"
     val a = SIMPLE_MUTABLE_ENTITY AS "a"
@@ -1570,7 +1584,7 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (m.COUNT IS IMMUTABLE_VALUE_WITH_FIELDS.INTEGER))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN immutable_value_with_fields GROUP BY m.value,m.related_entity " +
+            "LEFT JOIN main.immutable_value_with_fields GROUP BY m.value,m.related_entity " +
             "HAVING m.count=immutable_value_with_fields.integer "
       )
 
@@ -1581,7 +1595,7 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (m.COUNT IS s.INTEGER))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN immutable_value_with_fields AS s GROUP BY m.value,m.related_entity " +
+            "LEFT JOIN main.immutable_value_with_fields AS s GROUP BY m.value,m.related_entity " +
             "HAVING m.count=s.integer "
       )
 
@@ -1592,7 +1606,7 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS true))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
+            "LEFT JOIN main.simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
             "HAVING simple_mutable_entity.primitive_boolean=? ",
         BooleanTransformer.objectToDbValue(true)!!.toString()
       )
@@ -1603,7 +1617,8 @@ class SelectSqlBuilderTest : DSLTests {
         GROUP_BY a.BOXED_BOOLEAN
         HAVING (a.PRIMITIVE_BOOLEAN IS true))
       .isEqualTo(
-        expectedBase + "LEFT JOIN simple_mutable_entity AS a GROUP BY a.boxed_boolean HAVING a.primitive_boolean=? ",
+        expectedBase + "LEFT JOIN main.simple_mutable_entity AS a " +
+            "GROUP BY a.boxed_boolean HAVING a.primitive_boolean=? ",
         BooleanTransformer.objectToDbValue(true)!!.toString()
       )
 
@@ -1614,7 +1629,7 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
+            "LEFT JOIN main.simple_mutable_entity GROUP BY simple_mutable_entity.boxed_boolean " +
             "HAVING simple_mutable_entity.primitive_boolean=simple_mutable_entity.primitive_boolean "
       )
 
@@ -1625,14 +1640,14 @@ class SelectSqlBuilderTest : DSLTests {
         HAVING (a.PRIMITIVE_BOOLEAN IS a.PRIMITIVE_BOOLEAN))
       .isEqualTo(
         expectedBase +
-            "LEFT JOIN simple_mutable_entity AS a GROUP BY a.boxed_boolean " +
+            "LEFT JOIN main.simple_mutable_entity AS a GROUP BY a.boxed_boolean " +
             "HAVING a.primitive_boolean=a.primitive_boolean "
       )
   }
 
   @Test
   fun orderByTest() {
-    val expectedBase = "SELECT * FROM entity_with_relationship "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship "
 
     var expected = expectedBase + "ORDER BY entity_with_relationship.count ASC "
     (SELECT
@@ -1652,10 +1667,10 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         ORDER_BY arrayOf(
-          ENTITY_WITH_RELATIONSHIP.COUNT.asc(),
-          ENTITY_WITH_RELATIONSHIP.VALUE.asc(),
-          ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.asc()
-        ))
+      ENTITY_WITH_RELATIONSHIP.COUNT.asc(),
+      ENTITY_WITH_RELATIONSHIP.VALUE.asc(),
+      ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY.asc()
+    ))
       .isEqualTo(expected)
 
     expected = expectedBase + "ORDER BY entity_with_relationship.count DESC "
@@ -1691,7 +1706,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun limitTest() {
-    val expectedBase = "SELECT * FROM entity_with_relationship "
+    val expectedBase = "SELECT * FROM main.entity_with_relationship "
 
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
@@ -1718,8 +1733,8 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertSimpleSubquery(operator: String, callback: (SelectNode<String, Select1, *>) -> Expr) {
     val expectedBase =
-      "SELECT * FROM simple_mutable_entity WHERE simple_mutable_entity.value%s" +
-          "(SELECT immutable_value_with_fields.string_value FROM immutable_value_with_fields ) "
+      "SELECT * FROM main.simple_mutable_entity WHERE simple_mutable_entity.value%s" +
+          "(SELECT immutable_value_with_fields.string_value FROM main.immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.STRING_VALUE
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
@@ -1749,8 +1764,8 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertSameTypeNumericSubquery(operator: String, callback: (SelectNode<Int, Select1, *>) -> Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.count%s" +
-          "(SELECT immutable_value_with_fields.integer FROM immutable_value_with_fields ) "
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.count%s" +
+          "(SELECT immutable_value_with_fields.integer FROM main.immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.INTEGER
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
@@ -1766,8 +1781,8 @@ class SelectSqlBuilderTest : DSLTests {
     callback: (SelectNode<out Number, Select1, *>) -> Expr
   ) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.count%s" +
-          "(SELECT immutable_value_with_fields.a_double FROM immutable_value_with_fields ) "
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.count%s" +
+          "(SELECT immutable_value_with_fields.a_double FROM main.immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.A_DOUBLE
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
@@ -1812,8 +1827,8 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertSameTypeComplexSubquery(operator: String, callback: (SelectNode<Long?, Select1, *>) -> Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
-          "(SELECT entity_with_relationship.related_entity FROM entity_with_relationship ) "
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
+          "(SELECT entity_with_relationship.related_entity FROM main.entity_with_relationship ) "
     val subQuery = (SELECT
         COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY
         FROM ENTITY_WITH_RELATIONSHIP)
@@ -1826,8 +1841,8 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertIdTypeComplexSubquery(operator: String, callback: (SelectNode<Long?, Select1, *>) -> Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
-          "(SELECT entity_with_relationship.id FROM entity_with_relationship ) "
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
+          "(SELECT entity_with_relationship.id FROM main.entity_with_relationship ) "
     val subQuery = (SELECT
         COLUMN ENTITY_WITH_RELATIONSHIP.ID
         FROM ENTITY_WITH_RELATIONSHIP)
@@ -1840,8 +1855,8 @@ class SelectSqlBuilderTest : DSLTests {
 
   private fun assertEquivalentTypeComplexSubquery(operator: String, callback: (SelectNode<Int, Select1, *>) -> Expr) {
     val expectedBase =
-      "SELECT * FROM entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
-          "(SELECT immutable_value_with_fields.integer FROM immutable_value_with_fields ) "
+      "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.related_entity%s" +
+          "(SELECT immutable_value_with_fields.integer FROM main.immutable_value_with_fields ) "
     val subQuery = (SELECT
         COLUMN IMMUTABLE_VALUE_WITH_FIELDS.INTEGER
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
@@ -1857,22 +1872,22 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         COLUMN -(ENTITY_WITH_RELATIONSHIP.COUNT - 42)
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT -((entity_with_relationship.count-42)) FROM entity_with_relationship ")
+      .isEqualTo("SELECT -((entity_with_relationship.count-42)) FROM main.entity_with_relationship ")
 
     (SELECT
         COLUMN -(ENTITY_WITH_RELATIONSHIP.COUNT - -42)
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT -((entity_with_relationship.count-(-42))) FROM entity_with_relationship ")
+      .isEqualTo("SELECT -((entity_with_relationship.count-(-42))) FROM main.entity_with_relationship ")
 
     (SELECT
         COLUMN -(ENTITY_WITH_RELATIONSHIP.COUNT - 42.asColumn)
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT -((entity_with_relationship.count-42)) FROM entity_with_relationship ")
+      .isEqualTo("SELECT -((entity_with_relationship.count-42)) FROM main.entity_with_relationship ")
 
     (SELECT
         COLUMN -(ENTITY_WITH_RELATIONSHIP.COUNT - (-42).asColumn)
         FROM ENTITY_WITH_RELATIONSHIP)
-      .isEqualTo("SELECT -((entity_with_relationship.count-(-42))) FROM entity_with_relationship ")
+      .isEqualTo("SELECT -((entity_with_relationship.count-(-42))) FROM main.entity_with_relationship ")
   }
 
   @Test
@@ -1883,7 +1898,7 @@ class SelectSqlBuilderTest : DSLTests {
         WHERE ((avg(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER) GREATER_THAN 5555.0)
         AND (avg(IMMUTABLE_VALUE_WITH_FIELDS.A_DOUBLE) LESS_THAN 8888.8)))
       .isEqualTo(
-        "SELECT immutable_value_with_fields.id FROM immutable_value_with_fields WHERE " +
+        "SELECT immutable_value_with_fields.id FROM main.immutable_value_with_fields WHERE " +
             "(avg(immutable_value_with_fields.integer)>? AND " +
             "avg(immutable_value_with_fields.a_double)<?) "
       )
@@ -1891,7 +1906,7 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun concatFunction() {
-    var expected = "SELECT simple_mutable_entity.id || simple_mutable_entity.value FROM simple_mutable_entity "
+    var expected = "SELECT simple_mutable_entity.id || simple_mutable_entity.value FROM main.simple_mutable_entity "
     (SELECT
         COLUMN (SIMPLE_MUTABLE_ENTITY.ID concat SIMPLE_MUTABLE_ENTITY.VALUE)
         FROM SIMPLE_MUTABLE_ENTITY)
@@ -1899,7 +1914,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     expected =
       "SELECT simple_mutable_entity.id || simple_mutable_entity.value || " +
-          "simple_mutable_entity.primitive_boolean FROM simple_mutable_entity "
+          "simple_mutable_entity.primitive_boolean FROM main.simple_mutable_entity "
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, SIMPLE_MUTABLE_ENTITY.VALUE, SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN)
         FROM SIMPLE_MUTABLE_ENTITY)
@@ -1907,7 +1922,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     (SELECT
         COLUMN (
-          (SIMPLE_MUTABLE_ENTITY.ID concat SIMPLE_MUTABLE_ENTITY.VALUE) concat
+        (SIMPLE_MUTABLE_ENTITY.ID concat SIMPLE_MUTABLE_ENTITY.VALUE) concat
             SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN
         )
         FROM SIMPLE_MUTABLE_ENTITY)
@@ -1916,13 +1931,13 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun replaceFunction() {
-    var expected = "SELECT replace(simple_mutable_entity.value,'a','____') FROM simple_mutable_entity "
+    var expected = "SELECT replace(simple_mutable_entity.value,'a','____') FROM main.simple_mutable_entity "
     (SELECT
         COLUMN SIMPLE_MUTABLE_ENTITY.VALUE.replace("a" with "____")
         FROM SIMPLE_MUTABLE_ENTITY)
       .isEqualTo(expected)
 
-    expected = "SELECT replace(simple_mutable_entity.value,'a','____') AS 'asd' FROM simple_mutable_entity "
+    expected = "SELECT replace(simple_mutable_entity.value,'a','____') AS 'asd' FROM main.simple_mutable_entity "
     (SELECT
         COLUMN (SIMPLE_MUTABLE_ENTITY.VALUE.replace("a" with "____") AS "asd")
         FROM SIMPLE_MUTABLE_ENTITY)
@@ -1931,7 +1946,8 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun valColumn() {
-    var expected = "SELECT simple_mutable_entity.id || ' ' || simple_mutable_entity.value FROM simple_mutable_entity "
+    var expected = "SELECT simple_mutable_entity.id || ' ' || simple_mutable_entity.value " +
+        "FROM main.simple_mutable_entity "
     val strVal = " ".asColumn
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, strVal, SIMPLE_MUTABLE_ENTITY.VALUE)
@@ -1939,7 +1955,7 @@ class SelectSqlBuilderTest : DSLTests {
       .isEqualTo(expected)
     strVal.parsesWith(STRING)
 
-    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM simple_mutable_entity "
+    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM main.simple_mutable_entity "
     val intVal = 3.asColumn
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, intVal, SIMPLE_MUTABLE_ENTITY.VALUE)
@@ -1947,7 +1963,7 @@ class SelectSqlBuilderTest : DSLTests {
       .isEqualTo(expected)
     intVal.parsesWith(INTEGER)
 
-    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM simple_mutable_entity "
+    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM main.simple_mutable_entity "
     val longVal = 3L.asColumn
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, longVal, SIMPLE_MUTABLE_ENTITY.VALUE)
@@ -1956,7 +1972,7 @@ class SelectSqlBuilderTest : DSLTests {
     longVal.parsesWith(LONG)
 
     val s: Short = 3
-    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM simple_mutable_entity "
+    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM main.simple_mutable_entity "
     val shortVal = s.asColumn
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, shortVal, SIMPLE_MUTABLE_ENTITY.VALUE)
@@ -1965,7 +1981,7 @@ class SelectSqlBuilderTest : DSLTests {
     shortVal.parsesWith(SHORT)
 
     val b: Byte = 3
-    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM simple_mutable_entity "
+    expected = "SELECT simple_mutable_entity.id || 3 || simple_mutable_entity.value FROM main.simple_mutable_entity "
     val byteVal = b.asColumn
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, byteVal, SIMPLE_MUTABLE_ENTITY.VALUE)
@@ -1974,7 +1990,7 @@ class SelectSqlBuilderTest : DSLTests {
     byteVal.parsesWith(BYTE)
 
     val f = 3.3f
-    expected = "SELECT simple_mutable_entity.id || 3.3 || simple_mutable_entity.value FROM simple_mutable_entity "
+    expected = "SELECT simple_mutable_entity.id || 3.3 || simple_mutable_entity.value FROM main.simple_mutable_entity "
     val floatVal = f.asColumn
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, floatVal, SIMPLE_MUTABLE_ENTITY.VALUE)
@@ -1983,7 +1999,7 @@ class SelectSqlBuilderTest : DSLTests {
     floatVal.parsesWith(FLOAT)
 
     val d = 3.3
-    expected = "SELECT simple_mutable_entity.id || 3.3 || simple_mutable_entity.value FROM simple_mutable_entity "
+    expected = "SELECT simple_mutable_entity.id || 3.3 || simple_mutable_entity.value FROM main.simple_mutable_entity "
     val doubleVal = d.asColumn
     (SELECT
         COLUMN concat(SIMPLE_MUTABLE_ENTITY.ID, doubleVal, SIMPLE_MUTABLE_ENTITY.VALUE)
@@ -2039,13 +2055,14 @@ class SelectSqlBuilderTest : DSLTests {
 
   @Test
   fun numericArithmeticExpressionsChained() {
-    var expected = "SELECT ((((1+2)*(5-3))/2.0)%10.0) FROM immutable_value_with_fields "
+    var expected = "SELECT ((((1+2)*(5-3))/2.0)%10.0) FROM main.immutable_value_with_fields "
     (SELECT
         COLUMN ((((1.asColumn + 2) * (5.asColumn - 3)) / 2.0) % 10.0)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
       .isEqualTo(expected)
 
-    expected = "SELECT ((((immutable_value_with_fields.integer+2)*(5-3))/2.0)%10.0) FROM immutable_value_with_fields "
+    expected = "SELECT ((((immutable_value_with_fields.integer+2)*(5-3))/2.0)%10.0) " +
+        "FROM main.immutable_value_with_fields "
     (SELECT
         COLUMN ((((IMMUTABLE_VALUE_WITH_FIELDS.INTEGER + 2) * (5.asColumn - 3)) / 2.0) % 10.0)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
@@ -2064,35 +2081,36 @@ class SelectSqlBuilderTest : DSLTests {
     ) -> NumericColumn<*, *, *, *, *>,
     valueCallback: (NumericColumn<Int, Int, Number, ImmutableValueWithFields, *>, Int) -> NumericColumn<*, *, *, *, *>
   ) {
-    var expected = String.format(
-      "SELECT (immutable_value_with_fields.integer%simmutable_value_with_fields.a_short) " +
-          "FROM immutable_value_with_fields ",
-      op
-    )
+    var expected = "SELECT (immutable_value_with_fields.integer${op}immutable_value_with_fields.a_short) " +
+        "FROM main.immutable_value_with_fields "
     (SELECT
         COLUMN columnCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, IMMUTABLE_VALUE_WITH_FIELDS.A_SHORT)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
       .isEqualTo(expected)
 
-    expected = String.format("SELECT (immutable_value_with_fields.integer%s5) FROM immutable_value_with_fields ", op)
+    expected = "SELECT (immutable_value_with_fields.integer${op}5) " +
+        "FROM main.immutable_value_with_fields "
     (SELECT
         COLUMN columnValueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, 5L.asColumn)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
       .isEqualTo(expected)
 
-    expected = String.format("SELECT (immutable_value_with_fields.integer%s(-5)) FROM immutable_value_with_fields ", op)
+    expected = "SELECT (immutable_value_with_fields.integer${op}(-5)) " +
+        "FROM main.immutable_value_with_fields "
     (SELECT
         COLUMN columnValueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, (-5L).asColumn)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
       .isEqualTo(expected)
 
-    expected = String.format("SELECT (immutable_value_with_fields.integer%s5) FROM immutable_value_with_fields ", op)
+    expected = "SELECT (immutable_value_with_fields.integer${op}5) " +
+        "FROM main.immutable_value_with_fields "
     (SELECT
         COLUMN valueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, 5)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)
       .isEqualTo(expected)
 
-    expected = String.format("SELECT (immutable_value_with_fields.integer%s(-5)) FROM immutable_value_with_fields ", op)
+    expected = "SELECT (immutable_value_with_fields.integer${op}(-5)) " +
+        "FROM main.immutable_value_with_fields "
     (SELECT
         COLUMN valueCallback(IMMUTABLE_VALUE_WITH_FIELDS.INTEGER, -5)
         FROM IMMUTABLE_VALUE_WITH_FIELDS)

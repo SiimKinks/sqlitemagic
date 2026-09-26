@@ -5,8 +5,8 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.element.TypeKey
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 
 internal sealed interface PropertySeed {

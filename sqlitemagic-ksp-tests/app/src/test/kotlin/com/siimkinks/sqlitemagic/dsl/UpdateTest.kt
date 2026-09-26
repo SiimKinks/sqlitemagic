@@ -501,33 +501,33 @@ class UpdateTest : DSLTests {
     (UPDATE
         TABLE ENTITY_WITH_RELATIONSHIP
         SET (ENTITY_WITH_RELATIONSHIP.COUNT to (
-          SELECT COLUMN ENTITY_WITH_RELATIONSHIP.COUNT FROM ENTITY_WITH_RELATIONSHIP
+        SELECT COLUMN ENTITY_WITH_RELATIONSHIP.COUNT FROM ENTITY_WITH_RELATIONSHIP
         )))
       .isEqualTo(
         sql = "UPDATE entity_with_relationship SET count=(SELECT " +
-            "entity_with_relationship.count FROM entity_with_relationship ) ",
+            "entity_with_relationship.count FROM main.entity_with_relationship ) ",
         nodeCount = 3
       )
 
     (UPDATE
         TABLE ENTITY_WITH_RELATIONSHIP
         SET (ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY to (
-          SELECT COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY FROM ENTITY_WITH_RELATIONSHIP
+        SELECT COLUMN ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY FROM ENTITY_WITH_RELATIONSHIP
         )))
       .isEqualTo(
         sql = "UPDATE entity_with_relationship SET related_entity=(SELECT " +
-            "entity_with_relationship.related_entity FROM entity_with_relationship ) ",
+            "entity_with_relationship.related_entity FROM main.entity_with_relationship ) ",
         nodeCount = 3
       )
 
     (UPDATE
         TABLE ENTITY_WITH_RELATIONSHIP
         SET (ENTITY_WITH_RELATIONSHIP.COUNT to (
-          SELECT COLUMN ENTITY_WITH_RELATIONSHIP.COUNT FROM COMPLEX_OBJECT_WITH_SAME_LEAFS
+        SELECT COLUMN ENTITY_WITH_RELATIONSHIP.COUNT FROM COMPLEX_OBJECT_WITH_SAME_LEAFS
         )))
       .isEqualTo(
         sql = "UPDATE entity_with_relationship SET count=(SELECT entity_with_relationship.count FROM " +
-            "complex_object_with_same_leafs LEFT JOIN entity_with_relationship ON " +
+            "main.complex_object_with_same_leafs LEFT JOIN main.entity_with_relationship ON " +
             "complex_object_with_same_leafs.entity_with_relationship=entity_with_relationship.id ) ",
         nodeCount = 3
       )

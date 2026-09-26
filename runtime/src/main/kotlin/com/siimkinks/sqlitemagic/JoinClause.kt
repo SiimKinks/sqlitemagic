@@ -32,6 +32,8 @@ open class JoinClause internal constructor(
 
   internal open fun addArgs(args: ArrayList<String?>) = Unit
 
+  internal open fun addDependencies(dependencies: QueryDependencies.Builder) = Unit
+
   companion object {
     internal fun indexOf(
       table: Table<*>,

@@ -23,7 +23,7 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
   nullable: Boolean,
   alias: String?,
   nameInQuery: String,
-  private val selectBuilder: SelectBuilder<*>
+  private val fragment: QueryFragment
 ) : NumericColumn<T, R, ET, P, N>(
   table = table,
   name = name,
@@ -33,9 +33,6 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
   alias = alias,
   nameInQuery = nameInQuery
 ) {
-  private var parentObservedTables: ArrayList<String>? = null
-  private var isCompiledToSelection = false
-
   companion object {
     fun <T, N> from(
       selectBuilder: SelectBuilder<*>,
@@ -54,18 +51,14 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
         nullable = column.nullable,
         alias = alias,
         nameInQuery = alias,
-        selectBuilder = selectBuilder
+        fragment = selectBuilder.freezeFragment()
       )
     }
   }
 
   override fun appendSql(sb: StringBuilder) {
-    if (isCompiledToSelection) {
-      sb.append(getAppendableAlias())
-      return
-    }
     sb.append('(')
-    selectBuilder.appendCompiledQuery(sb, parentObservedTables)
+    fragment.appendSql(sb)
     sb.append(')')
   }
 
@@ -79,15 +72,9 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
     // an autonomous column
   }
 
-  override fun addArgs(args: ArrayList<String?>) {
-    args.addAll(selectBuilder.args)
-  }
+  override fun addArgs(args: ArrayList<String?>) = fragment.addArgs(args)
 
-  override fun addObservedTables(tables: ArrayList<String>) {
-    // defer observed tables adding until SQL building, where we might add missing joins,
-    // so there will be more tables to add/observe.
-    parentObservedTables = tables
-  }
+  override fun addDependencies(dependencies: QueryDependencies.Builder) = fragment.addDependencies(dependencies)
 
   override fun compile(
     columnPositions: SimpleArrayMap<String, Int>,
@@ -102,7 +89,6 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
       pos = columnOffset,
       column = this
     )
-    isCompiledToSelection = true
     return columnOffset + 1
   }
 
@@ -120,7 +106,6 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
       pos = columnOffset,
       column = this
     )
-    isCompiledToSelection = true
     return columnOffset + 1
   }
 
@@ -132,7 +117,7 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
     nullable = nullable,
     alias = alias,
     nameInQuery = nameInQuery,
-    selectBuilder = selectBuilder
+    fragment = fragment
   )
 
   override fun <NewTableType> inTable(table: Table<NewTableType>): NumericColumn<T, R, ET, NewTableType, N> =
@@ -144,6 +129,6 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
       nullable = nullable,
       alias = alias,
       nameInQuery = nameInQuery,
-      selectBuilder = selectBuilder
+      fragment = fragment
     )
 }

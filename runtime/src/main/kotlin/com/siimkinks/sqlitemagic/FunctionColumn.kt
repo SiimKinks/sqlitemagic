@@ -104,9 +104,9 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
     }
   }
 
-  override fun addObservedTables(tables: ArrayList<String>) {
+  override fun addDependencies(dependencies: QueryDependencies.Builder) {
     for (wrappedColumn in wrappedColumns) {
-      wrappedColumn.addObservedTables(tables)
+      wrappedColumn.addDependencies(dependencies)
     }
   }
 

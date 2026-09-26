@@ -643,7 +643,7 @@ class Select<S> internal constructor(
      * @return Column representing provided value
      */
     @CheckResult
-    fun <V : Any> asRawColumn(value: V): Column<V, V, V, *, NotNullable> = Column(
+    fun <V : Any> asRawColumn(value: V): Column<V, V, V, *, NotNullable> = RawColumn(
       table = ANONYMOUS_TABLE,
       name = value.toString(),
       allFromTable = false,
@@ -783,7 +783,7 @@ class Select<S> internal constructor(
       // deep, so we could select any column
       selectBuilder.deep = true
       column.addArgs(selectBuilder.args)
-      column.addObservedTables(selectBuilder.observedTables)
+      column.addDependencies(selectBuilder.dependencies)
     }
 
     fun preCompileColumns() = StringArraySet(BASE_SIZE)
@@ -840,10 +840,9 @@ class Select<S> internal constructor(
     init {
       selectBuilder.columnsNode = this
       val args = selectBuilder.args
-      val observedTables = selectBuilder.observedTables
       columns.forEach { column ->
         column.addArgs(args)
-        column.addObservedTables(observedTables)
+        column.addDependencies(selectBuilder.dependencies)
       }
     }
 
@@ -942,7 +941,7 @@ class Select<S> internal constructor(
     parent: SelectSqlNode<S>,
     internal val table: Table<T>
   ) : SelectNode<R, S, N>(parent) {
-    internal val joins = ArrayList<JoinClause>()
+    internal val joins = JoinClauses(selectBuilder)
 
     init {
       selectBuilder.from = this
@@ -955,7 +954,6 @@ class Select<S> internal constructor(
     ) = apply {
       joinClause.operator = operator
       joins += joinClause
-      joinClause.addArgs(selectBuilder.args)
     }
 
     override fun appendSql(sb: StringBuilder) {
@@ -1320,7 +1318,7 @@ class Select<S> internal constructor(
   ) : SelectNode<T, S, N>(parent) {
     init {
       expr.addArgs(selectBuilder.args)
-      expr.addObservedTables(selectBuilder.observedTables)
+      expr.addDependencies(selectBuilder.dependencies)
     }
 
     override fun appendSql(sb: StringBuilder) {
@@ -1382,6 +1380,13 @@ class Select<S> internal constructor(
     parent: SelectNode<T, S, N>,
     private val columns: Array<out Column<*, *, *, *, *>>
   ) : SelectNode<T, S, N>(parent) {
+    init {
+      columns.forEach { column ->
+        column.addArgs(selectBuilder.args)
+        column.addDependencies(selectBuilder.dependencies)
+      }
+    }
+
     override fun appendSql(sb: StringBuilder) {
       sb.append("GROUP BY ")
       columns.forEachIndexed { index, column ->
@@ -1449,7 +1454,7 @@ class Select<S> internal constructor(
   ) : SelectNode<T, S, N>(parent) {
     init {
       expr.addArgs(selectBuilder.args)
-      expr.addObservedTables(selectBuilder.observedTables)
+      expr.addDependencies(selectBuilder.dependencies)
     }
 
     override fun appendSql(sb: StringBuilder) {
@@ -1497,16 +1502,21 @@ class Select<S> internal constructor(
   class CompoundSelect<T, S, N> internal constructor(
     parent: SelectNode<T, S, N>,
     private val op: String,
-    private val select: SelectNode<*, S, *>
+    select: SelectNode<*, S, *>
   ) : SelectNode<T, S, N>(parent) {
+    private val fragment = select
+      .selectBuilder
+      .freezeFragment()
+
     init {
-      selectBuilder.args.addAll(select.selectBuilder.args)
+      fragment.addArgs(selectBuilder.args)
+      fragment.addDependencies(selectBuilder.dependencies)
     }
 
     override fun appendSql(sb: StringBuilder) {
       sb.append(op)
         .append(' ')
-      select.selectBuilder.appendCompiledQuery(sb, selectBuilder.observedTables)
+      fragment.appendSql(sb)
     }
 
     override fun appendSql(
@@ -1549,6 +1559,11 @@ class Select<S> internal constructor(
       expr?.addArgs(args)
     }
 
+    internal fun addDependencies(dependencies: QueryDependencies.Builder) {
+      column?.addDependencies(dependencies)
+      expr?.addDependencies(dependencies)
+    }
+
     override fun appendSql(sb: StringBuilder) {
       when {
         column != null -> column.appendSql(sb)
@@ -1588,7 +1603,10 @@ class Select<S> internal constructor(
     @Size(min = 1) private val orderingTerms: Array<out OrderingTerm>
   ) : SelectNode<T, S, N>(parent) {
     init {
-      orderingTerms.forEach { it.addArgs(selectBuilder.args) }
+      orderingTerms.forEach { term ->
+        term.addArgs(selectBuilder.args)
+        term.addDependencies(selectBuilder.dependencies)
+      }
     }
 
     override fun appendSql(sb: StringBuilder) {

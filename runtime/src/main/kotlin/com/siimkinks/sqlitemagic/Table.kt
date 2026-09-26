@@ -2,8 +2,13 @@ package com.siimkinks.sqlitemagic
 
 import androidx.annotation.CheckResult
 import androidx.annotation.Size
+import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
+import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
 import com.siimkinks.sqlitemagic.Utils.TABLE_ALL_PARSER
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import java.util.LinkedList
 
 /** Row mapper for the current selection shape. */
@@ -38,11 +43,39 @@ open class Table<T> protected constructor(
   },
   internal val addDeepQueryParts: TableQueryGraphContributor = { _, _, _ -> },
   internal val addShallowQueryParts: TableQueryGraphContributor = { _, _, _ -> },
-  private val viewDefinition: (() -> ViewDefinition)? = null
+  private val viewDefinition: (() -> ViewDefinition)? = null,
+  internal val temporary: Boolean = false
 ) {
   internal val hasAlias = alias != null
   internal val hasViewDefinitionPositions get() = viewDefinition?.invoke()?.hasColumnPositions == true
   internal val nameInQuery = alias ?: name
+  internal val objectIdentity = SqliteSchemaIdentity.from(
+    schema = when {
+      temporary -> TEMPORARY
+      else -> MAIN
+    },
+    rawName = name
+  )
+
+  internal open fun addDependencies(destination: QueryDependencies.Builder) {
+    viewDefinition?.invoke()?.let { definition ->
+      destination.addSource(
+        SqliteQuerySource(
+          identity = objectIdentity,
+          kind = VIEW
+        )
+      )
+      destination.addObservedTables(definition.queryDependencies.observedTables)
+      return
+    }
+    destination.addSource(
+      SqliteQuerySource(
+        identity = objectIdentity,
+        kind = TABLE
+      )
+    )
+  }
+
   private val selectAllColumn = Column<Any, Any, Any, T, NotNullable>(
     table = this,
     name = "*",
@@ -53,6 +86,10 @@ open class Table<T> protected constructor(
   )
 
   internal open fun appendToSqlFromClause(sb: StringBuilder) {
+    if (name.isNotEmpty()) {
+      sb.append(objectIdentity.schema.qualifier)
+        .append('.')
+    }
     sb.append(name)
     if (hasAlias) {
       sb.append(" AS ")
@@ -63,13 +100,11 @@ open class Table<T> protected constructor(
   /**
    * Gives a runtime table the opportunity to perfect a selection at build time.
    *
-   * @param observedTables Tables that are being selected
    * @param tableGraphNodeNames Selection graph node names
    * @param columnPositions Column positions in the selection
    * @return Whether selection should be deep.
    */
   internal open fun perfectSelection(
-    observedTables: ArrayList<String>,
     tableGraphNodeNames: SimpleArrayMap<String, String>?,
     columnPositions: SimpleArrayMap<String, Int>?,
     implicitOffset: Int = 0,
@@ -78,7 +113,6 @@ open class Table<T> protected constructor(
     viewDefinition?.invoke()?.let { definition ->
       definition.contributeTo(
         tableIdentifier = nameInQuery,
-        observedTables = observedTables,
         tableGraphNodeNames = tableGraphNodeNames,
         columnPositions = columnPositions,
         implicitOffset = implicitOffset,
@@ -86,13 +120,15 @@ open class Table<T> protected constructor(
       )
       return definition.queryDeep
     }
-    if (name !in observedTables) {
-      observedTables.add(name)
-    }
     return false
   }
 
-  internal fun internalAlias(alias: String) = Table<T>(name, alias, nrOfColumns)
+  internal fun internalAlias(alias: String) = Table<T>(
+    name = name,
+    alias = alias,
+    nrOfColumns = nrOfColumns,
+    temporary = temporary
+  )
 
   /**
    * Create an alias for this table.
@@ -101,7 +137,12 @@ open class Table<T> protected constructor(
    * @return New table with provided alias.
    */
   @CheckResult
-  open fun `as`(alias: String) = Table<T>(name, alias, nrOfColumns)
+  open fun `as`(alias: String) = Table<T>(
+    name = name,
+    alias = alias,
+    nrOfColumns = nrOfColumns,
+    temporary = temporary
+  )
 
   /**
    * All columns from this table (`*`).
@@ -141,6 +182,8 @@ open class Table<T> protected constructor(
       super.addArgs(args)
       expr.addArgs(args)
     }
+
+    override fun addDependencies(dependencies: QueryDependencies.Builder) = expr.addDependencies(dependencies)
   }
 
   /**
@@ -181,10 +224,15 @@ open class Table<T> protected constructor(
     }
   ) {
     override fun containsColumn(column: Column<*, *, *, *, *>) = column in columns
+
+    override fun addDependencies(dependencies: QueryDependencies.Builder) =
+      columns.forEach { column ->
+        column.addDependencies(dependencies)
+      }
   }
 
   internal fun baseNameEquals(other: Any?): Boolean = this === other ||
-      other is Table<*> && name == other.name
+      other is Table<*> && objectIdentity.normalizedKey == other.objectIdentity.normalizedKey
 
   override fun equals(other: Any?): Boolean = this === other ||
       other is Table<*> && nameInQuery == other.nameInQuery

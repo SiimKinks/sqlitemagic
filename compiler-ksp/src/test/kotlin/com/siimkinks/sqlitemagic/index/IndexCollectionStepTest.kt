@@ -8,13 +8,13 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.index.IndexKind.COMPOSITE
 import com.siimkinks.sqlitemagic.index.IndexKind.FIELD
+import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.mockPropertyPath
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
-import com.siimkinks.sqlitemagic.schema.SqliteSchema
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE

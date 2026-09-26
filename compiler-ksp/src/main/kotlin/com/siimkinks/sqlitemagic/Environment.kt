@@ -22,12 +22,12 @@ import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.index.IndexRoundElement
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.model.PropertySourceKey
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.TableRoundElement
 import com.siimkinks.sqlitemagic.model.toPropertySourceKey
 import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundElement
 import com.siimkinks.sqlitemagic.transformer.TransformerRoundTypeElement

@@ -1,8 +1,6 @@
-package com.siimkinks.sqlitemagic.schema
+package com.siimkinks.sqlitemagic.internal
 
-enum class SqliteSchema(
-  val qualifier: String
-) {
+enum class SqliteSchema(val qualifier: String) {
   MAIN("main"),
   TEMPORARY("temp")
 }
@@ -20,10 +18,24 @@ data class SqliteIdentifier private constructor(
   companion object {
     fun from(rawName: String) = SqliteIdentifier(
       rawName = rawName,
-      normalizedName = rawName.asciiLowercase()
+      normalizedName = buildString(capacity = rawName.length) {
+        for (character in rawName) {
+          append(
+            when (character) {
+              in 'A'..'Z' -> character + ('a' - 'A')
+              else -> character
+            }
+          )
+        }
+      }
     )
   }
 }
+
+data class SqliteSchemaKey(
+  val schema: SqliteSchema,
+  val normalizedName: String
+)
 
 interface SqliteSchemaProvider : SqliteIdentifierProvider {
   val schema: SqliteSchema
@@ -39,18 +51,14 @@ data class SqliteSchemaIdentity(
     schema = schema,
     normalizedName = normalizedName
   )
-}
 
-data class SqliteSchemaKey(
-  val schema: SqliteSchema,
-  val normalizedName: String
-)
-
-private fun String.asciiLowercase() = map(Char::asciiLowercase)
-  .joinToString(separator = "")
-
-private fun Char.asciiLowercase() =
-  when (this) {
-    in 'A'..'Z' -> this + ('a' - 'A')
-    else -> this
+  companion object {
+    fun from(
+      schema: SqliteSchema,
+      rawName: String
+    ) = SqliteSchemaIdentity(
+      schema = schema,
+      identifier = SqliteIdentifier.from(rawName)
+    )
   }
+}

@@ -24,10 +24,10 @@ class QueryAliasTest : DSLTests {
     assertThat(firstSql).isEqualTo(secondSql)
     assertThat(firstSql).isEqualTo(
       """
-      SELECT immutable_value_with_fields.id,sm_0.id FROM complex_object_with_same_leafs
-      LEFT JOIN immutable_value_with_fields ON
+      SELECT immutable_value_with_fields.id,sm_0.id FROM main.complex_object_with_same_leafs
+      LEFT JOIN main.immutable_value_with_fields ON
       complex_object_with_same_leafs.simple_value=immutable_value_with_fields.id
-      LEFT JOIN immutable_value_with_fields AS sm_0 ON
+      LEFT JOIN main.immutable_value_with_fields AS sm_0 ON
       complex_object_with_same_leafs.simple_value_duplicate=sm_0.id
       """.asCompiledSql()
     )
@@ -44,10 +44,10 @@ class QueryAliasTest : DSLTests {
 
     assertThat(sql).isEqualTo(
       """
-      SELECT immutable_value_with_fields.id FROM complex_object_with_same_leafs
-      LEFT JOIN immutable_value_with_fields AS leaf ON
+      SELECT immutable_value_with_fields.id FROM main.complex_object_with_same_leafs
+      LEFT JOIN main.immutable_value_with_fields AS leaf ON
       complex_object_with_same_leafs.simple_value=leaf.id
-      LEFT JOIN immutable_value_with_fields ON
+      LEFT JOIN main.immutable_value_with_fields ON
       complex_object_with_same_leafs.simple_value_duplicate=immutable_value_with_fields.id
       """.asCompiledSql()
     )
@@ -60,20 +60,20 @@ class QueryAliasTest : DSLTests {
         COLUMNS arrayOf(IMMUTABLE_VALUE_WITH_FIELDS.ID)
         FROM COMPLEX_OBJECT_WITH_SAME_LEAFS
         LEFT_JOIN (
-          entityWithRelationship ON (
+        entityWithRelationship ON (
             COMPLEX_OBJECT_WITH_SAME_LEAFS.ENTITY_WITH_RELATIONSHIP IS entityWithRelationship.ID
-          )
+            )
         ))
       .compiledSql()
 
     assertThat(sql).isEqualTo(
       """
-      SELECT immutable_value_with_fields.id,sm_1.id FROM complex_object_with_same_leafs
-      LEFT JOIN entity_with_relationship AS sm_0 ON
+      SELECT immutable_value_with_fields.id,sm_1.id FROM main.complex_object_with_same_leafs
+      LEFT JOIN main.entity_with_relationship AS sm_0 ON
       complex_object_with_same_leafs.entity_with_relationship=sm_0.id
-      LEFT JOIN immutable_value_with_fields ON
+      LEFT JOIN main.immutable_value_with_fields ON
       complex_object_with_same_leafs.simple_value=immutable_value_with_fields.id
-      LEFT JOIN immutable_value_with_fields AS sm_1 ON
+      LEFT JOIN main.immutable_value_with_fields AS sm_1 ON
       complex_object_with_same_leafs.simple_value_duplicate=sm_1.id
       """.asCompiledSql()
     )

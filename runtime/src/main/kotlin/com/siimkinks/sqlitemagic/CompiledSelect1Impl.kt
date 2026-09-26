@@ -13,13 +13,15 @@ internal class CompiledSelect1Impl<T, S>(
   override val args: Array<String?>?,
   dbConnection: DbConnectionImpl?,
   internal val selectedColumn: Column<*, T, *, *, *>,
-  override val observedTables: Array<String>
+  override val queryDependencies: QueryDependencies
 ) : DatabaseQuery<List<T>, T>(
   dbConnection = dbConnection,
   mapper = Mapper { cursor ->
     selectedColumn.getFromCursor<T>(cursor) as T
   }
 ), CompiledSelect<T, S>, CompiledSelectDetails {
+  override val observedTables = queryDependencies.observedTables
+
   override fun rawQuery(
     inStream: Boolean,
     dbConnection: DbConnectionImpl

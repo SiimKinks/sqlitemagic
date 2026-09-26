@@ -3,13 +3,13 @@ package com.siimkinks.sqlitemagic.view
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.element.mockParsedType
+import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.model.mockModelConstruction
 import com.siimkinks.sqlitemagic.model.mockPropertyAccess
 import com.siimkinks.sqlitemagic.model.mockPropertyPath
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
-import com.siimkinks.sqlitemagic.schema.SqliteSchema
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.transformer.mockTransformerElement
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName

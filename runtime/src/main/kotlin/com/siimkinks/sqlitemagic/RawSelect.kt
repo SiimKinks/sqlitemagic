@@ -4,7 +4,6 @@ import android.database.Cursor
 import androidx.annotation.CheckResult
 import androidx.annotation.Size
 import com.siimkinks.sqlitemagic.CompiledSelectImpl.Companion.createQueryObservable
-import com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_STRINGS
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 /** Builder for raw SQL SELECT statement. */
@@ -24,9 +23,7 @@ class RawSelect internal constructor(
   @CheckResult
   fun from(@Size(min = 1) vararg tables: Table<*>) = From(
     select = this,
-    observedTables = Array(tables.size) { index ->
-      tables[index].nameInQuery
-    }
+    queryDependencies = dependenciesFor(tables.asList())
   )
 
   /**
@@ -42,18 +39,23 @@ class RawSelect internal constructor(
   @CheckResult
   fun <T : Table<*>> from(@Size(min = 1) tables: Collection<T>) = From(
     select = this,
-    observedTables = tables
-      .map { it.nameInQuery }
-      .toTypedArray()
+    queryDependencies = dependenciesFor(tables)
   )
+
+  private fun dependenciesFor(tables: Iterable<Table<*>>) = QueryDependencies
+    .Builder()
+    .also { dependencies ->
+      tables.forEach { it.addDependencies(dependencies) }
+    }
+    .build()
 
   /** Builder for raw SQL SELECT statement. */
   class From internal constructor(
     select: RawSelect,
-    observedTables: Array<String>
+    queryDependencies: QueryDependencies
   ) : RawSelectNode<From, CompiledObservableRawSelect>(select.rawSelectBuilder) {
     init {
-      rawSelectBuilder.observedTables = observedTables
+      rawSelectBuilder.queryDependencies = queryDependencies
     }
 
     /**
@@ -86,7 +88,9 @@ class RawSelect internal constructor(
     internal val sql: String
   ) {
     internal var args: Array<out String?>? = null
-    internal var observedTables: Array<String> = EMPTY_STRINGS
+    internal var queryDependencies = QueryDependencies.Builder()
+      .markDirectSourcesIncomplete()
+      .build()
     internal var dbConnection: DbConnectionImpl? = null
   }
 
@@ -94,16 +98,18 @@ class RawSelect internal constructor(
     internal val sql: String,
     internal val args: Array<out String?>?,
     dbConnection: DbConnectionImpl?,
-    internal val observedTables: Array<String>
+    internal val queryDependencies: QueryDependencies
   ) : Query.DatabaseQuery<Cursor, Cursor>(
     dbConnection = dbConnection,
     mapper = null
   ), CompiledObservableRawSelect {
+    internal val observedTables = queryDependencies.observedTables
+
     internal constructor(builder: Builder) : this(
       sql = builder.sql,
       args = builder.args,
       dbConnection = builder.dbConnection,
-      observedTables = builder.observedTables
+      queryDependencies = builder.queryDependencies
     )
 
     override fun rawQuery(

@@ -3,9 +3,9 @@ package com.siimkinks.sqlitemagic.manager
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.index.mockSqliteIdentifier
 import com.siimkinks.sqlitemagic.index.mockSqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.schema.SqliteSchema
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.MAIN
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.view.mockViewElement
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir

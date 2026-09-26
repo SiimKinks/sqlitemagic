@@ -75,7 +75,7 @@ fun Expr.isEqualTo(
   vararg args: String
 ) {
   (SELECT FROM SIMPLE_MUTABLE_ENTITY WHERE this)
-    .isEqualTo("SELECT * FROM simple_mutable_entity WHERE $expectedExpr ", *args)
+    .isEqualTo("SELECT * FROM main.simple_mutable_entity WHERE $expectedExpr ", *args)
 }
 
 fun generateSql(sqlNode: SelectSqlNode<*>): String {

@@ -2,14 +2,14 @@ package com.siimkinks.sqlitemagic.view
 
 import com.siimkinks.sqlitemagic.ReadModelGenerationNames
 import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.PropertyAccess
 import com.siimkinks.sqlitemagic.model.PropertyMetadata
 import com.siimkinks.sqlitemagic.readModelGenerationNames
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
-import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
+import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.TypeName
 

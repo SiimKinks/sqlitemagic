@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.MAIN
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import org.junit.jupiter.api.Test
 
 internal class SchemaIdentityValidationTest {

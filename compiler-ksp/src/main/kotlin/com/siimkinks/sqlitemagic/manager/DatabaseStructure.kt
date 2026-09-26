@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.schemaSql
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.MAIN
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.view.ViewElement
 import kotlinx.serialization.Serializable
 

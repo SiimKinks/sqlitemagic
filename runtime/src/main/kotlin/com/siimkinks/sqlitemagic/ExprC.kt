@@ -16,9 +16,9 @@ internal class ExprC(
     exprColumn.addArgs(args)
   }
 
-  override fun addObservedTables(tables: ArrayList<String>) {
-    super.addObservedTables(tables)
-    exprColumn.addObservedTables(tables)
+  override fun addDependencies(dependencies: QueryDependencies.Builder) {
+    super.addDependencies(dependencies)
+    exprColumn.addDependencies(dependencies)
   }
 
   override fun appendToSql(sb: StringBuilder) {

@@ -7,10 +7,10 @@ import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.readModelGenerationNames
-import com.siimkinks.sqlitemagic.schema.SqliteSchema
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy

@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
+import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
 
 private val unsupportedAppendConstraintPattern = Regex(
   """(?i)\b(PRIMARY\s+KEY|UNIQUE|REFERENCES)\b"""

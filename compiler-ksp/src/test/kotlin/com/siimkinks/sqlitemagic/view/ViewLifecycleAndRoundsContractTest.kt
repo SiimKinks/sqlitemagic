@@ -53,6 +53,13 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         "ViewOnlyLifecycleTable.kt",
         "SqliteMagicDatabase.kt"
       )
+      .withGeneratedSource("ViewOnlyLifecycleTable.kt") { generatedSource ->
+        generatedSource.assertContains(": Table<ViewOnlyLifecycle>(")
+        generatedSource
+          .substringAfter(": Table<ViewOnlyLifecycle>(")
+          .substringBefore(") {")
+          .assertDoesNotContain("temporary = true")
+      }
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
           "SqlUtil.createView(",
@@ -261,6 +268,13 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         "TemporaryLifecycleViewTable.kt",
         "SqliteMagicDatabase.kt"
       )
+      .withGeneratedSource("TemporaryLifecycleViewTable.kt") { generatedSource ->
+        generatedSource.assertContains(": Table<TemporaryLifecycleView>(")
+        generatedSource
+          .substringAfter(": Table<TemporaryLifecycleView>(")
+          .substringBefore(") {")
+          .assertContains("temporary = true")
+      }
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContainsInOrder(
           "createTemporarySchema(db)",

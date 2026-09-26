@@ -16,6 +16,11 @@ internal class BinaryExpr(
     rhs.addArgs(args)
   }
 
+  override fun addDependencies(dependencies: QueryDependencies.Builder) {
+    lhs.addDependencies(dependencies)
+    rhs.addDependencies(dependencies)
+  }
+
   override fun appendToSql(sb: StringBuilder) {
     sb.appendBinary {
       it.appendToSql(sb)

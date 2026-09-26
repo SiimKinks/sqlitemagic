@@ -13,9 +13,13 @@ open class Expr internal constructor(
   private val column: Column<*, *, *, *, *>?,
   protected val op: String
 ) {
-  internal open fun addArgs(args: ArrayList<String?>) = Unit
+  internal open fun addArgs(args: ArrayList<String?>) {
+    column?.addArgs(args)
+  }
 
-  internal open fun addObservedTables(tables: ArrayList<String>) = Unit
+  internal open fun addDependencies(dependencies: QueryDependencies.Builder) {
+    column?.addDependencies(dependencies)
+  }
 
   internal open fun appendToSql(sb: StringBuilder) {
     checkNotNull(column).appendSql(sb)

@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic.index
 
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.PropertyPath
 import com.siimkinks.sqlitemagic.model.mockPropertyPath
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName
 

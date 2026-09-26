@@ -3,11 +3,11 @@ package com.siimkinks.sqlitemagic.view
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.PropertyAccess
 import com.siimkinks.sqlitemagic.model.PropertyPath
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaProvider
 
 internal sealed interface ViewPropertySeed {
   val roundElement: ViewPropertyRoundElement

@@ -17,6 +17,9 @@ abstract class SelectSqlNode<S> internal constructor(
 
   init {
     val selectBuilder = parent?.selectBuilder ?: SelectBuilder()
+    if (parent != null) {
+      selectBuilder.ensureMutable()
+    }
     selectBuilder.sqlTreeRoot = this
     selectBuilder.sqlNodeCount++
     this.selectBuilder = selectBuilder
@@ -141,10 +144,12 @@ abstract class SelectSqlNode<S> internal constructor(
      */
     @CheckResult
     fun queryDeep() = apply {
+      selectBuilder.ensureMutable()
       selectBuilder.deep = true
     }
 
     final override fun usingConnection(connection: DbConnection) = apply {
+      selectBuilder.ensureMutable()
       selectBuilder.dbConnection = connection as DbConnectionImpl
     }
 

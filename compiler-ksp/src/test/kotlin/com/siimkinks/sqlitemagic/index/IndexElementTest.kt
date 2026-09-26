@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic.index
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.model.mockPropertyPath
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
-import com.siimkinks.sqlitemagic.schema.SqliteSchema
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
 import com.squareup.kotlinpoet.ClassName

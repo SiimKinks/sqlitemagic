@@ -74,7 +74,7 @@ internal class FunctionCopyColumn<T, R, ET, P, N>(
 
   override fun addArgs(args: ArrayList<String?>) = wrappedColumn.addArgs(args)
 
-  override fun addObservedTables(tables: ArrayList<String>) = wrappedColumn.addObservedTables(tables)
+  override fun addDependencies(dependencies: QueryDependencies.Builder) = wrappedColumn.addDependencies(dependencies)
 
   override fun compile(
     columnPositions: SimpleArrayMap<String, Int>,

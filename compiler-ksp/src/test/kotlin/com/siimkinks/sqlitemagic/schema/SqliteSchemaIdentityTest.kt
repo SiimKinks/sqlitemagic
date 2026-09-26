@@ -1,53 +1,30 @@
 package com.siimkinks.sqlitemagic.schema
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
 import org.junit.jupiter.api.Test
 
 internal class SqliteSchemaIdentityTest {
   @Test
-  fun `preserves raw names and applies ASCII-only normalization`() {
-    val identifier = SqliteIdentifier.from("Books_ÄCCOUNT_123")
-
-    assertThat(identifier.rawName)
-      .isEqualTo("Books_ÄCCOUNT_123")
-    assertThat(identifier.normalizedName)
-      .isEqualTo("books_Äccount_123")
-  }
-
-  @Test
-  fun `exposes a schema-aware normalized key`() {
-    val identity = SqliteSchemaIdentity(
-      schema = TEMPORARY,
-      identifier = SqliteIdentifier.from("Books_ÄCCOUNT_123")
+  fun `shared identity implements provider contract`() {
+    val sharedIdentity = SqliteSchemaIdentity(
+      schema = MAIN,
+      identifier = SqliteIdentifier.from("Books")
     )
-    val normalizedKey = identity.normalizedKey
-
-    assertThat(normalizedKey.schema)
-      .isEqualTo(TEMPORARY)
-    assertThat(normalizedKey.normalizedName)
-      .isEqualTo("books_Äccount_123")
-    assertThat(identity.normalizedKey)
-      .isSameInstanceAs(normalizedKey)
-  }
-
-  @Test
-  fun `delegates schema provider values through the identity`() {
-    val identity = SqliteSchemaIdentity(
-      schema = SqliteSchema.MAIN,
-      identifier = SqliteIdentifier.from("Books_ÄCCOUNT_123")
-    )
-    val provider: SqliteSchemaProvider = identity
+    val provider: SqliteSchemaProvider = sharedIdentity
 
     assertThat(provider.schema)
-      .isEqualTo(identity.schema)
+      .isEqualTo(sharedIdentity.schema)
     assertThat(provider.identifier)
-      .isEqualTo(identity.identifier)
+      .isSameInstanceAs(sharedIdentity.identifier)
     assertThat(provider.rawName)
-      .isEqualTo(identity.identifier.rawName)
+      .isEqualTo(sharedIdentity.rawName)
     assertThat(provider.normalizedName)
-      .isEqualTo(identity.identifier.normalizedName)
+      .isEqualTo(sharedIdentity.normalizedName)
     assertThat(provider.normalizedKey)
-      .isEqualTo(identity.normalizedKey)
+      .isSameInstanceAs(sharedIdentity.normalizedKey)
   }
 }

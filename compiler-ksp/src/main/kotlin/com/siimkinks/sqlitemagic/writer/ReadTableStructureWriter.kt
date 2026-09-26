@@ -15,6 +15,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.QUERY_GRAPH_SCOPE
 import com.siimkinks.sqlitemagic.WriterTypes.QUERY_MAPPER
 import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.writeModelSource
 import com.siimkinks.sqlitemagic.view.ViewElement
@@ -202,6 +203,9 @@ internal class ReadTableStructureWriter private constructor(
         add(CodeBlock.of("name = %S", table.tableName))
         add(CodeBlock.of("alias = %N", VARIABLE_ALIAS))
         add(CodeBlock.of("nrOfColumns = %L", table.allColumns.size))
+        if (table.schema == TEMPORARY) {
+          add(CodeBlock.of("temporary = true"))
+        }
         add(CodeBlock.of("%N = ::%N", METHOD_MAPPER, METHOD_CREATE_MAPPER))
         if (table.hasRecursiveRelationships) {
           add(CodeBlock.of("%N = %T::%N", METHOD_ADD_DEEP_QUERY_PARTS, QUERY_GRAPH_SCOPE, METHOD_ADD_DEEP_QUERY_PARTS))
@@ -236,30 +240,37 @@ internal class ReadTableStructureWriter private constructor(
         modelClassName = view.modelClassName,
         structureFieldName = view.structureFieldName,
         isPublic = view.isPublic,
-        constructorArguments = listOf(
-          CodeBlock.of("name = %S", view.viewName),
-          CodeBlock.of("alias = %N", VARIABLE_ALIAS),
-          CodeBlock.of("nrOfColumns = %L", view.expandedWidth),
-          buildCodeBlock {
-            add("%N = { %N, %N, %N ->\n", METHOD_MAPPER, "columnPositions", "tableGraphNodeNames", "queryDeep")
-            withIndent {
-              add("%N(\n", METHOD_CREATE_MAPPER)
+        constructorArguments = buildList {
+          add(CodeBlock.of("name = %S", view.viewName))
+          add(CodeBlock.of("alias = %N", VARIABLE_ALIAS))
+          add(CodeBlock.of("nrOfColumns = %L", view.expandedWidth))
+          if (view.schema == TEMPORARY) {
+            add(CodeBlock.of("temporary = true"))
+          }
+          add(
+            buildCodeBlock {
+              add("%N = { %N, %N, %N ->\n", METHOD_MAPPER, "columnPositions", "tableGraphNodeNames", "queryDeep")
               withIndent {
-                add("%N = %N,\n", "columnPositions", "columnPositions")
-                add("%N = %N,\n", "tableGraphNodeNames", "tableGraphNodeNames")
-                add("%N = %N,\n", "queryDeep", "queryDeep")
-                add("%N = %N ?: %S\n", viewIdentifier, VARIABLE_ALIAS, view.viewName)
+                add("%N(\n", METHOD_CREATE_MAPPER)
+                withIndent {
+                  add("%N = %N,\n", "columnPositions", "columnPositions")
+                  add("%N = %N,\n", "tableGraphNodeNames", "tableGraphNodeNames")
+                  add("%N = %N,\n", "queryDeep", "queryDeep")
+                  add("%N = %N ?: %S\n", viewIdentifier, VARIABLE_ALIAS, view.viewName)
+                }
+                add(")\n")
               }
-              add(")\n")
+              add("}")
             }
-            add("}")
-          },
-          CodeBlock.of(
-            "viewDefinition = { %T.%N }",
-            view.generationNames.daoClassName,
-            FIELD_VIEW_QUERY
           )
-        ),
+          add(
+            CodeBlock.of(
+              "viewDefinition = { %T.%N }",
+              view.generationNames.daoClassName,
+              FIELD_VIEW_QUERY
+            )
+          )
+        },
         columns = columns,
         daoClassName = view.generationNames.daoClassName,
         hasFullReaderBranch = true,

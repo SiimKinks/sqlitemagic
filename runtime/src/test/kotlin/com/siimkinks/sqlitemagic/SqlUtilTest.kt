@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.Select.Companion.asColumn
 import com.siimkinks.sqlitemagic.Select.Companion.format
 import com.siimkinks.sqlitemagic.Select.Companion.groupConcat
 import com.siimkinks.sqlitemagic.Select.Companion.groupConcatDistinct
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -132,7 +133,7 @@ class SqlUtilTest {
     val definition = ViewDefinition(
       sql = "SELECT id FROM books",
       args = null,
-      observedTables = arrayOf("books"),
+      queryDependencies = queryDependencies("books"),
       columns = null,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -155,7 +156,7 @@ class SqlUtilTest {
     val definition = ViewDefinition(
       sql = "SELECT id FROM books WHERE id=?",
       args = arrayOf("first"),
-      observedTables = arrayOf("books"),
+      queryDependencies = queryDependencies("books"),
       columns = null,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -205,7 +206,7 @@ class SqlUtilTest {
       args = null,
       dbConnection = null,
       selectedColumn = TestSchema.id,
-      observedTables = arrayOf("books")
+      queryDependencies = queryDependencies("books")
     )
     val expectedSql = "CREATE VIEW IF NOT EXISTS \"books_view\" AS SELECT books.id FROM books"
 
@@ -376,11 +377,20 @@ class SqlUtilTest {
       mapper = { _, _, _ -> Query.Mapper { Any() } }
     ),
     dbConnection = null,
-    observedTables = emptyArray(),
+    queryDependencies = QueryDependencies.Builder().build(),
     columns = null,
     tableGraphNodeNames = null,
     queryDeep = false
   )
+
+  private fun queryDependencies(tableName: String) = QueryDependencies.Builder()
+    .addSource(
+      SqliteQuerySource(
+        schema = SqliteSchema.MAIN,
+        name = tableName
+      )
+    )
+    .build()
 
   private fun assertSql(
     column: Column<*, *, *, *, *>,

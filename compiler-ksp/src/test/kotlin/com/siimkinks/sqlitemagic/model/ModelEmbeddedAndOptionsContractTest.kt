@@ -72,12 +72,17 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("ShipmentTable.kt") { generatedSource ->
         generatedSource.assertContains(
+          ": Table<Shipment>(",
           "SHIPPING_GEO_LAT",
           "SHIPPING_GEO_LONGITUDE",
           "SHIPPING_NOTE",
           "BILLING_LAT",
           "BILLING_LONGITUDE"
         )
+        generatedSource
+          .substringAfter(": Table<Shipment>(")
+          .substringBefore(") {")
+          .assertDoesNotContain("temporary = true")
       }
       .withGeneratedSource("SqliteMagic_Shipment_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -685,9 +690,19 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_SessionValue_Adapter.kt")
+      .assertGeneratedSources(
+        "SqliteMagic_SessionValue_Adapter.kt",
+        "SessionValueTable.kt"
+      )
       .withGeneratedSource("SqliteMagic_SessionValue_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("CREATE TEMPORARY TABLE IF NOT EXISTS session_value")
+      }
+      .withGeneratedSource("SessionValueTable.kt") { generatedSource ->
+        generatedSource.assertContains(": Table<SessionValue>(")
+        generatedSource
+          .substringAfter(": Table<SessionValue>(")
+          .substringBefore(") {")
+          .assertContains("temporary = true")
       }
   }
 

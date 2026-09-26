@@ -9,6 +9,7 @@ internal class ExprN(
   op = op
 ) {
   override fun addArgs(args: ArrayList<String?>) {
+    super.addArgs(args)
     evalArgs.forEach(args::add)
   }
 }

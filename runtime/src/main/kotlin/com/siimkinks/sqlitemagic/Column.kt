@@ -81,12 +81,8 @@ open class Column<T, R, ET, P, N>(
 
   internal open fun addArgs(args: ArrayList<String?>) = Unit
 
-  /**
-   * This method gives columns the ability to add any extra tables that need to be observed by the main query.
-   *
-   * @param tables Already observed tables
-   */
-  internal open fun addObservedTables(tables: ArrayList<String>) = Unit
+  /** Add dependencies contributed by this column to the main query. */
+  internal open fun addDependencies(dependencies: QueryDependencies.Builder) = Unit
 
   /**
    * Compile columns.
@@ -673,7 +669,11 @@ open class Column<T, R, ET, P, N>(
     emptyResult: String
   ): Expr {
     if (valueCount == 0) {
-      return Expr.raw("?", emptyResult)
+      return ExprR(
+        op = "?",
+        evalArgs = arrayOf(emptyResult),
+        directSourceReferencesKnown = true
+      )
     }
     val iterator = values.iterator()
     val args = Array(valueCount) { toSqlArg(iterator.next()) }

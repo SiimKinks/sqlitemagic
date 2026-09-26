@@ -13,25 +13,24 @@ internal class ExprS(
   column = column,
   op = op
 ) {
-  private val selectBuilder = selectNode.selectBuilder
-  private var parentObservedTables: ArrayList<String>? = null
+  private val fragment = selectNode
+    .selectBuilder
+    .freezeFragment()
 
   override fun addArgs(args: ArrayList<String?>) {
     super.addArgs(args)
-    args.addAll(selectBuilder.args)
+    fragment.addArgs(args)
   }
 
-  override fun addObservedTables(tables: ArrayList<String>) {
-    super.addObservedTables(tables)
-    // defer observed tables adding until sql building, where we might add missing joins,
-    // so there will be more tables to add/observe
-    parentObservedTables = tables
+  override fun addDependencies(dependencies: QueryDependencies.Builder) {
+    super.addDependencies(dependencies)
+    fragment.addDependencies(dependencies)
   }
 
   override fun appendToSql(sb: StringBuilder) {
     super.appendToSql(sb)
     sb.append('(')
-    selectBuilder.appendCompiledQuery(sb, parentObservedTables)
+    fragment.appendSql(sb)
     sb.append(')')
   }
 
@@ -41,7 +40,7 @@ internal class ExprS(
   ) {
     super.appendToSql(sb, systemRenamedTables)
     sb.append('(')
-    selectBuilder.appendCompiledQuery(sb, parentObservedTables)
+    fragment.appendSql(sb)
     sb.append(')')
   }
 }

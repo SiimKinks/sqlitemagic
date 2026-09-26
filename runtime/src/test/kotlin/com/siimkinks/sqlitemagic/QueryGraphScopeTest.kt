@@ -4,6 +4,7 @@ import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
 import com.siimkinks.sqlitemagic.internal.StringArraySet
 import org.junit.Test
 import org.mockito.kotlin.mock
@@ -249,6 +250,71 @@ internal class QueryGraphScopeTest {
   }
 
   @Test
+  fun `join lookup keeps main and temporary tables separate while matching aliases and case variants`() {
+    val rootTable = testTable<Any>(name = "root")
+    val temporaryChild = testTable<Any>(
+      name = "Child",
+      alias = "temporary_child",
+      temporary = true
+    )
+    val relationshipColumn = rootTable.all()
+    val context = queryGraphScope(rootTable, temporaryChild.on(relationshipColumn.toExpr()))
+
+    assertThat(
+      context.findJoin(
+        table = testTable<Any>(name = "child"),
+        joinedOnColumn = relationshipColumn
+      )
+    ).isNull()
+    assertThat(
+      context.findJoin(
+        table = testTable<Any>(name = "cHILD", temporary = true),
+        joinedOnColumn = relationshipColumn
+      )
+    ).isSameInstanceAs(temporaryChild)
+  }
+
+  @Test
+  fun `graph expansion adds main child beside explicit aliased temporary child`() {
+    val mainChild = testTable<Any>(name = "child")
+    val contributeJoin: TableQueryGraphContributor = { _, tableAlias, _ ->
+      val relationshipColumn = tableAlias.all()
+      if (findJoin(table = mainChild, joinedOnColumn = relationshipColumn) == null) {
+        addLeftJoin(
+          table = tableForAutomaticJoin(mainChild),
+          on = relationshipColumn.toExpr()
+        )
+      }
+    }
+    val rootTable = testTable<Any>(
+      name = "root",
+      addDeepQueryParts = contributeJoin,
+      addShallowQueryParts = contributeJoin
+    )
+    val temporaryChild = testTable<Any>(
+      name = "child",
+      alias = "temporary_child",
+      temporary = true
+    )
+
+    val compiled = Select
+      .column(Select.asColumn(1))
+      .from(rootTable)
+      .join(temporaryChild.on(rootTable.all().toExpr()))
+      .compile() as CompiledSelectDetails
+
+    assertThat(compiled.sql).contains("temp.child AS temporary_child")
+    assertThat(compiled.sql).contains("LEFT JOIN main.child")
+    assertThat(compiled.queryDependencies.directSources)
+      .containsExactly(
+        SqliteQuerySource(schema = SqliteSchema.MAIN, name = "root"),
+        SqliteQuerySource(schema = SqliteSchema.TEMPORARY, name = "child"),
+        SqliteQuerySource(schema = SqliteSchema.MAIN, name = "child")
+      )
+      .inOrder()
+  }
+
+  @Test
   fun `rebindColumn preserves source behavior and recomputes query name`() {
     val sourceTable = testTable<Any>(name = "source")
     val targetTable = testTable<Any>(name = "target", alias = "joined")
@@ -341,7 +407,7 @@ internal class QueryGraphScopeTest {
 
     val sql = StringBuilder()
     from.appendSql(sql)
-    assertThat(sql.toString()).contains("LEFT JOIN joined")
+    assertThat(sql.toString()).contains("LEFT JOIN main.joined")
   }
 
   @Test

@@ -33,10 +33,10 @@ import com.siimkinks.sqlitemagic.WriterTypes.UNCHECKED_CAST
 import com.siimkinks.sqlitemagic.WriterTypes.UTILS
 import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.parserName
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.MAIN
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.view.ViewElement
 import com.squareup.kotlinpoet.ANY

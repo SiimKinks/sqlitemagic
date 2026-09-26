@@ -5,13 +5,21 @@ import java.util.LinkedList
 
 internal class ExprR(
   op: String,
-  private val evalArgs: Array<out String>
+  private val evalArgs: Array<out String>,
+  // true only when this raw SQL is known to contain no table or view references.
+  private val directSourceReferencesKnown: Boolean = false
 ) : Expr(
   column = null,
   op = op
 ) {
   override fun addArgs(args: ArrayList<String?>) {
     evalArgs.forEach(args::add)
+  }
+
+  override fun addDependencies(dependencies: QueryDependencies.Builder) {
+    if (!directSourceReferencesKnown) {
+      dependencies.markDirectSourcesIncomplete()
+    }
   }
 
   override fun appendToSql(sb: StringBuilder) {

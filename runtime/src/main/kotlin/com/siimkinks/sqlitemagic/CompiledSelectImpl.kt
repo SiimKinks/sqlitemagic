@@ -14,7 +14,7 @@ internal class CompiledSelectImpl<T, S>(
   override val args: Array<String?>?,
   table: Table<T>,
   dbConnection: DbConnectionImpl?,
-  override val observedTables: Array<String>,
+  override val queryDependencies: QueryDependencies,
   internal val columns: SimpleArrayMap<String, Int>?,
   internal val tableGraphNodeNames: SimpleArrayMap<String, String>?,
   internal val queryDeep: Boolean
@@ -22,6 +22,8 @@ internal class CompiledSelectImpl<T, S>(
   dbConnection = dbConnection,
   mapper = table.mapper(columns, tableGraphNodeNames, queryDeep)
 ), CompiledSelect<T, S>, CompiledSelectDetails {
+  override val observedTables = queryDependencies.observedTables
+
   override fun rawQuery(
     inStream: Boolean,
     dbConnection: DbConnectionImpl

@@ -47,8 +47,20 @@ internal class BetweenExpr(
 
   override fun addArgs(args: ArrayList<String?>) {
     super.addArgs(args)
-    firstVal?.let(args::add)
-    secondVal?.let(args::add)
+    when {
+      firstVal != null -> args.add(firstVal)
+      else -> firstColumn?.addArgs(args)
+    }
+    when {
+      secondVal != null -> args.add(secondVal)
+      else -> secondColumn?.addArgs(args)
+    }
+  }
+
+  override fun addDependencies(dependencies: QueryDependencies.Builder) {
+    super.addDependencies(dependencies)
+    firstColumn?.addDependencies(dependencies)
+    secondColumn?.addDependencies(dependencies)
   }
 
   override fun containsColumn(column: Column<*, *, *, *, *>) =

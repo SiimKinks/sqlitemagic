@@ -15,6 +15,9 @@ import com.siimkinks.sqlitemagic.annotation.ViewQuery
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.element.toParsedType
 import com.siimkinks.sqlitemagic.element.toRoundTypeElement
+import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.ModelCollectionReporter
 import com.siimkinks.sqlitemagic.model.ModelKind.VIEW
 import com.siimkinks.sqlitemagic.model.PropertyAccess
@@ -26,12 +29,9 @@ import com.siimkinks.sqlitemagic.model.validateRootModelDeclaration
 import com.siimkinks.sqlitemagic.schema.ArtifactStemOwner
 import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
 import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifier
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.MAIN
-import com.siimkinks.sqlitemagic.schema.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
 import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
@@ -41,7 +41,7 @@ import com.siimkinks.sqlitemagic.utils.isEffectivelyAccessibleFromGeneratedCode
 import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
 import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
-import com.siimkinks.sqlitemagic.schema.SqliteSchema.TEMPORARY as TEMPORARY_SCHEMA
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY as TEMPORARY_SCHEMA
 
 internal class ViewCollector(
   private val environment: Environment,

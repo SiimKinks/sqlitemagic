@@ -2,10 +2,10 @@ package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 
-class ViewDefinition(
+class ViewDefinition internal constructor(
   val sql: String,
   val args: Array<String?>?,
-  private val observedTables: Array<String>,
+  internal val queryDependencies: QueryDependencies,
   private val columns: SimpleArrayMap<String, Int>?,
   private val tableGraphNodeNames: SimpleArrayMap<String, String>?,
   val queryDeep: Boolean
@@ -14,13 +14,11 @@ class ViewDefinition(
 
   internal fun contributeTo(
     tableIdentifier: String,
-    observedTables: ArrayList<String>,
     tableGraphNodeNames: SimpleArrayMap<String, String>?,
     columnPositions: SimpleArrayMap<String, Int>?,
     implicitOffset: Int,
     implicitSelection: Boolean
   ) {
-    addObservedTablesTo(observedTables)
     when {
       columnPositions == null -> null
       implicitSelection -> implicitOffset
@@ -42,15 +40,6 @@ class ViewDefinition(
         for (index in 0 until source.size()) {
           tableGraphNodeNames.put("$tableIdentifier.${source.keyAt(index)}", source.valueAt(index))
         }
-      }
-    }
-  }
-
-  private fun addObservedTablesTo(destination: ArrayList<String>) {
-    destination.ensureCapacity(destination.size + observedTables.size)
-    observedTables.forEach { table ->
-      if (table !in destination) {
-        destination.add(table)
       }
     }
   }

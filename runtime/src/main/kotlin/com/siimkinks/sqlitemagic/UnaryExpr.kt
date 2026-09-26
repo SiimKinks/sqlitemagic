@@ -14,6 +14,8 @@ internal class UnaryExpr(
     expr.addArgs(args)
   }
 
+  override fun addDependencies(dependencies: QueryDependencies.Builder) = expr.addDependencies(dependencies)
+
   override fun appendToSql(sb: StringBuilder) {
     sb.appendUnary {
       expr.appendToSql(sb)

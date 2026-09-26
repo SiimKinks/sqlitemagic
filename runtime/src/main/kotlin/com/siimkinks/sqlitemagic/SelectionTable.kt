@@ -1,12 +1,10 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-
 internal class SelectionTable<T> private constructor(
   private val compiledSql: String,
   alias: String?,
   private val args: Array<String?>?,
-  private val observedTables: Array<String>,
+  private val dependencies: QueryDependencies,
   private val rowMapper: Query.Mapper<T>
 ) : Table<T>(
   name = "",
@@ -16,6 +14,10 @@ internal class SelectionTable<T> private constructor(
 ) {
   internal fun linkWithOuterSelect(outerSelectBuilder: SelectBuilder<*>) {
     args?.toList()?.let(outerSelectBuilder.args::addAll)
+  }
+
+  override fun addDependencies(destination: QueryDependencies.Builder) {
+    destination.merge(dependencies)
   }
 
   override fun appendToSqlFromClause(sb: StringBuilder) {
@@ -28,24 +30,11 @@ internal class SelectionTable<T> private constructor(
     }
   }
 
-  override fun perfectSelection(
-    observedTables: ArrayList<String>,
-    tableGraphNodeNames: SimpleArrayMap<String, String>?,
-    columnPositions: SimpleArrayMap<String, Int>?,
-    implicitOffset: Int,
-    implicitSelection: Boolean
-  ): Boolean {
-    this.observedTables.filterNotTo(observedTables) {
-      it in observedTables
-    }
-    return false
-  }
-
   override fun `as`(alias: String): Table<T> = SelectionTable(
     compiledSql = compiledSql,
     alias = alias,
     args = args,
-    observedTables = observedTables,
+    dependencies = dependencies,
     rowMapper = rowMapper
   )
 
@@ -63,7 +52,7 @@ internal class SelectionTable<T> private constructor(
         compiledSql = details.sql,
         alias = alias,
         args = details.args,
-        observedTables = details.observedTables,
+        dependencies = details.queryDependencies,
         rowMapper = checkNotNull(mapper)
       )
     }

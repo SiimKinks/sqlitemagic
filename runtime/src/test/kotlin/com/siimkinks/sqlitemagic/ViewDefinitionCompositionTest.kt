@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
 import org.junit.Test
 
 class ViewDefinitionCompositionTest {
@@ -14,7 +15,7 @@ class ViewDefinitionCompositionTest {
     val definition = ViewDefinition(
       sql = "SELECT id, name FROM authors",
       args = null,
-      observedTables = arrayOf("authors"),
+      queryDependencies = authorDependencies,
       columns = definitionPositions,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -33,9 +34,7 @@ class ViewDefinitionCompositionTest {
       put("left", 3)
       put("tail", 5)
     }
-    val observed = arrayListOf<String>()
     view.perfectSelection(
-      observedTables = observed,
       tableGraphNodeNames = null,
       columnPositions = positions
     )
@@ -47,11 +46,21 @@ class ViewDefinitionCompositionTest {
     assertThat(positions["tail"]).isEqualTo(5)
     assertThat(definitionPositions["name"]).isEqualTo(1)
     assertThat(definitionPositions["id"]).isEqualTo(0)
-    assertThat(observed).containsExactly("authors")
+    val dependencies = QueryDependencies.Builder()
+      .also(view::addDependencies)
+      .build()
+    assertThat(dependencies.directSources).containsExactly(
+      SqliteQuerySource(
+        schema = SqliteSchema.MAIN,
+        name = "report",
+        kind = SqliteObjectKind.VIEW
+      )
+    )
+    assertThat(dependencies.observedTables.asList()).containsExactly("authors")
+    assertThat(dependencies.directSourcesComplete).isTrue()
 
     val joinedPositions = SimpleArrayMap<String, Int>()
     view.perfectSelection(
-      observedTables = arrayListOf(),
       tableGraphNodeNames = null,
       columnPositions = joinedPositions,
       implicitOffset = 3,
@@ -66,7 +75,7 @@ class ViewDefinitionCompositionTest {
     val definition = ViewDefinition(
       sql = "SELECT * FROM authors",
       args = null,
-      observedTables = arrayOf("authors"),
+      queryDependencies = authorDependencies,
       columns = null,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -106,7 +115,7 @@ class ViewDefinitionCompositionTest {
     val definition = ViewDefinition(
       sql = "SELECT id, name FROM authors",
       args = null,
-      observedTables = arrayOf("authors"),
+      queryDependencies = authorDependencies,
       columns = definitionPositions,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -126,7 +135,7 @@ class ViewDefinitionCompositionTest {
     val implicitDefinition = ViewDefinition(
       sql = "SELECT * FROM authors",
       args = null,
-      observedTables = arrayOf("authors"),
+      queryDependencies = authorDependencies,
       columns = null,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -179,7 +188,7 @@ class ViewDefinitionCompositionTest {
     val deepDefinition = ViewDefinition(
       sql = "SELECT id, name FROM authors",
       args = null,
-      observedTables = arrayOf("authors"),
+      queryDependencies = authorDependencies,
       columns = SimpleArrayMap<String, Int>().apply {
         put("id", 0)
         put("name", 1)
@@ -212,7 +221,18 @@ class ViewDefinitionCompositionTest {
     assertThat(shallowRoot.queryDeep).isFalse()
     assertThat(mappedModes).containsExactly(false)
     assertThat(graphModes).containsExactly("shallow")
-    assertThat(shallowRoot.observedTables).asList().contains("authors")
+    assertThat(shallowRoot.queryDependencies.directSources).containsExactly(
+      SqliteQuerySource(
+        schema = SqliteSchema.MAIN,
+        name = "books"
+      ),
+      SqliteQuerySource(
+        schema = SqliteSchema.MAIN,
+        name = "report",
+        kind = SqliteObjectKind.VIEW
+      )
+    ).inOrder()
+    assertThat(shallowRoot.queryDependencies.observedTables.asList()).containsExactly("books", "authors").inOrder()
 
     val deepRoot = Select
       .all()
@@ -246,4 +266,13 @@ class ViewDefinitionCompositionTest {
       definition = definition
     )
   }
+
+  private val authorDependencies = QueryDependencies.Builder()
+    .addSource(
+      SqliteQuerySource(
+        schema = SqliteSchema.MAIN,
+        name = "authors"
+      )
+    )
+    .build()
 }

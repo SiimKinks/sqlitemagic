@@ -15,7 +15,7 @@ object SqlUtil {
     is CompiledSelectImpl<*, *> -> ViewDefinition(
       sql = query.sql,
       args = query.args,
-      observedTables = query.observedTables,
+      queryDependencies = query.queryDependencies,
       columns = query.columns,
       tableGraphNodeNames = query.tableGraphNodeNames,
       queryDeep = query.queryDeep
@@ -23,7 +23,7 @@ object SqlUtil {
     is CompiledSelect1Impl<*, *> -> ViewDefinition(
       sql = query.sql,
       args = query.args,
-      observedTables = query.observedTables,
+      queryDependencies = query.queryDependencies,
       columns = SimpleArrayMap<String, Int>().apply {
         val selectedColumn = query.selectedColumn
         put(selectedColumn.nameInQuery, 0)
