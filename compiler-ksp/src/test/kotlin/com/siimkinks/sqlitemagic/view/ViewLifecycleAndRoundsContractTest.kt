@@ -437,6 +437,8 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       )
       assertDoesNotContain("retired_lifecycle_view")
     }
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.views").toFile().readText())
+      .isEqualTo("retired_lifecycle_view\n")
   }
 
   @Test

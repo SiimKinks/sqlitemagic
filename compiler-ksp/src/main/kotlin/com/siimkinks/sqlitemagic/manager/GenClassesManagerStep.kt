@@ -51,20 +51,22 @@ class GenClassesManagerStep(
       if (!validateConfiguredSubmoduleStructures(environment, database, currentStructure)) {
         return Failed
       }
-      val migrationOutcome = DebugMigrationCoordinator(
+      DebugMigrationCoordinator(
         configuration = DebugMigrationConfiguration.from(environment.options),
         logger = environment.logger
       ).handle(
         database = database,
-        orderedTables = orderedTables
+        currentStructure = currentStructure,
+        completion = { migrationOutcome ->
+          GenClassesManagerWriter(environment.codeGenerator)
+            .write(
+              database = database.withDatabaseVersion(
+                version = migrationOutcome.databaseVersionOverride
+              ),
+              orderedTables = orderedTables
+            )
+        }
       )
-      GenClassesManagerWriter(environment.codeGenerator)
-        .write(
-          database = database.withDatabaseVersion(
-            version = migrationOutcome.databaseVersionOverride
-          ),
-          orderedTables = orderedTables
-        )
       Continue
     } catch (exception: IOException) {
       environment.logger.exception(exception)

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.siimkinks.sqlitemagic.Environment
@@ -205,6 +206,46 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `restores debug migration state when manager generation fails`() {
+    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
+    DatabaseStructureJson.write(
+      file = structureFile,
+      structure = DatabaseStructure()
+    )
+    val versionFile = temporaryDirectory.resolve("db/latest_debug.version").toFile()
+    versionFile.writeText("1007")
+    val marker = temporaryDirectory.resolve("db/feature.changed").toFile()
+    marker.writeText("old_feature_view\n")
+
+    SqliteMagicCompilation
+      .compile(
+        schemaTables(),
+        kspOptions = mapOf(
+          "sqlitemagic.migrate.debug" to "true",
+          "sqlitemagic.project.dir" to temporaryDirectory.toString(),
+          "sqlitemagic.variant.name" to "debug",
+          "sqlitemagic.variant.debug" to "true"
+        ),
+        processingStepsFactory = { environment ->
+          val steps = genClassesManagerProcessingSteps(environment)
+          steps.dropLast(1) + listOf(ReserveManagerFileStep(environment), steps.last())
+        }
+      )
+      .assertCompilationError("SqliteMagicDatabase")
+
+    assertThat(DatabaseStructureJson.read(structureFile))
+      .isEqualTo(DatabaseStructure())
+    assertThat(versionFile.readText())
+      .isEqualTo("1007")
+    assertThat(marker.readText())
+      .isEqualTo("old_feature_view\n")
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
+      .isFalse()
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.views")))
+      .isFalse()
+  }
+
+  @Test
   fun `includes tables generated in later rounds before finalizing the manager`() {
     SqliteMagicCompilation
       .compile(
@@ -346,6 +387,25 @@ private class LateTableGenerationStep(
           """.trimIndent()
         )
       }
+    return Continue
+  }
+}
+
+private class ReserveManagerFileStep(
+  private val environment: Environment
+) : ProcessingStep {
+  override fun process(resolver: Resolver): ProcessingStepResult = Continue
+
+  override fun finish(): ProcessingStepResult {
+    val className = environment.getGenClassesManagerClassName()
+    environment.codeGenerator
+      .createNewFile(
+        dependencies = Dependencies(aggregating = true),
+        packageName = className.packageName,
+        fileName = className.simpleName
+      )
+      .bufferedWriter()
+      .use { it.write("package ${className.packageName}\nclass ${className.simpleName}\n") }
     return Continue
   }
 }

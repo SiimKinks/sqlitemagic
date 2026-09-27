@@ -6,6 +6,7 @@ import com.android.build.api.variant.Variant
 import com.google.devtools.ksp.gradle.KspAATask
 import com.google.devtools.ksp.gradle.KspExtension
 import com.siimkinks.sqlitemagic.manager.DatabaseStructurePublication
+import com.siimkinks.sqlitemagic.manager.DatabaseStructurePublication.Snapshot
 import com.siimkinks.sqlitemagic.manager.ReleaseMigrationCoordinator
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -71,7 +72,6 @@ private fun configureStructurePropagation(
 ) {
   currentProject.gradle.projectsEvaluated {
     val submoduleProjects = currentProject.structureSubmoduleProjects()
-    if (submoduleProjects.isEmpty()) return@projectsEvaluated
     val publicationLock = currentProject.gradle.sharedServices.registerIfAbsent(
       STRUCTURE_PUBLICATION_LOCK,
       StructurePublicationLock::class.java
@@ -122,24 +122,26 @@ private fun configureStructurePropagation(
           .withPropertyName("sqlitemagicSubmoduleStructureChange")
           .withPathSensitivity(PathSensitivity.RELATIVE)
       }
-      val structureInputDirectories = stagedDirectories.joinToString(
-        separator = File.pathSeparator,
-        transform = File::getAbsolutePath
-      )
-      val kspTask = consumerTask as KspAATask
-      kspTask.kspConfig.apOptions.put(
-        OPTION_STRUCTURE_INPUT_DIRS,
-        structureInputDirectories
-      )
-      kspTask.kspConfig.processorOptions.put(
-        OPTION_STRUCTURE_INPUT_DIRS,
-        structureInputDirectories
-      )
+      if (stagedDirectories.isNotEmpty()) {
+        val structureInputDirectories = stagedDirectories.joinToString(
+          separator = File.pathSeparator,
+          transform = File::getAbsolutePath
+        )
+        val kspTask = consumerTask as KspAATask
+        kspTask.kspConfig.apOptions.put(
+          OPTION_STRUCTURE_INPUT_DIRS,
+          structureInputDirectories
+        )
+        kspTask.kspConfig.processorOptions.put(
+          OPTION_STRUCTURE_INPUT_DIRS,
+          structureInputDirectories
+        )
+      }
     }
   }
 }
 
-private fun publishStagedStructures(
+internal fun publishStagedStructures(
   stagedDirectories: List<File>,
   destination: File
 ) {
@@ -153,44 +155,96 @@ private fun publishStagedStructures(
   }
   val stagedFiles = stagedFilesByName.mapValues { (_, files) -> files.single() }
   val publishedFiles = structureFiles(destination).associateBy(File::getName)
-  val changedPublishedStructure = stagedFiles.keys
-    .intersect(publishedFiles.keys)
-    .any { name ->
-      DatabaseStructurePublication.hasPersistentChanges(
-        previousFile = publishedFiles.getValue(name),
-        currentFile = stagedFiles.getValue(name)
-      )
+  val stagedSnapshots = stagedFiles.mapValues { (_, file) -> DatabaseStructurePublication.load(file) }
+  val publishedSnapshots = publishedFiles.mapValues { (_, file) -> DatabaseStructurePublication.load(file) }
+  val changedPublishedNames = stagedSnapshots.keys
+    .intersect(publishedSnapshots.keys)
+    .filterTo(linkedSetOf()) { name ->
+      publishedSnapshots
+        .getValue(name)
+        .hasPersistentChanges(stagedSnapshots.getValue(name))
     }
-  val addedPersistentStructure = stagedFiles
-    .filterKeys { it !in publishedFiles }
+  val addedPersistentStructure = stagedSnapshots
+    .filterKeys { it !in publishedSnapshots }
     .values
-    .any(DatabaseStructurePublication::hasPersistentObjects)
-  val removedPersistentStructure = publishedFiles
-    .filterKeys { it !in stagedFiles }
+    .any(Snapshot::hasPersistentObjects)
+  val removedPersistentStructure = publishedSnapshots
+    .filterKeys { it !in stagedSnapshots }
     .values
-    .any(DatabaseStructurePublication::hasPersistentObjects)
-  val structuresChanged = changedPublishedStructure || addedPersistentStructure || removedPersistentStructure
+    .any(Snapshot::hasPersistentObjects)
+  val previousPersistentViewNames = publishedSnapshots
+    .filterKeys { name -> name in changedPublishedNames || name !in stagedSnapshots }
+    .toSortedMap()
+    .values
+    .flatMap(Snapshot::persistentViewNames)
+    .distinct()
+  val structuresChanged = changedPublishedNames.isNotEmpty() || addedPersistentStructure || removedPersistentStructure
   val hasMainStructureBaseline = destination.resolve("latest.struct").isFile
+  val changeMarker = destination.resolve("submodules.changed")
+  val previousMarkerContents = changeMarker
+    .takeIf(File::isFile)
+    ?.readBytes()
 
   check(destination.isDirectory || destination.mkdirs()) {
     "Failed to create SqliteMagic database metadata directory ${destination.absolutePath}"
   }
-  publishedFiles.values.forEach { publishedFile ->
-    check(publishedFile.delete()) {
-      "Failed to remove stale SqliteMagic structure ${publishedFile.absolutePath}"
+  try {
+    if (structuresChanged && hasMainStructureBaseline) {
+      when {
+        previousPersistentViewNames.isNotEmpty() -> {
+          val existingNames = previousMarkerContents
+            ?.decodeToString()
+            ?.lineSequence()
+            ?.filter(String::isNotEmpty)
+            .orEmpty()
+          val names = (existingNames + previousPersistentViewNames)
+            .distinct()
+            .joinToString(
+              separator = "\n",
+              postfix = "\n"
+            )
+          changeMarker.writeText(names)
+        }
+        else -> check(changeMarker.createNewFile() || changeMarker.isFile) {
+          "Failed to record changed SqliteMagic submodule structures in ${destination.absolutePath}"
+        }
+      }
     }
-  }
-  stagedFiles.forEach { (name, stagedFile) ->
-    stagedFile.copyTo(
-      target = destination.resolve(name),
-      overwrite = true
-    )
-  }
-  if (structuresChanged && hasMainStructureBaseline) {
-    val changeMarker = destination.resolve("submodules.changed")
-    check(changeMarker.createNewFile() || changeMarker.isFile) {
-      "Failed to record changed SqliteMagic submodule structures in ${destination.absolutePath}"
+    publishedFiles.values.forEach { publishedFile ->
+      check(publishedFile.delete()) {
+        "Failed to remove stale SqliteMagic structure ${publishedFile.absolutePath}"
+      }
     }
+    stagedSnapshots.forEach { (name, snapshot) ->
+      snapshot.writeTo(destination.resolve(name))
+    }
+  } catch (exception: Exception) {
+    stagedFiles.keys
+      .filterNot(publishedFiles::containsKey)
+      .forEach { name ->
+        runCatching {
+          val copiedFile = destination.resolve(name)
+          if (copiedFile.isFile) {
+            check(copiedFile.delete()) {
+              "Failed to remove partially published SqliteMagic structure ${copiedFile.absolutePath}"
+            }
+          }
+        }.onFailure(exception::addSuppressed)
+      }
+    publishedSnapshots.forEach { (name, snapshot) ->
+      runCatching {
+        snapshot.writeTo(destination.resolve(name))
+      }.onFailure(exception::addSuppressed)
+    }
+    runCatching {
+      when {
+        previousMarkerContents != null -> changeMarker.writeBytes(previousMarkerContents)
+        changeMarker.isFile -> check(changeMarker.delete()) {
+          "Failed to remove partially published SqliteMagic change marker ${changeMarker.absolutePath}"
+        }
+      }
+    }.onFailure(exception::addSuppressed)
+    throw exception
   }
 }
 
@@ -230,18 +284,16 @@ private fun Project.configureKspVariantArgs(variant: Variant) {
       task.kspConfig.apOptions.put("sqlitemagic.variant.debug", variantDebugArg)
       task.kspConfig.processorOptions.put("sqlitemagic.variant.name", variantNameArg)
       task.kspConfig.processorOptions.put("sqlitemagic.variant.debug", variantDebugArg)
-      if (sqlitemagicMainModulePath != null) {
-        val structureOutputDirectory = structureStagingDirectory(variant.name)
-        task.kspConfig.apOptions.put(
-          OPTION_STRUCTURE_OUTPUT_DIR,
-          structureOutputDirectory.absolutePath
-        )
-        task.kspConfig.processorOptions.put(
-          OPTION_STRUCTURE_OUTPUT_DIR,
-          structureOutputDirectory.absolutePath
-        )
-        task.outputs.dir(structureOutputDirectory)
-      }
+      val structureOutputDirectory = structureStagingDirectory(variant.name)
+      task.kspConfig.apOptions.put(
+        OPTION_STRUCTURE_OUTPUT_DIR,
+        structureOutputDirectory.absolutePath
+      )
+      task.kspConfig.processorOptions.put(
+        OPTION_STRUCTURE_OUTPUT_DIR,
+        structureOutputDirectory.absolutePath
+      )
+      task.outputs.dir(structureOutputDirectory)
     }
   }
 }
@@ -249,8 +301,9 @@ private fun Project.configureKspVariantArgs(variant: Variant) {
 private fun Variant.addMigrateDbTask(project: Project) {
   val buildTypeName = buildType ?: return
   val taskName = "migrate${name.capitalize()}Db"
-  val migrationTask = project.tasks.register(taskName) {
-    it.doFirst {
+  val migrationTask = project.tasks.register(taskName) { task ->
+    task.dependsOn(kspTaskName())
+    task.doFirst {
       val projectDir = project.projectDir
       val dbDir = File(projectDir, "db")
       check(dbDir.exists()) {
@@ -260,7 +313,15 @@ private fun Variant.addMigrateDbTask(project: Project) {
       ReleaseMigrationCoordinator.migrate(
         projectDir = projectDir,
         databaseDirectory = dbDir,
-        variantName = buildTypeName
+        variantName = buildTypeName,
+        currentStructureFiles = releaseCurrentStructureFiles(
+          stagedMainFile = project
+            .structureStagingDirectory(name)
+            .resolve("latest.struct"),
+          stagedSubmoduleDirectories = project
+            .structureSubmoduleProjects()
+            .map { it.structureStagingDirectory(name) }
+        )
       )
     }
   }
@@ -302,6 +363,13 @@ private fun structureFiles(directory: File) = directory
   .filter { file ->
     file.isFile && file.name.startsWith("latest_") && file.name.endsWith(".struct")
   }
+
+internal fun releaseCurrentStructureFiles(
+  stagedMainFile: File,
+  stagedSubmoduleDirectories: List<File>
+) = listOf(stagedMainFile) + stagedSubmoduleDirectories
+  .flatMap(::structureFiles)
+  .sortedBy(File::getName)
 
 private fun Variant.kspTaskName(): String = "ksp${name.capitalize()}Kotlin"
 

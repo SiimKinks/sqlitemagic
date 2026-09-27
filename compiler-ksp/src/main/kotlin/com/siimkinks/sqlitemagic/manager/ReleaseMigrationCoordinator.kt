@@ -6,7 +6,8 @@ object ReleaseMigrationCoordinator {
   fun migrate(
     projectDir: File,
     databaseDirectory: File,
-    variantName: String
+    variantName: String,
+    currentStructureFiles: List<File>? = null
   ) {
     val releaseAssetsDirectory = projectDir.resolve("src/$variantName/assets")
     val releaseStructuresDirectory = databaseDirectory.resolve("releases")
@@ -14,14 +15,24 @@ object ReleaseMigrationCoordinator {
       directory = releaseStructuresDirectory,
       extension = "struct"
     )
-    val previousVersion = latestRelease?.version
-      ?: latestVersionedFile(
-        directory = releaseAssetsDirectory,
-        extension = "sql"
-      )?.version
+    val previousVersion = latestRelease
+      ?.version
+      ?: listOfNotNull(
+        latestVersionedFile(
+          directory = releaseAssetsDirectory,
+          extension = "sql"
+        )?.version,
+        latestVersionedFile(
+          directory = releaseAssetsDirectory,
+          extension = "views"
+        )?.version
+      ).maxOrNull()
       ?: 0L
     val releaseVersion = previousVersion.inc()
-    val currentStructures = readCurrentStructures(databaseDirectory)
+    val currentStructures = readCurrentStructures(
+      databaseDirectory = databaseDirectory,
+      currentStructureFiles = currentStructureFiles
+    )
     validateCurrentStructures(currentStructures)
     val currentStructure = aggregatePersistentStructures(currentStructures)
     val previousStructure = latestRelease?.let { versionedFile ->
@@ -102,22 +113,40 @@ object ReleaseMigrationCoordinator {
   ): DatabaseStructure {
     val tables = linkedMapOf<String, TableStructure>()
     val indices = linkedMapOf<String, IndexStructure>()
+    val views = linkedMapOf<String, ViewStructure>()
     structures.forEach { (_, structure) ->
       tables.putAll(structure.tables)
       indices.putAll(structure.indices)
+      views.putAll(structure.views)
     }
     return DatabaseStructure(
       tables = tables,
-      indices = indices
+      indices = indices,
+      views = views
     )
   }
 
-  private fun readCurrentStructures(databaseDirectory: File): List<Pair<String, DatabaseStructure>> {
-    val structureFiles = listDirectoryFiles(databaseDirectory)
-      .filter { it.isFile && it.extension == "struct" }
-      .sortedBy(File::getName)
+  private fun readCurrentStructures(
+    databaseDirectory: File,
+    currentStructureFiles: List<File>?
+  ): List<Pair<String, DatabaseStructure>> {
+    val structureFiles = when (currentStructureFiles) {
+      null -> listDirectoryFiles(databaseDirectory)
+        .filter { it.isFile && it.extension == "struct" }
+      else -> currentStructureFiles
+    }.sortedWith(
+      compareBy(
+        File::getName,
+        File::getAbsolutePath
+      )
+    )
     check(structureFiles.isNotEmpty()) {
       "No current database structure snapshots found in ${databaseDirectory.absolutePath}"
+    }
+    structureFiles.forEach { file ->
+      check(file.isFile && file.extension == "struct") {
+        "Current database structure snapshot is not a .struct file: ${file.absolutePath}"
+      }
     }
 
     return structureFiles.map { structureFile ->

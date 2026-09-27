@@ -24,6 +24,19 @@ internal data class IndexTransition(
   val changed: Boolean
 )
 
+internal data class ViewSnapshot(
+  val name: String,
+  val structure: ViewStructure
+) {
+  val normalizedViewId = name.normalizedSqlIdentifier()
+}
+
+internal data class ViewTransition(
+  val previous: ViewSnapshot,
+  val current: ViewSnapshot,
+  val changed: Boolean
+)
+
 internal data class SchemaDiff(
   val previousTableNames: List<String>,
   val currentTables: List<TableSnapshot>,
@@ -34,7 +47,12 @@ internal data class SchemaDiff(
   val currentIndices: List<IndexSnapshot> = emptyList(),
   val indexTransitions: List<IndexTransition> = emptyList(),
   val newIndices: List<IndexSnapshot> = emptyList(),
-  val removedIndices: List<IndexSnapshot> = emptyList()
+  val removedIndices: List<IndexSnapshot> = emptyList(),
+  val previousViews: List<ViewSnapshot> = emptyList(),
+  val currentViews: List<ViewSnapshot> = emptyList(),
+  val viewTransitions: List<ViewTransition> = emptyList(),
+  val newViews: List<ViewSnapshot> = emptyList(),
+  val removedViews: List<ViewSnapshot> = emptyList()
 ) {
   val renamedTables = transitions
     .asSequence()
@@ -60,15 +78,18 @@ internal data class SchemaDiff(
 
   val transitionByCurrentName = transitions.associateBy { it.current.name }
 
-  val changedIndexTransitions = indexTransitions.filter(IndexTransition::changed)
+  val hasPersistentTableOrIndexChanges = changedTransitions.isNotEmpty() ||
+      renamedTables.isNotEmpty() ||
+      newTables.isNotEmpty() ||
+      removedTables.isNotEmpty() ||
+      indexTransitions.any(IndexTransition::changed) ||
+      newIndices.isNotEmpty() ||
+      removedIndices.isNotEmpty()
 
-  val hasPersistentChanges get() =
-    transitions.any { it.changed || it.renamed } ||
-        newTables.isNotEmpty() ||
-        removedTables.isNotEmpty() ||
-        changedIndexTransitions.isNotEmpty() ||
-        newIndices.isNotEmpty() ||
-        removedIndices.isNotEmpty()
+  val hasPersistentChanges = hasPersistentTableOrIndexChanges ||
+      viewTransitions.any(ViewTransition::changed) ||
+      newViews.isNotEmpty() ||
+      removedViews.isNotEmpty()
 }
 
 internal object SchemaDiffer {
@@ -133,6 +154,21 @@ internal object SchemaDiffer {
     }
     val newIndices = currentIndices.filterTo(arrayListOf()) { it.name !in previousIndicesByName }
     val removedIndices = previousIndices.filterTo(arrayListOf()) { it.name !in currentIndicesByName }
+    val previousViews = from.views.entries.mapTo(arrayListOf(), ::viewSnapshot)
+    val currentViews = to.views.entries.mapTo(arrayListOf(), ::viewSnapshot)
+    val previousViewsByIdentity = previousViews.associateBy(ViewSnapshot::normalizedViewId)
+    val currentViewsByIdentity = currentViews.associateBy(ViewSnapshot::normalizedViewId)
+    val viewTransitions = currentViews.mapNotNull { currentView ->
+      previousViewsByIdentity[currentView.normalizedViewId]?.let { previousView ->
+        ViewTransition(
+          previous = previousView,
+          current = currentView,
+          changed = previousView != currentView
+        )
+      }
+    }
+    val newViews = currentViews.filterTo(arrayListOf()) { it.normalizedViewId !in previousViewsByIdentity }
+    val removedViews = previousViews.filterTo(arrayListOf()) { it.normalizedViewId !in currentViewsByIdentity }
 
     return SchemaDiff(
       previousTableNames = from.tables.keys.toList(),
@@ -149,7 +185,12 @@ internal object SchemaDiffer {
       currentIndices = currentIndices,
       indexTransitions = indexTransitions,
       newIndices = newIndices,
-      removedIndices = removedIndices
+      removedIndices = removedIndices,
+      previousViews = previousViews,
+      currentViews = currentViews,
+      viewTransitions = viewTransitions,
+      newViews = newViews,
+      removedViews = removedViews
     )
   }
 
@@ -157,6 +198,13 @@ internal object SchemaDiffer {
     entry: Map.Entry<String, IndexStructure>
   ) = IndexSnapshot(
     name = entry.value.name.ifEmpty { entry.key },
+    structure = entry.value
+  )
+
+  private fun viewSnapshot(
+    entry: Map.Entry<String, ViewStructure>
+  ) = ViewSnapshot(
+    name = entry.key,
     structure = entry.value
   )
 }

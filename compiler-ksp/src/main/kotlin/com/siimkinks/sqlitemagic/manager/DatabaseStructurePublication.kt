@@ -3,18 +3,33 @@ package com.siimkinks.sqlitemagic.manager
 import java.io.File
 
 object DatabaseStructurePublication {
-  fun hasPersistentChanges(
-    previousFile: File,
-    currentFile: File
-  ) = readRequired(previousFile).persistentOnly() != readRequired(currentFile).persistentOnly()
+  fun load(file: File) = runCatching {
+    val bytes = file.readBytes()
+    Snapshot(
+      bytes = bytes,
+      structure = DatabaseStructureJson.read(bytes.decodeToString())
+    )
+  }.getOrElse {
+    throw IllegalStateException("Malformed current database structure snapshot ${file.absolutePath}", it)
+  }
 
-  fun hasPersistentObjects(file: File) =
-    readRequired(file)
-      .let { structure ->
-        structure.tables.isNotEmpty() || structure.indices.isNotEmpty()
-      }
+  class Snapshot internal constructor(
+    bytes: ByteArray,
+    structure: DatabaseStructure
+  ) {
+    private val sourceBytes = bytes.copyOf()
+    private val persistentStructure = structure.persistentOnly()
 
-  private fun readRequired(file: File) = DatabaseStructureJson
-    .read(file)
-    ?: error("Malformed current database structure snapshot ${file.absolutePath}")
+    val hasPersistentObjects = with(persistentStructure) {
+      tables.isNotEmpty() || indices.isNotEmpty() || views.isNotEmpty()
+    }
+    val persistentViewNames = persistentStructure.views.keys.toList()
+
+    fun hasPersistentChanges(other: Snapshot) = persistentStructure != other.persistentStructure
+
+    fun writeTo(target: File) {
+      target.parentFile?.mkdirs()
+      target.writeBytes(sourceBytes)
+    }
+  }
 }

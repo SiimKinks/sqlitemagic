@@ -5,74 +5,60 @@ import java.io.File
 internal class MigrationArtifactsPublisher(
   private val structureFile: File,
   private val migrationFile: File,
-  private val persistentStructureOnly: Boolean = false
+  private val viewRemovalFile: File,
+  private val persistentStructureOnly: Boolean = false,
+  private val externalTransaction: FileSnapshotTransaction? = null
 ) {
   fun publish(
     structure: DatabaseStructure,
-    migrationStatements: List<String>
+    migrationStatements: List<String>,
+    previousOwnedViewNames: List<String>
   ) {
-    val previousStructure = structureFile.takeIf(File::isFile)?.readBytes()
-    val previousMigration = migrationFile.takeIf(File::isFile)?.readBytes()
+    val transaction = externalTransaction ?: FileSnapshotTransaction()
     try {
-      when {
-        persistentStructureOnly -> DatabaseStructureJson.write(
-          file = structureFile,
-          structure = structure.persistentOnly()
-        )
-        else -> DatabaseStructureJson.write(
-          file = structureFile,
-          structure = structure
-        )
+      val publishedStructure = when {
+        persistentStructureOnly -> structure.persistentOnly()
+        else -> structure
       }
-      publishMigration(migrationStatements)
-    } catch (exception: Exception) {
-      restoreArtifact(
+      transaction.writeTextIfChanged(
         file = structureFile,
-        previousContents = previousStructure,
-        originalFailure = exception
+        text = DatabaseStructureJson.write(publishedStructure)
       )
-      restoreArtifact(
+      publishLines(
         file = migrationFile,
-        previousContents = previousMigration,
-        originalFailure = exception
+        lines = migrationStatements,
+        transaction = transaction
       )
+      publishLines(
+        file = viewRemovalFile,
+        lines = previousOwnedViewNames,
+        transaction = transaction
+      )
+    } catch (exception: Exception) {
+      if (externalTransaction == null) transaction.restore(exception)
       throw exception
     }
   }
 
-  private fun publishMigration(migrationStatements: List<String>) {
+  private fun publishLines(
+    file: File,
+    lines: List<String>,
+    transaction: FileSnapshotTransaction
+  ) {
     when {
-      migrationStatements.isNotEmpty() -> {
-        migrationFile.parentFile?.mkdirs()
-        migrationFile.writeText(
-          text = migrationStatements.joinToString(
-            separator = System.lineSeparator(),
-            postfix = System.lineSeparator()
-          )
+      lines.isNotEmpty() -> transaction.writeTextIfChanged(
+        file = file,
+        text = lines.joinToString(
+          separator = "\n",
+          postfix = "\n"
         )
-      }
-      migrationFile.isFile -> check(migrationFile.delete()) {
-        "Failed to remove stale migration artifact ${migrationFile.absolutePath}"
+      )
+      file.isFile -> {
+        transaction.track(file)
+        check(file.delete()) {
+          "Failed to remove stale migration artifact ${file.absolutePath}"
+        }
       }
     }
-  }
-
-  private fun restoreArtifact(
-    file: File,
-    previousContents: ByteArray?,
-    originalFailure: Exception
-  ) {
-    runCatching {
-      when {
-        previousContents != null -> {
-          file.parentFile?.mkdirs()
-          file.writeBytes(previousContents)
-        }
-        file.isFile -> check(file.delete()) {
-          "Failed to remove partially written migration artifact ${file.absolutePath}"
-        }
-      }
-    }.exceptionOrNull()
-      ?.let(originalFailure::addSuppressed)
   }
 }

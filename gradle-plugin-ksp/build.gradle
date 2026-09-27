@@ -46,6 +46,11 @@ dependencies {
   compileOnly libs.ksp.gradle.plugin
 
   implementation project(':compiler-ksp')
+
+  testImplementation platform(libs.junit.bom)
+  testImplementation libs.junit.jupiter
+  testImplementation libs.truth
+  testRuntimeOnly libs.junit.platform.launcher
 }
 
 gradlePlugin {
@@ -58,6 +63,7 @@ gradlePlugin {
 }
 
 tasks.withType(Test).configureEach {
+  useJUnitPlatform()
   scanForTestClasses = false
   include "**/*Test.class"
 }

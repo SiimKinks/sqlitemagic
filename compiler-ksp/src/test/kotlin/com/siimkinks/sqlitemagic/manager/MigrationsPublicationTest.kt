@@ -84,6 +84,12 @@ internal class MigrationsPublicationTest {
         parentFile.mkdirs()
         writeText("stale migration")
       }
+    val diff = SchemaDiffer.diff(
+      from = structure,
+      to = structure
+    )
+    assertThat(diff.hasPersistentTableOrIndexChanges).isFalse()
+    assertThat(diff.hasPersistentChanges).isFalse()
 
     assertThat(
       MigrationsHandler(
@@ -92,7 +98,12 @@ internal class MigrationsPublicationTest {
         outputStructureFile = structureFile,
         migrationOutputFile = migrationFile
       ).migrate()
-    ).isFalse()
+    ).isEqualTo(
+      MigrationResult(
+        migrationHappened = false,
+        viewRemovalNames = emptyList()
+      )
+    )
     assertThat(migrationFile.exists())
       .isFalse()
   }
@@ -151,5 +162,46 @@ internal class MigrationsPublicationTest {
     }
     assertThat(DatabaseStructureJson.read(structureFile))
       .isEqualTo(previous)
+  }
+
+  @Test
+  fun `externally owned transaction restores publication only when its owner requests it`() {
+    val previous = DatabaseStructure()
+    val current = DatabaseStructure(
+      tables = linkedMapOf(
+        "books" to migrationTable(
+          name = "books",
+          columns = arrayListOf(
+            migrationColumn(
+              name = "id",
+              schema = "id INTEGER PRIMARY KEY"
+            )
+          )
+        )
+      )
+    )
+    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
+    DatabaseStructureJson.write(
+      file = structureFile,
+      structure = previous
+    )
+    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
+    check(migrationFile.mkdirs())
+    val transaction = FileSnapshotTransaction()
+
+    val failure = assertThrows<Exception> {
+      MigrationsHandler(
+        currentStructure = current,
+        previousStructure = previous,
+        outputStructureFile = structureFile,
+        migrationOutputFile = migrationFile,
+        externalTransaction = transaction
+      ).migrate()
+    }
+
+    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(current)
+    transaction.restore(failure)
+    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(previous)
+    assertThat(migrationFile.isDirectory).isTrue()
   }
 }

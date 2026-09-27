@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.view.mockViewElement
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
@@ -352,12 +353,9 @@ internal class DatabaseStructureTest {
 
     assertThat(DatabaseStructureJson.read(currentFile))
       .isEqualTo(temporaryCurrentStructure)
-    assertThat(
-      DatabaseStructurePublication.hasPersistentChanges(
-        previousFile = previousFile,
-        currentFile = currentFile
-      )
-    ).isFalse()
+    val previousSnapshot = DatabaseStructurePublication.load(previousFile)
+    assertThat(previousSnapshot.hasPersistentChanges(DatabaseStructurePublication.load(currentFile)))
+      .isFalse()
 
     val persistentCurrentStructure = temporaryCurrentStructure.copy(
       indices = linkedMapOf(
@@ -375,16 +373,11 @@ internal class DatabaseStructureTest {
 
     assertThat(DatabaseStructureJson.read(currentFile))
       .isEqualTo(persistentCurrentStructure)
-    assertThat(
-      DatabaseStructurePublication.hasPersistentChanges(
-        previousFile = previousFile,
-        currentFile = currentFile
-      )
-    ).isTrue()
-    assertThat(
-      DatabaseStructurePublication
-        .hasPersistentObjects(currentFile)
-    ).isTrue()
+    val currentSnapshot = DatabaseStructurePublication.load(currentFile)
+    assertThat(previousSnapshot.hasPersistentChanges(currentSnapshot))
+      .isTrue()
+    assertThat(currentSnapshot.hasPersistentObjects)
+      .isTrue()
   }
 
   @Test
@@ -416,12 +409,9 @@ internal class DatabaseStructureTest {
       structure = temporaryCurrentStructure
     )
 
-    assertThat(
-      DatabaseStructurePublication.hasPersistentChanges(
-        previousFile = previousFile,
-        currentFile = currentFile
-      )
-    ).isFalse()
+    val previousSnapshot = DatabaseStructurePublication.load(previousFile)
+    assertThat(previousSnapshot.hasPersistentChanges(DatabaseStructurePublication.load(currentFile)))
+      .isFalse()
 
     val changedStructure = previousStructure.copy(
       views = linkedMapOf(
@@ -436,12 +426,104 @@ internal class DatabaseStructureTest {
       structure = changedStructure
     )
 
-    assertThat(
-      DatabaseStructurePublication.hasPersistentChanges(
-        previousFile = previousFile,
-        currentFile = currentFile
+    assertThat(previousSnapshot.hasPersistentChanges(DatabaseStructurePublication.load(currentFile)))
+      .isTrue()
+  }
+
+  @Test
+  fun `persistent view names retain raw snapshot keys and exclude temporary views`() {
+    val structureFile = temporaryDirectory
+      .resolve("view-names.struct")
+      .toFile()
+    DatabaseStructureJson.write(
+      file = structureFile,
+      structure = DatabaseStructure(
+        views = linkedMapOf(
+          "Z.View" to ViewStructure(name = "different_value"),
+          "a_view" to ViewStructure(name = "another_value")
+        ),
+        temporaryViews = linkedMapOf(
+          "temporary_view" to ViewStructure(name = "temporary_view")
+        )
       )
-    ).isTrue()
+    )
+
+    assertThat(DatabaseStructurePublication.load(structureFile).persistentViewNames)
+      .containsExactly("Z.View", "a_view")
+      .inOrder()
+  }
+
+  @Test
+  fun `publication sees view-only persistent structures but ignores temporary-only structures`() {
+    val structureFile = temporaryDirectory
+      .resolve("view-only.struct")
+      .toFile()
+    DatabaseStructureJson.write(
+      file = structureFile,
+      structure = DatabaseStructure(
+        temporaryViews = linkedMapOf(
+          "session_view" to ViewStructure(name = "session_view")
+        )
+      )
+    )
+    assertThat(DatabaseStructurePublication.load(structureFile).hasPersistentObjects)
+      .isFalse()
+
+    DatabaseStructureJson.write(
+      file = structureFile,
+      structure = DatabaseStructure(
+        views = linkedMapOf(
+          "owned_view" to ViewStructure(name = "owned_view")
+        )
+      )
+    )
+    assertThat(DatabaseStructurePublication.load(structureFile).hasPersistentObjects)
+      .isTrue()
+  }
+
+  @Test
+  fun `loaded publication retains derived data and exact bytes after source changes`() {
+    val structureFile = temporaryDirectory.resolve("original.struct").toFile()
+    val emptyFile = temporaryDirectory.resolve("empty.struct").toFile()
+    val restoredFile = temporaryDirectory.resolve("restored/original.struct").toFile()
+    val originalBytes = """
+      {
+        "views": { "Z.View": { "name": "different_value" }, "a_view": { "name": "another_value" } },
+        "temporaryViews": { "session_view": { "name": "session_view" } }
+      }
+    """
+      .trimIndent()
+      .toByteArray(Charsets.UTF_8)
+    structureFile.writeBytes(originalBytes)
+    DatabaseStructureJson.write(
+      file = emptyFile,
+      structure = DatabaseStructure()
+    )
+
+    val snapshot = DatabaseStructurePublication.load(structureFile)
+    val emptySnapshot = DatabaseStructurePublication.load(emptyFile)
+    structureFile.writeText("{malformed")
+
+    assertThat(snapshot.hasPersistentObjects)
+      .isTrue()
+    assertThat(snapshot.persistentViewNames)
+      .containsExactly("Z.View", "a_view")
+      .inOrder()
+    assertThat(snapshot.hasPersistentChanges(emptySnapshot))
+      .isTrue()
+    snapshot.writeTo(restoredFile)
+    assertThat(restoredFile.readBytes())
+      .isEqualTo(originalBytes)
+  }
+
+  @Test
+  fun `malformed current publication reports its source path`() {
+    val structureFile = temporaryDirectory.resolve("malformed.struct").toFile()
+    structureFile.writeText("{malformed")
+
+    assertThat(assertThrows<IllegalStateException> { DatabaseStructurePublication.load(structureFile) })
+      .hasMessageThat()
+      .isEqualTo("Malformed current database structure snapshot ${structureFile.absolutePath}")
   }
 
   private fun mockView(

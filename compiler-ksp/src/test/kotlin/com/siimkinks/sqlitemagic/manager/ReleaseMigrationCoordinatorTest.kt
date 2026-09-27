@@ -62,7 +62,7 @@ internal class ReleaseMigrationCoordinatorTest {
       assetsDirectory
         .resolve("4.sql")
         .readText()
-    ).isEqualTo("CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)${System.lineSeparator()}")
+    ).isEqualTo("CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n")
   }
 
   @Test
@@ -109,6 +109,90 @@ internal class ReleaseMigrationCoordinatorTest {
     assertThat(output.tables.keys)
       .containsExactly("main", "feature")
       .inOrder()
+  }
+
+  @Test
+  fun `publishes view-only release ownership in structure filename order`() {
+    writeStructure(
+      file = databaseDirectory.resolve("z-feature.struct"),
+      structure = DatabaseStructure(
+        views = linkedMapOf("feature_view" to ViewStructure(name = "feature_view")),
+        temporaryViews = linkedMapOf("session_view" to ViewStructure(name = "session_view"))
+      )
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("a-main.struct"),
+      structure = DatabaseStructure(
+        views = linkedMapOf("main_view" to ViewStructure(name = "main_view"))
+      )
+    )
+
+    migrate()
+
+    val release = readStructure(databaseDirectory.resolve("releases/1.struct"))
+    assertThat(release.views.keys)
+      .containsExactly("main_view", "feature_view")
+      .inOrder()
+    assertThat(release.temporaryViews)
+      .isEmpty()
+    assertThat(assetsDirectory.resolve("1.views").exists())
+      .isFalse()
+    assertThat(assetsDirectory.resolve("1.sql").exists())
+      .isFalse()
+  }
+
+  @Test
+  fun `publishes previous owned view names for a view-only removal and rename`() {
+    val previous = DatabaseStructure(
+      views = linkedMapOf(
+        "old_main" to ViewStructure(name = "old_main"),
+        "old_feature" to ViewStructure(
+          name = "old_feature",
+          moduleName = "feature"
+        )
+      )
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("releases/4.struct"),
+      structure = previous
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("main.struct"),
+      structure = DatabaseStructure(
+        views = linkedMapOf("new_main" to ViewStructure(name = "new_main"))
+      )
+    )
+
+    migrate()
+
+    assertThat(readStructure(databaseDirectory.resolve("releases/5.struct")).views.keys)
+      .containsExactly("new_main")
+    assertThat(assetsDirectory.resolve("5.views").readText())
+      .isEqualTo("old_main\nold_feature\n")
+    assertThat(assetsDirectory.resolve("5.sql").exists())
+      .isFalse()
+  }
+
+  @Test
+  fun `removes stale view removal artifact when previous release owns no views`() {
+    writeStructure(
+      file = databaseDirectory.resolve("module.struct"),
+      structure = DatabaseStructure(
+        views = linkedMapOf("new_view" to ViewStructure(name = "new_view"))
+      )
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("releases/2.struct"),
+      structure = databaseStructure("books")
+    )
+    val staleRemoval = assetsDirectory.resolve("3.views")
+    staleRemoval.parent.createDirectories()
+    staleRemoval.writeText("stale view\n")
+
+    migrate()
+
+    assertThat(staleRemoval.exists())
+      .isFalse()
   }
 
   @Test
@@ -177,6 +261,76 @@ internal class ReleaseMigrationCoordinatorTest {
         .resolve("releases/100.struct")
         .exists()
     ).isFalse()
+  }
+
+  @Test
+  fun `uses view removal assets when no release snapshot exists`() {
+    writeStructure(
+      file = databaseDirectory.resolve("module.struct"),
+      structure = databaseStructure("books")
+    )
+    assetsDirectory.createDirectories()
+    assetsDirectory
+      .resolve("9.sql")
+      .writeText("old")
+    assetsDirectory
+      .resolve("12.views")
+      .writeText("old_view\n")
+
+    migrate()
+
+    assertThat(databaseDirectory.resolve("releases/13.struct").exists())
+      .isTrue()
+  }
+
+  @Test
+  fun `treats same-version SQL and view assets as complementary`() {
+    writeStructure(
+      file = databaseDirectory.resolve("module.struct"),
+      structure = databaseStructure("books")
+    )
+    assetsDirectory.createDirectories()
+    assetsDirectory
+      .resolve("12.sql")
+      .writeText("old")
+    assetsDirectory
+      .resolve("12.views")
+      .writeText("old_view\n")
+
+    migrate()
+
+    assertThat(databaseDirectory.resolve("releases/13.struct").exists())
+      .isTrue()
+  }
+
+  @Test
+  fun `explicit current files include staged main and ignore stale database files`() {
+    val stagedMain = temporaryDirectory.resolve("staged/latest.struct")
+    val feature = databaseDirectory.resolve("latest_feature.struct")
+    writeStructure(
+      file = stagedMain,
+      structure = databaseStructure("main")
+    )
+    writeStructure(
+      file = feature,
+      structure = databaseStructure("feature")
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("stale.struct"),
+      structure = databaseStructure("stale")
+    )
+
+    ReleaseMigrationCoordinator.migrate(
+      projectDir = temporaryDirectory.toFile(),
+      databaseDirectory = databaseDirectory.toFile(),
+      variantName = "release",
+      currentStructureFiles = listOf(feature.toFile(), stagedMain.toFile())
+    )
+
+    val release = readStructure(databaseDirectory.resolve("releases/1.struct"))
+    assertThat(release.tables.keys)
+      .containsExactly("main", "feature")
+      .inOrder()
   }
 
   @Test

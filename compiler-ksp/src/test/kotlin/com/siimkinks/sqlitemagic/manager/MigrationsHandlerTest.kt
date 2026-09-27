@@ -1678,12 +1678,8 @@ internal class MigrationsHandlerTest {
         outputStructureFile = structureFile,
         migrationOutputFile = migrationFile
       ).migrate()
+        .migrationHappened
     ).isTrue()
     return migrationFile.readLines()
   }
 }
-
-private fun bookStructure(columns: ArrayList<ColumnStructure>) = migrationTable(
-  name = "books",
-  columns = columns
-)
