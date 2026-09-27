@@ -15,6 +15,7 @@ internal class MigrationsHandler(
   private val persistentStructureOnly: Boolean = false,
   private val pendingMigrationStatements: List<String> = emptyList(),
   private val pendingViewRemovalNames: List<String> = emptyList(),
+  private val includePreviousOwnedViews: Boolean = false,
   private val externalTransaction: FileSnapshotTransaction? = null
 ) {
   fun migrate(): MigrationResult {
@@ -37,9 +38,12 @@ internal class MigrationsHandler(
       else -> emptyList()
     }
     val previousOwnedViewNames = when {
-      !migrationHappened -> emptyList()
+      !migrationHappened && !includePreviousOwnedViews -> emptyList()
       plan != null -> plan.previousOwnedViewNames
-      else -> diff.previousViews.map(ViewSnapshot::name)
+      else -> diff
+        ?.previousViews
+        ?.map(ViewSnapshot::name)
+        .orEmpty()
     }
     val viewRemovalNames = (pendingViewRemovalNames + previousOwnedViewNames).distinct()
     MigrationArtifactsPublisher(

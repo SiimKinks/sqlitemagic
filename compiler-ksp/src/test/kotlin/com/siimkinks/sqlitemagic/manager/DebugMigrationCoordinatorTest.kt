@@ -476,6 +476,61 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `table-only submodule change removes unchanged previous main views before upgrade scripts`() {
+    val compilation = SqliteMagicCompilation
+      .compile(
+        debugMainDatabase(),
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
+      )
+      .isOk()
+    val database = GeneratedDatabaseElement
+      .from(compilation.environment)
+      .copy(views = listOf(mockView(name = "main_view")))
+    val orderedTables = CreationOrderedTables.from(database.tables)
+    val previous = DatabaseStructure.from(
+      orderedTables = orderedTables,
+      indexes = database.indices,
+      views = database.views
+    )
+    val structureFile = temporaryDirectory
+      .resolve("db/latest.struct")
+      .toFile()
+    DatabaseStructureJson.write(
+      file = structureFile,
+      structure = previous
+    )
+    val versionFile = temporaryDirectory
+      .resolve("db/latest_debug.version")
+      .toFile()
+    versionFile.writeText("1007")
+    val marker = temporaryDirectory
+      .resolve("db/feature.changed")
+      .toFile()
+    marker.writeText("")
+
+    assertThat(
+      runDebugMigration(
+        compilation = compilation,
+        database = database,
+        orderedTables = orderedTables
+      )
+    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
+    val viewsFile = temporaryDirectory
+      .resolve("src/debug/assets/1008.views")
+      .toFile()
+    assertThat(viewsFile.readText())
+      .isEqualTo("main_view\n")
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
+      .isFalse()
+    assertThat(DatabaseStructureJson.read(structureFile))
+      .isEqualTo(previous)
+    assertThat(versionFile.readText())
+      .isEqualTo("1008")
+    assertThat(marker.exists())
+      .isFalse()
+  }
+
+  @Test
   fun `ignores directories whose names end in changed`() {
     val compilation = SqliteMagicCompilation
       .compile(
@@ -511,13 +566,19 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
         kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
       )
       .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
+    val database = GeneratedDatabaseElement
+      .from(compilation.environment)
+      .copy(views = listOf(mockView(name = "main_view")))
     val orderedTables = CreationOrderedTables.from(database.tables)
     DatabaseStructureJson.write(
       file = temporaryDirectory
         .resolve("db/latest.struct")
         .toFile(),
-      structure = DatabaseStructure.from(orderedTables)
+      structure = DatabaseStructure.from(
+        orderedTables = orderedTables,
+        indexes = database.indices,
+        views = database.views
+      )
     )
     temporaryDirectory
       .resolve("db/latest_debug.version")
@@ -540,7 +601,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
         .resolve("src/debug/assets/1008.views")
         .toFile()
         .readText()
-    ).isEqualTo("removed_feature_view\nrenamed_feature_view\n")
+    ).isEqualTo("removed_feature_view\nrenamed_feature_view\nmain_view\n")
     assertThat(marker.exists())
       .isFalse()
   }

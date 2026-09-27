@@ -160,7 +160,8 @@ private fun tableMigrationOperation(
 ) = when {
   renamed || from.name != to.name -> TableMigrationOperation.REBUILD
   from.columns.size >= to.columns.size -> TableMigrationOperation.REBUILD
-  !from.columns.indices.all { index -> from.columns[index] == to.columns[index] } -> TableMigrationOperation.REBUILD
+  !(from.columns zip to.columns)
+    .all { (fromColumn, toColumn) -> fromColumn == toColumn } -> TableMigrationOperation.REBUILD
   !equivalentTableOptionsForMigration(from = from, to = to) -> TableMigrationOperation.REBUILD
   !to.columns
     .asSequence()

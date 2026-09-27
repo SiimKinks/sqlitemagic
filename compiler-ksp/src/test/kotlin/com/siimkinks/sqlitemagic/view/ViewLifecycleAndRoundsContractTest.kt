@@ -235,6 +235,10 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
     submodule
       .compile(
         mainDatabaseWithSubmodule(),
+        persistentViewSource(
+          className = "AggregatedMainView",
+          viewName = "aggregated_main_view"
+        ),
         kspOptions = debugOptions(
           projectDirectory = temporaryDirectory.resolve("aggregated-main"),
           structureInputDirectory = structureOutputDirectory
@@ -249,6 +253,15 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           "FeatureGeneratedClassesManager.migrateViews(db)",
           "FeatureGeneratedClassesManager.getNrOfTables(moduleName)"
         )
+        generatedSource
+          .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun getNrOfTables(")
+          .assertContainsInOrder(
+            "FeatureGeneratedClassesManager.migrateViews(db)",
+            "SqlUtil.dropView(",
+            """viewName = "aggregated_main_view"""",
+            "SqlUtil.createView("
+          )
       }
   }
 
@@ -468,15 +481,20 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContainsInOrder(
-          "dropOwnedViews",
-          "runMigrationScripts",
-          "createViews"
-        )
-        generatedSource.assertContains(
-          "old_ordered_lifecycle_view",
-          "new_ordered_lifecycle_view"
-        )
+        val viewsFile = temporaryDirectory
+          .resolve("src/debug/assets/1001.views")
+          .toFile()
+        assertThat(viewsFile.readText())
+          .isEqualTo("old_ordered_lifecycle_view\n")
+        generatedSource
+          .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun getNrOfTables(")
+          .assertContainsInOrder(
+            "SqlUtil.dropView(",
+            """viewName = "new_ordered_lifecycle_view"""",
+            "SqlUtil.createView(",
+            "definition = SqliteMagic_NewOrderedLifecycleView_Dao.QUERY"
+          )
       }
   }
 
@@ -492,16 +510,27 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "QueryOnlyLifecycleDatabase",
           version = 12
         ),
-        kspOptions = debugOptions()
+        kspOptions = debugOptions() + (OPTION_VARIANT_DEBUG to "false")
       )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
+        assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.sql")))
+          .isFalse()
+        assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
+          .isFalse()
         generatedSource.assertContains(
-          "override fun getDbVersion(): Int = 12",
-          "migrateViews",
-          "query_only_lifecycle_view"
+          "override fun getDbVersion(): Int = 12"
         )
+        generatedSource
+          .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun getNrOfTables(")
+          .assertContainsInOrder(
+            "SqlUtil.dropView(",
+            """viewName = "query_only_lifecycle_view"""",
+            "SqlUtil.createView(",
+            "definition = SqliteMagic_QueryOnlyLifecycleView_Dao.QUERY"
+          )
       }
   }
 

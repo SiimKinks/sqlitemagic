@@ -7,14 +7,20 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
 import com.siimkinks.sqlitemagic.DbConnection
+import com.siimkinks.sqlitemagic.DefinitionFailureGeneratedClassesManager
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.GeneratedDatabase
 import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
+import com.siimkinks.sqlitemagic.PersistentSubmoduleReadbackViewTable.Companion.PERSISTENT_SUBMODULE_READBACK
+import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
+import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
+import com.siimkinks.sqlitemagic.fixture.view.PersistentSubmoduleReadbackView
+import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.readRows
 import com.siimkinks.sqlitemagic.runtime.support.readStrings
@@ -35,11 +41,33 @@ private const val REBUILD_MIGRATION_INITIAL_VERSION = MIGRATION_VERSION_OFFSET +
 private const val REBUILD_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 201
 private const val FAILING_MIGRATION_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 300
 private const val FAILING_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 301
+private const val VIEW_REBUILD_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 200_000
+private const val VIEW_REBUILD_VERSION = VIEW_REBUILD_INITIAL_VERSION + 1
+private const val VIEW_SKIP_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 200_010
+private const val VIEW_SKIP_VERSION = VIEW_SKIP_INITIAL_VERSION + 2
+private const val VIEW_QUERY_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 200_020
+private const val VIEW_QUERY_VERSION = VIEW_QUERY_INITIAL_VERSION + 1
+private const val VIEW_DEFINITION_FAILURE_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 200_030
+private const val VIEW_DEFINITION_FAILURE_VERSION = VIEW_DEFINITION_FAILURE_INITIAL_VERSION + 1
+private const val VIEW_DDL_FAILURE_INITIAL_VERSION = MIGRATION_VERSION_OFFSET + 200_040
+private const val VIEW_DDL_FAILURE_VERSION = VIEW_DDL_FAILURE_INITIAL_VERSION + 1
 private const val MIGRATION_BOOK_KEY = "migration-book-key"
 private const val MIGRATION_BOOK_TITLE = "migration-book-title"
+private const val VIEW_AUTHOR_ID = 41L
+private const val VIEW_AUTHOR_NAME = "migration-author-name"
 private const val MIGRATION_FAILURE_MESSAGE = "intentional migration failure"
 private const val INVALID_MIGRATION_MESSAGE = "Error executing migration script 1000001.sql at line 2"
 private const val ROLLED_BACK_TABLE = "migration_should_rollback"
+private const val ROLLBACK_LEGACY_VIEW = "migration_rollback_legacy_view"
+private const val ROLLBACK_LEGACY_VIEW_SQL =
+  "CREATE VIEW migration_rollback_legacy_view AS SELECT book_key, title_text FROM library_books"
+private const val OLD_AUTHOR_VIEW_SQL =
+  "CREATE VIEW query_composition_author_view AS " +
+      "SELECT name || '-old' AS name, id FROM query_composition_author"
+private const val OLD_DEFINITION_FAILURE_VIEW_SQL =
+  "CREATE VIEW definition_failure_view AS SELECT id AS value FROM definition_failure_row"
+private const val RETIRED_AUTHOR_TRIGGER_SQL =
+  "CREATE TRIGGER retired_author_view AFTER UPDATE ON library_books BEGIN SELECT NEW.title_text; END"
 
 private val VERSION_101_PERSISTENT_TABLES = setOf(
   "nested_model_container_nested_entity",
@@ -326,12 +354,329 @@ class SchemaMigrationRuntimeTest {
   }
 
   @Test
+  fun upgradeDropsOwnedViewsBeforeTableRebuildAndPreservesApplicationView() = withNamedDatabase(
+    databaseName = MIGRATION_DATABASE_NAME
+  ) { application ->
+    seedDatabase(
+      application = application,
+      version = VIEW_REBUILD_INITIAL_VERSION,
+      statements = librarySeedStatements() + listOf(
+        "CREATE TABLE query_composition_author (id INTEGER PRIMARY KEY, legacy_name TEXT NOT NULL)",
+        "INSERT INTO query_composition_author (id, legacy_name) VALUES ($VIEW_AUTHOR_ID, '$VIEW_AUTHOR_NAME')",
+        "CREATE TABLE submodule_persistent_value (id TEXT PRIMARY KEY, value TEXT NOT NULL)",
+        "INSERT INTO submodule_persistent_value (id, value) VALUES ('submodule-id', 'submodule-value')",
+        "CREATE VIEW query_composition_author_view AS SELECT legacy_name AS name, id FROM query_composition_author",
+        RETIRED_AUTHOR_TRIGGER_SQL,
+        "CREATE VIEW retired_author_view AS SELECT legacy_name FROM query_composition_author",
+        "CREATE VIEW renamed_author_view AS SELECT legacy_name FROM query_composition_author",
+        "CREATE VIEW removed_module_author_view AS SELECT legacy_name FROM query_composition_author",
+        "CREATE VIEW persistent_submodule_readback AS SELECT id, value FROM submodule_persistent_value",
+        "CREATE VIEW submodule_legacy_view AS SELECT title_text FROM library_books",
+        "CREATE VIEW application_owned_view AS SELECT title_text FROM library_books"
+      )
+    )
+
+    openMigrationConnection(
+      application = application,
+      database = VersionedMigrationDatabase(version = VIEW_REBUILD_VERSION)
+    ).use { connection ->
+      assertThat(userVersion(connection = connection))
+        .isEqualTo(VIEW_REBUILD_VERSION)
+      assertThat(
+        rawRows(
+          connection = connection,
+          table = QUERY_COMPOSITION_AUTHOR,
+          sql = "SELECT id, name FROM query_composition_author"
+        )
+      ).containsExactly(listOf(VIEW_AUTHOR_ID.toString(), VIEW_AUTHOR_NAME))
+      assertThat(
+        Select
+          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+          .usingConnection(connection)
+          .execute()
+      ).containsExactly(
+        QueryCompositionAuthorView(
+          name = VIEW_AUTHOR_NAME,
+          id = VIEW_AUTHOR_ID
+        )
+      )
+      assertThat(
+        Select
+          .from(PERSISTENT_SUBMODULE_READBACK)
+          .usingConnection(connection)
+          .execute()
+      ).containsExactly(
+        PersistentSubmoduleReadbackView(
+          id = "submodule-id",
+          value = "submodule-value"
+        )
+      )
+      assertThat(
+        viewSql(
+          connection = connection,
+          viewName = "query_composition_author_view"
+        )
+      ).doesNotContain("legacy_name")
+      listOf(
+        "retired_author_view",
+        "renamed_author_view",
+        "removed_module_author_view",
+        "submodule_legacy_view"
+      ).forEach { viewName ->
+        assertThat(
+          viewSql(
+            connection = connection,
+            viewName = viewName
+          )
+        ).isNull()
+      }
+      assertThat(
+        viewSql(
+          connection = connection,
+          viewName = "application_owned_view"
+        )
+      ).contains("SELECT title_text FROM library_books")
+      assertThat(
+        Select
+          .raw("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?")
+          .from(Table.ANONYMOUS_TABLE)
+          .withArgs("retired_author_view")
+          .usingConnection(connection)
+          .execute()
+          .use(Cursor::readStrings)
+      ).containsExactly(RETIRED_AUTHOR_TRIGGER_SQL)
+      assertThat(
+        rawRows(
+          connection = connection,
+          table = Table.ANONYMOUS_TABLE,
+          sql = "SELECT title_text FROM application_owned_view"
+        )
+      ).containsExactly(listOf(MIGRATION_BOOK_TITLE))
+    }
+  }
+
+  @Test
+  fun skippedUpgradeRemovesEveryPlannedViewBeforeItsFirstScript() = withNamedDatabase(
+    databaseName = MIGRATION_DATABASE_NAME
+  ) { application ->
+    seedDatabase(
+      application = application,
+      version = VIEW_SKIP_INITIAL_VERSION,
+      statements = librarySeedStatements() + currentAuthorSeedStatements() + listOf(
+        "CREATE VIEW skip_first_view AS SELECT title_text FROM library_books",
+        "CREATE VIEW skip_second_view AS SELECT title_text FROM library_books",
+        "CREATE VIEW skip_submodule_view AS SELECT title_text FROM library_books",
+        "CREATE TABLE skip_name_now_table (value TEXT NOT NULL)",
+        "INSERT INTO skip_name_now_table (value) VALUES ('kept table row')"
+      )
+    )
+
+    openMigrationConnection(
+      application = application,
+      database = VersionedMigrationDatabase(version = VIEW_SKIP_VERSION)
+    ).use { connection ->
+      assertThat(userVersion(connection = connection))
+        .isEqualTo(VIEW_SKIP_VERSION)
+      assertThat(
+        tableNames(
+          connection = connection,
+          master = SQLITE_MASTER,
+          names = setOf("skip_first_view", "skip_second_view", "skip_name_now_table")
+        )
+      ).containsExactly("skip_first_view", "skip_second_view", "skip_name_now_table")
+      listOf("skip_first_view", "skip_second_view", "skip_submodule_view")
+        .forEach { viewName ->
+          assertThat(
+            viewSql(
+              connection = connection,
+              viewName = viewName
+            )
+          ).isNull()
+        }
+      assertThat(
+        rawRows(
+          connection = connection,
+          table = Table.ANONYMOUS_TABLE,
+          sql = "SELECT value FROM skip_name_now_table"
+        )
+      ).containsExactly(listOf("kept table row"))
+      assertThat(
+        Select
+          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+          .usingConnection(connection)
+          .execute()
+      ).containsExactly(
+        QueryCompositionAuthorView(
+          name = VIEW_AUTHOR_NAME,
+          id = VIEW_AUTHOR_ID
+        )
+      )
+    }
+  }
+
+  @Test
+  fun queryOnlyVersionBumpReplacesCurrentViewWithoutMigrationAssets() = withNamedDatabase(
+    databaseName = MIGRATION_DATABASE_NAME
+  ) { application ->
+    seedDatabase(
+      application = application,
+      version = VIEW_QUERY_INITIAL_VERSION,
+      statements = currentAuthorSeedStatements() + OLD_AUTHOR_VIEW_SQL
+    )
+
+    openMigrationConnection(
+      application = application,
+      database = VersionedMigrationDatabase(version = VIEW_QUERY_VERSION)
+    ).use { connection ->
+      assertThat(userVersion(connection = connection))
+        .isEqualTo(VIEW_QUERY_VERSION)
+      assertThat(
+        viewSql(
+          connection = connection,
+          viewName = "query_composition_author_view"
+        )
+      ).doesNotContain("'-old'")
+      assertThat(
+        Select
+          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+          .usingConnection(connection)
+          .execute()
+      ).containsExactly(
+        QueryCompositionAuthorView(
+          name = VIEW_AUTHOR_NAME,
+          id = VIEW_AUTHOR_ID
+        )
+      )
+    }
+  }
+
+  @Test
+  fun generatedDefinitionFailureRestoresOldViewAndVersion() = withNamedDatabase(
+    databaseName = MIGRATION_DATABASE_NAME
+  ) { application ->
+    seedDatabase(
+      application = application,
+      version = VIEW_DEFINITION_FAILURE_INITIAL_VERSION,
+      statements = listOf(
+        "CREATE TABLE definition_failure_row (id INTEGER PRIMARY KEY)",
+        "INSERT INTO definition_failure_row (id) VALUES (73)",
+        OLD_DEFINITION_FAILURE_VIEW_SQL
+      )
+    )
+
+    val failure = assertThrows(IllegalStateException::class.java) {
+      openMigrationConnection(
+        application = application,
+        database = DefinitionFailureMigrationDatabase(version = VIEW_DEFINITION_FAILURE_VERSION)
+      ).use(::userVersion)
+    }
+    assertThat(failure)
+      .hasMessageThat()
+      .contains("definition_failure_view")
+    assertThat(failure)
+      .hasMessageThat()
+      .contains(DefinitionFailureView.query.javaClass.name)
+
+    application
+      .openOrCreateDatabase(
+        MIGRATION_DATABASE_NAME,
+        Context.MODE_PRIVATE,
+        null
+      )
+      .use { database ->
+        assertThat(database.version)
+          .isEqualTo(VIEW_DEFINITION_FAILURE_INITIAL_VERSION)
+        assertThat(
+          database
+            .rawQuery(
+              "SELECT sql FROM sqlite_master WHERE type = 'view' AND name = 'definition_failure_view'",
+              null
+            )
+            .use(Cursor::readStrings)
+        ).containsExactly(OLD_DEFINITION_FAILURE_VIEW_SQL)
+        assertThat(
+          database
+            .rawQuery("SELECT id FROM definition_failure_row", null)
+            .use(Cursor::readStrings)
+        ).containsExactly("73")
+        assertThat(
+          database
+            .rawQuery("SELECT value FROM definition_failure_view", null)
+            .use(Cursor::readStrings)
+        ).containsExactly("73")
+      }
+  }
+
+  @Test
+  fun generatedViewDdlFailureRestoresOldViewAndEarlierSchema() = withNamedDatabase(
+    databaseName = MIGRATION_DATABASE_NAME
+  ) { application ->
+    seedDatabase(
+      application = application,
+      version = VIEW_DDL_FAILURE_INITIAL_VERSION,
+      statements = currentAuthorSeedStatements() + OLD_AUTHOR_VIEW_SQL
+    )
+    val expectedFailure = IllegalStateException("Injected generated view DDL failure")
+
+    val actualFailure = assertThrows(IllegalStateException::class.java) {
+      openMigrationConnection(
+        application = application,
+        database = DdlFailureMigrationDatabase(
+          version = VIEW_DDL_FAILURE_VERSION,
+          failure = expectedFailure
+        )
+      ).use(::userVersion)
+    }
+    assertThat(actualFailure)
+      .isSameInstanceAs(expectedFailure)
+
+    application
+      .openOrCreateDatabase(
+        MIGRATION_DATABASE_NAME,
+        Context.MODE_PRIVATE,
+        null
+      )
+      .use { database ->
+        assertThat(database.version)
+          .isEqualTo(VIEW_DDL_FAILURE_INITIAL_VERSION)
+        assertThat(
+          database
+            .rawQuery(
+              "SELECT sql FROM sqlite_master WHERE type = 'view' AND name = 'query_composition_author_view'",
+              null
+            )
+            .use(Cursor::readStrings)
+        ).containsExactly(OLD_AUTHOR_VIEW_SQL)
+        assertThat(
+          database
+            .rawQuery("SELECT id, name FROM query_composition_author", null)
+            .use(Cursor::readRows)
+        ).containsExactly(listOf(VIEW_AUTHOR_ID.toString(), VIEW_AUTHOR_NAME))
+        assertThat(
+          database
+            .rawQuery("SELECT id, name FROM query_composition_author_view", null)
+            .use(Cursor::readRows)
+        ).containsExactly(listOf(VIEW_AUTHOR_ID.toString(), "$VIEW_AUTHOR_NAME-old"))
+        assertThat(
+          database
+            .rawQuery(
+              "SELECT name FROM sqlite_master WHERE type = 'view' " +
+                  "AND name = 'reader_required_nullable_table_view'",
+              null
+            )
+            .use(Cursor::readStrings)
+        ).isEmpty()
+      }
+  }
+
+  @Test
   fun failedMigrationRollsBackUpgradeTransaction() = withNamedDatabase(
     databaseName = MIGRATION_DATABASE_NAME
   ) { application ->
-    seedLibraryDatabase(
+    seedDatabase(
       application = application,
-      version = FAILING_MIGRATION_INITIAL_VERSION
+      version = FAILING_MIGRATION_INITIAL_VERSION,
+      statements = librarySeedStatements() + ROLLBACK_LEGACY_VIEW_SQL
     )
 
     val exception = assertThrows(IllegalStateException::class.java) {
@@ -351,7 +696,8 @@ class SchemaMigrationRuntimeTest {
         null
       )
       .use { database ->
-        assertThat(database.version).isEqualTo(FAILING_MIGRATION_INITIAL_VERSION)
+        assertThat(database.version)
+          .isEqualTo(FAILING_MIGRATION_INITIAL_VERSION)
         assertThat(
           database
             .rawQuery(
@@ -359,11 +705,20 @@ class SchemaMigrationRuntimeTest {
               null
             )
             .use(Cursor::readRows)
-        ).containsExactlyElementsIn(
-          listOf(
-            listOf(MIGRATION_BOOK_KEY, MIGRATION_BOOK_TITLE)
-          )
-        )
+        ).containsExactly(listOf(MIGRATION_BOOK_KEY, MIGRATION_BOOK_TITLE))
+        assertThat(
+          database
+            .rawQuery(
+              "SELECT sql FROM sqlite_master WHERE type = 'view' AND name = ?",
+              arrayOf(ROLLBACK_LEGACY_VIEW)
+            )
+            .use(Cursor::readStrings)
+        ).containsExactly(ROLLBACK_LEGACY_VIEW_SQL)
+        assertThat(
+          database
+            .rawQuery("SELECT book_key, title_text FROM $ROLLBACK_LEGACY_VIEW", null)
+            .use(Cursor::readRows)
+        ).containsExactly(listOf(MIGRATION_BOOK_KEY, MIGRATION_BOOK_TITLE))
         assertThat(
           database
             .rawQuery(
@@ -382,10 +737,17 @@ class SchemaMigrationRuntimeTest {
   ) = seedDatabase(
     application = application,
     version = version,
-    statements = listOf(
-      "CREATE TABLE library_books (book_key TEXT PRIMARY KEY, title_text TEXT DEFAULT 'untitled')",
-      "INSERT INTO library_books (book_key, title_text) VALUES ('$MIGRATION_BOOK_KEY', '$MIGRATION_BOOK_TITLE')"
-    )
+    statements = librarySeedStatements()
+  )
+
+  private fun librarySeedStatements() = listOf(
+    "CREATE TABLE library_books (book_key TEXT PRIMARY KEY, title_text TEXT DEFAULT 'untitled')",
+    "INSERT INTO library_books (book_key, title_text) VALUES ('$MIGRATION_BOOK_KEY', '$MIGRATION_BOOK_TITLE')"
+  )
+
+  private fun currentAuthorSeedStatements() = listOf(
+    "CREATE TABLE query_composition_author (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+    "INSERT INTO query_composition_author (id, name) VALUES ($VIEW_AUTHOR_ID, '$VIEW_AUTHOR_NAME')"
   )
 
   private fun seedDatabase(
@@ -470,6 +832,22 @@ class SchemaMigrationRuntimeTest {
       cursor.getString(0)
     }
 
+  private fun viewSql(
+    connection: DbConnection,
+    viewName: String
+  ) = Select
+    .raw("SELECT sql FROM sqlite_master WHERE type = 'view' AND name = ?")
+    .from(Table.ANONYMOUS_TABLE)
+    .withArgs(viewName)
+    .usingConnection(connection)
+    .execute()
+    .use { cursor ->
+      when {
+        cursor.moveToFirst() -> cursor.getString(0)
+        else -> null
+      }
+    }
+
   private fun rawRows(
     connection: DbConnection,
     table: Table<*>,
@@ -496,8 +874,49 @@ private class FailingMigrationDatabase(
       .use(Cursor::readStrings)
       .toSet()
     check(migratedTables.containsAll(VERSION_101_PERSISTENT_TABLES))
+    val remainingViews = db
+      .query("SELECT name FROM sqlite_master WHERE type = 'view'")
+      .use(Cursor::readStrings)
+      .toSet()
+    check(ROLLBACK_LEGACY_VIEW !in remainingViews)
     throw IllegalStateException(MIGRATION_FAILURE_MESSAGE)
   }
+}
+
+private class DefinitionFailureMigrationDatabase(
+  private val version: Int,
+  private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
+) : GeneratedDatabase by delegate {
+  override fun getDbVersion() = version
+
+  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
+
+  override fun migrateViews(db: SupportSQLiteDatabase) = DefinitionFailureGeneratedClassesManager.migrateViews(db)
+}
+
+private class DdlFailureMigrationDatabase(
+  private val version: Int,
+  private val failure: RuntimeException,
+  private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
+) : GeneratedDatabase by delegate {
+  override fun getDbVersion() = version
+
+  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
+
+  override fun migrateViews(db: SupportSQLiteDatabase) = delegate.migrateViews(
+    object : SupportSQLiteDatabase by db {
+      override fun execSQL(sql: String) {
+        if (sql.startsWith("""CREATE VIEW IF NOT EXISTS "query_composition_author_view" AS """)) {
+          val earlierViews = db
+            .query("SELECT name FROM sqlite_master WHERE type = 'view'")
+            .use(Cursor::readStrings)
+          check("reader_required_nullable_table_view" in earlierViews)
+          throw failure
+        }
+        db.execSQL(sql)
+      }
+    }
+  )
 }
 
 private class VersionedMigrationDatabase(

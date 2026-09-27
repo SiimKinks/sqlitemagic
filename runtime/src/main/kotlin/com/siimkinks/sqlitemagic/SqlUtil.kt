@@ -108,16 +108,20 @@ object SqlUtil {
         "Cannot create persistent view '$viewName': defining query references temporary table '${temporaryTable?.name}'"
       }
     }
-    val quotedViewName = viewName.replace(
-      oldValue = "\"",
-      newValue = "\"\""
-    )
     val create = when {
       temporary -> "CREATE TEMPORARY VIEW"
       else -> "CREATE VIEW"
     }
-    db.execSQL("$create IF NOT EXISTS \"$quotedViewName\" AS ${definition.sql}")
+    db.execSQL("$create IF NOT EXISTS ${quotedViewName(viewName)} AS ${definition.sql}")
   }
+
+  fun dropView(
+    db: SupportSQLiteDatabase,
+    viewName: String
+  ) = db.execSQL("DROP VIEW IF EXISTS main.${quotedViewName(viewName)}")
+
+  private fun quotedViewName(viewName: String) =
+    """"${viewName.replace(oldValue = "\"", newValue = "\"\"")}""""
 
   @CheckResult
   fun opByColumnSql(

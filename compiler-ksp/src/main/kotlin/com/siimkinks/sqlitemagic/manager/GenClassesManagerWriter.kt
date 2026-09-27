@@ -250,18 +250,45 @@ internal class GenClassesManagerWriter(
       .endControlFlow()
       .build()
 
-  private fun GeneratedDatabaseElement.migrateViews() =
-    databaseFunction(METHOD_MIGRATE_VIEWS)
+  private fun GeneratedDatabaseElement.migrateViews(): FunSpec {
+    val persistentViews = views.filter { it.schema == MAIN }
+    val builder = databaseFunction(METHOD_MIGRATE_VIEWS)
       .addParameter(name = "db", type = SQLITE_DATABASE)
+    if (submodules.isEmpty() && persistentViews.isEmpty()) {
+      return builder
+        .addStatement("return Unit")
+        .build()
+    }
+    return builder
+      .beginControlFlow("try")
       .apply {
         submodules.forEach { submodule ->
           addStatement("%T.%N(db)", submodule.managerClassName, METHOD_MIGRATE_VIEWS)
         }
-        if (submodules.isEmpty()) {
-          addStatement("return Unit")
+        if (persistentViews.isNotEmpty()) {
+          addRuntimeDebugLog("Migrating views")
+          persistentViews.forEach { view ->
+            addStatement(
+              "%T.dropView(db = db,viewName = %S)",
+              SQL_UTIL,
+              view.viewName
+            )
+            addStatement(
+              "%T.createView(db = db, definition = %T.%N, viewName = %S)",
+              SQL_UTIL,
+              view.generationNames.daoClassName,
+              FIELD_VIEW_QUERY,
+              view.viewName
+            )
+          }
         }
       }
+      .nextControlFlow("catch (exception: %T)", Exception::class)
+      .addRuntimeErrorLog()
+      .addStatement("throw exception")
+      .endControlFlow()
       .build()
+  }
 
   private fun GeneratedDatabaseElement.getNrOfTables(): FunSpec {
     val builder = databaseFunction(METHOD_GET_NR_OF_TABLES)

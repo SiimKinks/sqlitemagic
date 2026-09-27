@@ -55,34 +55,29 @@ object ReleaseMigrationCoordinator {
     directory: File,
     extension: String
   ): VersionedFile? {
-    val seenVersions = linkedMapOf<Long, File>()
-    var latest: VersionedFile? = null
-    listDirectoryFiles(directory)
+    val versionedFiles = listDirectoryFiles(directory)
       .asSequence()
       .filter(File::isFile)
       .filter { it.extension == extension }
       .sortedBy(File::getName)
-      .forEach { file ->
-        val version = file.nameWithoutExtension.toLongOrNull() ?: return@forEach
-        val previousFile = seenVersions.putIfAbsent(version, file)
-        if (previousFile != null) {
-          error(
-            "Duplicate numeric $extension version $version in ${directory.absolutePath}: " +
-                "${previousFile.name}, ${file.name}"
+      .mapNotNull { file ->
+        file.nameWithoutExtension.toLongOrNull()?.let { version ->
+          VersionedFile(
+            file = file,
+            version = version
           )
         }
-        val versionedFile = VersionedFile(
-          file = file,
-          version = version
-        )
-        val currentLatest = latest
-        latest = when {
-          currentLatest == null -> versionedFile
-          versionedFile.version > currentLatest.version -> versionedFile
-          else -> currentLatest
+      }
+      .toList()
+    versionedFiles
+      .groupBy(VersionedFile::version)
+      .forEach { (version, files) ->
+        check(files.size <= 1) {
+          "Duplicate numeric $extension version $version in ${directory.absolutePath}: " +
+            files.joinToString { it.file.name }
         }
       }
-    return latest
+    return versionedFiles.maxByOrNull(VersionedFile::version)
   }
 
   private fun validateCurrentStructures(structures: List<Pair<String, DatabaseStructure>>) {

@@ -466,9 +466,7 @@ private class RenameDetector(
     from: TableStructure,
     to: TableStructure
   ) = from.columns.size == to.columns.size &&
-      from.columns.indices.all { index ->
-        val fromColumn = from.columns[index]
-        val toColumn = to.columns[index]
+      (from.columns zip to.columns).all { (fromColumn, toColumn) ->
         fromColumn.hasSameStorageShapeAs(toColumn) &&
             fromColumn.name == toColumn.name
       }
@@ -478,9 +476,7 @@ private class RenameDetector(
     to: TableStructure
   ) = from.columns.isNotEmpty() &&
       from.columns.size == to.columns.size &&
-      from.columns.indices.all { index ->
-        val fromColumn = from.columns[index]
-        val toColumn = to.columns[index]
+      (from.columns zip to.columns).all { (fromColumn, toColumn) ->
         fromColumn.sqlType.isNotEmpty() &&
             toColumn.sqlType.isNotEmpty() &&
             fromColumn.hasSameStorageShapeAs(toColumn)
@@ -521,9 +517,7 @@ private class RenameDetector(
     to: TableStructure,
     renames: Map<String, String>
   ) = from.columns.size == to.columns.size &&
-      from.columns.indices.all { index ->
-        val fromColumn = from.columns[index]
-        val toColumn = to.columns[index]
+      (from.columns zip to.columns).all { (fromColumn, toColumn) ->
         fromColumn.id == toColumn.id &&
             fromColumn.autoIncrement == toColumn.autoIncrement &&
             fromColumn.name == toColumn.name &&

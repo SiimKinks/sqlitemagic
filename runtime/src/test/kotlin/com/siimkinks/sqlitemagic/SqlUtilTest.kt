@@ -134,7 +134,7 @@ class SqlUtilTest {
     val definition = ViewDefinition(
       sql = "SELECT id FROM books",
       args = null,
-      queryDependencies = queryDependencies("books"),
+      queryDependencies = queryDependencies(),
       columns = null,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -149,6 +149,22 @@ class SqlUtilTest {
 
     verify(database).execSQL(expectedSql)
     verify(database, never()).execSQL(eq(expectedSql), any())
+  }
+
+  @Test
+  fun `drop view targets main and quotes the view identifier`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val expectedSql = """DROP VIEW IF EXISTS main."books""view""""
+
+    SqlUtil.dropView(
+      db = database,
+      viewName = """books"view"""
+    )
+
+    verify(database)
+      .execSQL(expectedSql)
+    verify(database, never())
+      .execSQL(eq(expectedSql), any())
   }
 
   @Test
@@ -332,7 +348,7 @@ class SqlUtilTest {
     val definition = ViewDefinition(
       sql = "SELECT id FROM books WHERE id=?",
       args = arrayOf("first"),
-      queryDependencies = queryDependencies("books"),
+      queryDependencies = queryDependencies(),
       columns = null,
       tableGraphNodeNames = null,
       queryDeep = false
@@ -382,7 +398,7 @@ class SqlUtilTest {
       args = null,
       dbConnection = null,
       selectedColumn = TestSchema.id,
-      queryDependencies = queryDependencies("books")
+      queryDependencies = queryDependencies()
     )
     val expectedSql = "CREATE VIEW IF NOT EXISTS \"books_view\" AS SELECT books.id FROM books"
 
@@ -559,11 +575,11 @@ class SqlUtilTest {
     queryDeep = false
   )
 
-  private fun queryDependencies(tableName: String) = QueryDependencies.Builder()
+  private fun queryDependencies() = QueryDependencies.Builder()
     .addSource(
       SqliteQuerySource(
         schema = MAIN,
-        name = tableName
+        name = "books"
       )
     )
     .build()

@@ -135,6 +135,7 @@ internal class DebugMigrationCoordinator(
         migrationOutputFile = migrationFile,
         pendingMigrationStatements = pendingMigrationStatements,
         pendingViewRemovalNames = pendingViewRemovalNames + markerRemovalNames,
+        includePreviousOwnedViews = changedMarkers.isNotEmpty(),
         externalTransaction = transaction
       ).migrate()
       val outcome = when (val submoduleName = database.submoduleName) {
@@ -248,7 +249,9 @@ private fun persistSubmoduleState(
       .listFiles()
       .orEmpty()
       .filter { file ->
-        file.isFile && file != structureFile && (file.name.startsWith("latest_") && file.name.endsWith(".struct") || file.extension == "changed")
+        file.isFile &&
+            file != structureFile &&
+            (file.name.startsWith("latest_") && file.name.endsWith(".struct") || file.extension == "changed")
       }
     else -> emptyList()
   }
