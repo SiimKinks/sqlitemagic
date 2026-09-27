@@ -9,7 +9,8 @@ import com.siimkinks.sqlitemagic.Select.Companion.asColumn
 import com.siimkinks.sqlitemagic.Select.Companion.format
 import com.siimkinks.sqlitemagic.Select.Companion.groupConcat
 import com.siimkinks.sqlitemagic.Select.Companion.groupConcatDistinct
-import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -148,6 +149,181 @@ class SqlUtilTest {
 
     verify(database).execSQL(expectedSql)
     verify(database, never()).execSQL(eq(expectedSql), any())
+  }
+
+  @Test
+  fun `temporary view quotes its identifier and accepts main and temporary table sources`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val definition = ViewDefinition(
+      sql = "SELECT id FROM main.books UNION ALL SELECT id FROM temp.drafts",
+      args = null,
+      queryDependencies = QueryDependencies.Builder()
+        .addSource(
+          SqliteQuerySource(
+            schema = MAIN,
+            name = "books"
+          )
+        )
+        .addSource(
+          SqliteQuerySource(
+            schema = TEMPORARY,
+            name = "drafts"
+          )
+        )
+        .build(),
+      columns = null,
+      tableGraphNodeNames = null,
+      queryDeep = false
+    )
+
+    SqlUtil.createView(
+      db = database,
+      definition = definition,
+      viewName = "books\"view",
+      temporary = true
+    )
+
+    verify(database).execSQL(
+      "CREATE TEMPORARY VIEW IF NOT EXISTS \"books\"\"view\" AS " +
+          "SELECT id FROM main.books UNION ALL SELECT id FROM temp.drafts"
+    )
+  }
+
+  @Test
+  fun `temporary view query overload propagates its lifetime`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val query = compiledSelect(
+      sql = "SELECT id FROM books",
+      args = null
+    )
+
+    SqlUtil.createView(
+      db = database,
+      query = query,
+      viewName = "books_view",
+      temporary = true
+    )
+
+    verify(database).execSQL("CREATE TEMPORARY VIEW IF NOT EXISTS \"books_view\" AS SELECT id FROM books")
+  }
+
+  @Test
+  fun `persistent view rejects a direct temporary table before database interaction`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val definition = ViewDefinition(
+      sql = "SELECT id FROM temp.drafts",
+      args = null,
+      queryDependencies = QueryDependencies.Builder()
+        .addSource(
+          SqliteQuerySource(
+            schema = TEMPORARY,
+            name = "drafts"
+          )
+        )
+        .build(),
+      columns = null,
+      tableGraphNodeNames = null,
+      queryDeep = false
+    )
+
+    val exception = assertThrows(IllegalArgumentException::class.java) {
+      SqlUtil.createView(
+        db = database,
+        definition = definition,
+        viewName = "persistent_report"
+      )
+    }
+
+    assertThat(exception.message).contains("persistent_report")
+    assertThat(exception.message).contains("drafts")
+    verifyNoInteractions(database)
+  }
+
+  @Test
+  fun `persistent view leaves temporary view sources for later resolution`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val sql = "SELECT id FROM temp.nested_view"
+    val definition = ViewDefinition(
+      sql = sql,
+      args = null,
+      queryDependencies = QueryDependencies.Builder()
+        .addSource(
+          SqliteQuerySource(
+            schema = TEMPORARY,
+            name = "nested_view",
+            kind = SqliteObjectKind.VIEW
+          )
+        )
+        .build(),
+      columns = null,
+      tableGraphNodeNames = null,
+      queryDeep = false
+    )
+
+    SqlUtil.createView(
+      db = database,
+      definition = definition,
+      viewName = "persistent_report"
+    )
+
+    verify(database).execSQL("CREATE VIEW IF NOT EXISTS \"persistent_report\" AS $sql")
+  }
+
+  @Test
+  fun `persistent view rejects incomplete direct sources before database interaction`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val definition = ViewDefinition(
+      sql = "SELECT id FROM main.books WHERE EXISTS (SELECT 1 FROM temp.drafts)",
+      args = null,
+      queryDependencies = QueryDependencies.Builder()
+        .addSource(
+          SqliteQuerySource(
+            schema = MAIN,
+            name = "books"
+          )
+        )
+        .markDirectSourcesIncomplete()
+        .build(),
+      columns = null,
+      tableGraphNodeNames = null,
+      queryDeep = false
+    )
+
+    val exception = assertThrows(IllegalArgumentException::class.java) {
+      SqlUtil.createView(
+        db = database,
+        definition = definition,
+        viewName = "persistent_report"
+      )
+    }
+
+    assertThat(exception.message).contains("persistent_report")
+    verifyNoInteractions(database)
+  }
+
+  @Test
+  fun `temporary view permits incomplete direct sources to reach SQLite`() {
+    val database = mock<SupportSQLiteDatabase>()
+    val sql = "SELECT id FROM main.books WHERE EXISTS (SELECT 1 FROM temp.drafts)"
+    val definition = ViewDefinition(
+      sql = sql,
+      args = null,
+      queryDependencies = QueryDependencies.Builder()
+        .markDirectSourcesIncomplete()
+        .build(),
+      columns = null,
+      tableGraphNodeNames = null,
+      queryDeep = false
+    )
+
+    SqlUtil.createView(
+      db = database,
+      definition = definition,
+      viewName = "temporary_report",
+      temporary = true
+    )
+
+    verify(database).execSQL("CREATE TEMPORARY VIEW IF NOT EXISTS \"temporary_report\" AS $sql")
   }
 
   @Test
@@ -386,7 +562,7 @@ class SqlUtilTest {
   private fun queryDependencies(tableName: String) = QueryDependencies.Builder()
     .addSource(
       SqliteQuerySource(
-        schema = SqliteSchema.MAIN,
+        schema = MAIN,
         name = tableName
       )
     )

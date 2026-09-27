@@ -256,11 +256,32 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
   fun `accepts the approved temporary view annotation surface and emits temporary artifacts`() {
     SqliteMagicCompilation
       .compile(
+        SourceFile.kotlin(
+          name = "TemporaryLifecycleRow.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Index
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+            @Table(
+              value = "temporary_lifecycle_rows",
+              options = [TEMPORARY]
+            )
+            data class TemporaryLifecycleRow(
+              @Id val id: Long,
+              @Index("temporary_lifecycle_index") val value: String
+            )
+          """
+        ),
         temporaryViewSource(),
         databaseSource(
           className = "TemporaryLifecycleDatabase",
           version = 9
-        )
+        ),
+        kspOptions = debugOptions()
       )
       .isOk()
       .assertGeneratedSources(
@@ -276,14 +297,110 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           .assertContains("temporary = true")
       }
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContainsInOrder(
-          "createTemporarySchema(db)",
-          "CREATE TEMPORARY VIEW temporary_lifecycle_view AS"
-        )
-        generatedSource.assertDoesNotContain(
-          "CREATE VIEW temporary_lifecycle_view AS"
-        )
+        generatedSource
+          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .assertDoesNotContain("SqlUtil.createView(")
+        generatedSource
+          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "db.execSQL(SqliteMagic_TemporaryLifecycleRow_Adapter.TABLE_SCHEMA)",
+            "SqlUtil.createView(",
+            "definition = SqliteMagic_TemporaryLifecycleView_Dao.QUERY",
+            "viewName = \"temporary_lifecycle_view\"",
+            "temporary = true",
+            "CREATE INDEX IF NOT EXISTS temp."
+          )
       }
+
+    Files
+      .readString(temporaryDirectory.resolve("db/latest.struct"))
+      .assertContains(
+        """"temporaryViews"""",
+        "temporary_lifecycle_view"
+      )
+    assertThat(Files.exists(temporaryDirectory.resolve("db/latest_debug.version"))).isFalse()
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.sql"))).isFalse()
+  }
+
+  @Test
+  fun `generates a temporary-view-only submodule manager and publishes current ownership`() {
+    val structureOutputDirectory = temporaryDirectory.resolve("staged-temporary")
+
+    SqliteMagicCompilation
+      .compile(
+        submoduleDatabaseSource(),
+        temporaryViewSource(),
+        kspOptions = debugOptions(
+          structureOutputDirectory = structureOutputDirectory
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("FeatureGeneratedClassesManager.kt")
+      .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
+        generatedSource
+          .substringAfter("fun createSchema(db: SupportSQLiteDatabase)")
+          .substringBefore("fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .assertDoesNotContain("SqlUtil.createView(")
+        generatedSource
+          .substringAfter("fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .substringBefore("fun clearData(db: SupportSQLiteDatabase)")
+          .assertContains(
+            "SqlUtil.createView(",
+            "definition = SqliteMagic_TemporaryLifecycleView_Dao.QUERY",
+            "viewName = \"temporary_lifecycle_view\"",
+            "temporary = true"
+          )
+        generatedSource.assertContains("getNrOfTables(moduleName: String?): Int = 0")
+      }
+
+    Files
+      .readString(structureOutputDirectory.resolve("latest_feature.struct"))
+      .assertContains(
+        """"temporaryViews"""",
+        "temporary_lifecycle_view"
+      )
+    assertThat(Files.exists(structureOutputDirectory.resolve("feature.changed"))).isFalse()
+  }
+
+  @Test
+  fun `renaming only a temporary view updates current ownership without a persistent migration`() {
+    val options = debugOptions()
+    val structureFile = temporaryDirectory.resolve("db/latest.struct")
+
+    SqliteMagicCompilation
+      .compile(
+        temporaryViewSource(),
+        databaseSource(
+          className = "TemporaryLifecycleDatabase",
+          version = 9
+        ),
+        kspOptions = options
+      )
+      .isOk()
+    Files.readString(structureFile).assertContains("temporary_lifecycle_view")
+
+    SqliteMagicCompilation
+      .compile(
+        temporaryViewSource(
+          className = "RenamedTemporaryLifecycleView",
+          viewName = "renamed_temporary_lifecycle_view"
+        ),
+        databaseSource(
+          className = "TemporaryLifecycleDatabase",
+          version = 9
+        ),
+        kspOptions = options
+      )
+      .isOk()
+
+    Files.readString(structureFile).apply {
+      assertContains(""""temporaryViews"""", "renamed_temporary_lifecycle_view")
+      assertDoesNotContain(""""temporary_lifecycle_view"""")
+    }
+    assertThat(Files.exists(temporaryDirectory.resolve("db/latest_debug.version"))).isFalse()
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.sql"))).isFalse()
   }
 
   @Test
@@ -649,8 +766,11 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
     """
   )
 
-  private fun temporaryViewSource() = SourceFile.kotlin(
-    name = "TemporaryLifecycleView.kt",
+  private fun temporaryViewSource(
+    className: String = "TemporaryLifecycleView",
+    viewName: String = "temporary_lifecycle_view"
+  ) = SourceFile.kotlin(
+    name = "$className.kt",
     contents = """
       package $PACKAGE
 
@@ -662,10 +782,10 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       import com.siimkinks.sqlitemagic.annotation.ViewQuery
 
       @View(
-        value = "temporary_lifecycle_view",
+        value = "$viewName",
         options = [ViewOption.TEMPORARY]
       )
-      data class TemporaryLifecycleView(
+      data class $className(
         @ViewColumn("value") val value: String
       ) {
         companion object {

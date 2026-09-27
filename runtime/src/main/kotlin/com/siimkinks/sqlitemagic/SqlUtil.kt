@@ -4,7 +4,9 @@ import android.database.Cursor
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteStatement
+import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 
 /** Internal utility functions. */
 object SqlUtil {
@@ -61,41 +63,60 @@ object SqlUtil {
   fun createView(
     db: SupportSQLiteDatabase,
     query: CompiledSelect<*, *>,
-    viewName: String
+    viewName: String,
+    temporary: Boolean = false
   ) = createView(
     db = db,
     definition = viewDefinition(
       query = query,
       viewName = viewName
     ),
-    viewName = viewName
+    viewName = viewName,
+    temporary = temporary
   )
 
   fun createView(
     db: SupportSQLiteDatabase,
     definition: ViewDefinition,
-    viewName: String
+    viewName: String,
+    temporary: Boolean = false
   ) = createViewSql(
     db = db,
-    sql = definition.sql,
-    args = definition.args,
-    viewName = viewName
+    definition = definition,
+    viewName = viewName,
+    temporary = temporary
   )
 
   private fun createViewSql(
     db: SupportSQLiteDatabase,
-    sql: String,
-    args: Array<String?>?,
-    viewName: String
+    definition: ViewDefinition,
+    viewName: String,
+    temporary: Boolean
   ) {
-    require(args.isNullOrEmpty()) {
+    require(definition.args.isNullOrEmpty()) {
       "Cannot create view '$viewName': defining query has bound arguments"
+    }
+    if (!temporary) {
+      val dependencies = definition.queryDependencies
+      require(dependencies.directSourcesComplete) {
+        "Cannot create persistent view '$viewName': defining query has incomplete direct sources"
+      }
+      val temporaryTable = dependencies.directSources.firstOrNull { source ->
+        source.kind == TABLE && source.schema == TEMPORARY
+      }
+      require(temporaryTable == null) {
+        "Cannot create persistent view '$viewName': defining query references temporary table '${temporaryTable?.name}'"
+      }
     }
     val quotedViewName = viewName.replace(
       oldValue = "\"",
       newValue = "\"\""
     )
-    db.execSQL("CREATE VIEW IF NOT EXISTS \"$quotedViewName\" AS $sql")
+    val create = when {
+      temporary -> "CREATE TEMPORARY VIEW"
+      else -> "CREATE VIEW"
+    }
+    db.execSQL("$create IF NOT EXISTS \"$quotedViewName\" AS ${definition.sql}")
   }
 
   @CheckResult

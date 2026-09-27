@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.runtime.support
 
 import android.app.Application
 import android.database.Cursor
+import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.platform.app.InstrumentationRegistry
 import com.siimkinks.sqlitemagic.DbConnection
@@ -24,12 +25,13 @@ internal fun reopenDefaultConnection() {
 internal fun openNamedConnection(
   application: Application,
   databaseName: String,
-  database: GeneratedDatabase = SqliteMagicDatabase()
+  database: GeneratedDatabase = SqliteMagicDatabase(),
+  sqliteFactory: SupportSQLiteOpenHelper.Factory = FrameworkSQLiteOpenHelperFactory()
 ): DbConnection = SqliteMagic
   .builder(application)
   .name(databaseName)
   .database(database)
-  .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+  .sqliteFactory(sqliteFactory)
   .scheduleRxQueriesOn(Schedulers.trampoline())
   .openNewConnection()
 

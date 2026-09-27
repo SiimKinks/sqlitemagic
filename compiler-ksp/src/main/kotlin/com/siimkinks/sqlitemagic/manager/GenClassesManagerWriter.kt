@@ -84,6 +84,7 @@ internal class GenClassesManagerWriter(
         .addFunction(
           createTemporarySchema(
             tables = orderedTables.temporary,
+            views = database.views.filter { it.schema == TEMPORARY },
             indexes = orderedIndexes.filter { it.schema == TEMPORARY }
           )
         )
@@ -142,11 +143,12 @@ internal class GenClassesManagerWriter(
 
   private fun GeneratedDatabaseElement.createTemporarySchema(
     tables: List<TableElement>,
+    views: List<ViewElement>,
     indexes: List<IndexElement>
   ) = schemaCreationFunction(
     functionName = METHOD_CREATE_TEMPORARY_SCHEMA,
     tables = tables,
-    views = emptyList(),
+    views = views,
     indexes = indexes,
     submoduleMethod = METHOD_CREATE_TEMPORARY_SCHEMA,
     logMessage = "Creating temporary tables"
@@ -180,13 +182,22 @@ internal class GenClassesManagerWriter(
     if (views.isNotEmpty()) {
       builder.addRuntimeDebugLog("Creating views")
       views.forEach { view ->
-        builder.addStatement(
-          "%T.createView(db = db, definition = %T.%N, viewName = %S)",
-          SQL_UTIL,
-          view.generationNames.daoClassName,
-          FIELD_VIEW_QUERY,
-          view.viewName
-        )
+        when (view.schema) {
+          TEMPORARY -> builder.addStatement(
+            "%T.createView(db = db, definition = %T.%N, viewName = %S, temporary = true)",
+            SQL_UTIL,
+            view.generationNames.daoClassName,
+            FIELD_VIEW_QUERY,
+            view.viewName
+          )
+          MAIN -> builder.addStatement(
+            "%T.createView(db = db, definition = %T.%N, viewName = %S)",
+            SQL_UTIL,
+            view.generationNames.daoClassName,
+            FIELD_VIEW_QUERY,
+            view.viewName
+          )
+        }
       }
     }
     if (indexes.isNotEmpty()) {
