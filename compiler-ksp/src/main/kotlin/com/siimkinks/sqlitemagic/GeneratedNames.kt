@@ -7,6 +7,7 @@ internal object GeneratedNames {
   const val CLASS_TABLE_STRUCTURE = "Table"
 
   const val FIELD_VIEW_QUERY = "QUERY"
+  const val FIELD_GENERATED_VIEW = "GENERATED_VIEW"
   const val FIELD_TABLE_SCHEMA = "TABLE_SCHEMA"
   const val FIELD_TRIGGER_TABLE_NAMES = "triggerTableNames"
   const val FIELD_MODULE_NAME = "moduleName"
@@ -66,4 +67,7 @@ internal object GeneratedNames {
   const val METHOD_BULK_PERSIST_BY_COLUMN = "bulkPersistByColumn"
   const val METHOD_BULK_DELETE_BY_COLUMN = "bulkDeleteByColumn"
   const val METHOD_COLUMN_FOR_VALUE_OR_NULL = "columnForValueOrNull"
+  const val METHOD_CREATE_SCHEMA_TABLES = "createSchemaTables"
+  const val METHOD_COLLECT_GENERATED_VIEWS = "collectGeneratedViews"
+  const val METHOD_CREATE_SCHEMA_INDEXES = "createSchemaIndexes"
 }

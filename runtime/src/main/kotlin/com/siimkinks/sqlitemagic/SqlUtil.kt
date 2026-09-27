@@ -4,7 +4,6 @@ import android.database.Cursor
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteStatement
-import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 
@@ -60,32 +59,69 @@ object SqlUtil {
     else -> db.query(sql, args)
   }
 
-  fun createView(
+  fun createViews(
     db: SupportSQLiteDatabase,
-    query: CompiledSelect<*, *>,
-    viewName: String,
-    temporary: Boolean = false
-  ) = createView(
-    db = db,
-    definition = viewDefinition(
-      query = query,
-      viewName = viewName
-    ),
-    viewName = viewName,
-    temporary = temporary
-  )
+    views: Collection<GeneratedView>,
+    temporary: Boolean
+  ) = GeneratedViewResolver(views)
+    .resolve(temporary = temporary)
+    .forEach { node ->
+      createViewSql(
+        db = db,
+        definition = node.definition,
+        viewName = node.view.viewName,
+        temporary = node.view.temporary
+      )
+    }
 
-  fun createView(
+  fun recreateViews(
     db: SupportSQLiteDatabase,
+    views: Collection<GeneratedView>
+  ) = GeneratedViewResolver(views)
+    .resolve(temporary = false)
+    .run {
+      asReversed().forEach { node ->
+        dropView(
+          db = db,
+          viewName = node.view.viewName
+        )
+      }
+      forEach { node ->
+        createViewSql(
+          db = db,
+          definition = node.definition,
+          viewName = node.view.viewName,
+          temporary = false
+        )
+      }
+    }
+
+  internal fun validateViewDefinition(
     definition: ViewDefinition,
     viewName: String,
-    temporary: Boolean = false
-  ) = createViewSql(
-    db = db,
-    definition = definition,
-    viewName = viewName,
-    temporary = temporary
-  )
+    temporary: Boolean,
+    requireCompleteSources: Boolean
+  ) {
+    require(definition.args.isNullOrEmpty()) {
+      "Cannot create view '$viewName': defining query has bound arguments"
+    }
+    if (requireCompleteSources) {
+      require(definition.queryDependencies.directSourcesComplete) {
+        val subject = when {
+          temporary -> "view"
+          else -> "persistent view"
+        }
+        "Cannot create $subject '$viewName': defining query has incomplete direct sources"
+      }
+    }
+    if (!temporary) {
+      val temporarySource = definition.queryDependencies.directSources.firstOrNull { it.schema == TEMPORARY }
+      require(temporarySource == null) {
+        "Cannot create persistent view '$viewName': defining query references temporary " +
+            "${temporarySource?.kind?.name?.lowercase()} '${temporarySource?.name}'"
+      }
+    }
+  }
 
   private fun createViewSql(
     db: SupportSQLiteDatabase,
@@ -93,21 +129,6 @@ object SqlUtil {
     viewName: String,
     temporary: Boolean
   ) {
-    require(definition.args.isNullOrEmpty()) {
-      "Cannot create view '$viewName': defining query has bound arguments"
-    }
-    if (!temporary) {
-      val dependencies = definition.queryDependencies
-      require(dependencies.directSourcesComplete) {
-        "Cannot create persistent view '$viewName': defining query has incomplete direct sources"
-      }
-      val temporaryTable = dependencies.directSources.firstOrNull { source ->
-        source.kind == TABLE && source.schema == TEMPORARY
-      }
-      require(temporaryTable == null) {
-        "Cannot create persistent view '$viewName': defining query references temporary table '${temporaryTable?.name}'"
-      }
-    }
     val create = when {
       temporary -> "CREATE TEMPORARY VIEW"
       else -> "CREATE VIEW"

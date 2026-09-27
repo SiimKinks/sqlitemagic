@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.runtime.contract.query.view
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
+import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.A_DEPENDENCY_OUTER
 import com.siimkinks.sqlitemagic.PersistentEmbeddedReadbackViewTable.Companion.PERSISTENT_EMBEDDED_READBACK
 import com.siimkinks.sqlitemagic.PersistentNestedReadbackViewTable.Companion.PERSISTENT_NESTED_READBACK
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
@@ -13,6 +14,7 @@ import com.siimkinks.sqlitemagic.ViewObservationDependenciesTable.Companion.VIEW
 import com.siimkinks.sqlitemagic.ViewObservationOuterTable.Companion.VIEW_OBSERVATION_OUTER
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.fixture.view.DependencyOuterView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentContact
 import com.siimkinks.sqlitemagic.fixture.view.PersistentEmbeddedReadbackView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentInnerReadbackView
@@ -39,6 +41,50 @@ import org.junit.Test
 private const val NAMED_DATABASE = "view-observation-runtime.db"
 
 class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
+  @Test
+  fun scalarOuterViewObservesItsTransitiveBaseTableAndStopsAfterDisposal() {
+    val observer = Select
+      .from(A_DEPENDENCY_OUTER)
+      .observe()
+      .runQuery()
+      .test()
+      .assertValuesOnly(emptyList())
+    try {
+      val author = QueryCompositionAuthor(
+        id = 91L,
+        name = "Ada"
+      )
+      insert(author)
+      observer.assertValuesOnly(
+        emptyList(),
+        listOf(DependencyOuterView(name = "Ada"))
+      )
+
+      assertThat(
+        author.copy(name = "Grace")
+          .update()
+          .execute()
+      ).isTrue()
+      observer.assertValuesOnly(
+        emptyList(),
+        listOf(DependencyOuterView(name = "Ada")),
+        listOf(DependencyOuterView(name = "Grace"))
+      )
+
+      observer.dispose()
+      insert(
+        QueryCompositionAuthor(
+          id = 92L,
+          name = "Lin"
+        )
+      )
+      observer.assertValueCount(3)
+      assertThat(observer.isDisposed).isTrue()
+    } finally {
+      observer.dispose()
+    }
+  }
+
   @Test
   fun scalarViewRefreshesFromItsAuthorTableAndStopsAfterDisposal() {
     val observer = Select

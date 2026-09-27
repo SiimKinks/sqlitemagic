@@ -44,21 +44,25 @@ open class Table<T> protected constructor(
   internal val addDeepQueryParts: TableQueryGraphContributor = { _, _, _ -> },
   internal val addShallowQueryParts: TableQueryGraphContributor = { _, _, _ -> },
   private val viewDefinition: (() -> ViewDefinition)? = null,
+  private val generatedView: GeneratedView? = null,
   internal val temporary: Boolean = false
 ) {
   internal val hasAlias = alias != null
-  internal val hasViewDefinitionPositions get() = viewDefinition?.invoke()?.hasColumnPositions == true
+  private val resolvedViewDefinition get() = generatedView?.definition ?: viewDefinition?.invoke()
+  internal val hasViewDefinitionPositions get() = resolvedViewDefinition?.hasColumnPositions == true
   internal val nameInQuery = alias ?: name
-  internal val objectIdentity = SqliteSchemaIdentity.from(
-    schema = when {
-      temporary -> TEMPORARY
-      else -> MAIN
-    },
-    rawName = name
-  )
+  internal val objectIdentity = generatedView
+    ?.identity
+    ?: SqliteSchemaIdentity.from(
+      schema = when {
+        temporary -> TEMPORARY
+        else -> MAIN
+      },
+      rawName = name
+    )
 
   internal open fun addDependencies(destination: QueryDependencies.Builder) {
-    viewDefinition?.invoke()?.let { definition ->
+    resolvedViewDefinition?.let { definition ->
       destination.addSource(
         SqliteQuerySource(
           identity = objectIdentity,
@@ -110,7 +114,7 @@ open class Table<T> protected constructor(
     implicitOffset: Int = 0,
     implicitSelection: Boolean = columnPositions?.isEmpty == true
   ): Boolean {
-    viewDefinition?.invoke()?.let { definition ->
+    resolvedViewDefinition?.let { definition ->
       definition.contributeTo(
         tableIdentifier = nameInQuery,
         tableGraphNodeNames = tableGraphNodeNames,

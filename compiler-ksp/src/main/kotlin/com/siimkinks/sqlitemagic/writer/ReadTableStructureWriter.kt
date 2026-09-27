@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.writer
 
 import com.google.devtools.ksp.processing.CodeGenerator
-import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_VIEW_QUERY
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_DEEP_QUERY_PARTS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_SHALLOW_QUERY_PARTS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
@@ -265,9 +265,9 @@ internal class ReadTableStructureWriter private constructor(
           )
           add(
             CodeBlock.of(
-              "viewDefinition = { %T.%N }",
+              "generatedView = %T.%N",
               view.generationNames.daoClassName,
-              FIELD_VIEW_QUERY
+              FIELD_GENERATED_VIEW
             )
           )
         },

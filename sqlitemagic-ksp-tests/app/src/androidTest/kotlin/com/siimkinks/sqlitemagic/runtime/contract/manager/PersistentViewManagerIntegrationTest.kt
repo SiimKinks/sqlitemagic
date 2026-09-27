@@ -7,6 +7,8 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DefinitionFailureGeneratedClassesManager
+import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.A_DEPENDENCY_OUTER
+import com.siimkinks.sqlitemagic.MainSubmoduleDependencyOuterViewTable.Companion.A_MAIN_SUBMODULE_DEPENDENCY_OUTER
 import com.siimkinks.sqlitemagic.PersistentEmailReadbackViewTable.Companion.PERSISTENT_EMAIL_READBACK
 import com.siimkinks.sqlitemagic.PersistentEmbeddedReadbackViewTable.Companion.PERSISTENT_EMBEDDED_READBACK
 import com.siimkinks.sqlitemagic.PersistentNestedReadbackViewTable.Companion.PERSISTENT_NESTED_READBACK
@@ -18,6 +20,8 @@ import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.fixture.view.DependencyOuterView
+import com.siimkinks.sqlitemagic.fixture.view.MainSubmoduleDependencyOuterView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentContact
 import com.siimkinks.sqlitemagic.fixture.view.PersistentEmailReadbackView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentEmbeddedReadbackView
@@ -44,6 +48,58 @@ private const val DATABASE_NAME = "persistent-view-manager-integration.db"
 private const val DEFINITION_FAILURE_DATABASE_NAME = "persistent-view-definition-failure.db"
 
 class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
+  @Test
+  fun freshOpenOrdersGeneratedViewChainsAndMainSubmoduleDependencies() =
+    withNamedDatabase(databaseName = DATABASE_NAME) { application ->
+      openNamedConnection(
+        application = application,
+        databaseName = DATABASE_NAME,
+        database = SqliteMagicDatabase()
+      ).use { connection ->
+        val viewNames = Select
+          .raw("SELECT name FROM sqlite_master WHERE type = 'view'")
+          .from(ANONYMOUS_TABLE)
+          .usingConnection(connection)
+          .execute()
+          .use(Cursor::readStrings)
+        assertThat(viewNames).containsAtLeast(
+          "a_dependency_outer",
+          "m_dependency_middle",
+          "z_dependency_base",
+          "a_main_submodule_dependency_outer",
+          "z_submodule_dependency_base"
+        )
+
+        QueryCompositionAuthor(
+          id = 81L,
+          name = "Ada"
+        )
+          .insert()
+          .usingConnection(connection)
+          .execute()
+        SubmodulePersistentValue(
+          id = "graph-submodule",
+          value = "submodule value"
+        )
+          .insert()
+          .usingConnection(connection)
+          .execute()
+
+        assertThat(
+          Select
+            .from(A_DEPENDENCY_OUTER)
+            .usingConnection(connection)
+            .execute()
+        ).containsExactly(DependencyOuterView(name = "Ada"))
+        assertThat(
+          Select
+            .from(A_MAIN_SUBMODULE_DEPENDENCY_OUTER)
+            .usingConnection(connection)
+            .execute()
+        ).containsExactly(MainSubmoduleDependencyOuterView(value = "submodule value"))
+      }
+    }
+
   @Test
   fun freshOpenCreatesViewsAndReadsScalarTransformerEmbeddedAndNestedDtos() =
     withNamedDatabase(databaseName = DATABASE_NAME) { application ->
@@ -198,13 +254,13 @@ class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
       RollbackCase(
         label = "delegated index",
         databaseName = "persistent-view-delegated-rollback.db",
-        sqlPrefix = "CREATE INDEX IF NOT EXISTS main.\"submodule_persistent_value_index\"",
+        sqlPrefix = """CREATE INDEX IF NOT EXISTS main."submodule_persistent_value_index"""",
         rolledBackObjects = listOf("submodule_persistent_value")
       ),
       RollbackCase(
         label = "local view",
         databaseName = "persistent-view-local-rollback.db",
-        sqlPrefix = "CREATE VIEW IF NOT EXISTS \"reader_required_nullable_table_view\" AS ",
+        sqlPrefix = """CREATE VIEW IF NOT EXISTS "reader_required_nullable_table_view" AS """,
         rolledBackObjects = listOf(
           "submodule_persistent_value",
           "no_id_entity"

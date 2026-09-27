@@ -62,9 +62,8 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       }
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
-          "SqlUtil.createView(",
-          "definition = SqliteMagic_ViewOnlyLifecycle_Dao.QUERY",
-          "viewName = \"view_only_lifecycle\"",
+          "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
+          "views.add(SqliteMagic_ViewOnlyLifecycle_Dao.GENERATED_VIEW)",
           "migrateViews",
           "getNrOfTables(moduleName: String?): Int = 0"
         )
@@ -108,17 +107,19 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
           .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
         createSchema.assertContainsInOrder(
-          "db.execSQL(SqliteMagic_MixedLifecycleRow_Adapter.TABLE_SCHEMA)",
-          "SqlUtil.createView(",
-          "SqliteMagic_MixedLifecycleView_Dao.QUERY",
-          "viewName = \"mixed_lifecycle_view\"",
-          "db.execSQL(\"CREATE INDEX IF NOT EXISTS main."
+          "createSchemaTables(db = db, temporary = false)",
+          "collectGeneratedViews(views = generatedViews)",
+          "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
+          "createSchemaIndexes(db = db, temporary = false)"
         )
         createSchema.assertContainsInOrder(
           "catch (exception: Exception)",
           "throw exception"
         )
         generatedSource.assertContains(
+          "db.execSQL(SqliteMagic_MixedLifecycleRow_Adapter.TABLE_SCHEMA)",
+          "views.add(SqliteMagic_MixedLifecycleView_Dao.GENERATED_VIEW)",
+          """db.execSQL("CREATE INDEX IF NOT EXISTS main.""",
           "getNrOfTables(moduleName: String?): Int = 1",
           "DELETE FROM mixed_lifecycle_rows"
         )
@@ -144,7 +145,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
-          "throwing_query_lifecycle",
+          "views.add(SqliteMagic_ThrowingQueryLifecycle_Dao.GENERATED_VIEW)",
           "migrateViews"
         )
       }
@@ -168,13 +169,12 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagic_UnsupportedDefinitionView_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "query = UnsupportedDefinitionView.QUERY",
-          "viewName = \"unsupported_definition_view\""
+          """viewName = "unsupported_definition_view""""
         )
       }
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
-          "definition = SqliteMagic_UnsupportedDefinitionView_Dao.QUERY",
-          "viewName = \"unsupported_definition_view\""
+          "views.add(SqliteMagic_UnsupportedDefinitionView_Dao.GENERATED_VIEW)"
         )
       }
   }
@@ -202,7 +202,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
         generatedSource.assertContains(
-          "feature_lifecycle_view",
+          "views.add(SqliteMagic_FeatureLifecycleView_Dao.GENERATED_VIEW)",
           "migrateViews",
           "getNrOfTables(moduleName: String?): Int = 0"
         )
@@ -231,6 +231,11 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
+      .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "views.add(SqliteMagic_AggregatedFeatureView_Dao.GENERATED_VIEW)"
+        )
+      }
 
     submodule
       .compile(
@@ -239,6 +244,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "AggregatedMainView",
           viewName = "aggregated_main_view"
         ),
+        temporaryViewSource(),
         kspOptions = debugOptions(
           projectDirectory = temporaryDirectory.resolve("aggregated-main"),
           structureInputDirectory = structureOutputDirectory
@@ -248,19 +254,43 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
-          "FeatureGeneratedClassesManager.createSchema(db)",
-          "FeatureGeneratedClassesManager.createTemporarySchema(db)",
-          "FeatureGeneratedClassesManager.migrateViews(db)",
+          "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+          "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
+          "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
           "FeatureGeneratedClassesManager.getNrOfTables(moduleName)"
         )
+        generatedSource
+          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "createSchemaTables(db = db, temporary = false)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
+            "createSchemaIndexes(db = db, temporary = false)"
+          )
+        generatedSource
+          .substringAfter("fun collectGeneratedViews(views: MutableList<GeneratedView>)")
+          .substringBefore("fun createSchemaIndexes(")
+          .assertContainsInOrder(
+            "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
+            "views.add(SqliteMagic_AggregatedMainView_Dao.GENERATED_VIEW)",
+            "views.add(SqliteMagic_TemporaryLifecycleView_Dao.GENERATED_VIEW)"
+          )
+        generatedSource
+          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "createSchemaTables(db = db, temporary = true)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
+            "createSchemaIndexes(db = db, temporary = true)"
+          )
         generatedSource
           .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
           .substringBefore("override fun getNrOfTables(")
           .assertContainsInOrder(
-            "FeatureGeneratedClassesManager.migrateViews(db)",
-            "SqlUtil.dropView(",
-            """viewName = "aggregated_main_view"""",
-            "SqlUtil.createView("
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.recreateViews(db = db, views = generatedViews)"
           )
       }
   }
@@ -313,18 +343,21 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         generatedSource
           .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
           .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .assertDoesNotContain("SqlUtil.createView(")
+          .assertDoesNotContain("temporary = true")
         generatedSource
           .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
           .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
           .assertContainsInOrder(
-            "db.execSQL(SqliteMagic_TemporaryLifecycleRow_Adapter.TABLE_SCHEMA)",
-            "SqlUtil.createView(",
-            "definition = SqliteMagic_TemporaryLifecycleView_Dao.QUERY",
-            "viewName = \"temporary_lifecycle_view\"",
-            "temporary = true",
-            "CREATE INDEX IF NOT EXISTS temp."
+            "createSchemaTables(db = db, temporary = true)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
+            "createSchemaIndexes(db = db, temporary = true)"
           )
+        generatedSource.assertContains(
+          "db.execSQL(SqliteMagic_TemporaryLifecycleRow_Adapter.TABLE_SCHEMA)",
+          "views.add(SqliteMagic_TemporaryLifecycleView_Dao.GENERATED_VIEW)",
+          "CREATE INDEX IF NOT EXISTS temp."
+        )
       }
 
     Files
@@ -355,16 +388,15 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         generatedSource
           .substringAfter("fun createSchema(db: SupportSQLiteDatabase)")
           .substringBefore("fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .assertDoesNotContain("SqlUtil.createView(")
+          .assertDoesNotContain("temporary = true")
         generatedSource
           .substringAfter("fun createTemporarySchema(db: SupportSQLiteDatabase)")
           .substringBefore("fun clearData(db: SupportSQLiteDatabase)")
           .assertContains(
-            "SqlUtil.createView(",
-            "definition = SqliteMagic_TemporaryLifecycleView_Dao.QUERY",
-            "viewName = \"temporary_lifecycle_view\"",
-            "temporary = true"
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
+            "collectGeneratedViews(views = generatedViews)"
           )
+        generatedSource.assertContains("views.add(SqliteMagic_TemporaryLifecycleView_Dao.GENERATED_VIEW)")
         generatedSource.assertContains("getNrOfTables(moduleName: String?): Int = 0")
       }
 
@@ -490,11 +522,10 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
           .substringBefore("override fun getNrOfTables(")
           .assertContainsInOrder(
-            "SqlUtil.dropView(",
-            """viewName = "new_ordered_lifecycle_view"""",
-            "SqlUtil.createView(",
-            "definition = SqliteMagic_NewOrderedLifecycleView_Dao.QUERY"
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.recreateViews(db = db, views = generatedViews)"
           )
+        generatedSource.assertContains("views.add(SqliteMagic_NewOrderedLifecycleView_Dao.GENERATED_VIEW)")
       }
   }
 
@@ -526,11 +557,10 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
           .substringBefore("override fun getNrOfTables(")
           .assertContainsInOrder(
-            "SqlUtil.dropView(",
-            """viewName = "query_only_lifecycle_view"""",
-            "SqlUtil.createView(",
-            "definition = SqliteMagic_QueryOnlyLifecycleView_Dao.QUERY"
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.recreateViews(db = db, views = generatedViews)"
           )
+        generatedSource.assertContains("views.add(SqliteMagic_QueryOnlyLifecycleView_Dao.GENERATED_VIEW)")
       }
   }
 

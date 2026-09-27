@@ -6,6 +6,7 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
+import com.siimkinks.sqlitemagic.GeneratedView
 import com.siimkinks.sqlitemagic.MainSessionValueTable.Companion.MAIN_SESSION_VALUE
 import com.siimkinks.sqlitemagic.MainSessionViewTable.Companion.MAIN_SESSION_VIEW
 import com.siimkinks.sqlitemagic.PersistentSourceSessionViewTable.Companion.PERSISTENT_SOURCE_SESSION_VIEW
@@ -15,12 +16,14 @@ import com.siimkinks.sqlitemagic.SqlUtil
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.SubmoduleSessionValueTable.Companion.SUBMODULE_SESSION_VALUE
 import com.siimkinks.sqlitemagic.SubmoduleSessionViewTable.Companion.SUBMODULE_SESSION_VIEW
+import com.siimkinks.sqlitemagic.TemporaryDependencyOuterViewTable.Companion.A_TEMPORARY_DEPENDENCY_OUTER
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.fixture.model.MainSessionValue
 import com.siimkinks.sqlitemagic.fixture.view.MainSessionView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentSourceSessionView
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
+import com.siimkinks.sqlitemagic.fixture.view.TemporaryDependencyOuterView
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleSessionValue
@@ -39,6 +42,38 @@ private const val FAILURE_DATABASE_NAME = "temporary-view-failure-integration.db
 private const val LIFETIME_DATABASE_NAME = "temporary-view-lifetime-integration.db"
 
 class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
+  @Test
+  fun temporaryViewReadsPersistentViewThroughAnotherTemporaryView() =
+    withNamedDatabase(databaseName = DATABASE_NAME) { application ->
+      openNamedConnection(
+        application = application,
+        databaseName = DATABASE_NAME
+      ).use { connection ->
+        assertThat(
+          names(
+            connection = connection,
+            master = "sqlite_temp_master",
+            type = "view"
+          )
+        ).containsAtLeast("a_temporary_dependency_outer", "z_temporary_dependency_middle")
+
+        QueryCompositionAuthor(
+          id = 93L,
+          name = "Ada"
+        )
+          .insert()
+          .usingConnection(connection)
+          .execute()
+
+        assertThat(
+          rows(
+            table = A_TEMPORARY_DEPENDENCY_OUTER,
+            connection = connection
+          )
+        ).containsExactly(TemporaryDependencyOuterView(name = "Ada"))
+      }
+    }
+
   @Test
   fun generatedTemporaryViewsShareTheTemporarySchemaWithTablesAndIndexes() =
     withNamedDatabase(databaseName = DATABASE_NAME) { application ->
@@ -308,7 +343,7 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
       val expected = IllegalStateException("Injected temporary view DDL failure")
       val failingDatabase = FailingDatabase(
         delegate = database,
-        sqlPrefix = "CREATE TEMPORARY VIEW IF NOT EXISTS \"persistent_source_session_view\"",
+        sqlPrefix = """CREATE TEMPORARY VIEW IF NOT EXISTS "persistent_source_session_view"""",
         failure = expected
       )
 
@@ -347,10 +382,20 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
         database.execSQL("CREATE TABLE earlier_persistent_object (value TEXT)")
 
         val failure = assertThrows(IllegalArgumentException::class.java) {
-          SqlUtil.createView(
+          SqlUtil.createViews(
             db = database,
-            query = definition,
-            viewName = "invalid_persistent_view",
+            views = listOf(
+              GeneratedView(
+                viewName = "invalid_persistent_view",
+                temporary = false,
+                definitionProvider = {
+                  SqlUtil.viewDefinition(
+                    query = definition,
+                    viewName = "invalid_persistent_view"
+                  )
+                }
+              )
+            ),
             temporary = false
           )
         }

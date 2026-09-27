@@ -65,7 +65,7 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
           "public class SqliteMagicDatabase : GeneratedDatabase",
-          "override fun getDbName(): String? = \"library.db\"",
+          """override fun getDbName(): String? = "library.db"""",
           "override fun getDbVersion(): Int = 7",
           "override fun isDebug(): Boolean = true",
           "SqliteMagic_Note_Adapter.TABLE_SCHEMA",
@@ -124,8 +124,8 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
           "override fun clearData(db: SupportSQLiteDatabase): StringArraySet",
-          "db.execSQL(\"DELETE FROM transformed_values\")",
-          "allChangedTables.add(\"transformed_values\")",
+          """db.execSQL("DELETE FROM transformed_values")""",
+          """allChangedTables.add("transformed_values")""",
           "TokenColumn<",
           "val sqlValue = TokenTransformers.toDatabaseValue(input as Token)\n" +
               "        val stringValue = SqlUtil.quoteSqlStringLiteral(sqlValue)\n" +
@@ -156,7 +156,7 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
         )
       }
       .withGeneratedSource("SqliteMagic_FeatureItem_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains("override val moduleName: String? = \"Feature\"")
+        generatedSource.assertContains("""override val moduleName: String? = "Feature"""")
       }
 
     submodule
@@ -166,11 +166,12 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
           "FeatureGeneratedClassesManager.configureDatabase(db)",
-          "FeatureGeneratedClassesManager.createSchema(db)",
-          "FeatureGeneratedClassesManager.createTemporarySchema(db)",
+          "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+          "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
+          "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
           "allChangedTables.addAll(FeatureGeneratedClassesManager.clearData(db))",
-          "override fun getSubmoduleNames(): Array<String>? = arrayOf(\"Feature\")",
-          "\"Feature\" -> FeatureGeneratedClassesManager.getNrOfTables(moduleName)",
+          """override fun getSubmoduleNames(): Array<String>? = arrayOf("Feature")""",
+          """"Feature" -> FeatureGeneratedClassesManager.getNrOfTables(moduleName)""",
           "FeatureGeneratedClassesManager.columnForValueOrNull(className = className, input = input)"
         )
       }
@@ -195,10 +196,10 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .readString(temporaryDirectory.resolve("db/latest.struct"))
       .apply {
         assertContains(
-          "\"parents\"",
-          "\"children\"",
-          "\"indices\":{}",
-          "\"temporaryTables\"",
+          """"parents"""",
+          """"children"""",
+          """"indices":{}""",
+          """"temporaryTables"""",
           "session_owners",
           "session_cache"
         )
@@ -285,9 +286,9 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "val sqlValue = NullableEmailTransformer.emailToString(input as Email)\n" +
               "        val stringValue = SqlUtil.quoteSqlStringLiteral(sqlValue ?: " +
-              "throw NullPointerException(\"SQL argument cannot be null\"))",
+              """throw NullPointerException("SQL argument cannot be null"))""",
           "throw UnsupportedOperationException(",
-          "\"Unable to disambiguate transformer for kotlin.collections.List\""
+          """"Unable to disambiguate transformer for kotlin.collections.List""""
         )
       }
   }

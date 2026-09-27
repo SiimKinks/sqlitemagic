@@ -6,6 +6,7 @@ import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
+import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.A_DEPENDENCY_OUTER
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DefinitionFailureGeneratedClassesManager
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
@@ -19,6 +20,7 @@ import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTAB
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
+import com.siimkinks.sqlitemagic.fixture.view.DependencyOuterView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentSubmoduleReadbackView
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
@@ -112,7 +114,7 @@ private val REBUILT_CURRENT_SCHEMA_FRAGMENTS = mapOf(
   "entity_with_relationship" to setOf(
     "id INTEGER PRIMARY KEY AUTOINCREMENT",
     "value TEXT DEFAULT NULL",
-    "related_entity INTEGER DEFAULT NULL REFERENCES \"simple_mutable_entity\"(id) ON DELETE CASCADE",
+    """related_entity INTEGER DEFAULT NULL REFERENCES "simple_mutable_entity"(id) ON DELETE CASCADE""",
     "count INTEGER DEFAULT NULL"
   ),
   "complex_object_with_same_leafs" to setOf(
@@ -537,6 +539,12 @@ class SchemaMigrationRuntimeTest {
         )
       ).doesNotContain("'-old'")
       assertThat(
+        viewSql(
+          connection = connection,
+          viewName = "a_dependency_outer"
+        )
+      ).contains("m_dependency_middle")
+      assertThat(
         Select
           .from(QUERY_COMPOSITION_AUTHOR_VIEW)
           .usingConnection(connection)
@@ -547,6 +555,12 @@ class SchemaMigrationRuntimeTest {
           id = VIEW_AUTHOR_ID
         )
       )
+      assertThat(
+        Select
+          .from(A_DEPENDENCY_OUTER)
+          .usingConnection(connection)
+          .execute()
+      ).containsExactly(DependencyOuterView(name = VIEW_AUTHOR_NAME))
     }
   }
 

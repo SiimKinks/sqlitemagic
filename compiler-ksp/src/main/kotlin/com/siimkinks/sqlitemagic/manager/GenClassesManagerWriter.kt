@@ -2,9 +2,12 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.siimkinks.sqlitemagic.Const.GENERATION_COMMENT
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
-import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_VIEW_QUERY
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLLECT_GENERATED_VIEWS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLUMN_FOR_VALUE_OR_NULL
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA_INDEXES
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA_TABLES
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_SQL_VALUE
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_CLEAR_DATA
 import com.siimkinks.sqlitemagic.GlobalConst.METHOD_COLUMN_FOR_VALUE
@@ -21,6 +24,7 @@ import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_DATABASE
+import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_VIEW
 import com.siimkinks.sqlitemagic.WriterTypes.LOG_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_DATABASE
@@ -48,6 +52,7 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.INT
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
+import com.squareup.kotlinpoet.MUTABLE_LIST
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
@@ -74,6 +79,9 @@ internal class GenClassesManagerWriter(
       }
         .addModifiers(PUBLIC)
         .addFunction(configureDatabase())
+        .addFunction(createSchemaTables(orderedTables))
+        .addFunction(collectGeneratedViews())
+        .addFunction(createSchemaIndexes(orderedIndexes))
         .addFunction(
           createSchema(
             tables = orderedTables.persistent,
@@ -137,8 +145,7 @@ internal class GenClassesManagerWriter(
     tables = tables,
     views = views,
     indexes = indexes,
-    submoduleMethod = METHOD_CREATE_SCHEMA,
-    logMessage = "Creating tables"
+    temporary = false
   )
 
   private fun GeneratedDatabaseElement.createTemporarySchema(
@@ -150,8 +157,7 @@ internal class GenClassesManagerWriter(
     tables = tables,
     views = views,
     indexes = indexes,
-    submoduleMethod = METHOD_CREATE_TEMPORARY_SCHEMA,
-    logMessage = "Creating temporary tables"
+    temporary = true
   )
 
   private fun GeneratedDatabaseElement.schemaCreationFunction(
@@ -159,54 +165,30 @@ internal class GenClassesManagerWriter(
     tables: List<TableElement>,
     views: List<ViewElement>,
     indexes: List<IndexElement>,
-    submoduleMethod: String,
-    logMessage: String
+    temporary: Boolean
   ): FunSpec {
     val builder = databaseFunction(functionName)
       .addParameter(name = "db", type = SQLITE_DATABASE)
     if (tables.isEmpty() && views.isEmpty() && indexes.isEmpty() && submodules.isEmpty()) {
-      return builder.addStatement("return Unit").build()
-    }
-    builder
-      .addStatement("db.beginTransaction()")
-      .beginControlFlow("try")
-    submodules.forEach { submodule ->
-      builder.addStatement("%T.%N(db)", submodule.managerClassName, submoduleMethod)
-    }
-    if (tables.isNotEmpty()) {
-      builder.addRuntimeDebugLog(logMessage)
-      tables.forEach { table ->
-        builder.addStatement("db.execSQL(%T.%N)", table.generationNames.adapterClassName, FIELD_TABLE_SCHEMA)
-      }
-    }
-    if (views.isNotEmpty()) {
-      builder.addRuntimeDebugLog("Creating views")
-      views.forEach { view ->
-        when (view.schema) {
-          TEMPORARY -> builder.addStatement(
-            "%T.createView(db = db, definition = %T.%N, viewName = %S, temporary = true)",
-            SQL_UTIL,
-            view.generationNames.daoClassName,
-            FIELD_VIEW_QUERY,
-            view.viewName
-          )
-          MAIN -> builder.addStatement(
-            "%T.createView(db = db, definition = %T.%N, viewName = %S)",
-            SQL_UTIL,
-            view.generationNames.daoClassName,
-            FIELD_VIEW_QUERY,
-            view.viewName
-          )
-        }
-      }
-    }
-    if (indexes.isNotEmpty()) {
-      builder.addRuntimeDebugLog("Creating indexes")
-      indexes.forEach { index ->
-        builder.addStatement("db.execSQL(%S)", index.createSql())
-      }
+      return builder
+        .addStatement("return Unit")
+        .build()
     }
     return builder
+      .addStatement("db.beginTransaction()")
+      .beginControlFlow("try")
+      .addStatement("%N(db = db, temporary = %L)", METHOD_CREATE_SCHEMA_TABLES, temporary)
+      .addStatement("val generatedViews = mutableListOf<%T>()", GENERATED_VIEW)
+      .addStatement("%N(views = generatedViews)", METHOD_COLLECT_GENERATED_VIEWS)
+      .beginControlFlow("if (generatedViews.isNotEmpty())")
+      .addRuntimeDebugLog("Creating views")
+      .addStatement(
+        "%T.createViews(db = db, views = generatedViews, temporary = %L)",
+        SQL_UTIL,
+        temporary
+      )
+      .endControlFlow()
+      .addStatement("%N(db = db, temporary = %L)", METHOD_CREATE_SCHEMA_INDEXES, temporary)
       .addStatement("db.setTransactionSuccessful()")
       .nextControlFlow("catch (exception: %T)", Exception::class)
       .addRuntimeErrorLog()
@@ -215,6 +197,103 @@ internal class GenClassesManagerWriter(
       .addStatement("db.endTransaction()")
       .endControlFlow()
       .build()
+  }
+
+  private fun GeneratedDatabaseElement.createSchemaTables(
+    orderedTables: CreationOrderedTables
+  ) = FunSpec
+    .builder(METHOD_CREATE_SCHEMA_TABLES)
+    .addModifiers(PUBLIC)
+    .addParameter(name = "db", type = SQLITE_DATABASE)
+    .addParameter(name = "temporary", type = BOOLEAN)
+    .apply {
+      submodules.forEach { submodule ->
+        addStatement(
+          "%T.%N(db = db, temporary = temporary)",
+          submodule.managerClassName,
+          METHOD_CREATE_SCHEMA_TABLES
+        )
+      }
+    }
+    .beginControlFlow("if (temporary)")
+    .addLocalTables(
+      tables = orderedTables.temporary,
+      logMessage = "Creating temporary tables"
+    )
+    .nextControlFlow("else")
+    .addLocalTables(
+      tables = orderedTables.persistent,
+      logMessage = "Creating tables"
+    )
+    .endControlFlow()
+    .build()
+
+  private fun FunSpec.Builder.addLocalTables(
+    tables: List<TableElement>,
+    logMessage: String
+  ) = apply {
+    if (tables.isNotEmpty()) {
+      addRuntimeDebugLog(logMessage)
+      tables.forEach { table ->
+        addStatement("db.execSQL(%T.%N)", table.generationNames.adapterClassName, FIELD_TABLE_SCHEMA)
+      }
+    }
+  }
+
+  private fun GeneratedDatabaseElement.collectGeneratedViews() = FunSpec
+    .builder(METHOD_COLLECT_GENERATED_VIEWS)
+    .addModifiers(PUBLIC)
+    .addParameter(name = "views", type = MUTABLE_LIST.parameterizedBy(GENERATED_VIEW))
+    .apply {
+      submodules.forEach { submodule ->
+        addStatement(
+          "%T.%N(views = views)",
+          submodule.managerClassName,
+          METHOD_COLLECT_GENERATED_VIEWS
+        )
+      }
+    }
+    .addLocalViews(views)
+    .build()
+
+  private fun FunSpec.Builder.addLocalViews(views: List<ViewElement>) = apply {
+    views.forEach { view ->
+      addStatement("views.add(%T.%N)", view.generationNames.daoClassName, FIELD_GENERATED_VIEW)
+    }
+  }
+
+  private fun GeneratedDatabaseElement.createSchemaIndexes(indexes: List<IndexElement>) = indexes
+    .partition { it.schema == TEMPORARY }
+    .let { (temporaryIndexes, persistentIndexes) ->
+      FunSpec
+        .builder(METHOD_CREATE_SCHEMA_INDEXES)
+        .addModifiers(PUBLIC)
+        .addParameter(name = "db", type = SQLITE_DATABASE)
+        .addParameter(name = "temporary", type = BOOLEAN)
+        .apply {
+          submodules.forEach { submodule ->
+            addStatement(
+              "%T.%N(db = db, temporary = temporary)",
+              submodule.managerClassName,
+              METHOD_CREATE_SCHEMA_INDEXES
+            )
+          }
+        }
+        .beginControlFlow("if (temporary)")
+        .addLocalIndexes(temporaryIndexes)
+        .nextControlFlow("else")
+        .addLocalIndexes(persistentIndexes)
+        .endControlFlow()
+        .build()
+    }
+
+  private fun FunSpec.Builder.addLocalIndexes(indexes: List<IndexElement>) = apply {
+    if (indexes.isNotEmpty()) {
+      addRuntimeDebugLog("Creating indexes")
+      indexes.forEach { index ->
+        addStatement("db.execSQL(%S)", index.createSql())
+      }
+    }
   }
 
   private fun GeneratedDatabaseElement.clearData() =
@@ -261,28 +340,12 @@ internal class GenClassesManagerWriter(
     }
     return builder
       .beginControlFlow("try")
-      .apply {
-        submodules.forEach { submodule ->
-          addStatement("%T.%N(db)", submodule.managerClassName, METHOD_MIGRATE_VIEWS)
-        }
-        if (persistentViews.isNotEmpty()) {
-          addRuntimeDebugLog("Migrating views")
-          persistentViews.forEach { view ->
-            addStatement(
-              "%T.dropView(db = db,viewName = %S)",
-              SQL_UTIL,
-              view.viewName
-            )
-            addStatement(
-              "%T.createView(db = db, definition = %T.%N, viewName = %S)",
-              SQL_UTIL,
-              view.generationNames.daoClassName,
-              FIELD_VIEW_QUERY,
-              view.viewName
-            )
-          }
-        }
-      }
+      .addStatement("val generatedViews = mutableListOf<%T>()", GENERATED_VIEW)
+      .addStatement("%N(views = generatedViews)", METHOD_COLLECT_GENERATED_VIEWS)
+      .beginControlFlow("if (generatedViews.isNotEmpty())")
+      .addRuntimeDebugLog("Migrating views")
+      .addStatement("%T.recreateViews(db = db, views = generatedViews)", SQL_UTIL)
+      .endControlFlow()
       .nextControlFlow("catch (exception: %T)", Exception::class)
       .addRuntimeErrorLog()
       .addStatement("throw exception")

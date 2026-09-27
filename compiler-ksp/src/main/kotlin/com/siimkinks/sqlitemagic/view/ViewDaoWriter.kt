@@ -1,11 +1,12 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_VIEW_QUERY
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
-import com.siimkinks.sqlitemagic.WriterTypes.LAZY
+import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_VIEW
 import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_INT
 import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_UTIL
@@ -13,6 +14,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.VIEW_DEFINITION
 import com.siimkinks.sqlitemagic.model.CompleteProjectionColumn
 import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.ModelDaoCursorWriter
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.writeModelSource
 import com.siimkinks.sqlitemagic.writer.CursorAbsence
 import com.siimkinks.sqlitemagic.writer.CursorPosition
@@ -47,7 +49,8 @@ internal class ViewDaoWriter(
     val dao = TypeSpec
       .objectBuilder(view.generationNames.daoClassName)
       .addModifiers(INTERNAL)
-      .addProperty(queryProperty(view))
+      .addProperty(generatedViewProperty(view))
+      .addProperty(queryProperty())
       .addFunctions(
         listOf(
           cursorReader(
@@ -82,16 +85,29 @@ internal class ViewDaoWriter(
       )
   }
 
-  private fun queryProperty(view: ViewElement) = PropertySpec
-    .builder(name = FIELD_VIEW_QUERY, type = VIEW_DEFINITION)
+  private fun generatedViewProperty(view: ViewElement) = PropertySpec
+    .builder(name = FIELD_GENERATED_VIEW, type = GENERATED_VIEW)
     .addModifiers(INTERNAL)
-    .delegate(
-      "%M { %T.viewDefinition(query = %T.%N, viewName = %S) }",
-      LAZY,
+    .initializer(
+      "%T(viewName = %S, temporary = %L, definitionProvider = { %T.viewDefinition(query = %T.%N, viewName = %S) })",
+      GENERATED_VIEW,
+      view.viewName,
+      view.schema == TEMPORARY,
       SQL_UTIL,
       view.query.ownerType,
       view.query.propertyName,
       view.viewName
+    )
+    .build()
+
+  private fun queryProperty() = PropertySpec
+    .builder(name = FIELD_VIEW_QUERY, type = VIEW_DEFINITION)
+    .addModifiers(INTERNAL)
+    .getter(
+      FunSpec
+        .getterBuilder()
+        .addStatement("return %N.definition", FIELD_GENERATED_VIEW)
+        .build()
     )
     .build()
 

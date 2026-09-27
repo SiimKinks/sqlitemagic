@@ -74,6 +74,7 @@ internal object WriterTypes {
   val UTILS = Utils::class.asClassName()
   val SQL_UTIL = SqlUtil::class.asClassName()
   val VIEW_DEFINITION = ViewDefinition::class.asClassName()
+  val GENERATED_VIEW = GeneratedView::class.asClassName()
   val QUERY_MAPPER = Query.Mapper::class.asClassName()
   val SELECT_FROM_RAW = Select.From::class.asClassName()
   val SELECT_FROM = SELECT_FROM_RAW.parameterizedBy(STAR, STAR, STAR, STAR)

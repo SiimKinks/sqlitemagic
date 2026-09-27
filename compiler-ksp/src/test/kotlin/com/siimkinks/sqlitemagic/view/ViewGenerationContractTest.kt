@@ -68,7 +68,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "RATING",
           "override fun `as`(",
           "mapper =",
-          "QUERY"
+          "GENERATED_VIEW"
         )
         generatedSource.assertDoesNotContain(
           "ignoredLabel",
@@ -84,6 +84,11 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "authorName =",
           "rating =",
           "QUERY",
+          "GENERATED_VIEW: GeneratedView =",
+          """GeneratedView(viewName = "author_summary"""",
+          "temporary = false",
+          "definitionProvider = { SqlUtil.viewDefinition(",
+          "get() = GENERATED_VIEW.definition",
           "Selected columns did not contain",
           "columnIndex"
         )
@@ -265,7 +270,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "Table<JoinedSummary>",
           "AUTHOR_NAME",
-          "viewDefinition = { SqliteMagic_JoinedSummary_Dao.QUERY }",
+          "generatedView = SqliteMagic_JoinedSummary_Dao.GENERATED_VIEW",
           "mapper =",
           "createMapper(",
           """viewIdentifier = alias ?: "joined_summary"""",
@@ -287,7 +292,8 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "tableGraphNodeNames",
           "author",
           "query = JoinedSummary.query",
-          "viewName = \"joined_summary\""
+          """viewName = "joined_summary"""",
+          "GENERATED_VIEW.definition"
         )
         generatedSource.assertDoesNotContain("title =")
       }
@@ -338,7 +344,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "QUERY",
           "query = OpaqueView.query",
-          "viewName = \"opaque_view\""
+          """viewName = "opaque_view""""
         )
         generatedSource.assertDoesNotContain("CompiledSelectImpl", "CompiledSelect1Impl")
       }
