@@ -148,9 +148,7 @@ public class FieldColumnElement extends ColumnElement {
   private static boolean useAccessMethods(@Nullable Column columnAnnotation,
                                           @NonNull Element columnElement,
                                           @Nullable TableElement enclosingTable) {
-    return columnAnnotation != null && columnAnnotation.useAccessMethods()
-        || enclosingTable != null && enclosingTable.useAccessMethods()
-        || columnElement.getModifiers().contains(Modifier.PRIVATE);
+    return columnElement.getModifiers().contains(Modifier.PRIVATE);
   }
 
   @Override

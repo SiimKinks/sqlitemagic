@@ -273,10 +273,6 @@ public class TableElement {
     return tableAnnotation.persistAll();
   }
 
-  public boolean useAccessMethods() {
-    return tableAnnotation.useAccessMethods();
-  }
-
   public boolean hasUniqueColumnsOtherThanId() {
     return hasUniqueColumnsOtherThanId;
   }

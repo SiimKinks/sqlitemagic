@@ -31,11 +31,6 @@ public class DefaultColumn implements Column {
   }
 
   @Override
-  public boolean useAccessMethods() {
-    return false;
-  }
-
-  @Override
   public String belongsToIndex() {
     return "";
   }

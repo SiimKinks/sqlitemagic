@@ -8,7 +8,7 @@ apply from: '../buildsystem/bintray-push.gradle'
 
 
 dependencies {
-  implementation project(':legacy-annotations')
+  implementation project(':annotations')
   implementation project(':runtime')
 
   implementation libs.android.sqlite

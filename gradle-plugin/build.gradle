@@ -50,7 +50,7 @@ dependencies {
   implementation libs.kotlin.reflect
   implementation libs.zt.zip
 
-  implementation project(':legacy-annotations')
+  implementation project(':annotations')
   implementation project(':compiler-core')
 }
 
