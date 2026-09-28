@@ -138,18 +138,49 @@ internal class IndexCodeGenerationContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        val persistentSchema = generatedSource.substring(
-          startIndex = generatedSource.indexOf("override fun createSchema"),
-          endIndex = generatedSource.indexOf("override fun createTemporarySchema")
-        )
-        val temporarySchema = generatedSource.substring(
-          startIndex = generatedSource.indexOf("override fun createTemporarySchema")
-        )
-        persistentSchema.assertDoesNotContain("temporary_value")
-        temporarySchema.assertContainsInOrder(
-          "SqliteMagic_TemporaryEntry_Adapter.TABLE_SCHEMA",
-          "temporary_value"
-        )
+        generatedSource
+          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "createSchemaTables(db = db, temporary = false)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
+            "createSchemaIndexes(db = db, temporary = false)"
+          )
+        generatedSource
+          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "createSchemaTables(db = db, temporary = true)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
+            "createSchemaIndexes(db = db, temporary = true)"
+          )
+        generatedSource
+          .substringAfter("fun createSchemaTables(")
+          .substringBefore("fun collectGeneratedViews(")
+          .run {
+            assertContainsInOrder(
+              "if (temporary)",
+              "SqliteMagic_TemporaryEntry_Adapter.TABLE_SCHEMA",
+              "else"
+            )
+            substringAfter("else").assertDoesNotContain(
+              "SqliteMagic_TemporaryEntry_Adapter.TABLE_SCHEMA"
+            )
+          }
+        generatedSource
+          .substringAfter("fun createSchemaIndexes(")
+          .substringBefore("override fun createSchema(db: SupportSQLiteDatabase)")
+          .run {
+            assertContainsInOrder(
+              "if (temporary)",
+              "CREATE INDEX IF NOT EXISTS",
+              "temporary_value",
+              "else"
+            )
+            substringAfter("else").assertDoesNotContain("temporary_value")
+          }
       }
 
     Files

@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
+import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -30,13 +31,35 @@ internal class IndexManagerContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContainsInOrder(
-          "FeatureGeneratedClassesManager.createSchema(db)",
-          "SqliteMagic_MainParent_Adapter.TABLE_SCHEMA",
-          "SqliteMagic_MainChild_Adapter.TABLE_SCHEMA",
-          "CREATE UNIQUE INDEX IF NOT EXISTS",
-          "main_parent_name_index"
-        )
+        generatedSource
+          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "createSchemaTables(db = db, temporary = false)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
+            "createSchemaIndexes(db = db, temporary = false)"
+          )
+        generatedSource
+          .substringAfter("fun createSchemaTables(")
+          .substringBefore("fun collectGeneratedViews(")
+          .assertContainsInOrder(
+            "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+            "SqliteMagic_MainParent_Adapter.TABLE_SCHEMA",
+            "SqliteMagic_MainChild_Adapter.TABLE_SCHEMA"
+          )
+        generatedSource
+          .substringAfter("fun createSchemaIndexes(")
+          .substringBefore("override fun createSchema(db: SupportSQLiteDatabase)")
+          .run {
+            assertContainsInOrder(
+              "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
+              "CREATE UNIQUE INDEX IF NOT EXISTS",
+              "main_parent_name_index"
+            )
+            substringAfter("else").assertContains("main_parent_name_index")
+            substringBefore("else").assertDoesNotContain("main_parent_name_index")
+          }
         generatedSource.assertContains(
           "main_parents",
           "name"
@@ -54,15 +77,40 @@ internal class IndexManagerContractTest : ProcessingStepsTest {
       .compile(indexedMainDatabase())
       .isOk()
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        val temporarySchema = generatedSource.substringAfter(
-          "override fun createTemporarySchema(db: SupportSQLiteDatabase)"
-        )
-        temporarySchema.assertContainsInOrder(
-          "FeatureGeneratedClassesManager.createTemporarySchema(db)",
-          "SqliteMagic_MainSession_Adapter.TABLE_SCHEMA",
-          "CREATE INDEX IF NOT EXISTS",
-          "main_session_name_index"
-        )
+        generatedSource
+          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "createSchemaTables(db = db, temporary = true)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
+            "createSchemaIndexes(db = db, temporary = true)"
+          )
+        generatedSource
+          .substringAfter("fun createSchemaTables(")
+          .substringBefore("fun collectGeneratedViews(")
+          .run {
+            assertContainsInOrder(
+              "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+              "if (temporary)",
+              "SqliteMagic_MainSession_Adapter.TABLE_SCHEMA",
+              "else"
+            )
+            substringAfter("else").assertDoesNotContain("SqliteMagic_MainSession_Adapter.TABLE_SCHEMA")
+          }
+        generatedSource
+          .substringAfter("fun createSchemaIndexes(")
+          .substringBefore("override fun createSchema(db: SupportSQLiteDatabase)")
+          .run {
+            assertContainsInOrder(
+              "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
+              "if (temporary)",
+              "CREATE INDEX IF NOT EXISTS",
+              "main_session_name_index",
+              "else"
+            )
+            substringAfter("else").assertDoesNotContain("main_session_name_index")
+          }
       }
   }
 
@@ -73,11 +121,19 @@ internal class IndexManagerContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("FeatureGeneratedClassesManager.kt")
       .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
-        generatedSource.assertContainsInOrder(
-          "SqliteMagic_FeatureItem_Adapter.TABLE_SCHEMA",
-          "CREATE INDEX IF NOT EXISTS",
-          "feature_name_index"
-        )
+        generatedSource
+          .substringAfter("fun createSchemaTables(")
+          .substringBefore("fun collectGeneratedViews(")
+          .substringAfter("else")
+          .assertContains("SqliteMagic_FeatureItem_Adapter.TABLE_SCHEMA")
+        generatedSource
+          .substringAfter("fun createSchemaIndexes(")
+          .substringBefore("fun createSchema(db: SupportSQLiteDatabase)")
+          .substringAfter("else")
+          .assertContainsInOrder(
+            "CREATE INDEX IF NOT EXISTS",
+            "feature_name_index"
+          )
         generatedSource.assertContains(
           "feature_items",
           "name"
@@ -92,15 +148,39 @@ internal class IndexManagerContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        val temporarySchema = generatedSource.substringAfter(
-          "override fun createTemporarySchema(db: SupportSQLiteDatabase)"
-        )
-        temporarySchema.assertContainsInOrder(
-          "SqliteMagic_SessionItem_Adapter.TABLE_SCHEMA",
-          "CREATE UNIQUE INDEX IF NOT EXISTS",
-          "session_name_index"
-        )
-        temporarySchema.assertContains(
+        generatedSource
+          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
+          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
+          .assertContainsInOrder(
+            "createSchemaTables(db = db, temporary = true)",
+            "collectGeneratedViews(views = generatedViews)",
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
+            "createSchemaIndexes(db = db, temporary = true)"
+          )
+        generatedSource
+          .substringAfter("fun createSchemaTables(")
+          .substringBefore("fun collectGeneratedViews(")
+          .run {
+            assertContainsInOrder(
+              "if (temporary)",
+              "SqliteMagic_SessionItem_Adapter.TABLE_SCHEMA",
+              "else"
+            )
+            substringAfter("else").assertDoesNotContain("SqliteMagic_SessionItem_Adapter.TABLE_SCHEMA")
+          }
+        generatedSource
+          .substringAfter("fun createSchemaIndexes(")
+          .substringBefore("override fun createSchema(db: SupportSQLiteDatabase)")
+          .run {
+            assertContainsInOrder(
+              "if (temporary)",
+              "CREATE UNIQUE INDEX IF NOT EXISTS",
+              "session_name_index",
+              "else"
+            )
+            substringAfter("else").assertDoesNotContain("session_name_index")
+          }
+        generatedSource.assertContains(
           "session_items",
           "name"
         )
