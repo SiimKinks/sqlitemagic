@@ -2,6 +2,8 @@ package com.siimkinks.sqlitemagic.view
 
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
 internal class ViewQueryContractTest : ProcessingStepsTest {
@@ -222,6 +224,67 @@ internal class ViewQueryContractTest : ProcessingStepsTest {
         "JvmFieldQueryViewTable.kt",
         "KotlinPropertyQueryViewTable.kt"
       )
+  }
+
+  @Test
+  fun `accepts a directly owned Java static final query field`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.java(
+          name = "JavaStaticQueryView.java",
+          contents = """
+            package $PACKAGE;
+
+            import com.siimkinks.sqlitemagic.CompiledSelect;
+            import com.siimkinks.sqlitemagic.Select.Select1;
+            import com.siimkinks.sqlitemagic.annotation.View;
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn;
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery;
+
+            @View
+            public class JavaStaticQueryView {
+              @ViewColumn("value") public String value;
+
+              @ViewQuery
+              public static final CompiledSelect<String, Select1> QUERY = null;
+
+              public JavaStaticQueryView() {}
+            }
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources("JavaStaticQueryViewTable.kt", "SqliteMagic_JavaStaticQueryView_Dao.kt")
+  }
+
+  @Test
+  fun `rejects mutable and lateinit companion queries`() {
+    for ((name, declaration) in listOf(
+      "MutableQueryView" to "var QUERY: CompiledSelect<String, Select1> = compileOnlySelect()",
+      "LateinitQueryView" to "lateinit var QUERY: CompiledSelect<String, Select1>"
+    )) {
+      SqliteMagicCompilation
+        .compile(
+          ViewSources.view(
+            name = name,
+            body = """
+              @View
+              data class $name(
+                @ViewColumn("value") val value: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  $declaration
+                }
+              }
+            """
+          )
+        )
+        .assertCompilationError(
+          "@ViewQuery property must be immutable",
+          "$name.QUERY"
+        )
+    }
   }
 
   @Test

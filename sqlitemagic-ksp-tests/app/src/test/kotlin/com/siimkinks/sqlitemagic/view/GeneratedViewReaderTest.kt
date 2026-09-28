@@ -8,7 +8,9 @@ import com.siimkinks.sqlitemagic.fixture.view.ReaderAllNullableInnerView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderAllNullableNoIdProjection
 import com.siimkinks.sqlitemagic.fixture.view.ReaderEmail
 import com.siimkinks.sqlitemagic.fixture.view.ReaderEmbeddedContact
+import com.siimkinks.sqlitemagic.fixture.view.ReaderEmbeddedNestedName
 import com.siimkinks.sqlitemagic.fixture.view.ReaderEmbeddedNestedView
+import com.siimkinks.sqlitemagic.fixture.view.ReaderEmbeddedViewLeafView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderNestedNameView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderNestedSpansView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderNoIdProjection
@@ -23,6 +25,7 @@ import com.siimkinks.sqlitemagic.fixture.view.ReaderRequiredNullableNestedView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRequiredNullableTableView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderTransformedScalarView
 import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderEmbeddedNestedView_Dao
+import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderEmbeddedViewLeafView_Dao
 import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderMutableDefaultsView_Dao
 import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderNestedNameView_Dao
 import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderNestedSpansView_Dao
@@ -386,6 +389,27 @@ internal class GeneratedViewReaderTest {
     }
 
     verifyNoInteractions(cursor)
+  }
+
+  @Test
+  fun `reads a complete view leaf inside an embedded container before its trailing scalar`() {
+    val offset = MutableInt()
+    offset.value = 1
+    val view = SqliteMagic_ReaderEmbeddedViewLeafView_Dao.fullObjectFromCursorPosition(
+      cursor = cursorOf("ignored", "Ada", "tail"),
+      columnOffset = offset
+    )
+
+    assertThat(view).isEqualTo(
+      ReaderEmbeddedViewLeafView(
+        details = ReaderEmbeddedNestedName(
+          nested = ReaderNestedNameView(name = "Ada"),
+          tail = "tail"
+        )
+      )
+    )
+    assertThat(offset.value)
+      .isEqualTo(3)
   }
 
   @Test

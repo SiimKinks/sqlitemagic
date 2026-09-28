@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.view
 import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.element.mockParsedType
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
@@ -26,6 +27,7 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.tschuchort.compiletesting.SourceFile
+import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
 
 internal class ViewCollectionStepTest : ProcessingStepsTest {
@@ -307,10 +309,183 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
     assertThat(environment.viewRoundElementsForCurrentRound)
       .isEmpty()
   }
+
+  @Test
+  fun `retains complete originating files for a current-round view graph`() {
+    val snapshots = mutableMapOf<String, ViewOriginatingFilesSnapshot>()
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "OriginRow.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            data class OriginRow(@Id val id: Long)
+          """
+        ),
+        SourceFile.kotlin(
+          name = "OriginInnerView.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.CompiledSelect
+            import com.siimkinks.sqlitemagic.Select
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+            @View
+            data class OriginInnerView(@ViewColumn("value") val value: String) {
+              companion object {
+                @ViewQuery
+                val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+              }
+            }
+          """
+        ),
+        SourceFile.kotlin(
+          name = "OriginOuterView.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.CompiledSelect
+            import com.siimkinks.sqlitemagic.Select
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+            @View
+            data class OriginOuterView(
+              @ViewColumn("row") val row: OriginRow,
+              @ViewColumn("inner") val inner: OriginInnerView
+            ) {
+              companion object {
+                @ViewQuery
+                val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+              }
+            }
+          """
+        ),
+        processingStepsFactory = { environment ->
+          viewProcessingSteps(environment).toMutableList().apply {
+            add(
+              index = indexOfFirst { it is ViewCollectionStep } + 1,
+              element = ViewOriginRecordingStep(
+                environment = environment,
+                snapshots = snapshots
+              )
+            )
+          }
+        }
+      )
+      .isOk()
+
+    assertThat(snapshots.getValue("OriginOuterView"))
+      .isEqualTo(
+        ViewOriginatingFilesSnapshot(
+          files = setOf("OriginOuterView.kt", "OriginRow.kt", "OriginInnerView.kt"),
+          isComplete = true
+        )
+      )
+  }
+
+  @Test
+  fun `marks a later generated view over an earlier view as aggregating`() {
+    val snapshots = mutableMapOf<String, ViewOriginatingFilesSnapshot>()
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "EarlierOriginView.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.CompiledSelect
+            import com.siimkinks.sqlitemagic.Select
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+            @View
+            data class EarlierOriginView(@ViewColumn("value") val value: String) {
+              companion object {
+                @ViewQuery
+                val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+              }
+            }
+          """
+        ),
+        processingStepsFactory = { environment ->
+          val steps = viewProcessingSteps(environment).toMutableList()
+          steps.add(
+            index = steps.indexOfFirst { it is ViewCollectionStep } + 1,
+            element = ViewOriginRecordingStep(
+              environment = environment,
+              snapshots = snapshots
+            )
+          )
+          steps.add(
+            index = steps.size - 1,
+            element = GeneratedSourceStep(
+              environment = environment,
+              fileName = "LaterOriginView",
+              contents = """
+                package $PACKAGE
+
+                import com.siimkinks.sqlitemagic.CompiledSelect
+                import com.siimkinks.sqlitemagic.Select
+                import com.siimkinks.sqlitemagic.annotation.View
+                import com.siimkinks.sqlitemagic.annotation.ViewColumn
+                import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+                @View
+                data class LaterOriginView(@ViewColumn("inner") val inner: EarlierOriginView) {
+                  companion object {
+                    @ViewQuery
+                    val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+                  }
+                }
+              """
+            )
+          )
+          steps
+        }
+      )
+      .isOk()
+
+    assertThat(snapshots)
+      .containsExactly(
+        "EarlierOriginView",
+        ViewOriginatingFilesSnapshot(
+          files = setOf("EarlierOriginView.kt"),
+          isComplete = true
+        ),
+        "LaterOriginView",
+        ViewOriginatingFilesSnapshot(
+          files = setOf("LaterOriginView.kt", "EarlierOriginView.kt"),
+          isComplete = false
+        )
+      )
+  }
 }
 
 private class GeneratedSourceStep(
-  private val environment: Environment
+  private val environment: Environment,
+  private val fileName: String = "LateCollectedRow",
+  @Language("kotlin")
+  private val contents: String = """
+    package $PACKAGE
+
+    import com.siimkinks.sqlitemagic.annotation.Table
+
+    @Table("late_collected_rows")
+    data class LateCollectedRow(
+      val value: String
+    )
+  """
 ) : ProcessingStep {
   private var generated = false
 
@@ -321,23 +496,34 @@ private class GeneratedSourceStep(
       .createNewFile(
         dependencies = Dependencies(aggregating = false),
         packageName = PACKAGE,
-        fileName = "LateCollectedRow"
+        fileName = fileName
       )
       .bufferedWriter()
       .use { writer ->
-        writer.write(
-          """
-          package $PACKAGE
-
-          import com.siimkinks.sqlitemagic.annotation.Table
-
-          @Table("late_collected_rows")
-          data class LateCollectedRow(
-            val value: String
-          )
-          """.trimIndent()
-        )
+        writer.write(contents.trimIndent())
       }
+    return Continue
+  }
+}
+
+private data class ViewOriginatingFilesSnapshot(
+  val files: Set<String>,
+  val isComplete: Boolean
+)
+
+private class ViewOriginRecordingStep(
+  private val environment: Environment,
+  private val snapshots: MutableMap<String, ViewOriginatingFilesSnapshot>
+) : ProcessingStep {
+  override fun process(resolver: Resolver): ProcessingStepResult {
+    environment.viewRoundElementsForCurrentRound.forEach { roundElement ->
+      snapshots[roundElement.view.modelName] = ViewOriginatingFilesSnapshot(
+        files = roundElement.originatingFiles.files
+          .map(KSFile::fileName)
+          .toSet(),
+        isComplete = roundElement.originatingFiles.isComplete
+      )
+    }
     return Continue
   }
 }

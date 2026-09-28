@@ -10,6 +10,8 @@ import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_OUTPUT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_NAME
+import com.siimkinks.sqlitemagic.manager.DatabaseStructureJson
+import com.siimkinks.sqlitemagic.manager.ViewStructure
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
@@ -632,13 +634,15 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         databaseSource(
           className = "InvalidLifecycleDatabase",
           version = 14
-        )
+        ),
+        kspOptions = debugOptions()
       )
       .assertCompilationError(
         "@View must declare exactly one @ViewQuery",
         "InvalidLifecycleView"
       )
       .assertNotGeneratedSources("SqliteMagicDatabase.kt")
+    assertNoDebugPublication()
   }
 
   @Test
@@ -646,6 +650,11 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
     SqliteMagicCompilation
       .compile(
         inferredGeneratedTableViewSource(),
+        databaseSource(
+          className = "InferredGeneratedTableDatabase",
+          version = 16
+        ),
+        kspOptions = debugOptions(),
         processingStepsFactory = { environment ->
           val steps = viewProcessingSteps(environment)
           steps.dropLast(1) + GeneratedSourceStep(
@@ -659,8 +668,23 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .assertGeneratedSources(
         "LateLifecycleRowTable.kt",
         "SqliteMagic_InferredGeneratedTableView_Dao.kt",
-        "InferredGeneratedTableViewTable.kt"
+        "InferredGeneratedTableViewTable.kt",
+        "SqliteMagicDatabase.kt"
       )
+      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "db.execSQL(SqliteMagic_LateLifecycleRow_Adapter.TABLE_SCHEMA)",
+          "views.add(SqliteMagic_InferredGeneratedTableView_Dao.GENERATED_VIEW)"
+        )
+      }
+    val structure = DatabaseStructureJson.read(
+      Files.readString(temporaryDirectory.resolve("db/latest.struct"))
+    )
+    assertThat(structure.tables.keys).containsExactly("late_lifecycle_rows")
+    assertThat(structure.views).containsExactly(
+      "inferred_generated_table_view",
+      ViewStructure(name = "inferred_generated_table_view")
+    )
   }
 
   @Test
@@ -671,6 +695,11 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           name = "LaterViewSeed.kt",
           contents = "package $PACKAGE\nclass LaterViewSeed"
         ),
+        databaseSource(
+          className = "LaterViewDatabase",
+          version = 17
+        ),
+        kspOptions = debugOptions(),
         processingStepsFactory = { environment ->
           val steps = viewProcessingSteps(environment)
           steps.dropLast(1) + GeneratedSourceStep(
@@ -693,7 +722,18 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
             "LateLifecycleViewTable.kt"::equals
           )
         ).isEqualTo(1)
+        withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
+          generatedSource.assertContains("views.add(SqliteMagic_LateLifecycleView_Dao.GENERATED_VIEW)")
+        }
       }
+    val structure = DatabaseStructureJson.read(
+      Files.readString(temporaryDirectory.resolve("db/latest.struct"))
+    )
+    assertThat(structure.tables).isEmpty()
+    assertThat(structure.views).containsExactly(
+      "late_lifecycle_view",
+      ViewStructure(name = "late_lifecycle_view")
+    )
   }
 
   @Test
@@ -704,6 +744,11 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "ChangedIdentityLifecycleView",
           viewName = "changed_identity_lifecycle_view"
         ),
+        databaseSource(
+          className = "ChangedIdentityLifecycleDatabase",
+          version = 18
+        ),
+        kspOptions = debugOptions(),
         processingStepsFactory = { environment ->
           val steps = viewProcessingSteps(environment).toMutableList()
           steps.add(
@@ -717,6 +762,8 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         "FileAlreadyExistsException",
         "SqliteMagic_ChangedIdentityLifecycleView_Dao.kt"
       )
+      .assertNotGeneratedSources("SqliteMagicDatabase.kt")
+    assertNoDebugPublication()
   }
 
   @Test
@@ -727,6 +774,11 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           name = "LateInvalidViewSeed.kt",
           contents = "package $PACKAGE\nclass LateInvalidViewSeed"
         ),
+        databaseSource(
+          className = "LateInvalidLifecycleDatabase",
+          version = 19
+        ),
+        kspOptions = debugOptions(),
         processingStepsFactory = { environment ->
           val steps = viewProcessingSteps(environment)
           steps.dropLast(1) + GeneratedSourceStep(
@@ -741,6 +793,18 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         "LateInvalidLifecycleView"
       )
       .assertNotGeneratedSources("SqliteMagicDatabase.kt")
+    assertNoDebugPublication()
+  }
+
+  private fun assertNoDebugPublication() {
+    listOf(
+      "db/latest.struct",
+      "db/latest_debug.version",
+      "src/debug/assets/1001.sql",
+      "src/debug/assets/1001.views"
+    ).forEach { path ->
+      assertThat(Files.exists(temporaryDirectory.resolve(path))).isFalse()
+    }
   }
 
   private fun debugOptions(

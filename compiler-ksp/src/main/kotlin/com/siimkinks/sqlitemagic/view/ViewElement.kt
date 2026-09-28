@@ -105,7 +105,9 @@ data class ViewElement(
   }
   val modelName = modelClassName.simpleName
   val packageName = modelClassName.packageName
-  val structureFieldName = viewName.camelCaseToSnakeCase().uppercase()
+  val structureFieldName = artifactStem
+    .camelCaseToSnakeCase()
+    .uppercase()
   val viewName get() = rawName
   val generationNames = ViewGenerationNames(
     packageName = packageName,

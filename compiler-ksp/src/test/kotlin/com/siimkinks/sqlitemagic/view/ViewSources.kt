@@ -35,8 +35,8 @@ internal object ViewSources {
     import com.siimkinks.sqlitemagic.annotation.ViewColumn
     import com.siimkinks.sqlitemagic.annotation.ViewQuery
 
-    private fun <T, S> compileOnlySelect(): CompiledSelect<T, S> = error("compile-only")
-
     $body
+
+    private fun <T, S> compileOnlySelect(): CompiledSelect<T, S> = error("compile-only")
   """
 }

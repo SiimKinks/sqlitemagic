@@ -16,7 +16,7 @@ import com.siimkinks.sqlitemagic.SqlUtil
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.SubmoduleSessionValueTable.Companion.SUBMODULE_SESSION_VALUE
 import com.siimkinks.sqlitemagic.SubmoduleSessionViewTable.Companion.SUBMODULE_SESSION_VIEW
-import com.siimkinks.sqlitemagic.TemporaryDependencyOuterViewTable.Companion.A_TEMPORARY_DEPENDENCY_OUTER
+import com.siimkinks.sqlitemagic.TemporaryDependencyOuterViewTable.Companion.TEMPORARY_DEPENDENCY_OUTER_VIEW
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.fixture.model.MainSessionValue
@@ -67,7 +67,7 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
 
         assertThat(
           rows(
-            table = A_TEMPORARY_DEPENDENCY_OUTER,
+            table = TEMPORARY_DEPENDENCY_OUTER_VIEW,
             connection = connection
           )
         ).containsExactly(TemporaryDependencyOuterView(name = "Ada"))

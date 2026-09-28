@@ -40,8 +40,14 @@ open class Column<T, R, ET, P, N>(
   },
   internal val valueAdapter: ColumnValueAdapter<T>? = null
 ) {
+  private val renderedNameInQuery
+    get() = when {
+      table.sqlQualifier == table.nameInQuery -> nameInQuery
+      else -> "${table.sqlQualifier}.$name"
+    }
+
   internal open fun appendSql(sb: StringBuilder) {
-    sb.append(nameInQuery)
+    sb.append(renderedNameInQuery)
   }
 
   internal open fun appendSql(
@@ -50,7 +56,7 @@ open class Column<T, R, ET, P, N>(
   ) {
     val aliases = systemRenamedTables[table.name]
     if (table.hasAlias || aliases == null) {
-      sb.append(nameInQuery)
+      sb.append(renderedNameInQuery)
       return
     }
     if (aliases.size > 1) {
@@ -109,7 +115,7 @@ open class Column<T, R, ET, P, N>(
     compiledCols: StringBuilder,
     columnOffset: Int
   ): Int {
-    compiledCols.append(nameInQuery)
+    compiledCols.append(renderedNameInQuery)
     appendAliasDeclarationIfNeeded(compiledCols)
     putColumnPosition(
       columnPositions = columnPositions,

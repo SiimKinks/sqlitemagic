@@ -163,6 +163,7 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "UniqueColumn(table = this,",
           "NumericColumn(table = this,",
           "Column(table = this,",
+          "LIBRARY_BOOK",
           "BOOK_KEY",
           "TITLE_TEXT",
           "RATING",

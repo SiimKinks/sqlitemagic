@@ -53,6 +53,56 @@ internal class SqliteMagicKspPluginStagingTest {
   }
 
   @Test
+  fun `a changed table module records an unchanged sibling module view`() {
+    val destination = databaseDirectory()
+    val stagedDirectory = stagedDirectory()
+    val previousTable = """{"tables":{"a":{"name":"a","schema":"CREATE TABLE a (value TEXT)"}}}"""
+    val changedTable = """{"tables":{"a":{"name":"a","schema":"CREATE TABLE a (value TEXT, count INTEGER)"}}}"""
+    val siblingView = """{"views":{"sibling_b_view":{"name":"sibling_b_view","moduleName":"sibling_b"}}}"""
+    writeStructure(
+      directory = destination,
+      name = "latest_sibling_a.struct",
+      json = previousTable
+    )
+    writeStructure(
+      directory = destination,
+      name = "latest_sibling_b.struct",
+      json = siblingView
+    )
+    writeStructure(
+      directory = stagedDirectory,
+      name = "latest_sibling_a.struct",
+      json = changedTable
+    )
+    writeStructure(
+      directory = stagedDirectory,
+      name = "latest_sibling_b.struct",
+      json = siblingView
+    )
+
+    publishStagedStructures(
+      stagedDirectories = listOf(stagedDirectory),
+      destination = destination
+    )
+
+    val marker = destination.resolve("submodules.changed")
+    assertThat(marker.readText())
+      .isEqualTo("sibling_b_view\n")
+    assertThat(destination.resolve("latest_sibling_a.struct").readText())
+      .isEqualTo(changedTable)
+    assertThat(destination.resolve("latest_sibling_b.struct").readText())
+      .isEqualTo(siblingView)
+
+    check(marker.delete())
+    publishStagedStructures(
+      stagedDirectories = listOf(stagedDirectory),
+      destination = destination
+    )
+    assertThat(marker.exists())
+      .isFalse()
+  }
+
+  @Test
   fun `removing the last view-only module preserves existing marker names`() {
     val destination = databaseDirectory()
     val previousMarker = destination.resolve("submodules.changed")

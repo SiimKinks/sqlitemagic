@@ -173,7 +173,6 @@ internal fun publishStagedStructures(
     .values
     .any(Snapshot::hasPersistentObjects)
   val previousPersistentViewNames = publishedSnapshots
-    .filterKeys { name -> name in changedPublishedNames || name !in stagedSnapshots }
     .toSortedMap()
     .values
     .flatMap(Snapshot::persistentViewNames)

@@ -2,11 +2,11 @@ package com.siimkinks.sqlitemagic.runtime.contract.query.view
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
-import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.A_DEPENDENCY_OUTER
-import com.siimkinks.sqlitemagic.PersistentEmbeddedReadbackViewTable.Companion.PERSISTENT_EMBEDDED_READBACK
-import com.siimkinks.sqlitemagic.PersistentNestedReadbackViewTable.Companion.PERSISTENT_NESTED_READBACK
+import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.DEPENDENCY_OUTER_VIEW
+import com.siimkinks.sqlitemagic.PersistentEmbeddedReadbackViewTable.Companion.PERSISTENT_EMBEDDED_READBACK_VIEW
+import com.siimkinks.sqlitemagic.PersistentNestedReadbackViewTable.Companion.PERSISTENT_NESTED_READBACK_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
-import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION
+import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION_VIEW
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.ViewObservationDeepTable.Companion.VIEW_OBSERVATION_DEEP
@@ -44,7 +44,7 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
   @Test
   fun scalarOuterViewObservesItsTransitiveBaseTableAndStopsAfterDisposal() {
     val observer = Select
-      .from(A_DEPENDENCY_OUTER)
+      .from(DEPENDENCY_OUTER_VIEW)
       .observe()
       .runQuery()
       .test()
@@ -136,13 +136,13 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
   @Test
   fun embeddedAndNestedViewsRefreshFromTheirAuthorTable() {
     val embedded = Select
-      .from(PERSISTENT_EMBEDDED_READBACK)
+      .from(PERSISTENT_EMBEDDED_READBACK_VIEW)
       .observe()
       .runQuery()
       .test()
       .assertValuesOnly(emptyList())
     val nested = Select
-      .from(PERSISTENT_NESTED_READBACK)
+      .from(PERSISTENT_NESTED_READBACK_VIEW)
       .observe()
       .runQuery()
       .test()
@@ -207,7 +207,7 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
     )
     insert(book)
     val insertedBook = Select
-      .from(REVIEW_RELATIONSHIP_COMPOSITION)
+      .from(REVIEW_RELATIONSHIP_COMPOSITION_VIEW)
       .execute()
       .single()
       .book
@@ -216,7 +216,7 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       tail = "tail"
     )
     val observer = Select
-      .from(REVIEW_RELATIONSHIP_COMPOSITION)
+      .from(REVIEW_RELATIONSHIP_COMPOSITION_VIEW)
       .observe()
       .runQuery()
       .test()

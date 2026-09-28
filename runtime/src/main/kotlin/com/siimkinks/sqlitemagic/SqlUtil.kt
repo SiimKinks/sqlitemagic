@@ -133,16 +133,16 @@ object SqlUtil {
       temporary -> "CREATE TEMPORARY VIEW"
       else -> "CREATE VIEW"
     }
-    db.execSQL("$create IF NOT EXISTS ${quotedViewName(viewName)} AS ${definition.sql}")
+    db.execSQL("$create IF NOT EXISTS ${quoteSqlIdentifier(viewName)} AS ${definition.sql}")
   }
 
   fun dropView(
     db: SupportSQLiteDatabase,
     viewName: String
-  ) = db.execSQL("DROP VIEW IF EXISTS main.${quotedViewName(viewName)}")
+  ) = db.execSQL("DROP VIEW IF EXISTS main.${quoteSqlIdentifier(viewName)}")
 
-  private fun quotedViewName(viewName: String) =
-    """"${viewName.replace(oldValue = "\"", newValue = "\"\"")}""""
+  internal fun quoteSqlIdentifier(name: String) =
+    """"${name.replace(oldValue = "\"", newValue = "\"\"")}""""
 
   @CheckResult
   fun opByColumnSql(

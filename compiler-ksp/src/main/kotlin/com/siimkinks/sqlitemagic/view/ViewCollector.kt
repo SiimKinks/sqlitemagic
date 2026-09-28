@@ -168,8 +168,11 @@ internal class ViewCollector(
     }
     val query = queryProperties.single()
     val parent = query.parentDeclaration as? KSClassDeclaration
-    val isCompanion = parent?.isCompanionObject == true && parent.parentDeclaration == declaration
-    val isStatic = parent == declaration && JAVA_STATIC in query.modifiers
+    val viewName = declaration.qualifiedName?.asString()
+    val queryOwner = parent?.qualifiedName?.asString()
+    val companionViewOwner = (parent?.parentDeclaration as? KSClassDeclaration)?.qualifiedName?.asString()
+    val isCompanion = viewName != null && parent?.isCompanionObject == true && companionViewOwner == viewName
+    val isStatic = viewName != null && queryOwner == viewName && JAVA_STATIC in query.modifiers
     val displayName = "${declaration.displayName()}.${query.simpleName.asString()}"
     when {
       !isCompanion && !isStatic -> return errorQuery(

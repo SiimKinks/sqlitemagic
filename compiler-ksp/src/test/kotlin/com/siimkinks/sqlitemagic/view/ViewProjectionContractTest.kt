@@ -265,7 +265,7 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
             import com.siimkinks.sqlitemagic.annotation.ViewQuery
-            import com.siimkinks.sqlitemagic.BaseViewTable.Companion.BASE
+            import com.siimkinks.sqlitemagic.BaseViewTable.Companion.BASE_VIEW
 
             @Table
             data class Author(
@@ -305,9 +305,9 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
             }
 
             fun requireComposedViewQuerySurface() {
-              val left = BASE.`as`("left")
-              val right = BASE.`as`("right")
-              (SELECT COLUMNS arrayOf(BASE.all(), BASE.NAME AS "tail") FROM BASE).compile()
+              val left = BASE_VIEW.`as`("left")
+              val right = BASE_VIEW.`as`("right")
+              (SELECT COLUMNS arrayOf(BASE_VIEW.all(), BASE_VIEW.NAME AS "tail") FROM BASE_VIEW).compile()
               (SELECT COLUMN left.NAME FROM left).compile()
               (SELECT COLUMNS arrayOf(left.all(), right.all())
                 FROM left INNER_JOIN right.on(left.NAME.`is`(right.NAME))).compile()
@@ -326,8 +326,7 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
           "Table<ComposedView>",
           "TAIL",
           "mapper =",
-          "viewDefinition =",
-          "QUERY"
+          "generatedView = SqliteMagic_ComposedView_Dao.GENERATED_VIEW"
         )
       }
       .withGeneratedSource("SqliteMagic_ComposedView_Dao.kt") { generatedSource ->
@@ -423,6 +422,82 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
           "other ="
         )
         generatedSource.assertDoesNotContain("ignored =")
+      }
+  }
+
+  @Test
+  fun `reconstructs a complete view leaf inside an embedded container from the same row`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "EmbeddedViewProjection.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.CompiledSelect
+            import com.siimkinks.sqlitemagic.Select.SelectN
+            import com.siimkinks.sqlitemagic.annotation.Embedded
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+            @Table
+            data class SourceRow(
+              @Id val id: Long,
+              val name: String
+            )
+
+            @View("inner_view")
+            data class InnerView(
+              @ViewColumn("name") val name: String
+            ) {
+              companion object {
+                @ViewQuery
+                val query: CompiledSelect<SourceRow, SelectN> = error("compile-only")
+              }
+            }
+
+            data class NestedDetails(
+              @ViewColumn("inner") val inner: InnerView,
+              val marker: String
+            )
+
+            @View
+            data class EmbeddedViewProjection(
+              @Embedded(prefix = "details_") val details: NestedDetails
+            ) {
+              companion object {
+                @ViewQuery
+                val query: CompiledSelect<InnerView, SelectN> = error("compile-only")
+              }
+            }
+          """
+        )
+      )
+      .isOk()
+      .assertGeneratedSources(
+        "EmbeddedViewProjectionTable.kt",
+        "SqliteMagic_InnerView_Dao.kt",
+        "SqliteMagic_EmbeddedViewProjection_Dao.kt"
+      )
+      .withGeneratedSource("EmbeddedViewProjectionTable.kt") { generatedSource ->
+        generatedSource.assertContains("DETAILS_MARKER")
+        generatedSource.assertDoesNotContain("DETAILS_INNER")
+      }
+      .withGeneratedSource("SqliteMagic_EmbeddedViewProjection_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "details = NestedDetails(",
+          "`inner` = InnerView(",
+          "details_inner",
+          "cursor.getString",
+          "columnOffset.value"
+        )
+        generatedSource.assertDoesNotContain(
+          "InnerViewTable.INNER_VIEW.execute",
+          "newInstanceWithOnlyId"
+        )
       }
   }
 

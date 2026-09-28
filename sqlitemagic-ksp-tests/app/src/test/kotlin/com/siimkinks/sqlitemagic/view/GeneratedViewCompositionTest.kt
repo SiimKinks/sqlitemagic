@@ -5,8 +5,8 @@ import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.IS
-import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION
-import com.siimkinks.sqlitemagic.ReviewStarAuthorViewTable.Companion.REVIEW_STAR_AUTHOR
+import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION_VIEW
+import com.siimkinks.sqlitemagic.ReviewStarAuthorViewTable.Companion.REVIEW_STAR_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.Select.SelectN
 import com.siimkinks.sqlitemagic.cursorOf
@@ -28,7 +28,7 @@ internal class GeneratedViewCompositionTest {
       val expected: ReviewStarAuthorView
     )
 
-    val view = REVIEW_STAR_AUTHOR
+    val view = REVIEW_STAR_AUTHOR_VIEW
     val left = view AS "left_author"
     val right = view AS "right_author"
     val cases = listOf(
@@ -89,7 +89,7 @@ internal class GeneratedViewCompositionTest {
 
   @Test
   fun `deep relationship projection maps the complete joined row around a scalar`() {
-    val view = REVIEW_RELATIONSHIP_COMPOSITION
+    val view = REVIEW_RELATIONSHIP_COMPOSITION_VIEW
     val actual = Select
       .all()
       .from(view)
@@ -115,7 +115,7 @@ internal class GeneratedViewCompositionTest {
   @Test
   fun `shallow relationship root stays within its span beside a deep scalar view definition`() {
     val root = ENTITY_WITH_RELATIONSHIP
-    val joinedView = REVIEW_STAR_AUTHOR AS "joined_author"
+    val joinedView = REVIEW_STAR_AUTHOR_VIEW AS "joined_author"
     val actual = Select
       .all()
       .from(root)

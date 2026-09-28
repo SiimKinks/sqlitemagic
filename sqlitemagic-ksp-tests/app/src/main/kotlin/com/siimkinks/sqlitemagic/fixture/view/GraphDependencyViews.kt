@@ -1,12 +1,12 @@
 package com.siimkinks.sqlitemagic.fixture.view
 
 import com.siimkinks.sqlitemagic.AS
-import com.siimkinks.sqlitemagic.DependencyBaseViewTable.Companion.Z_DEPENDENCY_BASE
-import com.siimkinks.sqlitemagic.DependencyMiddleViewTable.Companion.M_DEPENDENCY_MIDDLE
+import com.siimkinks.sqlitemagic.DependencyBaseViewTable.Companion.DEPENDENCY_BASE_VIEW
+import com.siimkinks.sqlitemagic.DependencyMiddleViewTable.Companion.DEPENDENCY_MIDDLE_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SubmoduleDependencyBaseViewTable.Companion.Z_SUBMODULE_DEPENDENCY_BASE
-import com.siimkinks.sqlitemagic.TemporaryDependencyMiddleViewTable.Companion.Z_TEMPORARY_DEPENDENCY_MIDDLE
+import com.siimkinks.sqlitemagic.SubmoduleDependencyBaseViewTable.Companion.SUBMODULE_DEPENDENCY_BASE_VIEW
+import com.siimkinks.sqlitemagic.TemporaryDependencyMiddleViewTable.Companion.TEMPORARY_DEPENDENCY_MIDDLE_VIEW
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.annotation.ViewOption.TEMPORARY
@@ -19,8 +19,8 @@ data class DependencyOuterView(
   companion object {
     @ViewQuery
     val query = Select
-      .columns(M_DEPENDENCY_MIDDLE.NAME AS "name")
-      .from(M_DEPENDENCY_MIDDLE)
+      .columns(DEPENDENCY_MIDDLE_VIEW.NAME AS "name")
+      .from(DEPENDENCY_MIDDLE_VIEW)
       .compile()
   }
 }
@@ -32,8 +32,8 @@ data class DependencyMiddleView(
   companion object {
     @ViewQuery
     val query = Select
-      .columns(Z_DEPENDENCY_BASE.NAME AS "name")
-      .from(Z_DEPENDENCY_BASE)
+      .columns(DEPENDENCY_BASE_VIEW.NAME AS "name")
+      .from(DEPENDENCY_BASE_VIEW)
       .compile()
   }
 }
@@ -58,8 +58,8 @@ data class MainSubmoduleDependencyOuterView(
   companion object {
     @ViewQuery
     val query = Select
-      .columns(Z_SUBMODULE_DEPENDENCY_BASE.VALUE AS "value")
-      .from(Z_SUBMODULE_DEPENDENCY_BASE)
+      .columns(SUBMODULE_DEPENDENCY_BASE_VIEW.VALUE AS "value")
+      .from(SUBMODULE_DEPENDENCY_BASE_VIEW)
       .compile()
   }
 }
@@ -74,8 +74,8 @@ data class TemporaryDependencyOuterView(
   companion object {
     @ViewQuery
     val query = Select
-      .columns(Z_TEMPORARY_DEPENDENCY_MIDDLE.NAME AS "name")
-      .from(Z_TEMPORARY_DEPENDENCY_MIDDLE)
+      .columns(TEMPORARY_DEPENDENCY_MIDDLE_VIEW.NAME AS "name")
+      .from(TEMPORARY_DEPENDENCY_MIDDLE_VIEW)
       .compile()
   }
 }
@@ -90,8 +90,8 @@ data class TemporaryDependencyMiddleView(
   companion object {
     @ViewQuery
     val query = Select
-      .columns(Z_DEPENDENCY_BASE.NAME AS "name")
-      .from(Z_DEPENDENCY_BASE)
+      .columns(DEPENDENCY_BASE_VIEW.NAME AS "name")
+      .from(DEPENDENCY_BASE_VIEW)
       .compile()
   }
 }

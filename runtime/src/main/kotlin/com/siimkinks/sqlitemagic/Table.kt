@@ -45,12 +45,18 @@ open class Table<T> protected constructor(
   internal val addShallowQueryParts: TableQueryGraphContributor = { _, _, _ -> },
   private val viewDefinition: (() -> ViewDefinition)? = null,
   private val generatedView: GeneratedView? = null,
+  private val quoteSqlObjectName: Boolean = generatedView != null || viewDefinition != null,
   internal val temporary: Boolean = false
 ) {
   internal val hasAlias = alias != null
   private val resolvedViewDefinition get() = generatedView?.definition ?: viewDefinition?.invoke()
   internal val hasViewDefinitionPositions get() = resolvedViewDefinition?.hasColumnPositions == true
   internal val nameInQuery = alias ?: name
+  private val sqlObjectName = when {
+    quoteSqlObjectName -> SqlUtil.quoteSqlIdentifier(name)
+    else -> name
+  }
+  internal val sqlQualifier = alias ?: sqlObjectName
   internal val objectIdentity = generatedView
     ?.identity
     ?: SqliteSchemaIdentity.from(
@@ -94,7 +100,7 @@ open class Table<T> protected constructor(
       sb.append(objectIdentity.schema.qualifier)
         .append('.')
     }
-    sb.append(name)
+    sb.append(sqlObjectName)
     if (hasAlias) {
       sb.append(" AS ")
         .append(alias)
@@ -131,6 +137,7 @@ open class Table<T> protected constructor(
     name = name,
     alias = alias,
     nrOfColumns = nrOfColumns,
+    quoteSqlObjectName = quoteSqlObjectName,
     temporary = temporary
   )
 
@@ -145,6 +152,7 @@ open class Table<T> protected constructor(
     name = name,
     alias = alias,
     nrOfColumns = nrOfColumns,
+    quoteSqlObjectName = quoteSqlObjectName,
     temporary = temporary
   )
 

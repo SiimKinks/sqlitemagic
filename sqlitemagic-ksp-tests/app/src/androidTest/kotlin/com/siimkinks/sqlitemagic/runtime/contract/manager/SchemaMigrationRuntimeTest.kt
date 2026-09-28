@@ -6,13 +6,13 @@ import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
-import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.A_DEPENDENCY_OUTER
+import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.DEPENDENCY_OUTER_VIEW
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DefinitionFailureGeneratedClassesManager
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.GeneratedDatabase
 import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
-import com.siimkinks.sqlitemagic.PersistentSubmoduleReadbackViewTable.Companion.PERSISTENT_SUBMODULE_READBACK
+import com.siimkinks.sqlitemagic.PersistentSubmoduleReadbackViewTable.Companion.PERSISTENT_SUBMODULE_READBACK_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.Select
@@ -404,7 +404,7 @@ class SchemaMigrationRuntimeTest {
       )
       assertThat(
         Select
-          .from(PERSISTENT_SUBMODULE_READBACK)
+          .from(PERSISTENT_SUBMODULE_READBACK_VIEW)
           .usingConnection(connection)
           .execute()
       ).containsExactly(
@@ -557,7 +557,7 @@ class SchemaMigrationRuntimeTest {
       )
       assertThat(
         Select
-          .from(A_DEPENDENCY_OUTER)
+          .from(DEPENDENCY_OUTER_VIEW)
           .usingConnection(connection)
           .execute()
       ).containsExactly(DependencyOuterView(name = VIEW_AUTHOR_NAME))

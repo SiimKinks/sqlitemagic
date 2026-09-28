@@ -7,15 +7,15 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DefinitionFailureGeneratedClassesManager
-import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.A_DEPENDENCY_OUTER
-import com.siimkinks.sqlitemagic.MainSubmoduleDependencyOuterViewTable.Companion.A_MAIN_SUBMODULE_DEPENDENCY_OUTER
-import com.siimkinks.sqlitemagic.PersistentEmailReadbackViewTable.Companion.PERSISTENT_EMAIL_READBACK
-import com.siimkinks.sqlitemagic.PersistentEmbeddedReadbackViewTable.Companion.PERSISTENT_EMBEDDED_READBACK
-import com.siimkinks.sqlitemagic.PersistentNestedReadbackViewTable.Companion.PERSISTENT_NESTED_READBACK
-import com.siimkinks.sqlitemagic.PersistentSubmoduleReadbackViewTable.Companion.PERSISTENT_SUBMODULE_READBACK
+import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.DEPENDENCY_OUTER_VIEW
+import com.siimkinks.sqlitemagic.MainSubmoduleDependencyOuterViewTable.Companion.MAIN_SUBMODULE_DEPENDENCY_OUTER_VIEW
+import com.siimkinks.sqlitemagic.PersistentEmailReadbackViewTable.Companion.PERSISTENT_EMAIL_READBACK_VIEW
+import com.siimkinks.sqlitemagic.PersistentEmbeddedReadbackViewTable.Companion.PERSISTENT_EMBEDDED_READBACK_VIEW
+import com.siimkinks.sqlitemagic.PersistentNestedReadbackViewTable.Companion.PERSISTENT_NESTED_READBACK_VIEW
+import com.siimkinks.sqlitemagic.PersistentSubmoduleReadbackViewTable.Companion.PERSISTENT_SUBMODULE_READBACK_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.ReaderRelationshipAuthorTable.Companion.READER_RELATIONSHIP_AUTHOR
-import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION
+import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION_VIEW
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
@@ -87,13 +87,13 @@ class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
 
         assertThat(
           Select
-            .from(A_DEPENDENCY_OUTER)
+            .from(DEPENDENCY_OUTER_VIEW)
             .usingConnection(connection)
             .execute()
         ).containsExactly(DependencyOuterView(name = "Ada"))
         assertThat(
           Select
-            .from(A_MAIN_SUBMODULE_DEPENDENCY_OUTER)
+            .from(MAIN_SUBMODULE_DEPENDENCY_OUTER_VIEW)
             .usingConnection(connection)
             .execute()
         ).containsExactly(MainSubmoduleDependencyOuterView(value = "submodule value"))
@@ -167,13 +167,13 @@ class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
 
         assertThat(
           Select
-            .from(PERSISTENT_EMAIL_READBACK)
+            .from(PERSISTENT_EMAIL_READBACK_VIEW)
             .usingConnection(connection)
             .execute()
         ).containsExactly(PersistentEmailReadbackView(email = ReaderEmail(value = "Ada")))
         assertThat(
           Select
-            .from(PERSISTENT_EMBEDDED_READBACK)
+            .from(PERSISTENT_EMBEDDED_READBACK_VIEW)
             .usingConnection(connection)
             .execute()
         ).containsExactly(
@@ -186,7 +186,7 @@ class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
         )
         assertThat(
           Select
-            .from(PERSISTENT_NESTED_READBACK)
+            .from(PERSISTENT_NESTED_READBACK_VIEW)
             .usingConnection(connection)
             .execute()
         ).containsExactly(
@@ -233,7 +233,7 @@ class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
 
         assertThat(
           Select
-            .from(REVIEW_RELATIONSHIP_COMPOSITION)
+            .from(REVIEW_RELATIONSHIP_COMPOSITION_VIEW)
             .usingConnection(connection)
             .execute()
         ).containsExactly(
@@ -308,7 +308,7 @@ class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
 
         assertThat(
           Select
-            .from(PERSISTENT_SUBMODULE_READBACK)
+            .from(PERSISTENT_SUBMODULE_READBACK_VIEW)
             .usingConnection(connection)
             .execute()
         ).containsExactly(

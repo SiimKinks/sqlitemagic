@@ -266,6 +266,41 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
   }
 
   @Test
+  fun `rejects an index applied to a view class`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "IndexedView.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.CompiledSelect
+            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.annotation.Index
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+            @Index("indexed_view")
+            @View
+            class IndexedView {
+              @ViewColumn("value") var value: String = ""
+
+              companion object {
+                @ViewQuery
+                val query: CompiledSelect<String, Select1> = error("compile-only")
+              }
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "@Index is only valid on a @Table or a persisted property of a @Table",
+        "indexed_view"
+      )
+  }
+
+  @Test
   fun `rejects property index annotations outside table contexts`() {
     SqliteMagicCompilation
       .compile(

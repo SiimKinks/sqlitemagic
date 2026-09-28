@@ -4,15 +4,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.BuildConfig
-import com.siimkinks.sqlitemagic.PersistentEmailReadbackViewTable.Companion.PERSISTENT_EMAIL_READBACK
+import com.siimkinks.sqlitemagic.PersistentEmailReadbackViewTable.Companion.PERSISTENT_EMAIL_READBACK_VIEW
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.mockito.Mockito.doAnswer
+import org.mockito.Mockito.never
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 
 internal class GeneratedDatabaseSchemaFailureTest {
@@ -20,23 +20,19 @@ internal class GeneratedDatabaseSchemaFailureTest {
   fun `schema creation propagates local and delegated failures`() = listOf(
     FailureCase(
       label = "delegated submodule table",
-      sqlPrefix = "CREATE TABLE IF NOT EXISTS submodule_persistent_value (",
-      successfulTransactions = 0
+      sqlPrefix = "CREATE TABLE IF NOT EXISTS submodule_persistent_value ("
     ),
     FailureCase(
       label = "local table",
-      sqlPrefix = "CREATE TABLE IF NOT EXISTS no_id_entity (",
-      successfulTransactions = 1
+      sqlPrefix = "CREATE TABLE IF NOT EXISTS no_id_entity ("
     ),
     FailureCase(
       label = "local persistent view",
-      sqlPrefix = "CREATE VIEW IF NOT EXISTS \"persistent_email_readback\" AS ",
-      successfulTransactions = 1
+      sqlPrefix = "CREATE VIEW IF NOT EXISTS \"persistent_email_readback\" AS "
     ),
     FailureCase(
       label = "local index",
-      sqlPrefix = "CREATE UNIQUE INDEX IF NOT EXISTS main.\"no_id_value_unique_index\" ON \"no_id_entity\"",
-      successfulTransactions = 1
+      sqlPrefix = "CREATE UNIQUE INDEX IF NOT EXISTS main.\"no_id_value_unique_index\" ON \"no_id_entity\""
     )
   ).map { case ->
     DynamicTest.dynamicTest(case.label) {
@@ -47,7 +43,7 @@ internal class GeneratedDatabaseSchemaFailureTest {
   @Test
   fun `manager and persistent view table load without a default connection`() {
     val manager = SqliteMagicDatabase()
-    val view = PERSISTENT_EMAIL_READBACK
+    val view = PERSISTENT_EMAIL_READBACK_VIEW
 
     assertThat(manager.getDbName()).isEqualTo(BuildConfig.DB_NAME)
     assertThat(manager.getSubmoduleNames()?.toList()).containsExactly("Submodule")
@@ -73,15 +69,14 @@ internal class GeneratedDatabaseSchemaFailureTest {
     }.exceptionOrNull()
 
     assertWithMessage(case.label).that(matchedSql).startsWith(case.sqlPrefix)
-    verify(database, times(2)).beginTransaction()
-    verify(database, times(2)).endTransaction()
-    verify(database, times(case.successfulTransactions)).setTransactionSuccessful()
+    verify(database).beginTransaction()
+    verify(database).endTransaction()
+    verify(database, never()).setTransactionSuccessful()
     assertWithMessage(case.label).that(actualFailure).isSameInstanceAs(failure)
   }
 
   private data class FailureCase(
     val label: String,
-    val sqlPrefix: String,
-    val successfulTransactions: Int
+    val sqlPrefix: String
   )
 }

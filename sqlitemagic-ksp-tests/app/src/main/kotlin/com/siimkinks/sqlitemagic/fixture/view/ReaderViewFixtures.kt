@@ -135,6 +135,21 @@ data class ReaderNestedNameView(
   }
 }
 
+data class ReaderEmbeddedNestedName(
+  val nested: ReaderNestedNameView,
+  val tail: String
+)
+
+@View
+data class ReaderEmbeddedViewLeafView(
+  @Embedded(prefix = "details_") val details: ReaderEmbeddedNestedName
+) {
+  companion object {
+    @ViewQuery
+    val query = READER_QUERY
+  }
+}
+
 @View
 data class ReaderEmbeddedNestedView(
   @Embedded(prefix = "contact_") val contact: ReaderEmbeddedContact?,
