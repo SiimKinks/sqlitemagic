@@ -32,13 +32,17 @@ private const val INDEX_FAILURE_VERSION = 1_100_002
 
 class IndexRuntimeTest : RuntimeDatabaseTest() {
   @Test
-  fun persistentIndexesExposePhysicalOrderAndUniqueEnforcement() {
+  fun persistentCompositeIndexExposesPhysicalColumnOrder() {
     assertThat(
       indexColumns(
         master = SQLITE_MASTER,
         indexName = "mutable_nullable_details_index"
       )
     ).containsExactly("label", "count").inOrder()
+  }
+
+  @Test
+  fun persistentUniqueIndexReportsMetadataAndRejectsDuplicates() {
     assertThat(
       indexIsUnique(
         tableName = "no_id_entity",
@@ -71,19 +75,13 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
   }
 
   @Test
-  fun temporaryIndexesRecreateAfterConnectionReopen() {
+  fun mainTemporaryIndexRecreatesAfterConnectionReopen() {
     assertThat(
       indexNames(
         master = SQLITE_TEMP_MASTER,
         tableName = "main_session_value"
       )
     ).contains("main_session_value_index")
-    assertThat(
-      indexNames(
-        master = SQLITE_TEMP_MASTER,
-        tableName = "submodule_session_value"
-      )
-    ).contains("submodule_session_value_index")
 
     reopenDefaultConnection()
 
@@ -93,6 +91,19 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
         tableName = "main_session_value"
       )
     ).contains("main_session_value_index")
+  }
+
+  @Test
+  fun submoduleTemporaryIndexRecreatesAfterConnectionReopen() {
+    assertThat(
+      indexNames(
+        master = SQLITE_TEMP_MASTER,
+        tableName = "submodule_session_value"
+      )
+    ).contains("submodule_session_value_index")
+
+    reopenDefaultConnection()
+
     assertThat(
       indexNames(
         master = SQLITE_TEMP_MASTER,

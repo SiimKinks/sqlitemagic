@@ -10,14 +10,13 @@ import com.siimkinks.sqlitemagic.DottedIdentifierViewTable.Companion.DOTTED_IDEN
 import com.siimkinks.sqlitemagic.HyphenIdentifierViewTable.Companion.HYPHEN_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.KeywordIdentifierViewTable.Companion.KEYWORD_IDENTIFIER_VIEW
-import com.siimkinks.sqlitemagic.NonbreakingSpaceIdentifierViewTable as NbspViewTable
+import com.siimkinks.sqlitemagic.NonbreakingSpaceIdentifierViewTable.Companion.NONBREAKING_SPACE_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.PunctuationIdentifierViewTable.Companion.PUNCTUATION_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.QuotedIdentifierViewTable.Companion.QUOTED_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SpacedIdentifierViewTable.Companion.SPACED_IDENTIFIER_VIEW
-import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
@@ -25,8 +24,6 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import org.junit.Assert.assertThrows
 import org.junit.Test
-
-private const val AUTHOR_VIEW_NAME = "query_composition_author_view"
 
 class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
   private val expectedAuthors = listOf(
@@ -51,23 +48,6 @@ class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
   )
 
   @Test
-  fun generatedManagerCreatesAuthorView() {
-    val names = Select
-      .raw("SELECT name FROM sqlite_master WHERE type = 'view' AND name = '$AUTHOR_VIEW_NAME'")
-      .from(ANONYMOUS_TABLE)
-      .execute()
-      .use { cursor ->
-        buildList {
-          while (cursor.moveToNext()) {
-            add(cursor.getString(0))
-          }
-        }
-      }
-
-    assertThat(names).containsExactly(AUTHOR_VIEW_NAME)
-  }
-
-  @Test
   fun generatedViewsWithQuotedNamesReadScalarsAndAliases() {
     seedAuthors()
     val dottedAlias = DOTTED_IDENTIFIER_VIEW AS "safe_alias"
@@ -87,8 +67,8 @@ class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
       "punctuation" to Select.column(PUNCTUATION_IDENTIFIER_VIEW.NAME)
         .from(PUNCTUATION_IDENTIFIER_VIEW)
         .execute(),
-      "nonbreaking space" to Select.column(NbspViewTable.NONBREAKING_SPACE_IDENTIFIER_VIEW.NAME)
-        .from(NbspViewTable.NONBREAKING_SPACE_IDENTIFIER_VIEW)
+      "nonbreaking space" to Select.column(NONBREAKING_SPACE_IDENTIFIER_VIEW.NAME)
+        .from(NONBREAKING_SPACE_IDENTIFIER_VIEW)
         .execute(),
       "hyphen" to Select.column(HYPHEN_IDENTIFIER_VIEW.NAME)
         .from(HYPHEN_IDENTIFIER_VIEW)

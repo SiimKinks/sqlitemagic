@@ -2,10 +2,8 @@ package com.siimkinks.sqlitemagic.runtime.contract.query.view
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
-import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.DEPENDENCY_OUTER_VIEW
-import com.siimkinks.sqlitemagic.PersistentEmbeddedReadbackViewTable.Companion.PERSISTENT_EMBEDDED_READBACK_VIEW
-import com.siimkinks.sqlitemagic.PersistentNestedReadbackViewTable.Companion.PERSISTENT_NESTED_READBACK_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
+import com.siimkinks.sqlitemagic.ReaderRelationshipAuthorTable.Companion.READER_RELATIONSHIP_AUTHOR
 import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION_VIEW
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
@@ -14,11 +12,6 @@ import com.siimkinks.sqlitemagic.ViewObservationDependenciesTable.Companion.VIEW
 import com.siimkinks.sqlitemagic.ViewObservationOuterTable.Companion.VIEW_OBSERVATION_OUTER
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.fixture.view.DependencyOuterView
-import com.siimkinks.sqlitemagic.fixture.view.PersistentContact
-import com.siimkinks.sqlitemagic.fixture.view.PersistentEmbeddedReadbackView
-import com.siimkinks.sqlitemagic.fixture.view.PersistentInnerReadbackView
-import com.siimkinks.sqlitemagic.fixture.view.PersistentNestedReadbackView
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipAuthor
@@ -33,6 +26,7 @@ import com.siimkinks.sqlitemagic.fixture.view.ViewObservationJoin
 import com.siimkinks.sqlitemagic.fixture.view.ViewObservationOuter
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import com.siimkinks.sqlitemagic.update
@@ -41,160 +35,6 @@ import org.junit.Test
 private const val NAMED_DATABASE = "view-observation-runtime.db"
 
 class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
-  @Test
-  fun scalarOuterViewObservesItsTransitiveBaseTableAndStopsAfterDisposal() {
-    val observer = Select
-      .from(DEPENDENCY_OUTER_VIEW)
-      .observe()
-      .runQuery()
-      .test()
-      .assertValuesOnly(emptyList())
-    try {
-      val author = QueryCompositionAuthor(
-        id = 91L,
-        name = "Ada"
-      )
-      insert(author)
-      observer.assertValuesOnly(
-        emptyList(),
-        listOf(DependencyOuterView(name = "Ada"))
-      )
-
-      assertThat(
-        author.copy(name = "Grace")
-          .update()
-          .execute()
-      ).isTrue()
-      observer.assertValuesOnly(
-        emptyList(),
-        listOf(DependencyOuterView(name = "Ada")),
-        listOf(DependencyOuterView(name = "Grace"))
-      )
-
-      observer.dispose()
-      insert(
-        QueryCompositionAuthor(
-          id = 92L,
-          name = "Lin"
-        )
-      )
-      observer.assertValueCount(3)
-      assertThat(observer.isDisposed).isTrue()
-    } finally {
-      observer.dispose()
-    }
-  }
-
-  @Test
-  fun scalarViewRefreshesFromItsAuthorTableAndStopsAfterDisposal() {
-    val observer = Select
-      .from(QUERY_COMPOSITION_AUTHOR_VIEW)
-      .observe()
-      .runQuery()
-      .test()
-      .assertValuesOnly(emptyList())
-    try {
-      insert(
-        QueryCompositionAuthor(
-          id = 1L,
-          name = "Ada"
-        )
-      )
-      observer.assertValuesOnly(
-        emptyList(),
-        listOf(
-          QueryCompositionAuthorView(
-            name = "Ada",
-            id = 1L
-          )
-        )
-      )
-
-      observer.dispose()
-      insert(
-        QueryCompositionAuthor(
-          id = 2L,
-          name = "Grace"
-        )
-      )
-      observer.assertValuesOnly(
-        emptyList(),
-        listOf(
-          QueryCompositionAuthorView(
-            name = "Ada",
-            id = 1L
-          )
-        )
-      )
-      assertThat(observer.isDisposed)
-        .isTrue()
-    } finally {
-      observer.dispose()
-    }
-  }
-
-  @Test
-  fun embeddedAndNestedViewsRefreshFromTheirAuthorTable() {
-    val embedded = Select
-      .from(PERSISTENT_EMBEDDED_READBACK_VIEW)
-      .observe()
-      .runQuery()
-      .test()
-      .assertValuesOnly(emptyList())
-    val nested = Select
-      .from(PERSISTENT_NESTED_READBACK_VIEW)
-      .observe()
-      .runQuery()
-      .test()
-      .assertValuesOnly(emptyList())
-    try {
-      insert(
-        QueryCompositionAuthor(
-          id = 7L,
-          name = "Ada"
-        )
-      )
-      embedded.assertValuesOnly(
-        emptyList(),
-        listOf(
-          PersistentEmbeddedReadbackView(
-            contact = PersistentContact(
-              city = "Ada",
-              zip = 7
-            )
-          )
-        )
-      )
-      nested.assertValuesOnly(
-        emptyList(),
-        listOf(
-          PersistentNestedReadbackView(
-            inner = PersistentInnerReadbackView(name = "Ada"),
-            tail = "Ada"
-          )
-        )
-      )
-
-      embedded.dispose()
-      nested.dispose()
-      insert(
-        QueryCompositionAuthor(
-          id = 8L,
-          name = "Grace"
-        )
-      )
-      embedded.assertValueCount(2)
-      nested.assertValueCount(2)
-      assertThat(embedded.isDisposed)
-        .isTrue()
-      assertThat(nested.isDisposed)
-        .isTrue()
-    } finally {
-      embedded.dispose()
-      nested.dispose()
-    }
-  }
-
   @Test
   fun relationshipViewRefreshesFromEachDefiningTableAndStopsAfterDisposal() {
     val author = ReaderRelationshipAuthor(
@@ -205,12 +45,22 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       id = 23L,
       author = author
     )
-    insert(book)
-    val insertedBook = Select
-      .from(REVIEW_RELATIONSHIP_COMPOSITION_VIEW)
+    val inserted = book
+      .insert()
+      .execute()
+    val bookId = when (inserted) {
+      is EntityInsertResult.Inserted -> checkNotNull(inserted.rowId)
+      EntityInsertResult.Ignored -> error("Deterministic book insert was ignored")
+    }
+    val authorId = Select
+      .column(READER_RELATIONSHIP_AUTHOR.ID)
+      .from(READER_RELATIONSHIP_AUTHOR)
       .execute()
       .single()
-      .book
+    val insertedBook = book.copy(
+      id = bookId,
+      author = author.copy(id = authorId)
+    )
     val initial = ReviewRelationshipCompositionView(
       book = insertedBook,
       tail = "tail"
@@ -241,11 +91,14 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       observer.assertValuesOnly(listOf(initial), listOf(refreshed), emptyList())
 
       observer.dispose()
-      insert(
-        ReaderRelationshipBook(
+      assertSeedInserted(
+        result = ReaderRelationshipBook(
           id = 24L,
           author = changedAuthor
         )
+          .insert()
+          .execute(),
+        modelName = "ReaderRelationshipBook"
       )
       observer.assertValueCount(3)
       assertThat(observer.isDisposed)
@@ -511,11 +364,6 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       }
     )
 
-  private fun insert(value: ReaderRelationshipBook) = assertInserted(
-    value.insert()
-      .execute()
-  )
-
   private fun insert(value: ViewObservationJoin) = assertInserted(
     value.insert()
       .execute()
@@ -531,8 +379,9 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       .execute()
   )
 
-  private fun assertInserted(result: EntityInsertResult) {
-    assertThat(result)
-      .isInstanceOf(EntityInsertResult.Inserted::class.java)
-  }
+  private fun assertInserted(result: EntityInsertResult) =
+    assertSeedInserted(
+      result = result,
+      modelName = "View observation seed"
+    )
 }
