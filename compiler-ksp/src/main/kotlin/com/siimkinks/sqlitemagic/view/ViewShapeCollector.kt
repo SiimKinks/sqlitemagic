@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.model.ModelKind
 import com.siimkinks.sqlitemagic.model.PropertyPath
 import com.siimkinks.sqlitemagic.model.scanModelPropertyCandidates
 import com.siimkinks.sqlitemagic.model.toRoundPropertyMetadata
+import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.displayName
 import com.siimkinks.sqlitemagic.utils.modelConstructor
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
@@ -25,7 +26,8 @@ internal enum class ViewShapeSelection {
 }
 
 internal class ViewShapeCollector(
-  private val reporter: ModelCollectionReporter
+  private val reporter: ModelCollectionReporter,
+  private val annotations: ConsumedAnnotations
 ) {
   private val constructionCollector = ModelConstructionCollector(reporter)
 
@@ -70,7 +72,10 @@ internal class ViewShapeCollector(
     modelConstructor = primaryConstructor
   ).mapNotNull { candidate ->
     val property = candidate.sourceDeclaration
-    val annotations = ViewPropertyRoundAnnotations.from(property)
+    val annotations = ViewPropertyRoundAnnotations.from(
+      symbol = property,
+      annotations = annotations
+    )
     val isOmittableConstructorProperty = candidate.isConstructorProperty && candidate.hasDefault
     if (selection == ViewShapeSelection.EMBEDDED &&
       annotations.ignoreColumn != null &&

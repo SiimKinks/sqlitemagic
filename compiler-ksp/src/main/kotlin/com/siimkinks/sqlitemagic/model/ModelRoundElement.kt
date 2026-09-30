@@ -12,8 +12,7 @@ import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
 import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Unique
 import com.siimkinks.sqlitemagic.element.RoundTypeElement
-import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
-import com.siimkinks.sqlitemagic.utils.firstUncheckedAnnotation
+import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
 
@@ -53,14 +52,20 @@ data class PropertyRoundAnnotations(
   val unique: Unique?,
 ) {
   companion object {
-    fun from(symbol: KSAnnotated) = with(symbol) {
+    internal fun from(
+      symbol: KSAnnotated,
+      annotations: ConsumedAnnotations
+    ) = with(annotations) {
       PropertyRoundAnnotations(
-        column = findAnnotationWithType<Column>(),
-        embedded = findAnnotationWithType<Embedded>(),
-        id = firstUncheckedAnnotation<Id>(),
-        ignoreColumn = findAnnotationWithType<IgnoreColumn>(),
-        index = findAnnotationWithType<Index>(),
-        unique = findAnnotationWithType<Unique>()
+        column = column(symbol),
+        embedded = embedded(symbol),
+        id = raw(
+          symbol = symbol,
+          annotationClass = Id::class
+        ),
+        ignoreColumn = ignoreColumn(symbol),
+        index = index(symbol),
+        unique = unique(symbol)
       )
     }
   }

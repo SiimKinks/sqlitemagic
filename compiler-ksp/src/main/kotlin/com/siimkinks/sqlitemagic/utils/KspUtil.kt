@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.utils
 import com.google.devtools.ksp.getAnnotationsByType
 import com.google.devtools.ksp.getConstructors
 import com.google.devtools.ksp.getVisibility
+import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.symbol.ClassKind.INTERFACE
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
@@ -19,6 +20,8 @@ import com.google.devtools.ksp.symbol.Visibility.INTERNAL
 import com.google.devtools.ksp.symbol.Visibility.JAVA_PACKAGE
 import com.google.devtools.ksp.symbol.Visibility.PRIVATE
 import com.google.devtools.ksp.symbol.Visibility.PUBLIC
+import com.google.devtools.ksp.validate
+import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.squareup.kotlinpoet.ksp.TypeParameterResolver
 import com.squareup.kotlinpoet.ksp.toTypeParameterResolver
 import kotlin.reflect.KCallable
@@ -105,6 +108,86 @@ fun KSDeclaration.resolveClassDeclaration(): KSClassDeclaration? = when (this) {
 
 fun KSClassDeclaration.modelConstructor(): KSFunctionDeclaration? =
   primaryConstructor ?: getConstructors().singleOrNull()
+
+/** Validates construction and mapping inputs without traversing unrelated direct helper members. */
+internal fun KSClassDeclaration.validateModelMembers(
+  annotations: ConsumedAnnotations,
+  isRequiredProperty: (KSPropertyDeclaration) -> Boolean
+) = when {
+  hasUnresolvedModelAnnotationArguments(annotations) -> false
+  // These collectors traverse additional declaration shapes. Preserve their existing readiness boundary.
+  superTypes.any {
+    it.resolve()
+      .declaration.qualifiedName?.asString() != Any::class.qualifiedName
+  } -> validateConsumedAnnotations()
+  declarations
+    .filterIsInstance<KSPropertyDeclaration>()
+    .any { annotations.has<Embedded>(it) } -> validateConsumedAnnotations()
+  else -> validate { _, node ->
+    val member = node as? KSDeclaration
+    val owner = member?.parentDeclaration as? KSClassDeclaration
+    val isDirectMember = owner == this || owner?.isCompanionObject == true && owner.parentDeclaration == this
+    when {
+      node is KSAnnotation -> node.isConsumedAnnotation()
+      member == null -> true
+      !isDirectMember -> true
+      // Retain annotated declarations, including invalid annotation uses, for supported diagnostics.
+      annotations.hasAny(member) -> true
+      member is KSFunctionDeclaration -> member.isConstructor()
+      member is KSPropertyDeclaration -> isRequiredProperty(member)
+      else -> true
+    }
+  }
+}
+
+/** Follow only annotation metadata from inherited and embedded model shapes consumed by collection. */
+private fun KSClassDeclaration.hasUnresolvedModelAnnotationArguments(annotations: ConsumedAnnotations): Boolean {
+  val visited = mutableSetOf<Pair<KSClassDeclaration, Boolean>>()
+
+  fun inspect(
+    declaration: KSClassDeclaration,
+    includeClassArguments: Boolean
+  ): Boolean = when {
+    !visited.add(declaration to includeClassArguments) -> false
+    includeClassArguments && annotations.hasUnresolvedArguments(declaration) -> true
+    declaration.declarations.any { member ->
+      when (member) {
+        is KSClassDeclaration -> includeClassArguments && inspect(
+          declaration = member,
+          includeClassArguments = true
+        )
+        else -> annotations.hasUnresolvedArguments(member) || when {
+          member is KSPropertyDeclaration && annotations.has<Embedded>(member) ->
+            member.type
+              .resolve()
+              .declaration
+              .resolveClassDeclaration()
+              ?.let { target ->
+                inspect(
+                  declaration = target,
+                  includeClassArguments = false
+                )
+              } == true
+          else -> false
+        }
+      }
+    } -> true
+    else -> declaration
+      .directColumnAncestors()
+      .filterNot { it.qualifiedName?.asString() == Any::class.qualifiedName }
+      .any { ancestor ->
+        inspect(
+          declaration = ancestor,
+          includeClassArguments = false
+        )
+      }
+  }
+
+  return inspect(
+    declaration = this,
+    includeClassArguments = true
+  )
+}
 
 fun KSDeclaration.isAccessibleFromGeneratedCode() = when (getVisibility()) {
   PUBLIC,

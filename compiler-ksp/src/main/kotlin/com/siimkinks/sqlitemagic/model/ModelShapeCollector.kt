@@ -8,8 +8,8 @@ import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.model.ModelKind.TABLE
+import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.displayName
-import com.siimkinks.sqlitemagic.utils.hasAnyAnnotationWithSimpleName
 import com.siimkinks.sqlitemagic.utils.modelConstructor
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
 
@@ -25,7 +25,8 @@ internal val EXPLICIT_PERSISTENCE_ANNOTATIONS = setOf(
 )
 
 internal class ModelShapeCollector(
-  private val reporter: ModelCollectionReporter
+  private val reporter: ModelCollectionReporter,
+  private val annotations: ConsumedAnnotations
 ) {
   private val constructionCollector = ModelConstructionCollector(reporter)
 
@@ -72,11 +73,15 @@ internal class ModelShapeCollector(
     val property = candidate.sourceDeclaration
     when {
       !candidate.hasBackingField || candidate.isDelegated -> return@mapNotNull null
-      !persistAll && !property.hasAnyAnnotationWithSimpleName(
-        EXPLICIT_PERSISTENCE_ANNOTATIONS
+      !persistAll && !annotations.hasAny(
+        symbol = property,
+        names = EXPLICIT_PERSISTENCE_ANNOTATIONS
       ) -> return@mapNotNull null
     }
-    val annotations = PropertyRoundAnnotations.from(property)
+    val annotations = PropertyRoundAnnotations.from(
+      symbol = property,
+      annotations = annotations
+    )
     val selected = when {
       annotations.embedded != null -> true
       annotations.ignoreColumn != null -> false

@@ -16,19 +16,22 @@ import com.siimkinks.sqlitemagic.model.ModelKind.EMBEDDED
 import com.siimkinks.sqlitemagic.model.ModelKind.TABLE
 import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
 import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
+import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.utils.displayName
-import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
-import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
 
 internal class ModelCollector(
-  private val environment: Environment
+  private val environment: Environment,
+  private val annotations: ConsumedAnnotations
 ) {
   private val tableSeeds = linkedMapOf<TypeKey, TableSeed>()
   private val reporter = ModelCollectionReporter(environment)
-  private val shapeCollector = ModelShapeCollector(reporter)
+  private val shapeCollector = ModelShapeCollector(
+    reporter = reporter,
+    annotations = annotations
+  )
 
   fun collect(declarations: List<KSClassDeclaration>): Boolean {
     declarations.forEachIndexed { declarationOrder, declaration ->
@@ -75,7 +78,7 @@ internal class ModelCollector(
     declaration: KSClassDeclaration,
     declarationOrder: Int
   ): TableSeed? {
-    val tableAnnotation = declaration.findAnnotationWithType<Table>() ?: return null
+    val tableAnnotation = annotations.table(declaration) ?: return null
     val isValidDeclaration = validateRootModelDeclaration(
       declaration = declaration,
       modelKind = TABLE,
@@ -166,7 +169,7 @@ internal class ModelCollector(
       transformer == null && (
           typeKey in tableSeeds ||
               typeKey in environment.tableElements ||
-              property.declaration?.isUncheckedAnnotationPresent<Table>() == true
+              property.declaration?.let { this.annotations.has<Table>(it) } == true
           )
     }
     if (property.sqlStorageType == null && transformer == null && relationshipTypeKey == null) {
@@ -253,7 +256,7 @@ internal class ModelCollector(
       )
       return null
     }
-    if (declaration.isUncheckedAnnotationPresent<Table>() || property.typeKey in tableSeeds) {
+    if (annotations.has<Table>(declaration) || property.typeKey in tableSeeds) {
       error(
         message = "A @Table model cannot be used as an embedded value: $tableDisplayName.${propertyPath.displayName}; ${declaration.displayName()}",
         symbol = property.sourceDeclaration

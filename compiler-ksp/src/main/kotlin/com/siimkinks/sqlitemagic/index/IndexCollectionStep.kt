@@ -2,19 +2,27 @@ package com.siimkinks.sqlitemagic.index
 
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.Modifier.JAVA_STATIC
 import com.google.devtools.ksp.validate
 import com.siimkinks.sqlitemagic.AnnotationNames.COLUMN_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.INDEX_ANNOTATION
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
-import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.index.IndexKind.COMPOSITE
 import com.siimkinks.sqlitemagic.index.IndexKind.FIELD
+import com.siimkinks.sqlitemagic.index.PropertyState.Companion
+import com.siimkinks.sqlitemagic.index.PropertyState.Deferred
+import com.siimkinks.sqlitemagic.index.PropertyState.Excluded
+import com.siimkinks.sqlitemagic.index.PropertyState.Ignored
+import com.siimkinks.sqlitemagic.index.PropertyState.Persisted
+import com.siimkinks.sqlitemagic.index.PropertyState.Static
+import com.siimkinks.sqlitemagic.index.PropertyState.TopLevel
+import com.siimkinks.sqlitemagic.index.PropertyState.Unmatched
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.ColumnElement
@@ -31,30 +39,41 @@ import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
-import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
-import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
+import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
+import com.siimkinks.sqlitemagic.utils.isConsumedAnnotation
 import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
+import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
 
 class IndexCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
+    val annotations = ConsumedAnnotations()
     val (validIndexSymbols, deferredIndexSymbols) = resolver
       .getSymbolsWithAnnotation(INDEX_ANNOTATION)
-      .partition(KSAnnotated::validate)
-    val indexQueries = validIndexSymbols.mapNotNull(::parseIndexQuery)
+      .partition { it.validateIndex(annotations) }
+    val indexQueries = validIndexSymbols.mapNotNull { symbol ->
+      parseIndexQuery(
+        symbol = symbol,
+        annotations = annotations
+      )
+    }
 
     val (validColumnSymbols, deferredColumnSymbols) = resolver
       .getSymbolsWithAnnotation(COLUMN_ANNOTATION)
-      .partition(KSAnnotated::validate)
+      .partition { it.validateIndex(annotations) }
     val memberships = validColumnSymbols
       .filterIsInstance<KSPropertyDeclaration>()
-      .mapNotNull(::parseMembership)
+      .mapNotNull { property ->
+        parseMembership(
+          property = property,
+          annotations = annotations
+        )
+      }
 
-    val tableAnnotations = TableAnnotationCache()
     val propertyClassifier = PropertyClassifier(
       environment = environment,
-      tableAnnotations = tableAnnotations
+      annotations = annotations
     )
     val reporter = IndexCollectionReporter(environment)
     val deferredProperties = mutableListOf<KSAnnotated>()
@@ -112,40 +131,40 @@ class IndexCollectionStep(
   ) {
     queries.forEach { query ->
       when (val symbol = query.symbol) {
-        is KSClassDeclaration -> if (propertyClassifier.tableAnnotation(symbol) == null) {
+        is KSClassDeclaration -> if (!propertyClassifier.hasTable(symbol)) {
           reporter.error(
             message = "@Index is only valid on a @Table or a persisted property of a @Table: ${query.name}",
             symbol = symbol
           )
         }
         is KSPropertyDeclaration -> when (propertyClassifier.classify(symbol)) {
-          PropertyState.Persisted -> Unit
-          PropertyState.Deferred -> deferredProperties += symbol
-          PropertyState.TopLevel -> reporter.error(
+          Persisted -> Unit
+          Deferred -> deferredProperties += symbol
+          TopLevel -> reporter.error(
             message = "@Index is only valid on an instance property of a @Table: ${symbol.simpleName.asString()}",
             symbol = symbol
           )
-          PropertyState.Companion -> reporter.error(
+          Companion -> reporter.error(
             message = "@Index is only valid on instance table properties: " +
                 "${symbol.tableDisplayName()}.${symbol.simpleName.asString()}",
             symbol = symbol
           )
-          PropertyState.Static -> reporter.error(
+          Static -> reporter.error(
             message = "@Index is only valid on instance table properties: " +
                 "${symbol.parentDeclaration?.simpleName?.asString().orEmpty()}.${symbol.simpleName.asString()}",
             symbol = symbol
           )
-          PropertyState.Ignored -> reporter.error(
+          Ignored -> reporter.error(
             message = "@Index cannot be used on an ignored property: " +
                 "${symbol.parentDeclaration?.simpleName?.asString().orEmpty()}.${symbol.simpleName.asString()}",
             symbol = symbol
           )
-          PropertyState.Excluded -> reporter.error(
+          Excluded -> reporter.error(
             message = "@Index property is not persisted when Table.persistAll is false: " +
                 "${symbol.parentDeclaration?.simpleName?.asString().orEmpty()}.${symbol.simpleName.asString()}",
             symbol = symbol
           )
-          PropertyState.Unmatched -> reporter.error(
+          Unmatched -> reporter.error(
             message = "@Index is only valid on a @Table or a persisted property of a @Table: ${query.name}",
             symbol = symbol
           )
@@ -166,14 +185,14 @@ class IndexCollectionStep(
   ) {
     memberships.forEach { membership ->
       when (propertyClassifier.classify(membership.property)) {
-        PropertyState.Persisted -> Unit
-        PropertyState.Deferred -> deferredProperties += membership.property
-        PropertyState.TopLevel,
-        PropertyState.Companion,
-        PropertyState.Static,
-        PropertyState.Ignored,
-        PropertyState.Excluded,
-        PropertyState.Unmatched -> reporter.error(
+        Persisted -> Unit
+        Deferred -> deferredProperties += membership.property
+        TopLevel,
+        Companion,
+        Static,
+        Ignored,
+        Excluded,
+        Unmatched -> reporter.error(
           message = "belongsToIndex '${membership.indexName}' is only valid on a persisted property of a @Table",
           symbol = membership.property
         )
@@ -302,6 +321,23 @@ class IndexCollectionStep(
   }
 }
 
+private fun KSAnnotated.validateIndex(annotations: ConsumedAnnotations): Boolean {
+  if (annotations.hasUnresolvedArguments(this)) return false
+  val declaration = this as? KSClassDeclaration ?: return validateConsumedAnnotations()
+  // Class indexes consume class annotations and collected table metadata, not member signatures.
+  // Property annotations are independently validated through their own resolver entry points.
+  return declaration.validate { parent, node ->
+    when {
+      node is KSAnnotation -> node.isConsumedAnnotation()
+      parent != declaration -> true
+      node is KSFunctionDeclaration ||
+          node is KSPropertyDeclaration ||
+          node is KSClassDeclaration -> false
+      else -> true
+    }
+  }
+}
+
 private class IndexCollectionReporter(
   private val environment: Environment
 ) {
@@ -322,48 +358,31 @@ private class IndexCollectionReporter(
   }
 }
 
-private class TableAnnotationCache {
-  private val annotations = linkedMapOf<String, Table?>()
-
-  fun get(declaration: KSClassDeclaration): Table? {
-    val key = declaration.qualifiedNameOrSimpleName()
-    if (key !in annotations) {
-      annotations[key] = declaration.findAnnotationWithType<Table>()
-    }
-    return annotations[key]
-  }
-}
-
 private class PropertyClassifier(
   private val environment: Environment,
-  private val tableAnnotations: TableAnnotationCache
+  private val annotations: ConsumedAnnotations
 ) {
   private val states = mutableMapOf<KSPropertyDeclaration, PropertyState>()
 
-  fun tableAnnotation(declaration: KSClassDeclaration) = tableAnnotations.get(declaration)
+  fun hasTable(declaration: KSClassDeclaration) = annotations.has<Table>(declaration)
 
   fun classify(property: KSPropertyDeclaration) = states.getOrPut(property) {
     classifyUncached(property)
   }
 
   private fun classifyUncached(property: KSPropertyDeclaration): PropertyState {
-    if (property.toPropertySourceKey() in environment.persistedPropertySourceKeys) {
-      return PropertyState.Persisted
+    val parent = property
+      .parentDeclaration as? KSClassDeclaration
+      ?: return TopLevel
+    return when {
+      property.toPropertySourceKey() in environment.persistedPropertySourceKeys -> Persisted
+      parent.isCompanionObject -> Companion
+      JAVA_STATIC in property.modifiers -> Static
+      annotations.has<IgnoreColumn>(property) -> Ignored
+      annotations.has<Table>(parent) && parent.qualifiedNameOrSimpleName() in environment.deferredTableSourceKeys -> Deferred
+      annotations.table(parent)?.persistAll == false -> Excluded
+      else -> Unmatched
     }
-    val parent = property.parentDeclaration as? KSClassDeclaration
-      ?: return PropertyState.TopLevel
-    if (parent.isCompanionObject) return PropertyState.Companion
-    if (JAVA_STATIC in property.modifiers) return PropertyState.Static
-    if (property.isUncheckedAnnotationPresent<IgnoreColumn>()) return PropertyState.Ignored
-    val tableAnnotation = tableAnnotations.get(parent)
-    if (
-      tableAnnotation != null &&
-      parent.qualifiedNameOrSimpleName() in environment.deferredTableSourceKeys
-    ) {
-      return PropertyState.Deferred
-    }
-    if (tableAnnotation?.persistAll == false) return PropertyState.Excluded
-    return PropertyState.Unmatched
   }
 }
 
@@ -394,8 +413,10 @@ private data class IndexCandidate(
   val symbol: KSAnnotated?
 )
 
-private fun parseIndexQuery(symbol: KSAnnotated) = symbol
-  .findAnnotationWithType<Index>()
+private fun parseIndexQuery(
+  symbol: KSAnnotated,
+  annotations: ConsumedAnnotations
+) = annotations.index(symbol)
   ?.let { annotation ->
     IndexQuery(
       symbol = symbol,
@@ -404,8 +425,10 @@ private fun parseIndexQuery(symbol: KSAnnotated) = symbol
     )
   }
 
-private fun parseMembership(property: KSPropertyDeclaration) = property
-  .findAnnotationWithType<Column>()
+private fun parseMembership(
+  property: KSPropertyDeclaration,
+  annotations: ConsumedAnnotations
+) = annotations.column(property)
   ?.belongsToIndex
   ?.takeIf(String::isNotEmpty)
   ?.let { indexName ->

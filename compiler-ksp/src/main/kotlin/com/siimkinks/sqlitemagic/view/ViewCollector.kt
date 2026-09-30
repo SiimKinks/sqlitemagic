@@ -34,21 +34,24 @@ import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
 import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
+import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.utils.displayName
-import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.isEffectivelyAccessibleFromGeneratedCode
 import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
-import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY as TEMPORARY_SCHEMA
 
 internal class ViewCollector(
   private val environment: Environment,
-  private val compiledSelectType: KSType
+  private val compiledSelectType: KSType,
+  private val annotations: ConsumedAnnotations
 ) {
   private val reporter = ModelCollectionReporter(environment)
-  private val shapeCollector = ViewShapeCollector(reporter)
+  private val shapeCollector = ViewShapeCollector(
+    reporter = reporter,
+    annotations = annotations
+  )
   private val seeds = linkedMapOf<TypeKey, ViewSeed>()
 
   fun collect(declarations: List<KSClassDeclaration>): Boolean {
@@ -94,8 +97,8 @@ internal class ViewCollector(
     declaration: KSClassDeclaration,
     declarationOrder: Int
   ): ViewSeed? {
-    val annotation = declaration.findAnnotationWithType<View>() ?: return null
-    if (declaration.isUncheckedAnnotationPresent<Table>()) {
+    val annotation = annotations.view(declaration) ?: return null
+    if (annotations.has<Table>(declaration)) {
       error(
         message = "@Table and @View cannot be used together: ${declaration.displayName()}",
         symbol = declaration
@@ -158,7 +161,7 @@ internal class ViewCollector(
   }
 
   private fun collectQuery(declaration: KSClassDeclaration): ViewQueryRoundElement? {
-    val queryProperties = declaration.directQueryProperties()
+    val queryProperties = declaration.directQueryProperties(annotations)
     if (queryProperties.size != 1) {
       error(
         message = "@View must declare exactly one @ViewQuery: ${declaration.displayName()}",
@@ -285,10 +288,7 @@ internal class ViewCollector(
       )
       return null
     }
-    if (
-      declaration.isUncheckedAnnotationPresent<Table>() ||
-      declaration.isUncheckedAnnotationPresent<View>()
-    ) {
+    if (annotations.has<Table>(declaration) || annotations.has<View>(declaration)) {
       error(
         message = "A @Table or @View model cannot be used as an embedded value: $viewName.${path.displayName}",
         symbol = property.sourceDeclaration
@@ -427,18 +427,20 @@ internal class ViewCollector(
   )
 }
 
-private fun KSClassDeclaration.directQueryProperties(): List<KSPropertyDeclaration> = buildList {
-  declarations
-    .filterIsInstance<KSPropertyDeclaration>()
-    .filter(KSPropertyDeclaration::isViewQuery)
-    .toCollection(this)
-  declarations
-    .filterIsInstance<KSClassDeclaration>()
-    .filter(KSClassDeclaration::isCompanionObject)
-    .flatMap(KSClassDeclaration::declarations)
-    .filterIsInstance<KSPropertyDeclaration>()
-    .filter(KSPropertyDeclaration::isViewQuery)
-    .toCollection(this)
+private fun KSClassDeclaration.directQueryProperties(
+  annotations: ConsumedAnnotations
+) = buildList {
+  addAll(
+    declarations
+      .filterIsInstance<KSPropertyDeclaration>()
+      .filter { annotations.has<ViewQuery>(it) }
+  )
+  addAll(
+    declarations
+      .filterIsInstance<KSClassDeclaration>()
+      .filter(KSClassDeclaration::isCompanionObject)
+      .flatMap(KSClassDeclaration::declarations)
+      .filterIsInstance<KSPropertyDeclaration>()
+      .filter { annotations.has<ViewQuery>(it) }
+  )
 }
-
-private fun KSPropertyDeclaration.isViewQuery() = findAnnotationWithType<ViewQuery>() != null

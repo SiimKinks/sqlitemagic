@@ -4,7 +4,6 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
-import com.google.devtools.ksp.validate
 import com.siimkinks.sqlitemagic.AnnotationNames.VIEW_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.VIEW_QUERY_ANNOTATION
 import com.siimkinks.sqlitemagic.CompiledSelect
@@ -15,16 +14,20 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
-import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
+import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
+import com.siimkinks.sqlitemagic.utils.modelConstructor
+import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
+import com.siimkinks.sqlitemagic.utils.validateModelMembers
 
 class ViewCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
+    val annotations = ConsumedAnnotations()
     val querySymbols = resolver
       .getSymbolsWithAnnotation(VIEW_QUERY_ANNOTATION)
       .toList()
-    val orphanQueries = querySymbols.filterNot(KSAnnotated::isDirectViewQueryOwner)
+    val orphanQueries = querySymbols.filterNot { it.isDirectViewQueryOwner(annotations) }
     orphanQueries.forEach { symbol ->
       val name = (symbol as? KSDeclaration)?.simpleName?.asString().orEmpty()
       environment.logger.error(
@@ -35,7 +38,7 @@ class ViewCollectionStep(
 
     val (valid, deferred) = resolver
       .getSymbolsWithAnnotation(VIEW_ANNOTATION)
-      .partition(KSAnnotated::validate)
+      .partition { it.validateView(annotations) }
     val declarations = valid.filterIsInstance<KSClassDeclaration>()
     environment.setDeferredViewSourceKeys(
       deferred.filterIsInstance<KSClassDeclaration>()
@@ -51,7 +54,8 @@ class ViewCollectionStep(
       orphanQueries.isNotEmpty() -> false
       else -> ViewCollector(
         environment = environment,
-        compiledSelectType = compiledSelectType
+        compiledSelectType = compiledSelectType,
+        annotations = annotations
       ).collect(declarations)
     }
     val distinctDeferred = deferred.distinct()
@@ -63,13 +67,28 @@ class ViewCollectionStep(
   }
 }
 
-private fun KSAnnotated.isDirectViewQueryOwner(): Boolean {
+private fun KSAnnotated.validateView(annotations: ConsumedAnnotations): Boolean {
+  val declaration = this as? KSClassDeclaration ?: return validateConsumedAnnotations()
+  val constructorPropertyNames = declaration
+    .modelConstructor()
+    ?.parameters
+    .orEmpty()
+    .mapNotNullTo(mutableSetOf()) { it.name?.toString() }
+  return declaration.validateModelMembers(
+    annotations = annotations,
+    isRequiredProperty = { property ->
+      property.parentDeclaration == declaration && property.simpleName.asString() in constructorPropertyNames
+    }
+  )
+}
+
+private fun KSAnnotated.isDirectViewQueryOwner(annotations: ConsumedAnnotations): Boolean {
   val declaration = this as? KSDeclaration ?: return false
   val owner = declaration.parentDeclaration as? KSClassDeclaration ?: return false
   return when {
-    owner.findAnnotationWithType<View>() != null -> true
+    annotations.has<View>(owner) -> true
     !owner.isCompanionObject -> false
     else -> (owner.parentDeclaration as? KSClassDeclaration)
-      ?.findAnnotationWithType<View>() != null
+      ?.let { annotations.has<View>(it) } == true
   }
 }
