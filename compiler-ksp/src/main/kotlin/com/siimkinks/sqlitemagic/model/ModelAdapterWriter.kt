@@ -152,7 +152,6 @@ internal class ModelAdapterWriter(
     FileSpec
       .builder(adapterClassName)
       .addType(adapter)
-      .build()
       .writeModelSource(
         codeGenerator = environment.codeGenerator,
         originatingFiles = originatingFiles

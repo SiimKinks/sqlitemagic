@@ -98,7 +98,6 @@ internal class ReadTableStructureWriter private constructor(
     )
     .addFunction(mapperFunction())
     .addFunctions(otherFunctions)
-    .build()
     .writeModelSource(
       codeGenerator = codeGenerator,
       originatingFiles = originatingFiles

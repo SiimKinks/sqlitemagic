@@ -78,7 +78,6 @@ internal class ViewDaoWriter(
     FileSpec
       .builder(view.generationNames.daoClassName)
       .addType(dao.build())
-      .build()
       .writeModelSource(
         codeGenerator = environment.codeGenerator,
         originatingFiles = roundElement.originatingFiles

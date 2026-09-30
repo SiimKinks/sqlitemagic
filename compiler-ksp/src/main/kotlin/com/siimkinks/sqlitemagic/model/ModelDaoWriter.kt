@@ -85,7 +85,6 @@ internal class ModelDaoWriter(
         fileName = table.generationNames.daoClassName.simpleName
       )
       .addType(dao.build())
-      .build()
       .writeModelSource(
         codeGenerator = environment.codeGenerator,
         originatingFiles = originatingFiles

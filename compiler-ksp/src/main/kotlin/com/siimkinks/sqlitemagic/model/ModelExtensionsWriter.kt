@@ -100,7 +100,6 @@ internal class ModelExtensionsWriter(
             .build()
         )
       }
-      .build()
       .writeModelSource(
         codeGenerator = environment.codeGenerator,
         originatingFiles = originatingFiles

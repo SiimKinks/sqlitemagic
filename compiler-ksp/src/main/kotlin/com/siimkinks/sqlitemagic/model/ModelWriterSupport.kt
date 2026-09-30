@@ -14,19 +14,16 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.ksp.writeTo
 
-internal fun FileSpec.writeModelSource(
+internal fun FileSpec.Builder.writeModelSource(
   codeGenerator: CodeGenerator,
   originatingFiles: OriginatingFiles
-) {
-  toBuilder()
-    .addFileComment("%L", GENERATION_COMMENT)
-    .build()
-    .writeTo(
-      codeGenerator = codeGenerator,
-      aggregating = !originatingFiles.isComplete,
-      originatingKSFiles = originatingFiles.files
-    )
-}
+) = addFileComment("%L", GENERATION_COMMENT)
+  .build()
+  .writeTo(
+    codeGenerator = codeGenerator,
+    aggregating = !originatingFiles.isComplete,
+    originatingKSFiles = originatingFiles.files
+  )
 
 internal fun TableElement.schemaSql(
   columnSchemas: List<String> = allColumns.map(ColumnElement::schemaSql)
