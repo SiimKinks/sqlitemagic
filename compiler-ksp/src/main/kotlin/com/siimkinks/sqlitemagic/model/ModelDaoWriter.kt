@@ -141,33 +141,130 @@ internal class ModelDaoWriter(
     .addParameter(name = "entity", type = table.modelClassName)
     .addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
     .addStatement("statement.clearBindings()")
-    .beginControlFlow("when (%N)", METHOD_BY_COLUMN)
     .apply {
-      table.identityColumns.forEach { identityColumn ->
-        beginControlFlow(
-          "%T.%N.%N ->",
-          table.generationNames.tableClassName,
-          table.structureFieldName,
-          identityColumn.fieldName
+      val uniqueColumns = table.identityColumns.filterNot(ColumnElement::isId)
+      when {
+        uniqueColumns.size < 2 -> addIdentityUpdateBindings(table)
+        else -> addCompactUpdateBindings(
+          table = table,
+          uniqueColumns = uniqueColumns
         )
-          .addBindings(
-            table = table,
-            columns = table
-              .allColumns
-              .filterNot { column ->
-                column === identityColumn || column.isId
-              } + identityColumn
-          )
-          .endControlFlow()
       }
     }
-    .addStatement(
+    .build()
+
+  private fun FunSpec.Builder.addIdentityUpdateBindings(table: TableElement) =
+    beginControlFlow("when (%N)", METHOD_BY_COLUMN)
+      .apply {
+        table.identityColumns.forEach { identityColumn ->
+          beginControlFlow(
+            "%T.%N.%N ->",
+            table.generationNames.tableClassName,
+            table.structureFieldName,
+            identityColumn.fieldName
+          )
+            .addBindings(
+              table = table,
+              columns = table
+                .allColumns
+                .filterNot { column -> column === identityColumn || column.isId } + identityColumn
+            )
+            .endControlFlow()
+        }
+      }
+      .addStatement(
+        "else -> throw %T(%S)",
+        IllegalArgumentException::class,
+        "Column does not identify an entity property"
+      )
+      .endControlFlow()
+
+  private fun FunSpec.Builder.addCompactUpdateBindings(
+    table: TableElement,
+    uniqueColumns: List<ColumnElement>
+  ) = when (val idColumn = table.idColumn) {
+    null -> addUniqueUpdateBindings(
+      table = table,
+      uniqueColumns = uniqueColumns
+    )
+    else -> beginControlFlow("when (%N)", METHOD_BY_COLUMN)
+      .beginControlFlow(
+        "%T.%N.%N ->",
+        table.generationNames.tableClassName,
+        table.structureFieldName,
+        idColumn.fieldName
+      )
+      .addBindings(
+        table = table,
+        columns = table
+          .allColumns
+          .filterNot(ColumnElement::isId) + idColumn
+      )
+      .endControlFlow()
+      .beginControlFlow("else ->")
+      .addUniqueUpdateBindings(
+        table = table,
+        uniqueColumns = uniqueColumns
+      )
+      .endControlFlow()
+      .endControlFlow()
+  }
+
+  private fun FunSpec.Builder.addUniqueUpdateBindings(
+    table: TableElement,
+    uniqueColumns: List<ColumnElement>
+  ) = apply {
+    val nextParameterIndex = CodeBlock.of("parameterIndex++")
+    beginControlFlow("val identityOrdinal = when (%N)", METHOD_BY_COLUMN)
+    uniqueColumns.forEachIndexed { ordinal, identityColumn ->
+      addStatement(
+        "%T.%N.%N -> %L",
+        table.generationNames.tableClassName,
+        table.structureFieldName,
+        identityColumn.fieldName,
+        ordinal
+      )
+    }
+    addStatement(
       "else -> throw %T(%S)",
       IllegalArgumentException::class,
       "Column does not identify an entity property"
     )
-    .endControlFlow()
-    .build()
+    endControlFlow()
+    addStatement("var parameterIndex = 1")
+    table.allColumns.forEachIndexed { index, column ->
+      if (column.isId) return@forEachIndexed
+      val identityOrdinal = uniqueColumns.indexOfFirst { it === column }
+      when {
+        identityOrdinal >= 0 -> beginControlFlow("if (identityOrdinal != %L)", identityOrdinal)
+          .addBinding(
+            table = table,
+            column = column,
+            parameterIndex = nextParameterIndex,
+            valueName = "value${index + 1}"
+          )
+          .endControlFlow()
+        else -> addBinding(
+          table = table,
+          column = column,
+          parameterIndex = nextParameterIndex,
+          valueName = "value${index + 1}"
+        )
+      }
+    }
+    beginControlFlow("when (identityOrdinal)")
+    uniqueColumns.forEachIndexed { ordinal, identityColumn ->
+      beginControlFlow("%L ->", ordinal)
+      addBinding(
+        table = table,
+        column = identityColumn,
+        parameterIndex = nextParameterIndex,
+        valueName = "selectedKeyValue"
+      )
+      endControlFlow()
+    }
+    endControlFlow()
+  }
 
   private fun notNullValues(
     functionName: String,
@@ -257,55 +354,65 @@ internal class ModelDaoWriter(
   ) = apply {
     columns.forEachIndexed { index, column ->
       val parameterIndex = index + 1
-      val valueName = "value$parameterIndex"
-      val value = serializedInsertAccessCode(
+      addBinding(
         table = table,
         column = column,
+        parameterIndex = CodeBlock.of("%L", parameterIndex),
+        valueName = "value$parameterIndex",
         usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
       )
-      when {
-        column.bindingValueCanBeNull() ->
-          addStatement("val %N = %L", valueName, value)
-            .beginControlFlow("if (%N == null)", valueName)
-            .addStatement("statement.bindNull(%L)", parameterIndex)
-            .nextControlFlow("else")
-            .addCode(
-              bindCode(
-                column = column,
-                parameterIndex = parameterIndex,
-                value = CodeBlock.of("%N", valueName)
-              )
-            )
-            .endControlFlow()
-        else -> addCode(
-          bindCode(
-            column = column,
-            parameterIndex = parameterIndex,
-            value = value
-          )
-        )
-      }
     }
   }
 
-  private fun bindCode(
+  private fun FunSpec.Builder.addBinding(
+    table: TableElement,
     column: ColumnElement,
-    parameterIndex: Int,
+    parameterIndex: CodeBlock,
+    valueName: String,
+    usesGeneratedRelationshipIds: Boolean = false
+  ) = apply {
+    val value = serializedInsertAccessCode(
+      table = table,
+      column = column,
+      usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
+    )
+    when {
+      column.bindingValueCanBeNull() -> addStatement("val %N = %L", valueName, value)
+        .beginControlFlow("if (%N == null)", valueName)
+        .addStatement("statement.bindNull(%L)", parameterIndex)
+        .nextControlFlow("else")
+        .addValueBinding(
+          column = column,
+          parameterIndex = parameterIndex,
+          value = CodeBlock.of("%N", valueName)
+        )
+        .endControlFlow()
+      else -> addValueBinding(
+        column = column,
+        parameterIndex = parameterIndex,
+        value = value
+      )
+    }
+  }
+
+  private fun FunSpec.Builder.addValueBinding(
+    column: ColumnElement,
+    parameterIndex: CodeBlock,
     value: CodeBlock
   ) = when (column.sqlStorageType) {
     SqlStorageType.BYTE_ARRAY,
     SqlStorageType.BOXED_BYTE_ARRAY,
-    SqlStorageType.BYTE -> CodeBlock.of(
-      "statement.bindBlob(%L, %L)\n",
+    SqlStorageType.BYTE -> addStatement(
+      "statement.bindBlob(%L, %L)",
       parameterIndex,
       column.databaseWriteValue(value)
     )
-    SqlStorageType.DOUBLE -> CodeBlock.of("statement.bindDouble(%L, %L)\n", parameterIndex, value)
-    SqlStorageType.FLOAT -> CodeBlock.of("statement.bindDouble(%L, %L.toDouble())\n", parameterIndex, value)
+    SqlStorageType.DOUBLE -> addStatement("statement.bindDouble(%L, %L)", parameterIndex, value)
+    SqlStorageType.FLOAT -> addStatement("statement.bindDouble(%L, %L.toDouble())", parameterIndex, value)
     SqlStorageType.INT,
-    SqlStorageType.SHORT -> CodeBlock.of("statement.bindLong(%L, %L.toLong())\n", parameterIndex, value)
-    SqlStorageType.LONG -> CodeBlock.of("statement.bindLong(%L, %L)\n", parameterIndex, value)
-    SqlStorageType.STRING -> CodeBlock.of("statement.bindString(%L, %L)\n", parameterIndex, value)
+    SqlStorageType.SHORT -> addStatement("statement.bindLong(%L, %L.toLong())", parameterIndex, value)
+    SqlStorageType.LONG -> addStatement("statement.bindLong(%L, %L)", parameterIndex, value)
+    SqlStorageType.STRING -> addStatement("statement.bindString(%L, %L)", parameterIndex, value)
   }
 
   private fun serializedInsertAccessCode(

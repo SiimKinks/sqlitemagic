@@ -255,7 +255,7 @@ internal class ModelAdapterWriter(
         else -> access
       }
       val operation = CodeBlock.of(
-        "%N.%N(\n  adapter = %T,\n  entity = %L\n)",
+        "%N.%N(adapter = %T, entity = %L\n)",
         VARIABLE_OPERATIONS,
         operationName,
         referencedTable.generationNames.adapterClassName,
