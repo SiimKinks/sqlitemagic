@@ -19,10 +19,13 @@ internal fun <P : PropertyMetadata> constructFromCursor(
   mutableAssignment: (P) -> CodeBlock
 ): CodeBlock = when (construction.strategy) {
   PRIMARY_CONSTRUCTOR -> {
-    val orderedParameters = construction.constructorParameters
-      .mapNotNull { path ->
-        properties.firstOrNull { it.access.path == path }
-      }
+    // Reverse iteration keeps the first property when duplicate paths overwrite an index entry.
+    val propertiesByPath = properties
+      .asReversed()
+      .associateBy { it.access.path }
+    val orderedParameters = construction
+      .constructorParameters
+      .mapNotNull(propertiesByPath::get)
     buildCodeBlock {
       add("%T(\n", type.copy(nullable = false))
       if (orderedParameters.isNotEmpty()) {
