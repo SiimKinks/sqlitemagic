@@ -21,6 +21,6 @@ subprojects {
 }
 
 tasks.named<Wrapper>("wrapper") {
-  gradleVersion = "9.7.1"
+  gradleVersion = "9.8.0"
   distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
 }
