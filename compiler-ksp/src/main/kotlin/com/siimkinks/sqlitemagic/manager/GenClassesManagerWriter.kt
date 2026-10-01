@@ -45,7 +45,6 @@ import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.view.ViewElement
 import com.squareup.kotlinpoet.ANY
 import com.squareup.kotlinpoet.BOOLEAN
-import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -391,9 +390,7 @@ internal class GenClassesManagerWriter(
           submodules.isEmpty() -> addStatement("return null")
           else -> addStatement(
             "return arrayOf(%L)",
-            submodules
-              .map { CodeBlock.of("%S", it.moduleName) }
-              .joinToCode(separator = ", ")
+            submodules.joinToCode { CodeBlock.of("%S", it.moduleName) }
           )
         }
       }
@@ -433,8 +430,8 @@ internal class GenClassesManagerWriter(
       .addStatement("val className = input::class.qualifiedName")
       .beginControlFlow("return when (className)")
       .addCode(transformerBranches(returnType = returnType, includeDefaults = true))
-      .addCode(
-        "else -> %L\n",
+      .addStatement(
+        "else -> %L",
         submodules
           .asReversed()
           .fold(
@@ -515,36 +512,20 @@ internal class GenClassesManagerWriter(
         )
         else -> addStatement("val stringValue = %N.toString()", VARIABLE_SQL_VALUE)
       }
-      add(
-        columnConstructor(
-          returnType = returnType,
-          columnClass = columnClass,
-          parser = parser
-        )
+      addStatement(
+        "%T(table = %T.ANONYMOUS_TABLE as %T, name = stringValue, valueParser = %T.%N, nullable = false, alias = null) as %T",
+        when {
+          isDefaultTransformer -> BOOLEAN_COLUMN
+          else -> columnClass
+        }.parameterizedBy(ANY, NOT_NULLABLE),
+        TABLE,
+        TABLE.parameterizedBy(ANY),
+        UTILS,
+        parser,
+        returnType
       )
       endControlFlow()
     }
-  }
-
-  private fun TransformerElement.columnConstructor(
-    returnType: TypeName,
-    columnClass: ClassName,
-    parser: String
-  ): CodeBlock {
-    val generatedType = when {
-      isDefaultTransformer -> BOOLEAN_COLUMN
-      else -> columnClass
-    }.parameterizedBy(ANY, NOT_NULLABLE)
-    val tableType = TABLE.parameterizedBy(ANY)
-    return CodeBlock.of(
-      "%T(table = %T.ANONYMOUS_TABLE as %T, name = stringValue, valueParser = %T.%N, nullable = false, alias = null) as %T\n",
-      generatedType,
-      TABLE,
-      tableType,
-      UTILS,
-      parser,
-      returnType
-    )
   }
 
   private fun fallbackColumn(valueType: TypeName): CodeBlock {

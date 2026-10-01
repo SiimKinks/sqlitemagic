@@ -39,9 +39,9 @@ import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderRequiredNullable
 import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderTransformedScalarView_Dao
 import com.siimkinks.sqlitemagic.internal.MutableInt
 import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mockito.kotlin.mock
+import org.junit.jupiter.api.Test
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 
 internal class GeneratedViewReaderTest {
@@ -88,14 +88,16 @@ internal class GeneratedViewReaderTest {
     val columns = SimpleArrayMap<String, Int>().apply {
       put("reader.tail", 4)
     }
+    val missingProjectionCursor = cursorOf(null, null, null, null, "tail")
     assertThrows<SQLException> {
       SqliteMagic_ReaderNullableNoIdView_Dao.shallowObjectFromCursorPosition(
-        cursor = cursorOf(null, null, null, null, "tail"),
+        cursor = missingProjectionCursor,
         columns = columns,
         tableGraphNodeNames = null,
         nodeName = "reader"
       )
     }
+    verifyNoInteractions(missingProjectionCursor)
   }
 
   @Test
@@ -103,14 +105,16 @@ internal class GeneratedViewReaderTest {
     val cursor = cursorOf("ABC", null, "tail")
 
     assertThrows<SQLException> {
-      SqliteMagic_ReaderNullableNoIdView_Dao.shallowObjectFromCursorPosition(cursor = cursor)
+      SqliteMagic_ReaderNullableNoIdView_Dao.shallowObjectFromCursorPosition(
+        cursor = cursor
+      )
     }
   }
 
   @Test
   fun `uses relationship width before the trailing scalar`() {
     val offset = MutableInt()
-    val view = SqliteMagic_ReaderRelationshipTrailingScalarView_Dao.fullObjectFromCursorPosition(
+    val view = SqliteMagic_ReaderRelationshipTrailingScalarView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf(1L, 2L, 2L, "Ada", "tail"),
       columnOffset = offset
     )
@@ -142,7 +146,7 @@ internal class GeneratedViewReaderTest {
       put("view.author", "author")
     }
 
-    val view = SqliteMagic_ReaderRelationshipTrailingScalarView_Dao.fullObjectFromCursorPosition(
+    val view = SqliteMagic_ReaderRelationshipTrailingScalarView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf(1L, 2L, "tail", 2L, "Ada"),
       columns = columns,
       tableGraphNodeNames = graph,
@@ -175,7 +179,7 @@ internal class GeneratedViewReaderTest {
       put("view.author", "author")
     }
 
-    val view = SqliteMagic_ReaderNullableRelationshipTrailingScalarView_Dao.fullObjectFromCursorPosition(
+    val view = SqliteMagic_ReaderNullableRelationshipTrailingScalarView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf(null, null, "tail", null, null),
       columns = columns,
       tableGraphNodeNames = graph,
@@ -204,7 +208,7 @@ internal class GeneratedViewReaderTest {
     val cursor = cursorOf(null, null, "tail", null, null)
 
     assertThrows<SQLException> {
-      SqliteMagic_ReaderNullableRelationshipTrailingScalarView_Dao.fullObjectFromCursorPosition(
+      SqliteMagic_ReaderNullableRelationshipTrailingScalarView_Dao.shallowObjectFromCursorPosition(
         cursor = cursor,
         columns = columns,
         tableGraphNodeNames = graph,
@@ -222,7 +226,7 @@ internal class GeneratedViewReaderTest {
       put("view.inner.count", 1)
       put("view.inner.code", 3)
     }
-    val present = SqliteMagic_ReaderReorderedNullableNestedView_Dao.fullObjectFromCursorPosition(
+    val present = SqliteMagic_ReaderReorderedNullableNestedView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf("tail", 7, "unmapped", null),
       columns = columns,
       tableGraphNodeNames = null,
@@ -238,7 +242,7 @@ internal class GeneratedViewReaderTest {
       )
     )
 
-    val absent = SqliteMagic_ReaderReorderedNullableNestedView_Dao.fullObjectFromCursorPosition(
+    val absent = SqliteMagic_ReaderReorderedNullableNestedView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf("tail", null, "unmapped", null),
       columns = columns,
       tableGraphNodeNames = null,
@@ -261,7 +265,7 @@ internal class GeneratedViewReaderTest {
     val cursor = cursorOf("tail", null, "unmapped", null)
 
     assertThrows<SQLException> {
-      SqliteMagic_ReaderReorderedNullableNestedView_Dao.fullObjectFromCursorPosition(
+      SqliteMagic_ReaderReorderedNullableNestedView_Dao.shallowObjectFromCursorPosition(
         cursor = cursor,
         columns = columns,
         tableGraphNodeNames = null,
@@ -275,7 +279,7 @@ internal class GeneratedViewReaderTest {
   @Test
   fun `required projections with nullable leaves construct objects from all null columns`() {
     val tableOffset = MutableInt()
-    val tableView = SqliteMagic_ReaderRequiredNullableTableView_Dao.fullObjectFromCursorPosition(
+    val tableView = SqliteMagic_ReaderRequiredNullableTableView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf(null, null),
       columnOffset = tableOffset
     )
@@ -290,7 +294,7 @@ internal class GeneratedViewReaderTest {
     assertThat(tableOffset.value).isEqualTo(2)
 
     val nestedOffset = MutableInt()
-    val nestedView = SqliteMagic_ReaderRequiredNullableNestedView_Dao.fullObjectFromCursorPosition(
+    val nestedView = SqliteMagic_ReaderRequiredNullableNestedView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf(null, null),
       columnOffset = nestedOffset
     )
@@ -329,7 +333,7 @@ internal class GeneratedViewReaderTest {
 
     cases.forEach { case ->
       val columns = SimpleArrayMap<String, Int>().apply { put("view", case.offset) }
-      val actual = SqliteMagic_ReaderRepeatedNestedView_Dao.fullObjectFromCursorPosition(
+      val actual = SqliteMagic_ReaderRepeatedNestedView_Dao.shallowObjectFromCursorPosition(
         cursor = cursorOf(*case.values.toTypedArray()),
         columns = columns,
         tableGraphNodeNames = null,
@@ -346,7 +350,7 @@ internal class GeneratedViewReaderTest {
       put("view.repeated", 7)
     }
 
-    val view = SqliteMagic_ReaderNestedSpansView_Dao.fullObjectFromCursorPosition(
+    val view = SqliteMagic_ReaderNestedSpansView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf("prefix", 99, 1L, 2L, 2L, "Ada", "inner-tail", "Left", "Right", "repeat-tail"),
       columns = columns,
       tableGraphNodeNames = null,
@@ -380,7 +384,7 @@ internal class GeneratedViewReaderTest {
     val cursor = cursorOf("Ada")
 
     assertThrows<SQLException> {
-      SqliteMagic_ReaderNestedNameView_Dao.fullObjectFromCursorPosition(
+      SqliteMagic_ReaderNestedNameView_Dao.shallowObjectFromCursorPosition(
         cursor = cursor,
         columns = columns,
         tableGraphNodeNames = null,
@@ -395,7 +399,7 @@ internal class GeneratedViewReaderTest {
   fun `reads a complete view leaf inside an embedded container before its trailing scalar`() {
     val offset = MutableInt()
     offset.value = 1
-    val view = SqliteMagic_ReaderEmbeddedViewLeafView_Dao.fullObjectFromCursorPosition(
+    val view = SqliteMagic_ReaderEmbeddedViewLeafView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf("ignored", "Ada", "tail"),
       columnOffset = offset
     )
@@ -466,9 +470,10 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `reads transformed scalar leaves`() {
-    val offset = MutableInt()
+    val offset = MutableInt().apply { value = 2 }
+    val cursor = cursorOf("prefix", 99, "ada@example.com")
     val view = SqliteMagic_ReaderTransformedScalarView_Dao.shallowObjectFromCursorPosition(
-      cursor = cursorOf("ada@example.com"),
+      cursor = cursor,
       columnOffset = offset
     )
 
@@ -477,6 +482,28 @@ internal class GeneratedViewReaderTest {
         email = ReaderEmail(value = "ada@example.com")
       )
     )
-    assertThat(offset.value).isEqualTo(1)
+    assertThat(offset.value).isEqualTo(3)
+    verify(cursor).isNull(2)
+    verify(cursor).getString(2)
+  }
+
+  @Test
+  fun `selected transformed scalar reads its reordered getter once`() {
+    val cursor = cursorOf("prefix", 99, "ada@example.com")
+    val columns = SimpleArrayMap<String, Int>().apply { put("view.email", 2) }
+    val view = SqliteMagic_ReaderTransformedScalarView_Dao.shallowObjectFromCursorPosition(
+      cursor = cursor,
+      columns = columns,
+      tableGraphNodeNames = null,
+      nodeName = "view"
+    )
+
+    assertThat(view).isEqualTo(
+      ReaderTransformedScalarView(
+        email = ReaderEmail(value = "ada@example.com")
+      )
+    )
+    verify(cursor).isNull(2)
+    verify(cursor).getString(2)
   }
 }

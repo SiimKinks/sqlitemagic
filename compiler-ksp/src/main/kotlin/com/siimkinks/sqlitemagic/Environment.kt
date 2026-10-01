@@ -50,12 +50,12 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   var submoduleDatabases: List<SubmoduleDatabaseMetadata>? = null
   val transformerElements: Map<TypeKey, TransformerElement>
     field = linkedMapOf()
-  val transformerElementsForCurrentRound: List<TransformerRoundElement>
-    field = mutableListOf()
+  val transformerElementsForCurrentRound: Map<TypeKey, TransformerRoundElement>
+    field = linkedMapOf()
   val tableElements: Map<TypeKey, TableElement>
     field = linkedMapOf()
-  val tableRoundElementsForCurrentRound: List<TableRoundElement>
-    field = mutableListOf()
+  val tableRoundElementsForCurrentRound: Map<TypeKey, TableRoundElement>
+    field = linkedMapOf()
   val viewElements: Map<TypeKey, ViewElement>
     field = linkedMapOf()
   val viewRoundElementsForCurrentRound: List<ViewRoundElement>
@@ -118,16 +118,13 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
       transformerElements[transformerElement.typeKey] == transformerElement -> return
       else -> {
         transformerElements[transformerElement.typeKey] = transformerElement
-        transformerElementsForCurrentRound += transformer
+        transformerElementsForCurrentRound[transformerElement.typeKey] = transformer
       }
     }
   }
 
   fun getTransformerFor(type: TransformerRoundTypeElement): TransformerElement? =
     transformerElements[type.typeKey]
-
-  fun getRoundTransformerFor(typeKey: TypeKey) = transformerElementsForCurrentRound
-    .firstOrNull { it.typeKey == typeKey }
 
   fun addTableElement(roundElement: TableRoundElement) {
     val table = roundElement.table
@@ -141,7 +138,7 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
       tableElements[table.typeKey] == table -> return
       else -> {
         tableElements[table.typeKey] = table
-        tableRoundElementsForCurrentRound += roundElement
+        tableRoundElementsForCurrentRound[table.typeKey] = roundElement
         collectionObjectValidationRegistry.replaceTable(
           previous = previous,
           replacement = table

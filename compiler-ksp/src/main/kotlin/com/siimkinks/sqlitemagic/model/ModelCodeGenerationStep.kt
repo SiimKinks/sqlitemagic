@@ -24,7 +24,7 @@ class ModelCodeGenerationStep(
   )
 
   override fun process(resolver: Resolver): ProcessingStepResult {
-    for (roundTable in environment.tableRoundElementsForCurrentRound) {
+    for (roundTable in environment.tableRoundElementsForCurrentRound.values) {
       try {
         generateUniqueTransformerColumns(roundTable, resolver)
         generateRelationshipColumns(roundTable)

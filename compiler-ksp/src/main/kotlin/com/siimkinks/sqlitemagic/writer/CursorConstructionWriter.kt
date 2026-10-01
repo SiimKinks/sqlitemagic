@@ -8,7 +8,6 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.joinToCode
-import com.squareup.kotlinpoet.withIndent
 
 /** Shared construction shape; each source supplies its own cursor read and mutable-default policy. */
 internal fun <P : PropertyMetadata> constructFromCursor(
@@ -26,22 +25,17 @@ internal fun <P : PropertyMetadata> constructFromCursor(
     val orderedParameters = construction
       .constructorParameters
       .mapNotNull(propertiesByPath::get)
-    buildCodeBlock {
-      add("%T(\n", type.copy(nullable = false))
-      if (orderedParameters.isNotEmpty()) {
-        withIndent {
-          add(
-            "%L\n",
-            orderedParameters
-              .map { property ->
-                CodeBlock.of("%N = %L", property.access.path.propertyName, readValue(property))
-              }
-              .joinToCode(separator = ",\n")
-          )
-        }
+    CodeBlock.of(
+      "%T(%L)",
+      type.copy(nullable = false),
+      orderedParameters.joinToCode { property ->
+        CodeBlock.of(
+          "%N = %L",
+          property.access.path.propertyName,
+          readValue(property)
+        )
       }
-      add(")")
-    }
+    )
   }
   MUTABLE_PROPERTIES -> buildCodeBlock {
     beginControlFlow("%T().apply", type.copy(nullable = false))

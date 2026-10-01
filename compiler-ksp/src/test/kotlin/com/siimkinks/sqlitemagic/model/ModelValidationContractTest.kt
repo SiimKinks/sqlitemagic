@@ -284,7 +284,7 @@ internal class ModelValidationContractTest : ProcessingStepsTest {
     override fun process(resolver: Resolver): ProcessingStepResult {
       val result = delegate.process(resolver)
       rounds += RoundState(
-        collected = environment.tableRoundElementsForCurrentRound
+        collected = environment.tableRoundElementsForCurrentRound.values
           .map(TableRoundElement::table)
           .map(TableElement::modelName),
         deferred = when (result) {

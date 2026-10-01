@@ -162,7 +162,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
           )
         )
       )
-    assertThat(environment.tableRoundElementsForCurrentRound.single().table)
+    assertThat(environment.tableRoundElementsForCurrentRound.values.single().table)
       .isSameInstanceAs(table)
   }
 
@@ -866,7 +866,7 @@ private class OriginRecordingStep(
   private val originatingFiles: MutableMap<String, OriginatingFilesSnapshot>
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
-    environment.tableRoundElementsForCurrentRound.forEach { table ->
+    environment.tableRoundElementsForCurrentRound.values.forEach { table ->
       originatingFiles[table.table.modelName] = OriginatingFilesSnapshot.from(table.originatingFiles)
     }
     return Continue

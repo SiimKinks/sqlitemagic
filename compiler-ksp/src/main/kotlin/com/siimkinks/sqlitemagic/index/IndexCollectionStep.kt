@@ -97,13 +97,15 @@ class IndexCollectionStep(
         }
       }
       .toMap()
-    val candidates = environment.tableRoundElementsForCurrentRound.flatMap { roundTable ->
-      collectTableIndexes(
-        roundTable = roundTable,
-        compositeQueries = compositeQueries,
-        reporter = reporter
-      )
-    }
+    val candidates = environment.tableRoundElementsForCurrentRound
+      .values
+      .flatMap { roundTable ->
+        collectTableIndexes(
+          roundTable = roundTable,
+          compositeQueries = compositeQueries,
+          reporter = reporter
+        )
+      }
     validateCandidates(
       candidates = candidates,
       reporter = reporter

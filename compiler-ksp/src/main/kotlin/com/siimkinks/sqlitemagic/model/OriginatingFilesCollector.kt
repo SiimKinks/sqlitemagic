@@ -93,7 +93,7 @@ internal class OriginatingFilesCollector(
     valueDeclaration: KSClassDeclaration?
   ) {
     originatingFiles.add(valueDeclaration?.containingFile)
-    val roundTransformer = environment.getRoundTransformerFor(transformer.typeKey)
+    val roundTransformer = environment.transformerElementsForCurrentRound[transformer.typeKey]
     when {
       roundTransformer == null -> originatingFiles.markIncomplete()
       else -> originatingFiles.add(roundTransformer.originatingFiles)

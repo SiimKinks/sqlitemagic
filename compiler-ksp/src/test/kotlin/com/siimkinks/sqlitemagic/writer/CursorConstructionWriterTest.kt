@@ -62,7 +62,7 @@ internal class CursorConstructionWriterTest {
         label = "constructor parameter order",
         construction = constructor,
         properties = listOf(second, first),
-        expectedCode = "Model(\n  first = firstRead,\n  second = secondRead\n)",
+        expectedCode = "Model(first = firstRead, second = secondRead)",
         expectedReads = listOf("firstRead", "secondRead")
       ),
       Case(
@@ -72,14 +72,14 @@ internal class CursorConstructionWriterTest {
           defaultableParameters = setOf(missingPath)
         ),
         properties = listOf(first, second),
-        expectedCode = "Model(\n  first = firstRead,\n  second = secondRead\n)",
+        expectedCode = "Model(first = firstRead, second = secondRead)",
         expectedReads = listOf("firstRead", "secondRead")
       ),
       Case(
         label = "first duplicate path wins",
         construction = constructor,
         properties = listOf(first, first.copy(value = "duplicateRead"), second),
-        expectedCode = "Model(\n  first = firstRead,\n  second = secondRead\n)",
+        expectedCode = "Model(first = firstRead, second = secondRead)",
         expectedReads = listOf("firstRead", "secondRead")
       ),
       Case(
@@ -101,7 +101,7 @@ internal class CursorConstructionWriterTest {
             value = "leftRead"
           )
         ),
-        expectedCode = "Model(\n  `value` = leftRead,\n  `value` = rightRead\n)",
+        expectedCode = "Model(`value` = leftRead, `value` = rightRead)",
         expectedReads = listOf("leftRead", "rightRead")
       ),
       Case(

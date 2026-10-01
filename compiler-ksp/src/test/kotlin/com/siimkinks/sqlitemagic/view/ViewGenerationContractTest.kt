@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.view
 
+import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
@@ -21,6 +22,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           contents = """
             package $PACKAGE
 
+            import android.database.Cursor
             import com.siimkinks.sqlitemagic.CompiledSelect
             import com.siimkinks.sqlitemagic.Select.SelectN
             import com.siimkinks.sqlitemagic.annotation.Id
@@ -28,6 +30,8 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
             import com.siimkinks.sqlitemagic.annotation.ViewQuery
+            import com.siimkinks.sqlitemagic.internal.MutableInt
+            import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
 
             @Table
             data class Author(
@@ -48,6 +52,32 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
                 val query: CompiledSelect<Author, SelectN> = error("compile-only")
               }
             }
+
+            private typealias PositionalReader = (Cursor, MutableInt) -> AuthorSummary
+            private typealias SelectedReader = (
+              Cursor,
+              SimpleArrayMap<String, Int>,
+              SimpleArrayMap<String, String>?,
+              String
+            ) -> AuthorSummary?
+
+            private val shallowPositional: PositionalReader =
+              SqliteMagic_AuthorSummary_Dao::shallowObjectFromCursorPosition
+            private val shallowSelected: SelectedReader =
+              SqliteMagic_AuthorSummary_Dao::shallowObjectFromCursorPosition
+
+            private fun shallowWithDefaultOffset(cursor: Cursor): AuthorSummary =
+              SqliteMagic_AuthorSummary_Dao.shallowObjectFromCursorPosition(cursor = cursor)
+
+            private fun shallowWithNamedSelection(
+              cursor: Cursor,
+              columns: SimpleArrayMap<String, Int>
+            ): AuthorSummary? = SqliteMagic_AuthorSummary_Dao.shallowObjectFromCursorPosition(
+              cursor = cursor,
+              columns = columns,
+              tableGraphNodeNames = null,
+              nodeName = "summary"
+            )
           """
         )
       )
@@ -73,8 +103,12 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertDoesNotContain(
           "ignoredLabel",
           "AuthorSummaryColumn",
-          "SqliteMagic_AuthorSummary_Adapter"
+          "SqliteMagic_AuthorSummary_Adapter",
+          "fullObjectFromCursorPosition"
         )
+        generatedSource
+          .substringAfter("private fun createMapper(")
+          .assertDoesNotContain("queryDeep ->")
       }
       .withGeneratedSource("SqliteMagic_AuthorSummary_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -102,8 +136,29 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "bindToUpdateStatement",
           "DeleteBuilder",
           "InsertBuilder",
-          "newInstanceWithOnlyId"
+          "newInstanceWithOnlyId",
+          "fullObjectFromCursorPosition"
         )
+        generatedSource.assertContainsInOrder(
+          "fun shallowObjectFromCursorPosition(",
+          "fun shallowObjectFromCursorPosition("
+        )
+        val constructions = Regex("AuthorSummary\\(")
+          .findAll(generatedSource)
+          .count()
+        val offsetAdvancements = Regex("columnOffset\\.value \\+=")
+          .findAll(generatedSource)
+          .count()
+        val defaultOffsets = Regex("columnOffset: MutableInt = MutableInt\\(\\)")
+          .findAll(generatedSource)
+          .count()
+        val readerDeclarations = Regex("fun shallowObjectFromCursorPosition\\(")
+          .findAll(generatedSource)
+          .count()
+        assertThat(constructions).isEqualTo(2)
+        assertThat(offsetAdvancements).isEqualTo(1)
+        assertThat(defaultOffsets).isEqualTo(1)
+        assertThat(readerDeclarations).isEqualTo(2)
       }
   }
 
@@ -158,6 +213,10 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "email =",
           "shallowObjectFromCursorPosition"
         )
+        val transformerCalls = Regex("EmailTransformer\\.stringToEmail\\(")
+          .findAll(generatedSource)
+          .count()
+        assertThat(transformerCalls).isEqualTo(2)
       }
   }
 
@@ -272,30 +331,28 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "AUTHOR_NAME",
           "generatedView = SqliteMagic_JoinedSummary_Dao.GENERATED_VIEW",
           "mapper =",
-          "createMapper(",
-          """viewIdentifier = alias ?: "joined_summary"""",
+          """createMapper(columnPositions, tableGraphNodeNames, queryDeep, alias ?: "joined_summary")""",
           "private fun createMapper(",
           "queryDeep: Boolean",
-          "queryDeep ->",
-          "SqliteMagic_JoinedSummary_Dao::fullObjectFromCursorPosition",
           "SqliteMagic_JoinedSummary_Dao::shallowObjectFromCursorPosition",
-          "SqliteMagic_JoinedSummary_Dao.fullObjectFromCursorPosition(" +
-              "it, columnPositions, tableGraphNodeNames, viewIdentifier",
           "SqliteMagic_JoinedSummary_Dao.shallowObjectFromCursorPosition(" +
               "it, columnPositions, tableGraphNodeNames, viewIdentifier"
         )
+        generatedSource.assertDoesNotContain("fullObjectFromCursorPosition")
+        generatedSource
+          .substringAfter("private fun createMapper(")
+          .assertDoesNotContain("queryDeep ->")
       }
       .withGeneratedSource("SqliteMagic_JoinedSummary_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "shallowObjectFromCursorPosition",
-          "fullObjectFromCursorPosition",
           "tableGraphNodeNames",
           "author",
           "query = JoinedSummary.query",
           """viewName = "joined_summary"""",
           "GENERATED_VIEW.definition"
         )
-        generatedSource.assertDoesNotContain("title =")
+        generatedSource.assertDoesNotContain("title =", "fullObjectFromCursorPosition")
       }
   }
 

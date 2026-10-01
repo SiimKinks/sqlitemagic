@@ -34,11 +34,9 @@ import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
-import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.addOriginatingKSFile
 import com.squareup.kotlinpoet.ksp.writeTo
-import com.squareup.kotlinpoet.withIndent
 
 internal class ColumnClassWriter private constructor(
   private val codeGenerator: CodeGenerator,
@@ -78,19 +76,6 @@ internal class ColumnClassWriter private constructor(
           nullabilityType
         )
       )
-      .addSuperclassConstructorParameter(
-        "%L",
-        buildCodeBlock {
-          add("\n")
-          withIndent {
-            add(
-              superConstructorArguments()
-                .joinToCode(separator = ",\n")
-            )
-          }
-          add("\n")
-        }
-      )
       .addProperty(constructorProperty(name = "table", type = TABLE.parameterizedBy(parentTableType)))
       .addProperty(constructorProperty(name = "name", type = STRING))
       .addProperty(
@@ -106,6 +91,8 @@ internal class ColumnClassWriter private constructor(
         if (unique) {
           addSuperinterface(UNIQUE.parameterizedBy(nullabilityType))
         }
+        superConstructorArguments()
+          .forEach(::addSuperclassConstructorParameter)
       }
     originatingFiles.files.forEach(columnClass::addOriginatingKSFile)
     FileSpec
@@ -146,30 +133,23 @@ internal class ColumnClassWriter private constructor(
     valueAdapterArgument()
   )
 
-  private fun valueAdapterArgument() = buildCodeBlock {
-    add(
-      "valueAdapter = %T.%L(\n",
-      COLUMN_VALUE_ADAPTER,
+  private fun valueAdapterArgument() = CodeBlock.of(
+    "valueAdapter = %T.%L(%L)",
+    COLUMN_VALUE_ADAPTER,
+    when {
+      parser == null -> "serializing"
+      parser.acceptsNullDatabaseValue -> "transformedNullableInput"
+      else -> "transformed"
+    },
+    listOfNotNull(
+      CodeBlock.of("parser = valueParser"),
+      CodeBlock.of("toDb = %L", serializer),
       when {
-        parser == null -> "serializing"
-        parser.acceptsNullDatabaseValue -> "transformedNullableInput"
-        else -> "transformed"
+        parser == null -> null
+        else -> CodeBlock.of("fromDb = %L", parser.deserializer)
       }
-    )
-    withIndent {
-      add(
-        listOfNotNull(
-          CodeBlock.of("parser = valueParser"),
-          CodeBlock.of("toDb = %L", serializer),
-          when {
-            parser == null -> null
-            else -> CodeBlock.of("fromDb = %L", parser.deserializer)
-          }
-        ).joinToCode(separator = ",\n")
-      )
-    }
-    add("\n)")
-  }
+    ).joinToCode()
+  )
 
   private fun aliasOverride(): FunSpec {
     val generatedType = className.parameterizedBy(parentTableType, nullabilityType)
@@ -178,18 +158,14 @@ internal class ColumnClassWriter private constructor(
       .addModifiers(OVERRIDE)
       .addParameter(name = VARIABLE_ALIAS, type = STRING)
       .returns(generatedType)
-      .addCode(
-        buildCodeBlock {
-          add("return %T(\n", generatedType)
-          withIndent {
-            add("table = %N,\n", "table")
-            add("name = %N,\n", "name")
-            add("valueParser = %N,\n", "valueParser")
-            add("nullable = %N,\n", "nullable")
-            add("alias = %N\n", VARIABLE_ALIAS)
-          }
-          add(")\n")
-        }
+      .addStatement(
+        "return %T(table = %N, name = %N, valueParser = %N, nullable = %N, alias = %N)",
+        generatedType,
+        "table",
+        "name",
+        "valueParser",
+        "nullable",
+        VARIABLE_ALIAS
       )
       .build()
   }

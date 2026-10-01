@@ -34,7 +34,6 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.buildCodeBlock
-import com.squareup.kotlinpoet.withIndent
 
 /** Common query-facing structure for a persisted table or a view. */
 internal class ReadTableStructureWriter private constructor(
@@ -248,31 +247,22 @@ internal class ReadTableStructureWriter private constructor(
           }
           add(
             buildCodeBlock {
-              add("%N = { %N, %N, %N ->\n", METHOD_MAPPER, "columnPositions", "tableGraphNodeNames", "queryDeep")
-              withIndent {
-                add("%N(\n", METHOD_CREATE_MAPPER)
-                withIndent {
-                  add("%N = %N,\n", "columnPositions", "columnPositions")
-                  add("%N = %N,\n", "tableGraphNodeNames", "tableGraphNodeNames")
-                  add("%N = %N,\n", "queryDeep", "queryDeep")
-                  add("%N = %N ?: %S\n", viewIdentifier, VARIABLE_ALIAS, view.viewName)
-                }
-                add(")\n")
-              }
+              beginControlFlow("%N = { columnPositions, tableGraphNodeNames, queryDeep ->", METHOD_MAPPER)
+              addStatement(
+                "%N(columnPositions, tableGraphNodeNames, queryDeep, %N ?: %S)",
+                METHOD_CREATE_MAPPER,
+                VARIABLE_ALIAS,
+                view.viewName
+              )
+              unindent()
               add("}")
             }
           )
-          add(
-            CodeBlock.of(
-              "generatedView = %T.%N",
-              view.generationNames.daoClassName,
-              FIELD_GENERATED_VIEW
-            )
-          )
+          add(CodeBlock.of("generatedView = %T.%N", view.generationNames.daoClassName, FIELD_GENERATED_VIEW))
         },
         columns = columns,
         daoClassName = view.generationNames.daoClassName,
-        hasFullReaderBranch = true,
+        hasFullReaderBranch = false,
         selectedNodeNameParameter = viewIdentifier
       )
     }

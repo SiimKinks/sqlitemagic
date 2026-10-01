@@ -36,6 +36,8 @@ import com.siimkinks.sqlitemagic.WriterTypes.PERSIST_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.PERSIST_BY_COLUMN_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.UPDATE_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.UPDATE_BY_COLUMN_BUILDER
+import com.siimkinks.sqlitemagic.model.ModelExtensionsWriter.BulkOperationFunction.BULK_DELETE
+import com.siimkinks.sqlitemagic.model.ModelExtensionsWriter.OperationFunction.DELETE
 import com.squareup.kotlinpoet.COLLECTION
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
@@ -46,6 +48,7 @@ import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.joinToCode
 
 internal class ModelExtensionsWriter(
   private val environment: Environment
@@ -144,24 +147,20 @@ internal class ModelExtensionsWriter(
     operation: OperationFunction
   ): CodeBlock {
     val adapterClassName = table.generationNames.adapterClassName
+    val arguments = listOfNotNull(
+      CodeBlock.of("adapter = %T", adapterClassName),
+      CodeBlock.of("entity = this"),
+      when {
+        operation == DELETE && !table.requiresByColumnTerminal -> CodeBlock.of(
+          "byColumn = %T.defaultIdentityColumn",
+          adapterClassName
+        )
+        else -> null
+      }
+    )
     return CodeBlock
       .builder()
-      .add("return %T(\n", operation.builderType(table))
-      .indent()
-      .add("adapter = %T,\n", adapterClassName)
-      .apply {
-        when (operation) {
-          OperationFunction.DELETE -> {
-            add("entity = this")
-            if (!table.requiresByColumnTerminal) {
-              add(",\nbyColumn = %T.defaultIdentityColumn", adapterClassName)
-            }
-          }
-          else -> add("entity = this")
-        }
-      }
-      .unindent()
-      .add("\n)")
+      .addStatement("return %T(%L)", operation.builderType(table), arguments.joinToCode())
       .build()
   }
 
@@ -170,21 +169,17 @@ internal class ModelExtensionsWriter(
     operation: BulkOperationFunction
   ): CodeBlock {
     val adapterClassName = table.generationNames.adapterClassName
+    val arguments = listOf(CodeBlock.of("adapter = %T", adapterClassName)) + when {
+      operation.parameterType == null -> emptyList()
+      operation == BULK_DELETE && !table.requiresByColumnTerminal -> listOf(
+        CodeBlock.of("entities = o"),
+        CodeBlock.of("byColumn = %T.defaultIdentityColumn", adapterClassName)
+      )
+      else -> listOf(CodeBlock.of("entities = o"))
+    }
     return CodeBlock
       .builder()
-      .add("return %T(\n", operation.builderType(table))
-      .indent()
-      .add("adapter = %T", adapterClassName)
-      .apply {
-        if (operation.parameterType != null) {
-          add(",\nentities = o")
-          if (operation == BulkOperationFunction.BULK_DELETE && !table.requiresByColumnTerminal) {
-            add(",\nbyColumn = %T.defaultIdentityColumn", adapterClassName)
-          }
-        }
-      }
-      .unindent()
-      .add("\n)")
+      .addStatement("return %T(%L)", operation.builderType(table), arguments.joinToCode())
       .build()
   }
 

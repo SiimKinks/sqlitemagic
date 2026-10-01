@@ -328,6 +328,52 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
           """
         ),
         SourceFile.kotlin(
+          name = "Email.kt",
+          contents = """
+            package $PACKAGE
+
+            data class Email(val value: String)
+          """
+        ),
+        SourceFile.kotlin(
+          name = "EmailTransformer.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+            @ObjectToDbValue
+            fun emailToDb(value: Email): String = value.value
+
+            @DbValueToObject
+            fun emailFromDb(value: String): Email = Email(value)
+          """
+        ),
+        SourceFile.kotlin(
+          name = "Label.kt",
+          contents = """
+            package $PACKAGE
+
+            data class Label(val value: String)
+          """
+        ),
+        SourceFile.kotlin(
+          name = "LabelTransformer.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+            @ObjectToDbValue
+            fun labelToDb(value: Label): String = value.value
+
+            @DbValueToObject
+            fun labelFromDb(value: String): Label = Label(value)
+          """
+        ),
+        SourceFile.kotlin(
           name = "OriginInnerView.kt",
           contents = """
             package $PACKAGE
@@ -361,6 +407,11 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
             @View
             data class OriginOuterView(
               @ViewColumn("row") val row: OriginRow,
+              @ViewColumn("other_row") val otherRow: OriginRow,
+              @ViewColumn("email") val email: Email,
+              @ViewColumn("other_email") val otherEmail: Email,
+              @ViewColumn("label") val label: Label,
+              @ViewColumn("other_label") val otherLabel: Label,
               @ViewColumn("inner") val inner: OriginInnerView
             ) {
               companion object {
@@ -387,7 +438,15 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
     assertThat(snapshots.getValue("OriginOuterView"))
       .isEqualTo(
         ViewOriginatingFilesSnapshot(
-          files = setOf("OriginOuterView.kt", "OriginRow.kt", "OriginInnerView.kt"),
+          files = setOf(
+            "OriginOuterView.kt",
+            "OriginRow.kt",
+            "OriginInnerView.kt",
+            "Email.kt",
+            "EmailTransformer.kt",
+            "Label.kt",
+            "LabelTransformer.kt"
+          ),
           isComplete = true
         )
       )

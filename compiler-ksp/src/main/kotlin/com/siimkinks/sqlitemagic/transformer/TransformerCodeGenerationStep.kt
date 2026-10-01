@@ -13,7 +13,7 @@ class TransformerCodeGenerationStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
-    for (roundTransformer in environment.transformerElementsForCurrentRound) {
+    for (roundTransformer in environment.transformerElementsForCurrentRound.values) {
       val transformer = roundTransformer.toTransformerElement()
       when {
         transformer.isDefaultTransformer -> continue

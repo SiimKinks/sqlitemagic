@@ -334,9 +334,9 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
           "base = BaseView(",
           "tail =",
           "columnOffset.value",
-          "shallowObjectFromCursorPosition",
-          "fullObjectFromCursorPosition"
+          "shallowObjectFromCursorPosition"
         )
+        generatedSource.assertDoesNotContain("fullObjectFromCursorPosition")
       }
   }
 

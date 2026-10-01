@@ -325,12 +325,16 @@ internal class CursorReadTreeWriter {
   private fun absent(absence: CursorAbsence): CodeBlock = when (absence) {
     is CursorAbsence.TableEmbedded -> {
       val nullCheck = absence.positions
-        .map(CursorPosition::presentNullCheck)
-        .joinToCode(separator = " && ")
+        .joinToCode(
+          separator = " && ",
+          transform = CursorPosition::presentNullCheck
+        )
       val missingCheck = when {
         absence.selected -> absence.positions
-          .map(CursorPosition::missingCheck)
-          .joinToCode(separator = " && ")
+          .joinToCode(
+            separator = " && ",
+            transform = CursorPosition::missingCheck
+          )
         else -> null
       }
       when (missingCheck) {
@@ -339,8 +343,10 @@ internal class CursorReadTreeWriter {
       }
     }
     is CursorAbsence.MappedValues -> absence.positions
-      .map(CursorPosition::presentNullCheck)
-      .joinToCode(separator = " &&\n")
+      .joinToCode(
+        separator = " && ",
+        transform = CursorPosition::presentNullCheck
+      )
   }
 
   private fun requiredValue(

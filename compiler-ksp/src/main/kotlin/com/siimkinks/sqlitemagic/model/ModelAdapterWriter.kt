@@ -214,13 +214,13 @@ internal class ModelAdapterWriter(
     }
 
     collect(table.typeKey)
-    val values = tableNames
-      .map { CodeBlock.of("%S", it) }
-      .joinToCode(separator = ", ")
     return PropertySpec
       .builder(name = FIELD_TRIGGER_TABLE_NAMES, type = STRING_ARRAY)
       .addModifiers(OVERRIDE)
-      .initializer("arrayOf(%L)", values)
+      .initializer(
+        "arrayOf(%L)",
+        tableNames.joinToCode { CodeBlock.of("%S", it) }
+      )
       .build()
   }
 
@@ -255,7 +255,7 @@ internal class ModelAdapterWriter(
         else -> access
       }
       val operation = CodeBlock.of(
-        "%N.%N(adapter = %T, entity = %L\n)",
+        "%N.%N(adapter = %T, entity = %L)",
         VARIABLE_OPERATIONS,
         operationName,
         referencedTable.generationNames.adapterClassName,
@@ -317,17 +317,20 @@ internal class ModelAdapterWriter(
           table.structureFieldName,
           column.fieldName
         )
-          .addCode(identityResult(table, column))
+          .addIdentityResult(
+            table = table,
+            column = column
+          )
           .endControlFlow()
       }
     }
     .addStatement("throw %T(%S)", IllegalArgumentException::class, "Column does not identify an entity property")
     .build()
 
-  private fun identityResult(
+  private fun FunSpec.Builder.addIdentityResult(
     table: TableElement,
     column: ColumnElement
-  ) = CodeBlock.of(
+  ) = addStatement(
     "return %T(columnName = %S, serializedValue = %L)",
     GENERATED_ENTITY_IDENTITY,
     column.columnName,

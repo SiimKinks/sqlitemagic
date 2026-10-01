@@ -41,7 +41,7 @@ internal class ViewOriginatingFilesCollector(
   }
 
   private fun addTransformer(typeKey: TypeKey) {
-    val transformer = environment.getRoundTransformerFor(typeKey)
+    val transformer = environment.transformerElementsForCurrentRound[typeKey]
     when {
       transformer == null -> originatingFiles.markIncomplete()
       else -> originatingFiles.add(transformer.originatingFiles)
@@ -49,8 +49,7 @@ internal class ViewOriginatingFilesCollector(
   }
 
   private fun addTable(typeKey: TypeKey) {
-    val table = environment.tableRoundElementsForCurrentRound
-      .firstOrNull { it.table.typeKey == typeKey }
+    val table = environment.tableRoundElementsForCurrentRound[typeKey]
     when {
       table == null -> originatingFiles.markIncomplete()
       else -> {

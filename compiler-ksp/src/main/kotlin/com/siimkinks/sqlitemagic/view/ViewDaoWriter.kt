@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.view
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_VIEW_QUERY
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_VIEW
@@ -11,10 +10,10 @@ import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_INT
 import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.VIEW_DEFINITION
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.CompleteProjectionColumn
 import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.ModelDaoCursorWriter
-import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.writeModelSource
 import com.siimkinks.sqlitemagic.writer.CursorAbsence
 import com.siimkinks.sqlitemagic.writer.CursorPosition
@@ -35,8 +34,6 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.buildCodeBlock
-import com.squareup.kotlinpoet.withIndent
 
 internal class ViewDaoWriter(
   private val environment: Environment
@@ -53,24 +50,12 @@ internal class ViewDaoWriter(
       .addProperty(queryProperty())
       .addFunctions(
         listOf(
-          cursorReader(
+          shallowCursorReader(
             view = view,
-            functionName = METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION,
             selected = false
           ),
-          cursorReader(
+          shallowCursorReader(
             view = view,
-            functionName = METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION,
-            selected = true
-          ),
-          cursorReader(
-            view = view,
-            functionName = METHOD_FULL_OBJECT_FROM_CURSOR_POSITION,
-            selected = false
-          ),
-          cursorReader(
-            view = view,
-            functionName = METHOD_FULL_OBJECT_FROM_CURSOR_POSITION,
             selected = true
           )
         )
@@ -110,13 +95,12 @@ internal class ViewDaoWriter(
     )
     .build()
 
-  private fun cursorReader(
+  private fun shallowCursorReader(
     view: ViewElement,
-    functionName: String,
     selected: Boolean
   ): FunSpec {
     val function = FunSpec
-      .builder(functionName)
+      .builder(METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION)
       .addParameter(name = "cursor", type = CURSOR)
       .apply {
         when {
@@ -381,22 +365,19 @@ internal class ViewDaoWriter(
     scope: ViewCursorScope,
     namespace: CodeBlock,
     selectionKey: String
-  ): String {
-    val name = scope.nextGraphName()
-    val lookup = buildCodeBlock {
-      add("tableGraphNodeNames?.let { graph ->\n")
-      withIndent {
-        add("(0 until graph.size()).firstOrNull { index ->\n")
-        withIndent {
-          add("graph.keyAt(index).startsWith(%L + %S) &&\n", namespace, ".")
-          add("graph.valueAt(index) == %S\n", selectionKey)
-        }
-        add("}?.let(graph::keyAt)\n")
-      }
-      add("}")
-    }
-    scope.function.addStatement("val %N = %L", name, lookup)
-    return name
+  ) = scope.nextGraphName().also { name ->
+    scope.function
+      .beginControlFlow("val %N = tableGraphNodeNames?.let { graph ->", name)
+      .beginControlFlow("val matchingIndex = (0 until graph.size()).firstOrNull { index ->")
+      .addStatement(
+        "graph.keyAt(index).startsWith(%L + %S) && graph.valueAt(index) == %S",
+        namespace,
+        ".",
+        selectionKey
+      )
+      .endControlFlow()
+      .addStatement("matchingIndex?.let(graph::keyAt)")
+      .endControlFlow()
   }
 
   private fun tablePosition(
@@ -415,6 +396,7 @@ internal class ViewDaoWriter(
         nullCheckName = scope.nextNullCheckName()
       )
     }
+    val indexName = scope.nextIndexName()
     val scopedLookup = when {
       column.relationshipPath.isEmpty() -> CodeBlock.of(
         "columns[%L + %S] ?: columns[%L + %S]?.plus(%L)",
@@ -424,25 +406,30 @@ internal class ViewDaoWriter(
         ".$selectionKey",
         column.columnIndex
       )
-      else -> buildCodeBlock {
-        add("%N?.let { path ->\n", checkNotNull(graphPathName))
-        withIndent {
-          add(
-            "tableGraphNodeNames.get(path + %S)\n",
-            column.relationshipPath.joinToString(separator = "")
+      else -> {
+        val aliasName = "${indexName}Alias"
+        val lookupName = "${indexName}Lookup"
+        scope.function
+          .beginControlFlow("val %N = %N?.let { path ->", aliasName, checkNotNull(graphPathName))
+          .addStatement("tableGraphNodeNames.get(path + %S)", column.relationshipPath.joinToString(separator = ""))
+          .endControlFlow()
+          .beginControlFlow("val %N = %N?.let { alias ->", lookupName, aliasName)
+          .addStatement(
+            "columns[%L + %S + alias + %S] ?: columns[%L + %S + alias]?.plus(%L)",
+            namespace,
+            ".",
+            ".${column.column.columnName}",
+            namespace,
+            ".",
+            column.columnIndex
           )
-        }
-        add("}?.let { alias ->\n")
-        withIndent {
-          add("columns[%L + %S + alias + %S]", namespace, ".", ".${column.column.columnName}")
-          add(" ?: columns[%L + %S + alias]?.plus(%L)\n", namespace, ".", column.columnIndex)
-        }
-        add("}")
+          .endControlFlow()
+        CodeBlock.of("%N", lookupName)
       }
     }
     return scope.positions.selected(
       function = scope.function,
-      indexName = scope.nextIndexName(),
+      indexName = indexName,
       lookup = CodeBlock.of(
         "%L ?: %L?.plus(%L)",
         scopedLookup,
