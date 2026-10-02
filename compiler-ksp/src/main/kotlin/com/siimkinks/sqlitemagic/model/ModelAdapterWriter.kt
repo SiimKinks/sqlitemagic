@@ -68,36 +68,38 @@ internal class ModelAdapterWriter(
       )
       .addProperty(moduleName())
       .addProperty(
-        metadataStringProperty(
+        metadataProperty(
           name = FIELD_TABLE_NAME,
-          value = table.tableName
+          type = STRING,
+          initializer = CodeBlock.of("%S", table.tableName)
         )
       )
       .addProperty(
-        metadataStringProperty(
+        metadataProperty(
           name = FIELD_INSERT_SQL,
-          value = table.insertSql()
+          type = STRING,
+          initializer = CodeBlock.of("%S", table.insertSql())
         )
       )
       .addProperty(
         metadataProperty(
           name = FIELD_TABLE_POSITION,
           type = INT,
-          initializer = table.declarationOrder.toString()
+          initializer = table.tablePositionInitializer()
         )
       )
       .addProperty(
         metadataProperty(
           name = FIELD_WITHOUT_ROW_ID,
           type = BOOLEAN,
-          initializer = (TableOption.WITHOUT_ROWID in table.options).toString()
+          initializer = CodeBlock.of("%L", TableOption.WITHOUT_ROWID in table.options)
         )
       )
       .addProperty(
         metadataProperty(
           name = FIELD_MAX_COLUMNS,
           type = INT,
-          initializer = table.allColumns.size.toString()
+          initializer = CodeBlock.of("%L", table.allColumns.size)
         )
       )
       .apply {
@@ -173,20 +175,11 @@ internal class ModelAdapterWriter(
   private fun metadataProperty(
     name: String,
     type: TypeName,
-    initializer: String
+    initializer: CodeBlock
   ) = PropertySpec
     .builder(name = name, type = type)
     .addModifiers(OVERRIDE)
     .initializer(initializer)
-    .build()
-
-  private fun metadataStringProperty(
-    name: String,
-    value: String
-  ) = PropertySpec
-    .builder(name = name, type = STRING)
-    .addModifiers(OVERRIDE)
-    .initializer("%S", value)
     .build()
 
   private fun moduleName() = PropertySpec
@@ -435,4 +428,10 @@ internal class ModelAdapterWriter(
       ?.deserializedValueGetter(serializedValue)
       ?: serializedValue
   }
+
+  private fun TableElement.tablePositionInitializer() = CodeBlock.of(
+    "%T.%N",
+    environment.getGenClassesManagerClassName(),
+    tablePositionPropertyName
+  )
 }

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.ReadModelGenerationNames
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
@@ -81,6 +82,8 @@ data class TableElement(
   val hasCascadeDelete get() = allColumns.any { it.relationship?.onDeleteCascade == true }
 
   val byColumnType = COLUMN.parameterizedBy(STAR, STAR, STAR, modelClassName, NOT_NULLABLE)
+
+  val tablePositionPropertyName get() = "${FIELD_TABLE_POSITION}_$artifactStem"
 
   fun relationshipColumnClassName(column: ColumnElement) = ClassName(
     PACKAGE_ROOT,

@@ -53,6 +53,7 @@ import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.MUTABLE_LIST
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
@@ -98,6 +99,7 @@ internal class GenClassesManagerWriter(
         .addFunction(clearData())
         .addFunction(migrateViews())
         .addFunction(getNrOfTables())
+        .addTablePositions(database)
         .apply {
           when {
             isSubmodule -> addFunction(columnForValueOrNull())
@@ -120,6 +122,25 @@ internal class GenClassesManagerWriter(
         codeGenerator = codeGenerator,
         aggregating = true
       )
+  }
+
+  private fun TypeSpec.Builder.addTablePositions(
+    database: GeneratedDatabaseElement
+  ) = apply {
+    if (database.tables.isEmpty()) return@apply
+    val positionOwner = when {
+      database.isSubmodule -> this
+      else -> TypeSpec.companionObjectBuilder()
+    }
+    database.tables.forEach { table ->
+      positionOwner.addProperty(
+        PropertySpec
+          .builder(name = table.tablePositionPropertyName, type = INT)
+          .initializer("%L", table.declarationOrder)
+          .build()
+      )
+    }
+    if (!database.isSubmodule) addType(positionOwner.build())
   }
 
   private fun GeneratedDatabaseElement.configureDatabase() =

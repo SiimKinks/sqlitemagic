@@ -257,7 +257,7 @@ internal class ModelValidationContractTest : ProcessingStepsTest {
           .containsExactly("helper_table", "ready_table")
         tables.forEach { table ->
           withGeneratedSource(fileName = "SqliteMagic_${table.modelName}_Adapter.kt") { generated ->
-            assertThat(generated).contains("tablePosition: Int = ${table.declarationOrder}")
+            assertThat(generated).contains("tablePosition: Int = SqliteMagicDatabase.tablePosition_${table.artifactStem}")
           }
         }
       }
