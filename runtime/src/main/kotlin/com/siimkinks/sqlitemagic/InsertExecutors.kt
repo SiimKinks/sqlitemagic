@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import androidx.sqlite.db.SupportSQLiteStatement
+import com.siimkinks.sqlitemagic.EntityOperation.INSERT
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
@@ -75,15 +76,12 @@ internal object InsertExecutors {
       context.logInsert(entity = entity)
     }
     val rowId = context
-      .operationHelper(
-        operation = OperationHelper.Op.INSERT,
-        operationByColumns = null
-      )
+      .operationHelper(operation = INSERT)
       .use { helper ->
-        val statement = helper.getInsertStatement(
-          adapter.tableName,
-          adapter.insertSql,
-          context.entityDbManager()
+        val statement = helper.insertStatement(
+          tableName = adapter.tableName,
+          sql = adapter.insertSql,
+          manager = context.entityDbManager()
         )
         synchronized(statement) {
           adapter.bindToInsertStatement(
@@ -134,13 +132,11 @@ internal object InsertExecutors {
         }
       else -> context
         .variableArgsOperationHelper
-        .compileStatement(
-          OperationHelper.Op.INSERT,
-          adapter.tableName,
-          adapter.maxColumns,
-          context.bindValues,
-          "",
-          context.entityDbManager()
+        .compileInsertStatement(
+          tableName = adapter.tableName,
+          maxColumns = adapter.maxColumns,
+          values = context.bindValues,
+          manager = context.entityDbManager()
         )
         .use { statement ->
           executeStatement(

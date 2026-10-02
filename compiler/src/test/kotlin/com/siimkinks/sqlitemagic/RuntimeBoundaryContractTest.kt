@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.tschuchort.compiletesting.SourceFile
+import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
 
 internal class RuntimeBoundaryContractTest {
@@ -222,37 +223,68 @@ internal class RuntimeBoundaryContractTest {
   }
 
   @Test
-  fun `runtime helper construction and trigger delivery remain inaccessible downstream`() {
-    assertInaccessibleRuntimeContract(
-      fileName = "OperationHelperConsumer.kt",
-      source = """
-        package downstream
-
-        import com.siimkinks.sqlitemagic.OperationHelper
-
-        fun constructHelper() = OperationHelper(0, 0, null)
-      """
+  fun `runtime helpers and operation kinds remain inaccessible downstream`() {
+    data class RuntimeContractCase(
+      val fileName: String,
+      val typeName: String,
+      @Language("kotlin") val source: String
     )
-    assertInaccessibleRuntimeContract(
-      fileName = "VariableArgsOperationHelperConsumer.kt",
-      source = """
-        package downstream
+    listOf(
+      RuntimeContractCase(
+        fileName = "OperationHelperConsumer.kt",
+        typeName = "OperationHelper",
+        source = """
+          package downstream
 
-        import com.siimkinks.sqlitemagic.VariableArgsOperationHelper
+          import com.siimkinks.sqlitemagic.EntityOperation
+          import com.siimkinks.sqlitemagic.OperationHelper
 
-        fun constructHelper() = VariableArgsOperationHelper(0)
-      """
-    )
-    assertInaccessibleRuntimeContract(
-      fileName = "EntityDbManagerConsumer.kt",
-      source = """
-        package downstream
+          fun constructHelper(): OperationHelper = OperationHelper(
+              conflictAlgorithm = 0,
+              operation = EntityOperation.INSERT
+          )
+        """
+      ),
+      RuntimeContractCase(
+        fileName = "EntityOperationConsumer.kt",
+        typeName = "EntityOperation",
+        source = """
+          package downstream
 
-        import com.siimkinks.sqlitemagic.EntityDbManager
+          import com.siimkinks.sqlitemagic.EntityOperation
 
-        fun accessManager(manager: EntityDbManager) = manager
-      """
-    )
+          fun accessOperation(operation: EntityOperation) = operation
+        """
+      ),
+      RuntimeContractCase(
+        fileName = "VariableArgsOperationHelperConsumer.kt",
+        typeName = "VariableArgsOperationHelper",
+        source = """
+          package downstream
+
+          import com.siimkinks.sqlitemagic.VariableArgsOperationHelper
+
+          fun constructHelper(): VariableArgsOperationHelper = VariableArgsOperationHelper(0)
+        """
+      ),
+      RuntimeContractCase(
+        fileName = "EntityDbManagerConsumer.kt",
+        typeName = "EntityDbManager",
+        source = """
+          package downstream
+
+          import com.siimkinks.sqlitemagic.EntityDbManager
+
+          fun accessManager(manager: EntityDbManager) = manager
+        """
+      )
+    ).forEach { case ->
+      assertInaccessibleRuntimeContract(
+        fileName = case.fileName,
+        typeName = case.typeName,
+        source = case.source
+      )
+    }
   }
 
   private fun assertRemovedRuntimeContract(
@@ -273,16 +305,11 @@ internal class RuntimeBoundaryContractTest {
 
   private fun assertInaccessibleRuntimeContract(
     fileName: String,
+    typeName: String,
     source: String
-  ) {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = fileName,
-          contents = source
-        ),
-        processingStepsFactory = null
-      )
-      .assertCompilationError()
-  }
+  ) = assertRemovedRuntimeContract(
+    fileName = fileName,
+    typeName = typeName,
+    source = source
+  )
 }

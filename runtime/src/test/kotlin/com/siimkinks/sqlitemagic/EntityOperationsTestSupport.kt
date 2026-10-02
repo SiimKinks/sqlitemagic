@@ -48,7 +48,7 @@ import io.reactivex.schedulers.Schedulers
 import java.util.ArrayDeque
 import java.util.Locale
 
-internal class RecordingDatabase: SupportSQLiteDatabase {
+internal class RecordingDatabase : SupportSQLiteDatabase {
   val compiledStatements = mutableListOf<RecordingStatement>()
   val triggerTransactions = mutableListOf<SQLiteTransactionListener>()
   val insertResults = ArrayDeque<Long>()
@@ -64,8 +64,7 @@ internal class RecordingDatabase: SupportSQLiteDatabase {
   override fun compileStatement(sql: String) = RecordingStatement(
     database = this,
     sql = sql
-  )
-      .also(compiledStatements::add)
+  ).also(compiledStatements::add)
 
   fun nextInsertResult(): Long = when {
     insertResults.isEmpty() -> 1L
@@ -199,6 +198,9 @@ internal class RecordingStatement(
   val bindings = linkedMapOf<Int, Any?>()
   var clearBindingsCalls = 0
     private set
+  var closeCalls = 0
+    private set
+  var closeFailure: RuntimeException? = null
 
   override fun bindNull(index: Int) {
     bindings[index] = null
@@ -235,7 +237,10 @@ internal class RecordingStatement(
 
   override fun simpleQueryForString() = ""
 
-  override fun close() = Unit
+  override fun close() {
+    closeCalls++
+    closeFailure?.let { throw it }
+  }
 }
 
 internal class RecordingOpenHelper(

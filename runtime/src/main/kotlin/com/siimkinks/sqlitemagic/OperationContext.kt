@@ -74,12 +74,12 @@ internal class OperationContext private constructor(
   fun childWithoutTableTriggers() = child(skipTableTriggers = true)
 
   fun operationHelper(
-    operation: Int,
-    operationByColumns: ArrayList<Column<*, *, *, *, *>>?
+    operation: EntityOperation,
+    operationByColumns: List<Column<*, *, *, *, *>> = emptyList()
   ) = OperationHelper(
-    conflictAlgorithm,
-    operation,
-    operationByColumns
+    conflictAlgorithm = conflictAlgorithm,
+    operation = operation,
+    operationByColumns = operationByColumns
   )
 
   fun entityDbManager() = (connection as DbConnectionImpl)

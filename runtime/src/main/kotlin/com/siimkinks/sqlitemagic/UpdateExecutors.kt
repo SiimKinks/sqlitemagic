@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import androidx.sqlite.db.SupportSQLiteStatement
+import com.siimkinks.sqlitemagic.EntityOperation.UPDATE
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
@@ -41,14 +42,13 @@ internal object UpdateExecutors {
         }
       else -> context
         .variableArgsOperationHelper
-        .compileStatement(
-          OperationHelper.Op.UPDATE,
-          adapter.tableName,
-          adapter.maxColumns,
-          context.bindValues,
-          identityColumn,
-          identity.serializedValue,
-          context.entityDbManager()
+        .compileUpdateStatement(
+          tableName = adapter.tableName,
+          maxColumns = adapter.maxColumns,
+          values = context.bindValues,
+          resolutionColumn = identityColumn,
+          resolutionValue = identity.serializedValue,
+          manager = context.entityDbManager()
         )
         .use(SupportSQLiteStatement::executeUpdateDelete)
     }
@@ -75,19 +75,19 @@ internal object UpdateExecutors {
       context.logUpdate(entity = entity)
     }
     val operationByColumns = when {
-      defaultIdentity -> null
-      else -> arrayListOf<Column<*, *, *, *, *>>(byColumn)
+      defaultIdentity -> emptyList()
+      else -> listOf(byColumn)
     }
     val rowsAffected = context
       .operationHelper(
-        operation = OperationHelper.Op.UPDATE,
+        operation = UPDATE,
         operationByColumns = operationByColumns
       )
       .use { helper ->
-        val statement = helper.getUpdateStatement(
-          adapter.tableName,
-          adapter.updateStatementSql(byColumn),
-          context.entityDbManager()
+        val statement = helper.updateStatement(
+          tableName = adapter.tableName,
+          sql = adapter.updateStatementSql(byColumn),
+          manager = context.entityDbManager()
         )
         synchronized(statement) {
           adapter.bindToUpdateStatement(
