@@ -98,14 +98,8 @@ internal class QueryObservableContractTest {
 
     observer.assertEmpty()
     verify(cursor).close()
-    verify(
-      mock = cursor,
-      mode = never()
-    ).moveToNext()
-    verify(
-      mock = mapper,
-      mode = never()
-    ).apply(cursor)
+    verify(cursor, never()).moveToNext()
+    verify(mapper, never()).apply(cursor)
   }
 
   @Test

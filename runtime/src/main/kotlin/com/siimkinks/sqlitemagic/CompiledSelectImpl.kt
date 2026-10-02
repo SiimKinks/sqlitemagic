@@ -168,8 +168,7 @@ internal class CompiledSelectImpl<T, S>(
     override fun getFromCurrentPosition(cursor: Cursor): T? {
       val mapper = checkNotNull(mapper)
       if (cursor is FastCursor) {
-        cursor.syncWith(cursor)
-        return mapper.apply(cursor)
+        cursor.syncWith(cursor.position)
       }
       return mapper.apply(cursor)
     }

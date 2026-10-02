@@ -190,8 +190,7 @@ internal class CompiledSelect1Impl<T, S>(
 
     override fun getFromCurrentPosition(cursor: Cursor): T? {
       if (cursor is FastCursor) {
-        cursor.syncWith(cursor)
-        return selectedColumn.getFromCursor(cursor)
+        cursor.syncWith(cursor.position)
       }
       return selectedColumn.getFromCursor(cursor)
     }
