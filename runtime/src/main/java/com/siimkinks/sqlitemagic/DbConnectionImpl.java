@@ -44,7 +44,7 @@ public class DbConnectionImpl implements DbConnection {
   private final Transaction transaction = new Transaction() {
     @Override
     public void markSuccessful() {
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TXN SUCCESS %s", transactions.get());
+      if (SqliteMagic.LOGGING_ENABLED) LogUtil.INSTANCE.logDebug("TXN SUCCESS %s", transactions.get());
       getWritableDatabase().setTransactionSuccessful();
     }
 
@@ -66,7 +66,7 @@ public class DbConnectionImpl implements DbConnection {
       }
       final SqliteTransaction newTransaction = transaction.parent;
       transactions.set(newTransaction);
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TXN END %s", transaction);
+      if (SqliteMagic.LOGGING_ENABLED) LogUtil.INSTANCE.logDebug("TXN END %s", transaction);
       getWritableDatabase().endTransaction();
       // Send the triggers after ending the transaction in the DB.
       if (transaction.commit && !transaction.isEmpty()) {
@@ -136,7 +136,7 @@ public class DbConnectionImpl implements DbConnection {
       }
     }
     dbHelper.close();
-    LogUtil.logInfo("Closed database [name=%s]", dbHelper.getDatabaseName());
+    LogUtil.INSTANCE.logInfo("Closed database [name=%s]", dbHelper.getDatabaseName());
   }
 
   private void closeEntityDbManagers(@NonNull EntityDbManager[] managers) {
@@ -151,7 +151,7 @@ public class DbConnectionImpl implements DbConnection {
   public final Transaction newTransaction() {
     final SqliteTransaction transaction = new SqliteTransaction(transactions.get());
     transactions.set(transaction);
-    if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TXN BEGIN %s", transaction);
+    if (SqliteMagic.LOGGING_ENABLED) LogUtil.INSTANCE.logDebug("TXN BEGIN %s", transaction);
     getWritableDatabase().beginTransactionWithListener(transaction);
 
     return this.transaction;
@@ -196,7 +196,7 @@ public class DbConnectionImpl implements DbConnection {
       transaction.add(table);
     } else {
       final Set<String> tablesCollection = Collections.singleton(table);
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TRIGGER %s", tablesCollection);
+      if (SqliteMagic.LOGGING_ENABLED) LogUtil.INSTANCE.logDebug("TRIGGER %s", tablesCollection);
       triggers.onNext(tablesCollection);
     }
   }
@@ -207,7 +207,7 @@ public class DbConnectionImpl implements DbConnection {
       transaction.addAll(tables);
     } else {
       final StringArraySet tablesCollection = new StringArraySet(tables);
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TRIGGER %s", tablesCollection);
+      if (SqliteMagic.LOGGING_ENABLED) LogUtil.INSTANCE.logDebug("TRIGGER %s", tablesCollection);
       triggers.onNext(tablesCollection);
     }
   }
@@ -217,7 +217,7 @@ public class DbConnectionImpl implements DbConnection {
     if (transaction != null) {
       transaction.addAll(tables);
     } else {
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TRIGGER %s", tables);
+      if (SqliteMagic.LOGGING_ENABLED) LogUtil.INSTANCE.logDebug("TRIGGER %s", tables);
       triggers.onNext(tables);
     }
   }
@@ -246,7 +246,7 @@ public class DbConnectionImpl implements DbConnection {
     @Override
     public String toString() {
       String name = String.format("%08x", System.identityHashCode(this));
-      return parent == null ? name : name + " [" + parent.toString() + ']';
+      return parent == null ? name : name + " [" + parent + ']';
     }
   }
 }

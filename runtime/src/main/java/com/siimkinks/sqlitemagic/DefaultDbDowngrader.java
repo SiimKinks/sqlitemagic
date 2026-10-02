@@ -16,7 +16,7 @@ final class DefaultDbDowngrader implements DbDowngrader {
   @Override
   public void onDowngrade(SupportSQLiteDatabase db, int oldVersion, int newVersion) {
     if (SqliteMagic.LOGGING_ENABLED) {
-      LogUtil.logDebug("Downgrading database from " + oldVersion + " to " + newVersion);
+      LogUtil.INSTANCE.logDebug("Downgrading database from " + oldVersion + " to " + newVersion);
     }
     final Cursor c = db.query("SELECT name FROM sqlite_master " +
         "WHERE type='table' AND name != 'android_metadata' AND name NOT LIKE 'sqlite%'");

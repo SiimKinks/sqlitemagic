@@ -107,7 +107,7 @@ public final class SqliteMagic {
           .callback(dbCallback)
           .build();
       final SupportSQLiteOpenHelper helper = sqliteFactory.create(configuration);
-      LogUtil.logInfo("Initializing database with [name=%s, version=%s, logging=%s]",
+      LogUtil.INSTANCE.logInfo("Initializing database with [name=%s, version=%s, logging=%s]",
           name, version, LOGGING_ENABLED);
       return new DbConnectionImpl(database, helper, databaseSetupBuilder.queryScheduler);
     } catch (Exception e) {

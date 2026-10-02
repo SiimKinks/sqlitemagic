@@ -359,7 +359,7 @@ internal class OperationContextTest {
       queryTimeInMillis: Long,
       observedTables: Array<String>,
       sql: String,
-      args: Array<String>?
+      args: Array<out String?>?
     ) = Unit
   }
 }

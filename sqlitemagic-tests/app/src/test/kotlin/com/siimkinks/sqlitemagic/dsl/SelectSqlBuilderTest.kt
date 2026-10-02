@@ -1050,7 +1050,7 @@ class SelectSqlBuilderTest : DSLTests {
     val expectedBase = "SELECT * FROM main.simple_mutable_entity WHERE simple_mutable_entity.value%s "
 
     (SELECT FROM SIMPLE_MUTABLE_ENTITY WHERE expr)
-      .isEqualTo(String.format(expectedBase, operator), "asd")
+      .isEqualTo(expectedBase.format(operator), "asd")
   }
 
   private fun assertSimpleColumnExpr(operator: String, expr: Expr) {
@@ -1059,7 +1059,7 @@ class SelectSqlBuilderTest : DSLTests {
           "entity_with_relationship.value "
 
     (SELECT FROM SIMPLE_MUTABLE_ENTITY WHERE expr)
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   @Test
@@ -1124,7 +1124,7 @@ class SelectSqlBuilderTest : DSLTests {
     val expectedBase = "SELECT * FROM main.entity_with_relationship WHERE entity_with_relationship.count%s "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
-      .isEqualTo(String.format(expectedBase, operator), "4")
+      .isEqualTo(expectedBase.format(operator), "4")
   }
 
   private fun assertNumericSameTypeExpr(operator: String, expr: Expr) {
@@ -1133,7 +1133,7 @@ class SelectSqlBuilderTest : DSLTests {
           "immutable_value_with_fields.integer "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   private fun assertNumericEquivalentTypeExpr(operator: String, expr: Expr) {
@@ -1142,7 +1142,7 @@ class SelectSqlBuilderTest : DSLTests {
           "immutable_value_with_fields.id "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   @Test
@@ -1304,7 +1304,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
       .isEqualTo(
-        String.format(expectedBase, operator),
+        expectedBase.format(operator),
         simple_mutable_entity.id.toString()
       )
   }
@@ -1314,7 +1314,7 @@ class SelectSqlBuilderTest : DSLTests {
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
       .isEqualTo(
-        String.format(expectedBase, operator),
+        expectedBase.format(operator),
         value.toString()
       )
   }
@@ -1325,7 +1325,7 @@ class SelectSqlBuilderTest : DSLTests {
           "entity_with_relationship.related_entity "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   private fun assertComplexEquivalentColumnTypeExpr(operator: String, expr: Expr) {
@@ -1334,7 +1334,7 @@ class SelectSqlBuilderTest : DSLTests {
           "entity_with_relationship.id "
 
     (SELECT FROM ENTITY_WITH_RELATIONSHIP WHERE expr)
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   @Test
@@ -1742,7 +1742,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM SIMPLE_MUTABLE_ENTITY
         WHERE callback(subQuery))
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   @Test
@@ -1773,7 +1773,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE callback(subQuery))
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   private fun assertEquivalentTypeNumericSubquery(
@@ -1790,7 +1790,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE callback(subQuery))
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   @Test
@@ -1836,7 +1836,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE callback(subQuery))
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   private fun assertIdTypeComplexSubquery(operator: String, callback: (SelectNode<Long?, Select1, *>) -> Expr) {
@@ -1850,7 +1850,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE callback(subQuery))
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   private fun assertEquivalentTypeComplexSubquery(operator: String, callback: (SelectNode<Int, Select1, *>) -> Expr) {
@@ -1864,7 +1864,7 @@ class SelectSqlBuilderTest : DSLTests {
     (SELECT
         FROM ENTITY_WITH_RELATIONSHIP
         WHERE callback(subQuery))
-      .isEqualTo(String.format(expectedBase, operator))
+      .isEqualTo(expectedBase.format(operator))
   }
 
   @Test
