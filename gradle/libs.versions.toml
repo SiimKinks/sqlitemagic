@@ -49,7 +49,7 @@ mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito-kotlin" }
 rx-java2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rx-java2" }
 sqlitemagic-annotations = { module = "com.siimkinks.sqlitemagic:sqlitemagic-annotations", version.ref = "sqlitemagic" }
-sqlitemagic-ksp = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler-ksp", version.ref = "sqlitemagic" }
+sqlitemagic-compiler = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler", version.ref = "sqlitemagic" }
 sqlitemagic-runtime = { module = "com.siimkinks.sqlitemagic:sqlitemagic", version.ref = "sqlitemagic" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 
@@ -60,4 +60,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-sqlitemagic-ksp = { id = "com.siimkinks.sqlitemagic.ksp", version.ref = "sqlitemagic" }
+sqlitemagic = { id = "com.siimkinks.sqlitemagic", version.ref = "sqlitemagic" }

@@ -6,7 +6,7 @@ pluginManagement {
   }
 }
 
-include ':gradle-plugin-ksp'
+include ':gradle-plugin'
 include ':annotations'
 include ':runtime'
-include ':compiler-ksp'
+include ':compiler'
