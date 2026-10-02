@@ -25,6 +25,39 @@ private val VIEW_TYPE_PREDICATE = Regex(
 
 internal class DbCallbackTest {
   @Test
+  fun `downgrade forwards the database and versions to a custom callback`() {
+    val db = mock<SupportSQLiteDatabase>()
+    val invocations = mutableListOf<Triple<SupportSQLiteDatabase, Int, Int>>()
+    val callback = DbCallback(
+      context = mock<Context>(),
+      version = 2,
+      database = mock<GeneratedDatabase>(),
+      downgrader = { database, oldVersion, newVersion ->
+        invocations += Triple(
+          first = database,
+          second = oldVersion,
+          third = newVersion
+        )
+      }
+    )
+
+    callback.onDowngrade(
+      db = db,
+      oldVersion = 7,
+      newVersion = 2
+    )
+
+    assertThat(invocations)
+      .containsExactly(
+        Triple(
+          first = db,
+          second = 7,
+          third = 2
+        )
+      )
+  }
+
+  @Test
   fun `open creates the temporary schema`() {
     val database = RecordingDatabase()
     val generatedDatabase = TestGeneratedDatabase(tableCount = 1)
