@@ -41,10 +41,13 @@ internal class OperationHelper(
       .let { inserts ->
         inserts.get(tableName)
           ?: manager
-            .compileStatement(sql, conflictAlgorithm)
+            .compileStatement(
+              sql = sql,
+              conflictAlgorithm = conflictAlgorithm
+            )
             .also { inserts.put(tableName, it) }
       }
-    else -> manager.getInsertStatement(sql)
+    else -> manager.insertStatement(sql)
   }
 
   fun updateStatement(
@@ -57,25 +60,25 @@ internal class OperationHelper(
         updates.get(tableName)
           ?: manager
             .compileStatement(
-              SqlUtil.opByColumnSql(sql, tableName, operationByColumns),
-              conflictAlgorithm
+              sql = SqlUtil.opByColumnSql(sql, tableName, operationByColumns),
+              conflictAlgorithm = conflictAlgorithm
             )
             .also { updates.put(tableName, it) }
       }
-    else -> manager.getUpdateStatement(sql)
+    else -> manager.updateStatement(sql)
   }
 
   override fun close() {
-    val insertStatements = inserts
-    inserts = null
-    insertStatements?.closeStatements()
-    val updateStatements = updates
-    updates = null
-    updateStatements?.closeStatements()
+    inserts
+      .also { inserts = null }
+      ?.closeStatements()
+    updates
+      .also { updates = null }
+      ?.closeStatements()
   }
 
   private fun SimpleArrayMap<String, SupportSQLiteStatement>.closeStatements() = try {
-    for (index in 0 until size()) {
+    repeat(size()) { index ->
       valueAt(index).close()
     }
   } catch (_: Exception) {
