@@ -6,12 +6,7 @@ pluginManagement {
   }
 }
 
-include ':gradle-plugin'
 include ':gradle-plugin-ksp'
 include ':annotations'
 include ':runtime'
-include ':compiler-core'
-include 'compiler'
-//include ':compiler-magic' not supported
-include ':compiler-kotlin'
 include ':compiler-ksp'
