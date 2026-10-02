@@ -54,7 +54,6 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.asClassName
-import java.util.concurrent.CancellationException
 
 internal object WriterTypes {
   val GENERATED_DATABASE = GeneratedDatabase::class.asClassName()
@@ -76,14 +75,8 @@ internal object WriterTypes {
   val VIEW_DEFINITION = ViewDefinition::class.asClassName()
   val GENERATED_VIEW = GeneratedView::class.asClassName()
   val QUERY_MAPPER = Query.Mapper::class.asClassName()
-  val SELECT_FROM_RAW = Select.From::class.asClassName()
-  val SELECT_FROM = SELECT_FROM_RAW.parameterizedBy(STAR, STAR, STAR, STAR)
-  val DB_CONNECTION = DbConnection::class.asClassName()
-  val DB_CONNECTION_IMPL = DbConnectionImpl::class.asClassName()
   val SQLITE_MAGIC = SqliteMagic::class.asClassName()
-  val CONFLICT_ALGORITHM = ConflictAlgorithm::class.asClassName()
   val LOG_UTIL = LogUtil::class.asClassName()
-  val JOIN_CLAUSE = JoinClause::class.asClassName()
   val QUERY_GRAPH_SCOPE = QueryGraphScope::class.asClassName()
   val VALUE_PARSER = Utils.ValueParser::class
     .asClassName()
@@ -137,24 +130,13 @@ internal object WriterTypes {
   val STRING_ARRAY = ARRAY.parameterizedBy(STRING)
   val STRING_ARRAY_SET = StringArraySet::class.asClassName()
   val MUTABLE_INT = MutableInt::class.asClassName()
-  val ARRAY_LIST = ClassName("java.util", "ArrayList")
-  val LINKED_LIST = ClassName("java.util", "LinkedList")
-  val SYSTEM_RENAMED_TABLES = SIMPLE_ARRAY_MAP.parameterizedBy(
-    STRING,
-    LINKED_LIST.parameterizedBy(STRING)
-  )
 
   val CURSOR = ClassName("android.database", "Cursor")
   val SQLITE_DATABASE = ClassName("androidx.sqlite.db", "SupportSQLiteDatabase")
   val SQL_EXCEPTION = ClassName("android.database", "SQLException")
   val SUPPORT_SQLITE_STATEMENT = ClassName("androidx.sqlite.db", "SupportSQLiteStatement")
 
-  val SINGLE = ClassName("io.reactivex", "Single")
-  val COMPLETABLE = ClassName("io.reactivex", "Completable")
-  val CANCELLATION_EXCEPTION = CancellationException::class.asClassName()
-
   val CHECK_NOT_NULL = MemberName("kotlin", "checkNotNull")
-  val LAZY = MemberName("kotlin", "lazy")
 
   val UNCHECKED_CAST = AnnotationSpec
     .builder(Suppress::class)

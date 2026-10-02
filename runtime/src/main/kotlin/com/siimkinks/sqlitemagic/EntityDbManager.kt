@@ -11,7 +11,7 @@ internal class EntityDbManager(initialConnection: DbConnectionImpl) {
 
   private val dbConnection get() = checkNotNull(connection) { "DB connection closed" }
 
-  fun close() {
+  internal fun close() {
     insertStatementCache
       .getAndSet(null)
       ?.closeQuietly()

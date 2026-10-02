@@ -135,9 +135,9 @@ internal class OperationContextTest {
       submoduleTableCounts = mapOf("Feature" to 1)
     )
     val connection = DbConnectionImpl(
-      generatedDatabase,
-      RecordingOpenHelper(database),
-      Schedulers.trampoline()
+      database = generatedDatabase,
+      dbHelper = RecordingOpenHelper(database),
+      queryScheduler = Schedulers.trampoline()
     )
     val mainContext = context(
       connection = connection,

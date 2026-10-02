@@ -100,7 +100,9 @@ tasks.withType<Test>().configureEach {
 
 tasks
   .withType<KotlinJvmCompile>()
-  .matching { it.name.endsWith("UnitTestKotlin") }
+  .matching {
+    it.name.endsWith("UnitTestKotlin") || it.name.endsWith("AndroidTestKotlin")
+  }
   .configureEach {
     friendPaths.from(sqliteMagicRuntimeFriend)
   }

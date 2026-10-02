@@ -300,9 +300,9 @@ internal data class RecordingConnection(
   private val tableCount: Int = 1
 ) {
   val connection = DbConnectionImpl(
-    TestGeneratedDatabase(tableCount),
-    RecordingOpenHelper(recordingDatabase),
-    Schedulers.trampoline()
+    database = TestGeneratedDatabase(tableCount),
+    dbHelper = RecordingOpenHelper(recordingDatabase),
+    queryScheduler = Schedulers.trampoline()
   )
   val triggers = mutableListOf<Set<String>>()
 

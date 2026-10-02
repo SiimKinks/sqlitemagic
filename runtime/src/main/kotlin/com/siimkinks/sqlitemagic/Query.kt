@@ -12,7 +12,7 @@ import io.reactivex.functions.Function
 abstract class Query<T> internal constructor(
   internal val dbConnection: DbConnectionImpl?
 ) {
-  fun resolveConnection() = dbConnection ?: SqliteMagic.getDefaultDbConnection()
+  internal fun resolveConnection() = dbConnection ?: SqliteMagic.getDefaultDbConnection()
 
   /**
    * Execute this query against a database and return the resulting data.
@@ -82,7 +82,7 @@ abstract class Query<T> internal constructor(
     inStream: Boolean,
     dbConnection: DbConnectionImpl = resolveConnection()
   ): Cursor? = when {
-    inStream && dbConnection.transactions.get() != null -> error("Cannot execute observable query in a transaction.")
+    inStream && dbConnection.hasActiveTransaction -> error("Cannot execute observable query in a transaction.")
     else -> null
   }
 
