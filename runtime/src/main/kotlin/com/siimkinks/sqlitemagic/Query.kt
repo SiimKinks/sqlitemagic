@@ -78,8 +78,7 @@ abstract class Query<T> internal constructor(
    * @return Query result, maybe `null`
    */
   @CallSuper
-  @JvmOverloads
-  protected open fun rawQuery(
+  internal open fun rawQuery(
     inStream: Boolean,
     dbConnection: DbConnectionImpl = resolveConnection()
   ): Cursor? = when {
@@ -87,7 +86,7 @@ abstract class Query<T> internal constructor(
     else -> null
   }
 
-  protected abstract fun map(
+  internal abstract fun map(
     cursor: Cursor?,
     dbConnection: DbConnectionImpl
   ): T?
@@ -95,7 +94,6 @@ abstract class Query<T> internal constructor(
   /** A query implementation that can be used as an RxJava trigger mapper. */
   internal abstract class DatabaseQuery<T, E> internal constructor(
     dbConnection: DbConnectionImpl?,
-    @JvmField
     internal val mapper: Mapper<E>?
   ) : Query<T>(dbConnection), Function<Set<String>, Query<T>> {
     override fun apply(ignored: Set<String>): Query<T> = this
