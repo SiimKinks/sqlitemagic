@@ -123,21 +123,24 @@ internal fun KSClassDeclaration.validateModelMembers(
   declarations
     .filterIsInstance<KSPropertyDeclaration>()
     .any { annotations.has<Embedded>(it) } -> validateConsumedAnnotations()
-  else -> validate { _, node ->
-    val member = node as? KSDeclaration
-    val owner = member?.parentDeclaration as? KSClassDeclaration
-    val isDirectMember = owner == this || owner?.isCompanionObject == true && owner.parentDeclaration == this
-    when {
-      node is KSAnnotation -> node.isConsumedAnnotation()
-      member == null -> true
-      !isDirectMember -> true
-      // Retain annotated declarations, including invalid annotation uses, for supported diagnostics.
-      annotations.hasAny(member) -> true
-      member is KSFunctionDeclaration -> member.isConstructor()
-      member is KSPropertyDeclaration -> isRequiredProperty(member)
-      else -> true
-    }
-  }
+  else -> validate(
+    predicate = { _, node ->
+      val member = node as? KSDeclaration
+      val owner = member?.parentDeclaration as? KSClassDeclaration
+      val isDirectMember = owner == this || owner?.isCompanionObject == true && owner.parentDeclaration == this
+      when {
+        node is KSAnnotation -> node.isConsumedAnnotation()
+        member == null -> true
+        !isDirectMember -> true
+        // Retain annotated declarations, including invalid annotation uses, for supported diagnostics.
+        annotations.hasAny(member) -> true
+        member is KSFunctionDeclaration -> member.isConstructor()
+        member is KSPropertyDeclaration -> isRequiredProperty(member)
+        else -> true
+      }
+    },
+    enableNewFeatures = true
+  )
 }
 
 /** Follow only annotation metadata from inherited and embedded model shapes consumed by collection. */

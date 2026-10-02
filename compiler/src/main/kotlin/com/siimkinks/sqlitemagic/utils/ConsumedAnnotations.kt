@@ -179,6 +179,9 @@ private fun Any?.isUnresolvedAnnotationValue(): Boolean = when (this) {
   else -> false
 }
 
-internal fun KSAnnotated.validateConsumedAnnotations() = validate { _, node ->
-  node !is KSAnnotation || node.isConsumedAnnotation()
-}
+internal fun KSAnnotated.validateConsumedAnnotations() = validate(
+  predicate = { _, node ->
+    node !is KSAnnotation || node.isConsumedAnnotation()
+  },
+  enableNewFeatures = true
+)

@@ -9,14 +9,14 @@ apply from: 'buildsystem/android-sdk.gradle'
 
 allprojects {
   group = 'com.siimkinks.sqlitemagic'
-  version = libs.versions.project.get()
+  version = rootProject.libs.versions.project.get()
 
   repositories {
     mavenLocal()
     mavenCentral()
     google()
     maven {
-      url "${System.getenv("ANDROID_HOME")}/extras/android/m2repository/"
+      url = "${System.getenv("ANDROID_HOME")}/extras/android/m2repository/"
     }
   }
 }

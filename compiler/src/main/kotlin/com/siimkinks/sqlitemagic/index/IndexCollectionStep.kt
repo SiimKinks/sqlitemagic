@@ -328,16 +328,19 @@ private fun KSAnnotated.validateIndex(annotations: ConsumedAnnotations): Boolean
   val declaration = this as? KSClassDeclaration ?: return validateConsumedAnnotations()
   // Class indexes consume class annotations and collected table metadata, not member signatures.
   // Property annotations are independently validated through their own resolver entry points.
-  return declaration.validate { parent, node ->
-    when {
-      node is KSAnnotation -> node.isConsumedAnnotation()
-      parent != declaration -> true
-      node is KSFunctionDeclaration ||
-          node is KSPropertyDeclaration ||
-          node is KSClassDeclaration -> false
-      else -> true
-    }
-  }
+  return declaration.validate(
+    predicate = { parent, node ->
+      when {
+        node is KSAnnotation -> node.isConsumedAnnotation()
+        parent != declaration -> true
+        node is KSFunctionDeclaration ||
+            node is KSPropertyDeclaration ||
+            node is KSClassDeclaration -> false
+        else -> true
+      }
+    },
+    enableNewFeatures = true
+  )
 }
 
 private class IndexCollectionReporter(
