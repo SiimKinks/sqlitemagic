@@ -12,13 +12,13 @@ internal interface Loggable {
   fun logPersistInsertId(rowId: Long?) = logDebug("PERSIST insert id: %s", rowId)
 
   fun logError(exception: Exception, message: String) {
-    if (SqliteMagic.LOGGING_ENABLED) {
+    if (SqliteMagic.loggingEnabled) {
       LogUtil.logError(exception, message)
     }
   }
 
   private fun logDebug(message: String, vararg args: Any?) {
-    if (SqliteMagic.LOGGING_ENABLED) {
+    if (SqliteMagic.loggingEnabled) {
       LogUtil.logDebug(message, *args)
     }
   }

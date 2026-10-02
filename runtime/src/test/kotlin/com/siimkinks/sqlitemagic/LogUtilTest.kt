@@ -130,7 +130,7 @@ internal class LogUtilTest {
   @Test
   fun `informational and mandatory warning messages use Android logging regardless of logging gate`() {
     withLogger { logger ->
-      SqliteMagic.LOGGING_ENABLED = false
+      SqliteMagic.loggingEnabled = false
       mockStatic(Log::class.java).use { androidLog ->
         LogUtil.logInfo("progress 50%")
         LogUtil.logInfo("opened %s version %d", "books", 2)
@@ -148,15 +148,15 @@ internal class LogUtilTest {
   }
 
   private fun withLogger(block: (RecordingLogger) -> Unit) {
-    val previousLogger = SqliteMagic.LOGGER
-    val previousLoggingEnabled = SqliteMagic.LOGGING_ENABLED
+    val previousLogger = SqliteMagic.logger
+    val previousLoggingEnabled = SqliteMagic.loggingEnabled
     val logger = RecordingLogger()
     SqliteMagic.setLogger(logger)
     try {
       block(logger)
     } finally {
-      SqliteMagic.LOGGER = previousLogger
-      SqliteMagic.LOGGING_ENABLED = previousLoggingEnabled
+      SqliteMagic.logger = previousLogger
+      SqliteMagic.loggingEnabled = previousLoggingEnabled
     }
   }
 

@@ -102,13 +102,12 @@ class CompiledSelectConnectionConstructionTest {
   }
 
   private fun withoutDefaultConnection(block: () -> Unit) {
-    val instance = SqliteMagic.SingletonHolder.instance
-    val previousConnection = instance.defaultConnection
-    instance.defaultConnection = null
+    val previousConnection = SqliteMagic.defaultConnection
+    SqliteMagic.defaultConnection = null
     try {
       block()
     } finally {
-      instance.defaultConnection = previousConnection
+      SqliteMagic.defaultConnection = previousConnection
     }
   }
 }

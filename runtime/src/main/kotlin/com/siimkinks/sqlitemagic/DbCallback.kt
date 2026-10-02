@@ -24,7 +24,7 @@ internal class DbCallback(
 
   // This method already runs in a transaction.
   override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
-    if (SqliteMagic.LOGGING_ENABLED) {
+    if (SqliteMagic.loggingEnabled) {
       LogUtil.logDebug("Executing upgrade scripts")
     }
     val assets = context.assets
@@ -116,7 +116,7 @@ internal class DbCallback(
 
     var lineNumber = 0
     try {
-      if (SqliteMagic.LOGGING_ENABLED) {
+      if (SqliteMagic.loggingEnabled) {
         LogUtil.logDebug("Executing script %s", fileName)
       }
       InputStreamReader(inputStream)

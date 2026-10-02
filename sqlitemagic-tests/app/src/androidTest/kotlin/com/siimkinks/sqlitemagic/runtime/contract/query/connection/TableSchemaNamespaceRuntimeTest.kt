@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.Utils
-import com.siimkinks.sqlitemagic.namespaceContractWritableDatabase
+import com.siimkinks.sqlitemagic.runtime.namespaceContractWritableDatabase
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import org.junit.Test
 

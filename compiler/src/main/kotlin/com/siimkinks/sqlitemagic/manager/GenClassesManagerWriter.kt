@@ -578,13 +578,13 @@ private fun submoduleFallback(
 )
 
 private fun FunSpec.Builder.addRuntimeDebugLog(message: String) = apply {
-  beginControlFlow("if (%T.LOGGING_ENABLED)", SQLITE_MAGIC)
+  beginControlFlow("if (%T.loggingEnabled)", SQLITE_MAGIC)
   addStatement("%T.logDebug(%S)", LOG_UTIL, message)
   endControlFlow()
 }
 
 private fun FunSpec.Builder.addRuntimeErrorLog() = apply {
-  beginControlFlow("if (%T.LOGGING_ENABLED)", SQLITE_MAGIC)
+  beginControlFlow("if (%T.loggingEnabled)", SQLITE_MAGIC)
   addStatement("%T.logError(exception, %S)", LOG_UTIL, "Error while executing db transaction")
   endControlFlow()
 }

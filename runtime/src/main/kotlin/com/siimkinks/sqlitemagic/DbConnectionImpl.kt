@@ -28,7 +28,7 @@ internal class DbConnectionImpl(
 
   private val transactionHandle = object : Transaction {
     override fun markSuccessful() {
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TXN SUCCESS %s", transactions.get())
+      if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TXN SUCCESS %s", transactions.get())
       writableDatabase.setTransactionSuccessful()
     }
 
@@ -42,7 +42,7 @@ internal class DbConnectionImpl(
     override fun end() {
       val transactionState = checkNotNull(transactions.get()) { "Not in transaction." }
       transactions.set(transactionState.parent)
-      if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TXN END %s", transactionState)
+      if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TXN END %s", transactionState)
       writableDatabase.endTransaction()
       // Send the triggers after ending the transaction in the DB.
       if (transactionState.commit && transactionState.isNotEmpty()) {
@@ -102,7 +102,7 @@ internal class DbConnectionImpl(
   override fun newTransaction(): Transaction {
     val transactionState = SqliteTransaction(transactions.get())
     transactions.set(transactionState)
-    if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TXN BEGIN %s", transactionState)
+    if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TXN BEGIN %s", transactionState)
     writableDatabase.beginTransactionWithListener(transactionState)
     return transactionHandle
   }
@@ -157,7 +157,7 @@ internal class DbConnectionImpl(
   }
 
   private fun publishTableTriggers(tables: Set<String>) {
-    if (SqliteMagic.LOGGING_ENABLED) LogUtil.logDebug("TRIGGER %s", tables)
+    if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TRIGGER %s", tables)
     triggers.onNext(tables)
   }
 

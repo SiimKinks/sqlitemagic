@@ -35,7 +35,7 @@ internal class CompiledSelectImpl<T, S>(
     val db = dbConnection.readableDatabase
     val startNanos = System.nanoTime()
     val cursor = SqlUtil.query(db, sql, args)
-    if (SqliteMagic.LOGGING_ENABLED) {
+    if (SqliteMagic.loggingEnabled) {
       val queryTimeInMillis = NANOSECONDS.toMillis(System.nanoTime() - startNanos)
       LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args)
     }
@@ -125,7 +125,7 @@ internal class CompiledSelectImpl<T, S>(
       operation = { statement ->
         val startNanos = System.nanoTime()
         val count = statement.simpleQueryForLong()
-        if (SqliteMagic.LOGGING_ENABLED) {
+        if (SqliteMagic.loggingEnabled) {
           val queryTimeInMillis = NANOSECONDS.toMillis(System.nanoTime() - startNanos)
           LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args)
         }
@@ -184,7 +184,7 @@ internal class CompiledSelectImpl<T, S>(
       val db = dbConnection.readableDatabase
       val startNanos = System.nanoTime()
       val cursor = SqlUtil.query(db, sql, args)
-      if (SqliteMagic.LOGGING_ENABLED) {
+      if (SqliteMagic.loggingEnabled) {
         val queryTimeInMillis = NANOSECONDS.toMillis(System.nanoTime() - startNanos)
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args)
       }
@@ -231,7 +231,7 @@ internal class CompiledSelectImpl<T, S>(
       val db = dbConnection.readableDatabase
       val startNanos = System.nanoTime()
       val cursor = SqlUtil.query(db, sql, args)
-      if (SqliteMagic.LOGGING_ENABLED) {
+      if (SqliteMagic.loggingEnabled) {
         val queryTimeInMillis = NANOSECONDS.toMillis(System.nanoTime() - startNanos)
         LogUtil.logQueryTime(queryTimeInMillis, observedTables, sql, args)
       }

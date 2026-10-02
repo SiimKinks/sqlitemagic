@@ -15,8 +15,7 @@ import org.mockito.kotlin.mock
 interface DSLTests {
   @BeforeEach
   fun setUp() {
-    val instance = SqliteMagic.SingletonHolder.instance
-    instance.defaultConnection = mock()
+    SqliteMagic.defaultConnection = mock()
   }
 }
 

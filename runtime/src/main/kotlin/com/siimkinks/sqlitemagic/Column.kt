@@ -261,7 +261,7 @@ open class Column<T, R, ET, P, N>(
   @CheckResult
   @Suppress("UNCHECKED_CAST")
   fun toNotNullable(): Column<T, R, ET, P, NotNullable> {
-    if (nullable && SqliteMagic.LOGGING_ENABLED) {
+    if (nullable && SqliteMagic.loggingEnabled) {
       val errorMsg = "Converting nullable column [$this] to not nullable. This might cause data inconsistencies!"
       LogUtil.logError(errorMsg, IllegalStateException(errorMsg))
     }

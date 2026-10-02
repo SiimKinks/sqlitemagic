@@ -631,8 +631,8 @@ class Select<S> internal constructor(
      * @return Column representing provided value
      */
     @CheckResult
-    fun <V : Any> asColumn(value: V): Column<V, V, V, *, NotNullable> = SqliteMagic.SingletonHolder
-      .instance.database
+    fun <V : Any> asColumn(value: V): Column<V, V, V, *, NotNullable> = SqliteMagic
+      .database
       ?.columnForValue(value)
       ?: error(ERROR_NOT_INITIALIZED)
 
