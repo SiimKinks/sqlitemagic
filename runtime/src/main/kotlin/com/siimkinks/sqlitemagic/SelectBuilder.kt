@@ -38,10 +38,7 @@ internal class SelectBuilder<S> {
       checkNotNull(columnsNode).compileColumns(prepared.systemRenamedTables)
     }
     val sqlTreeRoot = checkNotNull(sqlTreeRoot)
-    val sql = when {
-      prepared.systemRenamedTables != null -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, prepared.systemRenamedTables)
-      else -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount)
-    }
+    val sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, prepared.systemRenamedTables)
     return QueryFragment(
       sql = sql,
       args = args,
@@ -55,12 +52,8 @@ internal class SelectBuilder<S> {
   // !!! ordering in this method is important !!!
   @CheckResult
   fun <T> build(): CompiledSelect<T, S> {
-    if (compiled) {
-      throw IllegalStateException("Select statement builder can be compiled only once")
-    }
-    if (frozen) {
-      throw IllegalStateException("Cannot compile an embedded or frozen select statement")
-    }
+    check(!compiled) { "Select statement builder can be compiled only once" }
+    check(!frozen) { "Cannot compile an embedded or frozen select statement" }
     val prepared = prepareQuery()
     compiled = true
     val columnNode = this.columnNode
@@ -71,11 +64,12 @@ internal class SelectBuilder<S> {
     val systemRenamedTables = prepared.systemRenamedTables
     val argsSize = args.size
     val sqlTreeRoot = checkNotNull(sqlTreeRoot)
+    val typedArgs = when {
+      argsSize > 0 -> args.toTypedArray()
+      else -> null
+    }
     if (select1) {
-      val sql = when {
-        systemRenamedTables != null -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, systemRenamedTables)
-        else -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount)
-      }
+      val sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, systemRenamedTables)
       perfectSelection(
         from = from,
         tableGraphNodeNames = tableGraphNodeNames,
@@ -83,10 +77,7 @@ internal class SelectBuilder<S> {
       )
       return CompiledSelect1Impl(
         sql = sql,
-        args = when {
-          argsSize > 0 -> args.toTypedArray()
-          else -> null
-        },
+        args = typedArgs,
         dbConnection = dbConnection,
         selectedColumn = columnNode.column as Column<*, T, *, *, *>,
         queryDependencies = prepared.dependencies
@@ -95,10 +86,7 @@ internal class SelectBuilder<S> {
 
     val columnPositions = checkNotNull(columnsNode).compileColumns(systemRenamedTables)
     val implicitSelection = columnPositions.isEmpty
-    val sql = when {
-      systemRenamedTables != null -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, systemRenamedTables)
-      else -> SqlCreator.getSql(sqlTreeRoot, sqlNodeCount)
-    }
+    val sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, systemRenamedTables)
     val forcedDeepSelection = perfectSelection(
       from = from,
       tableGraphNodeNames = tableGraphNodeNames,
@@ -107,21 +95,12 @@ internal class SelectBuilder<S> {
     val selectedRoot = !implicitSelection || from.table.hasViewDefinitionPositions
     return CompiledSelectImpl(
       sql = sql,
-      args = when {
-        argsSize > 0 -> args.toTypedArray()
-        else -> null
-      },
+      args = typedArgs,
       table = table,
       dbConnection = dbConnection,
       queryDependencies = prepared.dependencies,
-      columns = when {
-        !selectedRoot -> null
-        else -> columnPositions
-      },
-      tableGraphNodeNames = when {
-        !selectedRoot -> null
-        else -> tableGraphNodeNames
-      },
+      columns = columnPositions.takeIf { selectedRoot },
+      tableGraphNodeNames = tableGraphNodeNames.takeIf { selectedRoot },
       queryDeep = deep || forcedDeepSelection
     )
   }
