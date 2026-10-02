@@ -15,6 +15,51 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
   override val processingSteps = ::modelProcessingSteps
 
   @Test
+  fun `keeps nullable embedded access isolated between tables with matching paths`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "MatchingEmbeddedPaths.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Embedded
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            data class SharedDetails(val `when`: String)
+
+            @Table
+            data class OptionalDetailsRecord(
+              @Id val id: Long,
+              @Embedded val details: SharedDetails?
+            )
+
+            @Table
+            data class RequiredDetailsRecord(
+              @Id val id: Long,
+              @Embedded val details: SharedDetails
+            )
+          """
+        )
+      )
+      .isOk()
+      .withGeneratedSource(
+        fileName = "SqliteMagic_OptionalDetailsRecord_Dao.kt",
+        assert = { generatedSource ->
+          generatedSource.assertContains("entity.details?.`when`")
+        }
+      )
+      .withGeneratedSource(
+        fileName = "SqliteMagic_RequiredDetailsRecord_Dao.kt",
+        assert = { generatedSource ->
+          generatedSource.assertContains("entity.details.`when`")
+          generatedSource.assertDoesNotContain("entity.details?.")
+        }
+      )
+  }
+
+  @Test
   fun `flattens nested and nullable embedded properties into schema leaves`() {
     SqliteMagicCompilation
       .compile(

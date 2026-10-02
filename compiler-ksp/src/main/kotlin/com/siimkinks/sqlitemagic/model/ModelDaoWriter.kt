@@ -25,12 +25,21 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeSpec
 
+private typealias ReadExpressionProvider = (ColumnElement) -> CodeBlock
+
 internal class ModelDaoWriter(
   private val environment: Environment
 ) : ModelWriter {
   private val cursorWriter = ModelDaoCursorWriter(environment)
 
   override fun write(tableRoundElement: TableRoundElement) = with(tableRoundElement) {
+    val propertyReadExpressions = hashMapOf<PropertyPath, CodeBlock>()
+    fun readExpression(column: ColumnElement) = propertyReadExpressions
+      .getOrPut(
+        key = column.access.path,
+        defaultValue = { table.readExpression(column) }
+      )
+
     val needsGeneratedRelationshipIds = table.needsGeneratedRelationshipIds(environment)
     val dao = TypeSpec
       .objectBuilder(table.generationNames.daoClassName)
@@ -40,7 +49,8 @@ internal class ModelDaoWriter(
         bindToInsertStatement(
           table = table,
           columns = table.columnsForInsert,
-          usesGeneratedRelationshipIds = needsGeneratedRelationshipIds
+          usesGeneratedRelationshipIds = needsGeneratedRelationshipIds,
+          readExpression = ::readExpression
         )
       )
       .apply {
@@ -61,16 +71,23 @@ internal class ModelDaoWriter(
               table = table,
               columns = table.columnsForInsert,
               excludesIdentityColumn = false,
-              usesGeneratedRelationshipIds = needsGeneratedRelationshipIds
+              usesGeneratedRelationshipIds = needsGeneratedRelationshipIds,
+              readExpression = ::readExpression
             )
           )
-            .addFunction(bindToUpdateStatement(table))
+            .addFunction(
+              bindToUpdateStatement(
+                table = table,
+                readExpression = ::readExpression
+              )
+            )
             .addFunction(
               notNullValues(
                 functionName = METHOD_BIND_NOT_NULL_FOR_UPDATE,
                 table = table,
                 columns = table.allColumns,
-                excludesIdentityColumn = true
+                excludesIdentityColumn = true,
+                readExpression = ::readExpression
               )
             )
         }
@@ -119,7 +136,8 @@ internal class ModelDaoWriter(
   private fun bindToInsertStatement(
     table: TableElement,
     columns: List<ColumnElement>,
-    usesGeneratedRelationshipIds: Boolean = false
+    usesGeneratedRelationshipIds: Boolean = false,
+    readExpression: ReadExpressionProvider
   ) = FunSpec
     .builder(METHOD_BIND_TO_INSERT_STATEMENT)
     .addModifiers(OVERRIDE)
@@ -130,11 +148,15 @@ internal class ModelDaoWriter(
     .addBindings(
       table = table,
       columns = columns,
-      usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
+      usesGeneratedRelationshipIds = usesGeneratedRelationshipIds,
+      readExpression = readExpression
     )
     .build()
 
-  private fun bindToUpdateStatement(table: TableElement) = FunSpec
+  private fun bindToUpdateStatement(
+    table: TableElement,
+    readExpression: ReadExpressionProvider
+  ) = FunSpec
     .builder(METHOD_BIND_TO_UPDATE_STATEMENT)
     .addModifiers(OVERRIDE)
     .addParameter(name = "statement", type = SUPPORT_SQLITE_STATEMENT)
@@ -144,48 +166,57 @@ internal class ModelDaoWriter(
     .apply {
       val uniqueColumns = table.identityColumns.filterNot(ColumnElement::isId)
       when {
-        uniqueColumns.size < 2 -> addIdentityUpdateBindings(table)
+        uniqueColumns.size < 2 -> addIdentityUpdateBindings(
+          table = table,
+          readExpression = readExpression
+        )
         else -> addCompactUpdateBindings(
           table = table,
-          uniqueColumns = uniqueColumns
+          uniqueColumns = uniqueColumns,
+          readExpression = readExpression
         )
       }
     }
     .build()
 
-  private fun FunSpec.Builder.addIdentityUpdateBindings(table: TableElement) =
-    beginControlFlow("when (%N)", METHOD_BY_COLUMN)
-      .apply {
-        table.identityColumns.forEach { identityColumn ->
-          beginControlFlow(
-            "%T.%N.%N ->",
-            table.generationNames.tableClassName,
-            table.structureFieldName,
-            identityColumn.fieldName
+  private fun FunSpec.Builder.addIdentityUpdateBindings(
+    table: TableElement,
+    readExpression: ReadExpressionProvider
+  ) = beginControlFlow("when (%N)", METHOD_BY_COLUMN)
+    .apply {
+      table.identityColumns.forEach { identityColumn ->
+        beginControlFlow(
+          "%T.%N.%N ->",
+          table.generationNames.tableClassName,
+          table.structureFieldName,
+          identityColumn.fieldName
+        )
+          .addBindings(
+            table = table,
+            columns = table
+              .allColumns
+              .filterNot { column -> column === identityColumn || column.isId } + identityColumn,
+            readExpression = readExpression
           )
-            .addBindings(
-              table = table,
-              columns = table
-                .allColumns
-                .filterNot { column -> column === identityColumn || column.isId } + identityColumn
-            )
-            .endControlFlow()
-        }
+          .endControlFlow()
       }
-      .addStatement(
-        "else -> throw %T(%S)",
-        IllegalArgumentException::class,
-        "Column does not identify an entity property"
-      )
-      .endControlFlow()
+    }
+    .addStatement(
+      "else -> throw %T(%S)",
+      IllegalArgumentException::class,
+      "Column does not identify an entity property"
+    )
+    .endControlFlow()
 
   private fun FunSpec.Builder.addCompactUpdateBindings(
     table: TableElement,
-    uniqueColumns: List<ColumnElement>
+    uniqueColumns: List<ColumnElement>,
+    readExpression: ReadExpressionProvider
   ) = when (val idColumn = table.idColumn) {
     null -> addUniqueUpdateBindings(
       table = table,
-      uniqueColumns = uniqueColumns
+      uniqueColumns = uniqueColumns,
+      readExpression = readExpression
     )
     else -> beginControlFlow("when (%N)", METHOD_BY_COLUMN)
       .beginControlFlow(
@@ -198,13 +229,15 @@ internal class ModelDaoWriter(
         table = table,
         columns = table
           .allColumns
-          .filterNot(ColumnElement::isId) + idColumn
+          .filterNot(ColumnElement::isId) + idColumn,
+        readExpression = readExpression
       )
       .endControlFlow()
       .beginControlFlow("else ->")
       .addUniqueUpdateBindings(
         table = table,
-        uniqueColumns = uniqueColumns
+        uniqueColumns = uniqueColumns,
+        readExpression = readExpression
       )
       .endControlFlow()
       .endControlFlow()
@@ -212,7 +245,8 @@ internal class ModelDaoWriter(
 
   private fun FunSpec.Builder.addUniqueUpdateBindings(
     table: TableElement,
-    uniqueColumns: List<ColumnElement>
+    uniqueColumns: List<ColumnElement>,
+    readExpression: ReadExpressionProvider
   ) = apply {
     val nextParameterIndex = CodeBlock.of("parameterIndex++")
     beginControlFlow("val identityOrdinal = when (%N)", METHOD_BY_COLUMN)
@@ -241,14 +275,16 @@ internal class ModelDaoWriter(
             table = table,
             column = column,
             parameterIndex = nextParameterIndex,
-            valueName = "value${index + 1}"
+            valueName = "value${index + 1}",
+            readExpression = readExpression
           )
           .endControlFlow()
         else -> addBinding(
           table = table,
           column = column,
           parameterIndex = nextParameterIndex,
-          valueName = "value${index + 1}"
+          valueName = "value${index + 1}",
+          readExpression = readExpression
         )
       }
     }
@@ -259,7 +295,8 @@ internal class ModelDaoWriter(
         table = table,
         column = identityColumn,
         parameterIndex = nextParameterIndex,
-        valueName = "selectedKeyValue"
+        valueName = "selectedKeyValue",
+        readExpression = readExpression
       )
       endControlFlow()
     }
@@ -271,7 +308,8 @@ internal class ModelDaoWriter(
     table: TableElement,
     columns: List<ColumnElement>,
     excludesIdentityColumn: Boolean,
-    usesGeneratedRelationshipIds: Boolean = false
+    usesGeneratedRelationshipIds: Boolean = false,
+    readExpression: ReadExpressionProvider
   ): FunSpec {
     val function = FunSpec
       .builder(functionName)
@@ -292,7 +330,8 @@ internal class ModelDaoWriter(
         val value = serializedInsertAccessCode(
           table = table,
           column = column,
-          usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
+          usesGeneratedRelationshipIds = usesGeneratedRelationshipIds,
+          readExpression = readExpression
         )
         val nullableReceiver = when {
           usesGeneratedRelationshipIds &&
@@ -350,7 +389,8 @@ internal class ModelDaoWriter(
   private fun FunSpec.Builder.addBindings(
     table: TableElement,
     columns: List<ColumnElement>,
-    usesGeneratedRelationshipIds: Boolean = false
+    usesGeneratedRelationshipIds: Boolean = false,
+    readExpression: ReadExpressionProvider
   ) = apply {
     columns.forEachIndexed { index, column ->
       val parameterIndex = index + 1
@@ -359,7 +399,8 @@ internal class ModelDaoWriter(
         column = column,
         parameterIndex = CodeBlock.of("%L", parameterIndex),
         valueName = "value$parameterIndex",
-        usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
+        usesGeneratedRelationshipIds = usesGeneratedRelationshipIds,
+        readExpression = readExpression
       )
     }
   }
@@ -369,12 +410,14 @@ internal class ModelDaoWriter(
     column: ColumnElement,
     parameterIndex: CodeBlock,
     valueName: String,
-    usesGeneratedRelationshipIds: Boolean = false
+    usesGeneratedRelationshipIds: Boolean = false,
+    readExpression: ReadExpressionProvider
   ) = apply {
     val value = serializedInsertAccessCode(
       table = table,
       column = column,
-      usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
+      usesGeneratedRelationshipIds = usesGeneratedRelationshipIds,
+      readExpression = readExpression
     )
     when {
       column.bindingValueCanBeNull() -> addStatement("val %N = %L", valueName, value)
@@ -418,14 +461,18 @@ internal class ModelDaoWriter(
   private fun serializedInsertAccessCode(
     table: TableElement,
     column: ColumnElement,
-    usesGeneratedRelationshipIds: Boolean
+    usesGeneratedRelationshipIds: Boolean,
+    readExpression: ReadExpressionProvider
   ): CodeBlock {
-    val relationship = column.relationship ?: return table.serializedReadExpression(column)
-    val relationshipValue = table.readExpression(column)
+    val propertyReadExpression = readExpression(column)
+    val relationship = column.relationship ?: return table.serializedReadExpression(
+      column = column,
+      propertyReadExpression = propertyReadExpression
+    )
     val relationshipVariable = "relationship"
     val relationshipReceiver = when {
       column.isModelPathNullable -> CodeBlock.of("%N", relationshipVariable)
-      else -> relationshipValue
+      else -> propertyReadExpression
     }
     val serializedId = relationship.serializedDeclaredIdValue(
       value = relationshipReceiver.appendPropertyPath(
@@ -454,7 +501,7 @@ internal class ModelDaoWriter(
     return when {
       column.isModelPathNullable -> CodeBlock.of(
         "%L?.let { %N -> %L }",
-        relationshipValue,
+        propertyReadExpression,
         relationshipVariable,
         requiredId
       )

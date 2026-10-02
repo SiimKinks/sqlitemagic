@@ -167,8 +167,11 @@ internal fun TableElement.readExpression(
     .build()
 }
 
-internal fun TableElement.serializedReadExpression(column: ColumnElement): CodeBlock {
-  var expression = readExpression(column)
+internal fun TableElement.serializedReadExpression(
+  column: ColumnElement,
+  propertyReadExpression: CodeBlock = readExpression(column)
+): CodeBlock {
+  var expression = propertyReadExpression
   column.relationship?.let { relationship ->
     expression = expression.appendPropertyPath(
       path = relationship.referencedIdProperty,
