@@ -4,7 +4,7 @@ import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 internal typealias TestColumn = Column<*, *, *, TestEntity, NotNullable>
 
@@ -44,7 +44,7 @@ internal class TestAdapter(
   override val maxColumns = 3
   override val defaultIdentityColumn = TestSchema.id
 
-  val bindMaps = mutableListOf<SimpleArrayMap<String, Any>>()
+  val bindMaps = mutableListOf<MutableScatterMap<String, Any>>()
 
   override fun bindToInsertStatement(
     statement: SupportSQLiteStatement,
@@ -79,7 +79,7 @@ internal class TestAdapter(
 
   override fun bindNotNullForInsert(
     entity: TestEntity,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
@@ -95,7 +95,7 @@ internal class TestAdapter(
 
   override fun bindNotNullForUpdate(
     entity: TestEntity,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     byColumn: TestColumn
   ) {
     values.clear()

@@ -119,7 +119,7 @@ internal object InsertExecutors {
       generatedRelationshipIds = context.generatedRelationshipIds
     )
     val rowId = when {
-      context.bindValues.isEmpty -> context
+      context.bindValues.isEmpty() -> context
         .entityDbManager()
         .compileStatement(
           "INSERT${context.conflictValue()} INTO ${adapter.tableName} DEFAULT VALUES"

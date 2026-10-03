@@ -5,7 +5,8 @@ import androidx.annotation.Size
 import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
 import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
 import com.siimkinks.sqlitemagic.Utils.TABLE_ALL_PARSER
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
@@ -14,8 +15,8 @@ import java.util.LinkedList
 /** Row mapper for the current selection shape. */
 fun interface TableMapper<T> {
   operator fun invoke(
-    columnPositions: SimpleArrayMap<String, Int>?,
-    tableGraphNodeNames: SimpleArrayMap<String, String>?,
+    columnPositions: MutableObjectIntMap<String>?,
+    tableGraphNodeNames: MutableScatterMap<String, String>?,
     queryDeep: Boolean
   ): Query.Mapper<T>
 }
@@ -115,10 +116,10 @@ open class Table<T> protected constructor(
    * @return Whether selection should be deep.
    */
   internal open fun perfectSelection(
-    tableGraphNodeNames: SimpleArrayMap<String, String>?,
-    columnPositions: SimpleArrayMap<String, Int>?,
+    tableGraphNodeNames: MutableScatterMap<String, String>?,
+    columnPositions: MutableObjectIntMap<String>?,
     implicitOffset: Int = 0,
-    implicitSelection: Boolean = columnPositions?.isEmpty == true
+    implicitSelection: Boolean = columnPositions?.isEmpty() == true
   ): Boolean {
     resolvedViewDefinition?.let { definition ->
       definition.contributeTo(
@@ -182,7 +183,7 @@ open class Table<T> protected constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       super.appendSql(sb, systemRenamedTables)
       expr.appendToSql(sb, systemRenamedTables)

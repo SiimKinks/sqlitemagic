@@ -39,10 +39,11 @@ import com.siimkinks.sqlitemagic.internal.EntityStatementBinder
 import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
 import com.siimkinks.sqlitemagic.internal.InsertBuilder
 import com.siimkinks.sqlitemagic.internal.MutableInt
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.PersistBuilder
 import com.siimkinks.sqlitemagic.internal.PersistByColumnBuilder
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
 import com.siimkinks.sqlitemagic.internal.UpdateBuilder
 import com.siimkinks.sqlitemagic.internal.UpdateByColumnBuilder
 import com.squareup.kotlinpoet.ANY
@@ -125,10 +126,15 @@ internal object WriterTypes {
   val GENERATED_ENTITY_IDENTITY = GeneratedEntityIdentity::class.asClassName()
   val OPERATION_FAILED_EXCEPTION = OperationFailedException::class.asClassName()
 
-  val SIMPLE_ARRAY_MAP = SimpleArrayMap::class.asClassName()
-  val BIND_VALUES_MAP = SIMPLE_ARRAY_MAP.parameterizedBy(STRING, ANY)
+  val MUTABLE_SCATTER_MAP = MutableScatterMap::class.asClassName()
+  val COLUMN_POSITIONS_MAP = MutableObjectIntMap::class
+    .asClassName()
+    .parameterizedBy(STRING)
+  val BIND_VALUES_MAP = MUTABLE_SCATTER_MAP.parameterizedBy(STRING, ANY)
   val STRING_ARRAY = ARRAY.parameterizedBy(STRING)
-  val STRING_ARRAY_SET = StringArraySet::class.asClassName()
+  val STRING_SCATTER_SET = MutableScatterSet::class
+    .asClassName()
+    .parameterizedBy(STRING)
   val MUTABLE_INT = MutableInt::class.asClassName()
 
   val CURSOR = ClassName("android.database", "Cursor")

@@ -1,30 +1,28 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.Utils.addTableAlias
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import java.util.LinkedList
 
 /** Runtime-owned state and operations for generated query-graph traversal. */
 class QueryGraphScope internal constructor(
   private val from: Select.From<*, *, *, *>,
-  private val selectFromTables: StringArraySet?,
-  private val tableGraphNodeNames: SimpleArrayMap<String, String>?,
+  private val selectFromTables: MutableScatterSet<String>?,
+  private val tableGraphNodeNames: MutableScatterMap<String, String>?,
   private val queryDeep: Boolean,
   val select1: Boolean
 ) {
   private val joins = from.joins
-  private val reservedIdentifiers = StringArraySet(joins.size + 1)
+  private val reservedIdentifiers = MutableScatterSet<String>(joins.size + 1)
   private val systemRenamedTables = selectFromTables?.let {
-    SimpleArrayMap<String, LinkedList<String>>()
+    MutableScatterMap<String, LinkedList<String>>(initialCapacity = 0)
   }
   private var nextAliasIndex = 0
 
   init {
-    reservedIdentifiers.add(from.table.nameInQuery)
-    for (join in joins) {
-      reservedIdentifiers.add(join.tableNameInQuery)
-    }
+    reservedIdentifiers += from.table.nameInQuery
+    joins.forEach { reservedIdentifiers += it.tableNameInQuery }
   }
 
   /** Contributes one table occurrence and recursively visits its generated query graph. */
@@ -97,15 +95,15 @@ class QueryGraphScope internal constructor(
     on: Expr
   ) {
     from.leftJoin(table.on(on))
-    reservedIdentifiers.add(table.nameInQuery)
+    reservedIdentifiers += table.nameInQuery
   }
 
   internal fun addJoin(join: JoinClause) {
     joins += join
-    reservedIdentifiers.add(join.tableNameInQuery)
+    reservedIdentifiers += join.tableNameInQuery
   }
 
-  internal fun renamedTablesOrNull() = systemRenamedTables?.takeUnless(SimpleArrayMap<*, *>::isEmpty)
+  internal fun renamedTablesOrNull() = systemRenamedTables?.takeUnless(MutableScatterMap<*, *>::isEmpty)
 
   private fun nextAvailableAlias(): String {
     while (true) {

@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 
 internal class ExprC(
@@ -30,7 +30,7 @@ internal class ExprC(
 
   override fun appendToSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     super.appendToSql(sb, systemRenamedTables)
     sb.appendExprColumn {

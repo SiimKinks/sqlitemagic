@@ -11,9 +11,10 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.WriterTypes.CHECK_NOT_NULL
+import com.siimkinks.sqlitemagic.WriterTypes.COLUMN_POSITIONS_MAP
+import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_SCATTER_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.QUERY_GRAPH_SCOPE
 import com.siimkinks.sqlitemagic.WriterTypes.QUERY_MAPPER
-import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.TableElement
@@ -24,7 +25,6 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
-import com.squareup.kotlinpoet.INT
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PRIVATE
@@ -106,15 +106,13 @@ internal class ReadTableStructureWriter private constructor(
     val columnPositions = ParameterSpec
       .builder(
         name = "columnPositions",
-        type = SIMPLE_ARRAY_MAP
-          .parameterizedBy(STRING, INT)
-          .copy(nullable = true)
+        type = COLUMN_POSITIONS_MAP.copy(nullable = true)
       )
       .build()
     val tableGraphNodeNames = ParameterSpec
       .builder(
         name = "tableGraphNodeNames",
-        type = SIMPLE_ARRAY_MAP
+        type = MUTABLE_SCATTER_MAP
           .parameterizedBy(STRING, STRING)
           .copy(nullable = true)
       )

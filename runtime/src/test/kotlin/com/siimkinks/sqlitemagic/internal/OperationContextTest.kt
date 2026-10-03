@@ -80,7 +80,7 @@ internal class OperationContextTest {
     val secondHelper = second.variableArgsOperationHelper
 
     assertThat(second.bindValues).isNotSameInstanceAs(first.bindValues)
-    assertThat(second.bindValues.isEmpty).isTrue()
+    assertThat(second.bindValues.isEmpty()).isTrue()
     assertThat(second.generatedRelationshipIds).isNotSameInstanceAs(first.generatedRelationshipIds)
     assertThat(second.generatedRelationshipIds).isEmpty()
     assertThat(secondHelper).isNotSameInstanceAs(firstHelper)

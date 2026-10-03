@@ -4,10 +4,11 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_VIEW_QUERY
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
+import com.siimkinks.sqlitemagic.WriterTypes.COLUMN_POSITIONS_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_VIEW
 import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_INT
-import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
+import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_SCATTER_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.VIEW_DEFINITION
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
@@ -26,7 +27,6 @@ import com.siimkinks.sqlitemagic.writer.descendantPositions
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
-import com.squareup.kotlinpoet.INT
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
@@ -105,10 +105,10 @@ internal class ViewDaoWriter(
       .apply {
         when {
           selected -> {
-            addParameter(name = "columns", type = SIMPLE_ARRAY_MAP.parameterizedBy(STRING, INT))
+            addParameter(name = "columns", type = COLUMN_POSITIONS_MAP)
             addParameter(
               name = "tableGraphNodeNames",
-              type = SIMPLE_ARRAY_MAP
+              type = MUTABLE_SCATTER_MAP
                 .parameterizedBy(STRING, STRING)
                 .copy(nullable = true)
             )
@@ -138,7 +138,7 @@ internal class ViewDaoWriter(
       properties = view.properties,
       scope = scope,
       namespace = CodeBlock.of("%N", "nodeName"),
-      viewSpan = CodeBlock.of("%N[%N]", "columns", "nodeName"),
+      viewSpan = CodeBlock.of("%N.getOrNull(%N)", "columns", "nodeName"),
       absoluteOffset = 0,
       relativeOffset = 0,
       requireAll = false,
@@ -271,7 +271,7 @@ internal class ViewDaoWriter(
       function = scope.function,
       indexName = scope.nextIndexName(),
       lookup = CodeBlock.of(
-        "columns[%L + %S] ?: columns[%L + %S] ?: %L?.plus(%L)",
+        "columns.getOrNull(%L + %S) ?: columns.getOrNull(%L + %S) ?: %L?.plus(%L)",
         namespace,
         ".$selectionKey",
         namespace,
@@ -299,7 +299,7 @@ internal class ViewDaoWriter(
         scope.selected -> {
           val name = scope.nextSpanName()
           scope.function.addStatement(
-            "val %N = columns[%L] ?: %L?.plus(%L)",
+            "val %N = columns.getOrNull(%L) ?: %L?.plus(%L)",
             name,
             childNamespace,
             viewSpan,
@@ -368,15 +368,15 @@ internal class ViewDaoWriter(
   ) = scope.nextGraphName().also { name ->
     scope.function
       .beginControlFlow("val %N = tableGraphNodeNames?.let { graph ->", name)
-      .beginControlFlow("val matchingIndex = (0 until graph.size()).firstOrNull { index ->")
+      .beginControlFlow("graph.forEach { key, value ->")
       .addStatement(
-        "graph.keyAt(index).startsWith(%L + %S) && graph.valueAt(index) == %S",
+        "if (key.startsWith(%L + %S) && value == %S) return@let key",
         namespace,
         ".",
         selectionKey
       )
       .endControlFlow()
-      .addStatement("matchingIndex?.let(graph::keyAt)")
+      .addStatement("null")
       .endControlFlow()
   }
 
@@ -399,7 +399,7 @@ internal class ViewDaoWriter(
     val indexName = scope.nextIndexName()
     val scopedLookup = when {
       column.relationshipPath.isEmpty() -> CodeBlock.of(
-        "columns[%L + %S] ?: columns[%L + %S]?.plus(%L)",
+        "columns.getOrNull(%L + %S) ?: columns.getOrNull(%L + %S)?.plus(%L)",
         namespace,
         ".$selectionKey.${column.column.columnName}",
         namespace,
@@ -415,7 +415,7 @@ internal class ViewDaoWriter(
           .endControlFlow()
           .beginControlFlow("val %N = %N?.let { alias ->", lookupName, aliasName)
           .addStatement(
-            "columns[%L + %S + alias + %S] ?: columns[%L + %S + alias]?.plus(%L)",
+            "columns.getOrNull(%L + %S + alias + %S) ?: columns.getOrNull(%L + %S + alias)?.plus(%L)",
             namespace,
             ".",
             ".${column.column.columnName}",

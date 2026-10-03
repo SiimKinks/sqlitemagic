@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 
 /** An SQL join clause. */
@@ -15,7 +15,7 @@ open class JoinClause internal constructor(
 
   override fun appendSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) = appendJoin(sb)
 
   private fun appendJoin(sb: StringBuilder) {

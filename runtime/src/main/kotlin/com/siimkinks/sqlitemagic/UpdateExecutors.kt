@@ -31,7 +31,7 @@ internal object UpdateExecutors {
     )
     val identityColumn = identity.columnName
     val updated = when {
-      context.bindValues.isEmpty -> context
+      context.bindValues.isEmpty() -> context
         .entityDbManager()
         .compileStatement(
           "UPDATE${context.conflictValue()} ${adapter.tableName} SET $identityColumn=$identityColumn WHERE $identityColumn=?"

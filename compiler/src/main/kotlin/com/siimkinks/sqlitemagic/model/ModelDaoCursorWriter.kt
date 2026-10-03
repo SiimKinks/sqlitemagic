@@ -4,9 +4,10 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_NEW_INSTANCE_WITH_ONLY_ID
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
+import com.siimkinks.sqlitemagic.WriterTypes.COLUMN_POSITIONS_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
 import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_INT
-import com.siimkinks.sqlitemagic.WriterTypes.SIMPLE_ARRAY_MAP
+import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_SCATTER_MAP
 import com.siimkinks.sqlitemagic.writer.CursorAbsence
 import com.siimkinks.sqlitemagic.writer.CursorPosition
 import com.siimkinks.sqlitemagic.writer.CursorPositions
@@ -17,7 +18,6 @@ import com.siimkinks.sqlitemagic.writer.CursorReadTreeWriter
 import com.siimkinks.sqlitemagic.writer.databaseCursorGetter
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
-import com.squareup.kotlinpoet.INT
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
@@ -179,10 +179,10 @@ internal class ModelDaoCursorWriter(
     val function = FunSpec
       .builder(functionName)
       .addParameter(name = "cursor", type = CURSOR)
-      .addParameter(name = "columns", type = SIMPLE_ARRAY_MAP.parameterizedBy(STRING, INT))
+      .addParameter(name = "columns", type = COLUMN_POSITIONS_MAP)
       .addParameter(
         name = "tableGraphNodeNames",
-        type = SIMPLE_ARRAY_MAP
+        type = MUTABLE_SCATTER_MAP
           .parameterizedBy(STRING, STRING)
           .copy(nullable = true)
       )
@@ -193,7 +193,7 @@ internal class ModelDaoCursorWriter(
       .addStatement("return null")
       .endControlFlow()
       .addStatement("val effectiveTableName = tableName ?: %S", tableName)
-      .addStatement("val thisTableOffset = columns[effectiveTableName]")
+      .addStatement("val thisTableOffset = columns.getOrNull(effectiveTableName)")
     val columnIndexes = allColumns
       .withIndex()
       .associate { (index, column) ->
@@ -202,7 +202,7 @@ internal class ModelDaoCursorWriter(
           else -> CodeBlock.of("thisTableOffset?.plus(%L)", index)
         }
         val lookup = CodeBlock.of(
-          "%L ?: columns[%P]",
+          "%L ?: columns.getOrNull(%P)",
           tableOffset,
           $$"$effectiveTableName.$${column.columnName}"
         )

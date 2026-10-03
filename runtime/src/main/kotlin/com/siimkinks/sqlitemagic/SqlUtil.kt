@@ -4,7 +4,8 @@ import android.database.Cursor
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteStatement
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 
 /** Internal utility functions. */
@@ -25,14 +26,14 @@ object SqlUtil {
       sql = query.sql,
       args = query.args,
       queryDependencies = query.queryDependencies,
-      columns = SimpleArrayMap<String, Int>().apply {
+      columns = MutableObjectIntMap<String>().apply {
         val selectedColumn = query.selectedColumn
         put(selectedColumn.nameInQuery, 0)
         query.selectedColumn.alias?.let { alias ->
           put(alias, 0)
         }
       },
-      tableGraphNodeNames = SimpleArrayMap(),
+      tableGraphNodeNames = MutableScatterMap(initialCapacity = 0),
       queryDeep = false
     )
     else -> error("Cannot create view '$viewName': defining query uses unsupported implementation ${query.javaClass.name}")

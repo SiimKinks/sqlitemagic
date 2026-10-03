@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityAdapterMetadata
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 internal interface OperationConfiguration {
   val connection: DbConnection
@@ -37,7 +37,11 @@ internal class OperationContext private constructor(
     tablePosition = adapter.tablePosition,
     configuration = configuration,
     sharedState = SharedState(
-      conflictAlgorithm = configuration.conflictAlgorithm
+      conflictAlgorithm = configuration.conflictAlgorithm,
+      bindValuesCapacity = when {
+        configuration.ignoreNullValues -> adapter.maxColumns
+        else -> 0
+      }
     ),
     skipTableTriggers = false
   )
@@ -131,9 +135,10 @@ internal class OperationContext private constructor(
   }
 
   private class SharedState(
-    conflictAlgorithm: Int
+    conflictAlgorithm: Int,
+    bindValuesCapacity: Int
   ) {
-    val bindValues = SimpleArrayMap<String, Any>()
+    val bindValues = MutableScatterMap<String, Any>(initialCapacity = bindValuesCapacity)
     val variableArgsOperationHelper by lazy(LazyThreadSafetyMode.NONE) {
       VariableArgsOperationHelper(conflictAlgorithm)
     }

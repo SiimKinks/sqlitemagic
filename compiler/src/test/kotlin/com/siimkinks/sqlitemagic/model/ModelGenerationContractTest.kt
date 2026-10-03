@@ -191,7 +191,7 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "generatedRelationshipIds: Map<String, Long>",
           "statement.clearBindings()",
           "values.clear()",
-          "SimpleArrayMap<String, Any>",
+          "MutableScatterMap<String, Any>",
           "shallowObjectFromCursorPosition",
           "LibraryBook("
         )
@@ -280,10 +280,11 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "val effectiveTableName = tableName ?: \"library_books\"",
-          "val thisTableOffset = columns[effectiveTableName]",
-          "val columnIndex0 = thisTableOffset ?: columns[\"\"\"\$effectiveTableName.book_key\"\"\"]",
-          "val columnIndex1 = thisTableOffset?.plus(1) ?: " +
-              "columns[\"\"\"\$effectiveTableName.title_text\"\"\"]"
+          "val thisTableOffset = columns.getOrNull(effectiveTableName)",
+          "val columnIndex0 = thisTableOffset ?: columns.getOrNull(",
+          "\"\"\"\$effectiveTableName.book_key\"\"\"",
+          "val columnIndex1 = thisTableOffset?.plus(1) ?: columns.getOrNull(",
+          "\"\"\"\$effectiveTableName.title_text\"\"\""
         )
       }
   }

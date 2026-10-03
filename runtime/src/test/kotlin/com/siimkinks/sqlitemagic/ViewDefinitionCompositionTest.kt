@@ -1,14 +1,14 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.internal.SqliteSchema
 import org.junit.Test
 
 class ViewDefinitionCompositionTest {
   @Test
   fun rebasesOnlyTheSelectedViewAndKeepsTheDefinitionLazy() {
-    val definitionPositions = SimpleArrayMap<String, Int>().apply {
+    val definitionPositions = MutableObjectIntMap<String>().apply {
       put("name", 1)
       put("id", 0)
     }
@@ -30,7 +30,7 @@ class ViewDefinitionCompositionTest {
     )
     assertThat(resolutions).isEqualTo(0)
 
-    val positions = SimpleArrayMap<String, Int>().apply {
+    val positions = MutableObjectIntMap<String>().apply {
       put("left", 3)
       put("tail", 5)
     }
@@ -40,7 +40,7 @@ class ViewDefinitionCompositionTest {
     )
 
     assertThat(resolutions).isEqualTo(1)
-    assertThat(positions["left"]).isNull()
+    assertThat(positions.containsKey("left")).isFalse()
     assertThat(positions["left.name"]).isEqualTo(4)
     assertThat(positions["left.id"]).isEqualTo(3)
     assertThat(positions["tail"]).isEqualTo(5)
@@ -59,7 +59,7 @@ class ViewDefinitionCompositionTest {
     assertThat(dependencies.observedTables.asList()).containsExactly("authors")
     assertThat(dependencies.directSourcesComplete).isTrue()
 
-    val joinedPositions = SimpleArrayMap<String, Int>()
+    val joinedPositions = MutableObjectIntMap<String>()
     view.perfectSelection(
       tableGraphNodeNames = null,
       columnPositions = joinedPositions,
@@ -89,7 +89,7 @@ class ViewDefinitionCompositionTest {
       .from(view)
       .compile() as CompiledSelectImpl<*, *>
     assertThat(atZero.columns?.get("report")).isEqualTo(0)
-    assertThat(atZero.columns?.size()).isEqualTo(1)
+    assertThat(atZero.columns?.size).isEqualTo(1)
 
     val root = testTable(
       name = "authors",
@@ -103,12 +103,12 @@ class ViewDefinitionCompositionTest {
       .compile() as CompiledSelectImpl<*, *>
     assertThat(afterRoot.columns?.get("authors")).isEqualTo(0)
     assertThat(afterRoot.columns?.get("report")).isEqualTo(3)
-    assertThat(afterRoot.columns?.size()).isEqualTo(2)
+    assertThat(afterRoot.columns?.size).isEqualTo(2)
   }
 
   @Test
   fun compiledSelectionsRebaseRepeatedAndJoinedViewInstances() {
-    val definitionPositions = SimpleArrayMap<String, Int>().apply {
+    val definitionPositions = MutableObjectIntMap<String>().apply {
       put("name", 1)
       put("id", 0)
     }
@@ -158,8 +158,8 @@ class ViewDefinitionCompositionTest {
     assertThat(repeated.columns?.get("left.name")).isEqualTo(1)
     assertThat(repeated.columns?.get("right.id")).isEqualTo(2)
     assertThat(repeated.columns?.get("right.name")).isEqualTo(3)
-    assertThat(repeated.columns?.get("left")).isNull()
-    assertThat(repeated.columns?.get("right")).isNull()
+    assertThat(repeated.columns?.containsKey("left")).isFalse()
+    assertThat(repeated.columns?.containsKey("right")).isFalse()
 
     val root = testTable(
       name = "authors",
@@ -189,7 +189,7 @@ class ViewDefinitionCompositionTest {
       sql = "SELECT id, name FROM authors",
       args = null,
       queryDependencies = authorDependencies,
-      columns = SimpleArrayMap<String, Int>().apply {
+      columns = MutableObjectIntMap<String>().apply {
         put("id", 0)
         put("name", 1)
       },

@@ -31,7 +31,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_DATABASE
 import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_MAGIC
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
-import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY_SET
+import com.siimkinks.sqlitemagic.WriterTypes.STRING_SCATTER_SET
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
 import com.siimkinks.sqlitemagic.WriterTypes.UNCHECKED_CAST
 import com.siimkinks.sqlitemagic.WriterTypes.UTILS
@@ -319,8 +319,8 @@ internal class GenClassesManagerWriter(
   private fun GeneratedDatabaseElement.clearData() =
     databaseFunction(METHOD_CLEAR_DATA)
       .addParameter(name = "db", type = SQLITE_DATABASE)
-      .returns(STRING_ARRAY_SET)
-      .addStatement("val allChangedTables = %T(%N(null))", STRING_ARRAY_SET, METHOD_GET_NR_OF_TABLES)
+      .returns(STRING_SCATTER_SET)
+      .addStatement("val allChangedTables = %T(%N(null))", STRING_SCATTER_SET, METHOD_GET_NR_OF_TABLES)
       .addStatement("db.beginTransaction()")
       .beginControlFlow("try")
       .apply {

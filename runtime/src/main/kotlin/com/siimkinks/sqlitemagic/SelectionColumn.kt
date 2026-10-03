@@ -2,8 +2,9 @@ package com.siimkinks.sqlitemagic
 
 import android.database.SQLException
 import com.siimkinks.sqlitemagic.Utils.ValueParser
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import java.util.LinkedList
 
 /**
@@ -64,10 +65,10 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
 
   override fun appendSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) = appendSql(sb)
 
-  override fun addSelectedTables(result: StringArraySet) {
+  override fun addSelectedTables(result: MutableScatterSet<String>) {
     // selection column does not add any tables to outer selection as it is returning
     // an autonomous column
   }
@@ -77,7 +78,7 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
   override fun addDependencies(dependencies: QueryDependencies.Builder) = fragment.addDependencies(dependencies)
 
   override fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
     columnOffset: Int
   ): Int {
@@ -93,9 +94,9 @@ internal class SelectionColumn<T, R, ET, P, N> private constructor(
   }
 
   override fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>,
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>,
     columnOffset: Int
   ): Int {
     appendSql(compiledCols, systemRenamedTables)

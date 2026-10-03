@@ -6,7 +6,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_BYTES
 import com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_PRIMITIVE_BYTES
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 import java.util.Random
 
@@ -31,7 +31,7 @@ object Utils {
   @CheckResult
   internal fun addTableAlias(
     table: Table<*>,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ): String {
     val nameInQuery = table.nameInQuery
     (systemRenamedTables[table.name]

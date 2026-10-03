@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 
 /** Resolves a batch before schema DDL starts. */
@@ -28,21 +30,23 @@ internal class GeneratedViewResolver(views: Collection<GeneratedView>) {
       )
     }
     val ordered = ArrayList<ResolvedView>(nodes.size)
-    val completed = HashSet<SqliteSchemaKey>()
+    val completed = MutableScatterSet<SqliteSchemaKey>(initialCapacity = nodes.size)
     val path = ArrayList<SqliteSchemaKey>()
-    val activeIndexByKey = HashMap<SqliteSchemaKey, Int>()
+    val activeIndexByKey = MutableObjectIntMap<SqliteSchemaKey>()
 
     fun visit(node: ResolvedView) {
       val key = node.view.identity.normalizedKey
       if (key in completed) return
-      activeIndexByKey[key]?.let { cycleStart ->
-        val cycle = (path.subList(cycleStart, path.size) + key)
-          .joinToString(separator = " -> ") { cycleKey ->
-            val view = nodes.getValue(cycleKey).view
-            "${view.identity.schema.qualifier}.${view.viewName}"
-          }
-        error("Generated view dependency cycle: $cycle")
-      }
+      activeIndexByKey
+        .getOrNull(key)
+        ?.let { cycleStart ->
+          val cycle = (path.subList(cycleStart, path.size) + key)
+            .joinToString(separator = " -> ") { cycleKey ->
+              val view = nodes.getValue(cycleKey).view
+              "${view.identity.schema.qualifier}.${view.viewName}"
+            }
+          error("Generated view dependency cycle: $cycle")
+        }
       activeIndexByKey[key] = path.size
       path += key
       for (source in node.definition.queryDependencies.directSources) {
@@ -65,7 +69,7 @@ internal class GeneratedViewResolver(views: Collection<GeneratedView>) {
   }
 
   internal class ResolvedView(
-      val view: GeneratedView,
-      val definition: ViewDefinition
+    val view: GeneratedView,
+    val definition: ViewDefinition
   )
 }

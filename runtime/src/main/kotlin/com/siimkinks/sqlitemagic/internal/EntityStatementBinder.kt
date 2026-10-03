@@ -19,13 +19,13 @@ interface EntityIdentityStatementBinder<M> : EntityStatementBinder<M> {
 
   fun bindNotNullForInsert(
     entity: M,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     generatedRelationshipIds: Map<String, Long>
   )
 
   fun bindNotNullForUpdate(
     entity: M,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     byColumn: IdentityColumn<M>
   )
 }

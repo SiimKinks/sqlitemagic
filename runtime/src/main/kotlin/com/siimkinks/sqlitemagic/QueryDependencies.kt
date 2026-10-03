@@ -1,16 +1,18 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
+import com.siimkinks.sqlitemagic.internal.MutableOrderedScatterSet
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
+import com.siimkinks.sqlitemagic.internal.toTypedArray
 
 internal class QueryDependencies private constructor(
   val directSources: List<SqliteQuerySource>,
   val observedTables: Array<String>,
   val directSourcesComplete: Boolean
 ) {
-  internal class Builder {
+  internal class Builder(initialCapacity: Int = 0) {
     private val directSourcesByIdentity = LinkedHashMap<SqliteSchemaKey, SqliteQuerySource>()
-    private val observedTableNames = LinkedHashSet<String>()
+    private val observedTableNames = MutableOrderedScatterSet<String>(initialCapacity = initialCapacity)
     private var directSourcesComplete = true
 
     fun addSource(source: SqliteQuerySource) = apply {

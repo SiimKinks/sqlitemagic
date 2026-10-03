@@ -5,7 +5,7 @@ import com.siimkinks.sqlitemagic.Select.OrderingTerm
 import com.siimkinks.sqlitemagic.Select.OrderingTerm.Companion.ASC
 import com.siimkinks.sqlitemagic.Select.OrderingTerm.Companion.DESC
 import com.siimkinks.sqlitemagic.internal.ContainerHelpers.EMPTY_STRINGS
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 
 /** An SQL expression. */
@@ -28,7 +28,7 @@ open class Expr internal constructor(
 
   internal open fun appendToSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     checkNotNull(column).appendSql(sb, systemRenamedTables)
     sb.append(op)

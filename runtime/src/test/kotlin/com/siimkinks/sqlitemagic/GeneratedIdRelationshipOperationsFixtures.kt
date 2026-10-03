@@ -7,7 +7,7 @@ import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
 import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 internal typealias GeneratedIdChild = TestEntity
 
@@ -87,7 +87,7 @@ private class GeneratedIdParentAdapter(
 
   override fun bindNotNullForInsert(
     entity: GeneratedIdParent,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     generatedRelationshipIds: Map<String, Long>
   ) {
     val childId = generatedRelationshipIds["child"] ?: 0L
@@ -99,7 +99,7 @@ private class GeneratedIdParentAdapter(
 
   override fun bindNotNullForUpdate(
     entity: GeneratedIdParent,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     byColumn: GeneratedIdParentColumn
   ) {
     values.clear()

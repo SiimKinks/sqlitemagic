@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.Utils.STRING_PARSER
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import org.junit.Test
 
@@ -133,7 +133,9 @@ internal class ViewIdentifierSqlTest {
         )
       )
       .build(),
-    columns = SimpleArrayMap<String, Int>().apply { put("name", 0) },
+    columns = MutableObjectIntMap<String>().apply {
+      put("name", 0)
+    },
     tableGraphNodeNames = null,
     queryDeep = false
   )

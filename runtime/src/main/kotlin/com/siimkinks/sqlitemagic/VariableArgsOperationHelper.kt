@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.EntityOperation.INSERT
 import com.siimkinks.sqlitemagic.EntityOperation.UPDATE
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
   private val conflictSql = ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm]
@@ -13,29 +13,31 @@ internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
   fun compileInsertStatement(
     tableName: String,
     maxColumns: Int,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     manager: EntityDbManager
   ): SupportSQLiteStatement {
     val builder = prepareSqlBuilder(
       operation = INSERT,
       maxColumns = maxColumns
     )
-    val valuesSize = values.size()
+    val valuesSize = values.size
     builder
       .append(tableName)
       .append('(')
-    for (index in 0 until valuesSize) {
-      if (index > 0) {
-        builder.append(',')
-      }
-      builder.append(values.keyAt(index))
+    values.forEachKey { column ->
+      builder
+        .append(column)
+        .append(',')
+    }
+    if (valuesSize > 0) {
+      builder.setLength(builder.length - 1)
     }
     builder.append(") VALUES (")
     for (index in 0 until valuesSize) {
-      if (index > 0) {
-        builder.append(',')
-      }
-      builder.append('?')
+      builder.append("?,")
+    }
+    if (valuesSize > 0) {
+      builder.setLength(builder.length - 1)
     }
     builder.append(')')
     return compileStatement(
@@ -48,7 +50,7 @@ internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
   fun compileUpdateStatement(
     tableName: String,
     maxColumns: Int,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     resolutionColumn: String,
     resolutionValue: Any,
     manager: EntityDbManager
@@ -57,17 +59,16 @@ internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
       operation = UPDATE,
       maxColumns = maxColumns
     )
-    val valuesSize = values.size()
     builder
       .append(tableName)
       .append(" SET ")
-    for (index in 0 until valuesSize) {
-      if (index > 0) {
-        builder.append(',')
-      }
+    values.forEachKey { column ->
       builder
-        .append(values.keyAt(index))
-        .append("=?")
+        .append(column)
+        .append("=?,")
+    }
+    if (values.isNotEmpty()) {
+      builder.setLength(builder.length - 1)
     }
     builder
       .append(" WHERE ")
@@ -79,7 +80,7 @@ internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
       manager = manager
     ).also { statement ->
       statement.bindValue(
-        position = values.size() + 1,
+        position = values.size + 1,
         value = resolutionValue
       )
     }
@@ -119,15 +120,16 @@ internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
 
   private fun compileStatement(
     sql: String,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     manager: EntityDbManager
   ) = manager
     .compileStatement(sql)
     .also { statement ->
-      for (index in 0 until values.size()) {
+      var position = 1
+      values.forEachValue { value ->
         statement.bindValue(
-          position = index + 1,
-          value = values.valueAt(index)
+          position = position++,
+          value = value
         )
       }
     }

@@ -126,7 +126,7 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "override val dbName: String? = null",
           "override val submoduleNames: Array<String>?",
           "get() = null",
-          "override fun clearData(db: SupportSQLiteDatabase): StringArraySet",
+          "override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>",
           """db.execSQL("DELETE FROM transformed_values")""",
           """allChangedTables.add("transformed_values")""",
           "TokenColumn<",

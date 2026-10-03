@@ -40,6 +40,7 @@ import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.InsertBuilder
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.PersistBuilder
 import com.siimkinks.sqlitemagic.internal.PersistByColumnBuilder
 import com.siimkinks.sqlitemagic.internal.UpdateBuilder
@@ -271,7 +272,7 @@ internal class TestGeneratedDatabase(
     temporarySchemaDatabases += db
   }
 
-  override fun clearData(db: SupportSQLiteDatabase): com.siimkinks.sqlitemagic.internal.StringArraySet? =
+  override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>? =
     null
 
   override fun migrateViews(db: SupportSQLiteDatabase) = Unit
@@ -308,7 +309,9 @@ internal data class RecordingConnection(
   val triggers = mutableListOf<Set<String>>()
 
   init {
-    connection.triggers.subscribe(triggers::add)
+    connection.triggers
+      .map(Set<String>::toSet)
+      .subscribe(triggers::add)
   }
 }
 

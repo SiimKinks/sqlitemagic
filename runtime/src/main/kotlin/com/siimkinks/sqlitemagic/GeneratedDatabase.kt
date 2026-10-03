@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 
 interface GeneratedDatabase {
   val dbName: String?
@@ -11,7 +11,7 @@ interface GeneratedDatabase {
   fun configureDatabase(db: SupportSQLiteDatabase)
   fun createSchema(db: SupportSQLiteDatabase)
   fun createTemporarySchema(db: SupportSQLiteDatabase) = Unit
-  fun clearData(db: SupportSQLiteDatabase): StringArraySet?
+  fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>?
   fun migrateViews(db: SupportSQLiteDatabase)
   fun getNrOfTables(moduleName: String?): Int
   fun <V : Any> columnForValue(input: V): Column<V, V, V, *, NotNullable>

@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import io.reactivex.schedulers.Schedulers
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -59,7 +59,7 @@ internal class DbConnectionImplTest {
       manager.updateStatement("UPDATE%s books SET name=?")
     }
     val observer = fixture.connection.triggers
-      .map(::snapshotTables)
+      .map(Set<String>::toSet)
       .test()
       .assertEmpty()
 
@@ -145,18 +145,18 @@ internal class DbConnectionImplTest {
   fun `clear data forwards writable database and only publishes returned table names`() {
     for ((label, clearedTables) in mapOf(
       "no triggers" to null,
-      "cleared tables" to StringArraySet(arrayOf("books", "authors"))
+      "cleared tables" to MutableScatterSet<String>().apply { addAll(arrayOf("books", "authors")) }
     )) {
       val databases = mutableListOf<SupportSQLiteDatabase>()
       val generated = object : GeneratedDatabase by TestGeneratedDatabase(tableCount = 0) {
-        override fun clearData(db: SupportSQLiteDatabase): StringArraySet? {
+        override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>? {
           databases += db
           return clearedTables
         }
       }
       val fixture = ConnectionFixture(generated)
       val observer = fixture.connection.triggers
-        .map(::snapshotTables)
+        .map(Set<String>::toSet)
         .test()
         .assertEmpty()
 
@@ -170,6 +170,39 @@ internal class DbConnectionImplTest {
         else -> observer.assertValuesOnly(setOf("books", "authors"))
       }
     }
+  }
+
+  @Test
+  fun `multiple table triggers outside transactions publish distinct names immediately`() {
+    val fixture = ConnectionFixture()
+    val observer = fixture.connection.triggers
+      .map(Set<String>::toSet)
+      .test()
+      .assertEmpty()
+
+    fixture.connection.sendTableTriggers("books", "authors", "books")
+
+    observer.assertValuesOnly(setOf("books", "authors"))
+  }
+
+  @Test
+  fun `published transaction table storage remains an independent snapshot`() {
+    val fixture = ConnectionFixture()
+    val observer = fixture.connection.triggers.test()
+    val first = fixture.connection.newTransaction()
+    fixture.connection.sendTableTrigger("books")
+    fixture.listeners.last().onCommit()
+    first.end()
+    val published = observer.values().single()
+
+    val second = fixture.connection.newTransaction()
+    fixture.connection.sendTableTriggers("authors", "books")
+    fixture.listeners.last().onCommit()
+    second.end()
+
+    assertThat(published).containsExactly("books")
+    assertThat(observer.values().last()).containsExactly("authors", "books")
+    assertThat(observer.values().last()).isNotSameInstanceAs(published)
   }
 
   @Test
@@ -263,7 +296,7 @@ internal class DbConnectionImplTest {
     val fixture = ConnectionFixture()
     val events = mutableListOf<String>()
     fixture.connection.triggers
-      .map(::snapshotTables)
+      .map(Set<String>::toSet)
       .subscribe { tables ->
         assertThat(fixture.connection.hasActiveTransaction).isFalse()
         assertThat(tables).containsExactly("books", "authors")
@@ -295,7 +328,7 @@ internal class DbConnectionImplTest {
     for ((label, committed) in mapOf("commit" to true, "rollback" to false)) {
       val fixture = ConnectionFixture()
       val observer = fixture.connection.triggers
-        .map(::snapshotTables)
+        .map(Set<String>::toSet)
         .test()
       val outer = fixture.connection.newTransaction()
       fixture.connection.sendTableTrigger("books")
@@ -371,11 +404,4 @@ private class ConnectionFixture(
       queryScheduler = Schedulers.trampoline()
     )
   }
-}
-
-private fun snapshotTables(tables: Set<String>) = when (tables) {
-  is StringArraySet -> tables.indices
-    .map(tables::valueAt)
-    .toSet()
-  else -> tables.toSet()
 }

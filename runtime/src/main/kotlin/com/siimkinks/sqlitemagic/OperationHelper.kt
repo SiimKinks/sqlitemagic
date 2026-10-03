@@ -5,8 +5,7 @@ import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.EntityOperation.INSERT
 import com.siimkinks.sqlitemagic.EntityOperation.UPDATE
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap.BASE_SIZE
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.io.Closeable
 
 internal enum class EntityOperation {
@@ -22,13 +21,11 @@ internal class OperationHelper(
   private val customConflictSql = conflictAlgorithm != CONFLICT_NONE && conflictAlgorithm != CONFLICT_ABORT
   private val customUpdateSql = operation == UPDATE && operationByColumns.isNotEmpty()
   private var inserts = when {
-    customConflictSql && operation == INSERT -> SimpleArrayMap<String, SupportSQLiteStatement>(BASE_SIZE)
+    customConflictSql && operation == INSERT -> MutableScatterMap<String, SupportSQLiteStatement>()
     else -> null
   }
   private var updates = when {
-    operation == UPDATE && (customConflictSql || customUpdateSql) -> SimpleArrayMap<String, SupportSQLiteStatement>(
-      BASE_SIZE
-    )
+    operation == UPDATE && (customConflictSql || customUpdateSql) -> MutableScatterMap<String, SupportSQLiteStatement>()
     else -> null
   }
 
@@ -77,10 +74,8 @@ internal class OperationHelper(
       ?.closeStatements()
   }
 
-  private fun SimpleArrayMap<String, SupportSQLiteStatement>.closeStatements() = try {
-    repeat(size()) { index ->
-      valueAt(index).close()
-    }
+  private fun MutableScatterMap<String, SupportSQLiteStatement>.closeStatements() = try {
+    forEachValue(SupportSQLiteStatement::close)
   } catch (_: Exception) {
     // Statement cleanup is best effort, as with the connection-owned statement caches.
   }

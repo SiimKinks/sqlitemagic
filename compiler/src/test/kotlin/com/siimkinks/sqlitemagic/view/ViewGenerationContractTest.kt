@@ -31,7 +31,8 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
             import com.siimkinks.sqlitemagic.annotation.ViewQuery
             import com.siimkinks.sqlitemagic.internal.MutableInt
-            import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+            import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+            import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
             @Table
             data class Author(
@@ -56,8 +57,8 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
             private typealias PositionalReader = (Cursor, MutableInt) -> AuthorSummary
             private typealias SelectedReader = (
               Cursor,
-              SimpleArrayMap<String, Int>,
-              SimpleArrayMap<String, String>?,
+              MutableObjectIntMap<String>,
+              MutableScatterMap<String, String>?,
               String
             ) -> AuthorSummary?
 
@@ -71,7 +72,7 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
 
             private fun shallowWithNamedSelection(
               cursor: Cursor,
-              columns: SimpleArrayMap<String, Int>
+              columns: MutableObjectIntMap<String>
             ): AuthorSummary? = SqliteMagic_AuthorSummary_Dao.shallowObjectFromCursorPosition(
               cursor = cursor,
               columns = columns,

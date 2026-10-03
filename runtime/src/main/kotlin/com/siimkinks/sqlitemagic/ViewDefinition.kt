@@ -1,44 +1,54 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 class ViewDefinition internal constructor(
   val sql: String,
   val args: Array<String?>?,
   internal val queryDependencies: QueryDependencies,
-  private val columns: SimpleArrayMap<String, Int>?,
-  private val tableGraphNodeNames: SimpleArrayMap<String, String>?,
+  private val columns: MutableObjectIntMap<String>?,
+  private val tableGraphNodeNames: MutableScatterMap<String, String>?,
   val queryDeep: Boolean
 ) {
-  internal val hasColumnPositions get() = columns?.isEmpty == false
+  internal val hasColumnPositions get() = columns?.isNotEmpty() == true
 
   internal fun contributeTo(
     tableIdentifier: String,
-    tableGraphNodeNames: SimpleArrayMap<String, String>?,
-    columnPositions: SimpleArrayMap<String, Int>?,
+    tableGraphNodeNames: MutableScatterMap<String, String>?,
+    columnPositions: MutableObjectIntMap<String>?,
     implicitOffset: Int,
     implicitSelection: Boolean
   ) {
     when {
       columnPositions == null -> null
       implicitSelection -> implicitOffset
-      else -> columnPositions[tableIdentifier]
+      else -> columnPositions.getOrNull(tableIdentifier)
     }?.let { offset ->
       val source = columns
       when {
-        source?.isEmpty == false -> {
+        source?.isNotEmpty() == true -> {
           columnPositions?.remove(tableIdentifier)
-          for (index in 0 until source.size()) {
-            columnPositions?.put("$tableIdentifier.${source.keyAt(index)}", offset + source.valueAt(index))
+          source.forEach { name, position ->
+            columnPositions?.put(
+              key = "$tableIdentifier.$name",
+              value = offset + position
+            )
           }
         }
-        else -> columnPositions?.put(tableIdentifier, offset)
+        else -> columnPositions?.put(
+          key = tableIdentifier,
+          value = offset
+        )
       }
     }
     if (tableGraphNodeNames != null) {
       this.tableGraphNodeNames?.let { source ->
-        for (index in 0 until source.size()) {
-          tableGraphNodeNames.put("$tableIdentifier.${source.keyAt(index)}", source.valueAt(index))
+        source.forEach { name, graphNode ->
+          tableGraphNodeNames.put(
+            key = "$tableIdentifier.$name",
+            value = graphNode
+          )
         }
       }
     }

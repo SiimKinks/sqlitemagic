@@ -3,7 +3,7 @@ package com.siimkinks.sqlitemagic
 import androidx.annotation.CheckResult
 import androidx.annotation.WorkerThread
 import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import io.reactivex.Single
 import java.util.LinkedList
 
@@ -19,7 +19,7 @@ abstract class UpdateSqlNode internal constructor(
 
   override fun appendSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     throw UnsupportedOperationException()
   }

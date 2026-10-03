@@ -1,7 +1,9 @@
 package com.siimkinks.sqlitemagic
 
 import androidx.annotation.CheckResult
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.DefaultScatterCapacity
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 
 @Suppress("UNCHECKED_CAST")
@@ -21,8 +23,8 @@ internal class SelectBuilder<S> {
   private var fragment: QueryFragment? = null
 
   private class PreparedQuery(
-    val tableGraphNodeNames: SimpleArrayMap<String, String>,
-    val systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>?,
+    val tableGraphNodeNames: MutableScatterMap<String, String>,
+    val systemRenamedTables: MutableScatterMap<String, LinkedList<String>>?,
     val dependencies: QueryDependencies
   )
 
@@ -85,7 +87,7 @@ internal class SelectBuilder<S> {
     }
 
     val columnPositions = checkNotNull(columnsNode).compileColumns(systemRenamedTables)
-    val implicitSelection = columnPositions.isEmpty
+    val implicitSelection = columnPositions.isEmpty()
     val sql = SqlCreator.getSql(sqlTreeRoot, sqlNodeCount, systemRenamedTables)
     val forcedDeepSelection = perfectSelection(
       from = from,
@@ -113,7 +115,9 @@ internal class SelectBuilder<S> {
       select1 -> columnNode.preCompileColumns()
       else -> checkNotNull(columnsNode).preCompileColumns()
     }
-    val tableGraphNodeNames = SimpleArrayMap<String, String>(selectFromTables?.size ?: 0)
+    val tableGraphNodeNames = MutableScatterMap<String, String>(
+      initialCapacity = selectFromTables?.size?.coerceAtLeast(1) ?: DefaultScatterCapacity
+    )
     val from = checkNotNull(from)
     val table = from.table
     val queryGraphScope = QueryGraphScope(
@@ -128,7 +132,7 @@ internal class SelectBuilder<S> {
       tableAlias = table,
       nodeName = ""
     )
-    val collectedDependencies = QueryDependencies.Builder()
+    val collectedDependencies = QueryDependencies.Builder(initialCapacity = DefaultScatterCapacity)
     from.table.addDependencies(collectedDependencies)
     from.joins.forEach { it.table.addDependencies(collectedDependencies) }
     collectedDependencies.merge(dependencies.build())
@@ -141,11 +145,11 @@ internal class SelectBuilder<S> {
 
   private fun perfectSelection(
     from: Select.From<*, *, *, *>,
-    tableGraphNodeNames: SimpleArrayMap<String, String>?,
-    columnPositions: SimpleArrayMap<String, Int>?
+    tableGraphNodeNames: MutableScatterMap<String, String>?,
+    columnPositions: MutableObjectIntMap<String>?
   ): Boolean {
     val joins = from.joins
-    val implicitSelection = columnPositions?.isEmpty == true
+    val implicitSelection = columnPositions?.isEmpty() == true
     val forcedDeepSelection = from.table.perfectSelection(
       tableGraphNodeNames = tableGraphNodeNames,
       columnPositions = columnPositions,

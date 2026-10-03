@@ -2,8 +2,9 @@ package com.siimkinks.sqlitemagic
 
 import androidx.annotation.Size
 import com.siimkinks.sqlitemagic.Utils.ValueParser
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import java.util.LinkedList
 
 /**
@@ -68,7 +69,7 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
 
   override fun appendSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     if (isCompiledToSelection && hasAlias()) {
       sb.append(getAppendableAlias())
@@ -92,7 +93,7 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
     append(suffix)
   }
 
-  override fun addSelectedTables(result: StringArraySet) {
+  override fun addSelectedTables(result: MutableScatterSet<String>) {
     for (wrappedColumn in wrappedColumns) {
       wrappedColumn.addSelectedTables(result)
     }
@@ -111,7 +112,7 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
   }
 
   override fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
     columnOffset: Int
   ): Int {
@@ -128,9 +129,9 @@ internal class FunctionColumn<T, R, ET, P, N> internal constructor(
   }
 
   override fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>,
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>,
     columnOffset: Int
   ): Int {
     appendSql(compiledCols, systemRenamedTables)

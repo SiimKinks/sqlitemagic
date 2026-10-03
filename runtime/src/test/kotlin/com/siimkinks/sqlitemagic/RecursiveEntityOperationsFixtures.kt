@@ -7,7 +7,7 @@ import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
 import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 internal const val RECURSIVE_PARENT_TABLE = "recursive_parent"
 internal const val RECURSIVE_CHILD_TABLE = "recursive_child"
@@ -165,7 +165,7 @@ internal class RecursiveGrandchildAdapter(
 
   override fun bindNotNullForInsert(
     entity: RecursiveGrandchild,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
@@ -174,7 +174,7 @@ internal class RecursiveGrandchildAdapter(
 
   override fun bindNotNullForUpdate(
     entity: RecursiveGrandchild,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     byColumn: RecursiveGrandchildColumn
   ) {
     values.clear()
@@ -240,7 +240,7 @@ internal class RecursiveChildAdapter(
 
   override fun bindNotNullForInsert(
     entity: RecursiveChild,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
@@ -252,7 +252,7 @@ internal class RecursiveChildAdapter(
 
   override fun bindNotNullForUpdate(
     entity: RecursiveChild,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     byColumn: RecursiveChildColumn
   ) {
     values.clear()
@@ -362,7 +362,7 @@ internal class RecursiveParentAdapter(
 
   override fun bindNotNullForInsert(
     entity: RecursiveParent,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
@@ -374,7 +374,7 @@ internal class RecursiveParentAdapter(
 
   override fun bindNotNullForUpdate(
     entity: RecursiveParent,
-    values: SimpleArrayMap<String, Any>,
+    values: MutableScatterMap<String, Any>,
     byColumn: RecursiveParentColumn
   ) {
     values.clear()

@@ -3,9 +3,9 @@ package com.siimkinks.sqlitemagic
 import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.SqliteSchema
-import com.siimkinks.sqlitemagic.internal.StringArraySet
 import org.junit.Test
 import org.mockito.kotlin.mock
 
@@ -13,7 +13,7 @@ internal class QueryGraphScopeTest {
   @Test
   fun `visit records aliased root when contributor is empty`() {
     val rootTable = testTable<Any>(name = "root", alias = "root_alias")
-    val tableGraphNodeNames = SimpleArrayMap<String, String>()
+    val tableGraphNodeNames = MutableScatterMap<String, String>()
     val scope = queryGraphScope(
       rootTable = rootTable,
       tableGraphNodeNames = tableGraphNodeNames
@@ -353,7 +353,7 @@ internal class QueryGraphScopeTest {
     val aliasedTable = testTable<Any>(name = "child", alias = "sm_0")
     val context = queryGraphScope(
       rootTable = rootTable,
-      selectFromTables = StringArraySet()
+      selectFromTables = MutableScatterSet<String>()
     )
 
     context.recordAutomaticTableOccurrence(aliasedTable)
@@ -367,10 +367,10 @@ internal class QueryGraphScopeTest {
   fun `existing table occurrence records graph node without automatic rename`() {
     val rootTable = testTable<Any>(name = "root")
     val existingJoin = testTable<Any>(name = "child", alias = "joined_child")
-    val tableGraphNodeNames = SimpleArrayMap<String, String>()
+    val tableGraphNodeNames = MutableScatterMap<String, String>()
     val context = queryGraphScope(
       rootTable = rootTable,
-      selectFromTables = StringArraySet(),
+      selectFromTables = MutableScatterSet<String>(),
       tableGraphNodeNames = tableGraphNodeNames
     )
 
@@ -439,8 +439,8 @@ internal class QueryGraphScopeTest {
   private fun queryGraphScope(
     rootTable: Table<*>,
     vararg joins: JoinClause,
-    selectFromTables: StringArraySet? = null,
-    tableGraphNodeNames: SimpleArrayMap<String, String>? = null,
+    selectFromTables: MutableScatterSet<String>? = null,
+    tableGraphNodeNames: MutableScatterMap<String, String>? = null,
     queryDeep: Boolean = true,
     select1: Boolean = false
   ): QueryGraphScope {
@@ -457,8 +457,8 @@ internal class QueryGraphScopeTest {
 
   private fun queryGraphScope(
     from: Select.From<*, *, *, *>,
-    selectFromTables: StringArraySet? = null,
-    tableGraphNodeNames: SimpleArrayMap<String, String>? = null,
+    selectFromTables: MutableScatterSet<String>? = null,
+    tableGraphNodeNames: MutableScatterMap<String, String>? = null,
     queryDeep: Boolean = true,
     select1: Boolean = false
   ) = QueryGraphScope(

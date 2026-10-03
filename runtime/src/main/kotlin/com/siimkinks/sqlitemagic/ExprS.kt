@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.Select.Select1
 import com.siimkinks.sqlitemagic.SelectSqlNode.SelectNode
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 
 internal class ExprS(
@@ -36,7 +36,7 @@ internal class ExprS(
 
   override fun appendToSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     super.appendToSql(sb, systemRenamedTables)
     sb.append('(')

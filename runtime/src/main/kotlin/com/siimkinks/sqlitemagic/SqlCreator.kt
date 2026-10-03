@@ -1,13 +1,13 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 
 internal object SqlCreator {
   fun getSql(
     sqlNode: SqlNode,
     sqlNodeCount: Int,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>? = null
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>? = null
   ) = buildString(capacity = sqlNodeCount * 20) {
     appendSql(
       sqlNode = sqlNode,
@@ -19,7 +19,7 @@ internal object SqlCreator {
   private fun appendSql(
     sqlNode: SqlNode,
     stringBuilder: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>?
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>?
   ) {
     sqlNode.parent?.let { parent ->
       appendSql(

@@ -2,8 +2,9 @@ package com.siimkinks.sqlitemagic
 
 import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteStatement
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import java.util.LinkedList
 
 /**
@@ -51,7 +52,7 @@ internal class FunctionCopyColumn<T, R, ET, P, N>(
 
   override fun appendSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     if (isCompiledToSelection && hasAlias()) {
       sb.append(getAppendableAlias())
@@ -70,14 +71,14 @@ internal class FunctionCopyColumn<T, R, ET, P, N>(
     append(suffix)
   }
 
-  override fun addSelectedTables(result: StringArraySet) = wrappedColumn.addSelectedTables(result)
+  override fun addSelectedTables(result: MutableScatterSet<String>) = wrappedColumn.addSelectedTables(result)
 
   override fun addArgs(args: ArrayList<String?>) = wrappedColumn.addArgs(args)
 
   override fun addDependencies(dependencies: QueryDependencies.Builder) = wrappedColumn.addDependencies(dependencies)
 
   override fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
     columnOffset: Int
   ): Int {
@@ -94,9 +95,9 @@ internal class FunctionCopyColumn<T, R, ET, P, N>(
   }
 
   override fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>,
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>,
     columnOffset: Int
   ): Int {
     appendSql(compiledCols, systemRenamedTables)

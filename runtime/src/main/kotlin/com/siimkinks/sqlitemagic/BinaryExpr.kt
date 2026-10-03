@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import java.util.LinkedList
 
 internal class BinaryExpr(
@@ -29,7 +29,7 @@ internal class BinaryExpr(
 
   override fun appendToSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     sb.appendBinary {
       it.appendToSql(sb, systemRenamedTables)

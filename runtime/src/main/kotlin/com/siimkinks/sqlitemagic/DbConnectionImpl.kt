@@ -3,8 +3,9 @@ package com.siimkinks.sqlitemagic
 import android.database.sqlite.SQLiteTransactionListener
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteOpenHelper
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
+import com.siimkinks.sqlitemagic.internal.ScatterSet
 import io.reactivex.Observable
 import io.reactivex.Scheduler
 import io.reactivex.functions.Consumer
@@ -62,7 +63,7 @@ internal class DbConnectionImpl(
   private val submoduleEntityDbManagers = database
     .submoduleNames
     ?.let { submoduleNames ->
-      SimpleArrayMap<String, Array<EntityDbManager?>>(submoduleNames.size)
+      MutableScatterMap<String, Array<EntityDbManager?>>(submoduleNames.size)
         .apply {
           for (submoduleName in submoduleNames) {
             put(submoduleName, createEntityDbManagers(submoduleName))
@@ -82,11 +83,7 @@ internal class DbConnectionImpl(
     }
     triggers.onComplete()
     closeEntityDbManagers(entityDbManagers)
-    submoduleEntityDbManagers?.let { managers ->
-      for (index in 0 until managers.size()) {
-        closeEntityDbManagers(managers.valueAt(index))
-      }
-    }
+    submoduleEntityDbManagers?.forEachValue(::closeEntityDbManagers)
     dbHelper.close()
     LogUtil.logInfo("Closed database [name=%s]", dbHelper.databaseName)
   }
@@ -144,14 +141,18 @@ internal class DbConnectionImpl(
 
   internal fun sendTableTriggers(vararg tables: String) {
     when (val transactionState = transactions.get()) {
-      null -> publishTableTriggers(StringArraySet(tables))
+      null -> publishTableTriggers(
+        MutableScatterSet<String>(initialCapacity = tables.size)
+          .apply { addAll(tables) }
+          .asSet()
+      )
       else -> transactionState.addAll(tables)
     }
   }
 
-  private fun sendTableTriggers(tables: StringArraySet) {
+  private fun sendTableTriggers(tables: ScatterSet<String>) {
     when (val transactionState = transactions.get()) {
-      null -> publishTableTriggers(tables)
+      null -> publishTableTriggers(tables.asSet())
       else -> transactionState.addAll(tables)
     }
   }
@@ -163,7 +164,7 @@ internal class DbConnectionImpl(
 
   private class SqliteTransaction(
     val parent: SqliteTransaction?
-  ) : StringArraySet(), SQLiteTransactionListener {
+  ) : MutableScatterSet<String>(initialCapacity = 0), SQLiteTransactionListener {
     var commit = false
       private set
 

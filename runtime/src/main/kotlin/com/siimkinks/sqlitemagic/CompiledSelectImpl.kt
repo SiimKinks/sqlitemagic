@@ -4,7 +4,8 @@ import android.database.Cursor
 import android.database.SQLException
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Query.DatabaseQuery
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import io.reactivex.Observable
 import io.reactivex.functions.Predicate
 import java.util.concurrent.TimeUnit.NANOSECONDS
@@ -15,8 +16,8 @@ internal class CompiledSelectImpl<T, S>(
   table: Table<T>,
   dbConnection: DbConnectionImpl?,
   override val queryDependencies: QueryDependencies,
-  internal val columns: SimpleArrayMap<String, Int>?,
-  internal val tableGraphNodeNames: SimpleArrayMap<String, String>?,
+  internal val columns: MutableObjectIntMap<String>?,
+  internal val tableGraphNodeNames: MutableScatterMap<String, String>?,
   internal val queryDeep: Boolean
 ) : DatabaseQuery<List<T>, T>(
   dbConnection = dbConnection,

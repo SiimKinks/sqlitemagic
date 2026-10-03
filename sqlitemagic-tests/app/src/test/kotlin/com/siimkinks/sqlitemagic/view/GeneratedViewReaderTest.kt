@@ -38,7 +38,8 @@ import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderRequiredNullable
 import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderRequiredNullableTableView_Dao
 import com.siimkinks.sqlitemagic.fixture.view.SqliteMagic_ReaderTransformedScalarView_Dao
 import com.siimkinks.sqlitemagic.internal.MutableInt
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.verify
@@ -85,8 +86,8 @@ internal class GeneratedViewReaderTest {
     }
     assertThat(partialOffset.value).isEqualTo(5)
 
-    val columns = SimpleArrayMap<String, Int>().apply {
-      put("reader.tail", 4)
+    val columns = MutableObjectIntMap<String>().apply {
+      this["reader.tail"] = 4
     }
     val missingProjectionCursor = cursorOf(null, null, null, null, "tail")
     assertThrows<SQLException> {
@@ -136,14 +137,14 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `selected relationship projection reads a scalar between table spans`() {
-    val columns = SimpleArrayMap<String, Int>().apply {
-      put("view.book", 0)
-      put("view.tail", 2)
-      put("view.author", 3)
+    val columns = MutableObjectIntMap<String>().apply {
+      this["view.book"] = 0
+      this["view.tail"] = 2
+      this["view.author"] = 3
     }
-    val graph = SimpleArrayMap<String, String>().apply {
-      put("view.", "book")
-      put("view.author", "author")
+    val graph = MutableScatterMap<String, String>().apply {
+      this["view."] = "book"
+      this["view.author"] = "author"
     }
 
     val view = SqliteMagic_ReaderRelationshipTrailingScalarView_Dao.shallowObjectFromCursorPosition(
@@ -169,14 +170,14 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `nullable relationship presence excludes interleaved scalar tail`() {
-    val columns = SimpleArrayMap<String, Int>().apply {
-      put("view.book", 0)
-      put("view.tail", 2)
-      put("view.author", 3)
+    val columns = MutableObjectIntMap<String>().apply {
+      this["view.book"] = 0
+      this["view.tail"] = 2
+      this["view.author"] = 3
     }
-    val graph = SimpleArrayMap<String, String>().apply {
-      put("view.", "book")
-      put("view.author", "author")
+    val graph = MutableScatterMap<String, String>().apply {
+      this["view."] = "book"
+      this["view.author"] = "author"
     }
 
     val view = SqliteMagic_ReaderNullableRelationshipTrailingScalarView_Dao.shallowObjectFromCursorPosition(
@@ -196,14 +197,14 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `missing relationship descendant fails before nullable projection absence`() {
-    val columns = SimpleArrayMap<String, Int>().apply {
-      put("view.book", 0)
-      put("view.tail", 2)
-      put("view.author.id", 3)
+    val columns = MutableObjectIntMap<String>().apply {
+      this["view.book"] = 0
+      this["view.tail"] = 2
+      this["view.author.id"] = 3
     }
-    val graph = SimpleArrayMap<String, String>().apply {
-      put("view.", "book")
-      put("view.author", "author")
+    val graph = MutableScatterMap<String, String>().apply {
+      this["view."] = "book"
+      this["view.author"] = "author"
     }
     val cursor = cursorOf(null, null, "tail", null, null)
 
@@ -221,10 +222,10 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `selected nested view resolves reordered mapped leaves for presence and construction`() {
-    val columns = SimpleArrayMap<String, Int>().apply {
-      put("view.tail", 0)
-      put("view.inner.count", 1)
-      put("view.inner.code", 3)
+    val columns = MutableObjectIntMap<String>().apply {
+      this["view.tail"] = 0
+      this["view.inner.count"] = 1
+      this["view.inner.code"] = 3
     }
     val present = SqliteMagic_ReaderReorderedNullableNestedView_Dao.shallowObjectFromCursorPosition(
       cursor = cursorOf("tail", 7, "unmapped", null),
@@ -258,9 +259,9 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `missing nullable nested descendant fails before testing absence`() {
-    val columns = SimpleArrayMap<String, Int>().apply {
-      put("view.tail", 0)
-      put("view.inner.code", 3)
+    val columns = MutableObjectIntMap<String>().apply {
+      this["view.tail"] = 0
+      this["view.inner.code"] = 3
     }
     val cursor = cursorOf("tail", null, "unmapped", null)
 
@@ -332,7 +333,7 @@ internal class GeneratedViewReaderTest {
     )
 
     cases.forEach { case ->
-      val columns = SimpleArrayMap<String, Int>().apply { put("view", case.offset) }
+      val columns = MutableObjectIntMap<String>().apply { this["view"] = case.offset }
       val actual = SqliteMagic_ReaderRepeatedNestedView_Dao.shallowObjectFromCursorPosition(
         cursor = cursorOf(*case.values.toTypedArray()),
         columns = columns,
@@ -345,9 +346,9 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `selected nested full spans reconstruct relationship and view descendants`() {
-    val columns = SimpleArrayMap<String, Int>().apply {
-      put("view.relationship", 2)
-      put("view.repeated", 7)
+    val columns = MutableObjectIntMap<String>().apply {
+      this["view.relationship"] = 2
+      this["view.repeated"] = 7
     }
 
     val view = SqliteMagic_ReaderNestedSpansView_Dao.shallowObjectFromCursorPosition(
@@ -380,7 +381,7 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `unrelated bare definition key cannot satisfy selected required view column`() {
-    val columns = SimpleArrayMap<String, Int>().apply { put("name", 0) }
+    val columns = MutableObjectIntMap<String>().apply { this["name"] = 0 }
     val cursor = cursorOf("Ada")
 
     assertThrows<SQLException> {
@@ -490,7 +491,7 @@ internal class GeneratedViewReaderTest {
   @Test
   fun `selected transformed scalar reads its reordered getter once`() {
     val cursor = cursorOf("prefix", 99, "ada@example.com")
-    val columns = SimpleArrayMap<String, Int>().apply { put("view.email", 2) }
+    val columns = MutableObjectIntMap<String>().apply { this["view.email"] = 2 }
     val view = SqliteMagic_ReaderTransformedScalarView_Dao.shallowObjectFromCursorPosition(
       cursor = cursor,
       columns = columns,

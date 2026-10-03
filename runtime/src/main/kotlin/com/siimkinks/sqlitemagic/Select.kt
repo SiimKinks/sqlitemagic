@@ -9,9 +9,9 @@ import com.siimkinks.sqlitemagic.Utils.LONG_PARSER
 import com.siimkinks.sqlitemagic.Utils.STRING_PARSER
 import com.siimkinks.sqlitemagic.Utils.numericConstantToSqlString
 import com.siimkinks.sqlitemagic.Utils.parserForNumberType
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
-import com.siimkinks.sqlitemagic.internal.StringArraySet.BASE_SIZE
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import java.util.LinkedList
 
 /**
@@ -34,7 +34,7 @@ class Select<S> internal constructor(
 
   override fun appendSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) = appendSql(sb)
 
   companion object {
@@ -788,7 +788,7 @@ class Select<S> internal constructor(
       column.addDependencies(selectBuilder.dependencies)
     }
 
-    fun preCompileColumns() = StringArraySet(BASE_SIZE)
+    fun preCompileColumns() = MutableScatterSet<String>()
       .also(column::addSelectedTables)
 
     override fun appendSql(sb: StringBuilder) {
@@ -798,7 +798,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       column.appendSql(sb, systemRenamedTables)
       column.appendAliasDeclarationIfNeeded(sb)
@@ -856,22 +856,24 @@ class Select<S> internal constructor(
      * @return Tables that are selected in the statement (determined by the selected column).
      * If null or empty then select is from all needed tables.
      */
-    fun preCompileColumns(): StringArraySet? = when {
+    fun preCompileColumns(): MutableScatterSet<String>? = when {
       columns.isEmpty() -> null
-      else -> StringArraySet(columns.size).also { selectedTables ->
+      else -> MutableScatterSet<String>().also { selectedTables ->
         columns.forEach { it.addSelectedTables(selectedTables) }
       }
     }
 
     fun compileColumns(
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>?
-    ): SimpleArrayMap<String, Int> {
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>?
+    ): MutableObjectIntMap<String> {
       val length = columns.size
       if (length == 0) {
         compiledColumns = "*"
-        return SimpleArrayMap()
+        return MutableObjectIntMap(initialCapacity = 0)
       }
-      val columnPositions = SimpleArrayMap<String, Int>(length)
+      val columnPositions = MutableObjectIntMap<String>(
+        initialCapacity = length + columns.count { it.alias != null }
+      )
       val compiledCols = StringBuilder(length * 12)
       var columnOffset = 0
       columns.forEachIndexed { index, column ->
@@ -902,7 +904,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) = appendSql(sb)
 
     /**
@@ -969,7 +971,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       sb.append("FROM ")
       table.appendToSqlFromClause(sb)
@@ -1330,7 +1332,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       sb.append("WHERE ")
       expr.appendToSql(sb, systemRenamedTables)
@@ -1401,7 +1403,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       sb.append("GROUP BY ")
       columns.forEachIndexed { index, column ->
@@ -1466,7 +1468,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       sb.append("HAVING ")
       expr.appendToSql(sb, systemRenamedTables)
@@ -1523,7 +1525,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) = appendSql(sb)
 
     /**
@@ -1577,7 +1579,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       when {
         column != null -> column.appendSql(sb, systemRenamedTables)
@@ -1623,7 +1625,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) {
       sb.append("ORDER BY ")
       orderingTerms.forEachIndexed { index, orderingTerm ->
@@ -1663,7 +1665,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) = appendSql(sb)
 
     /**
@@ -1696,7 +1698,7 @@ class Select<S> internal constructor(
 
     override fun appendSql(
       sb: StringBuilder,
-      systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
     ) = appendSql(sb)
   }
 }

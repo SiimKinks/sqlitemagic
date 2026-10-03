@@ -14,8 +14,9 @@ import com.siimkinks.sqlitemagic.SqlUtil.quoteSqlStringLiteral
 import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.Utils.STRING_PARSER
 import com.siimkinks.sqlitemagic.Utils.ValueParser
-import com.siimkinks.sqlitemagic.internal.SimpleArrayMap
-import com.siimkinks.sqlitemagic.internal.StringArraySet
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import java.util.LinkedList
 
 /**
@@ -52,7 +53,7 @@ open class Column<T, R, ET, P, N>(
 
   internal open fun appendSql(
     sb: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
   ) {
     val aliases = systemRenamedTables[table.name]
     if (table.hasAlias || aliases == null) {
@@ -81,8 +82,8 @@ open class Column<T, R, ET, P, N>(
     ?.substringAfterLast('.')
     ?: throw NullPointerException("Column alias == null")
 
-  internal open fun addSelectedTables(result: StringArraySet) {
-    result.add(table.name)
+  internal open fun addSelectedTables(result: MutableScatterSet<String>) {
+    result += table.name
   }
 
   internal open fun addArgs(args: ArrayList<String?>) = Unit
@@ -101,7 +102,7 @@ open class Column<T, R, ET, P, N>(
    */
   @CheckResult
   internal open fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
     columnOffset: Int
   ): Int = compileWithoutSystemRenames(
@@ -111,7 +112,7 @@ open class Column<T, R, ET, P, N>(
   )
 
   private fun compileWithoutSystemRenames(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
     columnOffset: Int
   ): Int {
@@ -144,9 +145,9 @@ open class Column<T, R, ET, P, N>(
    */
   @CheckResult
   internal open fun compile(
-    columnPositions: SimpleArrayMap<String, Int>,
+    columnPositions: MutableObjectIntMap<String>,
     compiledCols: StringBuilder,
-    systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>,
+    systemRenamedTables: MutableScatterMap<String, LinkedList<String>>,
     columnOffset: Int
   ): Int {
     val aliases = systemRenamedTables[table.name]
@@ -734,12 +735,12 @@ open class Column<T, R, ET, P, N>(
 
       override fun appendSql(
         sb: StringBuilder,
-        systemRenamedTables: SimpleArrayMap<String, LinkedList<String>>
+        systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
       ) = super.appendSql(sb)
     }
 
     internal fun <T, R, ET, P, N> putColumnPosition(
-      columnPositions: SimpleArrayMap<String, Int>,
+      columnPositions: MutableObjectIntMap<String>,
       columnId: String?,
       pos: Int,
       column: Column<T, R, ET, P, N>
