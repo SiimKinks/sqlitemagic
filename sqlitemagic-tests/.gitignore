@@ -11,3 +11,4 @@ local.properties
 **/db
 /db
 **/*debug/assets/*.sql
+**/*debug/assets/*.views

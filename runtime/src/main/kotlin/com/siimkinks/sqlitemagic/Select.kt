@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic
 
 import androidx.annotation.CheckResult
 import androidx.annotation.Size
-import com.siimkinks.sqlitemagic.GlobalConst.ERROR_NOT_INITIALIZED
 import com.siimkinks.sqlitemagic.SqlUtil.quoteSqlStringLiteral
 import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.Utils.DOUBLE_PARSER
@@ -39,6 +38,9 @@ class Select<S> internal constructor(
   ) = appendSql(sb)
 
   companion object {
+    private const val ERROR_NOT_INITIALIZED =
+      "Looks like SqliteMagic is not initialized. Please make sure that project is configured correctly"
+
     internal val ALL = emptyArray<Column<*, *, *, *, *>>()
 
     /**

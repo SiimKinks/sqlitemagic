@@ -146,7 +146,7 @@ class SchemaMigrationRuntimeTest {
 
     openMigrationConnection(
       application = application,
-      database = VersionedMigrationDatabase(version = MISSING_MIGRATION_VERSION)
+      database = VersionedMigrationDatabase(dbVersion = MISSING_MIGRATION_VERSION)
     ).use { connection ->
       assertThat(userVersion(connection = connection))
         .isEqualTo(MISSING_MIGRATION_VERSION)
@@ -176,7 +176,7 @@ class SchemaMigrationRuntimeTest {
     val exception = assertThrows(IllegalStateException::class.java) {
       openMigrationConnection(
         application = application,
-        database = VersionedMigrationDatabase(version = INVALID_MIGRATION_VERSION)
+        database = VersionedMigrationDatabase(dbVersion = INVALID_MIGRATION_VERSION)
       ).use(::userVersion)
     }
     assertThat(exception)
@@ -228,7 +228,7 @@ class SchemaMigrationRuntimeTest {
 
     openMigrationConnection(
       application = application,
-      database = VersionedMigrationDatabase(version = LIBRARY_MIGRATION_VERSION)
+      database = VersionedMigrationDatabase(dbVersion = LIBRARY_MIGRATION_VERSION)
     ).use { connection ->
       assertThat(userVersion(connection = connection))
         .isEqualTo(LIBRARY_MIGRATION_VERSION)
@@ -296,7 +296,7 @@ class SchemaMigrationRuntimeTest {
 
     openMigrationConnection(
       application = application,
-      database = VersionedMigrationDatabase(version = REBUILD_MIGRATION_VERSION)
+      database = VersionedMigrationDatabase(dbVersion = REBUILD_MIGRATION_VERSION)
     ).use { connection ->
       assertThat(userVersion(connection = connection))
         .isEqualTo(REBUILD_MIGRATION_VERSION)
@@ -380,7 +380,7 @@ class SchemaMigrationRuntimeTest {
 
     openMigrationConnection(
       application = application,
-      database = VersionedMigrationDatabase(version = VIEW_REBUILD_VERSION)
+      database = VersionedMigrationDatabase(dbVersion = VIEW_REBUILD_VERSION)
     ).use { connection ->
       assertThat(userVersion(connection = connection))
         .isEqualTo(VIEW_REBUILD_VERSION)
@@ -475,7 +475,7 @@ class SchemaMigrationRuntimeTest {
 
     openMigrationConnection(
       application = application,
-      database = VersionedMigrationDatabase(version = VIEW_SKIP_VERSION)
+      database = VersionedMigrationDatabase(dbVersion = VIEW_SKIP_VERSION)
     ).use { connection ->
       assertThat(userVersion(connection = connection))
         .isEqualTo(VIEW_SKIP_VERSION)
@@ -528,7 +528,7 @@ class SchemaMigrationRuntimeTest {
 
     openMigrationConnection(
       application = application,
-      database = VersionedMigrationDatabase(version = VIEW_QUERY_VERSION)
+      database = VersionedMigrationDatabase(dbVersion = VIEW_QUERY_VERSION)
     ).use { connection ->
       assertThat(userVersion(connection = connection))
         .isEqualTo(VIEW_QUERY_VERSION)
@@ -581,7 +581,7 @@ class SchemaMigrationRuntimeTest {
     val failure = assertThrows(IllegalStateException::class.java) {
       openMigrationConnection(
         application = application,
-        database = DefinitionFailureMigrationDatabase(version = VIEW_DEFINITION_FAILURE_VERSION)
+        database = DefinitionFailureMigrationDatabase(dbVersion = VIEW_DEFINITION_FAILURE_VERSION)
       ).use(::userVersion)
     }
     assertThat(failure)
@@ -636,7 +636,7 @@ class SchemaMigrationRuntimeTest {
       openMigrationConnection(
         application = application,
         database = DdlFailureMigrationDatabase(
-          version = VIEW_DDL_FAILURE_VERSION,
+          dbVersion = VIEW_DDL_FAILURE_VERSION,
           failure = expectedFailure
         )
       ).use(::userVersion)
@@ -696,7 +696,7 @@ class SchemaMigrationRuntimeTest {
     val exception = assertThrows(IllegalStateException::class.java) {
       openMigrationConnection(
         application = application,
-        database = FailingMigrationDatabase(version = FAILING_MIGRATION_VERSION)
+        database = FailingMigrationDatabase(dbVersion = FAILING_MIGRATION_VERSION)
       ).use(::userVersion)
     }
     assertThat(exception)
@@ -875,13 +875,8 @@ class SchemaMigrationRuntimeTest {
 }
 
 private class FailingMigrationDatabase(
-  private val version: Int,
-  private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
-) : GeneratedDatabase by delegate {
-  override fun getDbVersion() = version
-
-  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
-
+  override val dbVersion: Int
+) : GeneratedDatabase by SqliteMagicDatabase() {
   override fun migrateViews(db: SupportSQLiteDatabase) {
     val migratedTables = db
       .query("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -898,25 +893,16 @@ private class FailingMigrationDatabase(
 }
 
 private class DefinitionFailureMigrationDatabase(
-  private val version: Int,
-  private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
-) : GeneratedDatabase by delegate {
-  override fun getDbVersion() = version
-
-  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
-
+  override val dbVersion: Int
+) : GeneratedDatabase by SqliteMagicDatabase() {
   override fun migrateViews(db: SupportSQLiteDatabase) = DefinitionFailureGeneratedClassesManager.migrateViews(db)
 }
 
 private class DdlFailureMigrationDatabase(
-  private val version: Int,
+  override val dbVersion: Int,
   private val failure: RuntimeException,
   private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
 ) : GeneratedDatabase by delegate {
-  override fun getDbVersion() = version
-
-  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
-
   override fun migrateViews(db: SupportSQLiteDatabase) = delegate.migrateViews(
     object : SupportSQLiteDatabase by db {
       override fun execSQL(sql: String) {
@@ -934,10 +920,5 @@ private class DdlFailureMigrationDatabase(
 }
 
 private class VersionedMigrationDatabase(
-  private val version: Int,
-  private val delegate: SqliteMagicDatabase = SqliteMagicDatabase()
-) : GeneratedDatabase by delegate {
-  override fun getDbVersion() = version
-
-  override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
-}
+  override val dbVersion: Int
+) : GeneratedDatabase by SqliteMagicDatabase()

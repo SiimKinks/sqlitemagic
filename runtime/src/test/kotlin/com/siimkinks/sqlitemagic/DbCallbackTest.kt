@@ -332,13 +332,11 @@ private class UpgradeFixture(
         openFailures[fileName]?.let { throw it }
         streams[fileName] ?: files[fileName]?.byteInputStream() ?: throw FileNotFoundException(fileName)
       }
-    val delegate = TestGeneratedDatabase(tableCount = 0)
-    val generatedDatabase = object : GeneratedDatabase by delegate {
-      override fun createTemporarySchema(db: SupportSQLiteDatabase) = delegate.createTemporarySchema(db)
-
-      override fun getSubmoduleNames() = this@UpgradeFixture.submoduleNames
-        .takeIf(List<String>::isNotEmpty)
-        ?.toTypedArray()
+    val generatedDatabase = object : GeneratedDatabase by TestGeneratedDatabase(tableCount = 0) {
+      override val submoduleNames
+        get() = this@UpgradeFixture.submoduleNames
+          .takeIf(List<String>::isNotEmpty)
+          ?.toTypedArray()
 
       override fun migrateViews(db: SupportSQLiteDatabase) {
         events += "recreate"

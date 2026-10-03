@@ -37,7 +37,7 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
     val database = SqliteMagicDatabase()
     val routedSubmoduleCount = database.getNrOfTables(SUBMODULE_NAME)
 
-    assertThat(database.getSubmoduleNames())
+    assertThat(database.submoduleNames)
       .isEqualTo(arrayOf(SUBMODULE_NAME))
     assertThat(database.getNrOfTables(null))
       .isEqualTo(database.getNrOfTables("") + routedSubmoduleCount)

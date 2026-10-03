@@ -553,7 +553,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
           .isFalse()
         generatedSource.assertContains(
-          "override fun getDbVersion(): Int = 12"
+          "override val dbVersion: Int = 12"
         )
         generatedSource
           .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")

@@ -65,9 +65,9 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
           "public class SqliteMagicDatabase : GeneratedDatabase",
-          """override fun getDbName(): String? = "library.db"""",
-          "override fun getDbVersion(): Int = 7",
-          "override fun isDebug(): Boolean = true",
+          """override val dbName: String? = "library.db"""",
+          "override val dbVersion: Int = 7",
+          "override val isDebug: Boolean = true",
           "SqliteMagic_Note_Adapter.TABLE_SCHEMA",
           "SqliteMagic_Book_Adapter.TABLE_SCHEMA",
           "override fun getNrOfTables(moduleName: String?): Int = 2"
@@ -123,6 +123,9 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
+          "override val dbName: String? = null",
+          "override val submoduleNames: Array<String>?",
+          "get() = null",
           "override fun clearData(db: SupportSQLiteDatabase): StringArraySet",
           """db.execSQL("DELETE FROM transformed_values")""",
           """allChangedTables.add("transformed_values")""",
@@ -170,7 +173,8 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
           "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
           "allChangedTables.addAll(FeatureGeneratedClassesManager.clearData(db))",
-          """override fun getSubmoduleNames(): Array<String>? = arrayOf("Feature")""",
+          "override val submoduleNames: Array<String>?",
+          """get() = arrayOf("Feature")""",
           """"Feature" -> FeatureGeneratedClassesManager.getNrOfTables(moduleName)""",
           "FeatureGeneratedClassesManager.columnForValueOrNull(className = className, input = input)"
         )

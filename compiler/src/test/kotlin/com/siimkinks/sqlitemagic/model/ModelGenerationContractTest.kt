@@ -472,6 +472,7 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
               val text: String,
               val nullableText: String?,
               val enabled: Boolean,
+              val nullableEnabled: Boolean?,
               @Unique val uniqueEnabled: Boolean
             )
           """
@@ -495,13 +496,25 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
           "statement.bindNull",
           "cursor.getBlob",
           "toTypedArray()",
-          "cursor.getFloat"
+          "cursor.getFloat",
+          "enabled = checkNotNull(BooleanTransformer.dbValueToObject",
+          "uniqueEnabled = checkNotNull(BooleanTransformer.dbValueToObject",
+          "Transformer com.siimkinks.sqlitemagic.transformer.BooleanTransformer.dbValueToObject " +
+              "returned null for required property enabled",
+          "Transformer com.siimkinks.sqlitemagic.transformer.BooleanTransformer.dbValueToObject " +
+              "returned null for required property uniqueEnabled",
+          "nullableEnabled = if (column11IsNull) null else BooleanTransformer.dbValueToObject"
+        )
+        generatedSource.assertDoesNotContain(
+          "nullableEnabled = checkNotNull",
+          "!!"
         )
       }
       .withGeneratedSource("StorageMatrixTable.kt") { generatedSource ->
         generatedSource.assertContains(
           "BooleanColumn<StorageMatrix",
           "BooleanColumn(table = this, name = \"enabled\", valueParser = Utils.INTEGER_PARSER",
+          "val NULLABLE_ENABLED: BooleanColumn<StorageMatrix, Nullable>",
           "val TEXT: Column<String, String, CharSequence, StorageMatrix, NotNullable>",
           "val NULLABLE_TEXT: Column<String, String?, CharSequence, StorageMatrix, Nullable>"
         )

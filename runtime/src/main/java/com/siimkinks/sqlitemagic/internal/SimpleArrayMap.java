@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic.internal;
 
-import java.util.Map;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.util.Map;
 
 /**
  * Base implementation of Android ArrayMap that doesn't include any standard Java
@@ -49,7 +49,7 @@ public class SimpleArrayMap<K, V> {
       return ~0;
     }
 
-    int index = ContainerHelpers.binarySearch(hashes, N, hash);
+    int index = ContainerHelpers.INSTANCE.binarySearch(hashes, N, hash);
 
     // If the hash code wasn't found, then we have no entry for this key.
     if (index < 0) {
@@ -89,7 +89,7 @@ public class SimpleArrayMap<K, V> {
       return ~0;
     }
 
-    int index = ContainerHelpers.binarySearch(hashes, N, 0);
+    int index = ContainerHelpers.INSTANCE.binarySearch(hashes, N, 0);
 
     // If the hash code wasn't found, then we have no entry for this key.
     if (index < 0) {
@@ -185,8 +185,8 @@ public class SimpleArrayMap<K, V> {
    * will grow once items are added to it.
    */
   public SimpleArrayMap() {
-    hashes = ContainerHelpers.EMPTY_INTS;
-    array = ContainerHelpers.EMPTY_OBJECTS;
+    hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+    array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
     size = 0;
   }
 
@@ -195,8 +195,8 @@ public class SimpleArrayMap<K, V> {
    */
   public SimpleArrayMap(int capacity) {
     if (capacity == 0) {
-      hashes = ContainerHelpers.EMPTY_INTS;
-      array = ContainerHelpers.EMPTY_OBJECTS;
+      hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+      array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
     } else {
       allocArrays(capacity);
     }
@@ -219,8 +219,8 @@ public class SimpleArrayMap<K, V> {
   public void clear() {
     if (size != 0) {
       freeArrays(hashes, array, size);
-      hashes = ContainerHelpers.EMPTY_INTS;
-      array = ContainerHelpers.EMPTY_OBJECTS;
+      hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+      array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
       size = 0;
     }
   }
@@ -448,8 +448,8 @@ public class SimpleArrayMap<K, V> {
     if (size <= 1) {
       // Now empty.
       freeArrays(hashes, array, size);
-      hashes = ContainerHelpers.EMPTY_INTS;
-      array = ContainerHelpers.EMPTY_OBJECTS;
+      hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+      array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
       size = 0;
     } else {
       if (hashes.length > (BASE_SIZE * 2) && size < hashes.length / 3) {
@@ -506,8 +506,7 @@ public class SimpleArrayMap<K, V> {
     if (this == object) {
       return true;
     }
-    if (object instanceof SimpleArrayMap) {
-      SimpleArrayMap<?, ?> map = (SimpleArrayMap<?, ?>) object;
+    if (object instanceof SimpleArrayMap<?, ?> map) {
       if (size() != map.size()) {
         return false;
       }
@@ -532,8 +531,7 @@ public class SimpleArrayMap<K, V> {
         return false;
       }
       return true;
-    } else if (object instanceof Map) {
-      Map<?, ?> map = (Map<?, ?>) object;
+    } else if (object instanceof Map<?, ?> map) {
       if (size() != map.size()) {
         return false;
       }

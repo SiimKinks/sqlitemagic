@@ -26,7 +26,7 @@ class SchemaDowngradeRuntimeTest {
     databaseName = DOWNGRADE_DATABASE_NAME
   ) { application ->
     val database = SqliteMagicDatabase()
-    val version = database.getDbVersion()
+    val version = database.dbVersion
     val metadata = application
       .openOrCreateDatabase(
         DOWNGRADE_DATABASE_NAME,

@@ -276,23 +276,24 @@ internal class TestGeneratedDatabase(
 
   override fun migrateViews(db: SupportSQLiteDatabase) = Unit
 
-  override fun getSubmoduleNames() = submoduleTableCounts
-    .keys
-    .toTypedArray()
-    .takeIf(Array<String>::isNotEmpty)
+  override val submoduleNames
+    get() = submoduleTableCounts
+      .keys
+      .toTypedArray()
+      .takeIf(Array<String>::isNotEmpty)
 
   override fun getNrOfTables(moduleName: String?) = when (moduleName) {
     null, "" -> tableCount
     else -> submoduleTableCounts.getValue(moduleName)
   }
 
-  override fun getDbVersion() = 1
+  override val dbVersion = 1
 
-  override fun getDbName() = "test.db"
+  override val dbName = "test.db"
 
-  override fun <V> columnForValue(value: V): Column<V, V, V, *, NotNullable> = error("Unused")
+  override fun <V : Any> columnForValue(input: V): Column<V, V, V, *, NotNullable> = error("Unused")
 
-  override fun isDebug() = false
+  override val isDebug = false
 }
 
 internal data class RecordingConnection(

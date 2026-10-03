@@ -149,10 +149,6 @@ internal class DbConnectionImplTest {
     )) {
       val databases = mutableListOf<SupportSQLiteDatabase>()
       val generated = object : GeneratedDatabase by TestGeneratedDatabase(tableCount = 0) {
-        override fun createTemporarySchema(db: SupportSQLiteDatabase?) {
-          super.createTemporarySchema(db)
-        }
-
         override fun clearData(db: SupportSQLiteDatabase): StringArraySet? {
           databases += db
           return clearedTables

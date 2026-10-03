@@ -13,7 +13,10 @@ data class NullableToken(val value: String)
 fun nullableTokenToDb(value: NullableToken?): String? = value?.value
 
 @DbValueToObject
-fun dbToNullableToken(value: String?): NullableToken? = value?.let(::NullableToken)
+fun dbToNullableToken(value: String?): NullableToken? = when (value) {
+  null, "reject" -> null
+  else -> NullableToken(value)
+}
 
 class BlobToken(val value: ByteArray) {
   override fun equals(other: Any?) = when {
@@ -51,10 +54,14 @@ data class OwnedToken(val value: String)
 
 object TransformerRuntimeOwner {
   @ObjectToDbValue
-  fun ownedTokenToDb(value: OwnedToken): String = value.value
+  fun ownedTokenToDb(value: OwnedToken?): String? = value?.value
 
   @DbValueToObject
-  fun dbToOwnedToken(value: String): OwnedToken = OwnedToken(value)
+  fun dbToOwnedToken(value: String?): OwnedToken? = when (value) {
+    null -> OwnedToken("sentinel")
+    "reject" -> null
+    else -> OwnedToken(value)
+  }
 }
 
 data class TransformerRuntimeEmbedded(

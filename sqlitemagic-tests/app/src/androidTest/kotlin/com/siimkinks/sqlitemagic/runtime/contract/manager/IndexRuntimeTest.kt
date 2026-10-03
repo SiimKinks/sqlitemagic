@@ -125,7 +125,7 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
     openNamedConnection(
       application = application,
       databaseName = INDEX_MIGRATION_DATABASE_NAME,
-      database = IndexMigrationDatabase(version = INDEX_MIGRATION_VERSION)
+      database = IndexMigrationDatabase(dbVersion = INDEX_MIGRATION_VERSION)
     ).use { connection ->
       assertThat(
         indexNames(
@@ -175,7 +175,7 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
       openNamedConnection(
         application = application,
         databaseName = INDEX_FAILURE_DATABASE_NAME,
-        database = IndexMigrationDatabase(version = INDEX_FAILURE_VERSION)
+        database = IndexMigrationDatabase(dbVersion = INDEX_FAILURE_VERSION)
       ).use { connection ->
         Select
           .raw("SELECT 1")
@@ -352,7 +352,5 @@ private fun seedIndexFailureDatabase(
 }
 
 private class IndexMigrationDatabase(
-  private val version: Int
-) : GeneratedDatabase by SqliteMagicDatabase() {
-  override fun getDbVersion() = version
-}
+  override val dbVersion: Int
+) : GeneratedDatabase by SqliteMagicDatabase()

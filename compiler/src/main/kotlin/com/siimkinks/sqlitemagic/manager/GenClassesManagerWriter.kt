@@ -4,22 +4,22 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.siimkinks.sqlitemagic.Const.GENERATION_COMMENT
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CLEAR_DATA
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLLECT_GENERATED_VIEWS
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLUMN_FOR_VALUE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLUMN_FOR_VALUE_OR_NULL
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CONFIGURE_DATABASE
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA_INDEXES
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA_TABLES
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_TEMPORARY_SCHEMA
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_GET_NR_OF_TABLES
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MIGRATE_VIEWS
+import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_DB_NAME
+import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_DB_VERSION
+import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_IS_DEBUG
+import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_SUBMODULE_NAMES
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_SQL_VALUE
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_CLEAR_DATA
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_COLUMN_FOR_VALUE
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_CONFIGURE_DATABASE
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_CREATE_SCHEMA
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_CREATE_TEMPORARY_SCHEMA
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_NAME
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_DB_VERSION
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_NR_OF_TABLES
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_GET_SUBMODULE_NAMES
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_IS_DEBUG
-import com.siimkinks.sqlitemagic.GlobalConst.METHOD_MIGRATE_VIEWS
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
@@ -104,11 +104,11 @@ internal class GenClassesManagerWriter(
           when {
             isSubmodule -> addFunction(columnForValueOrNull())
             else -> {
-              addFunction(getSubmoduleNames())
-              addFunction(getDbVersion())
-              addFunction(getDbName())
+              addProperty(submoduleNames())
+              addProperty(dbVersion())
+              addProperty(dbName())
+              addProperty(debug())
               addFunction(columnForValue())
-              addFunction(isDebug())
             }
           }
         }
@@ -403,42 +403,47 @@ internal class GenClassesManagerWriter(
       .build()
   }
 
-  private fun GeneratedDatabaseElement.getSubmoduleNames() =
-    databaseFunction(METHOD_GET_SUBMODULE_NAMES)
-      .returns(STRING_ARRAY.copy(nullable = true))
-      .apply {
-        when {
-          submodules.isEmpty() -> addStatement("return null")
-          else -> addStatement(
-            "return arrayOf(%L)",
-            submodules.joinToCode { CodeBlock.of("%S", it.moduleName) }
-          )
+  private fun GeneratedDatabaseElement.submoduleNames() = PropertySpec
+    .builder(name = PROPERTY_SUBMODULE_NAMES, type = STRING_ARRAY.copy(nullable = true))
+    .addModifiers(OVERRIDE)
+    .getter(
+      FunSpec
+        .getterBuilder()
+        .apply {
+          when {
+            submodules.isEmpty() -> addStatement("return null")
+            else -> addStatement(
+              "return arrayOf(%L)",
+              submodules.joinToCode { CodeBlock.of("%S", it.moduleName) }
+            )
+          }
         }
+        .build()
+    )
+    .build()
+
+  private fun GeneratedDatabaseElement.dbVersion() = PropertySpec
+    .builder(name = PROPERTY_DB_VERSION, type = INT)
+    .addModifiers(OVERRIDE)
+    .initializer("%L", databaseMetadata.dbVersion ?: 1)
+    .build()
+
+  private fun GeneratedDatabaseElement.dbName() = PropertySpec
+    .builder(name = PROPERTY_DB_NAME, type = STRING.copy(nullable = true))
+    .addModifiers(OVERRIDE)
+    .apply {
+      when (val dbName = databaseMetadata.dbName) {
+        null -> initializer("null")
+        else -> initializer("%S", dbName)
       }
-      .build()
+    }
+    .build()
 
-  private fun GeneratedDatabaseElement.getDbVersion() =
-    databaseFunction(METHOD_GET_DB_VERSION)
-      .returns(INT)
-      .addStatement("return %L", databaseMetadata.dbVersion ?: 1)
-      .build()
-
-  private fun GeneratedDatabaseElement.getDbName() =
-    databaseFunction(METHOD_GET_DB_NAME)
-      .returns(STRING.copy(nullable = true))
-      .apply {
-        when (val dbName = databaseMetadata.dbName) {
-          null -> addStatement("return null")
-          else -> addStatement("return %S", dbName)
-        }
-      }
-      .build()
-
-  private fun GeneratedDatabaseElement.isDebug() =
-    databaseFunction(METHOD_IS_DEBUG)
-      .returns(BOOLEAN)
-      .addStatement("return %L", isDebug)
-      .build()
+  private fun GeneratedDatabaseElement.debug() = PropertySpec
+    .builder(name = PROPERTY_IS_DEBUG, type = BOOLEAN)
+    .addModifiers(OVERRIDE)
+    .initializer("%L", isDebug)
+    .build()
 
   private fun GeneratedDatabaseElement.columnForValue(): FunSpec {
     val valueType = TypeVariableName("V", ANY)

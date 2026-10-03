@@ -1,12 +1,12 @@
 package com.siimkinks.sqlitemagic.internal;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 public class StringArraySet implements Set<String> {
   /**
@@ -43,7 +43,7 @@ public class StringArraySet implements Set<String> {
       return ~0;
     }
 
-    int index = ContainerHelpers.binarySearch(hashes, N, hash);
+    int index = ContainerHelpers.INSTANCE.binarySearch(hashes, N, hash);
 
     // If the hash code wasn't found, then we have no entry for this key.
     if (index < 0) {
@@ -83,7 +83,7 @@ public class StringArraySet implements Set<String> {
       return ~0;
     }
 
-    int index = ContainerHelpers.binarySearch(hashes, N, 0);
+    int index = ContainerHelpers.INSTANCE.binarySearch(hashes, N, 0);
 
     // If the hash code wasn't found, then we have no entry for this key.
     if (index < 0) {
@@ -179,8 +179,8 @@ public class StringArraySet implements Set<String> {
    * will grow once items are added to it.
    */
   public StringArraySet() {
-    hashes = ContainerHelpers.EMPTY_INTS;
-    array = ContainerHelpers.EMPTY_OBJECTS;
+    hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+    array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
     size = 0;
   }
 
@@ -189,8 +189,8 @@ public class StringArraySet implements Set<String> {
    */
   public StringArraySet(int capacity) {
     if (capacity == 0) {
-      hashes = ContainerHelpers.EMPTY_INTS;
-      array = ContainerHelpers.EMPTY_OBJECTS;
+      hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+      array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
     } else {
       allocArrays(capacity);
     }
@@ -220,8 +220,8 @@ public class StringArraySet implements Set<String> {
   public void clear() {
     if (size != 0) {
       freeArrays(hashes, array, size);
-      hashes = ContainerHelpers.EMPTY_INTS;
-      array = ContainerHelpers.EMPTY_OBJECTS;
+      hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+      array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
       size = 0;
     }
   }
@@ -385,8 +385,8 @@ public class StringArraySet implements Set<String> {
     if (size <= 1) {
       // Now empty.
       freeArrays(hashes, array, size);
-      hashes = ContainerHelpers.EMPTY_INTS;
-      array = ContainerHelpers.EMPTY_OBJECTS;
+      hashes = ContainerHelpers.INSTANCE.getEMPTY_INTS();
+      array = ContainerHelpers.INSTANCE.getEMPTY_OBJECTS();
       size = 0;
     } else {
       if (hashes.length > (BASE_SIZE * 2) && size < hashes.length / 3) {
@@ -464,8 +464,7 @@ public class StringArraySet implements Set<String> {
     if (this == object) {
       return true;
     }
-    if (object instanceof Set) {
-      Set<?> set = (Set<?>) object;
+    if (object instanceof Set<?> set) {
       if (size() != set.size()) {
         return false;
       }

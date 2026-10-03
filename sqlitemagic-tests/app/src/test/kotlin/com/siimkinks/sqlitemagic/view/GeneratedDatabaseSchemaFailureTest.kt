@@ -45,8 +45,8 @@ internal class GeneratedDatabaseSchemaFailureTest {
     val manager = SqliteMagicDatabase()
     val view = PERSISTENT_EMAIL_READBACK_VIEW
 
-    assertThat(manager.getDbName()).isEqualTo(BuildConfig.DB_NAME)
-    assertThat(manager.getSubmoduleNames()?.toList()).containsExactly("Submodule")
+    assertThat(manager.dbName).isEqualTo(BuildConfig.DB_NAME)
+    assertThat(manager.submoduleNames?.toList()).containsExactly("Submodule")
     assertThat(view.name).isEqualTo("persistent_email_readback")
     assertThat(view.nrOfColumns).isEqualTo(1)
   }

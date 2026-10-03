@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.writer
 
 import com.siimkinks.sqlitemagic.SqlStorageType
+import com.siimkinks.sqlitemagic.WriterTypes.CHECK_NOT_NULL
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.model.ModelConstruction
@@ -198,7 +199,20 @@ internal class CursorReadTreeWriter {
       )
       else -> databaseValue
     }
-    val value = node.transformer?.deserializedValueGetter(input) ?: databaseValue
+    val transformedValue = node.transformer?.deserializedValueGetter(input) ?: databaseValue
+    val value = when {
+      !node.isNullable && node.transformer?.deserializedType?.typeName?.isNullable == true -> {
+        val decoder = node.transformer.dbValueToObjectMethod
+        val callableName = "${decoder.ownerQualifiedName ?: decoder.packageName}.${decoder.methodName}"
+        CodeBlock.of(
+          "%M(%L) { %S }",
+          CHECK_NOT_NULL,
+          transformedValue,
+          "Transformer $callableName returned null for required property ${node.access.path.displayName}"
+        )
+      }
+      else -> transformedValue
+    }
     return when {
       node.enclosingPathNullable && !node.isNullable -> requiredValue(
         position = node.position,

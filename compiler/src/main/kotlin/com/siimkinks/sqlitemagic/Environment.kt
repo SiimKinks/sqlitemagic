@@ -3,9 +3,9 @@ package com.siimkinks.sqlitemagic
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_NAME_GENERATED_CLASSES_MANAGER
+import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
-import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_GENERATED_CLASSES_MANAGER
-import com.siimkinks.sqlitemagic.GlobalConst.CLASS_NAME_MAIN_GENERATED_CLASSES_MANAGER
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_NAME
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DEBUG
