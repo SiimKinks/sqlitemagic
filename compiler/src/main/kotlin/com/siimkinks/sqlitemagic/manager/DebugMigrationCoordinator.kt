@@ -58,7 +58,6 @@ internal class DebugMigrationCoordinator(
                 submoduleName = checkNotNull(database.submoduleName),
                 structure = currentStructure,
                 migrationHappened = false,
-                pendingViewRemovalNames = emptyList(),
                 replaceExistingStructures = configuration.structureOutputDirectory != null,
                 snapshots = transaction
               )
@@ -100,28 +99,18 @@ internal class DebugMigrationCoordinator(
         else -> "$submoduleName$nextDatabaseVersion.sql"
       }
       val migrationFile = File(projectDir, "src/$variantName/assets/$migrationFileName")
-      val viewRemovalFile = migrationFile.resolveSibling("${migrationFile.nameWithoutExtension}.views")
       val versionFile = File(projectDir, "db/latest_$variantName.version")
       val changedMarkers = when {
         database.isSubmodule -> emptyList()
         else -> submoduleChangeMarkers(projectDir)
       }
-      val markerRemovalNames = changedMarkers
-        .flatMap { transaction.snapshot(it).readLines() }
-        .filter(String::isNotEmpty)
       val pendingMigrationStatements = when {
         database.isSubmodule -> transaction
           .snapshot(migrationFile)
           .readLines()
         else -> emptyList()
       }
-      val pendingViewRemovalNames = when {
-        database.isSubmodule -> transaction
-          .snapshot(viewRemovalFile)
-          .readLines()
-        else -> emptyList()
-      }
-      val migrationResult = MigrationsHandler(
+      val migrationHappened = MigrationsHandler(
         currentStructure = currentStructure,
         previousStructure = transaction
           .snapshot(structureFile)
@@ -134,13 +123,11 @@ internal class DebugMigrationCoordinator(
         outputStructureFile = structureFile,
         migrationOutputFile = migrationFile,
         pendingMigrationStatements = pendingMigrationStatements,
-        pendingViewRemovalNames = pendingViewRemovalNames + markerRemovalNames,
-        includePreviousOwnedViews = changedMarkers.isNotEmpty(),
         externalTransaction = transaction
       ).migrate()
       val outcome = when (val submoduleName = database.submoduleName) {
         null -> when {
-          migrationResult.migrationHappened || changedMarkers.isNotEmpty() -> {
+          migrationHappened || changedMarkers.isNotEmpty() -> {
             writeMainModuleDebugVersion(
               file = versionFile,
               version = nextDatabaseVersion,
@@ -156,8 +143,7 @@ internal class DebugMigrationCoordinator(
               structureDirectory = structureDirectory,
               submoduleName = submoduleName,
               structure = currentStructure,
-              migrationHappened = migrationResult.migrationHappened && configuration.structureOutputDirectory == null,
-              pendingViewRemovalNames = migrationResult.viewRemovalNames,
+              migrationHappened = migrationHappened && configuration.structureOutputDirectory == null,
               replaceExistingStructures = configuration.structureOutputDirectory != null,
               snapshots = transaction
             )
@@ -237,7 +223,6 @@ private fun persistSubmoduleState(
   submoduleName: String,
   structure: DatabaseStructure,
   migrationHappened: Boolean,
-  pendingViewRemovalNames: List<String>,
   replaceExistingStructures: Boolean,
   snapshots: FileSnapshotTransaction
 ) {
@@ -255,12 +240,6 @@ private fun persistSubmoduleState(
       }
     else -> emptyList()
   }
-  val existingMarkerNames = when {
-    migrationHappened && !replaceExistingStructures -> snapshots
-      .snapshot(changeMarker)
-      .readLines()
-    else -> emptyList()
-  }
   if (replaceExistingStructures) {
     staleFiles.forEach { file ->
       snapshots.track(file)
@@ -274,18 +253,9 @@ private fun persistSubmoduleState(
     text = DatabaseStructureJson.write(structure)
   )
   if (migrationHappened) {
-    val names = (existingMarkerNames + pendingViewRemovalNames)
-      .filter(String::isNotEmpty)
-      .distinct()
     snapshots.writeTextIfChanged(
       file = changeMarker,
-      text = names.joinToString(
-        separator = "\n",
-        postfix = when {
-          names.isEmpty() -> ""
-          else -> "\n"
-        }
-      )
+      text = ""
     )
   }
 }

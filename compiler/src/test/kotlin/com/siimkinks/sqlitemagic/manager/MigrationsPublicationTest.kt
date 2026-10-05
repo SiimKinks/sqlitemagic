@@ -98,12 +98,7 @@ internal class MigrationsPublicationTest {
         outputStructureFile = structureFile,
         migrationOutputFile = migrationFile
       ).migrate()
-    ).isEqualTo(
-      MigrationResult(
-        migrationHappened = false,
-        viewRemovalNames = emptyList()
-      )
-    )
+    ).isFalse()
     assertThat(migrationFile.exists())
       .isFalse()
   }

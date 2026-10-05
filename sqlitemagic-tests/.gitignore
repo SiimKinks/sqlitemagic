@@ -8,7 +8,11 @@
 .externalNativeBuild
 .cxx
 local.properties
-**/db
-/db
-**/*debug/assets/*.sql
-**/*debug/assets/*.views
+
+# Generated working database state
+**/db/latest*.struct
+**/db/latest_*.version
+**/db/*.changed
+
+# Generated debug migration assets
+**/*debug/assets/**

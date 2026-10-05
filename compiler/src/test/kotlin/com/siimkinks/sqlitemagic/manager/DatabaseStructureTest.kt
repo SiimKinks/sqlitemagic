@@ -431,29 +431,6 @@ internal class DatabaseStructureTest {
   }
 
   @Test
-  fun `persistent view names retain raw snapshot keys and exclude temporary views`() {
-    val structureFile = temporaryDirectory
-      .resolve("view-names.struct")
-      .toFile()
-    DatabaseStructureJson.write(
-      file = structureFile,
-      structure = DatabaseStructure(
-        views = linkedMapOf(
-          "Z.View" to ViewStructure(name = "different_value"),
-          "a_view" to ViewStructure(name = "another_value")
-        ),
-        temporaryViews = linkedMapOf(
-          "temporary_view" to ViewStructure(name = "temporary_view")
-        )
-      )
-    )
-
-    assertThat(DatabaseStructurePublication.load(structureFile).persistentViewNames)
-      .containsExactly("Z.View", "a_view")
-      .inOrder()
-  }
-
-  @Test
   fun `publication sees view-only persistent structures but ignores temporary-only structures`() {
     val structureFile = temporaryDirectory
       .resolve("view-only.struct")
@@ -506,9 +483,6 @@ internal class DatabaseStructureTest {
 
     assertThat(snapshot.hasPersistentObjects)
       .isTrue()
-    assertThat(snapshot.persistentViewNames)
-      .containsExactly("Z.View", "a_view")
-      .inOrder()
     assertThat(snapshot.hasPersistentChanges(emptySnapshot))
       .isTrue()
     snapshot.writeTo(restoredFile)

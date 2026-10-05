@@ -23,7 +23,6 @@ object DatabaseStructurePublication {
     val hasPersistentObjects = with(persistentStructure) {
       tables.isNotEmpty() || indices.isNotEmpty() || views.isNotEmpty()
     }
-    val persistentViewNames = persistentStructure.views.keys.toList()
 
     fun hasPersistentChanges(other: Snapshot) = persistentStructure != other.persistentStructure
 

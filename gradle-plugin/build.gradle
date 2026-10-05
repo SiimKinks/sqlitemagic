@@ -46,9 +46,12 @@ dependencies {
   compileOnly libs.ksp.gradle.plugin
 
   implementation project(':compiler')
+  implementation project(':runtime')
+  implementation project(':migration-testing')
 
   testImplementation platform(libs.junit.bom)
   testImplementation libs.junit.jupiter
+  testImplementation gradleTestKit()
   testImplementation libs.truth
   testRuntimeOnly libs.junit.platform.launcher
 }
@@ -65,5 +68,27 @@ gradlePlugin {
 tasks.withType(Test).configureEach {
   useJUnitPlatform()
   scanForTestClasses = false
-  include "**/*Test.class"
+}
+
+tasks.named('test') {
+  include '**/*Test.class'
+  exclude '**/*IntegrationTest.class'
+}
+
+tasks.register('integrationTest', Test) {
+  group = 'verification'
+  description = 'Runs published-artifact consumer integration tests.'
+
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  include '**/*IntegrationTest.class'
+
+  dependsOn(rootProject.subprojects.collect {
+    "${it.path}:publishToMavenLocal"
+  })
+  shouldRunAfter(tasks.named('test'))
+}
+
+tasks.named('check') {
+  dependsOn(tasks.named('integrationTest'))
 }

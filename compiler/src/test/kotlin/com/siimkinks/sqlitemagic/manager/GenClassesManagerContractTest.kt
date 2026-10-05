@@ -208,6 +208,8 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "session_cache"
         )
       }
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
+      .isFalse()
   }
 
   @Test

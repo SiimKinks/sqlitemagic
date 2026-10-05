@@ -49,11 +49,11 @@ internal class SqliteMagicPluginStagingTest {
     assertThat(destination.resolve("latest_feature.struct").exists())
       .isFalse()
     assertThat(destination.resolve("submodules.changed").readText())
-      .isEqualTo("feature_view\n")
+      .isEmpty()
   }
 
   @Test
-  fun `a changed table module records an unchanged sibling module view`() {
+  fun `a changed table module records a marker without sibling view payload`() {
     val destination = databaseDirectory()
     val stagedDirectory = stagedDirectory()
     val previousTable = """{"tables":{"a":{"name":"a","schema":"CREATE TABLE a (value TEXT)"}}}"""
@@ -87,7 +87,7 @@ internal class SqliteMagicPluginStagingTest {
 
     val marker = destination.resolve("submodules.changed")
     assertThat(marker.readText())
-      .isEqualTo("sibling_b_view\n")
+      .isEmpty()
     assertThat(destination.resolve("latest_sibling_a.struct").readText())
       .isEqualTo(changedTable)
     assertThat(destination.resolve("latest_sibling_b.struct").readText())
@@ -125,7 +125,7 @@ internal class SqliteMagicPluginStagingTest {
   }
 
   @Test
-  fun `view rename then module removal records both prior names across main versions`() {
+  fun `view rename then module removal recreates change markers across main versions`() {
     val destination = databaseDirectory()
     val stagedDirectory = stagedDirectory()
     writeStructure(
@@ -145,9 +145,8 @@ internal class SqliteMagicPluginStagingTest {
       destination = destination
     )
 
-    val versionNMarker = marker.readText()
-    assertThat(versionNMarker)
-      .isEqualTo("view_a\n")
+    assertThat(marker.isFile).isTrue()
+    assertThat(marker.readText()).isEmpty()
     check(marker.delete())
 
     publishStagedStructures(
@@ -155,11 +154,8 @@ internal class SqliteMagicPluginStagingTest {
       destination = destination
     )
 
-    val versionNPlusOneMarker = marker.readText()
-    assertThat(versionNPlusOneMarker)
-      .isEqualTo("view_b\n")
-    assertThat(versionNMarker + versionNPlusOneMarker)
-      .isEqualTo("view_a\nview_b\n")
+    assertThat(marker.isFile).isTrue()
+    assertThat(marker.readText()).isEmpty()
   }
 
   @Test
@@ -236,69 +232,6 @@ internal class SqliteMagicPluginStagingTest {
       .isEqualTo("leave this directory intact")
     assertThat(previousMarker.readText())
       .isEqualTo("earlier_view\n")
-  }
-
-  @Test
-  fun `release input selection uses release staging after debug publication`() {
-    val destination = databaseDirectory()
-    val stagedMain = temporaryDirectory.resolve("release-staged/latest.struct").toFile()
-    val releaseFeatureDirectory = temporaryDirectory.resolve("release-feature").toFile()
-    val releaseExtraDirectory = temporaryDirectory.resolve("release-extra").toFile()
-    val debugDirectory = temporaryDirectory.resolve("debug-feature").toFile()
-    writeStructure(
-      directory = checkNotNull(stagedMain.parentFile),
-      name = stagedMain.name,
-      json = "{}"
-    )
-    writeStructure(
-      directory = releaseFeatureDirectory,
-      name = "latest_feature.struct",
-      json = "{}"
-    )
-    writeStructure(
-      directory = releaseExtraDirectory,
-      name = "latest_extra.struct",
-      json = "{}"
-    )
-    writeStructure(
-      directory = releaseExtraDirectory,
-      name = "stale.struct",
-      json = "{}"
-    )
-    writeStructure(
-      directory = debugDirectory,
-      name = "latest_feature.struct",
-      json = "{}"
-    )
-    publishStagedStructures(
-      stagedDirectories = listOf(debugDirectory),
-      destination = destination
-    )
-
-    assertThat(destination.resolve("latest_feature.struct").isFile)
-      .isTrue()
-    assertThat(
-      releaseCurrentStructureFiles(
-        stagedMainFile = stagedMain,
-        stagedSubmoduleDirectories = listOf(releaseFeatureDirectory, releaseExtraDirectory)
-      )
-    ).containsExactly(
-      stagedMain,
-      releaseExtraDirectory.resolve("latest_extra.struct"),
-      releaseFeatureDirectory.resolve("latest_feature.struct")
-    ).inOrder()
-  }
-
-  @Test
-  fun `release input selection with no submodules contains only staged main`() {
-    val stagedMain = temporaryDirectory.resolve("release-staged/latest.struct").toFile()
-
-    assertThat(
-      releaseCurrentStructureFiles(
-        stagedMainFile = stagedMain,
-        stagedSubmoduleDirectories = emptyList()
-      )
-    ).containsExactly(stagedMain)
   }
 
   private fun databaseDirectory() = temporaryDirectory.resolve("db").toFile().apply {

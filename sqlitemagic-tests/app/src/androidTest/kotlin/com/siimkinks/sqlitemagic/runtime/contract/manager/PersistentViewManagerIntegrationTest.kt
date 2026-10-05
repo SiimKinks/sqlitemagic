@@ -180,10 +180,10 @@ class PersistentViewManagerIntegrationTest : RuntimeDatabaseTest() {
 
       assertThat(failure)
         .hasMessageThat()
-        .contains("definition_failure_view")
-      assertThat(failure)
-        .hasMessageThat()
-        .contains(implementationName)
+        .isEqualTo(
+          "Cannot create view 'definition_failure_view': defining query uses unsupported implementation " +
+              implementationName
+        )
       assertThat(mainSchemaObjectNames(database = database))
         .doesNotContain("definition_failure_row")
     }

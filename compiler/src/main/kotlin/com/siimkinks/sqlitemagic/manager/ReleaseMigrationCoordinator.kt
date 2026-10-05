@@ -1,5 +1,8 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.migration.MigrationScriptValidation
+import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
+import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
 import java.io.File
 
 object ReleaseMigrationCoordinator {
@@ -7,7 +10,9 @@ object ReleaseMigrationCoordinator {
     projectDir: File,
     databaseDirectory: File,
     variantName: String,
-    currentStructureFiles: List<File>? = null
+    currentStructureFiles: List<File>? = null,
+    compiledRelease: ReleaseSchemaSnapshot? = null,
+    evidenceAssetsDirectory: File = projectDir.resolve("src/$variantName/assets")
   ) {
     val releaseAssetsDirectory = projectDir.resolve("src/$variantName/assets")
     val releaseStructuresDirectory = databaseDirectory.resolve("releases")
@@ -17,24 +22,42 @@ object ReleaseMigrationCoordinator {
     )
     val previousVersion = latestRelease
       ?.version
-      ?: listOfNotNull(
-        latestVersionedFile(
-          directory = releaseAssetsDirectory,
-          extension = "sql"
-        )?.version,
-        latestVersionedFile(
-          directory = releaseAssetsDirectory,
-          extension = "views"
-        )?.version
-      ).maxOrNull()
+      ?: latestVersionedFile(
+        directory = evidenceAssetsDirectory,
+        extension = "sql"
+      )?.version
       ?: 0L
-    val releaseVersion = previousVersion.inc()
+    val evidencePublisher = compiledRelease?.let { schema ->
+      ReleaseEvidencePublisher(
+        releaseDirectory = releaseStructuresDirectory,
+        assetsDirectory = evidenceAssetsDirectory,
+        compiledRelease = schema
+      ).also(ReleaseEvidencePublisher::validatePublication)
+    }
+    if (evidencePublisher?.adoptsExistingStructure == true) {
+      val transaction = FileSnapshotTransaction()
+      try {
+        evidencePublisher.publish(transaction)
+      } catch (failure: Exception) {
+        transaction.restore(failure)
+        throw failure
+      }
+      return
+    }
+    val releaseVersion = compiledRelease?.version?.toLong() ?: previousVersion.inc()
     val currentStructures = readCurrentStructures(
       databaseDirectory = databaseDirectory,
       currentStructureFiles = currentStructureFiles
     )
     validateCurrentStructures(currentStructures)
     val currentStructure = aggregatePersistentStructures(currentStructures)
+    compiledRelease?.let { compiled ->
+      check(
+        currentStructure.tables.values.map(TableStructure::schema).toSet() == compiled.tableSql.toSet() &&
+            currentStructure.indices.values.map(IndexStructure::indexSql).toSet() == compiled.indexSql.toSet() &&
+            currentStructure.views.keys == compiled.views.map(MigrationViewSchema::name).toSet()
+      ) { "Compiled selected release differs from current compiler structures" }
+    }
     val previousStructure = latestRelease?.let { versionedFile ->
       readStructure(
         file = versionedFile.file,
@@ -42,13 +65,62 @@ object ReleaseMigrationCoordinator {
       ).persistentOnly()
     }
 
-    MigrationsHandler(
-      currentStructure = currentStructure,
-      previousStructure = previousStructure,
-      outputStructureFile = releaseStructuresDirectory.resolve("$releaseVersion.struct"),
-      migrationOutputFile = releaseAssetsDirectory.resolve("$releaseVersion.sql"),
-      persistentStructureOnly = true
-    ).migrate()
+    val mainSqlFile = releaseAssetsDirectory.resolve("$releaseVersion.sql")
+    val effectiveSqlFile = evidenceAssetsDirectory.resolve("$releaseVersion.sql")
+    val pendingSqlText = when {
+      effectiveSqlFile.isFile -> readPendingReleaseResource(effectiveSqlFile)
+        .also { text ->
+          MigrationScriptValidation.validate(
+            text = text,
+            resourceName = effectiveSqlFile.absolutePath
+          )
+        }
+      else -> null
+    }
+
+    val generatesSql = previousStructure?.let {
+      SchemaDiffer.diff(
+        from = it,
+        to = currentStructure
+      ).hasPersistentTableOrIndexChanges
+    } == true
+    val destinationPendingSql = when {
+      generatesSql -> pendingSqlText
+      mainSqlFile.isFile -> readPendingReleaseResource(mainSqlFile)
+      else -> null
+    }
+    val transaction = FileSnapshotTransaction()
+    try {
+      MigrationsHandler(
+        currentStructure = currentStructure,
+        previousStructure = previousStructure,
+        outputStructureFile = releaseStructuresDirectory.resolve("$releaseVersion.struct"),
+        migrationOutputFile = mainSqlFile,
+        persistentStructureOnly = true,
+        pendingMigrationStatements = destinationPendingSql
+          ?.reader()
+          ?.readLines()
+          .orEmpty(),
+        externalTransaction = transaction
+      ).migrate()
+      if (destinationPendingSql != null && !mainSqlFile.isFile) transaction.writeTextIfChanged(
+        file = mainSqlFile,
+        text = destinationPendingSql
+      )
+      evidencePublisher?.publish(
+        transaction = transaction,
+        generatedCurrentSql = mainSqlFile.takeIf { generatesSql && it.isFile }
+      )
+    } catch (failure: Exception) {
+      transaction.restore(failure)
+      throw failure
+    }
+  }
+
+  private fun readPendingReleaseResource(file: File): String = try {
+    MigrationScriptValidation.readUtf8(file.inputStream())
+  } catch (failure: Exception) {
+    throw IllegalStateException("Cannot read pending release resource ${file.absolutePath} as UTF-8", failure)
   }
 
   private fun latestVersionedFile(
@@ -74,7 +146,7 @@ object ReleaseMigrationCoordinator {
       .forEach { (version, files) ->
         check(files.size <= 1) {
           "Duplicate numeric $extension version $version in ${directory.absolutePath}: " +
-            files.joinToString { it.file.name }
+              files.joinToString { it.file.name }
         }
       }
     return versionedFiles.maxByOrNull(VersionedFile::version)

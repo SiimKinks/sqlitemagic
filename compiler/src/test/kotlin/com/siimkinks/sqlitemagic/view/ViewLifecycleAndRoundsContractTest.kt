@@ -292,7 +292,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           .substringBefore("override fun getNrOfTables(")
           .assertContainsInOrder(
             "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.recreateViews(db = db, views = generatedViews)"
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)"
           )
       }
   }
@@ -484,12 +484,12 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       )
       assertDoesNotContain("retired_lifecycle_view")
     }
-    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.views").toFile().readText())
-      .isEqualTo("retired_lifecycle_view\n")
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
+      .isFalse()
   }
 
   @Test
-  fun `keeps lifecycle ordering for owned view removal and recreation on table migration`() {
+  fun `creates current views after the upgrade engine removes previous views`() {
     val structureFile = temporaryDirectory.resolve("db/latest.struct")
     structureFile.toFile().apply {
       parentFile.mkdirs()
@@ -515,17 +515,14 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        val viewsFile = temporaryDirectory
-          .resolve("src/debug/assets/1001.views")
-          .toFile()
-        assertThat(viewsFile.readText())
-          .isEqualTo("old_ordered_lifecycle_view\n")
+        assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
+          .isFalse()
         generatedSource
           .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
           .substringBefore("override fun getNrOfTables(")
           .assertContainsInOrder(
             "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.recreateViews(db = db, views = generatedViews)"
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)"
           )
         generatedSource.assertContains("views.add(SqliteMagic_NewOrderedLifecycleView_Dao.GENERATED_VIEW)")
       }
@@ -560,7 +557,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           .substringBefore("override fun getNrOfTables(")
           .assertContainsInOrder(
             "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.recreateViews(db = db, views = generatedViews)"
+            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)"
           )
         generatedSource.assertContains("views.add(SqliteMagic_QueryOnlyLifecycleView_Dao.GENERATED_VIEW)")
       }

@@ -48,8 +48,6 @@ internal data class SchemaDiff(
   val indexTransitions: List<IndexTransition> = emptyList(),
   val newIndices: List<IndexSnapshot> = emptyList(),
   val removedIndices: List<IndexSnapshot> = emptyList(),
-  val previousViews: List<ViewSnapshot> = emptyList(),
-  val currentViews: List<ViewSnapshot> = emptyList(),
   val viewTransitions: List<ViewTransition> = emptyList(),
   val newViews: List<ViewSnapshot> = emptyList(),
   val removedViews: List<ViewSnapshot> = emptyList()
@@ -139,8 +137,8 @@ internal object SchemaDiffer {
       }
       .toList()
 
-    val previousIndices = from.indices.entries.mapTo(arrayListOf(), ::indexSnapshot)
-    val currentIndices = to.indices.entries.mapTo(arrayListOf(), ::indexSnapshot)
+    val previousIndices = from.indices.entries.map(::indexSnapshot)
+    val currentIndices = to.indices.entries.map(::indexSnapshot)
     val previousIndicesByName = previousIndices.associateBy(IndexSnapshot::name)
     val currentIndicesByName = currentIndices.associateBy(IndexSnapshot::name)
     val indexTransitions = currentIndices.mapNotNull { currentIndex ->
@@ -152,10 +150,10 @@ internal object SchemaDiffer {
         )
       }
     }
-    val newIndices = currentIndices.filterTo(arrayListOf()) { it.name !in previousIndicesByName }
-    val removedIndices = previousIndices.filterTo(arrayListOf()) { it.name !in currentIndicesByName }
-    val previousViews = from.views.entries.mapTo(arrayListOf(), ::viewSnapshot)
-    val currentViews = to.views.entries.mapTo(arrayListOf(), ::viewSnapshot)
+    val newIndices = currentIndices.filter { it.name !in previousIndicesByName }
+    val removedIndices = previousIndices.filter { it.name !in currentIndicesByName }
+    val previousViews = from.views.entries.map(::viewSnapshot)
+    val currentViews = to.views.entries.map(::viewSnapshot)
     val previousViewsByIdentity = previousViews.associateBy(ViewSnapshot::normalizedViewId)
     val currentViewsByIdentity = currentViews.associateBy(ViewSnapshot::normalizedViewId)
     val viewTransitions = currentViews.mapNotNull { currentView ->
@@ -167,8 +165,8 @@ internal object SchemaDiffer {
         )
       }
     }
-    val newViews = currentViews.filterTo(arrayListOf()) { it.normalizedViewId !in previousViewsByIdentity }
-    val removedViews = previousViews.filterTo(arrayListOf()) { it.normalizedViewId !in currentViewsByIdentity }
+    val newViews = currentViews.filter { it.normalizedViewId !in previousViewsByIdentity }
+    val removedViews = previousViews.filter { it.normalizedViewId !in currentViewsByIdentity }
 
     return SchemaDiff(
       previousTableNames = from.tables.keys.toList(),
@@ -186,8 +184,6 @@ internal object SchemaDiffer {
       indexTransitions = indexTransitions,
       newIndices = newIndices,
       removedIndices = removedIndices,
-      previousViews = previousViews,
-      currentViews = currentViews,
       viewTransitions = viewTransitions,
       newViews = newViews,
       removedViews = removedViews

@@ -5,14 +5,12 @@ import java.io.File
 internal class MigrationArtifactsPublisher(
   private val structureFile: File,
   private val migrationFile: File,
-  private val viewRemovalFile: File,
   private val persistentStructureOnly: Boolean = false,
   private val externalTransaction: FileSnapshotTransaction? = null
 ) {
   fun publish(
     structure: DatabaseStructure,
-    migrationStatements: List<String>,
-    previousOwnedViewNames: List<String>
+    migrationStatements: List<String>
   ) {
     val transaction = externalTransaction ?: FileSnapshotTransaction()
     try {
@@ -27,11 +25,6 @@ internal class MigrationArtifactsPublisher(
       publishLines(
         file = migrationFile,
         lines = migrationStatements,
-        transaction = transaction
-      )
-      publishLines(
-        file = viewRemovalFile,
-        lines = previousOwnedViewNames,
         transaction = transaction
       )
     } catch (exception: Exception) {

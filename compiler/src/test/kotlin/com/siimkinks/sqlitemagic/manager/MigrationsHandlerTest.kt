@@ -1678,7 +1678,6 @@ internal class MigrationsHandlerTest {
         outputStructureFile = structureFile,
         migrationOutputFile = migrationFile
       ).migrate()
-        .migrationHappened
     ).isTrue()
     return migrationFile.readLines()
   }

@@ -14,8 +14,9 @@ gen/
 out/
 docs/
 
-# Gradle files
+# Gradle and Kotlin files
 .gradle/
+.kotlin/
 build/
 
 # Local configuration file (sdk path, etc)

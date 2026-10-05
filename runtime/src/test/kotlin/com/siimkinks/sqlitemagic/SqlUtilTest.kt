@@ -139,22 +139,6 @@ class SqlUtilTest {
   }
 
   @Test
-  fun `drop view targets main and quotes the view identifier`() {
-    val database = mock<SupportSQLiteDatabase>()
-    val expectedSql = """DROP VIEW IF EXISTS main."books""view""""
-
-    SqlUtil.dropView(
-      db = database,
-      viewName = """books"view"""
-    )
-
-    verify(database)
-      .execSQL(expectedSql)
-    verify(database, never())
-      .execSQL(eq(expectedSql), any())
-  }
-
-  @Test
   fun `temporary view quotes its identifier and accepts main and temporary table sources`() {
     val database = mock<SupportSQLiteDatabase>()
     val definition = ViewDefinition(

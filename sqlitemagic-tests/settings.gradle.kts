@@ -15,3 +15,5 @@ pluginManagement {
 
 include(":app")
 include(":submodule")
+include(":migration-consumer")
+include(":migration-consumer-feature")

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic
 
+import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.AndroidComponentsExtension
 import com.android.build.api.variant.ComponentIdentity
 import com.android.build.api.variant.Variant
@@ -7,8 +8,6 @@ import com.google.devtools.ksp.gradle.KspAATask
 import com.google.devtools.ksp.gradle.KspExtension
 import com.siimkinks.sqlitemagic.manager.DatabaseStructurePublication
 import com.siimkinks.sqlitemagic.manager.DatabaseStructurePublication.Snapshot
-import com.siimkinks.sqlitemagic.manager.ReleaseMigrationCoordinator
-import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -36,7 +35,8 @@ class SqliteMagicPlugin : Plugin<Project> {
     )
     project.afterEvaluate {
       check(project.plugins.hasPlugin(KSP_PLUGIN_ID)) {
-        "SqliteMagic KSP plugin requires '$KSP_PLUGIN_ID' in project '${project.path}'. Apply it in that module's plugins block."
+        "SqliteMagic KSP plugin requires '$KSP_PLUGIN_ID' in project '${project.path}'. " +
+            "Apply it in that module's plugins block."
       }
     }
     configureStructurePropagation(
@@ -50,6 +50,13 @@ class SqliteMagicPlugin : Plugin<Project> {
           .extensions
           .getByType(AndroidComponentsExtension::class.java)
           .apply {
+            project.plugins.withId(ANDROID_APPLICATION_PLUGIN_ID) {
+              configureMigrationTesting(
+                project = project,
+                extension = sqlitemagic,
+                components = this
+              )
+            }
             finalizeDsl {
               project.configureDependencies(sqlitemagic)
             }
@@ -100,17 +107,13 @@ private fun configureStructurePropagation(
         .unzip()
       val publicationTask = currentProject.tasks.register(
         "publishSqliteMagic${variantTaskName}Structures",
-        DefaultTask::class.java
+        PublishSqliteMagicStructures::class.java
       ) { task ->
         task.doNotTrackState("Publishes current SqliteMagic structures into a shared database metadata directory")
         task.usesService(publicationLock)
         task.dependsOn(producerTasks)
-        task.doLast {
-          publishStagedStructures(
-            stagedDirectories = stagedDirectories,
-            destination = databaseDirectory
-          )
-        }
+        task.stagedDirectories.from(stagedDirectories)
+        task.destinationDirectory.set(databaseDirectory)
       }
       consumerTask.apply {
         dependsOn(publicationTask)
@@ -172,11 +175,6 @@ internal fun publishStagedStructures(
     .filterKeys { it !in stagedSnapshots }
     .values
     .any(Snapshot::hasPersistentObjects)
-  val previousPersistentViewNames = publishedSnapshots
-    .toSortedMap()
-    .values
-    .flatMap(Snapshot::persistentViewNames)
-    .distinct()
   val structuresChanged = changedPublishedNames.isNotEmpty() || addedPersistentStructure || removedPersistentStructure
   val hasMainStructureBaseline = destination.resolve("latest.struct").isFile
   val changeMarker = destination.resolve("submodules.changed")
@@ -189,24 +187,8 @@ internal fun publishStagedStructures(
   }
   try {
     if (structuresChanged && hasMainStructureBaseline) {
-      when {
-        previousPersistentViewNames.isNotEmpty() -> {
-          val existingNames = previousMarkerContents
-            ?.decodeToString()
-            ?.lineSequence()
-            ?.filter(String::isNotEmpty)
-            .orEmpty()
-          val names = (existingNames + previousPersistentViewNames)
-            .distinct()
-            .joinToString(
-              separator = "\n",
-              postfix = "\n"
-            )
-          changeMarker.writeText(names)
-        }
-        else -> check(changeMarker.createNewFile() || changeMarker.isFile) {
-          "Failed to record changed SqliteMagic submodule structures in ${destination.absolutePath}"
-        }
+      check(changeMarker.createNewFile() || changeMarker.isFile) {
+        "Failed to record changed SqliteMagic submodule structures in ${destination.absolutePath}"
       }
     }
     publishedFiles.values.forEach { publishedFile ->
@@ -254,6 +236,9 @@ private fun Project.configureDependencies(sqlitemagic: SqliteMagicPluginExtensio
       add("compileOnly", "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$PLUGIN_VERSION")
       add("implementation", "com.siimkinks.sqlitemagic:sqlitemagic:$PLUGIN_VERSION")
       add("ksp", "com.siimkinks.sqlitemagic:sqlitemagic-compiler:$PLUGIN_VERSION")
+      if (sqlitemagic.migrationTesting.enabled && plugins.hasPlugin(ANDROID_APPLICATION_PLUGIN_ID)) {
+        add("testImplementation", "com.siimkinks.sqlitemagic:sqlitemagic-migration-testing:$PLUGIN_VERSION")
+      }
     }
   }
 }
@@ -298,34 +283,27 @@ private fun Project.configureKspVariantArgs(variant: Variant) {
 }
 
 private fun Variant.addMigrateDbTask(project: Project) {
-  val buildTypeName = buildType ?: return
-  val taskName = "migrate${name.capitalize()}Db"
-  val migrationTask = project.tasks.register(taskName) { task ->
-    task.dependsOn(kspTaskName())
-    task.doFirst {
-      val projectDir = project.projectDir
-      val dbDir = File(projectDir, "db")
-      check(dbDir.exists()) {
-        "Database metadata directory must exist in order to create migrations. Build project and try again…"
-      }
-
-      ReleaseMigrationCoordinator.migrate(
-        projectDir = projectDir,
-        databaseDirectory = dbDir,
-        variantName = buildTypeName,
-        currentStructureFiles = releaseCurrentStructureFiles(
-          stagedMainFile = project
-            .structureStagingDirectory(name)
-            .resolve("latest.struct"),
-          stagedSubmoduleDirectories = project
-            .structureSubmoduleProjects()
-            .map { it.structureStagingDirectory(name) }
-        )
-      )
-    }
+  val variantName = name
+  val taskName = "migrate${variantName.capitalize()}Db"
+  val releaseAssets = artifacts.get(SingleArtifact.ASSETS)
+  val migrationTask = project.tasks.register(taskName, PublishSqliteMagicRelease::class.java) { task ->
+    task.group = DB_TASK_GROUP
+    task.doNotTrackState("Explicitly publishes reviewed release evidence")
+    task.dependsOn(kspTaskName(), releaseAssets)
+    task.assetsDirectory.set(releaseAssets)
+    task.projectDirectory.set(project.layout.projectDirectory)
+    task.databaseDirectory.set(project.layout.projectDirectory.dir("db"))
+    task.releaseVariant.set(variantName)
+    task.assetsBuildType.set(checkNotNull(buildType))
+    task.currentStructures.from(project.structureStagingDirectory(variantName).resolve("latest.struct"))
   }
-  migrationTask.configure {
-    it.group = DB_TASK_GROUP
+  project.gradle.projectsEvaluated {
+    val submodules = project.structureSubmoduleProjects().map { submodule ->
+      project.fileTree(submodule.structureStagingDirectory(variantName)) { tree ->
+        tree.include("latest_*.struct")
+      }
+    }
+    migrationTask.configure { task -> task.currentStructures.from(submodules) }
   }
 }
 
@@ -362,13 +340,6 @@ private fun structureFiles(directory: File) = directory
   .filter { file ->
     file.isFile && file.name.startsWith("latest_") && file.name.endsWith(".struct")
   }
-
-internal fun releaseCurrentStructureFiles(
-  stagedMainFile: File,
-  stagedSubmoduleDirectories: List<File>
-) = listOf(stagedMainFile) + stagedSubmoduleDirectories
-  .flatMap(::structureFiles)
-  .sortedBy(File::getName)
 
 private fun Variant.kspTaskName(): String = "ksp${name.capitalize()}Kotlin"
 

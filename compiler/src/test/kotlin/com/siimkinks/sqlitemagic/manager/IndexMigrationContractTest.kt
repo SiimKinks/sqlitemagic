@@ -766,14 +766,14 @@ private fun runMigrationResult(
 ): MigrationRun {
   val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
   val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
-  val migrationResult = MigrationsHandler(
+  val migrationHappened = MigrationsHandler(
     currentStructure = current,
     previousStructure = previous,
     outputStructureFile = structureFile,
     migrationOutputFile = migrationFile
   ).migrate()
   return MigrationRun(
-    migrationHappened = migrationResult.migrationHappened,
+    migrationHappened = migrationHappened,
     statements = migrationFile.takeIf(java.io.File::isFile)?.readLines().orEmpty()
   )
 }

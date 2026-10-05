@@ -7,6 +7,13 @@ plugins {
   alias(libs.plugins.sqlitemagic)
 }
 
+// This runtime/compiler fixture has no published release history for migration testing.
+sqlitemagic {
+  migrationTesting {
+    enabled = false
+  }
+}
+
 val javaVersion = JavaVersion.toVersion(libs.versions.java.version.get())
 val mockitoAgent = configurations.create("mockitoAgent")
 val sqliteMagicRuntimeFriend = configurations.create("sqliteMagicRuntimeFriend").apply {

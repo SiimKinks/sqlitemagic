@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.runtime.contract.manager
 import android.app.Application
 import android.content.Context
 import android.database.Cursor
+import android.database.sqlite.SQLiteException
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
@@ -23,6 +24,7 @@ import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
 import com.siimkinks.sqlitemagic.fixture.view.DependencyOuterView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentSubmoduleReadbackView
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
+import com.siimkinks.sqlitemagic.migration.MigrationException
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.readRows
 import com.siimkinks.sqlitemagic.runtime.support.readStrings
@@ -58,7 +60,6 @@ private const val MIGRATION_BOOK_TITLE = "migration-book-title"
 private const val VIEW_AUTHOR_ID = 41L
 private const val VIEW_AUTHOR_NAME = "migration-author-name"
 private const val MIGRATION_FAILURE_MESSAGE = "intentional migration failure"
-private const val INVALID_MIGRATION_MESSAGE = "Error executing migration script 1000001.sql at line 2"
 private const val ROLLED_BACK_TABLE = "migration_should_rollback"
 private const val ROLLBACK_LEGACY_VIEW = "migration_rollback_legacy_view"
 private const val ROLLBACK_LEGACY_VIEW_SQL =
@@ -173,15 +174,40 @@ class SchemaMigrationRuntimeTest {
       version = INVALID_MIGRATION_INITIAL_VERSION
     )
 
-    val exception = assertThrows(IllegalStateException::class.java) {
+    val exception = assertThrows(MigrationException::class.java) {
       openMigrationConnection(
         application = application,
         database = VersionedMigrationDatabase(dbVersion = INVALID_MIGRATION_VERSION)
       ).use(::userVersion)
     }
+    assertThat(exception.fromVersion)
+      .isEqualTo(INVALID_MIGRATION_INITIAL_VERSION)
+    assertThat(exception.toVersion)
+      .isEqualTo(INVALID_MIGRATION_VERSION)
+    assertThat(exception.stepVersion)
+      .isEqualTo(INVALID_MIGRATION_VERSION)
+    assertThat(exception.resourceName)
+      .isEqualTo("$INVALID_MIGRATION_VERSION.sql")
+    assertThat(exception.physicalLine)
+      .isEqualTo(2)
+    assertThat(exception.statementNumber)
+      .isEqualTo(2)
+    assertThat(exception.statementText)
+      .isEqualTo("THIS IS NOT VALID SQL")
     assertThat(exception)
       .hasMessageThat()
-      .isEqualTo(INVALID_MIGRATION_MESSAGE)
+      .isEqualTo(
+        "Error executing migration script $INVALID_MIGRATION_VERSION.sql at line 2 " +
+            "(statement 2, migration $INVALID_MIGRATION_INITIAL_VERSION -> $INVALID_MIGRATION_VERSION, " +
+            "step $INVALID_MIGRATION_VERSION): THIS IS NOT VALID SQL"
+      )
+    assertThat(exception)
+      .hasCauseThat()
+      .isInstanceOf(SQLiteException::class.java)
+    assertThat(exception)
+      .hasCauseThat()
+      .hasMessageThat()
+      .contains("while compiling: THIS IS NOT VALID SQL")
 
     application
       .openOrCreateDatabase(
@@ -356,7 +382,7 @@ class SchemaMigrationRuntimeTest {
   }
 
   @Test
-  fun upgradeDropsOwnedViewsBeforeTableRebuildAndPreservesApplicationView() = withNamedDatabase(
+  fun upgradeDropsAllPersistentViewsBeforeTableRebuildAndRecreatesCurrentViews() = withNamedDatabase(
     databaseName = MIGRATION_DATABASE_NAME
   ) { application ->
     seedDatabase(
@@ -437,7 +463,7 @@ class SchemaMigrationRuntimeTest {
           connection = connection,
           viewName = "application_owned_view"
         )
-      ).contains("SELECT title_text FROM library_books")
+      ).isNull()
       assertThat(
         Select
           .raw("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?")
@@ -447,13 +473,6 @@ class SchemaMigrationRuntimeTest {
           .execute()
           .use(Cursor::readStrings)
       ).containsExactly(RETIRED_AUTHOR_TRIGGER_SQL)
-      assertThat(
-        rawRows(
-          connection = connection,
-          table = Table.ANONYMOUS_TABLE,
-          sql = "SELECT title_text FROM application_owned_view"
-        )
-      ).containsExactly(listOf(MIGRATION_BOOK_TITLE))
     }
   }
 
@@ -586,10 +605,10 @@ class SchemaMigrationRuntimeTest {
     }
     assertThat(failure)
       .hasMessageThat()
-      .contains("definition_failure_view")
-    assertThat(failure)
-      .hasMessageThat()
-      .contains(DefinitionFailureView.query.javaClass.name)
+      .isEqualTo(
+        "Cannot create view 'definition_failure_view': defining query uses unsupported implementation " +
+            DefinitionFailureView.query.javaClass.name
+      )
 
     application
       .openOrCreateDatabase(

@@ -476,7 +476,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `table-only submodule change removes unchanged previous main views before upgrade scripts`() {
+  fun `table-only submodule change advances version without publishing view resources`() {
     val compilation = SqliteMagicCompilation
       .compile(
         debugMainDatabase(),
@@ -518,8 +518,8 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val viewsFile = temporaryDirectory
       .resolve("src/debug/assets/1008.views")
       .toFile()
-    assertThat(viewsFile.readText())
-      .isEqualTo("main_view\n")
+    assertThat(viewsFile.exists())
+      .isFalse()
     assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
       .isFalse()
     assertThat(DatabaseStructureJson.read(structureFile))
@@ -559,7 +559,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `adds removed submodule view names from markers to the main removal artifact`() {
+  fun `consumes submodule markers without reading their obsolete view names`() {
     val compilation = SqliteMagicCompilation
       .compile(
         debugMainDatabase(),
@@ -596,18 +596,14 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
         orderedTables = orderedTables
       )
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
-    assertThat(
-      temporaryDirectory
-        .resolve("src/debug/assets/1008.views")
-        .toFile()
-        .readText()
-    ).isEqualTo("removed_feature_view\nrenamed_feature_view\nmain_view\n")
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.views")))
+      .isFalse()
     assertThat(marker.exists())
       .isFalse()
   }
 
   @Test
-  fun `submodule retries retain pending same-version assets and accumulate another view change`() {
+  fun `submodule retries retain pending SQL and mark another view change`() {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submoduleDirectory = temporaryDirectory.resolve("feature")
     val compilation = SqliteMagicCompilation
@@ -671,9 +667,9 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     assertThat(sqlFile.readText())
       .isEqualTo("SELECT 1;\n")
     assertThat(viewsFile.readText())
-      .isEqualTo("previous_removed_view\nold_view\n")
+      .isEqualTo("previous_removed_view\n")
     assertThat(mainMarker.readText())
-      .isEqualTo("previous_removed_view\nold_view\n")
+      .isEmpty()
   }
 
   @Test
@@ -718,14 +714,19 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(sqlFile.isFile)
       .isTrue()
-    assertThat(viewsFile.readText())
-      .isEqualTo("old_view\n")
-    assertThat(Files.exists(stagingDirectory.resolve("latest_feature.struct")))
-      .isTrue()
+    assertThat(viewsFile.exists())
+      .isFalse()
+    assertThat(DatabaseStructureJson.read(stagingDirectory.resolve("latest_feature.struct").toFile()))
+      .isEqualTo(
+        DatabaseStructure.from(
+          orderedTables = orderedTables,
+          indexes = database.indices,
+          views = database.views
+        )
+      )
     assertThat(mainMarker.exists())
       .isFalse()
     val originalSql = sqlFile.readBytes()
-    val originalViews = viewsFile.readBytes()
     assertThat(originalSql.size)
       .isGreaterThan(0)
 
@@ -738,8 +739,8 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(sqlFile.readBytes())
       .isEqualTo(originalSql)
-    assertThat(viewsFile.readBytes())
-      .isEqualTo(originalViews)
+    assertThat(viewsFile.exists())
+      .isFalse()
     assertThat(mainMarker.exists())
       .isFalse()
   }
@@ -819,7 +820,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `view-only debug rename advances version and publishes previous owned names`() {
+  fun `view-only debug rename advances version without publishing view resources`() {
     val compilation = SqliteMagicCompilation
       .compile(
         debugMainDatabase(),
@@ -858,12 +859,8 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
         .toFile()
         .readText()
     ).isEqualTo("1008")
-    assertThat(
-      temporaryDirectory
-        .resolve("src/debug/assets/1008.views")
-        .toFile()
-        .readText()
-    ).isEqualTo("old_view\n")
+    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.views")))
+      .isFalse()
     assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
       .isFalse()
   }

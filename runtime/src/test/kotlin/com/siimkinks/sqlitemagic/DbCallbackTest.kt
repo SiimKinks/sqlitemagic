@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteProgram
-import androidx.sqlite.db.SupportSQLiteQuery
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -17,11 +15,6 @@ import org.mockito.stubbing.Answer
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
-
-private val VIEW_TYPE_PREDICATE = Regex(
-  pattern = """\btype\s*=\s*'view'""",
-  option = RegexOption.IGNORE_CASE
-)
 
 internal class DbCallbackTest {
   @Test
@@ -75,43 +68,31 @@ internal class DbCallbackTest {
   }
 
   @Test
-  fun `upgrade removes all planned views before scripts and recreates after skipped versions`() {
+  fun `upgrade enumerates and closes views before all scripts and recreates once`() {
     val fixture = UpgradeFixture(
       files = mapOf(
-        "Feature2.views" to "sub_\"quoted\"\n",
-        "2.views" to "retired_view\nintermediate_table\n",
-        "3.views" to "renamed_view\n",
+        "2.views" to "IGNORED",
         "Feature2.sql" to "SUBMODULE_SQL_V2\n",
         "2.sql" to "MAIN_SQL_V2\n",
         "3.sql" to "MAIN_SQL_V3\n"
       ),
       objectTypes = mapOf(
-        """sub_"quoted"""" to "view",
+        "sub_\"quoted\"" to "view",
         "retired_view" to "view",
-        "intermediate_table" to "table",
-        "renamed_view" to "view"
+        "intermediate_table" to "table"
       ),
       submoduleNames = listOf("Feature")
     )
-
     fixture.upgrade(
       oldVersion = 1,
       newVersion = 3
     )
-
     assertThat(fixture.events)
       .containsExactly(
-        "open:Feature2.views",
-        """lookup:sub_"quoted"""",
+        "lookup",
+        "close",
         "exec:DROP VIEW IF EXISTS main.\"sub_\"\"quoted\"\"\"",
-        "open:2.views",
-        "lookup:retired_view",
-        """exec:DROP VIEW IF EXISTS main."retired_view"""",
-        "lookup:intermediate_table",
-        "open:Feature3.views",
-        "open:3.views",
-        "lookup:renamed_view",
-        """exec:DROP VIEW IF EXISTS main."renamed_view"""",
+        "exec:DROP VIEW IF EXISTS main.\"retired_view\"",
         "open:Feature2.sql",
         "exec:SUBMODULE_SQL_V2",
         "open:2.sql",
@@ -125,149 +106,58 @@ internal class DbCallbackTest {
   }
 
   @Test
-  fun `same-name trigger does not hide an owned view`() {
-    val fixture = UpgradeFixture(
-      files = mapOf("2.views" to "shared_name\n"),
-      schemaRows = mapOf("shared_name" to listOf("trigger", "view"))
-    )
-
-    fixture.upgrade(
-      oldVersion = 1,
-      newVersion = 2
-    )
-
+  fun `configure and create use generated database without reading metadata`() {
+    val fixture = UpgradeFixture(files = mapOf(MANIFEST_ASSET to "broken metadata"))
+    fixture.configure()
+    fixture.create()
     assertThat(fixture.events)
-      .containsExactly(
-        "open:2.views",
-        "lookup:shared_name",
-        """exec:DROP VIEW IF EXISTS main."shared_name"""",
-        "open:2.sql",
-        "recreate"
-      )
+      .containsExactly("configure:generated", "create:generated")
       .inOrder()
-    assertThat(fixture.lookupBindings.single())
-      .containsExactly("shared_name")
-    assertThat(VIEW_TYPE_PREDICATE.containsMatchIn(fixture.lookupSql.single()))
-      .isTrue()
   }
 
   @Test
-  fun `view plan open failure identifies asset and stops before scripts`() {
-    val failure = IOException("cannot open plan")
-    val fixture = UpgradeFixture(
-      files = mapOf("2.sql" to "MUST_NOT_RUN\n"),
-      openFailures = mapOf("2.views" to failure)
-    )
-
-    val exception = assertThrows(IllegalStateException::class.java) {
-      fixture.upgrade(
-        oldVersion = 1,
-        newVersion = 2
-      )
-    }
-
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("2.views")
-    assertThat(exception)
-      .hasCauseThat()
-      .isSameInstanceAs(failure)
-    assertThat(fixture.events)
-      .containsExactly("open:2.views")
-  }
-
-  @Test
-  fun `view plan read failure identifies asset and line and stops before scripts`() {
-    val failure = IOException("cannot read plan")
-    val stream = object : InputStream() {
-      private val bytes = "first_view\n".toByteArray()
-      private var position = 0
-
-      override fun read(): Int = when {
-        position < bytes.size -> bytes[position++].toInt() and 0xff
-        else -> throw failure
-      }
-
-      override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-        if (position == bytes.size) throw failure
-        val count = length.coerceAtMost(bytes.size - position)
-        bytes.copyInto(
-          destination = buffer,
-          destinationOffset = offset,
-          startIndex = position,
-          endIndex = position + count
-        )
-        position += count
-        return count
-      }
-    }
-    val fixture = UpgradeFixture(
-      files = mapOf("2.sql" to "MUST_NOT_RUN\n"),
-      objectTypes = mapOf("first_view" to "view"),
-      streams = mapOf("2.views" to stream)
-    )
-
-    val exception = assertThrows(IllegalStateException::class.java) {
-      fixture.upgrade(
-        oldVersion = 1,
-        newVersion = 2
-      )
-    }
-
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("2.views")
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("line 2")
-    assertThat(exception)
-      .hasCauseThat()
-      .isSameInstanceAs(failure)
-    assertThat(fixture.events)
-      .doesNotContain("open:2.sql")
-    assertThat(fixture.events)
-      .doesNotContain("recreate")
-  }
-
-  @Test
-  fun `view drop failure identifies asset and line and stops before scripts`() {
+  fun `view drop failure stops before SQL and recreation`() {
     val failure = IllegalStateException("cannot drop view")
     val fixture = UpgradeFixture(
-      files = mapOf(
-        "2.views" to "first_view\nsecond_view\n",
-        "2.sql" to "MUST_NOT_RUN\n"
-      ),
-      objectTypes = mapOf(
-        "first_view" to "view",
-        "second_view" to "view"
-      ),
-      executionFailures = mapOf("""DROP VIEW IF EXISTS main."second_view"""" to failure)
+      files = mapOf("2.sql" to "MUST_NOT_RUN"),
+      objectTypes = mapOf("retired_view" to "view"),
+      executionFailures = mapOf("DROP VIEW IF EXISTS main.\"retired_view\"" to failure)
     )
-
     val exception = assertThrows(IllegalStateException::class.java) {
       fixture.upgrade(
         oldVersion = 1,
         newVersion = 2
       )
     }
-
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("2.views")
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("line 2")
-    assertThat(exception)
-      .hasCauseThat()
-      .isSameInstanceAs(failure)
+    assertThat(exception.message).contains("retired_view")
+    assertThat(exception.cause).isSameInstanceAs(failure)
     assertThat(fixture.events)
-      .doesNotContain("open:2.sql")
-    assertThat(fixture.events)
-      .doesNotContain("recreate")
+      .containsExactly("lookup", "close", "exec:DROP VIEW IF EXISTS main.\"retired_view\"")
+      .inOrder()
   }
 
   @Test
-  fun `existing sql failure message remains unchanged`() {
+  fun `upgrade ignores blank and full line comments while retaining physical line diagnostics`() {
+    val failure = IllegalStateException("bad SQL")
+    val fixture = UpgradeFixture(
+      files = mapOf("2.sql" to "\n -- comment\nFIRST_SQL\n\nSECOND_SQL\n"),
+      executionFailures = mapOf("SECOND_SQL" to failure)
+    )
+    val exception = assertThrows(IllegalStateException::class.java) {
+      fixture.upgrade(
+        oldVersion = 1,
+        newVersion = 2
+      )
+    }
+    assertThat(fixture.events)
+      .containsExactly("lookup", "close", "open:2.sql", "exec:FIRST_SQL", "exec:SECOND_SQL")
+      .inOrder()
+    assertThat(exception.message).contains("line 5 (statement 2")
+    assertThat(exception.cause).isSameInstanceAs(failure)
+  }
+
+  @Test
+  fun `sql failure identifies asset line statement and migration range`() {
     val failure = IllegalStateException("bad SQL")
     val fixture = UpgradeFixture(
       files = mapOf("2.sql" to "FIRST_SQL\nSECOND_SQL\n"),
@@ -283,7 +173,10 @@ internal class DbCallbackTest {
 
     assertThat(exception)
       .hasMessageThat()
-      .isEqualTo("Error executing migration script 2.sql at line 2")
+      .isEqualTo(
+        "Error executing migration script 2.sql at line 2 " +
+            "(statement 2, migration 1 -> 2, step 2): SECOND_SQL"
+      )
     assertThat(exception)
       .hasCauseThat()
       .isSameInstanceAs(failure)
@@ -295,21 +188,23 @@ internal class DbCallbackTest {
 private class UpgradeFixture(
   private val files: Map<String, String>,
   private val objectTypes: Map<String, String> = emptyMap(),
-  private val schemaRows: Map<String, List<String>> = emptyMap(),
   private val submoduleNames: List<String> = emptyList(),
   private val streams: Map<String, InputStream> = emptyMap(),
   private val openFailures: Map<String, IOException> = emptyMap(),
-  private val executionFailures: Map<String, RuntimeException> = emptyMap()
+  private val executionFailures: Map<String, RuntimeException> = emptyMap(),
+  private val generatedVersion: Int = 1
 ) {
   val events = mutableListOf<String>()
-  val lookupSql = mutableListOf<String>()
-  val lookupBindings = mutableListOf<List<String>>()
   private val assets = mock<AssetManager>()
   private val context = mock<Context>()
   val db = mock<SupportSQLiteDatabase>(
     defaultAnswer = Answer { invocation ->
       when (invocation.method.name) {
         "query" -> query(invocation)
+        "setForeignKeyConstraintsEnabled" -> {
+          events += "configure:${invocation.getArgument<Boolean>(0)}"
+          null
+        }
         "execSQL" -> {
           val sql = invocation.getArgument<String>(0)
           events += "exec:$sql"
@@ -333,6 +228,16 @@ private class UpgradeFixture(
         streams[fileName] ?: files[fileName]?.byteInputStream() ?: throw FileNotFoundException(fileName)
       }
     val generatedDatabase = object : GeneratedDatabase by TestGeneratedDatabase(tableCount = 0) {
+      override val dbVersion = generatedVersion
+
+      override fun createSchema(db: SupportSQLiteDatabase) {
+        events += "create:generated"
+      }
+
+      override fun configureDatabase(db: SupportSQLiteDatabase) {
+        events += "configure:generated"
+      }
+
       override val submoduleNames
         get() = this@UpgradeFixture.submoduleNames
           .takeIf(List<String>::isNotEmpty)
@@ -350,67 +255,41 @@ private class UpgradeFixture(
     )
   }
 
+  fun configure() = callback.onConfigure(db)
+
+  fun create() = callback.onCreate(db)
+
   fun upgrade(
     oldVersion: Int,
     newVersion: Int
-  ) = callback.onUpgrade(db, oldVersion, newVersion)
+  ) = callback.onUpgrade(
+    db = db,
+    oldVersion = oldVersion,
+    newVersion = newVersion
+  )
 
   private fun query(invocation: InvocationOnMock): Cursor {
-    val input = invocation.arguments.first()
-    val sql = when (input) {
-      is SupportSQLiteQuery -> input.sql
-      is String -> input
-      else -> error("Unsupported schema query: $input")
-    }
-    val args = when (input) {
-      is SupportSQLiteQuery -> buildList {
-        val program = mock<SupportSQLiteProgram>(
-          defaultAnswer = Answer { binding ->
-            if (binding.method.name == "bindString") add(binding.getArgument(1))
+    val sql = invocation.getArgument<String>(0)
+    check(sql == "SELECT name FROM main.sqlite_master WHERE type = 'view'")
+    events += "lookup"
+    val names = objectTypes.filterValues { it == "view" }
+      .keys
+      .toList()
+    var position = -1
+    return mock<Cursor>(
+      defaultAnswer = Answer { call ->
+        when (call.method.name) {
+          "moveToNext" -> ++position < names.size
+          "getString" -> names[position]
+          "close" -> {
+            events += "close"
             null
           }
-        )
-        input.bindTo(program)
+          else -> null
+        }
       }
-      else -> (invocation.arguments.getOrNull(1) as? Array<*>)
-        ?.filterIsInstance<String>()
-        .orEmpty()
-    }
-    val normalizedSql = sql.lowercase()
-    check(
-      "main" in normalizedSql &&
-          "name" in normalizedSql &&
-          ("sqlite_master" in normalizedSql || "sqlite_schema" in normalizedSql)
-    ) {
-      "Schema lookup must target one exact main-schema name: $sql"
-    }
-    val name = (objectTypes.keys + schemaRows.keys)
-      .distinct()
-      .singleOrNull { candidate ->
-        val escapedName = candidate.replace(
-          oldValue = "\"",
-          newValue = "\"\""
-        )
-        candidate in args || escapedName in sql
-      }
-      ?: error("Schema lookup did not target one planned name: $sql; args=$args")
-    events += "lookup:$name"
-    lookupSql += sql
-    lookupBindings += args
-    val filtersViews = VIEW_TYPE_PREDICATE.containsMatchIn(sql)
-    val types = schemaRows[name] ?: listOf(objectTypes.getValue(name))
-    val type = types.firstOrNull { !filtersViews || it == "view" }
-    val cursor = mock<Cursor>()
-    whenever(cursor.moveToFirst())
-      .thenReturn(type != null)
-    whenever(cursor.moveToNext())
-      .thenReturn(type != null, false)
-    if (type != null) {
-      whenever(cursor.getString(any()))
-        .thenReturn(type)
-    }
-    whenever(cursor.count)
-      .thenReturn(if (type != null) 1 else 0)
-    return cursor
+    )
   }
 }
+
+private const val MANIFEST_ASSET = "sqlitemagic/migrations/manifest.json"

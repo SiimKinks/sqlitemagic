@@ -1,0 +1,131 @@
+{
+  "formatVersion": 1,
+  "databaseId": ":migration-consumer",
+  "releaseVariant": "release",
+  "currentVersion": 6,
+  "modules": [
+    "MigrationConsumerFeature",
+    ":migration-consumer"
+  ],
+  "schemas": [
+    {
+      "version": 1,
+      "name": "schemas/1.struct",
+      "configuration": {
+        "foreignKeysEnabled": false
+      },
+      "modules": [
+        ":migration-consumer"
+      ]
+    },
+    {
+      "version": 2,
+      "name": "schemas/2.struct",
+      "configuration": {
+        "foreignKeysEnabled": false
+      },
+      "modules": [
+        ":migration-consumer"
+      ]
+    },
+    {
+      "version": 3,
+      "name": "schemas/3.struct",
+      "configuration": {
+        "foreignKeysEnabled": false
+      },
+      "modules": [
+        ":migration-consumer"
+      ]
+    },
+    {
+      "version": 4,
+      "name": "schemas/4.struct",
+      "configuration": {
+        "foreignKeysEnabled": true
+      },
+      "modules": [
+        "MigrationConsumerFeature",
+        ":migration-consumer"
+      ]
+    },
+    {
+      "version": 5,
+      "name": "schemas/5.struct",
+      "configuration": {
+        "foreignKeysEnabled": true
+      },
+      "modules": [
+        "MigrationConsumerFeature",
+        ":migration-consumer"
+      ]
+    },
+    {
+      "version": 6,
+      "name": "schemas/6.struct",
+      "configuration": {
+        "foreignKeysEnabled": true
+      },
+      "modules": [
+        "MigrationConsumerFeature",
+        ":migration-consumer"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "toVersion": 1,
+      "sqlResources": []
+    },
+    {
+      "toVersion": 2,
+      "sqlResources": [
+        {
+          "name": "2.sql",
+          "required": true,
+          "allowEmpty": false
+        }
+      ]
+    },
+    {
+      "toVersion": 3,
+      "sqlResources": [
+        {
+          "name": "3.sql",
+          "required": true,
+          "allowEmpty": false
+        }
+      ]
+    },
+    {
+      "toVersion": 4,
+      "sqlResources": [
+        {
+          "name": "4.sql",
+          "required": true,
+          "allowEmpty": false
+        }
+      ]
+    },
+    {
+      "toVersion": 5,
+      "sqlResources": [
+        {
+          "name": "5.sql",
+          "required": true,
+          "allowEmpty": false
+        }
+      ]
+    },
+    {
+      "toVersion": 6,
+      "sqlResources": [
+        {
+          "name": "6.sql",
+          "required": true,
+          "allowEmpty": false
+        }
+      ]
+    }
+  ]
+}

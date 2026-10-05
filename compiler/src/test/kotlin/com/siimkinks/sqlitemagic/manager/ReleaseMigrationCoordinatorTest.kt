@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
+import kotlin.io.path.readBytes
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -66,7 +67,7 @@ internal class ReleaseMigrationCoordinatorTest {
   }
 
   @Test
-  fun `publishes the next snapshot and removes stale migration when schema is unchanged`() {
+  fun `publishes the next snapshot and preserves pending data SQL when schema is unchanged`() {
     val current = databaseStructure("books")
     writeStructure(
       file = databaseDirectory.resolve("module.struct"),
@@ -76,19 +77,18 @@ internal class ReleaseMigrationCoordinatorTest {
       file = databaseDirectory.resolve("releases/8.struct"),
       structure = current
     )
-    val staleMigration = assetsDirectory.resolve("9.sql")
-    staleMigration.parent.createDirectories()
-    staleMigration.writeText("stale migration")
+    val pendingMigration = assetsDirectory.resolve("9.sql")
+    val pendingSql = "UPDATE books SET id = id + 100;\n"
+    pendingMigration.parent.createDirectories()
+    pendingMigration.writeText(pendingSql)
 
     migrate()
 
     assertThat(
       readStructure(databaseDirectory.resolve("releases/9.struct"))
     ).isEqualTo(current)
-    assertThat(
-      staleMigration
-        .exists()
-    ).isFalse()
+    assertThat(pendingMigration.readBytes())
+      .isEqualTo(pendingSql.toByteArray())
   }
 
   @Test
@@ -142,7 +142,7 @@ internal class ReleaseMigrationCoordinatorTest {
   }
 
   @Test
-  fun `publishes previous owned view names for a view-only removal and rename`() {
+  fun `publishes the current structure without view resources for a view-only rename`() {
     val previous = DatabaseStructure(
       views = linkedMapOf(
         "old_main" to ViewStructure(name = "old_main"),
@@ -165,16 +165,18 @@ internal class ReleaseMigrationCoordinatorTest {
 
     migrate()
 
-    assertThat(readStructure(databaseDirectory.resolve("releases/5.struct")).views.keys)
-      .containsExactly("new_main")
-    assertThat(assetsDirectory.resolve("5.views").readText())
-      .isEqualTo("old_main\nold_feature\n")
+    assertThat(readStructure(databaseDirectory.resolve("releases/5.struct")))
+      .isEqualTo(
+        DatabaseStructure(views = linkedMapOf("new_main" to ViewStructure(name = "new_main")))
+      )
+    assertThat(assetsDirectory.resolve("5.views").exists())
+      .isFalse()
     assertThat(assetsDirectory.resolve("5.sql").exists())
       .isFalse()
   }
 
   @Test
-  fun `removes stale view removal artifact when previous release owns no views`() {
+  fun `leaves obsolete view resources outside current publication`() {
     writeStructure(
       file = databaseDirectory.resolve("module.struct"),
       structure = DatabaseStructure(
@@ -191,8 +193,8 @@ internal class ReleaseMigrationCoordinatorTest {
 
     migrate()
 
-    assertThat(staleRemoval.exists())
-      .isFalse()
+    assertThat(staleRemoval.readText())
+      .isEqualTo("stale view\n")
   }
 
   @Test
@@ -264,7 +266,7 @@ internal class ReleaseMigrationCoordinatorTest {
   }
 
   @Test
-  fun `uses view removal assets when no release snapshot exists`() {
+  fun `ignores obsolete view resources when choosing the next release version`() {
     writeStructure(
       file = databaseDirectory.resolve("module.struct"),
       structure = databaseStructure("books")
@@ -279,12 +281,12 @@ internal class ReleaseMigrationCoordinatorTest {
 
     migrate()
 
-    assertThat(databaseDirectory.resolve("releases/13.struct").exists())
+    assertThat(databaseDirectory.resolve("releases/10.struct").exists())
       .isTrue()
   }
 
   @Test
-  fun `treats same-version SQL and view assets as complementary`() {
+  fun `uses SQL versions independently of obsolete view resources`() {
     writeStructure(
       file = databaseDirectory.resolve("module.struct"),
       structure = databaseStructure("books")

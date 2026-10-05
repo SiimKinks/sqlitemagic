@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 internal class GeneratedViewResolverTest {
   @Test
-  fun registrationPermutationsPreserveViewCreationAndRecreationDependencies() {
+  fun registrationPermutationsPreserveViewCreationDependencies() {
     val base = generatedView(
       name = "base",
       sources = listOf(tableSource("books"))
@@ -52,7 +52,6 @@ internal class GeneratedViewResolverTest {
     val names = listOf("base", "left", "right", "top", "independent")
     val edges = listOf("base" to "left", "base" to "right", "left" to "top", "right" to "top")
     val expectedCreates = names.map(::createSql)
-    val expectedDrops = names.map { """DROP VIEW IF EXISTS main."$it"""" }
 
     for ((label, registry) in cases) {
       val statements = mutableListOf<String>()
@@ -70,22 +69,6 @@ internal class GeneratedViewResolverTest {
       assertThat(statements).containsExactlyElementsIn(expectedCreates)
       for ((dependency, dependent) in edges) {
         assertWithMessage("$label: create $dependency before $dependent")
-          .that(statements.indexOf(createSql(dependency)))
-          .isLessThan(statements.indexOf(createSql(dependent)))
-      }
-
-      statements.clear()
-      SqlUtil.recreateViews(
-        db = database,
-        views = registry
-      )
-      assertThat(statements.take(names.size)).containsExactlyElementsIn(expectedDrops)
-      assertThat(statements.drop(names.size)).containsExactlyElementsIn(expectedCreates)
-      for ((dependency, dependent) in edges) {
-        assertWithMessage("$label: drop $dependent before $dependency")
-          .that(statements.indexOf("""DROP VIEW IF EXISTS main."$dependent""""))
-          .isLessThan(statements.indexOf("""DROP VIEW IF EXISTS main."$dependency""""))
-        assertWithMessage("$label: recreate $dependency before $dependent")
           .that(statements.indexOf(createSql(dependency)))
           .isLessThan(statements.indexOf(createSql(dependent)))
       }
@@ -140,44 +123,6 @@ internal class GeneratedViewResolverTest {
         .execSQL(createSql("top"))
       verify(database)
         .execSQL(createSql("independent"))
-      verifyNoMoreInteractions()
-    }
-  }
-
-  @Test
-  fun recreateViewsDropsDependentsFirstAndCreatesDependenciesFirst() {
-    val base = generatedView(
-      name = "base",
-      sources = listOf(tableSource("books"))
-    )
-    val middle = generatedView(
-      name = "middle",
-      sources = listOf(viewSource("base"))
-    )
-    val top = generatedView(
-      name = "top",
-      sources = listOf(viewSource("middle"))
-    )
-    val database = mock<SupportSQLiteDatabase>()
-
-    SqlUtil.recreateViews(
-      db = database,
-      views = listOf(top, middle, base)
-    )
-
-    inOrder(database) {
-      verify(database)
-        .execSQL("""DROP VIEW IF EXISTS main."top"""")
-      verify(database)
-        .execSQL("""DROP VIEW IF EXISTS main."middle"""")
-      verify(database)
-        .execSQL("""DROP VIEW IF EXISTS main."base"""")
-      verify(database)
-        .execSQL(createSql("base"))
-      verify(database)
-        .execSQL(createSql("middle"))
-      verify(database)
-        .execSQL(createSql("top"))
       verifyNoMoreInteractions()
     }
   }
@@ -566,7 +511,7 @@ internal class GeneratedViewResolverTest {
   }
 
   @Test
-  fun recreatedViewsIgnoreTemporaryDescriptorsInTheCompleteRegistry() {
+  fun persistentViewCreationIgnoresTemporaryDescriptorsInTheCompleteRegistry() {
     val database = mock<SupportSQLiteDatabase>()
     val temporary = generatedView(
       name = "session",
@@ -577,14 +522,13 @@ internal class GeneratedViewResolverTest {
       sources = listOf(tableSource("books"))
     )
 
-    SqlUtil.recreateViews(
+    SqlUtil.createViews(
       db = database,
-      views = listOf(temporary, persistent)
+      views = listOf(temporary, persistent),
+      temporary = false
     )
 
     inOrder(database) {
-      verify(database)
-        .execSQL("""DROP VIEW IF EXISTS main."report"""")
       verify(database)
         .execSQL(createSql("report"))
       verifyNoMoreInteractions()

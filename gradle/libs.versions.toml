@@ -23,6 +23,7 @@ project = "2.0.0-SNAPSHOT"
 rx-java2 = "2.2.21"
 sqlitemagic = "2.0.0-SNAPSHOT"
 sqlite = "2.7.1"
+sqlite-bundled = "2.6.0"
 test-annotations = "1.11.0"
 truth = "1.4.5"
 
@@ -30,6 +31,7 @@ truth = "1.4.5"
 android-annotations = { module = "androidx.annotation:annotation", version.ref = "test-annotations" }
 android-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 android-sqlite = { module = "androidx.sqlite:sqlite", version.ref = "sqlite" }
+android-sqlite-bundled-jvm = { module = "androidx.sqlite:sqlite-bundled-jvm", version.ref = "sqlite-bundled" }
 android-sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "sqlite" }
 android-test-runner = { module = "androidx.test:runner", version.ref = "android-test-runner" }
 auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "auto-service" }

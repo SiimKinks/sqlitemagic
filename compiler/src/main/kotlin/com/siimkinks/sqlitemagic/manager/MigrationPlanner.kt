@@ -6,12 +6,7 @@ internal enum class TableMigrationOperation {
 }
 
 internal object MigrationPlanner {
-  fun plan(diff: SchemaDiff) = MigrationPlan(
-    tables = planTables(diff),
-    previousOwnedViewNames = diff.previousViews.map(ViewSnapshot::name)
-  )
-
-  private fun planTables(diff: SchemaDiff): TableMigrationPlan {
+  fun plan(diff: SchemaDiff): TableMigrationPlan {
     val currentReferencesByTableName = linkedMapOf<String, Set<String>>()
     val migrationReferencesByTableName = linkedMapOf<String, Set<String>>()
     diff.currentTables.forEach { table ->
@@ -147,11 +142,6 @@ internal object MigrationPlanner {
     )
   }
 }
-
-internal data class MigrationPlan(
-  val tables: TableMigrationPlan,
-  val previousOwnedViewNames: List<String>
-)
 
 private fun tableMigrationOperation(
   from: TableStructure,

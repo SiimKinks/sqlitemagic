@@ -75,28 +75,6 @@ object SqlUtil {
       )
     }
 
-  fun recreateViews(
-    db: SupportSQLiteDatabase,
-    views: Collection<GeneratedView>
-  ) = GeneratedViewResolver(views)
-    .resolve(temporary = false)
-    .run {
-      asReversed().forEach { node ->
-        dropView(
-          db = db,
-          viewName = node.view.viewName
-        )
-      }
-      forEach { node ->
-        createViewSql(
-          db = db,
-          definition = node.definition,
-          viewName = node.view.viewName,
-          temporary = false
-        )
-      }
-    }
-
   internal fun validateViewDefinition(
     definition: ViewDefinition,
     viewName: String,
@@ -136,11 +114,6 @@ object SqlUtil {
     }
     db.execSQL("$create IF NOT EXISTS ${quoteSqlIdentifier(viewName)} AS ${definition.sql}")
   }
-
-  fun dropView(
-    db: SupportSQLiteDatabase,
-    viewName: String
-  ) = db.execSQL("DROP VIEW IF EXISTS main.${quoteSqlIdentifier(viewName)}")
 
   internal fun quoteSqlIdentifier(name: String) =
     """"${name.replace(oldValue = "\"", newValue = "\"\"")}""""

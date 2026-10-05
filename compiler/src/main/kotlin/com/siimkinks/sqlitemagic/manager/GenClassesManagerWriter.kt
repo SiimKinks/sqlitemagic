@@ -364,7 +364,7 @@ internal class GenClassesManagerWriter(
       .addStatement("%N(views = generatedViews)", METHOD_COLLECT_GENERATED_VIEWS)
       .beginControlFlow("if (generatedViews.isNotEmpty())")
       .addRuntimeDebugLog("Migrating views")
-      .addStatement("%T.recreateViews(db = db, views = generatedViews)", SQL_UTIL)
+      .addStatement("%T.createViews(db = db, views = generatedViews, temporary = false)", SQL_UTIL)
       .endControlFlow()
       .nextControlFlow("catch (exception: %T)", Exception::class)
       .addRuntimeErrorLog()

@@ -8,12 +8,15 @@ trap 'exit 143' TERM
 usage() {
   printf 'Usage: %s [--clean] [all | SUITE ...]\n       %s --help\n' "${0##*/}" "${0##*/}"
   printf 'No arguments or all runs every suite; otherwise combine any suite selectors.\n'
-  printf '  compiler      Compiler JVM tests\n'
-  printf '  runtime       Runtime JVM tests\n'
-  printf '  gradle-plugin Gradle plugin JVM tests\n'
-  printf '  consumer      sqlitemagic-tests JVM tests\n'
-  printf '  android       sqlitemagic-tests connected Android tests\n'
-  printf 'Examples: %s compiler; %s runtime consumer; %s android\n' "${0##*/}" "${0##*/}" "${0##*/}"
+  printf '  compiler                  Compiler JVM tests\n'
+  printf '  runtime                   Runtime JVM tests\n'
+  printf '  gradle-plugin             Gradle plugin unit and consumer integration tests\n'
+  printf '  gradle-plugin-unit        Gradle plugin unit and task-cache tests, without publication\n'
+  printf '  gradle-plugin-integration Gradle plugin consumer integration tests, with publication\n'
+  printf '  consumer                  sqlitemagic-tests JVM tests\n'
+  printf '  android                   sqlitemagic-tests connected Android tests\n'
+  printf 'Examples: %s runtime gradle-plugin-unit; %s gradle-plugin-integration\n' \
+      "${0##*/}" "${0##*/}"
   printf '%s --clean removes saved run logs and test results/reports without running tests.\n' "${0##*/}"
   printf '%s --clean runtime removes those results before running selected suites.\n' "${0##*/}"
   printf 'Consumer and Android suites first publish current artifacts to Maven local.\n'
@@ -30,7 +33,8 @@ fi
 select_all=0
 select_compiler=0
 select_runtime=0
-select_plugin=0
+select_plugin_unit=0
+select_plugin_integration=0
 select_consumer=0
 select_android=0
 clean_results=0
@@ -43,7 +47,12 @@ for selector in "$@"; do
     all) select_all=1 ;;
     compiler) select_compiler=1 ;;
     runtime) select_runtime=1 ;;
-    gradle-plugin) select_plugin=1 ;;
+    gradle-plugin)
+      select_plugin_unit=1
+      select_plugin_integration=1
+      ;;
+    gradle-plugin-unit) select_plugin_unit=1 ;;
+    gradle-plugin-integration) select_plugin_integration=1 ;;
     consumer) select_consumer=1 ;;
     android) select_android=1 ;;
     *)
@@ -57,7 +66,7 @@ done
 root_tasks=()
 nested_tasks=()
 if [ "$select_all" -eq 1 ]; then
-  root_tasks=(test)
+  root_tasks=(test ":gradle-plugin:integrationTest")
   select_consumer=1
   select_android=1
 else
@@ -65,10 +74,13 @@ else
     root_tasks+=(":compiler:test")
   fi
   if [ "$select_runtime" -eq 1 ]; then
-    root_tasks+=(":runtime:test")
+    root_tasks+=(":migration-testing:test" ":runtime:test")
   fi
-  if [ "$select_plugin" -eq 1 ]; then
+  if [ "$select_plugin_unit" -eq 1 ]; then
     root_tasks+=(":gradle-plugin:test")
+  fi
+  if [ "$select_plugin_integration" -eq 1 ]; then
+    root_tasks+=(":gradle-plugin:integrationTest")
   fi
 fi
 if [ "$select_consumer" -eq 1 ]; then
@@ -82,7 +94,9 @@ repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
 if [ "$clean_results" -eq 1 ]; then
   printf 'Removing saved run logs and generated test results/reports.\n'
   rm -rf -- "$repo_root/build/all-tests" || exit 1
-  for module in annotations compiler runtime gradle-plugin sqlitemagic-tests/app sqlitemagic-tests/submodule; do
+  for module in annotations compiler migration-testing runtime gradle-plugin \
+      sqlitemagic-tests/app sqlitemagic-tests/submodule sqlitemagic-tests/migration-consumer \
+      sqlitemagic-tests/migration-consumer-feature; do
     rm -rf -- \
         "$repo_root/$module/build/test-results" \
         "$repo_root/$module/build/reports/tests" \
