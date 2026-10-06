@@ -1,0 +1,83 @@
+import org.gradle.api.artifacts.transform.CacheableTransform
+import org.gradle.api.artifacts.transform.InputArtifact
+import org.gradle.api.artifacts.transform.TransformAction
+import org.gradle.api.artifacts.transform.TransformOutputs
+import org.gradle.api.artifacts.transform.TransformParameters
+import org.gradle.api.attributes.Attribute
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.LibraryElements
+import org.gradle.api.attributes.Usage
+import org.gradle.api.attributes.java.TargetJvmEnvironment
+import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+
+// This adapter supplies SupportSQLite only on JVM compilation/test classpaths. Filtering keeps the
+// Android driver classes off those classpaths, which already use sqlite-jvm for the same driver APIs.
+@CacheableTransform
+abstract class SqliteSupportClasses implements TransformAction<TransformParameters.None> {
+  @InputArtifact
+  @PathSensitive(PathSensitivity.NAME_ONLY)
+  abstract Provider<FileSystemLocation> getInputArtifact()
+
+  @Override
+  void transform(TransformOutputs outputs) {
+    def aar = inputArtifact.get().asFile
+    def output = outputs.file('sqlite-support.jar')
+    new ZipFile(aar).withCloseable { archive ->
+      def classes = archive.getEntry('classes.jar')
+      if (classes == null) {
+        throw new GradleException("Missing classes.jar in ${aar.name}")
+      }
+      new ZipInputStream(archive.getInputStream(classes)).withCloseable { input ->
+        new ZipOutputStream(new FileOutputStream(output)).withCloseable { jar ->
+          ZipEntry entry
+          while ((entry = input.nextEntry) != null) {
+            if (!entry.directory && (entry.name.startsWith('androidx/sqlite/db/') ||
+                (entry.name.startsWith('META-INF/') && entry.name.endsWith('.kotlin_module')))) {
+              def target = new ZipEntry(entry.name)
+              target.time = 0
+              jar.putNextEntry(target)
+              input.transferTo(jar)
+              jar.closeEntry()
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+def artifactType = Attribute.of('artifactType', String)
+def kotlinPlatform = Attribute.of('org.jetbrains.kotlin.platform.type', String)
+def sqliteSupport = configurations.create('sqliteSupport') {
+  canBeConsumed = false
+  canBeResolved = true
+  transitive = false
+  attributes {
+    attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+    attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_API))
+    attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, 'aar'))
+    attribute(TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE,
+        objects.named(TargetJvmEnvironment, TargetJvmEnvironment.ANDROID))
+    attribute(kotlinPlatform, 'androidJvm')
+    attribute(artifactType, 'sqlitemagic-sqlite-support')
+  }
+}
+
+dependencies {
+  registerTransform(SqliteSupportClasses) {
+    from.attribute(artifactType, 'aar')
+    to.attribute(artifactType, 'sqlitemagic-sqlite-support')
+  }
+  add(sqliteSupport.name, rootProject.libs.android.sqlite.android)
+
+  // File dependencies stay local to compilation/tests; publications retain the normal sqlite dependency.
+  compileOnly files(sqliteSupport)
+  testImplementation files(sqliteSupport)
+}

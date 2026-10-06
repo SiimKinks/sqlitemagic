@@ -8,6 +8,7 @@ plugins {
 
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
+apply from: '../buildsystem/sqlite-support.gradle'
 
 
 dependencies {

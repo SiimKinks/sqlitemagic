@@ -6,17 +6,16 @@ plugins {
 
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
+apply from: '../buildsystem/sqlite-support.gradle'
 
 dependencies {
   implementation project(':runtime')
   implementation libs.serialization.json
   implementation libs.android.sqlite
   implementation rootProject.ext.androidJar
-  compileOnly files('../runtime/libs/db-2.1.0.jar')
 
   testImplementation libs.junit
   testImplementation libs.truth
-  testImplementation files('../runtime/libs/db-2.1.0.jar')
   testImplementation libs.android.sqlite.bundled.jvm
 }
 

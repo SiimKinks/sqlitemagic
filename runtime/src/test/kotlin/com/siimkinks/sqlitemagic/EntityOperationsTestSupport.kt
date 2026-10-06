@@ -81,14 +81,14 @@ internal class RecordingDatabase : SupportSQLiteDatabase {
 
   override fun beginTransactionNonExclusive() = error("Unexpected transaction method")
 
-  override fun beginTransactionWithListener(listener: SQLiteTransactionListener) {
-    triggerTransactions += listener
+  override fun beginTransactionWithListener(transactionListener: SQLiteTransactionListener) {
+    triggerTransactions += transactionListener
     transactionSuccessful = false
-    listener.onBegin()
+    transactionListener.onBegin()
   }
 
-  override fun beginTransactionWithListenerNonExclusive(listener: SQLiteTransactionListener) =
-    beginTransactionWithListener(listener)
+  override fun beginTransactionWithListenerNonExclusive(transactionListener: SQLiteTransactionListener) =
+    beginTransactionWithListener(transactionListener)
 
   override fun endTransaction() {
     endedTransactions++
@@ -112,27 +112,30 @@ internal class RecordingDatabase : SupportSQLiteDatabase {
 
   override fun inTransaction() = triggerTransactions.isNotEmpty()
 
-  override fun isDbLockedByCurrentThread() = false
+  override val isDbLockedByCurrentThread = false
 
   override fun yieldIfContendedSafely() = false
 
-  override fun yieldIfContendedSafely(sleepAmount: Long) = false
+  override fun yieldIfContendedSafely(sleepAfterYieldDelayMillis: Long) = false
 
-  override fun getVersion() = 1
+  override var version: Int
+    get() = 1
+    set(value) = Unit
 
-  override fun setVersion(version: Int) = Unit
-
-  override fun getMaximumSize() = Long.MAX_VALUE
+  override val maximumSize = Long.MAX_VALUE
 
   override fun setMaximumSize(numBytes: Long) = numBytes
 
-  override fun getPageSize() = 4096L
-
-  override fun setPageSize(numBytes: Long) = Unit
+  override var pageSize: Long
+    get() = 4096L
+    set(value) = Unit
 
   override fun query(query: String): Cursor = error("Unexpected query")
 
-  override fun query(query: String, bindArgs: Array<out Any>?): Cursor = error("Unexpected query")
+  override fun query(
+    query: String,
+    bindArgs: Array<out Any?>
+  ): Cursor = error("Unexpected query")
 
   override fun query(query: SupportSQLiteQuery): Cursor = error("Unexpected query")
 
@@ -144,13 +147,13 @@ internal class RecordingDatabase : SupportSQLiteDatabase {
   override fun insert(
     table: String,
     conflictAlgorithm: Int,
-    values: ContentValues?
+    values: ContentValues
   ) = error("Unexpected insert")
 
   override fun delete(
     table: String,
     whereClause: String?,
-    whereArgs: Array<out Any>?
+    whereArgs: Array<out Any?>?
   ) = error("Unexpected delete")
 
   override fun update(
@@ -158,36 +161,39 @@ internal class RecordingDatabase : SupportSQLiteDatabase {
     conflictAlgorithm: Int,
     values: ContentValues,
     whereClause: String?,
-    whereArgs: Array<out Any>?
+    whereArgs: Array<out Any?>?
   ) = error("Unexpected update")
 
   override fun execSQL(sql: String) = error("Unexpected execSQL")
 
-  override fun execSQL(sql: String, bindArgs: Array<out Any>) = error("Unexpected execSQL")
+  override fun execSQL(
+    sql: String,
+    bindArgs: Array<out Any?>
+  ) = error("Unexpected execSQL")
 
-  override fun isReadOnly() = false
+  override val isReadOnly = false
 
-  override fun isOpen() = true
+  override val isOpen = true
 
   override fun needUpgrade(newVersion: Int) = false
 
-  override fun getPath() = "test.db"
+  override val path = "test.db"
 
   override fun setLocale(locale: Locale) = Unit
 
-  override fun setMaxSqlCacheSize(size: Int) = Unit
+  override fun setMaxSqlCacheSize(cacheSize: Int) = Unit
 
-  override fun setForeignKeyConstraintsEnabled(enable: Boolean) = Unit
+  override fun setForeignKeyConstraintsEnabled(enabled: Boolean) = Unit
 
   override fun enableWriteAheadLogging() = false
 
   override fun disableWriteAheadLogging() = Unit
 
-  override fun isWriteAheadLoggingEnabled() = false
+  override val isWriteAheadLoggingEnabled = false
 
-  override fun getAttachedDbs(): MutableList<Pair<String, String>> = mutableListOf()
+  override val attachedDbs = emptyList<Pair<String, String>>()
 
-  override fun isDatabaseIntegrityOk() = true
+  override val isDatabaseIntegrityOk = true
 
   override fun close() = Unit
 }
@@ -247,13 +253,13 @@ internal class RecordingStatement(
 internal class RecordingOpenHelper(
   val database: RecordingDatabase
 ) : SupportSQLiteOpenHelper {
-  override fun getDatabaseName() = "test.db"
+  override val databaseName = "test.db"
 
   override fun setWriteAheadLoggingEnabled(enabled: Boolean) = Unit
 
-  override fun getWritableDatabase() = database
+  override val writableDatabase = database
 
-  override fun getReadableDatabase() = database
+  override val readableDatabase = database
 
   override fun close() = Unit
 }

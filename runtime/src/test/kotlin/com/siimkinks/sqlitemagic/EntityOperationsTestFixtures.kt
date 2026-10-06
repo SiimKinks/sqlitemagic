@@ -54,9 +54,9 @@ internal class TestAdapter(
     statement.clearBindings()
     statement.bindString(1, entity.id)
     statement.bindString(2, entity.key)
-    when (entity.name) {
+    when (val name = entity.name) {
       null -> statement.bindNull(3)
-      else -> statement.bindString(3, entity.name)
+      else -> statement.bindString(3, name)
     }
   }
 

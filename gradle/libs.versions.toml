@@ -31,6 +31,7 @@ truth = "1.4.5"
 android-annotations = { module = "androidx.annotation:annotation", version.ref = "test-annotations" }
 android-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 android-sqlite = { module = "androidx.sqlite:sqlite", version.ref = "sqlite" }
+android-sqlite-android = { module = "androidx.sqlite:sqlite-android", version.ref = "sqlite" }
 android-sqlite-bundled-jvm = { module = "androidx.sqlite:sqlite-bundled-jvm", version.ref = "sqlite-bundled" }
 android-sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "sqlite" }
 android-test-runner = { module = "androidx.test:runner", version.ref = "android-test-runner" }

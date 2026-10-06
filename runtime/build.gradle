@@ -5,13 +5,12 @@ plugins {
 
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
+apply from: '../buildsystem/sqlite-support.gradle'
 
 def mockitoAgentConfiguration = configurations.create('mockitoAgent')
 
 dependencies {
   implementation project(':annotations')
-
-  implementation fileTree(dir: 'libs', include: ['*.jar'])
 
   implementation rootProject.ext.androidJar
   implementation libs.android.annotations
