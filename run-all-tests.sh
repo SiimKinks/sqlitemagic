@@ -15,11 +15,13 @@ usage() {
   printf '  gradle-plugin-integration Gradle plugin consumer integration tests, with publication\n'
   printf '  consumer                  sqlitemagic-tests JVM tests\n'
   printf '  android                   sqlitemagic-tests connected Android tests\n'
+  printf '  sample                    Sample JVM tests, debug assembly, and lint\n'
+  printf '  sample-android            Sample connected Android tests\n'
   printf 'Examples: %s runtime gradle-plugin-unit; %s gradle-plugin-integration\n' \
       "${0##*/}" "${0##*/}"
   printf '%s --clean removes saved run logs and test results/reports without running tests.\n' "${0##*/}"
   printf '%s --clean runtime removes those results before running selected suites.\n' "${0##*/}"
-  printf 'Consumer and Android suites first publish current artifacts to Maven local.\n'
+  printf 'Consumer, Android, and sample suites first publish current artifacts to Maven local.\n'
   printf 'Test runs require the configured JDK and Android SDK.\n'
   printf 'A connected emulator or device is only needed when selecting Android tests.\n'
   printf 'Artifacts use the normal Maven local repository; logs are retained under build/all-tests/.\n'
@@ -37,6 +39,8 @@ select_plugin_unit=0
 select_plugin_integration=0
 select_consumer=0
 select_android=0
+select_sample=0
+select_sample_android=0
 clean_results=0
 if [ "$#" -eq 0 ]; then
   select_all=1
@@ -55,6 +59,8 @@ for selector in "$@"; do
     gradle-plugin-integration) select_plugin_integration=1 ;;
     consumer) select_consumer=1 ;;
     android) select_android=1 ;;
+    sample) select_sample=1 ;;
+    sample-android) select_sample_android=1 ;;
     *)
       printf 'Unknown suite selector: %s\n' "$selector" >&2
       usage >&2
@@ -65,10 +71,13 @@ done
 
 root_tasks=()
 nested_tasks=()
+sample_tasks=()
 if [ "$select_all" -eq 1 ]; then
   root_tasks=(test ":gradle-plugin:integrationTest")
   select_consumer=1
   select_android=1
+  select_sample=1
+  select_sample_android=1
 else
   if [ "$select_compiler" -eq 1 ]; then
     root_tasks+=(":compiler:test")
@@ -90,20 +99,31 @@ if [ "$select_android" -eq 1 ]; then
   nested_tasks+=(connectedAndroidTest)
 fi
 
+if [ "$select_sample" -eq 1 ]; then
+  sample_tasks=(":app:testDebugUnitTest" ":app:assembleDebug" ":app:lintDebug")
+fi
+if [ "$select_sample_android" -eq 1 ]; then
+  sample_tasks+=(":app:connectedDebugAndroidTest")
+fi
+
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
 if [ "$clean_results" -eq 1 ]; then
   printf 'Removing saved run logs and generated test results/reports.\n'
   rm -rf -- "$repo_root/build/all-tests" || exit 1
   for module in annotations compiler migration-testing runtime gradle-plugin \
       sqlitemagic-tests/app sqlitemagic-tests/submodule sqlitemagic-tests/migration-consumer \
-      sqlitemagic-tests/migration-consumer-feature; do
+      sqlitemagic-tests/migration-consumer-feature sqlitemagic-sample/app; do
     rm -rf -- \
         "$repo_root/$module/build/test-results" \
         "$repo_root/$module/build/reports/tests" \
         "$repo_root/$module/build/outputs/androidTest-results" \
-        "$repo_root/$module/build/reports/androidTests" || exit 1
+        "$repo_root/$module/build/reports/androidTests" \
+        "$repo_root/$module/build/reports/lint-results-debug.html" \
+        "$repo_root/$module/build/reports/lint-results-debug.xml" \
+        "$repo_root/$module/build/reports/lint-results-debug.txt" || exit 1
   done
-  if [ "${#root_tasks[@]}" -eq 0 ] && [ "${#nested_tasks[@]}" -eq 0 ]; then
+  if [ "${#root_tasks[@]}" -eq 0 ] && [ "${#nested_tasks[@]}" -eq 0 ] \
+      && [ "${#sample_tasks[@]}" -eq 0 ]; then
     exit 0
   fi
 fi
@@ -129,9 +149,10 @@ run_phase() {
 publication_status='NOT SELECTED'
 root_status='NOT SELECTED'
 nested_status='NOT SELECTED'
+sample_status='NOT SELECTED'
 exit_status=0
 
-if [ "${#nested_tasks[@]}" -gt 0 ]; then
+if [ "${#nested_tasks[@]}" -gt 0 ] || [ "${#sample_tasks[@]}" -gt 0 ]; then
   if run_phase publish "$repo_root" publishToMavenLocal --continue --console=plain; then
     publication_status=PASS
   else
@@ -165,11 +186,28 @@ if [ "${#nested_tasks[@]}" -gt 0 ]; then
   fi
 fi
 
+if [ "${#sample_tasks[@]}" -gt 0 ]; then
+  if [ "$publication_status" = PASS ]; then
+    if run_phase sample-tests "$repo_root/sqlitemagic-sample" "${sample_tasks[@]}" \
+        --continue --rerun-tasks --no-build-cache --console=plain; then
+      sample_status=PASS
+    else
+      sample_status=FAIL
+      exit_status=1
+    fi
+  else
+    sample_status=SKIPPED
+    printf '\nSelected sample checks SKIPPED: current artifacts could not be published to Maven local.\n'
+  fi
+fi
+
 printf '\nTest run summary:\n'
 printf '  Publication: %s\n' "$publication_status"
 printf '  Root JVM tests [%s]: %s\n' "${root_tasks[*]-}" "$root_status"
 printf '  Android project tests [%s]: %s\n' "${nested_tasks[*]-}" "$nested_status"
+printf '  Sample checks [%s]: %s\n' "${sample_tasks[*]-}" "$sample_status"
 printf '  Retained logs: %s\n' "$run_dir"
 printf '  Root test reports: %s/<module>/build/reports/tests/\n' "$repo_root"
 printf '  Android project test reports: %s/sqlitemagic-tests/<module>/build/reports/\n' "$repo_root"
+printf '  Sample reports: %s/sqlitemagic-sample/app/build/reports/\n' "$repo_root"
 exit "$exit_status"

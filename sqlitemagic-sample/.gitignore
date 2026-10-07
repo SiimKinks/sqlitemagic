@@ -1,0 +1,9 @@
+.idea/
+.gradle/
+.kotlin/
+**/build/
+local.properties
+**/db/latest*.struct
+**/db/latest_*.version
+**/db/*.changed
+**/src/debug/assets/

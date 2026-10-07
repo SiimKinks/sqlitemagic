@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">SqliteMagic Todos</string>
+    <string name="navigate_back">Back</string>
+</resources>

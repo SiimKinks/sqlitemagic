@@ -1,0 +1,1 @@
+ALTER TABLE todo_item ADD COLUMN completed INTEGER DEFAULT 0

@@ -1,0 +1,61 @@
+{
+  "formatVersion": 1,
+  "databaseId": ":app",
+  "releaseVariant": "release",
+  "currentVersion": 3,
+  "modules": [
+    ":app"
+  ],
+  "schemas": [
+    {
+      "version": 1,
+      "name": "schemas/1.struct",
+      "configuration": {
+        "foreignKeysEnabled": true
+      },
+      "modules": [
+        ":app"
+      ]
+    },
+    {
+      "version": 2,
+      "name": "schemas/2.struct",
+      "configuration": {
+        "foreignKeysEnabled": true
+      },
+      "modules": [
+        ":app"
+      ]
+    },
+    {
+      "version": 3,
+      "name": "schemas/3.struct",
+      "configuration": {
+        "foreignKeysEnabled": true
+      },
+      "modules": [
+        ":app"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "toVersion": 1,
+      "sqlResources": []
+    },
+    {
+      "toVersion": 2,
+      "sqlResources": [
+        {
+          "name": "2.sql",
+          "required": true,
+          "allowEmpty": false
+        }
+      ]
+    },
+    {
+      "toVersion": 3,
+      "sqlResources": []
+    }
+  ]
+}

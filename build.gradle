@@ -1,8 +1,18 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
+  id 'idea'
   alias(libs.plugins.kotlin.jvm) apply false
   alias(libs.plugins.kotlin.serialization) apply false
   alias(libs.plugins.ksp) apply false
+}
+
+// These independent Gradle projects are opened in their own IDE windows.
+// Keep the repository project from indexing their sources and generated-code backups.
+idea {
+  module {
+    excludeDirs += file('sqlitemagic-sample')
+    excludeDirs += file('sqlitemagic-tests')
+  }
 }
 
 apply from: 'buildsystem/android-sdk.gradle'
