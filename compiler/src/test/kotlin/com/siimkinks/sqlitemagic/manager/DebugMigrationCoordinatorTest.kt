@@ -17,6 +17,9 @@ import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -340,6 +343,87 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1000))
   }
 
+  @ParameterizedTest(name = "{0} debug migration history, pending migration: {1}")
+  @CsvSource("main,false", "feature,false", "feature,true")
+  fun `keeps only the latest ten debug version steps for each module`(module: String, pendingMigration: Boolean) {
+    val mainDirectory = temporaryDirectory.resolve("main")
+    val projectDirectory = temporaryDirectory.resolve(module)
+    val compilation = SqliteMagicCompilation
+      .compile(
+        debugMainDatabase(),
+        kspOptions = debugMigrationOptions(
+          projectDirectory = projectDirectory,
+          mainModuleDirectory = mainDirectory
+        )
+      )
+      .isOk()
+    val submoduleName = module.takeUnless { it == "main" }
+    val database = GeneratedDatabaseElement
+      .from(compilation.environment)
+      .copy(submoduleName = submoduleName)
+    val orderedTables = CreationOrderedTables.from(database.tables)
+    val latestVersion = when {
+      pendingMigration -> 1021
+      else -> 1020
+    }
+    val prefix = submoduleName.orEmpty()
+    DatabaseStructureJson.write(
+      file = projectDirectory.resolve("db/latest.struct").toFile(),
+      structure = DatabaseStructure.from(orderedTables)
+    )
+    val versionFile = mainDirectory.resolve("db/latest_debug.version").toFile()
+    versionFile.parentFile.mkdirs()
+    versionFile.writeText("1020")
+    val assetsDirectory = projectDirectory.resolve("src/debug/assets").toFile()
+    check(assetsDirectory.mkdirs())
+    (1001..latestVersion)
+      .filter { it != 1002 }
+      .forEach { version ->
+        assetsDirectory.resolve("$prefix$version.sql").writeText("-- migration $version\n")
+      }
+    val preservedFiles = listOf(
+      "${prefix}1.sql",
+      "${prefix}1000.sql",
+      "${prefix}1022.sql",
+      "${prefix}1001.txt",
+      "${prefix}01001.sql",
+      "other1001.sql",
+      "seed.sql"
+    )
+    preservedFiles.forEach { name -> assetsDirectory.resolve(name).writeText("preserved") }
+    val preservedDirectory = assetsDirectory.resolve("${prefix}1002.sql/nested.txt")
+    check(preservedDirectory.parentFile.mkdirs())
+    preservedDirectory.writeText("preserved directory")
+    val releaseFile = projectDirectory.resolve("src/release/assets/${prefix}1001.sql").toFile()
+    check(releaseFile.parentFile.mkdirs())
+    releaseFile.writeText("release migration")
+
+    assertThat(
+      runDebugMigration(
+        compilation = compilation,
+        database = database,
+        orderedTables = orderedTables
+      )
+    ).isEqualTo(
+      DebugMigrationOutcome(databaseVersionOverride = latestVersion.takeUnless { database.isSubmodule })
+    )
+
+    val retainedFiles = (latestVersion - 9..latestVersion).map { version -> "$prefix$version.sql" }
+    assertThat(
+      assetsDirectory
+        .listFiles()
+        .orEmpty()
+        .map(File::getName)
+    ).containsExactlyElementsIn(retainedFiles + preservedFiles + "${prefix}1002.sql")
+    retainedFiles.forEach { name ->
+      val version = name.removePrefix(prefix)
+        .removeSuffix(".sql")
+      assertThat(assetsDirectory.resolve(name).readText()).isEqualTo("-- migration $version\n")
+    }
+    assertThat(preservedDirectory.readText()).isEqualTo("preserved directory")
+    assertThat(releaseFile.readText()).isEqualTo("release migration")
+  }
+
   @Test
   fun `reads a configured main version and restores only the local write target`() {
     val mainDirectory = temporaryDirectory.resolve("main")
@@ -410,8 +494,13 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       .toFile()
       .apply {
         parentFile.mkdirs()
-        writeText("1007")
+        writeText("1020")
       }
+    val assetsDirectory = temporaryDirectory.resolve("src/debug/assets").toFile()
+    check(assetsDirectory.mkdirs())
+    (1001..1020).forEach { version ->
+      assetsDirectory.resolve("$version.sql").writeText("-- migration $version\n")
+    }
 
     assertThat(
       runDebugMigration(
@@ -419,18 +508,24 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
         database = database,
         orderedTables = orderedTables
       )
-    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
+    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1021))
     assertThat(
       temporaryDirectory
         .resolve("db/latest_debug.version")
         .toFile()
         .readText()
-    ).isEqualTo("1008")
+    ).isEqualTo("1021")
     assertThat(
       Files.exists(
-        temporaryDirectory.resolve("src/debug/assets/1008.sql")
+        temporaryDirectory.resolve("src/debug/assets/1021.sql")
       )
     ).isTrue()
+    assertThat(
+      assetsDirectory
+        .listFiles()
+        .orEmpty()
+        .map(File::getName)
+    ).containsExactlyElementsIn((1012..1021).map { "$it.sql" })
   }
 
   @Test
@@ -771,7 +866,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val versionFile = temporaryDirectory
       .resolve("db/latest_debug.version")
       .toFile()
-    versionFile.writeText("1007")
+    versionFile.writeText("1020")
     val marker = temporaryDirectory
       .resolve("db/feature.changed")
       .toFile()
@@ -780,9 +875,11 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       .resolve("src/debug/assets")
       .toFile()
     check(assetsDirectory.mkdirs())
-    val sqlFile = assetsDirectory.resolve("1008.sql")
+    val expiredSqlFile = assetsDirectory.resolve("1001.sql")
+    expiredSqlFile.writeText("old debug migration\n")
+    val sqlFile = assetsDirectory.resolve("1021.sql")
     sqlFile.writeText("previous sql\n")
-    val viewsFile = assetsDirectory.resolve("1008.views")
+    val viewsFile = assetsDirectory.resolve("1021.views")
     viewsFile.writeText("previous view\n")
     val failure = IOException("manager generation failed")
 
@@ -799,7 +896,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
         ),
         completion = { outcome ->
           assertThat(outcome)
-            .isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
+            .isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1021))
           throw failure
         }
       )
@@ -810,7 +907,9 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     assertThat(DatabaseStructureJson.read(structureFile))
       .isEqualTo(previous)
     assertThat(versionFile.readText())
-      .isEqualTo("1007")
+      .isEqualTo("1020")
+    assertThat(expiredSqlFile.readText())
+      .isEqualTo("old debug migration\n")
     assertThat(sqlFile.readText())
       .isEqualTo("previous sql\n")
     assertThat(viewsFile.readText())

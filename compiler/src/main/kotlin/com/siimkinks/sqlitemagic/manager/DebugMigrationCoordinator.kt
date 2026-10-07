@@ -6,6 +6,9 @@ import com.siimkinks.sqlitemagic.manager.DebugMigrationOutcome.Companion.NO_DATA
 import java.io.File
 import java.util.Locale
 
+private const val INITIAL_DEBUG_DATABASE_VERSION = 1000
+private const val DEBUG_MIGRATION_HISTORY_LIMIT = 10
+
 internal data class DebugMigrationConfiguration(
   val enabled: Boolean,
   val projectDir: String?,
@@ -35,6 +38,7 @@ internal data class DebugMigrationOutcome(
 private data class DebugMigrationPublication(
   val outcome: DebugMigrationOutcome,
   val nextDatabaseVersion: Int,
+  val latestMigrationVersion: Int,
   val changedMarkers: List<File>
 )
 
@@ -154,6 +158,10 @@ internal class DebugMigrationCoordinator(
       DebugMigrationPublication(
         outcome = outcome,
         nextDatabaseVersion = nextDatabaseVersion,
+        latestMigrationVersion = outcome.databaseVersionOverride ?: when {
+          migrationHappened || pendingMigrationStatements.isNotEmpty() -> nextDatabaseVersion
+          else -> latestDatabaseVersion
+        },
         changedMarkers = changedMarkers
       )
     } catch (exception: Exception) {
@@ -172,6 +180,12 @@ internal class DebugMigrationCoordinator(
           }
         }
       }
+      pruneDebugMigrationHistory(
+        assetsDirectory = File(projectDir, "src/$variantName/assets"),
+        submoduleName = database.submoduleName,
+        latestVersion = publication.latestMigrationVersion,
+        transaction = transaction
+      )
     } catch (exception: Exception) {
       transaction.restore(exception)
       throw exception
@@ -206,7 +220,35 @@ private fun readLatestDebugVersion(
   return versionLines
     ?.last()
     ?.toInt()
-    ?: 1000
+    ?: INITIAL_DEBUG_DATABASE_VERSION
+}
+
+private fun pruneDebugMigrationHistory(
+  assetsDirectory: File,
+  submoduleName: String?,
+  latestVersion: Int,
+  transaction: FileSnapshotTransaction
+) {
+  val prefix = submoduleName.orEmpty()
+  val lastExpiredVersion = latestVersion - DEBUG_MIGRATION_HISTORY_LIMIT
+  assetsDirectory
+    .listFiles()
+    .orEmpty()
+    .filter { file ->
+      val version = file.nameWithoutExtension
+        .removePrefix(prefix)
+        .toIntOrNull()
+      version != null &&
+          version > INITIAL_DEBUG_DATABASE_VERSION &&
+          version <= lastExpiredVersion &&
+          file.isFile && file.name == "$prefix$version.sql"
+    }
+    .forEach { file ->
+      transaction.track(file)
+      check(file.delete()) {
+        "Failed to remove old SqliteMagic debug migration ${file.absolutePath}"
+      }
+    }
 }
 
 private fun writeMainModuleDebugVersion(
