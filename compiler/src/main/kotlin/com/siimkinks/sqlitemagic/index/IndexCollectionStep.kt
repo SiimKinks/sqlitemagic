@@ -41,6 +41,7 @@ import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.isConsumedAnnotation
+import com.siimkinks.sqlitemagic.utils.normalizePropertySymbol
 import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
 import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
 
@@ -51,6 +52,8 @@ class IndexCollectionStep(
     val annotations = ConsumedAnnotations()
     val (validIndexSymbols, deferredIndexSymbols) = resolver
       .getSymbolsWithAnnotation(INDEX_ANNOTATION)
+      .map(KSAnnotated::normalizePropertySymbol)
+      .distinct()
       .partition { it.validateIndex(annotations) }
     val indexQueries = validIndexSymbols.mapNotNull { symbol ->
       parseIndexQuery(
@@ -61,6 +64,8 @@ class IndexCollectionStep(
 
     val (validColumnSymbols, deferredColumnSymbols) = resolver
       .getSymbolsWithAnnotation(COLUMN_ANNOTATION)
+      .map(KSAnnotated::normalizePropertySymbol)
+      .distinct()
       .partition { it.validateIndex(annotations) }
     val memberships = validColumnSymbols
       .filterIsInstance<KSPropertyDeclaration>()

@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.utils
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.validate
 import com.siimkinks.sqlitemagic.annotation.Column
@@ -121,7 +122,9 @@ internal class ConsumedAnnotations {
 
   private fun scan(symbol: KSAnnotated) = declarations.getOrPut(symbol) {
     buildMap {
-      symbol.annotations.forEach { annotation ->
+      val property = symbol.normalizePropertySymbol()
+      val backingFieldAnnotations = (property as? KSPropertyDeclaration)?.backingField?.annotations ?: emptySequence()
+      (property.annotations + backingFieldAnnotations).forEach { annotation ->
         val name = annotation.shortName.asString()
         if (name in CONSUMED_ANNOTATION_NAMES) {
           getOrPut(name) { annotation }

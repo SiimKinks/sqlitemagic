@@ -16,6 +16,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.modelConstructor
+import com.siimkinks.sqlitemagic.utils.normalizePropertySymbol
 import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.validateModelMembers
 
@@ -26,6 +27,8 @@ class ViewCollectionStep(
     val annotations = ConsumedAnnotations()
     val querySymbols = resolver
       .getSymbolsWithAnnotation(VIEW_QUERY_ANNOTATION)
+      .map(KSAnnotated::normalizePropertySymbol)
+      .distinct()
       .toList()
     val orphanQueries = querySymbols.filterNot { it.isDirectViewQueryOwner(annotations) }
     orphanQueries.forEach { symbol ->

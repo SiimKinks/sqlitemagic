@@ -7,6 +7,7 @@ import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.symbol.ClassKind.INTERFACE
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
+import com.google.devtools.ksp.symbol.KSBackingField
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
@@ -215,6 +216,11 @@ fun KSClassDeclaration.declarationPathNames() =
     .map { it.simpleName.asString() }
     .toList()
     .asReversed()
+
+fun KSAnnotated.normalizePropertySymbol(): KSAnnotated = when (this) {
+  is KSBackingField -> property
+  else -> this
+}
 
 fun KSDeclaration?.typeParameterResolver(): TypeParameterResolver = when (this) {
   is KSClassDeclaration -> typeParameters.toTypeParameterResolver(

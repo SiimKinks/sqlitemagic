@@ -8,4 +8,5 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 class SqliteMagicSymbolProcessorProvider : SymbolProcessorProvider {
   override fun create(environment: SymbolProcessorEnvironment) =
     SqliteMagicSymbolProcessor(environment)
+      .also(environment.registerProcessorForNewFeatures)
 }

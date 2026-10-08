@@ -83,6 +83,7 @@ private class RecordingSqliteMagicSymbolProcessorProvider(
         symbolProcessorEnvironment = environment
       )
     }
+    environment.registerProcessorForNewFeatures(processor)
     return processor
   }
 }
