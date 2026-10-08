@@ -23,6 +23,7 @@ usage() {
   printf '%s --clean runtime removes those results before running selected suites.\n' "${0##*/}"
   printf 'Consumer, Android, and sample suites first publish current artifacts to Maven local.\n'
   printf 'Test runs require the configured JDK and Android SDK.\n'
+  printf 'Connected Android verification also requires Python 3.\n'
   printf 'A connected emulator or device is only needed when selecting Android tests.\n'
   printf 'Artifacts use the normal Maven local repository; logs are retained under build/all-tests/.\n'
 }
@@ -146,6 +147,95 @@ run_phase() {
   return "${statuses[1]}"
 }
 
+verify_connected_results() {
+  local name="$1"
+  local project_dir="$2"
+  local marker="$3"
+  python3 - \
+      "$project_dir/app/build/outputs/androidTest-results/connected" \
+      "$marker" \
+      "$run_dir/$name.log" \
+      "$run_dir/$name-connected-results" <<'PY'
+import re
+import shutil
+import sys
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+
+class VerificationError(Exception):
+  pass
+
+
+def local_name(element):
+  return element.tag.rsplit("}", 1)[-1]
+
+
+def verify_results(results_dir, marker, log, evidence_dir):
+  started_at = marker.stat().st_mtime_ns
+  reports = sorted(
+      path for path in results_dir.rglob("*.xml")
+      if path.stat().st_mtime_ns >= started_at
+  )
+  if not reports:
+    raise VerificationError(f"No fresh connected Android XML reports under {results_dir}")
+
+  for report in reports:
+    destination = evidence_dir / report.relative_to(results_dir)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src=report, dst=destination)
+  log_text = log.read_text(encoding="utf-8", errors="replace")
+  if re.search(r"^AndroidTestRunner failed\b", log_text, flags=re.IGNORECASE | re.MULTILINE):
+    raise VerificationError("Gradle log reports AndroidTestRunner failed")
+
+  tests = 0
+  skipped = 0
+  for report in reports:
+    try:
+      root = ET.parse(report).getroot()
+    except ET.ParseError as failure:
+      raise VerificationError(f"Malformed connected Android XML report {report}: {failure}") from failure
+    for element in root.iter():
+      tag = local_name(element)
+      if tag in ("failure", "error"):
+        raise VerificationError(f"Connected Android report contains {tag}: {report}")
+      for attribute in ("failures", "errors"):
+        try:
+          count = int(element.attrib.get(attribute, "0"))
+        except ValueError as failure:
+          raise VerificationError(f"Invalid {attribute} count in {report}") from failure
+        if count != 0:
+          raise VerificationError(f"Connected Android report has {attribute}={count}: {report}")
+      if tag == "testsuite":
+        cases = [case for case in element.iter() if local_name(case) == "testcase"]
+        executed = any(
+            not any(local_name(child) == "skipped" for child in case)
+            for case in cases
+        )
+        if not executed:
+          raise VerificationError(f"Fresh connected Android suite contains no executed tests: {report}")
+      if tag == "testcase":
+        tests += 1
+        skipped += any(local_name(child) == "skipped" for child in element)
+  if tests == skipped:
+    raise VerificationError(
+        f"Connected Android reports contain no executed tests ({tests} tests, {skipped} skipped)"
+    )
+  return len(reports), tests, skipped
+
+
+try:
+  reports, tests, skipped = verify_results(*map(Path, sys.argv[1:]))
+except (VerificationError, OSError) as failure:
+  print(f"Connected Android verification failed: {failure}", file=sys.stderr)
+  sys.exit(1)
+print(
+    f"Verified connected Android results: {reports} reports, "
+    f"{tests} tests, {tests - skipped} executed, {skipped} skipped."
+)
+PY
+}
+
 publication_status='NOT SELECTED'
 root_status='NOT SELECTED'
 nested_status='NOT SELECTED'
@@ -173,12 +263,22 @@ fi
 
 if [ "${#nested_tasks[@]}" -gt 0 ]; then
   if [ "$publication_status" = PASS ]; then
+    android_connected_marker="$run_dir/android-connected-start"
+    if [ "$select_android" -eq 1 ]; then
+      touch "$android_connected_marker" || exit 1
+    fi
     if run_phase android-tests "$repo_root/sqlitemagic-tests" "${nested_tasks[@]}" \
         --continue --rerun-tasks --no-build-cache --console=plain; then
       nested_status=PASS
     else
       nested_status=FAIL
       exit_status=1
+    fi
+    if [ "$select_android" -eq 1 ]; then
+      if ! verify_connected_results android-tests "$repo_root/sqlitemagic-tests" "$android_connected_marker"; then
+        nested_status=FAIL
+        exit_status=1
+      fi
     fi
   else
     nested_status=SKIPPED
@@ -188,12 +288,22 @@ fi
 
 if [ "${#sample_tasks[@]}" -gt 0 ]; then
   if [ "$publication_status" = PASS ]; then
+    sample_connected_marker="$run_dir/sample-connected-start"
+    if [ "$select_sample_android" -eq 1 ]; then
+      touch "$sample_connected_marker" || exit 1
+    fi
     if run_phase sample-tests "$repo_root/sqlitemagic-sample" "${sample_tasks[@]}" \
         --continue --rerun-tasks --no-build-cache --console=plain; then
       sample_status=PASS
     else
       sample_status=FAIL
       exit_status=1
+    fi
+    if [ "$select_sample_android" -eq 1 ]; then
+      if ! verify_connected_results sample-tests "$repo_root/sqlitemagic-sample" "$sample_connected_marker"; then
+        sample_status=FAIL
+        exit_status=1
+      fi
     fi
   else
     sample_status=SKIPPED

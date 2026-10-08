@@ -5,13 +5,14 @@ import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.COLUMNS
 import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
 import com.siimkinks.sqlitemagic.DSLTests
+import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.FROM
 import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
 import com.siimkinks.sqlitemagic.LEFT_JOIN
-import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.ON
 import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.compiledSql
 import org.junit.jupiter.api.Test
 
@@ -75,6 +76,27 @@ class QueryAliasTest : DSLTests {
       complex_object_with_same_leafs.simple_value=immutable_value_with_fields.id
       LEFT JOIN main.immutable_value_with_fields AS sm_1 ON
       complex_object_with_same_leafs.simple_value_duplicate=sm_1.id
+      """.asCompiledSql()
+    )
+  }
+
+  @Test
+  fun unrelatedSameTableUserJoinRetainsBothAutomaticRelationshipJoins() {
+    val unrelatedLeaf = IMMUTABLE_VALUE_WITH_FIELDS AS "unrelated_leaf"
+    val sql = Select
+      .columns(IMMUTABLE_VALUE_WITH_FIELDS.ID)
+      .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
+      .leftJoin(unrelatedLeaf.on(unrelatedLeaf.INTEGER IS -1))
+      .compiledSql()
+
+    assertThat(sql).isEqualTo(
+      """
+      SELECT immutable_value_with_fields.id,sm_0.id FROM main.complex_object_with_same_leafs
+      LEFT JOIN main.immutable_value_with_fields AS unrelated_leaf ON unrelated_leaf.integer=?
+      LEFT JOIN main.immutable_value_with_fields ON
+      complex_object_with_same_leafs.simple_value=immutable_value_with_fields.id
+      LEFT JOIN main.immutable_value_with_fields AS sm_0 ON
+      complex_object_with_same_leafs.simple_value_duplicate=sm_0.id
       """.asCompiledSql()
     )
   }

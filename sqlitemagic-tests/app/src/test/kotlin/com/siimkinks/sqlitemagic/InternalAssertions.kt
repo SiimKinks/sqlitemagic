@@ -25,7 +25,9 @@ fun DeleteSqlNode.isEqualTo(
 ) {
   val sql = SqlCreator.getSql(this, 3)
   assertThat(sql).isEqualTo(expectedSql)
-  assertThat(this.deleteBuilder.args).containsExactly(*withArgs)
+  assertThat(this.deleteBuilder.args)
+    .containsExactly(*withArgs)
+    .inOrder()
 }
 
 fun UpdateSqlNode.isEqualTo(
@@ -38,7 +40,9 @@ fun UpdateSqlNode.isEqualTo(
   assertThat(actualSql).isEqualTo(sql)
   assertThat(updateBuilder.sqlNodeCount).isEqualTo(nodeCount)
   assertThat(updateBuilder.args).isNotNull()
-  assertThat(updateBuilder.args).containsExactly(*args)
+  assertThat(updateBuilder.args)
+    .containsExactly(*args)
+    .inOrder()
 }
 
 fun CompiledRawSelect.isEqualTo(
@@ -63,7 +67,9 @@ fun SelectSqlNode<*>.isEqualTo(
 ) {
   val generatedSql = generateSql(this)
   assertThat(generatedSql).isEqualTo(expectedOutput)
-  assertThat(this.selectBuilder.args).containsExactly(*expectedArgs)
+  assertThat(this.selectBuilder.args)
+    .containsExactly(*expectedArgs)
+    .inOrder()
 }
 
 fun SelectSqlNode.SelectNode<*, *, *>.compiledSql(): String =

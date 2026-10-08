@@ -124,6 +124,86 @@ class AliasQueryTest : RuntimeDatabaseTest() {
     ).containsExactly(expected)
   }
 
+  @Test
+  fun aliasedComplexRootDeepQueryMapsRepeatedRelationships() {
+    val expected = seedComplexValue()
+    val root = COMPLEX_OBJECT_WITH_SAME_LEAFS AS "complex_root"
+
+    assertThat(
+      Select
+        .columns(
+          root.all(),
+          IMMUTABLE_VALUE_WITH_FIELDS.all(),
+          ENTITY_WITH_RELATIONSHIP.all(),
+          SIMPLE_MUTABLE_ENTITY.all()
+        )
+        .from(root)
+        .where(root.NAME IS expected.name)
+        .queryDeep()
+        .execute()
+    ).containsExactly(expected)
+  }
+
+  @Test
+  fun unrelatedSameTableUserJoinDoesNotReplaceAutomaticRelationshipJoins() {
+    val expected = seedComplexValue()
+    val unrelatedLeaf = IMMUTABLE_VALUE_WITH_FIELDS AS "unrelated_leaf"
+
+    assertThat(
+      Select
+        .columns(
+          COMPLEX_OBJECT_WITH_SAME_LEAFS.all(),
+          IMMUTABLE_VALUE_WITH_FIELDS.all(),
+          ENTITY_WITH_RELATIONSHIP.all(),
+          SIMPLE_MUTABLE_ENTITY.all()
+        )
+        .from(COMPLEX_OBJECT_WITH_SAME_LEAFS)
+        .leftJoin(unrelatedLeaf.on(unrelatedLeaf.INTEGER IS -1))
+        .queryDeep()
+        .execute()
+    ).containsExactly(expected)
+  }
+
+  @Test
+  fun reorderedPartialRelatedSelectionMapsExpectedDeepModel() {
+    val expected = seedPartialRelatedProjection()
+
+    assertThat(partialRelatedProjection().execute())
+      .containsExactly(expected)
+  }
+
+  @Test
+  fun observeReorderedPartialRelatedSelectionMapsExpectedDeepModel() {
+    val expected = seedPartialRelatedProjection()
+
+    partialRelatedProjection()
+      .observe()
+      .runQueryOnce()
+      .test()
+      .assertResult(listOf(expected))
+  }
+
+  private fun seedPartialRelatedProjection() = seedComplexValue()
+    .entityWithRelationship
+    .let { value ->
+      EntityWithRelationship().apply {
+        id = value.id
+        this.value = value.value
+        relatedEntity = checkNotNull(value.relatedEntity).copy(boxedBoolean = null)
+        count = value.count
+      }
+    }
+
+  private fun partialRelatedProjection() = Select
+    .columns(
+      SIMPLE_MUTABLE_ENTITY.ID,
+      SIMPLE_MUTABLE_ENTITY.VALUE,
+      SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN,
+      ENTITY_WITH_RELATIONSHIP.all()
+    )
+    .from(ENTITY_WITH_RELATIONSHIP)
+    .queryDeep()
+
   private fun seedComplexValue(): ComplexObjectWithSameLeafs {
     val simpleValue = ImmutableValueWithFields(
       id = null,

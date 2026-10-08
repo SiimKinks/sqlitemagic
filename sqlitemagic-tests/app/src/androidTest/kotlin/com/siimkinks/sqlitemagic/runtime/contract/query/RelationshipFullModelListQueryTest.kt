@@ -36,6 +36,16 @@ class RelationshipFullModelListQueryTest(
   }
 
   @Test
+  fun executeTypedCursorReturnsExpectedDeepModels() {
+    assertExecutedDeepCursorModels(modelCase = modelCase)
+  }
+
+  @Test
+  fun observeTypedCursorRunQueryOnceReturnsExpectedDeepModels() {
+    assertObservedDeepCursorModels(modelCase = modelCase)
+  }
+
+  @Test
   fun executeReturnsEmptyShallowModelListForEmptyTable() {
     assertThat(
       Select
@@ -131,6 +141,43 @@ class RelationshipFullModelListQueryTest(
         .runQueryOnce()
         .blockingGet()
     ).containsExactlyElementsIn(expected)
+  }
+
+  private fun <T> assertExecutedDeepCursorModels(modelCase: RelationshipQueryModelCase<T>) {
+    val expected = seedRelationshipQueryExpectedRows(
+      modelCase = modelCase,
+      count = 3
+    ).deep
+    val cursorSelect = Select
+      .from(modelCase.table)
+      .queryDeep()
+      .toCursor()
+    val actual = readTypedCursor(
+      cursorSelect = cursorSelect,
+      cursor = cursorSelect.execute()
+    )
+
+    assertThat(actual).containsExactlyElementsIn(expected)
+  }
+
+  private fun <T> assertObservedDeepCursorModels(modelCase: RelationshipQueryModelCase<T>) {
+    val expected = seedRelationshipQueryExpectedRows(
+      modelCase = modelCase,
+      count = 3
+    ).deep
+    val cursorSelect = Select
+      .from(modelCase.table)
+      .queryDeep()
+      .toCursor()
+    val actual = readTypedCursor(
+      cursorSelect = cursorSelect,
+      cursor = cursorSelect
+        .observe()
+        .runQueryOnce()
+        .blockingGet()
+    )
+
+    assertThat(actual).containsExactlyElementsIn(expected)
   }
 
   companion object {
