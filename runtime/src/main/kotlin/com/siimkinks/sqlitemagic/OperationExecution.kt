@@ -127,10 +127,12 @@ internal fun <M> executeBulkOperation(
       }
     }
     else -> context.executeInTransaction {
-      executeEntities().also { applied ->
+      executeEntities().let { applied ->
         if (applied) {
           context.sendTableTriggers(adapter)
         }
+        // Empty batches must not roll back an enclosing transaction.
+        applied || outcome == BulkOperationOutcome.EMPTY
       }
     }
   }

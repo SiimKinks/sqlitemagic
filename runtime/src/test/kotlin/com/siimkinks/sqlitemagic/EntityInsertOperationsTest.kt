@@ -200,10 +200,10 @@ internal class EntityInsertOperationsTest {
         .assertResult()
       assertWithMessage(case.label)
         .that(connection.recordingDatabase.successfulTransactions)
-        .isEqualTo(0)
+        .isEqualTo(1)
       assertWithMessage(case.label)
         .that(connection.recordingDatabase.rolledBackTransactions)
-        .isEqualTo(1)
+        .isEqualTo(0)
     }
   }
 

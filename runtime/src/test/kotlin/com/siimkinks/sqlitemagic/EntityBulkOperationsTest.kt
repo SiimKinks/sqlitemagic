@@ -223,10 +223,10 @@ internal class EntityBulkOperationsTest {
 
       assertWithMessage(case.label)
         .that(connection.recordingDatabase.successfulTransactions)
-        .isEqualTo(0)
+        .isEqualTo(1)
       assertWithMessage(case.label)
         .that(connection.recordingDatabase.rolledBackTransactions)
-        .isEqualTo(1)
+        .isEqualTo(0)
       assertWithMessage(case.label)
         .that(connection.triggers)
         .isEmpty()
@@ -350,8 +350,8 @@ internal class EntityBulkOperationsTest {
             .execute()
         },
         expected = false,
-        committed = 0,
-        rolledBack = 1
+        committed = 1,
+        rolledBack = 0
       ),
       BulkCase(
         name = "successful insert",
@@ -455,8 +455,8 @@ internal class EntityBulkOperationsTest {
         conflictAlgorithm = 0,
         entities = emptyList(),
         expected = false,
-        committed = 0,
-        rolledBack = 1
+        committed = 1,
+        rolledBack = 0
       ),
       BulkUpdateCase(
         name = "partially ignored update",
@@ -547,8 +547,8 @@ internal class EntityBulkOperationsTest {
         conflictAlgorithm = 0,
         entities = emptyList(),
         expected = false,
-        committed = 0,
-        rolledBack = 1
+        committed = 1,
+        rolledBack = 0
       ),
       BulkPersistCase(
         name = "partially ignored persist",
