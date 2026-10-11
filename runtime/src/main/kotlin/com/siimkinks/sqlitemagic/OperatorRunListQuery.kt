@@ -12,9 +12,12 @@ internal class OperatorRunListQuery<T> private constructor() : ObservableOperato
   private class MappingObserver<T>(
     private val downstream: Observer<in List<T>>
   ) : DisposableObserver<Query<List<T>>>() {
+    private var done = false
+
     override fun onStart() = downstream.onSubscribe(this)
 
     override fun onNext(query: Query<List<T>>) {
+      if (done || isDisposed) return
       try {
         val cursor = query.rawQuery(inStream = true) ?: return
         val items = cursor.use {
@@ -39,19 +42,30 @@ internal class OperatorRunListQuery<T> private constructor() : ObservableOperato
         }
       } catch (error: Throwable) {
         Exceptions.throwIfFatal(error)
-        onError(error)
+        when {
+          done || isDisposed -> RxJavaPlugins.onError(error)
+          else -> {
+            done = true
+            dispose()
+            downstream.onError(error)
+          }
+        }
       }
     }
 
     override fun onComplete() {
-      if (!isDisposed) {
+      if (!done && !isDisposed) {
+        done = true
         downstream.onComplete()
       }
     }
 
     override fun onError(error: Throwable) = when {
-      isDisposed -> RxJavaPlugins.onError(error)
-      else -> downstream.onError(error)
+      done || isDisposed -> RxJavaPlugins.onError(error)
+      else -> {
+        done = true
+        downstream.onError(error)
+      }
     }
   }
 

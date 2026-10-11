@@ -18,9 +18,12 @@ internal class OperatorCountZeroOrNot private constructor(
     private val downstream: Observer<in Boolean>,
     private val countZero: Boolean
   ) : DisposableObserver<Query<Long>>() {
+    private var done = false
+
     override fun onStart() = downstream.onSubscribe(this)
 
     override fun onNext(query: Query<Long>) {
+      if (done || isDisposed) return
       try {
         val count = checkNotNull(query.runBlocking()) {
           "Count query cannot emit null. Check your code!"
@@ -30,19 +33,30 @@ internal class OperatorCountZeroOrNot private constructor(
         }
       } catch (error: Throwable) {
         Exceptions.throwIfFatal(error)
-        onError(error)
+        when {
+          done || isDisposed -> RxJavaPlugins.onError(error)
+          else -> {
+            done = true
+            dispose()
+            downstream.onError(error)
+          }
+        }
       }
     }
 
     override fun onComplete() {
-      if (!isDisposed) {
+      if (!done && !isDisposed) {
+        done = true
         downstream.onComplete()
       }
     }
 
     override fun onError(error: Throwable) = when {
-      isDisposed -> RxJavaPlugins.onError(error)
-      else -> downstream.onError(error)
+      done || isDisposed -> RxJavaPlugins.onError(error)
+      else -> {
+        done = true
+        downstream.onError(error)
+      }
     }
   }
 
