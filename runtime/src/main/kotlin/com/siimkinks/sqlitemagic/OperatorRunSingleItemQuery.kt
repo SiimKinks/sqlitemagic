@@ -26,8 +26,13 @@ internal class OperatorRunSingleItemQuery<T>(
     override fun onNext(query: Query<T>) {
       if (done || isDisposed) return
       try {
-        val item = query.runBlocking() ?: defaultValue
-        if (!isDisposed && item != null) {
+        val result = query.runBlocking()
+        if (isDisposed) {
+          if (result != null) query.discardResult(result)
+          return
+        }
+        val item = result ?: defaultValue
+        if (item != null) {
           downstream.onNext(item)
         }
       } catch (error: Throwable) {

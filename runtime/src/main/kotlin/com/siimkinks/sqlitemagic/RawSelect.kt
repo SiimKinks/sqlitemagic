@@ -130,6 +130,8 @@ class RawSelect internal constructor(
       return FastCursor.tryCreate(cursor)
     }
 
+    override fun discardResult(result: Cursor) = result.close()
+
     override fun map(
       cursor: Cursor?,
       dbConnection: DbConnectionImpl

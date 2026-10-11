@@ -5,8 +5,13 @@ import androidx.annotation.CallSuper
 import androidx.annotation.CheckResult
 import androidx.annotation.WorkerThread
 import io.reactivex.Maybe
+import io.reactivex.MaybeObserver
 import io.reactivex.Scheduler
+import io.reactivex.disposables.Disposable
+import io.reactivex.exceptions.Exceptions
 import io.reactivex.functions.Function
+import io.reactivex.plugins.RxJavaPlugins
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** An executable query. */
 abstract class Query<T> internal constructor(
@@ -44,6 +49,10 @@ abstract class Query<T> internal constructor(
    *
    * The resulting stream will be empty if query result is `null`.
    *
+   * A cursor result transfers to the subscriber when delivery wins against cancellation.
+   * Cancellation cooperates with acquisition and mapping; it does not close a cursor being
+   * mapped or one already delivered. A terminal callback that wins may overlap cancellation.
+   *
    * **Scheduler:** `run` does not operate by default on a particular [Scheduler].
    *
    * @return Deferred [Maybe] that when subscribed to executes the query and emits
@@ -51,25 +60,7 @@ abstract class Query<T> internal constructor(
    * @see [runBlocking]
    */
   @CheckResult
-  fun run(): Maybe<T> = Maybe.create { emitter ->
-    val dbConnection = resolveConnection()
-    val cursor = rawQuery(
-      inStream = true,
-      dbConnection = dbConnection
-    )
-    if (emitter.isDisposed) {
-      cursor?.close()
-      return@create
-    }
-    val result = map(
-      cursor = cursor,
-      dbConnection = dbConnection
-    )
-    when {
-      result != null -> emitter.onSuccess(result)
-      else -> emitter.onComplete()
-    }
-  }
+  fun run(): Maybe<T> = RxJavaPlugins.onAssembly(QueryMaybe(this))
 
   /**
    * Executes this query against a database.
@@ -86,6 +77,9 @@ abstract class Query<T> internal constructor(
     else -> null
   }
 
+  /** Releases a result whose ownership could not be transferred to its subscriber. */
+  internal open fun discardResult(result: T) = Unit
+
   internal abstract fun map(
     cursor: Cursor?,
     dbConnection: DbConnectionImpl
@@ -101,5 +95,47 @@ abstract class Query<T> internal constructor(
 
   fun interface Mapper<R> {
     fun apply(cursor: Cursor): R
+  }
+}
+
+private class QueryMaybe<T>(private val query: Query<T>) : Maybe<T>() {
+  override fun subscribeActual(observer: MaybeObserver<in T>) {
+    val subscription = QueryDisposable()
+    observer.onSubscribe(subscription)
+    if (subscription.isDisposed) return
+    try {
+      val dbConnection = query.resolveConnection()
+      val cursor = query.rawQuery(
+        inStream = true,
+        dbConnection = dbConnection
+      )
+      if (subscription.isDisposed) {
+        cursor?.close()
+        return
+      }
+      val result = query.map(
+        cursor = cursor,
+        dbConnection = dbConnection
+      )
+      when {
+        subscription.compareAndSet(false, true) -> when {
+          result != null -> observer.onSuccess(result)
+          else -> observer.onComplete()
+        }
+        result != null -> query.discardResult(result)
+      }
+    } catch (failure: Throwable) {
+      Exceptions.throwIfFatal(failure)
+      when {
+        subscription.compareAndSet(false, true) -> observer.onError(failure)
+        else -> RxJavaPlugins.onError(failure)
+      }
+    }
+  }
+
+  private class QueryDisposable : AtomicBoolean(), Disposable {
+    override fun dispose() = set(true)
+
+    override fun isDisposed() = get()
   }
 }
