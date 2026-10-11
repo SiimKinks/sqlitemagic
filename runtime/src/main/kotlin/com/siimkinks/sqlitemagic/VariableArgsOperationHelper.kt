@@ -78,8 +78,8 @@ internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
       sql = builder.toString(),
       values = values,
       manager = manager
-    ).also { statement ->
-      statement.bindValue(
+    ).bindSafely {
+      bindValue(
         position = values.size + 1,
         value = resolutionValue
       )
@@ -124,15 +124,30 @@ internal class VariableArgsOperationHelper(conflictAlgorithm: Int) {
     manager: EntityDbManager
   ) = manager
     .compileStatement(sql)
-    .also { statement ->
+    .bindSafely {
       var position = 1
       values.forEachValue { value ->
-        statement.bindValue(
+        bindValue(
           position = position++,
           value = value
         )
       }
     }
+
+  private inline fun SupportSQLiteStatement.bindSafely(
+    bind: SupportSQLiteStatement.() -> Unit
+  ) = apply {
+    try {
+      bind()
+    } catch (failure: Throwable) {
+      try {
+        close()
+      } catch (closeFailure: Throwable) {
+        failure.addSuppressed(closeFailure)
+      }
+      throw failure
+    }
+  }
 
   @Suppress("UNCHECKED_CAST")
   private fun SupportSQLiteStatement.bindValue(
