@@ -91,7 +91,13 @@ internal object PersistExecutors {
                 EntityPersistResult.Ignored
               }
               is EntityInsertResult.Inserted -> {
-                context.logPersistInsertId(rowId = insertResult.rowId)
+                context.executeMutation(
+                  adapter = adapter,
+                  operation = {
+                    recordChanges()
+                    context.logPersistInsertId(rowId = insertResult.rowId)
+                  }
+                )
                 context.sendTableTriggers(adapter)
                 EntityPersistResult.Inserted(insertResult.rowId)
               }

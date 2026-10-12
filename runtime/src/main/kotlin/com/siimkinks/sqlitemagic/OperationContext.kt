@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
+import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
@@ -91,11 +92,34 @@ internal class OperationContext private constructor(
 
   fun sendTableTriggers(adapter: EntityAdapter<*>) {
     if (!skipTableTriggers) {
-      val tableNames = when (adapter) {
-        is EntityRecursiveAdapter<*> -> adapter.triggerTableNames
-        else -> arrayOf(adapter.tableName)
+      publishTableTriggers(adapter)
+    }
+  }
+
+  private fun publishTableTriggers(adapter: EntityAdapter<*>) {
+    val tableNames = when (adapter) {
+      is EntityRecursiveAdapter<*> -> adapter.triggerTableNames
+      else -> arrayOf(adapter.tableName)
+    }
+    (connection as DbConnectionImpl).sendTableTriggers(*tableNames)
+  }
+
+  fun <T> executeMutation(
+    adapter: EntityAdapter<*>,
+    operation: EntityMutationExecution.() -> T
+  ): T {
+    val execution = EntityMutationExecution()
+    return try {
+      execution.operation()
+    } catch (failure: Throwable) {
+      if (execution.possibleChanges) {
+        try {
+          publishTableTriggers(adapter)
+        } catch (triggerFailure: Throwable) {
+          failure.addSuppressed(triggerFailure)
+        }
       }
-      (connection as DbConnectionImpl).sendTableTriggers(*tableNames)
+      throw failure
     }
   }
 
@@ -143,5 +167,28 @@ internal class OperationContext private constructor(
       VariableArgsOperationHelper(conflictAlgorithm)
     }
     var transactionDepth = 0
+  }
+}
+
+internal class EntityMutationExecution {
+  var possibleChanges = false
+    private set
+
+  fun recordChanges() {
+    possibleChanges = true
+  }
+
+  fun executeInsert(statement: SupportSQLiteStatement): Long {
+    possibleChanges = true
+    return statement
+      .executeInsert()
+      .also { possibleChanges = it != -1L }
+  }
+
+  fun executeUpdateDelete(statement: SupportSQLiteStatement): Int {
+    possibleChanges = true
+    return statement
+      .executeUpdateDelete()
+      .also { possibleChanges = it > 0 }
   }
 }

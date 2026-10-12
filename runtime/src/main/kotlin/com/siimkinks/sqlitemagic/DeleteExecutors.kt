@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.IdentityColumn
@@ -35,17 +34,23 @@ internal object DeleteExecutors {
     }
 
     context
-      .entityDbManager()
-      .compileStatement(sql)
-      .use { statement ->
-        identities.forEachIndexed { index, entityIdentity ->
-          statement.bindString(
-            index + 1,
-            entityIdentity.serializedValue
-          )
+      .executeMutation(
+        adapter = adapter,
+        operation = {
+          context
+            .entityDbManager()
+            .compileStatement(sql)
+            .use { statement ->
+              identities.forEachIndexed { index, entityIdentity ->
+                statement.bindString(
+                  index + 1,
+                  entityIdentity.serializedValue
+                )
+              }
+              executeUpdateDelete(statement)
+            }
         }
-        statement.executeUpdateDelete()
-      }
+      )
       .also { deletedRowCount ->
         if (deletedRowCount > 0) {
           context.sendTableTriggers(adapter)
@@ -57,9 +62,15 @@ internal object DeleteExecutors {
     adapter: EntityAdapter<M>,
     context: OperationContext
   ): Int = context
-    .entityDbManager()
-    .compileStatement("DELETE FROM ${adapter.tableName} WHERE 1")
-    .use(SupportSQLiteStatement::executeUpdateDelete)
+    .executeMutation(
+      adapter = adapter,
+      operation = {
+        context
+          .entityDbManager()
+          .compileStatement("DELETE FROM ${adapter.tableName} WHERE 1")
+          .use(::executeUpdateDelete)
+      }
+    )
     .also { deletedRowCount ->
       if (deletedRowCount > 0) {
         context.sendTableTriggers(adapter)

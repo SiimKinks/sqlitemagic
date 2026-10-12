@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.EntityOperation.UPDATE
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
@@ -17,47 +16,53 @@ internal object UpdateExecutors {
     publishTriggers: Boolean = true,
     logOperation: Boolean = true
   ): Boolean {
-    if (logOperation) {
-      context.logUpdate(entity = entity)
-    }
-    adapter.bindNotNullForUpdate(
-      entity = entity,
-      values = context.bindValues,
-      byColumn = byColumn
-    )
-    val identity = adapter.identity(
-      entity = entity,
-      byColumn = byColumn
-    )
-    val identityColumn = identity.columnName
-    val updated = when {
-      context.bindValues.isEmpty() -> context
-        .entityDbManager()
-        .compileStatement(
-          "UPDATE${context.conflictValue()} ${adapter.tableName} SET $identityColumn=$identityColumn WHERE $identityColumn=?"
-        )
-        .use { statement ->
-          statement.bindString(1, identity.serializedValue)
-          statement.executeUpdateDelete()
+    val updated = context.executeMutation(
+      adapter = adapter,
+      operation = {
+        if (logOperation) {
+          context.logUpdate(entity = entity)
         }
-      else -> context
-        .variableArgsOperationHelper
-        .compileUpdateStatement(
-          tableName = adapter.tableName,
-          maxColumns = adapter.maxColumns,
+        adapter.bindNotNullForUpdate(
+          entity = entity,
           values = context.bindValues,
-          resolutionColumn = identityColumn,
-          resolutionValue = identity.serializedValue,
-          manager = context.entityDbManager()
+          byColumn = byColumn
         )
-        .use(SupportSQLiteStatement::executeUpdateDelete)
-    }
+        val identity = adapter.identity(
+          entity = entity,
+          byColumn = byColumn
+        )
+        val identityColumn = identity.columnName
+        val updated = when {
+          context.bindValues.isEmpty() -> context
+            .entityDbManager()
+            .compileStatement(
+              "UPDATE${context.conflictValue()} ${adapter.tableName} SET $identityColumn=$identityColumn WHERE $identityColumn=?"
+            )
+            .use { statement ->
+              statement.bindString(1, identity.serializedValue)
+              executeUpdateDelete(statement)
+            }
+          else -> context
+            .variableArgsOperationHelper
+            .compileUpdateStatement(
+              tableName = adapter.tableName,
+              maxColumns = adapter.maxColumns,
+              values = context.bindValues,
+              resolutionColumn = identityColumn,
+              resolutionValue = identity.serializedValue,
+              manager = context.entityDbManager()
+            )
+            .use(::executeUpdateDelete)
+        }
+        if (logOperation) {
+          context.logUpdateRowsAffected(rowsAffected = updated)
+        }
+        updated
+      }
+    )
     val successful = updated > 0
     if (publishTriggers && successful) {
       context.sendTableTriggers(adapter)
-    }
-    if (logOperation) {
-      context.logUpdateRowsAffected(rowsAffected = updated)
     }
     return successful
   }
@@ -71,39 +76,45 @@ internal object UpdateExecutors {
     publishTriggers: Boolean = true,
     logOperation: Boolean = true
   ): Boolean {
-    if (logOperation) {
-      context.logUpdate(entity = entity)
-    }
-    val operationByColumns = when {
-      defaultIdentity -> emptyList()
-      else -> listOf(byColumn)
-    }
-    val rowsAffected = context
-      .operationHelper(
-        operation = UPDATE,
-        operationByColumns = operationByColumns
-      )
-      .use { helper ->
-        val statement = helper.updateStatement(
-          tableName = adapter.tableName,
-          sql = adapter.updateStatementSql(byColumn),
-          manager = context.entityDbManager()
-        )
-        synchronized(statement) {
-          adapter.bindToUpdateStatement(
-            statement = statement,
-            entity = entity,
-            byColumn = byColumn
-          )
-          statement.executeUpdateDelete()
+    val rowsAffected = context.executeMutation(
+      adapter = adapter,
+      operation = {
+        if (logOperation) {
+          context.logUpdate(entity = entity)
         }
+        val operationByColumns = when {
+          defaultIdentity -> emptyList()
+          else -> listOf(byColumn)
+        }
+        val rowsAffected = context
+          .operationHelper(
+            operation = UPDATE,
+            operationByColumns = operationByColumns
+          )
+          .use { helper ->
+            val statement = helper.updateStatement(
+              tableName = adapter.tableName,
+              sql = adapter.updateStatementSql(byColumn),
+              manager = context.entityDbManager()
+            )
+            synchronized(statement) {
+              adapter.bindToUpdateStatement(
+                statement = statement,
+                entity = entity,
+                byColumn = byColumn
+              )
+              executeUpdateDelete(statement)
+            }
+          }
+        if (logOperation) {
+          context.logUpdateRowsAffected(rowsAffected = rowsAffected)
+        }
+        rowsAffected
       }
+    )
     val updated = rowsAffected > 0
     if (publishTriggers && updated) {
       context.sendTableTriggers(adapter)
-    }
-    if (logOperation) {
-      context.logUpdateRowsAffected(rowsAffected = rowsAffected)
     }
     return updated
   }

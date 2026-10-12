@@ -71,95 +71,108 @@ internal object InsertExecutors {
     entity: M,
     context: OperationContext,
     logOperation: Boolean
-  ): Long {
-    if (logOperation) {
-      context.logInsert(entity = entity)
-    }
-    val rowId = context
-      .operationHelper(operation = INSERT)
-      .use { helper ->
-        val statement = helper.insertStatement(
-          tableName = adapter.tableName,
-          sql = adapter.insertSql,
-          manager = context.entityDbManager()
-        )
-        synchronized(statement) {
-          adapter.bindToInsertStatement(
-            statement = statement,
-            entity = entity,
-            generatedRelationshipIds = context.generatedRelationshipIds
-          )
-          executeStatement(
-            statement = statement,
-            withoutRowId = adapter.withoutRowId
-          )
-        }
+  ) = context.executeMutation(
+    adapter = adapter,
+    operation = mutation@{
+      if (logOperation) {
+        context.logInsert(entity = entity)
       }
-    return complete(
-      adapter = adapter,
-      entity = entity,
-      context = context,
-      rowId = rowId,
-      logOperation = logOperation
-    )
-  }
+      val rowId = context
+        .operationHelper(operation = INSERT)
+        .use { helper ->
+          val statement = helper.insertStatement(
+            tableName = adapter.tableName,
+            sql = adapter.insertSql,
+            manager = context.entityDbManager()
+          )
+          synchronized(statement) {
+            adapter.bindToInsertStatement(
+              statement = statement,
+              entity = entity,
+              generatedRelationshipIds = context.generatedRelationshipIds
+            )
+            executeStatement(
+              statement = statement,
+              withoutRowId = adapter.withoutRowId,
+              execution = this@mutation
+            )
+          }
+        }
+      complete(
+        adapter = adapter,
+        entity = entity,
+        context = context,
+        rowId = rowId,
+        logOperation = logOperation
+      )
+    }
+  )
 
   fun <M> executeIgnoringNullValues(
     adapter: EntityIdentityAdapter<M>,
     entity: M,
     context: OperationContext,
     logOperation: Boolean
-  ): Long {
-    if (logOperation) {
-      context.logInsert(entity = entity)
-    }
-    adapter.bindNotNullForInsert(
-      entity = entity,
-      values = context.bindValues,
-      generatedRelationshipIds = context.generatedRelationshipIds
-    )
-    val rowId = when {
-      context.bindValues.isEmpty() -> context
-        .entityDbManager()
-        .compileStatement(
-          "INSERT${context.conflictValue()} INTO ${adapter.tableName} DEFAULT VALUES"
-        )
-        .use { statement ->
-          executeStatement(
-            statement = statement,
-            withoutRowId = adapter.withoutRowId
+  ) = context.executeMutation(
+    adapter = adapter,
+    operation = mutation@{
+      if (logOperation) {
+        context.logInsert(entity = entity)
+      }
+      adapter.bindNotNullForInsert(
+        entity = entity,
+        values = context.bindValues,
+        generatedRelationshipIds = context.generatedRelationshipIds
+      )
+      val rowId = when {
+        context.bindValues.isEmpty() -> context
+          .entityDbManager()
+          .compileStatement(
+            "INSERT${context.conflictValue()} INTO ${adapter.tableName} DEFAULT VALUES"
           )
-        }
-      else -> context
-        .variableArgsOperationHelper
-        .compileInsertStatement(
-          tableName = adapter.tableName,
-          maxColumns = adapter.maxColumns,
-          values = context.bindValues,
-          manager = context.entityDbManager()
-        )
-        .use { statement ->
-          executeStatement(
-            statement = statement,
-            withoutRowId = adapter.withoutRowId
+          .use { statement ->
+            executeStatement(
+              statement = statement,
+              withoutRowId = adapter.withoutRowId,
+              execution = this@mutation
+            )
+          }
+        else -> context
+          .variableArgsOperationHelper
+          .compileInsertStatement(
+            tableName = adapter.tableName,
+            maxColumns = adapter.maxColumns,
+            values = context.bindValues,
+            manager = context.entityDbManager()
           )
-        }
+          .use { statement ->
+            executeStatement(
+              statement = statement,
+              withoutRowId = adapter.withoutRowId,
+              execution = this@mutation
+            )
+          }
+      }
+      complete(
+        adapter = adapter,
+        entity = entity,
+        context = context,
+        rowId = rowId,
+        logOperation = logOperation
+      )
     }
-    return complete(
-      adapter = adapter,
-      entity = entity,
-      context = context,
-      rowId = rowId,
-      logOperation = logOperation
-    )
-  }
+  )
 
   private fun executeStatement(
     statement: SupportSQLiteStatement,
-    withoutRowId: Boolean
+    withoutRowId: Boolean,
+    execution: EntityMutationExecution
   ) = when {
-    withoutRowId -> if (statement.executeUpdateDelete() > 0) 0L else -1L
-    else -> statement.executeInsert()
+    withoutRowId -> when {
+      execution.executeUpdateDelete(statement) > 0 -> 0L
+      else -> -1L
+    }
+    else -> execution.executeInsert(statement)
   }
 
   private fun <M> complete(
