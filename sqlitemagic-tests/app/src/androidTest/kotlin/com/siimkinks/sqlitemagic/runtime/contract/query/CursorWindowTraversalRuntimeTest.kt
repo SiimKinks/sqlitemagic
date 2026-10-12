@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import android.database.AbstractWindowedCursor
+import android.database.CharArrayBuffer
 import android.database.Cursor
 import android.database.CursorWindow
 import android.os.Build
@@ -82,6 +83,82 @@ class CursorWindowTraversalRuntimeTest {
     )
   }
 
+  @Test
+  fun rawRowTypesBuffersAndPositionFlagsFollowWindowTraversal() = withWindowRows { connection, rows, factory ->
+    val cursor = Select
+      .raw(
+        """
+            SELECT id, value, CASE id % 5
+              WHEN 0 THEN NULL
+              WHEN 1 THEN id + $LARGE_INTEGER
+              WHEN 2 THEN id + 0.25
+              WHEN 3 THEN value
+              ELSE CAST(value AS BLOB)
+            END AS mixed
+            FROM simple_mutable_entity ORDER BY id
+            """.trimIndent()
+      )
+      .usingConnection(connection)
+      .compile()
+      .execute()
+    val buffer = CharArrayBuffer(1)
+    assertThat(cursor.getColumnIndex("mixed"))
+      .isEqualTo(2)
+    assertThat(cursor.isBeforeFirst)
+      .isTrue()
+    assertThat(cursor.isAfterLast)
+      .isFalse()
+    assertWindowTraversal(
+      cursor = cursor,
+      factory = factory,
+      assertRow = { current, position ->
+        val expected = rows[position]
+        val id = checkNotNull(expected.id)
+        val type = when (id % 5) {
+          0L -> Cursor.FIELD_TYPE_NULL
+          1L -> Cursor.FIELD_TYPE_INTEGER
+          2L -> Cursor.FIELD_TYPE_FLOAT
+          3L -> Cursor.FIELD_TYPE_STRING
+          else -> Cursor.FIELD_TYPE_BLOB
+        }
+        assertThat(current.position)
+          .isEqualTo(position)
+        assertThat(current.isBeforeFirst)
+          .isFalse()
+        assertThat(current.isAfterLast)
+          .isFalse()
+        assertThat(current.isFirst)
+          .isEqualTo(position == 0)
+        assertThat(current.isLast)
+          .isEqualTo(position == ROW_COUNT - 1)
+        assertThat(current.getType(2))
+          .isEqualTo(type)
+        assertThat(current.isNull(2))
+          .isEqualTo(type == Cursor.FIELD_TYPE_NULL)
+        when (type) {
+          Cursor.FIELD_TYPE_INTEGER -> assertThat(current.getLong(2))
+            .isEqualTo(id + LARGE_INTEGER)
+          Cursor.FIELD_TYPE_FLOAT -> assertThat(current.getDouble(2))
+            .isEqualTo(id.toDouble() + 0.25)
+          Cursor.FIELD_TYPE_STRING -> assertThat(current.getString(2))
+            .isEqualTo(expected.value)
+          Cursor.FIELD_TYPE_BLOB -> assertThat(current.getBlob(2))
+            .isEqualTo(expected.value?.toByteArray())
+          Cursor.FIELD_TYPE_NULL -> assertThat(current.getString(2))
+            .isNull()
+        }
+        current.copyStringToBuffer(1, buffer)
+        assertThat(
+          buffer.data
+            .concatToString(
+              startIndex = 0,
+              endIndex = buffer.sizeCopied
+            )
+        ).isEqualTo(expected.value)
+      }
+    )
+  }
+
   private fun withWindowRows(
     assertion: (DbConnection, List<SimpleMutableEntity>, WindowTrackingFactory) -> Unit
   ) = withNamedDatabase(databaseName = WINDOW_DATABASE_NAME) { application ->
@@ -130,9 +207,9 @@ class CursorWindowTraversalRuntimeTest {
   ) {
     cursor.use {
       val backingCursor = checkNotNull(factory.lastCursor)
+      assertThat(cursor.count).isEqualTo(ROW_COUNT)
       val window = checkNotNull(backingCursor.window)
       val windowStarts = mutableSetOf<Int>()
-      assertThat(cursor.count).isEqualTo(ROW_COUNT)
       assertThat(window.numRows).isGreaterThan(0)
       assertThat(window.numRows).isLessThan(ROW_COUNT)
       assertThat(cursor.position).isEqualTo(-1)

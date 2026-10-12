@@ -2,12 +2,14 @@ package com.siimkinks.sqlitemagic
 
 import android.content.ContentResolver
 import android.database.AbstractWindowedCursor
+import android.database.CharArrayBuffer
 import android.database.Cursor
 import android.database.Cursor.FIELD_TYPE_NULL
 import android.net.Uri
 
 /**
  * For internal use.
+ * Cached movement updates only this cursor's position. All position-dependent reads must use the cached window.
  * Modified implementation from greenDAO:
  * <https://github.com/greenrobot/greenDAO/blob/master/DaoCore/src/de/greenrobot/dao/internal/FastCursor.java>
  */
@@ -113,18 +115,26 @@ internal class FastCursor private constructor(
   ) {
     if (newPosition < windowStart || newPosition >= windowEnd) {
       backingCursor.onMove(oldPosition, newPosition)
+      window = backingCursor.window
       windowStart = window.startPosition
       windowEnd = windowStart + window.numRows
     }
   }
 
-  override fun isFirst() = position == 0
+  override fun isFirst() = position == 0 && count > 0
 
-  override fun isLast() = position == count - 1
+  override fun isLast() = position == count - 1 && count > 0
+
+  override fun isBeforeFirst() = position == -1 || count == 0
+
+  override fun isAfterLast() = position == count || count == 0
 
   override fun getBlob(columnIndex: Int): ByteArray? = window.getBlob(position, columnIndex)
 
   override fun getString(columnIndex: Int): String? = window.getString(position, columnIndex)
+
+  override fun copyStringToBuffer(columnIndex: Int, buffer: CharArrayBuffer) =
+    window.copyStringToBuffer(position, columnIndex, buffer)
 
   override fun getShort(columnIndex: Int) = window.getLong(position, columnIndex)
     .toShort()
@@ -139,7 +149,9 @@ internal class FastCursor private constructor(
 
   override fun getDouble(columnIndex: Int) = window.getDouble(position, columnIndex)
 
-  override fun isNull(columnIndex: Int) = window.getType(position, columnIndex) == FIELD_TYPE_NULL
+  override fun getType(columnIndex: Int) = window.getType(position, columnIndex)
+
+  override fun isNull(columnIndex: Int) = getType(columnIndex) == FIELD_TYPE_NULL
 
   override fun getNotificationUris(): List<Uri?>? = backingCursor.notificationUris
 

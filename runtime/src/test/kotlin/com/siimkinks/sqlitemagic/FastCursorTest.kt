@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.AbstractWindowedCursor
+import android.database.CharArrayBuffer
 import android.database.Cursor
 import android.database.CursorWindow
 import com.google.common.truth.Truth.assertThat
@@ -13,6 +14,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
+import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
 
 class FastCursorTest {
@@ -83,6 +85,118 @@ class FastCursorTest {
     verify(fixture.window).getType(1, 5)
     verify(fixture.window).getString(1, 4)
     verify(fixture.window).getBlob(1, 4)
+  }
+
+  @Test
+  fun storageTypesAndStringBuffersUseWrapperPositionWithoutMovingBackingCursor() {
+    val fixture = fixture()
+    val buffer = mock<CharArrayBuffer>()
+    whenever(fixture.window.getType(0, 0))
+      .thenReturn(Cursor.FIELD_TYPE_INTEGER)
+    whenever(fixture.window.getType(1, 0))
+      .thenReturn(Cursor.FIELD_TYPE_STRING)
+    clearInvocations(fixture.backing, fixture.window)
+
+    assertThat(fixture.cursor.moveToFirst())
+      .isTrue()
+    assertThat(fixture.cursor.getType(0))
+      .isEqualTo(Cursor.FIELD_TYPE_INTEGER)
+    (fixture.cursor as Cursor).copyStringToBuffer(0, buffer)
+    assertThat(fixture.cursor.moveToNext())
+      .isTrue()
+    assertThat(fixture.cursor.getType(0))
+      .isEqualTo(Cursor.FIELD_TYPE_STRING)
+    (fixture.cursor as Cursor).copyStringToBuffer(0, buffer)
+    assertThat(fixture.cursor.moveToPrevious())
+      .isTrue()
+    assertThat(fixture.cursor.getType(0))
+      .isEqualTo(Cursor.FIELD_TYPE_INTEGER)
+
+    verifyNoInteractions(fixture.backing)
+    verify(fixture.window)
+      .copyStringToBuffer(0, 0, buffer)
+    verify(fixture.window)
+      .copyStringToBuffer(1, 0, buffer)
+  }
+
+  @Test
+  fun refillsRefreshWindowReferenceBeforeReadingTypesAndValues() {
+    val fixture = fixture()
+    val replacement = mock<CursorWindow>()
+    whenever(fixture.backing.window)
+      .thenReturn(replacement)
+    whenever(replacement.startPosition)
+      .thenReturn(2)
+    whenever(replacement.numRows)
+      .thenReturn(2)
+    whenever(replacement.getType(2, 0))
+      .thenReturn(Cursor.FIELD_TYPE_FLOAT)
+    whenever(replacement.getDouble(2, 0))
+      .thenReturn(2.5)
+    clearInvocations(fixture.backing, fixture.window)
+
+    assertThat(fixture.cursor.moveToPosition(1))
+      .isTrue()
+    assertThat(fixture.cursor.moveToNext())
+      .isTrue()
+    assertThat(fixture.cursor.getType(0))
+      .isEqualTo(Cursor.FIELD_TYPE_FLOAT)
+    assertThat(fixture.cursor.getDouble(0))
+      .isEqualTo(2.5)
+    assertThat(fixture.cursor.moveToNext())
+      .isTrue()
+
+    verify(fixture.backing)
+      .onMove(1, 2)
+    verify(fixture.backing)
+      .window
+    verifyNoMoreInteractions(fixture.backing)
+    verifyNoInteractions(fixture.window)
+  }
+
+  @Test
+  fun positionFlagsUseWrapperPositionIncludingEmptyCursors() {
+    for ((label, count) in listOf("empty" to 0, "two rows" to 2)) {
+      val fixture = fixture(count = count)
+      clearInvocations(fixture.backing, fixture.window)
+
+      assertWithMessage(label)
+        .that(fixture.cursor.isBeforeFirst)
+        .isTrue()
+      assertWithMessage(label)
+        .that(fixture.cursor.isAfterLast)
+        .isEqualTo(count == 0)
+      assertWithMessage(label)
+        .that(fixture.cursor.isFirst)
+        .isFalse()
+      assertWithMessage(label)
+        .that(fixture.cursor.isLast)
+        .isFalse()
+      if (count > 0) {
+        assertThat(fixture.cursor.moveToFirst())
+          .isTrue()
+        assertThat(fixture.cursor.isBeforeFirst)
+          .isFalse()
+        assertThat(fixture.cursor.isAfterLast)
+          .isFalse()
+        assertThat(fixture.cursor.isFirst)
+          .isTrue()
+        assertThat(fixture.cursor.isLast)
+          .isFalse()
+        assertThat(fixture.cursor.moveToLast())
+          .isTrue()
+        assertThat(fixture.cursor.isFirst)
+          .isFalse()
+        assertThat(fixture.cursor.isLast)
+          .isTrue()
+        assertThat(fixture.cursor.moveToNext())
+          .isFalse()
+        assertThat(fixture.cursor.isAfterLast)
+          .isFalse()
+      }
+
+      verifyNoInteractions(fixture.backing, fixture.window)
+    }
   }
 
   @Test
