@@ -237,6 +237,122 @@ class ScatterCollectionsTest {
   }
 
   @Test
+  fun integralFloatHashesSpreadAcrossMetadataTags() {
+    val tags = (1..256)
+      .map(Int::toFloat)
+      .map(::hash)
+      .map(::h2)
+      .toSet()
+
+    // Integral Float hash codes leave their low bits empty; those bits alone produce one tag.
+    assertThat(tags.size).isGreaterThan(64)
+  }
+
+  @Test
+  fun nativeTraversalVisitsEachLiveSlotOnceAndAllowsRemovingCurrentEntry() {
+    mapOf(
+      "empty lazy storage" to 0,
+      "single live slot" to 1,
+      "minimum capacity and sentinel" to 6,
+      "two metadata groups" to 14,
+      "sparse groups with deleted slots" to 56
+    ).forEach { (label, count) ->
+      val map = MutableScatterMap<Int, Int>(initialCapacity = count)
+      val primitiveMap = MutableObjectIntMap<Int>(initialCapacity = count)
+      val set = MutableScatterSet<Int>(initialCapacity = count)
+      val orderedSet = MutableOrderedScatterSet<Int>(initialCapacity = count)
+      repeat(count) { key ->
+        map[key] = key * 2
+        primitiveMap[key] = key * 2
+        set.add(key)
+        orderedSet.add(key)
+      }
+      val expected = (0 until count).filter { it % 3 == 0 }
+      (0 until count)
+        .filter { it % 3 != 0 }
+        .forEach { key ->
+          map.remove(key)
+          primitiveMap.remove(key)
+          set.remove(key)
+          orderedSet.remove(key)
+        }
+
+      val equalOrderedSet = MutableOrderedScatterSet<Int>(initialCapacity = count).apply {
+        expected
+          .asReversed()
+          .forEach(::add)
+      }
+      assertWithMessage("$label: unordered equality")
+        .that(orderedSet)
+        .isEqualTo(equalOrderedSet)
+      assertWithMessage("$label: unordered hash traversal")
+        .that(orderedSet.hashCode())
+        .isEqualTo(equalOrderedSet.hashCode())
+      if (expected.isNotEmpty()) {
+        equalOrderedSet.remove(expected.last())
+        equalOrderedSet.add(Int.MIN_VALUE)
+        assertWithMessage("$label: unordered equality exits at a missing element")
+          .that(orderedSet)
+          .isNotEqualTo(equalOrderedSet)
+      }
+
+      val mapFound = run scan@{
+        map.forEach { _, _ -> return@scan true }
+        false
+      }
+      val primitiveMapFound = run scan@{
+        primitiveMap.forEach { _, _ -> return@scan true }
+        false
+      }
+      val setFound = run scan@{
+        set.forEach { return@scan true }
+        false
+      }
+      assertWithMessage("$label: nonlocal return from native traversal")
+        .that(listOf(mapFound, primitiveMapFound, setFound))
+        .containsExactlyElementsIn(List(3) { expected.isNotEmpty() })
+
+      val mapVisits = mutableListOf<Pair<Int, Int>>()
+      map.forEach { key, value ->
+        mapVisits += key to value
+        map.remove(key)
+      }
+      val primitiveMapVisits = mutableListOf<Pair<Int, Int>>()
+      primitiveMap.forEach { key, value ->
+        primitiveMapVisits += key to value
+        primitiveMap.remove(key)
+      }
+      val setVisits = mutableListOf<Int>()
+      set.forEach { key ->
+        setVisits += key
+        set.remove(key)
+      }
+      val orderedVisits = mutableListOf<Int>()
+      orderedSet.forEach { key ->
+        orderedVisits += key
+        orderedSet.remove(key)
+      }
+      val expectedEntries = expected.map { it to it * 2 }
+      assertWithMessage("$label: map visits before removing current entry")
+        .that(mapVisits)
+        .containsExactlyElementsIn(expectedEntries)
+      assertWithMessage("$label: primitive map visits before removing current entry")
+        .that(primitiveMapVisits)
+        .containsExactlyElementsIn(expectedEntries)
+      assertWithMessage("$label: set visits before removing current entry")
+        .that(setVisits)
+        .containsExactlyElementsIn(expected)
+      assertWithMessage("$label: ordered visits before removing current entry")
+        .that(orderedVisits)
+        .containsExactlyElementsIn(expected)
+        .inOrder()
+      assertWithMessage("$label: all current entries removed")
+        .that(listOf(map.size, primitiveMap.size, set.size, orderedSet.size))
+        .containsExactly(0, 0, 0, 0)
+    }
+  }
+
+  @Test
   fun readOnlySetViewReflectsNativeMutationsAndComparesEqualViews() {
     val set = MutableScatterSet<String?>().apply { addAll(arrayOf("Aa", "BB", null)) }
     val view = set.asSet()

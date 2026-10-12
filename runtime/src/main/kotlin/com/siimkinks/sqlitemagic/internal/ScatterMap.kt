@@ -220,21 +220,16 @@ sealed class ScatterMap<K, V> {
     val lastIndex = m.size - 2 // We always have 0 or at least 2 entries
 
     for (i in 0..lastIndex) {
-      var slot = m[i]
-      if (slot.maskEmptyOrDeleted() != BitmaskMsb) {
-        // Branch-less if (i == lastIndex) 7 else 8
-        // i - lastIndex returns a negative value when i < lastIndex,
-        // so 1 is set as the MSB. By inverting and shifting we get
-        // 0 when i < lastIndex, 1 otherwise.
-        val bitCount = 8 - ((i - lastIndex).inv() ushr 31)
-        for (j in 0 until bitCount) {
-          if (isFull(slot and 0xffL)) {
-            val index = (i shl 3) + j
-            block(index)
-          }
-          slot = slot shr 8
-        }
-        if (bitCount != 8) return
+      val slot = m[i]
+      // In metadata, Empty (0x80), Deleted (0xFE), and Sentinel (0xFF) all have bit 7
+      // set; Full slots have bit 7 unset (< 0x80). Inverting the word and masking
+      // with BitmaskMsb sets bit (8j + 7) iff slot j is Full. Sentinel (0xFF) at
+      // capacity index is naturally skipped since its bit 7 is set.
+      var mask = slot.inv() and BitmaskMsb
+      while (mask != 0L) {
+        val index = (i shl 3) + (mask.countTrailingZeroBits() ushr 3)
+        block(index)
+        mask = mask and (mask - 1L)
       }
     }
   }
@@ -668,14 +663,18 @@ internal inline fun convertMetadataForCleanup(metadata: LongArray, capacity: Int
 }
 
 /**
- * Returns the hash code of [k]. The hash spreads low bits to to minimize collisions in high 25-bits
- * that are used for probing.
+ * Returns the hash code of [k]. The hash spreads both low and high bits to minimize collisions in
+ * both the high 25-bits used for probing and the low 7-bits used for metadata.
  */
 internal inline fun hash(k: Any?): Int {
-  // scramble bits to account for collisions between similar hash values.
-  val hash = k.hashCode() * MurmurHashC1
-  // spread low bits into high bits that are used for probing
-  return hash xor (hash shl 16)
+  val h = k.hashCode()
+  // Fold high bits down so keys with zeroed low bits (e.g. floats) contribute to the multiplier
+  val folded = h xor (h ushr 16)
+  // Avalanche differences across all 32 bits using MurmurHash constant (multiplication propagates
+  // bits up)
+  val scrambled = folded * MurmurHashC1
+  // Fold scrambled high bits into low bits so H2 control tag (lower 7 bits) receives entropy
+  return scrambled xor (scrambled ushr 16)
 }
 
 // C1 constant from MurmurHash implementation: https://en.wikipedia.org/wiki/MurmurHash#Algorithm
