@@ -350,8 +350,10 @@ class SqliteMagicMigrationTestHelper(
           actual = committed,
           operation = "Current release snapshot is stale relative to the independent compiled release export"
         )
+        val reference = manifest.schema(descriptor.currentVersion)
         val names = MigrationMetadataJson.structureViewNames(
-          readText(manifest.schema(descriptor.currentVersion).name)
+          text = readText(reference.name),
+          reference = reference
         )
         require(names.toSet() == compiledCurrent.views.map(MigrationViewSchema::name).toSet()) {
           "Current snapshot view names differ from independent compiled release export"

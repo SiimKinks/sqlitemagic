@@ -116,6 +116,7 @@ class MigrationTestingTaskCacheTest {
       .withArguments("prepareMigrationTests", "--configuration-cache", "--offline", "--stacktrace")
       .buildAndFail()
     assertThat(result.output).contains(":app:migrateReleaseDb")
+    assertThat(result.output).contains(":app:generateSqliteMagicMigrationManifest")
     assertThat(result.output).contains("firstVersion")
   }
 

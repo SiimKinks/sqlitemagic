@@ -23,6 +23,101 @@ import java.nio.file.Path
 
 class SqliteMagicMigrationTestHelperTest {
   @Test
+  fun `adopted legacy view names support complete native migration validation in every mode`() {
+    val cases = mapOf(
+      MigrationValidationMode.EVERY_VERSION_TO_CURRENT to listOf(
+        MigrationValidationPath(
+          fromVersion = 1,
+          toVersion = 3
+        ),
+        MigrationValidationPath(
+          fromVersion = 2,
+          toVersion = 3
+        )
+      ),
+      MigrationValidationMode.ADJACENT to listOf(
+        MigrationValidationPath(
+          fromVersion = 1,
+          toVersion = 2
+        ),
+        MigrationValidationPath(
+          fromVersion = 2,
+          toVersion = 3
+        )
+      ),
+      MigrationValidationMode.OLDEST_TO_CURRENT to listOf(
+        MigrationValidationPath(
+          fromVersion = 1,
+          toVersion = 3
+        )
+      )
+    )
+    cases.forEach { (mode, paths) ->
+      val descriptor = adoptedLegacyHistory()
+      val before = descriptor.resources.mapValues { it.value.toList() }
+      SqliteMagicMigrationTestHelper(
+        descriptor = descriptor,
+        driver = BundledSQLiteDriver()
+      ).use { helper ->
+        val report = helper.validateAllMigrations(mode)
+        assertWithMessage(mode.name)
+          .that(report)
+          .isEqualTo(
+            MigrationValidationReport(
+              databaseId = "example",
+              releaseVariant = "release",
+              baselineVersion = 1,
+              currentVersion = 3,
+              excludedVersions = emptyList(),
+              paths = paths,
+              mode = mode,
+              driverImplementation = BundledSQLiteDriver::class.java.name,
+              sqliteVersion = report.sqliteVersion
+            )
+          )
+      }
+      assertWithMessage(mode.name)
+        .that(descriptor.resources.mapValues { it.value.toList() })
+        .isEqualTo(before)
+    }
+  }
+
+  @Test
+  fun `adoption requires matching view names and cannot override explicit structure view metadata`() {
+    val cases = listOf("missing adopted names", "stale adopted names", "explicit empty views")
+    cases.forEach { label ->
+      val descriptor = adoptedLegacyHistory()
+      val manifest = MigrationMetadataJson.readManifest(descriptor.text("manifest.json"))
+      val current = manifest.schema(3)
+      val updated = when (label) {
+        "missing adopted names" -> current.copy(viewNames = null)
+        "stale adopted names" -> current.copy(viewNames = listOf("stale_view"))
+        else -> current
+      }
+      descriptor.resources["manifest.json"] = MigrationMetadataJson
+        .writeManifest(
+          manifest.copy(schemas = manifest.schemas.dropLast(1) + updated)
+        )
+        .toByteArray()
+      if (label == "explicit empty views") {
+        descriptor.resources[current.name] = (descriptor.text(current.name).dropLast(1) + ",\"views\":{}}")
+          .toByteArray()
+      }
+      SqliteMagicMigrationTestHelper(
+        descriptor = descriptor,
+        driver = BundledSQLiteDriver()
+      ).use { helper ->
+        val failure = assertThrows(IllegalStateException::class.java) {
+          helper.validateAllMigrations()
+        }
+        assertWithMessage(label)
+          .that(failure.message)
+          .contains("view names")
+      }
+    }
+  }
+
+  @Test
   fun `automatic coverage discovers history and records driver evidence`() {
     val descriptor = history()
     SqliteMagicMigrationTestHelper(
@@ -628,6 +723,24 @@ class SqliteMagicMigrationTestHelperTest {
         assertThat(failure.message).contains("foreign_key_check")
         assertThat(failure.message).contains("child")
       }
+  }
+
+  private fun adoptedLegacyHistory(): MemoryDescriptor {
+    val descriptor = history()
+    val manifest = MigrationMetadataJson.readManifest(descriptor.text("manifest.json"))
+    manifest.schemas.forEach { reference ->
+      descriptor.resources[reference.name] = (descriptor.text(reference.name).substringBefore(",\"views\":") + "}")
+        .toByteArray()
+    }
+    val current = manifest
+      .schema(3)
+      .copy(viewNames = listOf("person_view"))
+    descriptor.resources["manifest.json"] = MigrationMetadataJson
+      .writeManifest(
+        manifest.copy(schemas = manifest.schemas.dropLast(1) + current)
+      )
+      .toByteArray()
+    return descriptor
   }
 
   private fun history(firstVersion: Int? = null): MemoryDescriptor {

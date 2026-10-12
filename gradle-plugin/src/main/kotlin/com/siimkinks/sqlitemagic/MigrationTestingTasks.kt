@@ -190,10 +190,11 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
       "Compiled selected release tables or indices differ from the published current .struct. " +
           "Advance the database version, run ${migrationTaskPath.get()}, review and commit the release evidence."
     }
-    check(
-      MigrationMetadataJson.structureViewNames(currentEvidence.sourceText).toSet() ==
-          compiled.views.map(MigrationViewSchema::name).toSet()
-    ) {
+    val retainedViewNames = MigrationMetadataJson.structureViewNames(
+      text = currentEvidence.sourceText,
+      reference = manifest.schema(manifest.currentVersion)
+    )
+    check(retainedViewNames.toSet() == compiled.views.map(MigrationViewSchema::name).toSet()) {
       "Compiled selected release view names differ from the published current .struct. " +
           "Advance the database version, run ${migrationTaskPath.get()}, review and commit the release evidence."
     }
@@ -240,8 +241,10 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
 
   private fun requirePublishedManifest(file: File) {
     check(file.isFile) {
-      "Missing authoritative migration manifest ${file.absolutePath}. Run ${migrationTaskPath.get()}, review and " +
-          "commit its release inputs before migration tests. Pre-adoption histories may require an explicit " +
+      "Missing migration manifest ${file.absolutePath}. For an existing migration history, run " +
+          "${migrationTaskPath.get().substringBeforeLast(':')}:generateSqliteMagicMigrationManifest, " +
+          "review and commit the manifest, then rerun migration tests. For a new database, run " +
+          "${migrationTaskPath.get()} first. Incomplete old histories may require an explicit " +
           "migrationTesting.firstVersion baseline with complete retained schemas."
     }
   }
@@ -347,6 +350,12 @@ abstract class PublishSqliteMagicRelease : DefaultTask() {
     val captured = compiledSchema.orNull?.asFile?.let(::readSchema)
     check(captured == null || captured.releaseVariant == releaseVariant.get()) {
       "Compiled schema belongs to a different selected release variant"
+    }
+    val missingStructures = currentStructures.files.filterNot(File::isFile)
+    check(missingStructures.isEmpty()) {
+      "Missing generated SqliteMagic structure(s): ${missingStructures.joinToString()}. " +
+          "Run ${path.substringBeforeLast(':')}:cleanSqliteMagicMetadata, then rerun $path " +
+          "to rebuild KSP metadata for the application and configured schema submodules."
     }
     ReleaseMigrationCoordinator.migrate(
       projectDir = projectDirectory.get().asFile,

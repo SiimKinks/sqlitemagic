@@ -98,6 +98,7 @@ class MigrationTestingTasksTest {
     fixture.projectDir.resolve("db/releases/manifest.json").delete()
     val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
     assertThat(failure.message).contains(":app:migrateReleaseDb")
+    assertThat(failure.message).contains(":app:generateSqliteMagicMigrationManifest")
     assertThat(failure.message).contains("firstVersion")
   }
 

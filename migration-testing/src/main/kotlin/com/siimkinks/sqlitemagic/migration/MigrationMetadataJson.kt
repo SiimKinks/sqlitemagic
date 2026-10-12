@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.migration
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 object MigrationMetadataJson {
   private val json = Json { encodeDefaults = true }
@@ -50,6 +51,18 @@ object MigrationMetadataJson {
   fun structureViewNames(text: String) = structureJson
     .decodeFromString<Structure>(text)
     .views.values.map(StructureView::name)
+
+  fun structureViewNames(
+    text: String,
+    reference: ReleaseSchemaResource
+  ) = when {
+    structureHasViewMetadata(text) -> structureViewNames(text)
+    else -> reference.viewNames.orEmpty()
+  }
+
+  fun structureHasViewMetadata(text: String) = structureJson
+    .parseToJsonElement(text)
+    .jsonObject.containsKey("views")
 
   fun readManifest(text: String) = json
     .decodeFromString<ManifestJson>(text)

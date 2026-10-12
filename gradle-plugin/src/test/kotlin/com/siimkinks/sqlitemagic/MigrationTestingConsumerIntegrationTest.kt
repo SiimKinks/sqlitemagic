@@ -90,6 +90,28 @@ internal class MigrationTestingConsumerIntegrationTest {
       assertThat(exported.views).hasSize(39)
       assertThat(exported.viewSql.any { it.contains("z_submodule_dependency_base") }).isTrue()
 
+      if (version == 1) {
+        val beforeAdoption = releaseHashes(application)
+        check(application.resolve("db/releases/manifest.json").delete())
+        val cleanup = run(
+          project = project,
+          arguments = listOf(":app:cleanSqliteMagicMetadata", "--configuration-cache")
+        )
+        assertThat(cleanup.task(":submodule:cleanSqliteMagicMetadata")?.outcome).isEqualTo(TaskOutcome.SUCCESS)
+        val adoptionArguments = listOf(":app:generateSqliteMagicMigrationManifest", "--configuration-cache")
+        run(
+          project = project,
+          arguments = adoptionArguments
+        )
+        val repeatedAdoption = run(
+          project = project,
+          arguments = adoptionArguments
+        )
+        assertThat(repeatedAdoption.output).contains("Reusing configuration cache")
+        assertThat(repeatedAdoption.output).contains("migration manifest already exists")
+        assertThat(releaseHashes(application)).isEqualTo(beforeAdoption)
+      }
+
       if (version > 1) {
         val frozen = releaseHashes(application)
         println("Consumer migration fixture: unchanged permanent native tests against release $version")

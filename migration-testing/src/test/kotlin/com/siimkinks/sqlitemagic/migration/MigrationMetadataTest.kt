@@ -50,6 +50,12 @@ class MigrationMetadataTest {
       "duplicate versions" to valid.copy(schemas = valid.schemas + valid.schemas.last()),
       "unordered versions" to valid.copy(schemas = valid.schemas.reversed()),
       "missing target schema" to valid.copy(schemas = valid.schemas.dropLast(1)),
+      "empty adopted view name" to valid.copy(
+        schemas = valid.schemas.map { it.copy(viewNames = listOf("")) }
+      ),
+      "duplicate adopted view names" to valid.copy(
+        schemas = valid.schemas.map { it.copy(viewNames = listOf("titles", "titles")) }
+      ),
       "traversal" to valid.copy(schemas = listOf(ReleaseSchemaResource(version = 3, name = "../3.struct"))),
       "absolute path" to valid.copy(schemas = listOf(ReleaseSchemaResource(version = 3, name = "/3.struct"))),
       "duplicate resource" to valid.copy(

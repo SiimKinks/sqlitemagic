@@ -18,6 +18,15 @@ internal fun configureMigrationTesting(
   components: AndroidComponentsExtension<*, *, *>
 ) {
   val releases = linkedMapOf<String, ReleaseExport>()
+  val generateManifest = project.tasks.register(
+    "generateSqliteMagicMigrationManifest",
+    GenerateSqliteMagicMigrationManifest::class.java
+  ) { task ->
+    task.group = "db"
+    task.description = "Generates a missing migration manifest from retained schemas and selected release assets"
+    task.doNotTrackState("Explicitly adopts existing release history")
+    task.releaseDirectory.set(project.layout.projectDirectory.dir("db/releases"))
+  }
   val prepare by lazy {
     project.tasks.register("prepareSqliteMagicMigrationTests", PrepareSqliteMagicMigrationTests::class.java) { task ->
       task.group = "verification"
@@ -30,20 +39,21 @@ internal fun configureMigrationTesting(
     }
   }
   components.onVariants { component ->
-    if (!extension.migrationTesting.enabled) return@onVariants
     val variant = component as ApplicationVariant
-    val tests = (variant.hostTests.values + listOfNotNull((variant as HasUnitTest).unitTest))
-      .distinctBy(Component::name)
-    tests.forEach { test ->
-      val sources = checkNotNull(test.sources.kotlin) { "Local JVM migration tests require Kotlin sources" }
-      sources.addGeneratedSourceDirectory(
-        taskProvider = prepare,
-        wiredWith = PrepareSqliteMagicMigrationTests::generatedSources
-      )
-      checkNotNull(test.sources.resources).addGeneratedSourceDirectory(
-        taskProvider = prepare,
-        wiredWith = PrepareSqliteMagicMigrationTests::generatedResources
-      )
+    if (extension.migrationTesting.enabled) {
+      (variant.hostTests.values + listOfNotNull((variant as HasUnitTest).unitTest))
+        .distinctBy(Component::name)
+        .forEach { test ->
+          val sources = checkNotNull(test.sources.kotlin) { "Local JVM migration tests require Kotlin sources" }
+          sources.addGeneratedSourceDirectory(
+            taskProvider = prepare,
+            wiredWith = PrepareSqliteMagicMigrationTests::generatedSources
+          )
+          checkNotNull(test.sources.resources).addGeneratedSourceDirectory(
+            taskProvider = prepare,
+            wiredWith = PrepareSqliteMagicMigrationTests::generatedResources
+          )
+        }
     }
     if (variant.buildType == "debug") return@onVariants
     val export = project.tasks.register(
@@ -77,7 +87,7 @@ internal fun configureMigrationTesting(
     )
   }
   project.gradle.projectsEvaluated {
-    if (!extension.migrationTesting.enabled) return@projectsEvaluated
+    if (releases.isEmpty() && !extension.migrationTesting.enabled) return@projectsEvaluated
     val selectedName = selectMigrationReleaseVariant(
       candidates = releases.keys.toList(),
       requested = extension.migrationTesting.releaseVariant
@@ -85,6 +95,13 @@ internal fun configureMigrationTesting(
     val selected = releases.getValue(selectedName)
     val taskPath = "${project.path.removeSuffix(":")}:migrate${selectedName.taskPart()}Db"
     val assetsDirectory = selected.variant.artifacts.get(SingleArtifact.ASSETS)
+    generateManifest.configure { task ->
+      task.assetsDirectory.set(assetsDirectory)
+      task.dependsOn(assetsDirectory)
+      task.compiledSchema.set(selected.export.flatMap(ExportSqliteMagicReleaseSchema::outputFile))
+      extension.migrationTesting.firstVersion?.let(task.firstVersion::set)
+    }
+    if (!extension.migrationTesting.enabled) return@projectsEvaluated
     prepare.configure { task ->
       task.releaseVariant.set(selectedName)
       task.assetsDirectory.set(assetsDirectory)

@@ -7,7 +7,9 @@ data class ReleaseSchemaResource(
   val version: Int,
   val name: String,
   val configuration: MigrationConfiguration? = null,
-  val modules: List<String>? = null
+  val modules: List<String>? = null,
+  /** Captured on adoption when a legacy snapshot omits view metadata. */
+  val viewNames: List<String>? = null
 )
 
 data class MigrationManifest(
@@ -40,6 +42,13 @@ data class MigrationManifest(
     }
     require(versions.last() == currentVersion) {
       "Manifest is missing current release schema $currentVersion"
+    }
+    schemas.forEach { reference ->
+      reference.viewNames?.let { names ->
+        require(names.all(String::isNotBlank) && names.distinct().size == names.size) {
+          "Release schema ${reference.version} contains empty or duplicate view names"
+        }
+      }
     }
     val stepVersions = steps.map(MigrationStep::toVersion)
     require(stepVersions == stepVersions.distinct().sorted() && stepVersions.all { it in 1..currentVersion }) {

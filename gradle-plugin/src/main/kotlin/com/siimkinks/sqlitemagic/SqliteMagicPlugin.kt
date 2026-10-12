@@ -33,6 +33,7 @@ class SqliteMagicPlugin : Plugin<Project> {
       "sqlitemagic",
       SqliteMagicPluginExtension::class.java
     )
+    registerMetadataCleanup(project)
     project.afterEvaluate {
       check(project.plugins.hasPlugin(KSP_PLUGIN_ID)) {
         "SqliteMagic KSP plugin requires '$KSP_PLUGIN_ID' in project '${project.path}'. " +
@@ -79,6 +80,9 @@ private fun configureStructurePropagation(
 ) {
   currentProject.gradle.projectsEvaluated {
     val submoduleProjects = currentProject.structureSubmoduleProjects()
+    currentProject.tasks.named("cleanSqliteMagicMetadata").configure { task ->
+      task.dependsOn(submoduleProjects.map { "${it.path}:cleanSqliteMagicMetadata" })
+    }
     val publicationLock = currentProject.gradle.sharedServices.registerIfAbsent(
       STRUCTURE_PUBLICATION_LOCK,
       StructurePublicationLock::class.java
@@ -141,6 +145,22 @@ private fun configureStructurePropagation(
         )
       }
     }
+  }
+}
+
+private fun registerMetadataCleanup(project: Project) {
+  val cleanup = project.tasks.register("cleanSqliteMagicMetadata", CleanSqliteMagicMetadata::class.java) { task ->
+    task.group = DB_TASK_GROUP
+    task.description = "Cleans legacy/current generated metadata and KSP caches, preserving release history and SQL"
+    task.doNotTrackState("Explicitly cleans regenerable SqliteMagic and KSP metadata")
+    task.databaseDirectory.set(project.layout.projectDirectory.dir("db"))
+    task.buildDirectory.set(project.layout.buildDirectory)
+  }
+  project.tasks.withType(KspAATask::class.java).configureEach { task ->
+    task.mustRunAfter(cleanup)
+  }
+  project.tasks.withType(PublishSqliteMagicStructures::class.java).configureEach { task ->
+    task.mustRunAfter(cleanup)
   }
 }
 
