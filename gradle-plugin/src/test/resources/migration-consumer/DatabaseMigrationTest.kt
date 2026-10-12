@@ -201,7 +201,7 @@ internal class DatabaseMigrationTest {
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
         driver = BundledSQLiteDriver()
-      )
+      ).use { it.validateAllMigrations() }
     }
     assertThat(failure.message)
       .contains(resourceName)

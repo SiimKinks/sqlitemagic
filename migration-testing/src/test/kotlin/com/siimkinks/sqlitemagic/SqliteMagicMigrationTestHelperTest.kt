@@ -123,69 +123,174 @@ class SqliteMagicMigrationTestHelperTest {
     SqliteMagicMigrationTestHelper(
       descriptor = descriptor,
       driver = BundledSQLiteDriver()
-    )
-      .use { helper ->
-        val report = helper.validateAllMigrations()
-        assertThat(report)
-          .isEqualTo(
-            MigrationValidationReport(
-              databaseId = "example",
-              releaseVariant = "release",
-              baselineVersion = 1,
-              currentVersion = 3,
-              excludedVersions = emptyList(),
-              paths = listOf(
-                MigrationValidationPath(
-                  fromVersion = 1,
-                  toVersion = 3
-                ),
-                MigrationValidationPath(
-                  fromVersion = 2,
-                  toVersion = 3
-                )
+    ).use { helper ->
+      val report = helper.validateAllMigrations()
+      assertThat(report)
+        .isEqualTo(
+          MigrationValidationReport(
+            databaseId = "example",
+            releaseVariant = "release",
+            baselineVersion = 1,
+            currentVersion = 3,
+            excludedVersions = emptyList(),
+            paths = listOf(
+              MigrationValidationPath(
+                fromVersion = 1,
+                toVersion = 3
               ),
-              mode = MigrationValidationMode.EVERY_VERSION_TO_CURRENT,
-              driverImplementation = BundledSQLiteDriver::class.java.name,
-              sqliteVersion = report.sqliteVersion
-            )
+              MigrationValidationPath(
+                fromVersion = 2,
+                toVersion = 3
+              )
+            ),
+            mode = MigrationValidationMode.EVERY_VERSION_TO_CURRENT,
+            driverImplementation = BundledSQLiteDriver::class.java.name,
+            sqliteVersion = report.sqliteVersion
           )
-        assertThat(report.sqliteVersion).matches("\\d+\\.\\d+\\.\\d+")
-        assertThat(report.pathCount).isEqualTo(2)
-        assertThat(descriptor.opened).doesNotContain("2.views")
-        assertThat(descriptor.opened).doesNotContain("3.views")
-      }
+        )
+      assertThat(report.sqliteVersion).matches("\\d+\\.\\d+\\.\\d+")
+      assertThat(report.pathCount).isEqualTo(2)
+      assertThat(descriptor.opened).doesNotContain("2.views")
+      assertThat(descriptor.opened).doesNotContain("3.views")
+    }
   }
 
   @Test
   fun `explicit baselines exclude unavailable inputs and zero paths still verify target`() {
     val cases = listOf(2, 3)
     cases.forEach { baseline ->
-      val descriptor = history(firstVersion = baseline)
-      descriptor.resources["schemas/1.struct"] = "broken".toByteArray()
-      descriptor.resources.remove("2.sql")
-      if (baseline == 3) {
-        descriptor.resources.remove("schemas/2.struct")
-        descriptor.resources.remove("3.sql")
-      }
-      SqliteMagicMigrationTestHelper(
-        descriptor = descriptor,
-        driver = BundledSQLiteDriver()
-      )
-        .use { helper ->
-          val report = helper.validateAllMigrations()
-          assertWithMessage("baseline $baseline")
-            .that(report.paths)
-            .hasSize(3 - baseline)
-          assertThat(report.excludedVersions).containsExactlyElementsIn(1 until baseline)
+      MigrationValidationMode.entries.forEach { mode ->
+        val descriptor = history()
+        descriptor.resources["schemas/1.struct"] = "broken".toByteArray()
+        descriptor.resources.remove("2.sql")
+        if (baseline == 3) {
+          descriptor.resources.remove("schemas/2.struct")
+          descriptor.resources.remove("3.sql")
+        }
+        SqliteMagicMigrationTestHelper(
+          descriptor = descriptor,
+          driver = BundledSQLiteDriver()
+        ).use { helper ->
+          val report = helper.validateAllMigrations(
+            fromVersion = baseline,
+            mode = mode
+          )
+          val paths = when (baseline) {
+            2 -> listOf(
+              MigrationValidationPath(
+                fromVersion = 2,
+                toVersion = 3
+              )
+            )
+            else -> emptyList()
+          }
+          assertWithMessage("baseline $baseline, mode $mode")
+            .that(report)
+            .isEqualTo(
+              MigrationValidationReport(
+                databaseId = "example",
+                releaseVariant = "release",
+                baselineVersion = baseline,
+                currentVersion = 3,
+                excludedVersions = (1 until baseline).toList(),
+                paths = paths,
+                mode = mode,
+                driverImplementation = BundledSQLiteDriver::class.java.name,
+                sqliteVersion = report.sqliteVersion
+              )
+            )
           assertThat(descriptor.opened).doesNotContain("schemas/1.struct")
           assertThat(descriptor.opened).doesNotContain("2.sql")
         }
+      }
     }
   }
 
   @Test
+  fun `each automatic call selects its own baseline and included failures occur before SQLite opens`() {
+    listOf("schema", "SQL").forEach { label ->
+      val descriptor = history()
+      val invalidResource = when (label) {
+        "schema" -> "schemas/1.struct"
+        else -> "2.sql"
+      }
+      descriptor.resources[invalidResource] = "COMMIT\n".toByteArray()
+      val driver = RecordingDriver()
+      SqliteMagicMigrationTestHelper(
+        descriptor = descriptor,
+        driver = driver
+      ).use { helper ->
+        helper.validateAllMigrations(fromVersion = 3)
+        helper.validateAllMigrations(fromVersion = 2)
+        assertThat(descriptor.opened).doesNotContain(invalidResource)
+        val opens = driver.paths.size
+
+        val failure = assertThrows(IllegalStateException::class.java) { helper.validateAllMigrations() }
+
+        assertWithMessage(label).that(failure.message).contains(invalidResource)
+        assertWithMessage(label).that(driver.paths).hasSize(opens)
+      }
+    }
+  }
+
+  @Test
+  fun `invalid and unretained starting versions fail before opening SQLite`() {
+    listOf(0, 2, 4).forEach { baseline ->
+      val descriptor = history()
+      val manifest = MigrationMetadataJson.readManifest(descriptor.text("manifest.json"))
+      descriptor.resources["manifest.json"] = MigrationMetadataJson
+        .writeManifest(manifest.copy(schemas = manifest.schemas.filter { it.version != 2 }))
+        .toByteArray()
+      val driver = RecordingDriver()
+      SqliteMagicMigrationTestHelper(
+        descriptor = descriptor,
+        driver = driver
+      ).use { helper ->
+        val failure = assertThrows(IllegalStateException::class.java) {
+          helper.validateAllMigrations(fromVersion = baseline)
+        }
+        assertWithMessage("baseline $baseline").that(failure.message).contains(baseline.toString())
+        assertWithMessage("baseline $baseline").that(driver.paths).isEmpty()
+      }
+    }
+  }
+
+  @Test
+  fun `focused migration tests ignore evidence outside their selected range`() {
+    val descriptor = history()
+    descriptor.resources["schemas/1.struct"] = "malformed".toByteArray()
+    descriptor.resources["2.sql"] = "COMMIT\n".toByteArray()
+    SqliteMagicMigrationTestHelper(
+      descriptor = descriptor,
+      driver = BundledSQLiteDriver()
+    ).use { helper ->
+      helper
+        .createDatabase(
+          name = "focused",
+          version = 2
+        )
+        .close()
+      helper
+        .runMigrationsAndValidate(
+          name = "focused",
+          fromVersion = 2
+        )
+        .use { database ->
+          assertThat(database.query("PRAGMA user_version")).isEqualTo(
+            MigrationTestResult(
+              columns = listOf("user_version"),
+              rows = listOf(listOf(3L))
+            )
+          )
+        }
+    }
+    assertThat(descriptor.opened).doesNotContain("schemas/1.struct")
+    assertThat(descriptor.opened).doesNotContain("2.sql")
+  }
+
+  @Test
   fun `zero paths fail stale current snapshot consistency`() {
-    val descriptor = history(firstVersion = 3)
+    val descriptor = history()
     descriptor.resources["schemas/3.struct"] = descriptor.text("schemas/3.struct")
       .replace(
         oldValue = ", name_length INTEGER, slug TEXT",
@@ -197,14 +302,16 @@ class SqliteMagicMigrationTestHelperTest {
       driver = BundledSQLiteDriver()
     )
       .use { helper ->
-        val failure = assertThrows(IllegalStateException::class.java) { helper.validateAllMigrations() }
+        val failure = assertThrows(IllegalStateException::class.java) {
+          helper.validateAllMigrations(fromVersion = 3)
+        }
         assertThat(failure.message).contains("snapshot")
       }
   }
 
   @Test
   fun `current snapshot requires exact compiled release module order`() {
-    val descriptor = history(firstVersion = 3)
+    val descriptor = history()
     val manifest = MigrationMetadataJson.readManifest(descriptor.text("manifest.json"))
       .copy(modules = listOf("feature", "example"))
     val reference = manifest.schema(3).copy(modules = listOf("feature", "example"))
@@ -215,7 +322,9 @@ class SqliteMagicMigrationTestHelperTest {
       driver = BundledSQLiteDriver()
     )
       .use { helper ->
-        val failure = assertThrows(IllegalStateException::class.java) { helper.validateAllMigrations() }
+        val failure = assertThrows(IllegalStateException::class.java) {
+          helper.validateAllMigrations(fromVersion = 3)
+        }
         assertThat(failure.message).contains("module order")
       }
   }
@@ -469,6 +578,8 @@ class SqliteMagicMigrationTestHelperTest {
         SqliteMagicMigrationTestHelper(
           descriptor = descriptor,
           driver = BundledSQLiteDriver()
+        ).use(
+          SqliteMagicMigrationTestHelper::validateAllMigrations
         )
       }
       assertWithMessage(label)
@@ -491,6 +602,8 @@ class SqliteMagicMigrationTestHelperTest {
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
         driver = driver
+      ).use(
+        SqliteMagicMigrationTestHelper::validateAllMigrations
       )
     }
     assertThat(failure.message).contains("cover every version")
@@ -555,6 +668,8 @@ class SqliteMagicMigrationTestHelperTest {
         SqliteMagicMigrationTestHelper(
           descriptor = descriptor,
           driver = driver
+        ).use(
+          SqliteMagicMigrationTestHelper::validateAllMigrations
         )
       }
       assertThat(failure.message).contains("optional stream $phase failed")
@@ -571,6 +686,8 @@ class SqliteMagicMigrationTestHelperTest {
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
         driver = driver
+      ).use(
+        SqliteMagicMigrationTestHelper::validateAllMigrations
       )
     }
     assertThat(failure.message).contains("3.sql")
@@ -618,7 +735,7 @@ class SqliteMagicMigrationTestHelperTest {
   }
 
   @Test
-  fun `transaction controls fail constructor preflight before any native database opens`() {
+  fun `transaction controls fail selected history preflight before any native database opens`() {
     val descriptor = history()
     descriptor.resources["2.sql"] = "\nUPDATE person SET name=upper(name)\nCOMMIT;\n".toByteArray()
     descriptor.resources["3.sql"] = "BROKEN_SQL\n".toByteArray()
@@ -627,6 +744,8 @@ class SqliteMagicMigrationTestHelperTest {
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
         driver = driver
+      ).use(
+        SqliteMagicMigrationTestHelper::validateAllMigrations
       )
     }
     assertThat(driver.paths).isEmpty()
@@ -743,7 +862,7 @@ class SqliteMagicMigrationTestHelperTest {
     return descriptor
   }
 
-  private fun history(firstVersion: Int? = null): MemoryDescriptor {
+  private fun history(): MemoryDescriptor {
     val schemas = (1..3).map { version ->
       val extras = when (version) {
         1 -> ""
@@ -775,10 +894,7 @@ class SqliteMagicMigrationTestHelperTest {
         }
       )
     }
-    val descriptor = descriptor(
-      schemas = schemas,
-      firstVersion = firstVersion
-    )
+    val descriptor = descriptor(schemas)
     descriptor.resources["2.sql"] = (
         "ALTER TABLE person ADD COLUMN name_length INTEGER\n" +
             "UPDATE person SET name=upper(name), name_length=length(name)\n"
@@ -817,10 +933,7 @@ class SqliteMagicMigrationTestHelperTest {
     return descriptor
   }
 
-  private fun descriptor(
-    schemas: List<ReleaseSchemaSnapshot>,
-    firstVersion: Int? = null
-  ): MemoryDescriptor {
+  private fun descriptor(schemas: List<ReleaseSchemaSnapshot>): MemoryDescriptor {
     val manifest = MigrationManifest(
       formatVersion = 1,
       databaseId = "example",
@@ -851,8 +964,7 @@ class SqliteMagicMigrationTestHelperTest {
     resources["compiled.json"] = MigrationMetadataJson.writeSchema(schemas.last()).toByteArray()
     return MemoryDescriptor(
       resources = resources,
-      currentVersion = schemas.last().version,
-      firstVersion = firstVersion
+      currentVersion = schemas.last().version
     )
   }
 
@@ -876,8 +988,7 @@ class SqliteMagicMigrationTestHelperTest {
 
   private class MemoryDescriptor(
     val resources: MutableMap<String, ByteArray>,
-    override val currentVersion: Int,
-    override val firstVersion: Int?
+    override val currentVersion: Int
   ) : MigrationDatabaseDescriptor {
     override val databaseId = "example"
     override val releaseVariant = "release"

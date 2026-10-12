@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic
 import com.siimkinks.sqlitemagic.manager.ReleaseMigrationCoordinator
 import com.siimkinks.sqlitemagic.migration.MigrationManifest
 import com.siimkinks.sqlitemagic.migration.MigrationMetadataJson
-import com.siimkinks.sqlitemagic.migration.MigrationResource
 import com.siimkinks.sqlitemagic.migration.MigrationScriptValidation
 import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
@@ -103,10 +102,6 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
   abstract val releaseVariant: Property<String>
 
   @get:Input
-  @get:Optional
-  abstract val firstVersion: Property<Int>
-
-  @get:Input
   abstract val migrationTaskPath: Property<String>
 
   @get:InputFile
@@ -126,7 +121,7 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
       val manifestFile = releaseDirectory.get().asFile.resolve("manifest.json")
       if (!manifestFile.isFile) return listOf(manifestFile)
       val manifest = readManifest(manifestFile)
-      return listOf(manifestFile) + coveredResources(manifest).values
+      return listOf(manifestFile) + retainedResources(manifest).values
     }
 
   @TaskAction
@@ -141,44 +136,24 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
       compiled = compiled,
       migrationTaskPath = migrationTaskPath.get()
     )
-    val baseline = coverageBaseline(manifest)
-    val plan = manifest.resolve(
-      fromVersion = baseline,
-      toVersion = manifest.currentVersion
-    )
-    val resources = coveredResources(
-      manifest = manifest,
-      baseline = baseline
-    )
-    resources.values.forEach { file ->
-      check(file.isFile) { missingEvidence(file) }
+    val resources = retainedResources(manifest)
+    val reference = manifest.schema(manifest.currentVersion)
+    val currentFile = resources.getValue(reference.name)
+    check(currentFile.isFile) { missingEvidence(currentFile) }
+    val currentText = readUtf8(currentFile)
+    val published = try {
+      MigrationMetadataJson.readStructure(
+        text = currentText,
+        manifest = manifest,
+        reference = reference
+      )
+    } catch (failure: Exception) {
+      throw GradleException(
+        "Incomplete current release schema ${reference.version} at ${currentFile.absolutePath}. " +
+            "Publish and review complete evidence via ${migrationTaskPath.get()}.",
+        failure
+      )
     }
-    val structures = manifest.schemas
-      .filter { it.version >= baseline }
-      .associate { reference ->
-        val file = resources.getValue(reference.name)
-        val evidence = try {
-          val text = readUtf8(file)
-          RetainedStructureEvidence(
-            snapshot = MigrationMetadataJson.readStructure(
-              text = text,
-              manifest = manifest,
-              reference = reference
-            ),
-            sourceText = text
-          )
-        } catch (failure: Exception) {
-          throw GradleException(
-            "Incomplete release schema ${reference.version} at ${file.absolutePath}. " +
-                "Adopt a firstVersion with complete retained evidence or publish and review complete evidence via " +
-                "${migrationTaskPath.get()}.",
-            failure
-          )
-        }
-        reference.version to evidence
-      }
-    val currentEvidence = structures.getValue(manifest.currentVersion)
-    val published = currentEvidence.snapshot
     check(compiled.configuration == published.configuration && compiled.modules == published.modules) {
       "Compiled selected release configuration or module order differs from published evidence. " +
           "Run ${migrationTaskPath.get()}, review and commit the release evidence."
@@ -191,26 +166,13 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
           "Advance the database version, run ${migrationTaskPath.get()}, review and commit the release evidence."
     }
     val retainedViewNames = MigrationMetadataJson.structureViewNames(
-      text = currentEvidence.sourceText,
+      text = currentText,
       reference = manifest.schema(manifest.currentVersion)
     )
     check(retainedViewNames.toSet() == compiled.views.map(MigrationViewSchema::name).toSet()) {
       "Compiled selected release view names differ from the published current .struct. " +
           "Advance the database version, run ${migrationTaskPath.get()}, review and commit the release evidence."
     }
-    val requiredScripts = plan.steps
-      .flatMap(MigrationStep::sqlResources)
-      .associateBy(MigrationResource::name)
-    resources
-      .filterKeys { it.endsWith(".sql") }
-      .forEach { (name, file) ->
-        val text = readUtf8(file)
-        MigrationScriptValidation.validate(
-          text = text,
-          resourceName = name,
-          allowEmpty = requiredScripts[name]?.allowEmpty ?: true
-        )
-      }
     val sourceRoot = generatedSources.get().asFile
     val resourceDirectory = generatedResources.get().asFile
     check(!sourceRoot.exists() || sourceRoot.deleteRecursively())
@@ -222,19 +184,20 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
     val targetRoot = resourceDirectory.resolve(namespace)
     check(targetRoot.mkdirs())
     manifestFile.copyTo(targetRoot.resolve("manifest.json"))
-    resources.forEach { (name, file) ->
-      val destination = targetRoot.resolve(name)
-      check(destination.parentFile.isDirectory || destination.parentFile.mkdirs())
-      file.copyTo(destination)
-    }
+    resources
+      .filterValues(File::isFile)
+      .forEach { (name, file) ->
+        val destination = targetRoot.resolve(name)
+        check(destination.parentFile.isDirectory || destination.parentFile.mkdirs())
+        file.copyTo(destination)
+      }
     compiledSchema.get().asFile.copyTo(targetRoot.resolve("current.schema.json"))
     val descriptor = sourceRoot.resolve("com/siimkinks/sqlitemagic/SqliteMagicMigrationDatabase.kt")
     check(descriptor.parentFile.mkdirs())
     descriptor.writeText(
       descriptorSource(
         manifest = manifest,
-        namespace = namespace,
-        baseline = firstVersion.orNull
+        namespace = namespace
       )
     )
   }
@@ -244,8 +207,7 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
       "Missing migration manifest ${file.absolutePath}. For an existing migration history, run " +
           "${migrationTaskPath.get().substringBeforeLast(':')}:generateSqliteMagicMigrationManifest, " +
           "review and commit the manifest, then rerun migration tests. For a new database, run " +
-          "${migrationTaskPath.get()} first. Incomplete old histories may require an explicit " +
-          "migrationTesting.firstVersion baseline with complete retained schemas."
+          "${migrationTaskPath.get()} first."
     }
   }
 
@@ -258,25 +220,16 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
     }
   }
 
-  private fun coverageBaseline(manifest: MigrationManifest): Int {
-    val baseline = firstVersion.orNull ?: manifest.schemas.first().version
-    manifest.schema(baseline)
-    return baseline
-  }
-
-  private fun coveredResources(
-    manifest: MigrationManifest,
-    baseline: Int = coverageBaseline(manifest)
-  ): Map<String, File> {
+  // Track missing references too, so restoring an input invalidates Gradle's cached resources.
+  private fun retainedResources(manifest: MigrationManifest): Map<String, File> {
     val schemas = manifest.schemas
-      .filter { it.version >= baseline }
       .associate { resource ->
         check(resource.name.startsWith("schemas/")) {
           "Release schema resource must be under schemas/: ${resource.name}"
         }
         resource.name to releaseDirectory.get().asFile.resolve(resource.name.removePrefix("schemas/"))
       }
-    val scripts = manifest.steps.filter { it.toVersion > baseline }
+    val scripts = manifest.steps
       .flatMap(MigrationStep::sqlResources)
       .associate { resource -> resource.name to assetsDirectory.get().asFile.resolve(resource.name) }
     val modules = (manifest.modules + manifest.schemas
@@ -295,7 +248,7 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
       .filter { file ->
         file.extension == "sql" && prefixes.any { prefix ->
           val version = file.nameWithoutExtension.removePrefix(prefix).toIntOrNull()
-          version != null && version > baseline && version <= manifest.currentVersion &&
+          version != null && version > 0 && version <= manifest.currentVersion &&
               file.name == "$prefix$version.sql"
         }
       }
@@ -305,11 +258,6 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
 
   private fun missingEvidence(file: File) = "Missing required release input ${file.absolutePath}. Run " +
       "${migrationTaskPath.get()}, review and commit the listed resources; preparation does not repair history."
-
-  private data class RetainedStructureEvidence(
-    val snapshot: ReleaseSchemaSnapshot,
-    val sourceText: String
-  )
 }
 
 @DisableCachingByDefault(because = "Explicitly publishes reviewed release evidence into consumer source directories")
@@ -418,8 +366,7 @@ private fun kotlinLiteral(value: String) = buildString {
 
 private fun descriptorSource(
   manifest: MigrationManifest,
-  namespace: String,
-  baseline: Int?
+  namespace: String
 ) = $$"""
 package com.siimkinks.sqlitemagic
 
@@ -434,7 +381,6 @@ object SqliteMagicMigrationDatabase : MigrationDatabaseDescriptor {
   override val resourceRoot = $${kotlinLiteral(namespace)}
   override val manifestResource = "manifest.json"
   override val currentSchemaResource = "current.schema.json"
-  override val firstVersion: Int? = $${baseline ?: "null"}
 
   override fun openResource(name: String): InputStream =
     javaClass.classLoader?.getResourceAsStream(resourceRoot + name)

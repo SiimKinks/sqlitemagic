@@ -35,11 +35,9 @@ class SqliteMagicMigrationTestHelper(
   private var sqliteVersion: String? = null
   private val manifest = readManifest()
   private val versions = manifest.schemas.map(ReleaseSchemaResource::version)
-  private val baseline = descriptor.firstVersion ?: versions.first()
-  private val coveredVersions = versions.filter { it >= baseline }
   private val compiledCurrent = readCompiledCurrent()
-  private val schemas = readCoveredSchemas()
-  private val resources = readCoveredResources()
+  private val schemas = mutableMapOf<Int, ReleaseSchemaSnapshot>()
+  private val resources = mutableMapOf<String, ByteArray>()
   private val directory = Files.createTempDirectory("sqlitemagic-migrations-")
   private val files = linkedMapOf<String, Path>()
   private val ownedFiles = linkedSetOf<Path>()
@@ -49,9 +47,27 @@ class SqliteMagicMigrationTestHelper(
 
   fun validateAllMigrations(
     mode: MigrationValidationMode = EVERY_VERSION_TO_CURRENT
-  ): MigrationValidationReport = contextual(operation = "validating covered release history") {
+  ): MigrationValidationReport = validateAllMigrations(
+    fromVersion = versions.first(),
+    mode = mode
+  )
+
+  /**
+   * Validates retained releases from [fromVersion] through the current release using [mode].
+   * The starting version must have a retained schema. Earlier schemas and migrations into or before it are excluded.
+   * Selecting a baseline changes test coverage; it does not repair historical migrations.
+   */
+  fun validateAllMigrations(
+    fromVersion: Int,
+    mode: MigrationValidationMode = EVERY_VERSION_TO_CURRENT
+  ): MigrationValidationReport = contextual(operation = "validating release history from $fromVersion") {
     checkOpen()
+    prepareHistory(
+      fromVersion = fromVersion,
+      toVersion = descriptor.currentVersion
+    )
     verifyCurrentSnapshot()
+    val coveredVersions = versions.filter { it >= fromVersion }
     val historical = coveredVersions.dropLast(1)
     val paths = when (mode) {
       EVERY_VERSION_TO_CURRENT -> historical.map { version ->
@@ -90,9 +106,9 @@ class SqliteMagicMigrationTestHelper(
     MigrationValidationReport(
       databaseId = descriptor.databaseId,
       releaseVariant = descriptor.releaseVariant,
-      baselineVersion = baseline,
+      baselineVersion = fromVersion,
       currentVersion = descriptor.currentVersion,
-      excludedVersions = versions.filter { it < baseline },
+      excludedVersions = versions.filter { it < fromVersion },
       paths = paths,
       mode = mode,
       driverImplementation = driverImplementation,
@@ -144,6 +160,12 @@ class SqliteMagicMigrationTestHelper(
     val source = schema(fromVersion)
     val target = expectedSchema(toVersion)
     val file = files[name] ?: error("No database named '$name'; create its historical schema first")
+    prepareHistory(
+      fromVersion = fromVersion,
+      toVersion = toVersion
+    )
+    // Current release evidence is also checked by focused migration tests.
+    schema(descriptor.currentVersion)
     val connection = open(
       file = file,
       schema = source
@@ -238,21 +260,20 @@ class SqliteMagicMigrationTestHelper(
     result
   }
 
-  private fun readCoveredSchemas(): Map<Int, ReleaseSchemaSnapshot> = contextual(
-    operation = "reading retained schema history; incomplete evidence requires an explicit coverage baseline " +
-        "or trusted historical export"
+  private fun prepareHistory(
+    fromVersion: Int,
+    toVersion: Int
   ) {
-    require(baseline in versions) { "Explicit migration coverage baseline $baseline is not a retained release" }
-    coveredVersions.associateWith { version ->
-      val resource = manifest.schema(version)
-      contextual(operation = "reading release $version snapshot ${resource.name}") {
-        MigrationMetadataJson.readStructure(
-          text = readText(resource.name),
-          manifest = manifest,
-          reference = resource
-        )
-      }
-    }
+    require(toVersion >= fromVersion) { "Invalid migration range $fromVersion -> $toVersion" }
+    manifest.schema(fromVersion)
+    manifest.schema(toVersion)
+    versions
+      .filter { it in fromVersion..toVersion }
+      .forEach(::schema)
+    readCoveredResources(
+      fromVersion = fromVersion,
+      toVersion = toVersion
+    )
   }
 
   private fun readCompiledCurrent(): ReleaseSchemaSnapshot = contextual(
@@ -267,21 +288,23 @@ class SqliteMagicMigrationTestHelper(
       }
   }
 
-  private fun readCoveredResources(): Map<String, ByteArray> = contextual(
-    operation = "preparing covered migration resources"
-  ) {
+  private fun readCoveredResources(
+    fromVersion: Int,
+    toVersion: Int
+  ) = contextual(operation = "preparing migration resources $fromVersion -> $toVersion") {
     val coveredSteps = manifest.resolve(
-      fromVersion = baseline,
-      toVersion = descriptor.currentVersion
+      fromVersion = fromVersion,
+      toVersion = toVersion
     ).steps
     val plan = MigrationPlanner.plan(
-      fromVersion = baseline,
-      toVersion = descriptor.currentVersion,
+      fromVersion = fromVersion,
+      toVersion = toVersion,
       submoduleNames = manifest.modules.dropLast(1)
     )
-    val evidence = coveredSteps.flatMap(MigrationStep::sqlResources)
+    val evidence = coveredSteps
+      .flatMap(MigrationStep::sqlResources)
       .associateBy(MigrationResource::name)
-    val bytes = linkedMapOf<String, ByteArray>()
+
     fun readResource(
       name: String,
       stream: InputStream
@@ -293,21 +316,23 @@ class SqliteMagicMigrationTestHelper(
         resourceName = name,
         allowEmpty = evidence[name]?.allowEmpty ?: true
       )
-      bytes[name] = contents
+      resources[name] = contents
       return contents
     }
     coveredSteps.forEach { step ->
-      step.sqlResources.forEach { resource ->
-        contextual(operation = "reading manifest-listed SQL ${resource.name} for step ${step.toVersion}") {
-          readResource(
-            name = resource.name,
-            stream = descriptor.openResource(resource.name)
-          )
+      step.sqlResources
+        .filter { it.name !in resources }
+        .forEach { resource ->
+          contextual(operation = "reading manifest-listed SQL ${resource.name} for step ${step.toVersion}") {
+            readResource(
+              name = resource.name,
+              stream = descriptor.openResource(resource.name)
+            )
+          }
         }
-      }
     }
     plan.steps.flatMap(MigrationStep::sqlResources)
-      .filter { it.name !in bytes }
+      .filter { it.name !in resources }
       .forEach { resource ->
         val stream = try {
           descriptor.openResource(resource.name)
@@ -321,13 +346,20 @@ class SqliteMagicMigrationTestHelper(
           )
         }
       }
-    bytes
   }
 
   private fun readText(name: String) = MigrationScriptValidation.readUtf8(descriptor.openResource(name))
 
-  private fun schema(version: Int) = schemas[version]
-    ?: error("Release $version is not covered by the selected history starting at $baseline")
+  private fun schema(version: Int) = schemas.getOrPut(version) {
+    val resource = manifest.schema(version)
+    contextual(operation = "reading release $version snapshot ${resource.name}") {
+      MigrationMetadataJson.readStructure(
+        text = readText(resource.name),
+        manifest = manifest,
+        reference = resource
+      )
+    }
+  }
 
   private fun expectedSchema(version: Int) = when (version) {
     descriptor.currentVersion -> compiledCurrent

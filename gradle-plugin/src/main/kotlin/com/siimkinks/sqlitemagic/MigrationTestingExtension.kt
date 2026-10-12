@@ -17,9 +17,4 @@ open class MigrationTestingExtension {
    */
   var releaseVariant: String? = null
 
-  /**
-   * Sets the oldest retained schema version included in test coverage; it must exist in the selected history.
-   * Null covers all retained versions. An explicit version excludes older evidence; it does not repair missing inputs.
-   */
-  var firstVersion: Int? = null
 }

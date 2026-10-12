@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic
 import com.siimkinks.sqlitemagic.migration.MigrationManifest
 import com.siimkinks.sqlitemagic.migration.MigrationMetadataJson
 import com.siimkinks.sqlitemagic.migration.MigrationResource
-import com.siimkinks.sqlitemagic.migration.MigrationScriptValidation
 import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
@@ -11,11 +10,8 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
@@ -35,10 +31,6 @@ abstract class GenerateSqliteMagicMigrationManifest : DefaultTask() {
   @get:InputFile
   @get:PathSensitive(PathSensitivity.NONE)
   abstract val compiledSchema: RegularFileProperty
-
-  @get:Input
-  @get:Optional
-  abstract val firstVersion: Property<Int>
 
   @TaskAction
   fun generate() {
@@ -89,7 +81,6 @@ abstract class GenerateSqliteMagicMigrationManifest : DefaultTask() {
         throw GradleException("Cannot read retained release schema $file. Restore complete schema metadata.", failure)
       }
     }
-    val baseline = firstVersion.orNull ?: references.first().version
     val assetsRoot = assetsDirectory.get().asFile
     val assetFiles = assetsRoot.listFiles()
       .orEmpty()
@@ -127,54 +118,47 @@ abstract class GenerateSqliteMagicMigrationManifest : DefaultTask() {
             }
             val file = assetsRoot.resolve("$prefix$version.sql")
             file.takeIf(File::isFile)
-              ?.let { script ->
-                migrationResource(
-                  file = script,
-                  validate = version > baseline
-                )
-              }
+              ?.let(::migrationResource)
           }
         )
       }
     )
     manifest.validate()
-    manifest.schema(baseline)
-    references.forEach { reference ->
-      if (reference.version < baseline) return@forEach
-      val file = releaseRoot.resolve(reference.name.removePrefix("schemas/"))
-      try {
-        val structureText = file.readText()
-        val snapshot = MigrationMetadataJson.readStructure(
-          text = structureText,
-          manifest = manifest,
-          reference = reference
-        )
-        if (reference.version == compiled.version) {
-          check(
-            snapshot.tableSql.toSet() == compiled.tableSql.toSet() &&
-                snapshot.indexSql.toSet() == compiled.indexSql.toSet()
-          ) {
-            "Compiled schema differs from retained release ${reference.version}. " +
-                "Advance the database version and generate the manifest again before creating the next migration."
-          }
-          if (reference.viewNames == null) {
-            val retainedViewNames = MigrationMetadataJson.structureViewNames(structureText)
-              .toSet()
-            val compiledViewNames = compiled.views.map(MigrationViewSchema::name)
-              .toSet()
-            check(retainedViewNames == compiledViewNames) {
-              "Compiled view names differ from retained release ${reference.version}. Advance the database version."
-            }
+    val reference = references.last()
+    val file = releaseRoot.resolve(reference.name.removePrefix("schemas/"))
+    try {
+      val structureText = file.readText()
+      val snapshot = MigrationMetadataJson.readStructure(
+        text = structureText,
+        manifest = manifest,
+        reference = reference
+      )
+      if (reference.version == compiled.version) {
+        check(
+          snapshot.tableSql.toSet() == compiled.tableSql.toSet() &&
+              snapshot.indexSql.toSet() == compiled.indexSql.toSet()
+        ) {
+          "Compiled schema differs from retained release ${reference.version}. " +
+              "Advance the database version and generate the manifest again before creating the next migration."
+        }
+        if (reference.viewNames == null) {
+          val retainedViewNames = MigrationMetadataJson.structureViewNames(structureText)
+            .toSet()
+          val compiledViewNames = compiled.views.map(MigrationViewSchema::name)
+            .toSet()
+          check(retainedViewNames == compiledViewNames) {
+            "Compiled view names differ from retained release ${reference.version}. Advance the database version."
           }
         }
-      } catch (failure: Exception) {
-        throw GradleException(
-          "Cannot adopt release schema ${reference.version} at $file: ${failure.message}. " +
-              "Restore complete retained evidence, or set migrationTesting.firstVersion to a complete baseline.",
-          failure
-        )
       }
+    } catch (failure: Exception) {
+      throw GradleException(
+        "Cannot adopt release schema ${reference.version} at $file: ${failure.message}. " +
+            "Restore complete retained evidence for the latest release before adoption.",
+        failure
+      )
     }
+
     val text = MigrationMetadataJson.writeManifest(manifest)
     val temporary = File.createTempFile("manifest-", ".tmp", releaseRoot)
     try {
@@ -187,17 +171,9 @@ abstract class GenerateSqliteMagicMigrationManifest : DefaultTask() {
     logger.lifecycle("Review and commit the manifest, then run release migration publication or migration tests.")
   }
 
-  private fun migrationResource(
-    file: File,
-    validate: Boolean
-  ): MigrationResource {
-    val text = MigrationScriptValidation.readUtf8(file.inputStream())
-    if (validate) {
-      MigrationScriptValidation.validate(
-        text = text,
-        resourceName = file.absolutePath
-      )
-    }
+  private fun migrationResource(file: File): MigrationResource {
+    // Adoption inventories historical SQL; selected test ranges perform strict UTF-8 and statement validation.
+    val text = file.readText()
     return MigrationResource(
       name = file.name,
       required = true,

@@ -35,7 +35,6 @@ internal fun configureMigrationTesting(
       task.releaseDirectory.set(project.layout.projectDirectory.dir("db/releases"))
       task.generatedSources.set(project.layout.buildDirectory.dir("sqlitemagic/migration-testing/sources"))
       task.generatedResources.set(project.layout.buildDirectory.dir("sqlitemagic/migration-testing/resources"))
-      extension.migrationTesting.firstVersion?.let(task.firstVersion::set)
     }
   }
   components.onVariants { component ->
@@ -99,7 +98,6 @@ internal fun configureMigrationTesting(
       task.assetsDirectory.set(assetsDirectory)
       task.dependsOn(assetsDirectory)
       task.compiledSchema.set(selected.export.flatMap(ExportSqliteMagicReleaseSchema::outputFile))
-      extension.migrationTesting.firstVersion?.let(task.firstVersion::set)
     }
     if (!extension.migrationTesting.enabled) return@projectsEvaluated
     prepare.configure { task ->

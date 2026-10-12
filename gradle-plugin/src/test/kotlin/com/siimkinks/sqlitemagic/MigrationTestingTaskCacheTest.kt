@@ -117,7 +117,6 @@ class MigrationTestingTaskCacheTest {
       .buildAndFail()
     assertThat(result.output).contains(":app:migrateReleaseDb")
     assertThat(result.output).contains(":app:generateSqliteMagicMigrationManifest")
-    assertThat(result.output).contains("firstVersion")
   }
 
   private fun writeBuild(projectDir: File) {

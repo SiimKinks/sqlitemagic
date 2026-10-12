@@ -10,7 +10,6 @@ import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
-import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -133,7 +132,6 @@ class MigrationMetadataTasksTest {
       "no schemas" to "No retained release schemas",
       "duplicate version" to "Manifest schema versions must be unique",
       "malformed schema" to "Cannot read retained release schema",
-      "invalid SQL" to "physical line",
       "unknown module" to "Unrecognized migration asset",
       "changed schema" to "Compiled schema differs",
       "changed view" to "Compiled view names differ"
@@ -148,12 +146,6 @@ class MigrationMetadataTasksTest {
         "duplicate version" -> releases.resolve("0141.struct")
           .writeText(STRUCTURE)
         "malformed schema" -> currentSchema.writeText("malformed")
-        "invalid SQL" -> {
-          releases.resolve("140.struct")
-            .writeText(STRUCTURE)
-          assets.resolve("141.sql")
-            .writeText("SELECT 1; SELECT 2\n")
-        }
         "unknown module" -> assets.resolve("RemovedFeature140.sql")
           .writeText("SELECT 1\n")
         "changed schema" -> currentSchema.writeText("{}")
@@ -177,18 +169,18 @@ class MigrationMetadataTasksTest {
   }
 
   @Test
-  fun `existing firstVersion permits incomplete older snapshots without rewriting them`() {
+  fun `adoption inventories incomplete older history for code selected validation without rewriting it`() {
     val task = fixture("baseline")
     val releases = task.releaseDirectory.get().asFile
     releases.resolve("1.struct")
       .writeText("old incomplete metadata")
     releases.resolve("141.struct")
       .writeText(STRUCTURE)
+    task.assetsDirectory.get().asFile.resolve("2.sql")
+      .writeBytes(byteArrayOf(0xc3.toByte(), 0x28))
+    task.assetsDirectory.get().asFile.resolve("3.sql")
+      .writeText("COMMIT\n")
     val before = sourceBytes(task.project.projectDir)
-    val failure = assertThrows<GradleException>(task::generate)
-    assertThat(failure.message)
-      .contains("migrationTesting.firstVersion")
-    task.firstVersion.set(141)
 
     task.generate()
 

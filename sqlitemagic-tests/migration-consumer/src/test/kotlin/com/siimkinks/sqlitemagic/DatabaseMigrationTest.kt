@@ -11,7 +11,7 @@ internal class DatabaseMigrationTest {
     migrationHelper().use { helper ->
       val report = helper.validateAllMigrations()
       val descriptor = SqliteMagicMigrationDatabase
-      val baseline = descriptor.firstVersion ?: 1
+      val baseline = 1
       val expected = MigrationValidationReport(
         databaseId = descriptor.databaseId,
         releaseVariant = descriptor.releaseVariant,

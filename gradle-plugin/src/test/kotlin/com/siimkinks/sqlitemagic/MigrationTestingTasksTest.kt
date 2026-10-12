@@ -22,11 +22,10 @@ class MigrationTestingTasksTest {
   lateinit var directory: Path
 
   @Test
-  fun `preparation excludes old evidence IO and preserves every committed byte`() {
+  fun `preparation packages all available history without validating old evidence or changing committed bytes`() {
     val fixture = fixture()
     fixture.projectDir.resolve("db/releases/1.struct").writeBytes(byteArrayOf(0xc3.toByte(), 0x28))
     fixture.projectDir.resolve("src/release/assets/2.sql").writeText("INVALID MULTILINE SQL\nSELECT '")
-    fixture.task.firstVersion.set(2)
     val before = fixture.sourceBytes()
 
     fixture.task.prepare()
@@ -34,15 +33,17 @@ class MigrationTestingTasksTest {
     assertThat(fixture.sourceBytes().mapValues { it.value.toList() })
       .isEqualTo(before.mapValues { it.value.toList() })
     assertThat(fixture.task.committedInputs.map(File::getName))
-      .containsExactly("manifest.json", "2.struct", "3.struct", "3.sql")
+      .containsExactly("manifest.json", "1.struct", "2.struct", "3.struct", "2.sql", "3.sql")
     val root = fixture.task.generatedResources.get().asFile.resolve(
       migrationResourceRoot(
         databaseId = ":app",
         releaseVariant = "release"
       )
     )
-    assertThat(root.resolve("schemas/1.struct").exists()).isFalse()
-    assertThat(root.resolve("2.sql").exists()).isFalse()
+    assertThat(root.resolve("schemas/1.struct").readBytes().toList())
+      .isEqualTo(before.getValue("db/releases/1.struct").toList())
+    assertThat(root.resolve("2.sql").readBytes().toList())
+      .isEqualTo(before.getValue("src/release/assets/2.sql").toList())
     assertThat(root.resolve("manifest.json").readBytes().toList())
       .isEqualTo(fixture.projectDir.resolve("db/releases/manifest.json").readBytes().toList())
     assertThat(root.resolve("3.sql").readText()).isEqualTo("SELECT 3\n")
@@ -52,11 +53,11 @@ class MigrationTestingTasksTest {
       .resolve("com/siimkinks/sqlitemagic/SqliteMagicMigrationDatabase.kt")
       .readText()
     assertThat(descriptor).contains("object SqliteMagicMigrationDatabase : MigrationDatabaseDescriptor")
-    assertThat(descriptor).contains("override val firstVersion: Int? = 2")
+    assertThat(descriptor).doesNotContain("firstVersion")
   }
 
   @Test
-  fun `new optional conventional SQL is copied validated and added to cache inputs`() {
+  fun `new optional conventional SQL is copied unchanged and added to cache inputs`() {
     val fixture = fixture()
     val manifestFile = fixture.projectDir.resolve("db/releases/manifest.json")
     val manifest = MigrationMetadataJson.readManifest(manifestFile.readText())
@@ -88,51 +89,63 @@ class MigrationTestingTasksTest {
     assertThat(root.resolve("2.sql").readText()).isEqualTo(script.readText())
 
     script.writeText("SELECT 1; SELECT 2\n")
-    val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
-    assertThat(failure.message).contains("2.sql at physical line 1")
+    fixture.task.prepare()
+    assertThat(root.resolve("2.sql").readText()).isEqualTo(script.readText())
   }
 
   @Test
-  fun `missing manifest identifies exact publication task and adoption baseline`() {
+  fun `missing manifest identifies exact publication and adoption tasks`() {
     val fixture = fixture()
     fixture.projectDir.resolve("db/releases/manifest.json").delete()
     val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
     assertThat(failure.message).contains(":app:migrateReleaseDb")
     assertThat(failure.message).contains(":app:generateSqliteMagicMigrationManifest")
-    assertThat(failure.message).contains("firstVersion")
   }
 
   @Test
-  fun `included incomplete schema fails instead of synthesizing history`() {
+  fun `incomplete current schema fails instead of synthesizing history`() {
     val fixture = fixture()
-    fixture.projectDir.resolve("db/releases/1.struct").writeText("malformed")
+    fixture.projectDir.resolve("db/releases/3.struct").writeText("malformed")
     val before = fixture.sourceBytes()
     val failure = assertThrows<org.gradle.api.GradleException>(fixture.task::prepare)
-    assertThat(failure.message).contains("Incomplete release schema 1")
+    assertThat(failure.message).contains("Incomplete current release schema 3")
     assertThat(fixture.sourceBytes().mapValues { it.value.toList() })
       .isEqualTo(before.mapValues { it.value.toList() })
   }
 
   @Test
-  fun `included malformed SQL fails through shared physical line reader`() {
+  fun `SQL validation is deferred until a test selects its migration range`() {
     val fixture = fixture()
-    fixture.task.firstVersion.set(2)
     fixture.projectDir.resolve("src/release/assets/3.sql").writeText("-- comment\n\nSELECT 1; SELECT 2;\n")
-    val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
-    assertThat(failure.message).contains("3.sql at physical line 3")
+    fixture.task.prepare()
+    val root = fixture.task.generatedResources.get().asFile.resolve(
+      migrationResourceRoot(
+        databaseId = ":app",
+        releaseVariant = "release"
+      )
+    )
+    assertThat(root.resolve("3.sql").readText()).isEqualTo("-- comment\n\nSELECT 1; SELECT 2;\n")
   }
 
   @Test
-  fun `required SQL rejects empty or comment-only source evidence`() {
-    mapOf("empty" to "", "comments" to "-- reviewed comment\n\n").forEach { (label, text) ->
-      val fixture = fixture(label)
-      fixture.projectDir.resolve("src/release/assets/3.sql").writeText(text)
+  fun `missing historical inputs remain cache inputs and do not prevent preparation`() {
+    val fixture = fixture()
+    val missing = listOf("db/releases/1.struct", "src/release/assets/2.sql")
+      .map(fixture.projectDir::resolve)
+    missing.forEach { check(it.delete()) }
 
-      val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
+    fixture.task.prepare()
 
-      assertWithMessage(label).that(failure.message).contains("Empty migration script 3.sql")
-      assertWithMessage(label).that(fixture.task.generatedResources.get().asFile.exists()).isFalse()
-    }
+    assertThat(fixture.task.committedInputs).containsAtLeastElementsIn(missing)
+    val root = fixture.task.generatedResources.get().asFile.resolve(
+      migrationResourceRoot(
+        databaseId = ":app",
+        releaseVariant = "release"
+      )
+    )
+    assertThat(root.resolve("schemas/1.struct").exists()).isFalse()
+    assertThat(root.resolve("2.sql").exists()).isFalse()
+    assertThat(root.resolve("schemas/3.struct").isFile).isTrue()
   }
 
   @Test

@@ -171,6 +171,65 @@ internal class MigrationTestingConsumerIntegrationTest {
     assertThat(releaseHashes(application))
       .isEqualTo(frozen)
 
+    println("Consumer migration fixture: selecting coverage in code while earlier history is unusable")
+    val oldSchema = application.resolve("db/releases/1.struct")
+    val oldScript = application.resolve("src/release/assets/2.sql")
+    val oldEvidence = listOf(oldSchema, oldScript).associateWith(File::readBytes)
+    val baselineTest = permanentTest.resolveSibling("BaselineMigrationTest.kt")
+    baselineTest.writeText(
+      """
+      package com.siimkinks.sqlitemagic
+
+      import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+      import com.google.common.truth.Truth.assertThat
+      import org.junit.jupiter.api.Test
+
+      class BaselineMigrationTest {
+        @Test
+        fun validatesFromCodeSelectedBaseline() {
+          SqliteMagicMigrationTestHelper(
+            descriptor = SqliteMagicMigrationDatabase,
+            driver = BundledSQLiteDriver()
+          ).use { helper ->
+            val report = helper.validateAllMigrations(fromVersion = 2)
+            assertThat(report).isEqualTo(
+              MigrationValidationReport(
+                databaseId = SqliteMagicMigrationDatabase.databaseId,
+                releaseVariant = "release",
+                baselineVersion = 2,
+                currentVersion = 3,
+                excludedVersions = listOf(1),
+                paths = listOf(
+                  MigrationValidationPath(
+                    fromVersion = 2,
+                    toVersion = 3
+                  )
+                ),
+                mode = MigrationValidationMode.EVERY_VERSION_TO_CURRENT,
+                driverImplementation = BundledSQLiteDriver::class.java.name,
+                sqliteVersion = report.sqliteVersion
+              )
+            )
+          }
+        }
+      }
+      """.trimIndent() + "\n"
+    )
+    try {
+      oldSchema.writeBytes(byteArrayOf(0xc3.toByte(), 0x28))
+      check(oldScript.delete())
+      val selectedEvidence = releaseHashes(application)
+      run(
+        project = project,
+        arguments = listOf(":app:testDebugUnitTest", "--tests", "*BaselineMigrationTest", "--configuration-cache")
+      )
+      assertThat(releaseHashes(application)).isEqualTo(selectedEvidence)
+    } finally {
+      oldEvidence.forEach { (file, bytes) -> file.writeBytes(bytes) }
+      check(baselineTest.delete())
+    }
+    assertThat(releaseHashes(application)).isEqualTo(frozen)
+
     val runtimeDependencies = run(
       project = project,
       arguments = listOf(":app:inspectMigrationConsumerRuntimeDependencies")

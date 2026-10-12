@@ -9,6 +9,5 @@ interface MigrationDatabaseDescriptor {
   val resourceRoot: String
   val manifestResource: String
   val currentSchemaResource: String
-  val firstVersion: Int?
   fun openResource(name: String): InputStream
 }
