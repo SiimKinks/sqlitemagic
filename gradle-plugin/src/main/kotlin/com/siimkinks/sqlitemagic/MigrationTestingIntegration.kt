@@ -30,7 +30,7 @@ internal fun configureMigrationTesting(
   val prepare by lazy {
     project.tasks.register("prepareSqliteMagicMigrationTests", PrepareSqliteMagicMigrationTests::class.java) { task ->
       task.group = "verification"
-      task.description = "Prepares immutable selected-release evidence for local JVM migration tests"
+      task.description = "Packages available selected-release evidence for local JVM migration tests"
       task.databaseId.set(project.path)
       task.releaseDirectory.set(project.layout.projectDirectory.dir("db/releases"))
       task.generatedSources.set(project.layout.buildDirectory.dir("sqlitemagic/migration-testing/sources"))

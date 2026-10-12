@@ -22,6 +22,7 @@ import com.siimkinks.sqlitemagic.migration.testing.SchemaComparator
 import com.siimkinks.sqlitemagic.migration.testing.SchemaIntrospector
 import com.siimkinks.sqlitemagic.migration.testing.createPersistentViews
 import java.io.ByteArrayInputStream
+import java.io.FileNotFoundException
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
@@ -44,6 +45,10 @@ class SqliteMagicMigrationTestHelper(
   private val connections = linkedMapOf<String, TestDatabase>()
   private var closed = false
   private var automaticRun = 0
+  private var currentEvidenceValidated = false
+
+  private val publicationAdvice
+    get() = "Run ${descriptor.migrationTaskPath}, review and commit its release inputs before migration tests."
 
   fun validateAllMigrations(
     mode: MigrationValidationMode = EVERY_VERSION_TO_CURRENT
@@ -187,7 +192,7 @@ class SqliteMagicMigrationTestHelper(
       transaction(connection = connection) {
         MigrationExecutor(
           resources = { resource ->
-            ByteArrayInputStream(resources[resource.name] ?: throw java.io.FileNotFoundException(resource.name))
+            ByteArrayInputStream(resources[resource.name] ?: throw FileNotFoundException(resource.name))
           },
           database = database
         ).execute(
@@ -252,11 +257,36 @@ class SqliteMagicMigrationTestHelper(
   private fun readManifest(): MigrationManifest = contextual(
     operation = "reading manifest ${descriptor.manifestResource}"
   ) {
-    val result = MigrationMetadataJson.readManifest(readText(descriptor.manifestResource))
+    val text = try {
+      readText(descriptor.manifestResource)
+    } catch (failure: FileNotFoundException) {
+      val projectPath = descriptor.migrationTaskPath.substringBeforeLast(
+        delimiter = ':',
+        missingDelimiterValue = ""
+      )
+      throw IllegalStateException(
+        "Missing migration manifest ${descriptor.manifestResource}. For an existing history, run " +
+            "$projectPath:generateSqliteMagicMigrationManifest, review and commit the manifest. " +
+            "For a new database, $publicationAdvice",
+        failure
+      )
+    }
+    val result = try {
+      MigrationMetadataJson.readManifest(text)
+    } catch (failure: Exception) {
+      throw IllegalStateException(
+        "Invalid migration manifest ${descriptor.manifestResource}. Restore or review the committed manifest. " +
+            publicationAdvice,
+        failure
+      )
+    }
     require(
-      result.databaseId == descriptor.databaseId && result.releaseVariant == descriptor.releaseVariant &&
-          result.currentVersion == descriptor.currentVersion
-    ) { "Manifest identity, selected release variant, or target version differs from generated descriptor" }
+      result.databaseId == descriptor.databaseId && result.releaseVariant == descriptor.releaseVariant
+    ) { "Manifest identity or selected release variant differs from generated descriptor. $publicationAdvice" }
+    require(result.currentVersion == descriptor.currentVersion) {
+      "Compiled selected release version ${descriptor.currentVersion} differs from published " +
+          "${result.currentVersion}. $publicationAdvice"
+    }
     result
   }
 
@@ -267,6 +297,7 @@ class SqliteMagicMigrationTestHelper(
     require(toVersion >= fromVersion) { "Invalid migration range $fromVersion -> $toVersion" }
     manifest.schema(fromVersion)
     manifest.schema(toVersion)
+    validateCurrentEvidence()
     versions
       .filter { it in fromVersion..toVersion }
       .forEach(::schema)
@@ -281,9 +312,14 @@ class SqliteMagicMigrationTestHelper(
   ) {
     MigrationMetadataJson.readSchema(readText(descriptor.currentSchemaResource))
       .also { snapshot ->
-        manifest.validateSchema(snapshot)
+        require(snapshot.databaseId == descriptor.databaseId && snapshot.releaseVariant == descriptor.releaseVariant) {
+          "Compiled selected release identity differs from generated descriptor. $publicationAdvice"
+        }
         require(snapshot.version == descriptor.currentVersion) {
-          "Compiled release export has the wrong target version"
+          "Compiled release export has the wrong target version. $publicationAdvice"
+        }
+        require(manifest.modules.containsAll(snapshot.modules)) {
+          "Compiled selected release modules differ from published evidence. $publicationAdvice"
         }
       }
   }
@@ -336,7 +372,7 @@ class SqliteMagicMigrationTestHelper(
       .forEach { resource ->
         val stream = try {
           descriptor.openResource(resource.name)
-        } catch (_: java.io.FileNotFoundException) {
+        } catch (_: FileNotFoundException) {
           null
         }
         stream?.let {
@@ -366,30 +402,50 @@ class SqliteMagicMigrationTestHelper(
     else -> schema(version)
   }
 
+  private fun validateCurrentEvidence() = contextual(operation = "checking published current release evidence") {
+    if (currentEvidenceValidated) return@contextual
+    val reference = manifest.schema(descriptor.currentVersion)
+    val current = try {
+      schema(descriptor.currentVersion)
+    } catch (failure: Exception) {
+      throw IllegalStateException(
+        "Missing or invalid current release snapshot ${reference.name}. Restore complete release evidence. " +
+            publicationAdvice,
+        failure
+      )
+    }
+    require(current.configuration == compiledCurrent.configuration && current.modules == compiledCurrent.modules) {
+      "Current snapshot configuration or module order differs from independent compiled release export. " +
+          publicationAdvice
+    }
+    require(
+      current.tableSql.toSet() == compiledCurrent.tableSql.toSet() &&
+          current.indexSql.toSet() == compiledCurrent.indexSql.toSet()
+    ) {
+      "Current release snapshot tables or indices differ from independent compiled release export. " +
+          "Advance the database version before publishing schema changes. $publicationAdvice"
+    }
+    val names = MigrationMetadataJson.structureViewNames(
+      text = readText(reference.name),
+      reference = reference
+    )
+    require(names.toSet() == compiledCurrent.views.map(MigrationViewSchema::name).toSet()) {
+      "Current snapshot view names differ from independent compiled release export. " +
+          "Advance the database version before publishing schema changes. $publicationAdvice"
+    }
+    currentEvidenceValidated = true
+  }
+
   private fun verifyCurrentSnapshot() = contextual(
     operation = "verifying current snapshot against compiled release export"
   ) {
     withFreshSchema(schema = schema(descriptor.currentVersion)) { committed ->
       withFreshSchema(schema = compiledCurrent.copy(views = emptyList())) { compiled ->
-        require(schema(descriptor.currentVersion).configuration == compiledCurrent.configuration) {
-          "Current snapshot configuration differs from independent compiled release export"
-        }
-        require(schema(descriptor.currentVersion).modules == compiledCurrent.modules) {
-          "Current snapshot module order differs from independent compiled release export"
-        }
         compareSchemas(
           expected = compiled,
           actual = committed,
           operation = "Current release snapshot is stale relative to the independent compiled release export"
         )
-        val reference = manifest.schema(descriptor.currentVersion)
-        val names = MigrationMetadataJson.structureViewNames(
-          text = readText(reference.name),
-          reference = reference
-        )
-        require(names.toSet() == compiledCurrent.views.map(MigrationViewSchema::name).toSet()) {
-          "Current snapshot view names differ from independent compiled release export"
-        }
         verifyIntegrity(compiled)
       }
     }

@@ -285,32 +285,97 @@ internal class MigrationTestingConsumerIntegrationTest {
     assertThat(releaseHashes(application))
       .isEqualTo(frozen)
 
-    println("Consumer migration fixture: refusing an unpublished selected release version")
-    applicationBuild.writeText(
-      configuredBuild(
-        original = initialBuild,
-        version = 4
+    val ordinaryTest = permanentTest.resolveSibling("OrdinaryUnitTest.kt")
+    ordinaryTest.writeText(
+      """
+      package com.siimkinks.sqlitemagic
+
+      import com.google.common.truth.Truth.assertThat
+      import org.junit.jupiter.api.Test
+
+      class OrdinaryUnitTest {
+        @Test
+        fun runsWithoutInstantiatingAMigrationHelper() {
+          assertThat(SqliteMagicMigrationDatabase.releaseVariant).isEqualTo("release")
+        }
+      }
+      """.trimIndent() + "\n"
+    )
+    val manifestFile = application.resolve("db/releases/manifest.json")
+    val currentStructure = application.resolve("db/releases/3.struct")
+    val currentEvidence = listOf(manifestFile, currentStructure).associateWith(File::readBytes)
+    val pendingModel = modelSource(3)
+      .replace(
+        oldValue = "val slug: String? = null",
+        newValue = "val slug: String? = null,\n  val pendingNote: String? = null"
       )
+    val cases = mapOf(
+      "schema changed without a version bump" to "Advance the database version",
+      "unpublished version" to "version 4 differs from published 3",
+      "missing manifest" to "Missing migration manifest",
+      "malformed manifest" to "Invalid migration manifest",
+      "missing current schema" to "Missing or invalid current release snapshot",
+      "malformed current schema" to "Missing or invalid current release snapshot"
     )
     try {
-      val failure = runner(
-        project = project,
-        arguments = listOf(":app:prepareSqliteMagicMigrationTests")
-      ).buildAndFail()
-      assertThat(failure.output)
-        .contains("migrateReleaseDb")
-      assertThat(failure.output)
-        .contains("4")
-      assertThat(releaseHashes(application))
-        .isEqualTo(frozen)
+      cases.forEach { (label, diagnostic) ->
+        println("Consumer migration fixture: ordinary tests run with $label; migration tests fail at execution")
+        currentEvidence.forEach { (file, bytes) -> file.writeBytes(bytes) }
+        applicationBuild.writeText(
+          configuredBuild(
+            original = initialBuild,
+            version = when (label) {
+              "unpublished version" -> 4
+              else -> 3
+            }
+          )
+        )
+        declaredModel.writeText(
+          when (label) {
+            "schema changed without a version bump", "unpublished version" -> pendingModel
+            else -> modelSource(3)
+          }
+        )
+        when (label) {
+          "missing manifest" -> check(manifestFile.delete())
+          "malformed manifest" -> manifestFile.writeText("malformed")
+          "missing current schema" -> check(currentStructure.delete())
+          "malformed current schema" -> currentStructure.writeText("malformed")
+        }
+        val pendingEvidence = releaseHashes(application)
+        val ordinary = run(
+          project = project,
+          arguments = listOf(":app:testDebugUnitTest", "--tests", "*OrdinaryUnitTest", "--configuration-cache")
+        )
+        assertThat(ordinary.task(":app:compileDebugUnitTestKotlin")?.outcome)
+          .isIn(setOf(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE, TaskOutcome.FROM_CACHE))
+        assertThat(ordinary.task(":app:testDebugUnitTest")?.outcome).isEqualTo(TaskOutcome.SUCCESS)
+        val failure = runner(
+          project = project,
+          arguments = listOf(":app:testDebugUnitTest", "--tests", "*DatabaseMigrationTest", "--configuration-cache")
+        ).buildAndFail()
+        assertThat(failure.task(":app:prepareSqliteMagicMigrationTests")?.outcome).isEqualTo(TaskOutcome.UP_TO_DATE)
+        assertThat(failure.task(":app:compileDebugUnitTestKotlin")?.outcome).isEqualTo(TaskOutcome.UP_TO_DATE)
+        assertThat(failure.task(":app:testDebugUnitTest")?.outcome).isEqualTo(TaskOutcome.FAILED)
+        val report = application
+          .resolve("build/test-results/testDebugUnitTest/TEST-com.siimkinks.sqlitemagic.DatabaseMigrationTest.xml")
+          .readText()
+        assertThat(report).contains(diagnostic)
+        assertThat(report).contains(":app:migrateReleaseDb")
+        assertThat(releaseHashes(application)).isEqualTo(pendingEvidence)
+      }
     } finally {
+      currentEvidence.forEach { (file, bytes) -> file.writeBytes(bytes) }
+      declaredModel.writeText(modelSource(3))
       applicationBuild.writeText(
         configuredBuild(
           original = initialBuild,
           version = 3
         )
       )
+      check(ordinaryTest.delete())
     }
+    assertThat(releaseHashes(application)).isEqualTo(frozen)
 
     applicationBuild.appendText(
       """

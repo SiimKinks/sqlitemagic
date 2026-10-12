@@ -107,16 +107,48 @@ class MigrationTestingTaskCacheTest {
   }
 
   @Test
-  fun `Gradle input validation preserves missing history remediation`() {
+  fun `preparation tolerates absent and corrupt manifests and notices repairs with configuration cache`() {
     val projectDir = directory.toFile()
     writeBuild(projectDir)
-    projectDir.resolve("compiled.schema.json").writeText("{}")
-    val result = GradleRunner.create()
-      .withProjectDir(projectDir)
-      .withArguments("prepareMigrationTests", "--configuration-cache", "--offline", "--stacktrace")
-      .buildAndFail()
-    assertThat(result.output).contains(":app:migrateReleaseDb")
-    assertThat(result.output).contains(":app:generateSqliteMagicMigrationManifest")
+    val compiled = ReleaseSchemaSnapshot(
+      formatVersion = 1,
+      databaseId = ":app",
+      releaseVariant = "release",
+      version = 1,
+      modules = listOf(":app"),
+      configuration = MigrationConfiguration(foreignKeysEnabled = false),
+      tableSql = emptyList(),
+      views = emptyList(),
+      indexSql = emptyList()
+    )
+    projectDir.resolve("compiled.schema.json").writeText(MigrationMetadataJson.writeSchema(compiled))
+    val manifest = projectDir.resolve("db/releases/manifest.json")
+    val root = projectDir.resolve("build/generated-resources").resolve(
+      migrationResourceRoot(
+        databaseId = ":app",
+        releaseVariant = "release"
+      )
+    )
+    listOf(null, "malformed", "repaired bytes", null)
+      .forEachIndexed { index, text ->
+        when (text) {
+          null -> manifest.delete()
+          else -> {
+            check(manifest.parentFile.isDirectory || manifest.parentFile.mkdirs())
+            manifest.writeText(text)
+          }
+        }
+        val result = GradleRunner.create()
+          .withProjectDir(projectDir)
+          .withArguments("prepareMigrationTests", "--configuration-cache", "--offline", "--stacktrace")
+          .build()
+        assertThat(result.task(":prepareMigrationTests")?.outcome).isEqualTo(TaskOutcome.SUCCESS)
+        when (text) {
+          null -> assertThat(root.resolve("manifest.json").exists()).isFalse()
+          else -> assertThat(root.resolve("manifest.json").readText()).isEqualTo(text)
+        }
+        if (index > 0) assertThat(result.output).contains("Reusing configuration cache")
+      }
   }
 
   private fun writeBuild(projectDir: File) {

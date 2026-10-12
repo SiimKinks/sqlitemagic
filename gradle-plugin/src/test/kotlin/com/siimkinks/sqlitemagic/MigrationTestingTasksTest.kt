@@ -94,23 +94,33 @@ class MigrationTestingTasksTest {
   }
 
   @Test
-  fun `missing manifest identifies exact publication and adoption tasks`() {
-    val fixture = fixture()
-    fixture.projectDir.resolve("db/releases/manifest.json").delete()
-    val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
-    assertThat(failure.message).contains(":app:migrateReleaseDb")
-    assertThat(failure.message).contains(":app:generateSqliteMagicMigrationManifest")
-  }
+  fun `missing or malformed current evidence does not prevent test source preparation`() {
+    listOf("missing manifest", "malformed manifest", "missing current schema", "malformed current schema")
+      .forEach { label ->
+        val fixture = fixture(label)
+        when (label) {
+          "missing manifest" -> check(fixture.projectDir.resolve("db/releases/manifest.json").delete())
+          "malformed manifest" -> fixture.projectDir.resolve("db/releases/manifest.json").writeText("malformed")
+          "missing current schema" -> check(fixture.projectDir.resolve("db/releases/3.struct").delete())
+          else -> fixture.projectDir.resolve("db/releases/3.struct").writeText("malformed")
+        }
+        val before = fixture.sourceBytes()
 
-  @Test
-  fun `incomplete current schema fails instead of synthesizing history`() {
-    val fixture = fixture()
-    fixture.projectDir.resolve("db/releases/3.struct").writeText("malformed")
-    val before = fixture.sourceBytes()
-    val failure = assertThrows<org.gradle.api.GradleException>(fixture.task::prepare)
-    assertThat(failure.message).contains("Incomplete current release schema 3")
-    assertThat(fixture.sourceBytes().mapValues { it.value.toList() })
-      .isEqualTo(before.mapValues { it.value.toList() })
+        fixture.task.prepare()
+
+        assertWithMessage(label)
+          .that(fixture.sourceBytes().mapValues { it.value.toList() })
+          .isEqualTo(before.mapValues { it.value.toList() })
+        val descriptor = fixture.task.generatedSources.get().asFile
+          .resolve("com/siimkinks/sqlitemagic/SqliteMagicMigrationDatabase.kt")
+          .readText()
+        assertWithMessage(label)
+          .that(descriptor)
+          .contains("override val currentVersion = 3")
+        assertWithMessage(label)
+          .that(descriptor)
+          .contains("override val migrationTaskPath = \":app:migrateReleaseDb\"")
+      }
   }
 
   @Test
@@ -128,7 +138,7 @@ class MigrationTestingTasksTest {
   }
 
   @Test
-  fun `missing historical inputs remain cache inputs and do not prevent preparation`() {
+  fun `restoring historical files changes cache inputs without preventing preparation`() {
     val fixture = fixture()
     val missing = listOf("db/releases/1.struct", "src/release/assets/2.sql")
       .map(fixture.projectDir::resolve)
@@ -136,7 +146,9 @@ class MigrationTestingTasksTest {
 
     fixture.task.prepare()
 
-    assertThat(fixture.task.committedInputs).containsAtLeastElementsIn(missing)
+    val inputs = fixture.task.committedInputs
+    missing.forEach { it.writeText("restored evidence") }
+    assertThat(fixture.task.committedInputs.toSet() - inputs.toSet()).containsExactlyElementsIn(missing)
     val root = fixture.task.generatedResources.get().asFile.resolve(
       migrationResourceRoot(
         databaseId = ":app",
@@ -149,20 +161,27 @@ class MigrationTestingTasksTest {
   }
 
   @Test
-  fun `schema and manifest identities must match selected history`() {
+  fun `descriptor identity follows selected project independently of published history`() {
     listOf("database", "variant").forEach { label ->
       val fixture = fixture(label)
       when (label) {
         "database" -> fixture.task.databaseId.set(":other")
         else -> fixture.task.releaseVariant.set("otherRelease")
       }
-      val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
-      assertThat(failure.message).contains("Published migration history belongs")
+      fixture.task.prepare()
+      val descriptor = fixture.task.generatedSources.get().asFile
+        .resolve("com/siimkinks/sqlitemagic/SqliteMagicMigrationDatabase.kt")
+        .readText()
+      val expected = when (label) {
+        "database" -> "override val databaseId = \":other\""
+        else -> "override val releaseVariant = \"otherRelease\""
+      }
+      assertWithMessage(label).that(descriptor).contains(expected)
     }
   }
 
   @Test
-  fun `preparation rejects same version table index and view name changes`() {
+  fun `preparation captures pending schema changes without rejecting unrelated tests`() {
     val published = schema(3)
     val cases = mapOf(
       "table" to published.copy(tableSql = listOf("CREATE TABLE sample (id INTEGER PRIMARY KEY, name TEXT)")),
@@ -179,9 +198,36 @@ class MigrationTestingTasksTest {
     cases.forEach { (label, compiled) ->
       val fixture = fixture(label)
       fixture.projectDir.resolve("compiled.schema.json").writeText(MigrationMetadataJson.writeSchema(compiled))
-      val failure = assertThrows<IllegalStateException>(fixture.task::prepare)
-      assertWithMessage(label).that(failure.message).contains("published current .struct")
+      fixture.task.prepare()
+      val root = fixture.task.generatedResources.get().asFile.resolve(
+        migrationResourceRoot(
+          databaseId = ":app",
+          releaseVariant = "release"
+        )
+      )
+      assertWithMessage(label)
+        .that(MigrationMetadataJson.readSchema(root.resolve("current.schema.json").readText()))
+        .isEqualTo(compiled)
     }
+  }
+
+  @Test
+  fun `descriptor targets the compiled pending version before release publication`() {
+    val fixture = fixture()
+    val pending = schema(4)
+    fixture.projectDir
+      .resolve("compiled.schema.json")
+      .writeText(MigrationMetadataJson.writeSchema(pending))
+    val before = fixture.sourceBytes()
+
+    fixture.task.prepare()
+
+    assertThat(fixture.sourceBytes().mapValues { it.value.toList() })
+      .isEqualTo(before.mapValues { it.value.toList() })
+    val descriptor = fixture.task.generatedSources.get().asFile
+      .resolve("com/siimkinks/sqlitemagic/SqliteMagicMigrationDatabase.kt")
+      .readText()
+    assertThat(descriptor).contains("override val currentVersion = 4")
   }
 
   @Test

@@ -23,6 +23,87 @@ import java.nio.file.Path
 
 class SqliteMagicMigrationTestHelperTest {
   @Test
+  fun `unpublished schema changes fail migration validation before SQLite opens`() {
+    val published = MigrationMetadataJson.readSchema(history().text("compiled.json"))
+    val cases = mapOf(
+      "table" to published.copy(tableSql = listOf("CREATE TABLE person(id INTEGER PRIMARY KEY)")),
+      "index" to published.copy(indexSql = emptyList()),
+      "view" to published.copy(views = emptyList()),
+      "configuration" to published.copy(configuration = MigrationConfiguration(foreignKeysEnabled = false)),
+      "new module" to published.copy(modules = listOf("Feature", "example"))
+    )
+    cases.forEach { (label, compiled) ->
+      val descriptor = history()
+      descriptor.resources["compiled.json"] = MigrationMetadataJson.writeSchema(compiled).toByteArray()
+      val driver = RecordingDriver()
+
+      val failure = assertThrows(IllegalStateException::class.java) {
+        SqliteMagicMigrationTestHelper(
+          descriptor = descriptor,
+          driver = driver
+        ).use { it.validateAllMigrations(fromVersion = 3) }
+      }
+
+      assertWithMessage(label)
+        .that(failure.message)
+        .contains("migrateReleaseDb")
+      assertWithMessage(label)
+        .that(driver.paths)
+        .isEmpty()
+    }
+  }
+
+  @Test
+  fun `pending version is rejected with publication guidance before SQLite opens`() {
+    val history = history()
+    val compiled = MigrationMetadataJson
+      .readSchema(history.text("compiled.json"))
+      .copy(version = 4)
+    history.resources["compiled.json"] = MigrationMetadataJson.writeSchema(compiled).toByteArray()
+    val descriptor = object : MigrationDatabaseDescriptor by history {
+      override val currentVersion = 4
+      override val migrationTaskPath = ":app:migrateEeReleaseDb"
+    }
+    val driver = RecordingDriver()
+
+    val failure = assertThrows(IllegalStateException::class.java) {
+      SqliteMagicMigrationTestHelper(
+        descriptor = descriptor,
+        driver = driver
+      ).use(
+        SqliteMagicMigrationTestHelper::validateAllMigrations
+      )
+    }
+
+    assertThat(failure.message).contains("version 4 differs from published 3")
+    assertThat(failure.message).contains(":app:migrateEeReleaseDb")
+    assertThat(driver.paths).isEmpty()
+  }
+
+  @Test
+  fun `missing manifest reports the exact adoption and publication tasks`() {
+    val history = history()
+    history.resources.remove("manifest.json")
+    val descriptor = object : MigrationDatabaseDescriptor by history {
+      override val migrationTaskPath = ":app:migrateEeReleaseDb"
+    }
+    val driver = RecordingDriver()
+
+    val failure = assertThrows(IllegalStateException::class.java) {
+      SqliteMagicMigrationTestHelper(
+        descriptor = descriptor,
+        driver = driver
+      ).use(
+        SqliteMagicMigrationTestHelper::validateAllMigrations
+      )
+    }
+
+    assertThat(failure.message).contains(":app:generateSqliteMagicMigrationManifest")
+    assertThat(failure.message).contains(":app:migrateEeReleaseDb")
+    assertThat(driver.paths).isEmpty()
+  }
+
+  @Test
   fun `adopted legacy view names support complete native migration validation in every mode`() {
     val cases = mapOf(
       MigrationValidationMode.EVERY_VERSION_TO_CURRENT to listOf(
