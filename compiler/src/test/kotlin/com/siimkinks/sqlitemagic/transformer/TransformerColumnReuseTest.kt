@@ -64,8 +64,12 @@ internal class TransformerColumnReuseTest : ProcessingStepsTest {
       )
       .isOk()
 
-    provider
-      .compile(databaseWithEmailTransformer())
+    SqliteMagicCompilation
+      .compile(
+        databaseWithEmailTransformer(),
+        classpaths = listOf(provider.result.outputDirectory),
+        processingStepsFactory = ::transformerCodeGenerationProcessingSteps
+      )
       .isOk()
       .assertGeneratedSources("EmailColumn.kt")
   }
@@ -88,8 +92,12 @@ internal class TransformerColumnReuseTest : ProcessingStepsTest {
       )
       .isOk()
 
-    provider
-      .compile(databaseWithEmailTransformer())
+    SqliteMagicCompilation
+      .compile(
+        databaseWithEmailTransformer(),
+        classpaths = listOf(provider.result.outputDirectory),
+        processingStepsFactory = ::transformerCodeGenerationProcessingSteps
+      )
       .isOk()
       .assertNotGeneratedSources("EmailColumn.kt")
   }

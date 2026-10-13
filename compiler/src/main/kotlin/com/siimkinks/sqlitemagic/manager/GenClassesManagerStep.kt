@@ -19,6 +19,11 @@ import java.io.IOException
 class GenClassesManagerStep(
   private val environment: Environment
 ) : ProcessingStep {
+  // Every originating file is associated with the manager, so finish() must write it. Otherwise incremental KSP fails
+  // when restoring the never-written manager from its backups. Paths are kept because KSP2 invalidates KSFiles after
+  // their round.
+  private val originatingFilePaths = linkedSetOf<String>()
+
   override fun process(resolver: Resolver): ProcessingStepResult {
     val originatingFiles = MANAGER_ROOT_ANNOTATIONS
       .asSequence()
@@ -28,6 +33,10 @@ class GenClassesManagerStep(
       .distinctBy(KSFile::filePath)
       .toList()
     if (originatingFiles.isNotEmpty()) {
+      originatingFiles.mapTo(
+        destination = originatingFilePaths,
+        transform = KSFile::filePath
+      )
       val databaseClassName = environment.getGenClassesManagerClassName()
       environment.codeGenerator.associate(
         sources = originatingFiles,
@@ -40,7 +49,17 @@ class GenClassesManagerStep(
 
   override fun finish(): ProcessingStepResult {
     val database = GeneratedDatabaseElement.from(environment)
-    if (!database.shouldGenerate) return Continue
+    if (!database.shouldGenerate) {
+      if (originatingFilePaths.isEmpty()) return Continue
+      environment.logger.error(
+        message = buildString {
+          append("SqliteMagic annotations require at least one @Table or @View in the same module ")
+          append("(or @Database submodules). Remove the annotations or move them to a module with tables: ")
+          append(originatingFilePaths.joinToString())
+        }
+      )
+      return Failed
+    }
     return try {
       val orderedTables = CreationOrderedTables.from(database.tables)
       val currentStructure = DatabaseStructure.from(

@@ -18,6 +18,9 @@ import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -179,6 +182,26 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "FeatureGeneratedClassesManager.columnForValueOrNull(className = className, input = input)"
         )
       }
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("modulesWithoutManagerContents")
+  fun `rejects SqliteMagic annotations in a module without manager contents`(
+    fileName: String,
+    contents: String
+  ) {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = fileName,
+          contents = contents
+        )
+      )
+      .assertCompilationError(
+        "SqliteMagic annotations require at least one @Table or @View in the same module",
+        fileName
+      )
+      .assertNotGeneratedSources("FeatureGeneratedClassesManager.kt", "SqliteMagicDatabase.kt")
   }
 
   @Test
@@ -365,6 +388,42 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       data class Contact(val name: String)
     """
   )
+
+  companion object {
+    @JvmStatic
+    fun modulesWithoutManagerContents() = listOf(
+      Arguments.of(
+        "EmptyFeatureDatabase.kt",
+        """
+          package $PACKAGE
+
+          import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
+
+          @SubmoduleDatabase("feature")
+          class FeatureDatabase
+        """
+      ),
+      Arguments.of(
+        "TransformersOnly.kt",
+        """
+          package $PACKAGE
+
+          import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+          import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+          data class Token(val value: String)
+
+          object TokenTransformers {
+            @ObjectToDbValue
+            fun toDatabaseValue(value: Token): String = value.value
+
+            @DbValueToObject
+            fun fromDatabaseValue(value: String): Token = Token(value)
+          }
+        """
+      )
+    )
+  }
 }
 
 private class LateTableGenerationStep(
