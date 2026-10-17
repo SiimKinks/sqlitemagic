@@ -6,8 +6,10 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 usage() {
-  printf 'Usage: %s [--clean] [all | SUITE ...]\n       %s --help\n' "${0##*/}" "${0##*/}"
+  printf 'Usage: %s [--clean] [--fresh] [all | SUITE ...]\n       %s --help\n' "${0##*/}" "${0##*/}"
   printf 'No arguments or all runs every suite; otherwise combine any suite selectors.\n'
+  printf 'Runs use incremental task checks and the Gradle build cache by default.\n'
+  printf '  --fresh                   Rerun tasks and disable the build cache for this run\n'
   printf '  compiler                  Compiler JVM tests\n'
   printf '  runtime                   Runtime JVM tests\n'
   printf '  gradle-plugin             Gradle plugin unit and consumer integration tests\n'
@@ -17,6 +19,7 @@ usage() {
   printf '  android                   sqlitemagic-tests connected Android tests\n'
   printf '  sample                    Sample JVM tests, debug assembly, and lint\n'
   printf '  sample-android            Sample connected Android tests\n'
+  printf '  --init-script FILE        Apply a Gradle init script, including focused test filters\n'
   printf 'Examples: %s runtime gradle-plugin-unit; %s gradle-plugin-integration\n' \
       "${0##*/}" "${0##*/}"
   printf '%s --clean removes saved run logs and test results/reports without running tests.\n' "${0##*/}"
@@ -43,12 +46,26 @@ select_android=0
 select_sample=0
 select_sample_android=0
 clean_results=0
+fresh_run=0
+gradle_init_scripts=()
 if [ "$#" -eq 0 ]; then
   select_all=1
 fi
-for selector in "$@"; do
+while [ "$#" -gt 0 ]; do
+  selector="$1"
+  shift
   case "$selector" in
     --clean) clean_results=1 ;;
+    --fresh) fresh_run=1 ;;
+    --init-script)
+      if [ "$#" -eq 0 ] || [ ! -f "$1" ]; then
+        printf '%s requires an existing Gradle init script.\n' "$selector" >&2
+        exit 2
+      fi
+      init_directory=$(cd -- "$(dirname -- "$1")" && pwd) || exit 1
+      gradle_init_scripts+=(--init-script "$init_directory/$(basename -- "$1")")
+      shift
+      ;;
     all) select_all=1 ;;
     compiler) select_compiler=1 ;;
     runtime) select_runtime=1 ;;
@@ -69,6 +86,19 @@ for selector in "$@"; do
       ;;
   esac
 done
+
+if [ "$fresh_run" -eq 1 ] && [ "$clean_results" -eq 0 ] \
+    && [ "$((select_all + select_compiler + select_runtime + select_plugin_unit + select_plugin_integration \
+        + select_consumer + select_android + select_sample + select_sample_android))" -eq 0 ]; then
+  select_all=1
+fi
+
+run_options=(--continue --console=plain)
+if [ "$fresh_run" -eq 1 ]; then
+  run_options+=(--rerun-tasks --no-build-cache)
+else
+  run_options+=(--build-cache)
+fi
 
 root_tasks=()
 nested_tasks=()
@@ -138,7 +168,11 @@ run_phase() {
   printf '\nRunning %s; log: %s/%s.log\n' "$name" "$run_dir" "$name"
   (
     cd -- "$project_dir" || exit 1
-    ./gradlew "$@"
+    if [ "${#gradle_init_scripts[@]}" -gt 0 ]; then
+      ./gradlew "${gradle_init_scripts[@]}" "$@"
+    else
+      ./gradlew "$@"
+    fi
   ) 2>&1 | tee "$run_dir/$name.log"
   local statuses=("${PIPESTATUS[@]}")
   if [ "${statuses[0]}" -ne 0 ]; then
@@ -243,7 +277,7 @@ sample_status='NOT SELECTED'
 exit_status=0
 
 if [ "${#nested_tasks[@]}" -gt 0 ] || [ "${#sample_tasks[@]}" -gt 0 ]; then
-  if run_phase publish "$repo_root" publishToMavenLocal --continue --console=plain; then
+  if run_phase publish "$repo_root" publishToMavenLocal "${run_options[@]}"; then
     publication_status=PASS
   else
     publication_status=FAIL
@@ -252,8 +286,7 @@ if [ "${#nested_tasks[@]}" -gt 0 ] || [ "${#sample_tasks[@]}" -gt 0 ]; then
 fi
 
 if [ "${#root_tasks[@]}" -gt 0 ]; then
-  if run_phase root-tests "$repo_root" "${root_tasks[@]}" \
-      --continue --rerun-tasks --no-build-cache --console=plain; then
+  if run_phase root-tests "$repo_root" "${root_tasks[@]}" "${run_options[@]}"; then
     root_status=PASS
   else
     root_status=FAIL
@@ -267,8 +300,7 @@ if [ "${#nested_tasks[@]}" -gt 0 ]; then
     if [ "$select_android" -eq 1 ]; then
       touch "$android_connected_marker" || exit 1
     fi
-    if run_phase android-tests "$repo_root/sqlitemagic-tests" "${nested_tasks[@]}" \
-        --continue --rerun-tasks --no-build-cache --console=plain; then
+    if run_phase android-tests "$repo_root/sqlitemagic-tests" "${nested_tasks[@]}" "${run_options[@]}"; then
       nested_status=PASS
     else
       nested_status=FAIL
@@ -292,8 +324,7 @@ if [ "${#sample_tasks[@]}" -gt 0 ]; then
     if [ "$select_sample_android" -eq 1 ]; then
       touch "$sample_connected_marker" || exit 1
     fi
-    if run_phase sample-tests "$repo_root/sqlitemagic-sample" "${sample_tasks[@]}" \
-        --continue --rerun-tasks --no-build-cache --console=plain; then
+    if run_phase sample-tests "$repo_root/sqlitemagic-sample" "${sample_tasks[@]}" "${run_options[@]}"; then
       sample_status=PASS
     else
       sample_status=FAIL

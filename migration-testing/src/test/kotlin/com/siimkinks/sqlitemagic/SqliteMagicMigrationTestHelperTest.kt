@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic
 
+import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertThat
@@ -35,7 +36,7 @@ class SqliteMagicMigrationTestHelperTest {
     cases.forEach { (label, compiled) ->
       val descriptor = history()
       descriptor.resources["compiled.json"] = MigrationMetadataJson.writeSchema(compiled).toByteArray()
-      val driver = RecordingDriver()
+      val driver = PreflightDriver()
 
       val failure = assertThrows(IllegalStateException::class.java) {
         SqliteMagicMigrationTestHelper(
@@ -64,7 +65,7 @@ class SqliteMagicMigrationTestHelperTest {
       override val currentVersion = 4
       override val migrationTaskPath = ":app:migrateEeReleaseDb"
     }
-    val driver = RecordingDriver()
+    val driver = PreflightDriver()
 
     val failure = assertThrows(IllegalStateException::class.java) {
       SqliteMagicMigrationTestHelper(
@@ -87,7 +88,7 @@ class SqliteMagicMigrationTestHelperTest {
     val descriptor = object : MigrationDatabaseDescriptor by history {
       override val migrationTaskPath = ":app:migrateEeReleaseDb"
     }
-    val driver = RecordingDriver()
+    val driver = PreflightDriver()
 
     val failure = assertThrows(IllegalStateException::class.java) {
       SqliteMagicMigrationTestHelper(
@@ -322,7 +323,7 @@ class SqliteMagicMigrationTestHelperTest {
       descriptor.resources["manifest.json"] = MigrationMetadataJson
         .writeManifest(manifest.copy(schemas = manifest.schemas.filter { it.version != 2 }))
         .toByteArray()
-      val driver = RecordingDriver()
+      val driver = PreflightDriver()
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
         driver = driver
@@ -678,7 +679,7 @@ class SqliteMagicMigrationTestHelperTest {
     val manifest = MigrationMetadataJson.readManifest(descriptor.text("manifest.json"))
       .let { it.copy(steps = it.steps.drop(1)) }
     descriptor.resources["manifest.json"] = MigrationMetadataJson.writeManifest(manifest).toByteArray()
-    val driver = RecordingDriver()
+    val driver = PreflightDriver()
     val failure = assertThrows(IllegalStateException::class.java) {
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
@@ -744,7 +745,7 @@ class SqliteMagicMigrationTestHelperTest {
           else -> history.openResource(name)
         }
       }
-      val driver = RecordingDriver()
+      val driver = PreflightDriver()
       val failure = assertThrows(IllegalStateException::class.java) {
         SqliteMagicMigrationTestHelper(
           descriptor = descriptor,
@@ -762,7 +763,7 @@ class SqliteMagicMigrationTestHelperTest {
   fun `missing manifest SQL reports its step before any driver opens`() {
     val descriptor = history()
     descriptor.resources.remove("3.sql")
-    val driver = RecordingDriver()
+    val driver = PreflightDriver()
     val failure = assertThrows(IllegalStateException::class.java) {
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
@@ -820,7 +821,7 @@ class SqliteMagicMigrationTestHelperTest {
     val descriptor = history()
     descriptor.resources["2.sql"] = "\nUPDATE person SET name=upper(name)\nCOMMIT;\n".toByteArray()
     descriptor.resources["3.sql"] = "BROKEN_SQL\n".toByteArray()
-    val driver = RecordingDriver()
+    val driver = PreflightDriver()
     val failure = assertThrows(IllegalStateException::class.java) {
       SqliteMagicMigrationTestHelper(
         descriptor = descriptor,
@@ -1086,11 +1087,21 @@ class SqliteMagicMigrationTestHelperTest {
     fun text(name: String) = resources.getValue(name).toString(Charsets.UTF_8)
   }
 
+  private class PreflightDriver : SQLiteDriver {
+    val paths: List<Path> field = mutableListOf()
+
+    override fun open(fileName: String): SQLiteConnection {
+      paths.add(Path.of(fileName))
+      throw AssertionError("Unexpected SQLite open during preflight: $fileName")
+    }
+  }
+
   private class RecordingDriver : SQLiteDriver {
     val paths: List<Path> field = mutableListOf()
     private val delegate = BundledSQLiteDriver()
 
-    override fun open(fileName: String) = delegate.open(fileName)
+    override fun open(fileName: String) = delegate
+      .open(fileName)
       .also { paths.add(Path.of(fileName)) }
   }
 }

@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.PlainKotlinCompilation
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -69,7 +71,7 @@ internal class RuntimeDslClauseSequencingContractTest {
     compile(expression).assertCompilationError(symbol)
   }
 
-  private fun compile(expression: String) = SqliteMagicCompilation
+  private fun compile(expression: String) = PlainKotlinCompilation
     .compile(
       SourceFile.kotlin(
         name = "ClauseSequencingConsumer.kt",
@@ -83,7 +85,6 @@ internal class RuntimeDslClauseSequencingContractTest {
             column: NumericColumn<Int, Int, Number, Any, NotNullable>
           ) = $expression
         """
-      ),
-      processingStepsFactory = null
+      )
     )
 }

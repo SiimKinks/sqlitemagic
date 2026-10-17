@@ -31,8 +31,7 @@ data class ProcessorCompilationResult(
   fun assertCompilationError(
     vararg messages: String
   ) = apply {
-    hasExitCode(COMPILATION_ERROR)
-    messages.forEach(this::hasMessage)
+    result.assertCompilationError(*messages)
   }
 
   fun assertGeneratedSource(
@@ -81,4 +80,9 @@ fun CompilationResult.isOk() = hasExitCode(OK)
 
 fun CompilationResult.hasMessage(message: String) = apply {
   assertThat(messages).contains(message)
+}
+
+fun CompilationResult.assertCompilationError(vararg messages: String) = apply {
+  hasExitCode(COMPILATION_ERROR)
+  messages.forEach(this::hasMessage)
 }

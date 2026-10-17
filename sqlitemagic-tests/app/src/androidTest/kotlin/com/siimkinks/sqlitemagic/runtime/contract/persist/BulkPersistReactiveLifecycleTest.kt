@@ -10,7 +10,6 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
@@ -70,13 +69,13 @@ class BulkPersistReactiveLifecycleTest(
     modelCase: BulkPersistModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    seedRows(
+    val originalValues = seedRows(
       modelCase = modelCase,
       count = 1
     )
     val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     val updatedValue = modelCase.updatedValue(
-      value = captureRows(table = modelCase.table).single(),
+      value = originalValues.single(),
       sequence = 2
     )
     val values = listOf(
@@ -106,13 +105,13 @@ class BulkPersistReactiveLifecycleTest(
     modelCase: RecursiveBulkPersistModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    seedRows(
+    val originalValues = seedRows(
       modelCase = modelCase,
       count = 1
     )
     val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     val updatedValue = modelCase.updatedValue(
-      value = captureRows(table = modelCase.table).single(),
+      value = originalValues.single(),
       sequence = 2
     )
     val values = listOf(
@@ -169,11 +168,10 @@ class BulkPersistReactiveLifecycleTest(
     modelCase: BulkPersistModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    seedRows(
+    val originalValues = seedRows(
       modelCase = modelCase,
       count = 2
     )
-    val originalValues = captureRows(table = modelCase.table)
     val firstValues = mixedValues(
       modelCase = modelCase,
       existing = captureRows(table = modelCase.table)[0],
@@ -199,9 +197,8 @@ class BulkPersistReactiveLifecycleTest(
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(1)
     val firstActual = captureRows(table = modelCase.table)
-    assertRowsIgnoringOrder(
-      table = modelCase.table,
-      expected = expectedMixedParents(
+    assertThat(firstActual).containsExactlyElementsIn(
+      expectedMixedParents(
         modelCase = modelCase,
         before = originalValues,
         updatedIndex = 0,
@@ -216,9 +213,8 @@ class BulkPersistReactiveLifecycleTest(
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(2)
     val secondActual = captureRows(table = modelCase.table)
-    assertRowsIgnoringOrder(
-      table = modelCase.table,
-      expected = expectedMixedParents(
+    assertThat(secondActual).containsExactlyElementsIn(
+      expectedMixedParents(
         modelCase = modelCase,
         before = firstActual,
         updatedIndex = 0,
@@ -233,11 +229,10 @@ class BulkPersistReactiveLifecycleTest(
     modelCase: RecursiveBulkPersistModelCase<T>,
     conflictAlgorithm: Int
   ) {
-    seedRows(
+    val originalValues = seedRows(
       modelCase = modelCase,
       count = 2
     )
-    val originalValues = captureRows(table = modelCase.table)
     val firstValues = mixedValues(
       modelCase = modelCase,
       existing = captureRows(table = modelCase.table)[0],
@@ -354,9 +349,8 @@ class BulkPersistReactiveLifecycleTest(
       .assertResult()
 
     val actual = captureRows(table = modelCase.table)
-    assertRowsIgnoringOrder(
-      table = modelCase.table,
-      expected = expectedChainedParents(
+    assertThat(actual).containsExactlyElementsIn(
+      expectedChainedParents(
         modelCase = modelCase,
         before = originalValues,
         firstUpdatedValue = firstValues[0],

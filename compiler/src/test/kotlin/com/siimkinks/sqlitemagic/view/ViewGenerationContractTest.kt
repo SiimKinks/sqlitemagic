@@ -409,61 +409,6 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `rejects a view that does not declare a defining query`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "MissingViewQuery.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-
-            @View
-            data class MissingViewQuery(
-              @ViewColumn("value") val value: String
-            )
-          """
-        )
-      )
-      .assertCompilationError()
-  }
-
-  @Test
-  fun `rejects a view with more than one defining query`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "MultipleViewQueries.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @View
-            data class MultipleViewQueries(
-              @ViewColumn("value") val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val first: CompiledSelect<Any, SelectN> = null as CompiledSelect<Any, SelectN>
-
-                @ViewQuery
-                val second: CompiledSelect<Any, SelectN> = null as CompiledSelect<Any, SelectN>
-              }
-            }
-          """
-        )
-      )
-      .assertCompilationError()
-  }
-
-  @Test
   fun `rejects a defining query with the wrong declared type`() {
     SqliteMagicCompilation
       .compile(

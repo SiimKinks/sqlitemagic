@@ -12,13 +12,14 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
   override val processingSteps = ::modelProcessingSteps
 
   @Test
-  fun `constructs non-recursive operation builders from shared runtime support`() {
+  fun `generates shared operation builders and String ID cursor readers`() {
     SqliteMagicCompilation
       .compile(libraryBookSource())
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_LibraryBook_Adapter.kt",
-        "_LibraryBook.kt"
+        "_LibraryBook.kt",
+        "SqliteMagic_LibraryBook_Dao.kt"
       )
       .withGeneratedSource("SqliteMagic_LibraryBook_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -52,6 +53,18 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
         )
         generatedSource.assertDoesNotContain(
           "entities = listOf(this)"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "val effectiveTableName = tableName ?: \"library_books\"",
+          "val thisTableOffset = columns.getOrNull(effectiveTableName)",
+          "val columnIndex0 = thisTableOffset ?: columns.getOrNull(",
+          "\"\"\"\$effectiveTableName.book_key\"\"\"",
+          "val columnIndex1 = thisTableOffset?.plus(1) ?: columns.getOrNull(",
+          "\"\"\"\$effectiveTableName.title_text\"\"\"",
+          "fun newInstanceWithOnlyId(id: String): LibraryBook",
+          "bindString"
         )
       }
   }
@@ -267,38 +280,6 @@ internal class ModelGenerationContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "internal fun LibraryBook.insert()",
           "internal object LibraryBooks"
-        )
-      }
-  }
-
-  @Test
-  fun `parses a selected whole table from its recorded cursor offset`() {
-    SqliteMagicCompilation
-      .compile(libraryBookSource())
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_LibraryBook_Dao.kt")
-      .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "val effectiveTableName = tableName ?: \"library_books\"",
-          "val thisTableOffset = columns.getOrNull(effectiveTableName)",
-          "val columnIndex0 = thisTableOffset ?: columns.getOrNull(",
-          "\"\"\"\$effectiveTableName.book_key\"\"\"",
-          "val columnIndex1 = thisTableOffset?.plus(1) ?: columns.getOrNull(",
-          "\"\"\"\$effectiveTableName.title_text\"\"\""
-        )
-      }
-  }
-
-  @Test
-  fun `preserves String ID types throughout generated declarations`() {
-    SqliteMagicCompilation
-      .compile(libraryBookSource())
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_LibraryBook_Dao.kt")
-      .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "fun newInstanceWithOnlyId(id: String): LibraryBook",
-          "bindString"
         )
       }
   }

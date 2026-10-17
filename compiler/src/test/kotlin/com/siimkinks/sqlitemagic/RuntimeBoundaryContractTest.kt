@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic
 
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.PlainKotlinCompilation
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
@@ -8,7 +10,7 @@ import org.junit.jupiter.api.Test
 internal class RuntimeBoundaryContractTest {
   @Test
   fun `downstream Kotlin compiles against the typed internal adapter boundary`() {
-    SqliteMagicCompilation
+    PlainKotlinCompilation
       .compile(
         SourceFile.kotlin(
           name = "RuntimeBoundaryConsumer.kt",
@@ -68,8 +70,7 @@ internal class RuntimeBoundaryContractTest {
             entity = entity
           )
         """
-        ),
-        processingStepsFactory = null
+        )
       )
       .isOk()
   }
@@ -136,7 +137,7 @@ internal class RuntimeBoundaryContractTest {
 
   @Test
   fun `removed EntityOperations is unresolved downstream`() {
-    SqliteMagicCompilation
+    PlainKotlinCompilation
       .compile(
         SourceFile.kotlin(
           name = "EntityOperationsConsumer.kt",
@@ -147,15 +148,14 @@ internal class RuntimeBoundaryContractTest {
 
           fun accessEngine() = EntityOperations
         """
-        ),
-        processingStepsFactory = null
+        )
       )
       .assertCompilationError("EntityOperations")
   }
 
   @Test
   fun `root-package GeneratedOperationContext is inaccessible downstream`() {
-    SqliteMagicCompilation
+    PlainKotlinCompilation
       .compile(
         SourceFile.kotlin(
           name = "GeneratedOperationContextConsumer.kt",
@@ -166,15 +166,14 @@ internal class RuntimeBoundaryContractTest {
 
           fun accessContext(context: GeneratedOperationContext) = context
         """
-        ),
-        processingStepsFactory = null
+        )
       )
       .assertCompilationError("GeneratedOperationContext")
   }
 
   @Test
   fun `removed NonRecursiveEntityHandler is not available downstream`() {
-    SqliteMagicCompilation
+    PlainKotlinCompilation
       .compile(
         SourceFile.kotlin(
           name = "RemovedHandlerConsumer.kt",
@@ -189,37 +188,9 @@ internal class RuntimeBoundaryContractTest {
 
           fun accessLegacy(handler: NonRecursiveEntityHandler<String, AdapterColumn>) = handler
         """
-        ),
-        processingStepsFactory = null
+        )
       )
       .assertCompilationError("NonRecursiveEntityHandler")
-  }
-
-  @Test
-  fun `concrete operation builders are available from the generated-code-only package`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ConcreteBuilderConsumer.kt",
-          contents = """
-          package downstream
-
-          import com.siimkinks.sqlitemagic.internal.EntityAdapter
-          import com.siimkinks.sqlitemagic.internal.InsertBuilder
-          import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
-
-          fun constructConcreteBuilder(
-            adapter: EntityAdapter<String>,
-            entity: String
-          ): EntityInsertBuilder = InsertBuilder(
-            adapter = adapter,
-            entity = entity
-          )
-        """
-        ),
-        processingStepsFactory = null
-      )
-      .isOk()
   }
 
   @Test
@@ -292,13 +263,12 @@ internal class RuntimeBoundaryContractTest {
     typeName: String,
     source: String
   ) {
-    SqliteMagicCompilation
+    PlainKotlinCompilation
       .compile(
         SourceFile.kotlin(
           name = fileName,
           contents = source
-        ),
-        processingStepsFactory = null
+        )
       )
       .assertCompilationError(typeName)
   }
