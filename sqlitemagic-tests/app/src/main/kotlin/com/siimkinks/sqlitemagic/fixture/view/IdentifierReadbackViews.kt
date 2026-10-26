@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic.fixture.view
 
-import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.annotation.ViewQuery
@@ -13,10 +12,9 @@ data class DottedIdentifierView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -26,23 +24,21 @@ data class SpacedIdentifierView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
-@View("report\"quote")
+@View("""report"quote""")
 data class QuotedIdentifierView(
   @ViewColumn("name") val name: String
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -52,10 +48,9 @@ data class KeywordIdentifierView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -65,10 +60,9 @@ data class PunctuationIdentifierView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -78,10 +72,9 @@ data class NonbreakingSpaceIdentifierView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -91,10 +84,9 @@ data class HyphenIdentifierView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -104,9 +96,8 @@ data class AccentedIdentifierView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }

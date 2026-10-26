@@ -1,44 +1,22 @@
 package com.siimkinks.sqlitemagic.model
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
-internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
-
-  @Test
-  fun `generates nested non-inner table models`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "NestedTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            class ModelContainer {
-              @Table
-              class NestedTable(val value: String)
-            }
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_ModelContainer_NestedTable_Dao.kt",
-        "SqliteMagic_ModelContainer_NestedTable_Adapter.kt",
-        "ModelContainer_NestedTableTable.kt",
-        "_ModelContainer_NestedTable.kt"
-      )
-  }
+internal class ModelDeclarationShapeContractTest {
+  private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
   @Test
-  fun `uses enclosing declaration paths to distinguish nested model artifacts`() {
-    SqliteMagicCompilation
+  fun `generates nested and value class table models named by their declaration paths`() {
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "NestedTables.kt",
@@ -57,6 +35,19 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
               class NestedTable(val secondValue: String)
             }
           """
+        ),
+        SourceFile.kotlin(
+          name = "ValueClassTable.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @JvmInline
+            @Table
+            value class ValueClassTable(@Id val value: String)
+          """
         )
       )
       .isOk()
@@ -70,11 +61,24 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
         "SecondContainer_NestedTableTable.kt",
         "_SecondContainer_NestedTable.kt"
       )
+      .assertGeneratedSources(
+        "SqliteMagic_ValueClassTable_Dao.kt",
+        "SqliteMagic_ValueClassTable_Adapter.kt",
+        "ValueClassTableTable.kt",
+        "_ValueClassTable.kt"
+      )
+
+    assertThat(compilation.environment.tableElements.values.map(TableElement::tableName))
+      .containsExactly(
+        "first_container_nested_table",
+        "second_container_nested_table",
+        "value_class_table"
+      )
   }
 
   @Test
   fun `rejects nested declaration paths with colliding artifact stems`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "CollidingNestedTables.kt",
@@ -105,35 +109,8 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `generates Kotlin value class table models`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ValueClassTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @JvmInline
-            @Table
-            value class ValueClassTable(@Id val value: String)
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_ValueClassTable_Dao.kt",
-        "SqliteMagic_ValueClassTable_Adapter.kt",
-        "ValueClassTableTable.kt",
-        "_ValueClassTable.kt"
-      )
-  }
-
-  @Test
   fun `rejects generic table models`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "GenericTable.kt",
@@ -157,7 +134,7 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects inner table models`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "InnerTable.kt",
@@ -181,81 +158,45 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
       )
   }
 
-  @Test
-  fun `rejects object table models`() {
-    SqliteMagicCompilation
+  @ParameterizedTest(name = "{0}")
+  @CsvSource(
+    delimiter = '|',
+    value = [
+      """object | ObjectTable | object ObjectTable { var value: String = "" }""",
+      """enum class | EnumTable | enum class EnumTable { VALUE; var persistedValue: String = "" }""",
+      "annotation class | AnnotationTable | annotation class AnnotationTable(val value: String)",
+      "interface | TableInterface | interface TableInterface",
+      "abstract class | AbstractTable | abstract class AbstractTable { abstract val value: String }"
+    ]
+  )
+  fun `rejects unsupported table model shapes`(
+    label: String,
+    modelName: String,
+    declaration: String
+  ) {
+    compiler
       .compile(
         SourceFile.kotlin(
-          name = "ObjectTable.kt",
+          name = "$modelName.kt",
           contents = """
             package $PACKAGE
 
             import com.siimkinks.sqlitemagic.annotation.Table
 
             @Table
-            object ObjectTable {
-              var value: String = ""
-            }
+            $declaration
           """
         )
       )
       .assertCompilationError(
         "Unsupported @Table model shape",
-        "ObjectTable"
-      )
-  }
-
-  @Test
-  fun `rejects enum table models`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "EnumTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            enum class EnumTable {
-              VALUE;
-
-              var persistedValue: String = ""
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "Unsupported @Table model shape",
-        "EnumTable"
-      )
-  }
-
-  @Test
-  fun `rejects annotation class table models`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "AnnotationTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            annotation class AnnotationTable(val value: String)
-          """
-        )
-      )
-      .assertCompilationError(
-        "Unsupported @Table model shape",
-        "AnnotationTable"
+        modelName
       )
   }
 
   @Test
   fun `rejects table models inaccessible to generated code`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "PrivateTable.kt",
@@ -277,7 +218,7 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects table models inside inaccessible containers`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "PrivateContainer.kt",
@@ -296,52 +237,6 @@ internal class ModelDeclarationShapeContractTest : ProcessingStepsTest {
       .assertCompilationError(
         "@Table model must be accessible to generated code",
         "PrivateContainer.NestedTable"
-      )
-  }
-
-  @Test
-  fun `rejects table interfaces`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "TableInterface.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            interface TableInterface
-          """
-        )
-      )
-      .assertCompilationError(
-        "Unsupported @Table model shape",
-        "TableInterface"
-      )
-  }
-
-  @Test
-  fun `rejects abstract table classes`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "AbstractTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            abstract class AbstractTable {
-              abstract val value: String
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "Unsupported @Table model shape",
-        "AbstractTable"
       )
   }
 }

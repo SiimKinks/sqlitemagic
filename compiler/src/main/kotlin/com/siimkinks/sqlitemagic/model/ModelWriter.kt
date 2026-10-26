@@ -1,5 +1,5 @@
 package com.siimkinks.sqlitemagic.model
 
-interface ModelWriter {
+internal interface ModelWriter {
   fun write(tableRoundElement: TableRoundElement)
 }

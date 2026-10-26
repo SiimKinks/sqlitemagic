@@ -2,27 +2,27 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
 import com.siimkinks.sqlitemagic.model.TableElement
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
 import com.siimkinks.sqlitemagic.utils.ProcessorCompilationResult
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertContains
-import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.assertNotGeneratedSources
+import com.siimkinks.sqlitemagic.utils.insertAfter
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.net.URLClassLoader
 
-internal class TablePositionContractTest : ProcessingStepsTest {
-  override val processingSteps = ::genClassesManagerProcessingSteps
+internal class TablePositionContractTest {
+  private val compiler = SqliteMagicCompiler(::genClassesManagerProcessingSteps)
 
   @ParameterizedTest(name = "{0}")
   @CsvSource(
@@ -41,7 +41,7 @@ internal class TablePositionContractTest : ProcessingStepsTest {
       submodule -> "FeatureGeneratedClassesManager"
       else -> "SqliteMagicDatabase"
     }
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "Positions.kt",
@@ -67,20 +67,19 @@ internal class TablePositionContractTest : ProcessingStepsTest {
     val tables = compilation.environment.tableElements.values.toList()
     assertThat(tables.map(TableElement::artifactStem)).containsExactly("UpperCase", "Outer_Nested", "Temporary")
     compilation.withGeneratedSource("$managerName.kt") { managerSource ->
-      managerSource.assertDoesNotContain("const val tablePosition_")
       assertThat(managerSource.contains("companion object")).isEqualTo(!submodule)
       tables.forEach { table ->
         managerSource.assertContains("val tablePosition_${table.artifactStem}: Int = ${table.declarationOrder}")
       }
     }
     tables.forEach { table ->
-      compilation.withGeneratedSource("${table.generationNames.adapterClassName.simpleName}.kt") { adapterSource ->
-        adapterSource.assertContains(
+      compilation.withGeneratedSource("${table.generationNames.adapterClassName.simpleName}.kt") {
+        it.assertContains(
           "override val tablePosition: Int = $managerName.tablePosition_${table.artifactStem}"
         )
       }
     }
-    val outputUrl = compilation.result.outputDirectory
+    val outputUrl = compilation.outputDirectory
       .toURI()
       .toURL()
     listOf("adapter-first" to false, "manager-first" to true).forEach { (order, managerFirst) ->
@@ -89,20 +88,15 @@ internal class TablePositionContractTest : ProcessingStepsTest {
         arrayOf(outputUrl),
         javaClass.classLoader
       ).use { loader ->
-        fun initializeManager(): Any {
+        val manager by lazy(LazyThreadSafetyMode.NONE) {
           val type = loader.loadClass("com.siimkinks.sqlitemagic.$managerName")
-          return when {
+          when {
             submodule -> type.getField("INSTANCE")
               .get(null)
             else -> type.getField("Companion")
               .get(null)
           }
         }
-
-        val manager by lazy(
-          mode = LazyThreadSafetyMode.NONE,
-          initializer = ::initializeManager
-        )
         if (managerFirst) {
           // Force manager-first initialization order; adapter-first stays lazy below.
           manager
@@ -113,9 +107,9 @@ internal class TablePositionContractTest : ProcessingStepsTest {
             .get(null)
           val actual = adapterType.getMethod("getTablePosition")
             .invoke(adapter) as Int
-          val registered = manager.javaClass
-            .getMethod("getTablePosition_${table.artifactStem}")
-            .invoke(manager)
+          val registered = (manager.javaClass.enclosingClass ?: manager.javaClass)
+            .getField("tablePosition_${table.artifactStem}")
+            .get(null)
           assertWithMessage("$caseLabel ${table.artifactStem}")
             .that(actual)
             .isEqualTo(registered)
@@ -155,9 +149,7 @@ internal class TablePositionContractTest : ProcessingStepsTest {
       val shifted = checkNotNull(withEarlier.environment.tableElements[table.typeKey])
       assertThat(shifted.declarationOrder).isEqualTo(table.declarationOrder + 1)
       val fileName = "${table.generationNames.adapterClassName.simpleName}.kt"
-      withEarlier.withGeneratedSource(fileName) { generatedSource ->
-        assertThat(generatedSource).isEqualTo(withoutEarlier.generatedSource(fileName))
-      }
+      assertThat(withEarlier.generatedSource(fileName)).isEqualTo(withoutEarlier.generatedSource(fileName))
     }
     listOf(withoutEarlier, withEarlier).forEach(::assertRegistry)
   }
@@ -187,7 +179,7 @@ internal class TablePositionContractTest : ProcessingStepsTest {
         @Table data class Later(@Id val id: Long, val value: String)
       """
     )
-    val ready = SqliteMagicCompilation
+    val ready = compiler
       .compile(models, helper)
       .isOk()
       .assertGeneratedSources(
@@ -199,28 +191,14 @@ internal class TablePositionContractTest : ProcessingStepsTest {
       .compile(
         models,
         processingStepsFactory = { environment ->
-          val generator = object : ProcessingStep {
-            private var generated = false
-            override fun process(resolver: Resolver): ProcessingStepResult {
-              if (generated) return Continue
-              generated = true
-              environment.codeGenerator
-                .createNewFile(
-                  dependencies = Dependencies(aggregating = false),
-                  packageName = PACKAGE,
-                  fileName = "GeneratedHelper"
-                )
-                .bufferedWriter()
-                .use { it.write(helperSource.trimIndent()) }
-              return Continue
-            }
-          }
-          genClassesManagerProcessingSteps(environment).flatMap { step ->
-            when (step) {
-              is ModelCollectionStep -> listOf(step, generator)
-              else -> listOf(step)
-            }
-          }
+          genClassesManagerProcessingSteps(environment)
+            .insertAfter<ModelCollectionStep>(
+              GeneratedSourceStep(
+                environment = environment,
+                fileName = "GeneratedHelper",
+                contents = helperSource
+              )
+            )
         }
       )
       .isOk()
@@ -247,9 +225,7 @@ internal class TablePositionContractTest : ProcessingStepsTest {
     }
     listOf("Earlier", "Later").forEach { stem ->
       val fileName = "SqliteMagic_${stem}_Adapter.kt"
-      delayed.withGeneratedSource(fileName) { generatedSource ->
-        assertThat(generatedSource).isEqualTo(ready.generatedSource(fileName))
-      }
+      assertThat(delayed.generatedSource(fileName)).isEqualTo(ready.generatedSource(fileName))
     }
   }
 
@@ -262,7 +238,7 @@ internal class TablePositionContractTest : ProcessingStepsTest {
       earlier -> listOf("Outer_Earlier", "Survivor", "Last")
       else -> listOf("Survivor", "Last")
     }
-    return SqliteMagicCompilation
+    return compiler
       .compile(
         SourceFile.kotlin(
           name = "Membership.kt",

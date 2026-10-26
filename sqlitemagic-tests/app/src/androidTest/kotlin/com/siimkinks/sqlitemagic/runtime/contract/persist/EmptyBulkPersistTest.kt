@@ -1,49 +1,57 @@
 package com.siimkinks.sqlitemagic.runtime.contract.persist
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class EmptyBulkPersistTest(
+internal class EmptyBulkPersistTest(
   private val modelCase: BulkPersistModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeWithEmptyInputReturnsFalseAndLeavesSnapshotUnchanged() {
-    assertEmptyPersist(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeWithEmptyInputCompletesAndLeavesSnapshotUnchanged() {
-    assertEmptyPersist(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithEmptyInputReturnsFalseAndLeavesSnapshotUnchanged() = assertEmptyPersist(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeWithEmptyInputCompletesAndLeavesSnapshotUnchanged() = assertEmptyPersist(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertEmptyPersist(
     modelCase: BulkPersistModelCase<T>,
     terminal: OperationTerminal
   ) {
-    seedRow(modelCase = modelCase)
+    insertedResult(
+      result = modelCase
+        .insert(value = modelCase.newValue(sequence = 1))
+        .execute(),
+      modelName = modelCase.name
+    )
     val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase.executeBulkPersist(values = emptyList())
       ).isFalse()
-      OperationTerminal.OBSERVE -> modelCase
+      OBSERVE -> modelCase
         .observeBulkPersist(values = emptyList())
         .blockingAwait()
     }
@@ -54,17 +62,9 @@ class EmptyBulkPersistTest(
     )
   }
 
-  private fun <T> seedRow(modelCase: BulkPersistModelCase<T>) {
-    val value = modelCase.newValue(sequence = 1)
-    when (modelCase.insert(value = value).execute()) {
-      is EntityInsertResult.Inserted -> Unit
-      EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
-    }
-  }
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.emptyBulkPersistCases
   }
 }

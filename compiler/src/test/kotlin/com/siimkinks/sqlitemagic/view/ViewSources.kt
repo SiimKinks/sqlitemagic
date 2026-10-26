@@ -5,7 +5,7 @@ import com.tschuchort.compiletesting.SourceFile
 import org.intellij.lang.annotations.Language
 
 internal object ViewSources {
-  const val FIXTURE_PACKAGE = "$PACKAGE.view"
+  private const val FIXTURE_PACKAGE = "$PACKAGE.view"
 
   fun view(
     name: String,
@@ -20,15 +20,13 @@ internal object ViewSources {
   )
 
   @Language("kotlin")
-  internal fun viewContents(
+  fun viewContents(
     @Language("kotlin") body: String,
     packageName: String = FIXTURE_PACKAGE
   ) = """
     package $packageName
 
-    import com.siimkinks.sqlitemagic.CompiledSelect
-    import com.siimkinks.sqlitemagic.Select.Select1
-    import com.siimkinks.sqlitemagic.Select.SelectN
+    import com.siimkinks.sqlitemagic.SelectQuery
     import com.siimkinks.sqlitemagic.annotation.Column
     import com.siimkinks.sqlitemagic.annotation.Table
     import com.siimkinks.sqlitemagic.annotation.View
@@ -36,7 +34,5 @@ internal object ViewSources {
     import com.siimkinks.sqlitemagic.annotation.ViewQuery
 
     $body
-
-    private fun <T, S> compileOnlySelect(): CompiledSelect<T, S> = error("compile-only")
   """
 }

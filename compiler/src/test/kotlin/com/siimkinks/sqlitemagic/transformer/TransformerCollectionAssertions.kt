@@ -3,11 +3,11 @@ package com.siimkinks.sqlitemagic.transformer
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.utils.ProcessorCompilationResult
 
-fun ProcessorCompilationResult.assertEmptyTransformers() = apply {
+internal fun ProcessorCompilationResult.assertEmptyTransformers() = apply {
   assertThat(nonDefaultTransformers()).isEmpty()
 }
 
-fun ProcessorCompilationResult.assertTransformers(
+internal fun ProcessorCompilationResult.assertTransformers(
   vararg transformers: TransformerElement
 ) = apply {
   assertThat(nonDefaultTransformers())

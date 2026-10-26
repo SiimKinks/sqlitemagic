@@ -1,6 +1,16 @@
 package com.siimkinks.sqlitemagic.runtime.support
 
-internal enum class OperationTerminal {
+import io.reactivex.Single
+
+enum class OperationTerminal {
   EXECUTE,
-  OBSERVE
+  OBSERVE;
+
+  fun <T> select(
+    execute: () -> T,
+    observe: () -> Single<T>
+  ): T = when (this) {
+    EXECUTE -> execute()
+    OBSERVE -> observe().blockingGet()
+  }
 }

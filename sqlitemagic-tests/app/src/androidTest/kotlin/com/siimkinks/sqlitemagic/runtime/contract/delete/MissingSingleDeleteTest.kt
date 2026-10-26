@@ -3,34 +3,37 @@ package com.siimkinks.sqlitemagic.runtime.contract.delete
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.DeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class MissingSingleDeleteTest(
+internal class MissingSingleDeleteTest(
   private val modelCase: DeleteModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeWithMissingRowReturnsZeroAndLeavesStateUnchanged() {
-    assertMissingDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeWithMissingRowReturnsZeroAndLeavesStateUnchanged() {
-    assertMissingDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithMissingRowReturnsZeroAndLeavesStateUnchanged() = assertMissingDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeWithMissingRowReturnsZeroAndLeavesStateUnchanged() = assertMissingDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertMissingDelete(
     modelCase: DeleteModelCase<T>,
@@ -57,7 +60,7 @@ class MissingSingleDeleteTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.deleteCases
   }
 }

@@ -1,91 +1,95 @@
 package com.siimkinks.sqlitemagic.runtime.contract.insert
 
+import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.seed
+import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class DirectBulkInsertConflictTest(
+internal class DirectBulkInsertConflictTest(
   private val modelCase: UniqueInsertModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeWithDefaultConflictReturnsFalseAndRollsBackBatch() {
-    assertDefaultConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeWithDefaultConflictEmitsOperationFailedExceptionAndRollsBackBatch() {
-    assertDefaultConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithDefaultConflictThrowsSQLiteConstraintExceptionAndRollsBackBatch() = assertDefaultConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithConflictIgnoreReturnsTrueAndCommitsFreshRows() {
-    assertConflictIgnoreMixed(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeWithDefaultConflictEmitsSQLiteConstraintExceptionAndRollsBackBatch() = assertDefaultConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithConflictIgnoreCompletesAndCommitsFreshRows() {
-    assertConflictIgnoreMixed(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithConflictIgnoreReturnsTrueAndCommitsFreshRows() = assertConflictIgnoreMixed(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithAllConflictsReturnsFalseAndLeavesSeedUnchanged() {
-    assertAllConflicts(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeWithConflictIgnoreCompletesAndCommitsFreshRows() = assertConflictIgnoreMixed(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithAllConflictsCompletesAndLeavesSeedUnchanged() {
-    assertAllConflicts(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithAllConflictsReturnsFalseAndLeavesSeedUnchanged() = assertAllConflicts(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeWithAllConflictsCompletesAndLeavesSeedUnchanged() = assertAllConflicts(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertDefaultConflict(
     modelCase: UniqueInsertModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = defaultConflictScenario(modelCase = modelCase)
+    val seed = modelCase.seed()
+    val values = listOf(
+      modelCase.newValue(sequence = 2),
+      modelCase.conflictingValue(
+        existing = seed,
+        sequence = 3
+      ),
+      modelCase.newValue(sequence = 4)
+    )
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
         modelCase
-          .bulkInsert(scenario.values)
+          .bulkInsert(values)
           .execute()
-      ).isFalse()
-      OperationTerminal.OBSERVE -> modelCase
-        .bulkInsert(scenario.values)
+      }
+      OBSERVE -> modelCase
+        .bulkInsert(values)
         .observe()
         .test()
-        .assertFailure(OperationFailedException::class.java)
+        .assertFailure(SQLiteConstraintException::class.java)
     }
     assertRows(
       modelCase = modelCase,
-      expected = listOf(scenario.seed)
+      expected = listOf(seed)
     )
   }
 
@@ -93,17 +97,27 @@ class DirectBulkInsertConflictTest(
     modelCase: UniqueInsertModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = mixedConflictScenario(modelCase = modelCase)
+    val seed = modelCase.seed()
+    val firstFresh = modelCase.newValue(sequence = 2)
+    val secondFresh = modelCase.newValue(sequence = 4)
+    val values = listOf(
+      firstFresh,
+      modelCase.conflictingValue(
+        existing = seed,
+        sequence = 3
+      ),
+      secondFresh
+    )
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase
-          .bulkInsert(scenario.values)
+          .bulkInsert(values)
           .conflictAlgorithm(CONFLICT_IGNORE)
           .execute()
       ).isTrue()
-      OperationTerminal.OBSERVE -> modelCase
-        .bulkInsert(scenario.values)
+      OBSERVE -> modelCase
+        .bulkInsert(values)
         .conflictAlgorithm(CONFLICT_IGNORE)
         .observe()
         .test()
@@ -111,7 +125,7 @@ class DirectBulkInsertConflictTest(
     }
     assertRows(
       modelCase = modelCase,
-      expected = scenario.expectedRows
+      expected = listOf(seed, firstFresh, secondFresh)
     )
   }
 
@@ -119,17 +133,31 @@ class DirectBulkInsertConflictTest(
     modelCase: UniqueInsertModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = allConflictsScenario(modelCase = modelCase)
+    val seed = modelCase.seed()
+    val values = listOf(
+      modelCase.conflictingValue(
+        existing = seed,
+        sequence = 2
+      ),
+      modelCase.conflictingValue(
+        existing = seed,
+        sequence = 3
+      ),
+      modelCase.conflictingValue(
+        existing = seed,
+        sequence = 4
+      )
+    )
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase
-          .bulkInsert(scenario.values)
+          .bulkInsert(values)
           .conflictAlgorithm(CONFLICT_IGNORE)
           .execute()
       ).isFalse()
-      OperationTerminal.OBSERVE -> modelCase
-        .bulkInsert(scenario.values)
+      OBSERVE -> modelCase
+        .bulkInsert(values)
         .conflictAlgorithm(CONFLICT_IGNORE)
         .observe()
         .test()
@@ -137,82 +165,8 @@ class DirectBulkInsertConflictTest(
     }
     assertRows(
       modelCase = modelCase,
-      expected = listOf(scenario.seed)
+      expected = listOf(seed)
     )
-  }
-
-  private fun <T> defaultConflictScenario(
-    modelCase: UniqueInsertModelCase<T>
-  ) = modelCase
-    .seed()
-    .let { seed ->
-      DirectBulkScenario(
-        seed = seed,
-        values = listOf(
-          modelCase.newValue(sequence = 2),
-          modelCase.conflictingValue(
-            existing = seed,
-            sequence = 3
-          ),
-          modelCase.newValue(sequence = 4)
-        ),
-        expectedRows = listOf(seed)
-      )
-    }
-
-  private fun <T> mixedConflictScenario(
-    modelCase: UniqueInsertModelCase<T>
-  ) = modelCase
-    .seed()
-    .let { seed ->
-      val firstFresh = modelCase.newValue(sequence = 2)
-      val secondFresh = modelCase.newValue(sequence = 4)
-      DirectBulkScenario(
-        seed = seed,
-        values = listOf(
-          firstFresh,
-          modelCase.conflictingValue(
-            existing = seed,
-            sequence = 3
-          ),
-          secondFresh
-        ),
-        expectedRows = listOf(seed, firstFresh, secondFresh)
-      )
-    }
-
-  private fun <T> allConflictsScenario(
-    modelCase: UniqueInsertModelCase<T>
-  ) = modelCase
-    .seed()
-    .let { seed ->
-      DirectBulkScenario(
-        seed = seed,
-        values = listOf(
-          modelCase.conflictingValue(
-            existing = seed,
-            sequence = 2
-          ),
-          modelCase.conflictingValue(
-            existing = seed,
-            sequence = 3
-          ),
-          modelCase.conflictingValue(
-            existing = seed,
-            sequence = 4
-          )
-        ),
-        expectedRows = listOf(seed)
-      )
-    }
-
-  private fun <T> UniqueInsertModelCase<T>.seed(): T {
-    val value = newValue(sequence = 1)
-    when (insert(value = value).execute()) {
-      is EntityInsertResult.Inserted -> Unit
-      EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for $name")
-    }
-    return value
   }
 
   private fun <T> assertRows(
@@ -229,15 +183,9 @@ class DirectBulkInsertConflictTest(
       )
   }
 
-  private data class DirectBulkScenario<T>(
-    val seed: T,
-    val values: List<T>,
-    val expectedRows: List<T>
-  )
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.uniqueInsertCases
   }
 }

@@ -1,75 +1,97 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
+import com.siimkinks.sqlitemagic.BulkEntityOutcome.APPLIED
+import com.siimkinks.sqlitemagic.BulkEntityOutcome.IGNORED
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
-import com.siimkinks.sqlitemagic.internal.IdentityColumn
+import com.siimkinks.sqlitemagic.internal.recursiveOrNull
 
 internal object PersistExecutors {
-  @Suppress("UNCHECKED_CAST")
   fun <M> execute(
     adapter: EntityIdentityAdapter<M>,
     entity: M,
     context: OperationContext,
-    byColumn: IdentityColumn<M>,
-    defaultIdentity: Boolean
+    columnName: String
+  ): EntityPersistResult = when (val recursiveAdapter = adapter.recursiveOrNull()) {
+    null -> persist(
+      adapter = adapter,
+      recursiveAdapter = null,
+      entity = entity,
+      context = context,
+      columnName = columnName
+    )
+    else -> context.executeInTransaction {
+      persist(
+        adapter = adapter,
+        recursiveAdapter = recursiveAdapter,
+        entity = entity,
+        context = context,
+        columnName = columnName
+      )
+    }
+  }
+
+  private fun <M> persist(
+    adapter: EntityIdentityAdapter<M>,
+    recursiveAdapter: EntityRecursiveAdapter<M>?,
+    entity: M,
+    context: OperationContext,
+    columnName: String
   ): EntityPersistResult {
-    val recursiveAdapter = adapter as? EntityRecursiveAdapter<M>
-    val operation = {
-      val relationshipsPersisted = recursiveAdapter
-        ?.persistRelationships(
-          entity = entity,
-          operations = RelationshipOperations(context)
-        )
-        ?: true
-      if (relationshipsPersisted) {
-        context.logPersist(entity = entity)
-      }
-      when {
-        !relationshipsPersisted -> {
-          if (context.conflictAlgorithm != CONFLICT_IGNORE) {
-            throw OperationFailedException("Failed to persist relationship for $entity")
-          }
-          context.sendTableTriggers(adapter)
-          EntityPersistResult.Ignored
+    val relationshipsPersisted = recursiveAdapter
+      ?.persistRelationships(
+        entity = entity,
+        operations = RelationshipOperations(context)
+      )
+      ?: true
+    return when {
+      !relationshipsPersisted -> {
+        if (context.conflictAlgorithm != CONFLICT_IGNORE) {
+          throw OperationFailedException("Failed to persist relationship for $entity")
         }
-        else -> {
-          val updated = when {
-            !adapter.hasIdentityValue(entity = entity, byColumn = byColumn) -> false
-            context.ignoreNullValues -> UpdateExecutors.executeIgnoringNullValues(
-              adapter = adapter,
-              entity = entity,
-              context = context,
-              byColumn = byColumn,
-              publishTriggers = false,
-              logOperation = false
-            )
-            else -> UpdateExecutors.executeEntity(
-              adapter = adapter,
-              entity = entity,
-              context = context,
-              byColumn = byColumn,
-              defaultIdentity = defaultIdentity,
-              publishTriggers = false,
-              logOperation = false
-            )
-          }
-          if (updated) {
+        context.sendTableTriggers(adapter)
+        EntityPersistResult.Ignored
+      }
+      else -> {
+        context.logPersist(entity = entity)
+        val updated = when {
+          !adapter.hasIdentityValue(
+            entity = entity,
+            columnName = columnName
+          ) -> false
+          context.ignoreNullValues -> UpdateExecutors.executeIgnoringNullValues(
+            adapter = adapter,
+            entity = entity,
+            context = context,
+            columnName = columnName,
+            standalone = false
+          )
+          else -> UpdateExecutors.executeEntity(
+            adapter = adapter,
+            entity = entity,
+            context = context,
+            columnName = columnName,
+            standalone = false
+          )
+        }
+        when {
+          updated -> {
             context.sendTableTriggers(adapter)
             EntityPersistResult.Updated
-          } else {
-            context.logPersistUpdateFailed()
+          }
+          else -> {
+            logPersistUpdateFailed()
             val insertResult = when {
               context.ignoreNullValues -> InsertExecutors.mapResult(
                 adapter = adapter,
                 rowId = InsertExecutors.executeIgnoringNullValues(
                   adapter = adapter,
                   entity = entity,
-                  context = context,
-                  logOperation = false
+                  context = context
                 ),
                 conflictAlgorithm = context.conflictAlgorithm,
                 failureMessage = "Failed to persist $entity"
@@ -78,9 +100,7 @@ internal object PersistExecutors {
                 adapter = adapter,
                 entity = entity,
                 context = context,
-                includeRelationships = false,
-                publishTriggers = false,
-                logOperation = false
+                standalone = false
               )
             }
             when (insertResult) {
@@ -91,14 +111,8 @@ internal object PersistExecutors {
                 EntityPersistResult.Ignored
               }
               is EntityInsertResult.Inserted -> {
-                context.executeMutation(
-                  adapter = adapter,
-                  operation = {
-                    recordChanges()
-                    context.logPersistInsertId(rowId = insertResult.rowId)
-                  }
-                )
                 context.sendTableTriggers(adapter)
+                logPersistInsertId(rowId = insertResult.rowId)
                 EntityPersistResult.Inserted(insertResult.rowId)
               }
             }
@@ -106,27 +120,15 @@ internal object PersistExecutors {
         }
       }
     }
-    return try {
-      when {
-        recursiveAdapter != null -> context.executeInTransaction(operation)
-        else -> operation()
-      }
-    } catch (exception: OperationFailedException) {
-      context.logError(exception = exception, message = "Operation failed")
-      throw exception
-    } catch (exception: Exception) {
-      throw OperationFailedException("Failed to persist $entity", exception)
-    }
   }
 
   fun <M> executeBulk(
     adapter: EntityIdentityAdapter<M>,
     entities: Iterable<M>,
-    byColumn: IdentityColumn<M>,
-    defaultIdentity: Boolean,
+    columnName: String,
     context: OperationContext,
     isCancelled: () -> Boolean
-  ): BulkOperationOutcome = executeBulkOperation(
+  ) = executeBulkOperation(
     adapter = adapter,
     entities = entities,
     context = context,
@@ -136,12 +138,11 @@ internal object PersistExecutors {
         adapter = adapter,
         entity = entity,
         context = context.childWithoutTableTriggers(),
-        byColumn = byColumn,
-        defaultIdentity = defaultIdentity
+        columnName = columnName
       )
       when (result) {
-        EntityPersistResult.Ignored -> BulkEntityOutcome.IGNORED
-        else -> BulkEntityOutcome.APPLIED
+        EntityPersistResult.Ignored -> IGNORED
+        else -> APPLIED
       }
     }
   )

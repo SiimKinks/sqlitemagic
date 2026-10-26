@@ -3,68 +3,76 @@ package com.siimkinks.sqlitemagic.runtime.contract.trigger
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TriggerModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class BulkTriggerInvalidationTest(
+internal class BulkTriggerInvalidationTest(
   private val modelCase: TriggerModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeBulkInsertsAndInvalidatesOnce() {
-    assertBulkInsert(terminal = OperationTerminal.EXECUTE)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeBulkInsertsAndInvalidatesOnce() {
-    assertBulkInsert(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeBulkInsertsAndInvalidatesOnce() = assertBulkInsert(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeBulkUpdatesAndInvalidatesOnce() {
-    assertBulkUpdate(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observeBulkInsertsAndInvalidatesOnce() = assertBulkInsert(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeBulkUpdatesAndInvalidatesOnce() {
-    assertBulkUpdate(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeBulkUpdatesAndInvalidatesOnce() = assertBulkUpdate(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeMixedBulkPersistsAndInvalidatesOnce() {
-    assertBulkPersist(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observeBulkUpdatesAndInvalidatesOnce() = assertBulkUpdate(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeMixedBulkPersistsAndInvalidatesOnce() {
-    assertBulkPersist(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeMixedBulkPersistsAndInvalidatesOnce() = assertBulkPersist(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeBulkDeletesAndInvalidatesOnce() {
-    assertBulkDelete(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observeMixedBulkPersistsAndInvalidatesOnce() = assertBulkPersist(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeBulkDeletesAndInvalidatesOnce() {
-    assertBulkDelete(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeBulkDeletesAndInvalidatesOnce() = assertBulkDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
-  private fun assertBulkInsert(terminal: OperationTerminal) {
-    assertBulkInsertForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
+  @Test
+  fun observeBulkDeletesAndInvalidatesOnce() = assertBulkDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
-  private fun <T> assertBulkInsertForCase(
+  private fun <T> assertBulkInsert(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -78,10 +86,10 @@ class BulkTriggerInvalidationTest(
       before = before,
       operation = {
         when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase
+          EXECUTE -> modelCase
             .bulkInsert(values = values)
             .execute()
-          OperationTerminal.OBSERVE -> {
+          OBSERVE -> {
             modelCase
               .bulkInsert(values = values)
               .observe()
@@ -103,14 +111,7 @@ class BulkTriggerInvalidationTest(
     )
   }
 
-  private fun assertBulkUpdate(terminal: OperationTerminal) {
-    assertBulkUpdateForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertBulkUpdateForCase(
+  private fun <T> assertBulkUpdate(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -131,8 +132,8 @@ class BulkTriggerInvalidationTest(
       before = before,
       operation = {
         when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executeBulkUpdate(values = updatedValues)
-          OperationTerminal.OBSERVE -> {
+          EXECUTE -> modelCase.executeBulkUpdate(values = updatedValues)
+          OBSERVE -> {
             modelCase
               .observeBulkUpdate(values = updatedValues)
               .blockingAwait()
@@ -147,14 +148,7 @@ class BulkTriggerInvalidationTest(
     )
   }
 
-  private fun assertBulkPersist(terminal: OperationTerminal) {
-    assertBulkPersistForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertBulkPersistForCase(
+  private fun <T> assertBulkPersist(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -176,8 +170,8 @@ class BulkTriggerInvalidationTest(
       before = before,
       operation = {
         when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executeBulkPersist(values = values)
-          OperationTerminal.OBSERVE -> {
+          EXECUTE -> modelCase.executeBulkPersist(values = values)
+          OBSERVE -> {
             modelCase
               .observeBulkPersist(values = values)
               .blockingAwait()
@@ -199,14 +193,7 @@ class BulkTriggerInvalidationTest(
     )
   }
 
-  private fun assertBulkDelete(terminal: OperationTerminal) {
-    assertBulkDeleteForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertBulkDeleteForCase(
+  private fun <T> assertBulkDelete(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -221,10 +208,10 @@ class BulkTriggerInvalidationTest(
       modelCase = modelCase,
       before = before,
       operation = {
-        when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executeBulkDelete(values = values)
-          OperationTerminal.OBSERVE -> modelCase.observeBulkDelete(values = values).blockingGet()
-        }
+        terminal.select(
+          execute = { modelCase.executeBulkDelete(values = values) },
+          observe = { modelCase.observeBulkDelete(values = values) }
+        )
       },
       expected = { result ->
         assertThat(result).isEqualTo(3)
@@ -235,7 +222,7 @@ class BulkTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.triggerCases
   }
 }

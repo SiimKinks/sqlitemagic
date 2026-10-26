@@ -6,99 +6,94 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
-import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.observeRows
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class RecursiveSuppressedTriggerInvalidationTest(
+internal class RecursiveSuppressedTriggerInvalidationTest(
   private val modelCase: RecursiveTriggerConflictModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeParentUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeParentUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeParentUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeChildUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeParentUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeChildUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeChildUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeParentPersistConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeChildUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeParentPersistConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeParentPersistConflictWithConflictIgnoreDoesNotRefresh() = assertPersistConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeChildPersistConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeParentPersistConflictWithConflictIgnoreDoesNotRefresh() = assertPersistConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeChildPersistConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeChildPersistConflictWithConflictIgnoreDoesNotRefresh() = assertPersistConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeChildPersistConflictWithConflictIgnoreDoesNotRefresh() = assertPersistConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertUpdateConflict(
     modelCase: RecursiveTriggerConflictModelCase<T>,
     conflict: RecursiveConflictTarget,
     terminal: OperationTerminal
   ) {
-    val persisted = seedConflictRows(modelCase = modelCase)
+    val persisted = seedRows(
+      modelCase = modelCase,
+      count = 2,
+      firstSequence = 1
+    )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val parentObserver = observeRows(table = modelCase.table)
     val relatedObserver = observeRows(table = modelCase.relatedTable)
@@ -138,7 +133,11 @@ class RecursiveSuppressedTriggerInvalidationTest(
     conflict: RecursiveConflictTarget,
     terminal: OperationTerminal
   ) {
-    val persisted = seedConflictRows(modelCase = modelCase)
+    val persisted = seedRows(
+      modelCase = modelCase,
+      count = 2,
+      firstSequence = 1
+    )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val parentObserver = observeRows(table = modelCase.table)
     val relatedObserver = observeRows(table = modelCase.relatedTable)
@@ -175,37 +174,19 @@ class RecursiveSuppressedTriggerInvalidationTest(
     }
   }
 
-  private fun <T> seedConflictRows(
-    modelCase: RecursiveTriggerConflictModelCase<T>
-  ): List<T> {
-    val values = listOf(
-      modelCase.newValue(sequence = 1),
-      modelCase.newValue(sequence = 2)
-    )
-    values.forEach { value ->
-      assertSeedInserted(
-        result = modelCase
-          .insert(value = value)
-          .execute(),
-        modelName = modelCase.name
-      )
-    }
-    return captureRows(table = modelCase.table)
-  }
-
   private fun <T> runUpdateConflict(
     modelCase: RecursiveTriggerConflictModelCase<T>,
     value: T,
     terminal: OperationTerminal
   ) {
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase
           .update(value = value)
           .withConflictAlgorithm(CONFLICT_IGNORE)
           .execute()
       ).isFalse()
-      OperationTerminal.OBSERVE -> modelCase
+      OBSERVE -> modelCase
         .update(value = value)
         .withConflictAlgorithm(CONFLICT_IGNORE)
         .observe()
@@ -217,21 +198,24 @@ class RecursiveSuppressedTriggerInvalidationTest(
     modelCase: RecursiveTriggerConflictModelCase<T>,
     value: T,
     terminal: OperationTerminal
-  ) = when (terminal) {
-    OperationTerminal.EXECUTE -> modelCase
-      .persist(value = value)
-      .withConflictAlgorithm(CONFLICT_IGNORE)
-      .execute()
-    OperationTerminal.OBSERVE -> modelCase
-      .persist(value = value)
-      .withConflictAlgorithm(CONFLICT_IGNORE)
-      .observe()
-      .blockingGet()
-  }
+  ) = terminal.select(
+    execute = {
+      modelCase
+        .persist(value = value)
+        .withConflictAlgorithm(CONFLICT_IGNORE)
+        .execute()
+    },
+    observe = {
+      modelCase
+        .persist(value = value)
+        .withConflictAlgorithm(CONFLICT_IGNORE)
+        .observe()
+    }
+  )
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.recursiveTriggerConflictCases
   }
 }

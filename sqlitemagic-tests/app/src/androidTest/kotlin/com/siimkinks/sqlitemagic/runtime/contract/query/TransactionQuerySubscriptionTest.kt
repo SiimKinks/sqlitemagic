@@ -5,16 +5,20 @@ import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import io.reactivex.BackpressureStrategy
 import io.reactivex.observers.TestObserver
+import org.junit.Rule
+import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicReference
-import org.junit.Test
 
-class TransactionQuerySubscriptionTest : RuntimeDatabaseTest() {
+internal class TransactionQuerySubscriptionTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun sameThreadSubscriptionFailsWithExpectedMessage() {
     val transaction = SqliteMagic.newTransaction()

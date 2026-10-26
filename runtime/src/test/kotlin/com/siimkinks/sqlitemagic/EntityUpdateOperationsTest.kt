@@ -64,7 +64,7 @@ internal class EntityUpdateOperationsTest {
       val connection = newConnection()
       connection.recordingDatabase.updateResults += case.updateResult
       val operation = TestAdapter()
-        .update(testEntity())
+        .update(TestEntity())
         .usingConnection(connection.connection)
         .conflictAlgorithm(case.conflictAlgorithm)
       val actualResult = when {
@@ -124,7 +124,7 @@ internal class EntityUpdateOperationsTest {
       val connection = newConnection()
       connection.recordingDatabase.updateResults += case.updateResult
       val observer = TestAdapter()
-        .update(testEntity())
+        .update(TestEntity())
         .usingConnection(connection.connection)
         .conflictAlgorithm(case.conflictAlgorithm)
         .observe()
@@ -139,10 +139,4 @@ internal class EntityUpdateOperationsTest {
         .containsExactlyElementsIn(case.expectedTriggers)
     }
   }
-
-  private fun testEntity() = TestEntity(
-    id = "id-1",
-    key = "key-1",
-    name = "name"
-  )
 }

@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic.entity
 
+import android.database.SQLException
 import androidx.annotation.CheckResult
-import com.siimkinks.sqlitemagic.Column
-import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.Unique
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult.Ignored
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult.Inserted
@@ -24,16 +23,15 @@ interface EntityPersistByColumnBuilder<P> : EntityPersistOperationBuilder<Entity
    * entity has complex columns which also need to be persisted.
    *
    * Returns [Inserted] when a new row was inserted, [Updated] when an existing row was updated, or
-   * [Ignored] when the configured conflict algorithm intentionally ignored
-   * the write. A failure that was not intentionally ignored throws [OperationFailedException].
+   * [Ignored] when the configured conflict algorithm intentionally ignored the write.
    *
    * @param byColumn Generated non-null unique column of the table for this operation
-   * @param C Not nullable unique column type
    * @return The persist operation result
+   * @throws SQLException when SQLite rejects the write, for example on a constraint violation
+   * @throws OperationFailedException when SQLite writes no row without an error and the conflict algorithm does not
+   *     ignore conflicts
    */
-  fun <C> execute(byColumn: C): EntityPersistResult
-      where C : Column<*, *, *, P, NotNullable>,
-            C : Unique<NotNullable>
+  fun execute(byColumn: Unique<P>): EntityPersistResult
 
   /**
    * Creates a [Single] that when subscribed to executes this configured persist operation against a
@@ -44,11 +42,8 @@ interface EntityPersistByColumnBuilder<P> : EntityPersistOperationBuilder<Entity
    * emitted to downstream.
    *
    * @param byColumn Generated non-null unique column of the table for this operation
-   * @param C Not nullable unique column type
    * @return Deferred [Single] that when subscribed to executes the operation and emits its result to downstream
    */
   @CheckResult
-  fun <C> observe(byColumn: C): Single<EntityPersistResult>
-      where C : Column<*, *, *, P, NotNullable>,
-            C : Unique<NotNullable>
+  fun observe(byColumn: Unique<P>): Single<EntityPersistResult>
 }

@@ -4,15 +4,19 @@ import android.database.Cursor
 import android.os.Build
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.runtime.namespaceContractWritableDatabase
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.defaultWritableDatabase
 import com.siimkinks.sqlitemagic.runtime.support.readStrings
+import org.junit.Rule
 import org.junit.Test
 
-class EngineConfigurationRuntimeTest : RuntimeDatabaseTest() {
+internal class EngineConfigurationRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun reportsFrameworkConnectionEngineAndDeviceConfiguration() {
-    val database = namespaceContractWritableDatabase()
+    val database = defaultWritableDatabase()
     val version = database.query("SELECT sqlite_version()")
       .use(Cursor::readStrings)
       .single()
@@ -21,7 +25,7 @@ class EngineConfigurationRuntimeTest : RuntimeDatabaseTest() {
       database.query("SELECT sqlite_source_id()")
         .use(Cursor::readStrings)
         .single()
-    }.getOrElse { error -> "unavailable: ${error.message}" }
+    }.getOrElse { "unavailable: ${it.message}" }
     val journalMode = database.query("PRAGMA journal_mode")
       .use(Cursor::readStrings)
       .single()
@@ -40,11 +44,10 @@ class EngineConfigurationRuntimeTest : RuntimeDatabaseTest() {
       "sqlite_source_id=$sourceId",
       "journal_mode=$journalMode",
       "compile_option_count=${compileOptions.size}"
-    ).forEach(::reportConfiguration)
-    compileOptions.forEach(::reportCompileOption)
+    )
+      .plus(compileOptions.map { "compile_option=$it" })
+      .forEach(::reportConfiguration)
   }
-
-  private fun reportCompileOption(option: String) = reportConfiguration("compile_option=$option")
 
   private fun reportConfiguration(value: String) = println("SQLiteMagicEngineConfiguration $value")
 }

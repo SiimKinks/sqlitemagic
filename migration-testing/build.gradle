@@ -19,6 +19,12 @@ dependencies {
   testImplementation libs.android.sqlite.bundled.jvm
 }
 
+kotlin {
+  compilerOptions {
+    optIn.add('com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi')
+  }
+}
+
 tasks.withType(Test).configureEach {
   scanForTestClasses = false
   include '**/*Test.class'

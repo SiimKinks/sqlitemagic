@@ -4,86 +4,79 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveTriggerModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import io.reactivex.observers.TestObserver
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class RecursiveTriggerInvalidationTest(
+internal class RecursiveTriggerInvalidationTest(
   private val modelCase: RecursiveTriggerModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeSingleInsertRefreshesEachObservedTableOnce() {
-    assertSingleInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeSingleInsertRefreshesEachObservedTableOnce() {
-    assertSingleInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeSingleInsertRefreshesEachObservedTableOnce() = assertSingleInsert(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeSingleUpdateRefreshesEachObservedTableOnce() {
-    assertSingleUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeSingleInsertRefreshesEachObservedTableOnce() = assertSingleInsert(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeSingleUpdateRefreshesEachObservedTableOnce() {
-    assertSingleUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeSingleUpdateRefreshesEachObservedTableOnce() = assertSingleUpdate(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeSinglePersistRefreshesEachObservedTableOnce() {
-    assertSinglePersist(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeSingleUpdateRefreshesEachObservedTableOnce() = assertSingleUpdate(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeSinglePersistRefreshesEachObservedTableOnce() {
-    assertSinglePersist(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeSinglePersistRefreshesEachObservedTableOnce() = assertSinglePersist(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeBulkInsertRefreshesEachObservedTableOnce() {
-    assertBulkInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeSinglePersistRefreshesEachObservedTableOnce() = assertSinglePersist(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeBulkInsertRefreshesEachObservedTableOnce() {
-    assertBulkInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeBulkInsertRefreshesEachObservedTableOnce() = assertBulkInsert(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeBulkInsertRefreshesEachObservedTableOnce() = assertBulkInsert(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertSingleInsert(
     modelCase: RecursiveTriggerModelCase<T>,
@@ -108,10 +101,7 @@ class RecursiveTriggerInvalidationTest(
             result = inserted
           )
         ),
-        related = relatedRows(
-          modelCase = modelCase,
-          values = listOf(value)
-        )
+        related = modelCase.relatedValues(value)
       )
 
       assertOneRefresh(
@@ -150,10 +140,7 @@ class RecursiveTriggerInvalidationTest(
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val expected = DatabaseSnapshot(
       parents = listOf(modelCase.expectedAfterUpdate(value = value)),
-      related = relatedRows(
-        modelCase = modelCase,
-        values = listOf(value)
-      )
+      related = modelCase.relatedValues(value)
     )
     val parentObserver = observeRows(table = modelCase.table)
     val relatedObserver = observeRows(table = modelCase.relatedTable)
@@ -203,10 +190,7 @@ class RecursiveTriggerInvalidationTest(
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val expected = DatabaseSnapshot(
       parents = listOf(modelCase.expectedAfterUpdate(value = value)),
-      related = relatedRows(
-        modelCase = modelCase,
-        values = listOf(value)
-      )
+      related = modelCase.relatedValues(value)
     )
     val parentObserver = observeRows(table = modelCase.table)
     val relatedObserver = observeRows(table = modelCase.relatedTable)
@@ -295,25 +279,28 @@ class RecursiveTriggerInvalidationTest(
     modelCase: RecursiveTriggerModelCase<T>,
     value: T,
     terminal: OperationTerminal
-  ) = when (terminal) {
-    OperationTerminal.EXECUTE -> modelCase
-      .insert(value = value)
-      .execute()
-    OperationTerminal.OBSERVE -> modelCase
-      .insert(value = value)
-      .observe()
-      .blockingGet()
-  }
+  ) = terminal.select(
+    execute = {
+      modelCase
+        .insert(value = value)
+        .execute()
+    },
+    observe = {
+      modelCase
+        .insert(value = value)
+        .observe()
+    }
+  )
 
   private fun <T> runSingleUpdate(
     modelCase: RecursiveTriggerModelCase<T>,
     value: T,
     terminal: OperationTerminal
   ) = when (terminal) {
-    OperationTerminal.EXECUTE -> modelCase
+    EXECUTE -> modelCase
       .update(value = value)
       .execute()
-    OperationTerminal.OBSERVE -> {
+    OBSERVE -> {
       modelCase
         .update(value = value)
         .observe()
@@ -326,25 +313,28 @@ class RecursiveTriggerInvalidationTest(
     modelCase: RecursiveTriggerModelCase<T>,
     value: T,
     terminal: OperationTerminal
-  ) = when (terminal) {
-    OperationTerminal.EXECUTE -> modelCase
-      .persist(value = value)
-      .execute()
-    OperationTerminal.OBSERVE -> modelCase
-      .persist(value = value)
-      .observe()
-      .blockingGet()
-  }
+  ) = terminal.select(
+    execute = {
+      modelCase
+        .persist(value = value)
+        .execute()
+    },
+    observe = {
+      modelCase
+        .persist(value = value)
+        .observe()
+    }
+  )
 
   private fun <T> runBulkInsert(
     modelCase: RecursiveTriggerModelCase<T>,
     values: List<T>,
     terminal: OperationTerminal
   ) = when (terminal) {
-    OperationTerminal.EXECUTE -> modelCase
+    EXECUTE -> modelCase
       .bulkInsert(values = values)
       .execute()
-    OperationTerminal.OBSERVE -> {
+    OBSERVE -> {
       modelCase
         .bulkInsert(values = values)
         .observe()
@@ -365,7 +355,7 @@ class RecursiveTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.recursiveTriggerCases
   }
 }

@@ -7,7 +7,7 @@ import com.siimkinks.sqlitemagic.SqliteMagicMigrationTestHelper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-class DatabaseMigrationTest {
+internal class DatabaseMigrationTest {
   private val migrationHelper = SqliteMagicMigrationTestHelper(
     descriptor = SqliteMagicMigrationDatabase,
     driver = BundledSQLiteDriver()

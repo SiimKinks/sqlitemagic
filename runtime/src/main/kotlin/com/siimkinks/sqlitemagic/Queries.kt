@@ -1,265 +1,743 @@
-@file:Suppress("NOTHING_TO_INLINE", "UNCHECKED_CAST")
+@file:Suppress("FunctionName")
 
 package com.siimkinks.sqlitemagic
 
+import android.database.Cursor
 import androidx.annotation.CheckResult
-import com.siimkinks.sqlitemagic.Select.Companion.ALL
-import com.siimkinks.sqlitemagic.Select.Columns
-import com.siimkinks.sqlitemagic.Select.From
-import com.siimkinks.sqlitemagic.Select.GroupBy
-import com.siimkinks.sqlitemagic.Select.Having
-import com.siimkinks.sqlitemagic.Select.Limit
-import com.siimkinks.sqlitemagic.Select.OrderBy
-import com.siimkinks.sqlitemagic.Select.OrderingTerm
-import com.siimkinks.sqlitemagic.Select.Select1
-import com.siimkinks.sqlitemagic.Select.SelectN
-import com.siimkinks.sqlitemagic.Select.SingleColumn
-import com.siimkinks.sqlitemagic.Select.Where
+import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
+import com.siimkinks.sqlitemagic.internal.sql.SelectNode
+import com.siimkinks.sqlitemagic.internal.sql.nativeValue
 
-/** Builder for SQL SELECT statement. */
-val SELECT: Select<SelectN>
-  @CheckResult get() = Select("SELECT")
+/**
+ * Builder for SQL SELECT statement.
+ *
+ * Start queries with [SELECT].
+ */
+object Select {
+  /**
+   * Create raw SQL SELECT statement.
+   *
+   * Read the results with `readAs` or get a cursor with `toCursor`. Define the tables that the query reads with
+   * `observes`, otherwise `observe` runs the query only once.
+   *
+   * Example:
+   * ```
+   * SELECT
+   *     .RAW("SELECT id, name FROM author WHERE id > ?", 10L)
+   *     .observes(AUTHOR)
+   *     .readAs(SqlType.LONG, SqlType.STRING.nullable)
+   * ```
+   *
+   * @param sql SQL SELECT statement
+   * @param arguments Values bound to the `?` placeholders of the SQL: `null` or values of type `String`, `Long`,
+   *     `Int`, `Short`, `Double`, `Float`, `Boolean`, `Byte` or `ByteArray`
+   * @return Raw SQL SELECT statement builder
+   * @throws IllegalArgumentException if an argument is a value of another type
+   */
+  @CheckResult
+  fun RAW(sql: String, vararg arguments: Any?) = rawSelect(
+    sql = sql,
+    arguments = arguments
+  )
 
-/** @see [Select.column] */
-@CheckResult
-infix fun <R, N> Select<*>.COLUMN(column: Column<*, R, *, *, N>) = SingleColumn(this as SelectSqlNode<Select1>, column)
+  /**
+   * Create raw SQL SELECT statement.
+   *
+   * Read the results with `readAs` or get a cursor with `toCursor`. Define the tables that the query reads with
+   * `observes`, otherwise `observe` runs the query only once.
+   *
+   * Example:
+   * ```
+   * (SELECT RAW "PRAGMA user_version").readAs(SqlType.LONG)
+   * ```
+   *
+   * @param sql SQL SELECT statement
+   * @return Raw SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun RAW(sql: String) = rawSelect(
+    sql = sql,
+    arguments = emptyArray()
+  )
 
-/** @see [Select.columns] */
-@CheckResult
-infix fun <C : Column<*, *, *, *, *>> Select<SelectN>.COLUMNS(columns: Array<C>) = Columns(this, columns)
+  /**
+   * Select single column.
+   *
+   * Example:
+   * ```
+   * SELECT COLUMN AUTHOR.NAME FROM AUTHOR
+   * ```
+   *
+   * @param expression Column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <R, N : SqlNullability, T> COLUMN(expression: SqlExpression<R, N, T>) = SelectProjectionStage(
+    SelectNode(
+      ScalarSelection(
+        expression = expression,
+        read = expression.selectRead
+      )
+    )
+  )
 
-/** @see [Select.distinct] */
-inline val Select<*>.DISTINCT
-  @CheckResult get() = Select.distinct()
+  /**
+   * Select two columns.
+   *
+   * Rows are returned as [Row2].
+   *
+   * Example:
+   * ```
+   * SELECT
+   *     .COLUMNS(AUTHOR.ID, AUTHOR.NAME)
+   *     .FROM(AUTHOR)
+   * ```
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>
+  ) = rowProjection(
+    outputs = listOf(first, second),
+    read = read2(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      create = ::Row2
+    )
+  )
 
-/** @see [Select.distinct] */
-@CheckResult
-inline infix fun <R, N> Select<*>.DISTINCT(column: Column<*, R, *, *, N>) = Select.distinct(column)
+  /**
+   * Select three columns.
+   *
+   * Rows are returned as [Row3].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>
+  ) = rowProjection(
+    outputs = listOf(first, second, third),
+    read = read3(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      readC = third.selectRead,
+      create = ::Row3
+    )
+  )
 
-/** @see [Select.distinct] */
-@CheckResult
-inline infix fun <C : Column<*, *, *, *, *>> Select<*>.DISTINCT(columns: Array<C>) = Select.distinct(*columns)
+  /**
+   * Select four columns.
+   *
+   * Rows are returned as [Row4].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>
+  ) = rowProjection(
+    outputs = listOf(first, second, third, fourth),
+    read = read4(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      readC = third.selectRead,
+      readD = fourth.selectRead,
+      create = ::Row4
+    )
+  )
 
-/** @see [Select.from] */
-@CheckResult
-infix fun <T> Select<SelectN>.FROM(table: Table<T>) = From<T, T, SelectN, NotNullable>(Columns(this, ALL), table)
+  /**
+   * Select five columns.
+   *
+   * Rows are returned as [Row5].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>
+  ) = rowProjection(
+    outputs = listOf(first, second, third, fourth, fifth),
+    read = read5(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      readC = third.selectRead,
+      readD = fourth.selectRead,
+      readE = fifth.selectRead,
+      create = ::Row5
+    )
+  )
 
-/** @see [Select.from] */
-@CheckResult
-infix fun <T> Select<SelectN>.FROM(select: SelectSqlNode.SelectNode<T, *, *>) = Select.from(select)
+  /**
+   * Select six columns.
+   *
+   * Rows are returned as [Row6].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>
+  ) = rowProjection(
+    outputs = listOf(first, second, third, fourth, fifth, sixth),
+    read = read6(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      readC = third.selectRead,
+      readD = fourth.selectRead,
+      readE = fifth.selectRead,
+      readF = sixth.selectRead,
+      create = ::Row6
+    )
+  )
 
-/** @see [Select.raw] */
-@CheckResult
-inline infix fun Select<*>.RAW(sql: String) = Select.raw(sql)
+  /**
+   * Select seven columns.
+   *
+   * Rows are returned as [Row7].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @param seventh The seventh column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F, G> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>,
+    seventh: SqlExpression<*, *, G>
+  ) = rowProjection(
+    outputs = listOf(first, second, third, fourth, fifth, sixth, seventh),
+    read = read7(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      readC = third.selectRead,
+      readD = fourth.selectRead,
+      readE = fifth.selectRead,
+      readF = sixth.selectRead,
+      readG = seventh.selectRead,
+      create = ::Row7
+    )
+  )
 
-/** @see [SingleColumn.from] */
-@CheckResult
-inline infix fun <R, T, N> SingleColumn<R, N>.FROM(table: Table<T>) = this.from(table)
+  /**
+   * Select eight columns.
+   *
+   * Rows are returned as [Row8].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @param seventh The seventh column or expression to select
+   * @param eighth The eighth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F, G, H> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>,
+    seventh: SqlExpression<*, *, G>,
+    eighth: SqlExpression<*, *, H>
+  ) = rowProjection(
+    outputs = listOf(first, second, third, fourth, fifth, sixth, seventh, eighth),
+    read = read8(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      readC = third.selectRead,
+      readD = fourth.selectRead,
+      readE = fifth.selectRead,
+      readF = sixth.selectRead,
+      readG = seventh.selectRead,
+      readH = eighth.selectRead,
+      create = ::Row8
+    )
+  )
 
-/** @see [SingleColumn.from] */
-@CheckResult
-inline infix fun <R, T, N> SingleColumn<R, N>.FROM(select: SelectSqlNode.SelectNode<T, *, *>) = this.from(select)
+  /**
+   * Select nine columns.
+   *
+   * Rows are returned as [Row9].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @param seventh The seventh column or expression to select
+   * @param eighth The eighth column or expression to select
+   * @param ninth The ninth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F, G, H, I> COLUMNS(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>,
+    seventh: SqlExpression<*, *, G>,
+    eighth: SqlExpression<*, *, H>,
+    ninth: SqlExpression<*, *, I>
+  ) = rowProjection(
+    outputs = listOf(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth),
+    read = read9(
+      readA = first.selectRead,
+      readB = second.selectRead,
+      readC = third.selectRead,
+      readD = fourth.selectRead,
+      readE = fifth.selectRead,
+      readF = sixth.selectRead,
+      readG = seventh.selectRead,
+      readH = eighth.selectRead,
+      readI = ninth.selectRead,
+      create = ::Row9
+    )
+  )
 
-/** @see [Columns.from] */
-@CheckResult
-inline infix fun <T> Columns.FROM(table: Table<T>) = this.from(table)
+  /**
+   * Select multiple columns.
+   *
+   * Rows are returned as [SelectedRow], whose values are read by the selected expressions, for example
+   * `row[BOOK.ID]`. Use the `all()` of a table to select all of its columns.
+   *
+   * Example:
+   * ```
+   * SELECT
+   *     .COLUMNS(BOOK.ID, AUTHOR.all())
+   *     .FROM(BOOK)
+   * ```
+   *
+   * @param outputs Columns, expressions and column lists to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun COLUMNS(vararg outputs: SqlOutput) = wideProjection(outputs)
 
-/** @see [Columns.from] */
-@CheckResult
-inline infix fun <T> Columns.FROM(select: SelectSqlNode.SelectNode<T, *, *>) = this.from(select)
+  /**
+   * Select all columns from [table].
+   *
+   * Rows are returned as the table's model objects.
+   *
+   * Example:
+   * ```
+   * SELECT FROM AUTHOR WHERE (AUTHOR.NAME IS "Ada")
+   * ```
+   *
+   * @param table Table to select from. This param must be one of annotation processor
+   *              generated table objects that corresponds to table in a database
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <M> FROM(table: Table<M>) = SelectFromStage(
+    SelectNode(
+      selection = EntitySelection(table),
+      source = table
+    )
+  )
 
-/** @see [From.join] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.JOIN(table: Table<*>) = this.join(table)
+  /**
+   * Select all columns from a subquery or a common table expression.
+   *
+   * Rows are returned as the query returns them.
+   *
+   * Example:
+   * ```
+   * SELECT FROM (ids AS "published")
+   * ```
+   *
+   * @param source Query, aliased subquery or common table expression to select from
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <M> FROM(source: QueryOutputSource<M>) = source.occurrence.let { occurrence ->
+    SelectFromStage(
+      SelectNode(
+        selection = QuerySelection(occurrence),
+        source = occurrence
+      )
+    )
+  }
 
-/** @see [From.join] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.JOIN(joinClause: JoinClause) = this.join(joinClause)
+  /**
+   * Select distinct rows.
+   *
+   * Example:
+   * ```
+   * SELECT.DISTINCT FROM AUTHOR
+   * ```
+   *
+   * @return SQL SELECT DISTINCT statement builder
+   */
+  val DISTINCT get() = SelectDistinct
 
-/** @see [From.leftJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.LEFT_JOIN(table: Table<*>) = this.leftJoin(table)
+  /**
+   * Select single distinct column.
+   *
+   * Creates "SELECT DISTINCT `column` ..." query builder where duplicate rows
+   * are removed from the set of result rows. For the purposes of detecting duplicate
+   * rows, two NULL values are considered to be equal.
+   *
+   * Example:
+   * ```
+   * SELECT DISTINCT AUTHOR.NAME FROM AUTHOR
+   * ```
+   *
+   * @param expression Column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <R, N : SqlNullability, T> DISTINCT(expression: SqlExpression<R, N, T>) = COLUMN(expression).distinct()
 
-/** @see [From.leftJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.LEFT_JOIN(joinClause: JoinClause) = this.leftJoin(joinClause)
+  /**
+   * Select two distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row2].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>
+  ) = COLUMNS(first, second).distinct()
 
-/** @see [From.leftOuterJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.LEFT_OUTER_JOIN(table: Table<*>) = this.leftOuterJoin(table)
+  /**
+   * Select three distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row3].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>
+  ) = COLUMNS(first, second, third).distinct()
 
-/** @see [From.leftOuterJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.LEFT_OUTER_JOIN(joinClause: JoinClause) = this.leftOuterJoin(joinClause)
+  /**
+   * Select four distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row4].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>
+  ) = COLUMNS(first, second, third, fourth).distinct()
 
-/** @see [From.innerJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.INNER_JOIN(table: Table<*>) = this.innerJoin(table)
+  /**
+   * Select five distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row5].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>
+  ) = COLUMNS(first, second, third, fourth, fifth).distinct()
 
-/** @see [From.innerJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.INNER_JOIN(joinClause: JoinClause) = this.innerJoin(joinClause)
+  /**
+   * Select six distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row6].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>
+  ) = COLUMNS(first, second, third, fourth, fifth, sixth).distinct()
 
-/** @see [From.crossJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.CROSS_JOIN(table: Table<*>) = this.crossJoin(table)
+  /**
+   * Select seven distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row7].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @param seventh The seventh column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F, G> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>,
+    seventh: SqlExpression<*, *, G>
+  ) = COLUMNS(first, second, third, fourth, fifth, sixth, seventh).distinct()
 
-/** @see [From.crossJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.CROSS_JOIN(joinClause: JoinClause) = this.crossJoin(joinClause)
+  /**
+   * Select eight distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row8].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @param seventh The seventh column or expression to select
+   * @param eighth The eighth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F, G, H> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>,
+    seventh: SqlExpression<*, *, G>,
+    eighth: SqlExpression<*, *, H>
+  ) = COLUMNS(first, second, third, fourth, fifth, sixth, seventh, eighth).distinct()
 
-/** @see [From.naturalJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.NATURAL_JOIN(table: Table<*>) = this.naturalJoin(table)
+  /**
+   * Select nine distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [Row9].
+   *
+   * @param first The first column or expression to select
+   * @param second The second column or expression to select
+   * @param third The third column or expression to select
+   * @param fourth The fourth column or expression to select
+   * @param fifth The fifth column or expression to select
+   * @param sixth The sixth column or expression to select
+   * @param seventh The seventh column or expression to select
+   * @param eighth The eighth column or expression to select
+   * @param ninth The ninth column or expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun <A, B, C, D, E, F, G, H, I> DISTINCT(
+    first: SqlExpression<*, *, A>,
+    second: SqlExpression<*, *, B>,
+    third: SqlExpression<*, *, C>,
+    fourth: SqlExpression<*, *, D>,
+    fifth: SqlExpression<*, *, E>,
+    sixth: SqlExpression<*, *, F>,
+    seventh: SqlExpression<*, *, G>,
+    eighth: SqlExpression<*, *, H>,
+    ninth: SqlExpression<*, *, I>
+  ) = COLUMNS(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth).distinct()
 
-/** @see [From.naturalLeftJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.NATURAL_LEFT_JOIN(table: Table<*>) = this.naturalLeftJoin(table)
+  /**
+   * Select multiple distinct columns.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned
+   * as [SelectedRow], whose values are read by the selected expressions.
+   *
+   * @param outputs Columns, expressions and column lists to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  fun DISTINCT(vararg outputs: SqlOutput) = wideProjection(outputs).distinct()
+}
 
-/** @see [From.naturalLeftOuterJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.NATURAL_LEFT_OUTER_JOIN(table: Table<*>) =
-  this.naturalLeftOuterJoin(table)
+/**
+ * Create a new builder for SQL SELECT statement.
+ *
+ * Example:
+ * ```
+ * SELECT FROM AUTHOR WHERE (AUTHOR.NAME IS "Ada")
+ *
+ * SELECT COLUMN AUTHOR.NAME FROM AUTHOR
+ *
+ * SELECT
+ *     .COLUMNS(AUTHOR.ID, AUTHOR.NAME)
+ *     .FROM(AUTHOR)
+ *     .ORDER_BY(AUTHOR.NAME.ASC())
+ * ```
+ *
+ * @see [SQLite documentation: SELECT](https://www.sqlite.org/lang_select.html)
+ */
+val SELECT = Select
 
-/** @see [From.naturalInnerJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.NATURAL_INNER_JOIN(table: Table<*>) = this.naturalInnerJoin(table)
+private fun rawSelect(sql: String, arguments: Array<out Any?>) = RawSelect<UndeclaredTables>(
+  ExpressionNode.Raw(
+    sql = sql,
+    arguments = arguments.map(::nativeValue),
+    dependencies = QueryDependencies.NONE
+  )
+)
 
-/** @see [From.naturalCrossJoin] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.NATURAL_CROSS_JOIN(table: Table<*>) = this.naturalCrossJoin(table)
+/**
+ * Builder for SQL SELECT DISTINCT statement.
+ */
+object SelectDistinct {
+  /**
+   * Select all distinct rows from [table].
+   *
+   * Creates "SELECT DISTINCT ... FROM ..." query builder where duplicate rows are removed from the set of result
+   * rows. For the purposes of detecting duplicate rows, two NULL values are considered to be equal.
+   *
+   * Rows are returned as the table's model objects.
+   *
+   * @param table Table to select from. This param must be one of annotation processor
+   *              generated table objects that corresponds to table in a database
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <M> FROM(table: Table<M>) = Select.FROM(table).distinct()
 
-/** @see [From.where] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.WHERE(expr: Expr) = this.where(expr)
+  /**
+   * Select all distinct rows from a subquery or a common table expression.
+   *
+   * Creates "SELECT DISTINCT ... FROM ..." query builder where duplicate rows are removed from the set of result
+   * rows. For the purposes of detecting duplicate rows, two NULL values are considered to be equal.
+   *
+   * @param source Query, aliased subquery or common table expression to select from
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <M> FROM(source: QueryOutputSource<M>) = Select.FROM(source).distinct()
+}
 
-/** @see [From.groupBy] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.GROUP_BY(column: Column<*, *, *, *, *>) = this.groupBy(column)
+private fun <T> rowProjection(
+  outputs: List<SqlExpression<*, *, *>>,
+  read: (Cursor, Int) -> T
+) = SelectProjectionStage(
+  SelectNode(
+    RowSelection(
+      outputs = outputs,
+      reader = { read }
+    )
+  )
+)
 
-/** @see [From.groupBy] */
-@CheckResult
-inline infix fun <T, R, S, N, C : Column<*, *, *, *, *>> From<T, R, S, N>.GROUP_BY(columns: Array<C>) =
-  this.groupBy(*columns)
+private fun wideProjection(outputs: Array<out SqlOutput>) = SelectedOutputs(
+  buildList(outputs.size) {
+    outputs.forEach { output ->
+      when (output) {
+        is SqlExpression<*, *, *> -> add(output)
+        is TableFields -> addAll(output.fields)
+      }
+    }
+  }
+)
+  .let { selected ->
+    rowProjection(
+      outputs = selected.expressions,
+      read = selected::ownedRow
+    )
+  }
 
-/** @see [From.orderBy] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.ORDER_BY(orderingTerm: OrderingTerm) = this.orderBy(orderingTerm)
+private fun <T, S : Selection<T>> SelectProjectionStage<T, S>.distinct() = SelectProjectionStage(
+  node.copy(distinct = true)
+)
 
-/** @see [From.orderBy] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.ORDER_BY(orderingTerms: Array<OrderingTerm>) =
-  this.orderBy(*orderingTerms)
-
-/** @see [From.limit] */
-@CheckResult
-inline infix fun <T, R, S, N> From<T, R, S, N>.LIMIT(nrOfRows: Int) = this.limit(nrOfRows)
-
-/** @see [Where.groupBy] */
-@CheckResult
-inline infix fun <T, S, N> Where<T, S, N>.GROUP_BY(column: Column<*, *, *, *, *>) = this.groupBy(column)
-
-/** @see [Where.groupBy] */
-@CheckResult
-inline infix fun <T, S, N, C : Column<*, *, *, *, *>> Where<T, S, N>.GROUP_BY(columns: Array<C>) =
-  this.groupBy(*columns)
-
-/** @see [Where.orderBy] */
-@CheckResult
-inline infix fun <T, S, N> Where<T, S, N>.ORDER_BY(orderingTerm: OrderingTerm) = this.orderBy(orderingTerm)
-
-/** @see [Where.orderBy] */
-@CheckResult
-inline infix fun <T, S, N> Where<T, S, N>.ORDER_BY(orderingTerms: Array<OrderingTerm>) = this.orderBy(*orderingTerms)
-
-/** @see [Where.limit] */
-@CheckResult
-inline infix fun <T, S, N> Where<T, S, N>.LIMIT(nrOfRows: Int) = this.limit(nrOfRows)
-
-/** @see [GroupBy.having] */
-@CheckResult
-inline infix fun <T, S, N> GroupBy<T, S, N>.HAVING(expr: Expr) = this.having(expr)
-
-/** @see [GroupBy.orderBy] */
-@CheckResult
-inline infix fun <T, S, N> GroupBy<T, S, N>.ORDER_BY(orderingTerm: OrderingTerm) = this.orderBy(orderingTerm)
-
-/** @see [GroupBy.orderBy] */
-@CheckResult
-inline infix fun <T, S, N> GroupBy<T, S, N>.ORDER_BY(orderingTerms: Array<OrderingTerm>) = this.orderBy(*orderingTerms)
-
-/** @see [GroupBy.limit] */
-@CheckResult
-inline infix fun <T, S, N> GroupBy<T, S, N>.LIMIT(nrOfRows: Int) = this.limit(nrOfRows)
-
-/** @see [Having.orderBy] */
-@CheckResult
-inline infix fun <T, S, N> Having<T, S, N>.ORDER_BY(orderingTerm: OrderingTerm) = this.orderBy(orderingTerm)
-
-/** @see [Having.orderBy] */
-@CheckResult
-inline infix fun <T, S, N> Having<T, S, N>.ORDER_BY(orderingTerms: Array<OrderingTerm>) = this.orderBy(*orderingTerms)
-
-/** @see [Having.limit] */
-@CheckResult
-inline infix fun <T, S, N> Having<T, S, N>.LIMIT(nrOfRows: Int) = this.limit(nrOfRows)
-
-/** @see [OrderBy.limit] */
-@CheckResult
-inline infix fun <T, S, N> OrderBy<T, S, N>.LIMIT(nrOfRows: Int) = this.limit(nrOfRows)
-
-/** @see [Limit.offset] */
-@CheckResult
-inline infix fun <T, S, N> Limit<T, S, N>.OFFSET(nrOfRows: Int) = this.offset(nrOfRows)
-
-/** @see [RawSelect.from] */
-@CheckResult
-inline infix fun RawSelect.FROM(table: Table<*>) = this.from(table)
-
-/** @see [RawSelect.from] */
-@CheckResult
-inline infix fun <T : Table<*>> RawSelect.FROM(tables: Array<T>) = this.from(*tables)
-
-/** @see [RawSelect.from] */
-@CheckResult
-inline infix fun <T : Table<*>> RawSelect.FROM(tables: Collection<T>) = this.from(tables)
-
-/** @see [RawSelect.From.withArgs] */
-@CheckResult
-inline infix fun RawSelect.From.WITH_ARGS(args: Array<String>) = this.withArgs(*args)
-
-/** @see [RawSelect.From.withArgs] */
-@CheckResult
-inline infix fun RawSelect.WITH_ARGS(args: Array<String>) = this.withArgs(*args)
-
-/** @see [Select.asColumn] */
-inline val <T : Number> T.asColumn
-  @CheckResult get() = Select.asColumn(this)
-
-/** @see [Select.asColumn] */
-inline val CharSequence.asColumn
-  @CheckResult get() = Select.asColumn(this)
-
-/** @see [Select.asColumn] */
-inline val Any.asColumn
-  @CheckResult get() = Select.asColumn(this)
-
-/** @see [Select.asRawColumn] */
-inline val Any.asRawColumn
-  @CheckResult get() = Select.asRawColumn(this)
-
-/** @see [SelectSqlNode.SelectNode.union] */
-inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.UNION(select: SelectSqlNode.SelectNode<*, S, *>) =
-  union(select)
-
-/** @see [SelectSqlNode.SelectNode.unionAll] */
-inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.UNION_ALL(select: SelectSqlNode.SelectNode<*, S, *>) =
-  unionAll(select)
-
-/** @see [SelectSqlNode.SelectNode.intersect] */
-inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.INTERSECT(select: SelectSqlNode.SelectNode<*, S, *>) =
-  intersect(select)
-
-/** @see [SelectSqlNode.SelectNode.except] */
-inline infix fun <T, S, N> SelectSqlNode.SelectNode<T, S, N>.EXCEPT(select: SelectSqlNode.SelectNode<*, S, *>) =
-  except(select)
+private fun <T, S : Selection<T>> SelectFromStage<T, S>.distinct() = SelectFromStage(node.copy(distinct = true))

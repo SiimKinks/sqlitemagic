@@ -7,9 +7,9 @@ import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class SchemaRecordingDatabaseTest {
+internal class SchemaRecordingDatabaseTest {
   @Test
-  fun recordsPersistentCreationConfigurationAndTransactions() {
+  fun `records persistent creation, configuration and transactions`() {
     val recorder = SchemaRecordingDatabase()
     recorder.database.apply {
       setForeignKeyConstraintsEnabled(true)
@@ -50,7 +50,7 @@ class SchemaRecordingDatabaseTest {
   }
 
   @Test
-  fun absentForeignKeyCallRecordsDisabledConfiguration() {
+  fun `absent foreign key call records disabled configuration`() {
     assertThat(
       SchemaRecordingDatabase().snapshot(
         databaseId = "main",
@@ -74,7 +74,7 @@ class SchemaRecordingDatabaseTest {
   }
 
   @Test
-  fun unsupportedCallsAndTemporarySqlFail() {
+  fun `unsupported calls and temporary SQL fail`() {
     val cases: Map<String, (SchemaRecordingDatabase) -> Unit> = mapOf(
       "schema outside transaction" to { it.database.execSQL("CREATE TABLE books (id INTEGER)") },
       "query" to { it.database.query("SELECT 1") },
@@ -97,7 +97,7 @@ class SchemaRecordingDatabaseTest {
   }
 
   @Test
-  fun unsuccessfulOrUnfinishedTransactionCannotProduceEvidence() {
+  fun `unsuccessful or unfinished transaction cannot produce evidence`() {
     listOf(false, true).forEach { finish ->
       val recorder = SchemaRecordingDatabase()
       recorder.database.beginTransaction()
@@ -114,7 +114,7 @@ class SchemaRecordingDatabaseTest {
   }
 
   @Test
-  fun generatedQuotedNamesAndMultilineDefinitionsAreRetainedVerbatim() {
+  fun `generated quoted names and multiline definitions are retained verbatim`() {
     val sql = "CREATE VIEW IF NOT EXISTS \"book\"\"titles\narchive\" AS SELECT 'first\nsecond' AS title"
     val recorder = SchemaRecordingDatabase()
     recorder.database.apply {
@@ -132,7 +132,7 @@ class SchemaRecordingDatabaseTest {
   }
 
   @Test
-  fun malformedGeneratedViewHeadersAreRejected() {
+  fun `malformed generated view headers are rejected`() {
     val cases = listOf(
       "CREATE VIEW \"unterminated AS SELECT 1",
       "CREATE VIEW \"title\" SELECT 1",

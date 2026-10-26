@@ -16,10 +16,10 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.transformer.DefaultTransformerCollectionStep
 import com.siimkinks.sqlitemagic.transformer.TransformerCodeGenerationStep
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionStep
-import com.siimkinks.sqlitemagic.view.ViewCollectionStep
 import com.siimkinks.sqlitemagic.view.ViewCodeGenerationStep
+import com.siimkinks.sqlitemagic.view.ViewCollectionStep
 
-class SqliteMagicSymbolProcessor(
+internal class SqliteMagicSymbolProcessor(
   symbolProcessorEnvironment: SymbolProcessorEnvironment,
   processingStepsProvider: (Environment) -> List<ProcessingStep> = { env ->
     listOf(

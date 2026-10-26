@@ -3,19 +3,26 @@ package com.siimkinks.sqlitemagic.runtime.contract.query
 import android.database.AbstractWindowedCursor
 import android.database.CharArrayBuffer
 import android.database.Cursor
+import android.database.Cursor.FIELD_TYPE_BLOB
+import android.database.Cursor.FIELD_TYPE_FLOAT
+import android.database.Cursor.FIELD_TYPE_INTEGER
+import android.database.Cursor.FIELD_TYPE_NULL
+import android.database.Cursor.FIELD_TYPE_STRING
 import android.database.CursorWindow
 import android.os.Build
+import android.os.CancellationSignal
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.SupportSQLiteQuery
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import org.junit.Test
@@ -25,16 +32,12 @@ private const val ROW_COUNT = 192
 private const val PAYLOAD_SIZE = 64 * 1024
 private const val LARGE_INTEGER = 1L shl 40
 
-/**
- * Dedicated physical-storage coverage: ordinary three-row cursor contracts cannot observe SQLite window refills.
- * Uses an existing catalog fixture; no additional generated model or ordinary operation contract is introduced.
- */
-class CursorWindowTraversalRuntimeTest {
+internal class CursorWindowTraversalRuntimeTest {
   @Test
   fun typedMappingSurvivesWindowRefillsInBothDirectionsAndJumps() = withWindowRows { connection, rows, factory ->
-    val query = Select
-      .from(SIMPLE_MUTABLE_ENTITY)
-      .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
+    val query = SELECT
+      .FROM(SIMPLE_MUTABLE_ENTITY)
+      .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
       .usingConnection(connection)
       .toCursor()
     assertWindowTraversal(
@@ -48,8 +51,8 @@ class CursorWindowTraversalRuntimeTest {
 
   @Test
   fun rawScalarReadsSurviveWindowRefillsInBothDirectionsAndJumps() = withWindowRows { connection, rows, factory ->
-    val cursor = Select
-      .raw(
+    val cursor = SELECT
+      .RAW(
         """
         SELECT id, value, CASE WHEN id % 2 = 0 THEN NULL ELSE value END,
           CAST(CASE WHEN id % 2 = 0 THEN NULL ELSE value END AS BLOB), id + $LARGE_INTEGER, id + 0.25
@@ -57,6 +60,7 @@ class CursorWindowTraversalRuntimeTest {
         """.trimIndent()
       )
       .usingConnection(connection)
+      .toCursor()
       .execute()
     assertWindowTraversal(
       cursor = cursor,
@@ -85,8 +89,8 @@ class CursorWindowTraversalRuntimeTest {
 
   @Test
   fun rawRowTypesBuffersAndPositionFlagsFollowWindowTraversal() = withWindowRows { connection, rows, factory ->
-    val cursor = Select
-      .raw(
+    val cursor = SELECT
+      .RAW(
         """
             SELECT id, value, CASE id % 5
               WHEN 0 THEN NULL
@@ -99,7 +103,7 @@ class CursorWindowTraversalRuntimeTest {
             """.trimIndent()
       )
       .usingConnection(connection)
-      .compile()
+      .toCursor()
       .execute()
     val buffer = CharArrayBuffer(1)
     assertThat(cursor.getColumnIndex("mixed"))
@@ -115,11 +119,11 @@ class CursorWindowTraversalRuntimeTest {
         val expected = rows[position]
         val id = checkNotNull(expected.id)
         val type = when (id % 5) {
-          0L -> Cursor.FIELD_TYPE_NULL
-          1L -> Cursor.FIELD_TYPE_INTEGER
-          2L -> Cursor.FIELD_TYPE_FLOAT
-          3L -> Cursor.FIELD_TYPE_STRING
-          else -> Cursor.FIELD_TYPE_BLOB
+          0L -> FIELD_TYPE_NULL
+          1L -> FIELD_TYPE_INTEGER
+          2L -> FIELD_TYPE_FLOAT
+          3L -> FIELD_TYPE_STRING
+          else -> FIELD_TYPE_BLOB
         }
         assertThat(current.position)
           .isEqualTo(position)
@@ -134,17 +138,17 @@ class CursorWindowTraversalRuntimeTest {
         assertThat(current.getType(2))
           .isEqualTo(type)
         assertThat(current.isNull(2))
-          .isEqualTo(type == Cursor.FIELD_TYPE_NULL)
+          .isEqualTo(type == FIELD_TYPE_NULL)
         when (type) {
-          Cursor.FIELD_TYPE_INTEGER -> assertThat(current.getLong(2))
+          FIELD_TYPE_INTEGER -> assertThat(current.getLong(2))
             .isEqualTo(id + LARGE_INTEGER)
-          Cursor.FIELD_TYPE_FLOAT -> assertThat(current.getDouble(2))
+          FIELD_TYPE_FLOAT -> assertThat(current.getDouble(2))
             .isEqualTo(id.toDouble() + 0.25)
-          Cursor.FIELD_TYPE_STRING -> assertThat(current.getString(2))
+          FIELD_TYPE_STRING -> assertThat(current.getString(2))
             .isEqualTo(expected.value)
-          Cursor.FIELD_TYPE_BLOB -> assertThat(current.getBlob(2))
+          FIELD_TYPE_BLOB -> assertThat(current.getBlob(2))
             .isEqualTo(expected.value?.toByteArray())
-          Cursor.FIELD_TYPE_NULL -> assertThat(current.getString(2))
+          FIELD_TYPE_NULL -> assertThat(current.getString(2))
             .isNull()
         }
         current.copyStringToBuffer(1, buffer)
@@ -168,27 +172,22 @@ class CursorWindowTraversalRuntimeTest {
       databaseName = WINDOW_DATABASE_NAME,
       sqliteFactory = factory
     ).use { connection ->
-      // API 24-27 lacks the sized CursorWindow constructor. This corpus exceeds the framework's default window;
-      // the traversal helper verifies that the real result actually spans windows on every tested device.
       val payload = "x".repeat(PAYLOAD_SIZE)
-      val rows = List(
-        size = ROW_COUNT,
-        init = { position ->
-          SimpleMutableEntity(
-            id = position.toLong() + 1,
-            value = "$position:$payload",
-            boxedBoolean = when {
-              position % 2 == 0 -> null
-              else -> true
-            },
-            primitiveBoolean = position % 3 == 0
-          )
-        }
-      )
+      val rows = List(size = ROW_COUNT) { position ->
+        SimpleMutableEntity(
+          id = position.toLong() + 1,
+          value = "$position:$payload",
+          boxedBoolean = when {
+            position % 2 == 0 -> null
+            else -> true
+          },
+          primitiveBoolean = position % 3 == 0
+        )
+      }
       connection.inTransaction {
-        rows.forEach { row ->
-          assertSeedInserted(
-            result = row
+        rows.forEach {
+          insertedResult(
+            result = it
               .insert()
               .usingConnection(connection)
               .execute(),
@@ -219,15 +218,17 @@ class CursorWindowTraversalRuntimeTest {
         windowStarts.add(window.startPosition)
       }
       assertThat(cursor.moveToNext()).isFalse()
-      assertThat(cursor.position).isEqualTo(ROW_COUNT - 1)
+      assertThat(cursor.position).isEqualTo(ROW_COUNT)
+      assertThat(cursor.isAfterLast).isTrue()
       assertThat(window.startPosition).isGreaterThan(0)
-      for (position in ROW_COUNT - 2 downTo 0) {
+      for (position in ROW_COUNT - 1 downTo 0) {
         assertThat(cursor.moveToPrevious()).isTrue()
         assertRow(cursor, position)
         windowStarts.add(window.startPosition)
       }
       assertThat(cursor.moveToPrevious()).isFalse()
-      assertThat(cursor.position).isEqualTo(0)
+      assertThat(cursor.position).isEqualTo(-1)
+      assertThat(cursor.isBeforeFirst).isTrue()
       assertThat(window.startPosition).isEqualTo(0)
       listOf(ROW_COUNT - 1, 0, ROW_COUNT / 2, 1, ROW_COUNT - 2).forEach { position ->
         assertThat(cursor.moveToPosition(position)).isTrue()
@@ -283,6 +284,18 @@ private class WindowTrackingFactory : SupportSQLiteOpenHelper.Factory {
       delegate.query(
         query = query,
         bindArgs = bindArgs
+      )
+    )
+
+    override fun query(query: SupportSQLiteQuery) = capture(delegate.query(query))
+
+    override fun query(
+      query: SupportSQLiteQuery,
+      cancellationSignal: CancellationSignal?
+    ) = capture(
+      delegate.query(
+        query = query,
+        cancellationSignal = cancellationSignal
       )
     )
   }

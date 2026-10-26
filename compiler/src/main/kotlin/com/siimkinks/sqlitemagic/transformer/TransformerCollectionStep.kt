@@ -23,7 +23,7 @@ import com.siimkinks.sqlitemagic.utils.firstUncheckedAnnotation
 import com.siimkinks.sqlitemagic.utils.getLocalAndInheritedFunctions
 import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 
-class TransformerCollectionStep(
+internal class TransformerCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {

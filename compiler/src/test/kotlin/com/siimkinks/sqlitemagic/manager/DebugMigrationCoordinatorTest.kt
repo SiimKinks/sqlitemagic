@@ -1,17 +1,18 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
+import com.google.devtools.ksp.processing.KSPLogger
+import com.siimkinks.sqlitemagic.CompilerOptions
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_OUTPUT_DIR
 import com.siimkinks.sqlitemagic.index.mockSqliteIdentifier
 import com.siimkinks.sqlitemagic.index.mockSqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.transformer.transformerCollectionProcessingSteps
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.ProcessorCompilationResult
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.debugMigrationOptions
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.view.mockViewElement
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
@@ -21,11 +22,16 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.io.File
 import java.io.IOException
-import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createDirectory
+import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
-internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
-  override val processingSteps = ::migrationCollectionSteps
+internal class DebugMigrationCoordinatorTest {
+  private val compiler = SqliteMagicCompiler(::migrationCollectionSteps)
 
   @TempDir
   lateinit var temporaryDirectory: Path
@@ -36,7 +42,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val submoduleDirectory = temporaryDirectory.resolve("feature")
     val structureOutputDirectory = temporaryDirectory.resolve("staged")
     val staleStructure = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "stale_items" to TableStructure(name = "stale_items")
       )
     )
@@ -48,39 +54,21 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       file = structureOutputDirectory.resolve("latest_old.struct").toFile(),
       structure = staleStructure
     )
-    structureOutputDirectory.resolve("feature.changed").toFile().writeText("")
-    structureOutputDirectory.resolve("old.changed").toFile().writeText("")
+    structureOutputDirectory
+      .resolve("feature.changed")
+      .writeText("")
+    structureOutputDirectory
+      .resolve("old.changed")
+      .writeText("")
 
-    val compilation = SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "FeatureDatabase.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @SubmoduleDatabase("feature")
-            class FeatureDatabase
-
-            @Table("feature_items")
-            data class FeatureItem(
-              @Id val id: Long,
-              val name: String
-            )
-          """
-        ),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory,
-          migrateDebug = false,
-          structureOutputDirectory = structureOutputDirectory
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = submoduleDirectory,
+      mainModuleDirectory = mainDirectory,
+      migrateDebug = false,
+      structureOutputDirectory = structureOutputDirectory
+    )
+    val database = debugMainDatabase
+      .copy(submoduleName = "Feature")
     val orderedTables = CreationOrderedTables.from(database.tables)
     val expectedStructure = DatabaseStructure.from(
       orderedTables = orderedTables,
@@ -88,27 +76,37 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     )
 
     assertThat(
-      DebugMigrationCoordinator(
-        configuration = DebugMigrationConfiguration.from(compilation.environment.options),
-        logger = compilation.environment.logger
-      ).handle(
-        database = database,
-        currentStructure = expectedStructure
-      )
-    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = null))
+      debugMigrationCoordinator(configuration)
+        .handle(
+          database = database,
+          currentStructure = expectedStructure
+        )
+    ).isEqualTo(DebugMigrationOutcome())
     assertThat(
       DatabaseStructureJson.read(
         structureOutputDirectory.resolve("latest_feature.struct").toFile()
       )
     ).isEqualTo(expectedStructure)
-    assertThat(Files.exists(structureOutputDirectory.resolve("latest_old.struct")))
-      .isFalse()
-    assertThat(Files.exists(structureOutputDirectory.resolve("feature.changed")))
-      .isFalse()
-    assertThat(Files.exists(structureOutputDirectory.resolve("old.changed")))
-      .isFalse()
-    assertThat(Files.exists(mainDirectory.resolve("db/latest_feature.struct")))
-      .isFalse()
+    assertThat(
+      structureOutputDirectory
+        .resolve("latest_old.struct")
+        .exists()
+    ).isFalse()
+    assertThat(
+      structureOutputDirectory
+        .resolve("feature.changed")
+        .exists()
+    ).isFalse()
+    assertThat(
+      structureOutputDirectory
+        .resolve("old.changed")
+        .exists()
+    ).isFalse()
+    assertThat(
+      mainDirectory
+        .resolve("db/latest_feature.struct")
+        .exists()
+    ).isFalse()
   }
 
   @Test
@@ -116,19 +114,13 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submoduleDirectory = temporaryDirectory.resolve("feature")
     val stagingDirectory = temporaryDirectory.resolve("staged")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory,
-          migrateDebug = false,
-          structureOutputDirectory = stagingDirectory
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = submoduleDirectory,
+      mainModuleDirectory = mainDirectory,
+      migrateDebug = false,
+      structureOutputDirectory = stagingDirectory
+    )
+    val database = debugMainDatabase
       .copy(submoduleName = "feature")
     val structure = DatabaseStructure.from(
       orderedTables = CreationOrderedTables.from(database.tables),
@@ -151,13 +143,11 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     staleMarker.writeText("stale marker")
 
     assertThat(
-      DebugMigrationCoordinator(
-        configuration = DebugMigrationConfiguration.from(compilation.environment.options),
-        logger = compilation.environment.logger
-      ).handle(
-        database = database,
-        currentStructure = structure
-      )
+      debugMigrationCoordinator(configuration)
+        .handle(
+          database = database,
+          currentStructure = structure
+        )
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(currentFile.readBytes()).isEqualTo(originalBytes)
     assertThat(currentFile.lastModified()).isEqualTo(originalTimestamp)
@@ -169,26 +159,19 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   @Test
   fun `publishes a complete staged main snapshot without debug migration`() {
     val structureOutputDirectory = temporaryDirectory.resolve("staged")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = temporaryDirectory,
-          migrateDebug = false,
-          structureOutputDirectory = structureOutputDirectory
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = temporaryDirectory,
+      migrateDebug = false,
+      structureOutputDirectory = structureOutputDirectory
+    )
+    val database = debugMainDatabase
       .copy(views = listOf(mockView(name = "main_view")))
     val orderedTables = CreationOrderedTables.from(database.tables)
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(
@@ -209,7 +192,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   fun `does not publish a submodule snapshot when migration generation fails`() {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submoduleDirectory = temporaryDirectory.resolve("feature")
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "FeatureWithoutRowIdDatabase.kt",
@@ -237,16 +220,16 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
         )
       )
       .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
+    val database = compilation.environment.generatedDatabaseElement()
     val orderedTables = CreationOrderedTables.from(database.tables)
     val currentStructure = DatabaseStructure.from(orderedTables)
     val currentTable = currentStructure.tables.getValue("feature_items")
     val previousTable = currentTable.copy(
       schema = "CREATE TABLE IF NOT EXISTS feature_items (name TEXT DEFAULT '')",
-      columns = arrayListOf(currentTable.columns.single { column -> column.name == "name" })
+      columns = listOf(currentTable.columns.single { it.name == "name" })
     )
     val previousStructure = DatabaseStructure(
-      tables = linkedMapOf("feature_items" to previousTable)
+      tables = mapOf("feature_items" to previousTable)
     )
     DatabaseStructureJson.write(
       file = submoduleDirectory
@@ -265,9 +248,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       )
 
     assertThat(outcome)
-      .isEqualTo(
-        DebugMigrationOutcome(databaseVersionOverride = null)
-      )
+      .isEqualTo(DebugMigrationOutcome())
     assertThat(
       DatabaseStructureJson.read(
         submoduleDirectory
@@ -276,56 +257,27 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       )
     )
       .isEqualTo(previousStructure)
-    assertThat(Files.exists(mainDirectory.resolve("db/latest_feature.struct")))
-      .isFalse()
-    assertThat(Files.exists(mainDirectory.resolve("db/feature.changed")))
-      .isFalse()
-    assertThat(Files.exists(submoduleDirectory.resolve("src/debug/assets/Feature1001.sql")))
-      .isFalse()
-  }
-
-  @Test
-  fun `uses the latest persisted debug version for an unchanged main database`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
-    val orderedTables = CreationOrderedTables.from(database.tables)
-    DatabaseStructureJson.write(
-      file = temporaryDirectory
-        .resolve("db/latest.struct")
-        .toFile(),
-      structure = DatabaseStructure.from(orderedTables)
-    )
-    temporaryDirectory
-      .resolve("db/latest_debug.version")
-      .toFile()
-      .apply {
-        parentFile.mkdirs()
-        writeText("1007")
-      }
-
     assertThat(
-      runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
-      )
-    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1007))
+      mainDirectory
+        .resolve("db/latest_feature.struct")
+        .exists()
+    ).isFalse()
+    assertThat(
+      mainDirectory
+        .resolve("db/feature.changed")
+        .exists()
+    ).isFalse()
+    assertThat(
+      submoduleDirectory
+        .resolve("src/debug/assets/Feature1001.sql")
+        .exists()
+    ).isFalse()
   }
 
   @Test
   fun `uses the default debug version for an initial unchanged main database`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
+    val configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory)
+    val database = debugMainDatabase
     val orderedTables = CreationOrderedTables.from(database.tables)
     DatabaseStructureJson.write(
       file = temporaryDirectory
@@ -336,9 +288,8 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1000))
   }
@@ -348,18 +299,12 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   fun `keeps only the latest ten debug version steps for each module`(module: String, pendingMigration: Boolean) {
     val mainDirectory = temporaryDirectory.resolve("main")
     val projectDirectory = temporaryDirectory.resolve(module)
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = projectDirectory,
-          mainModuleDirectory = mainDirectory
-        )
-      )
-      .isOk()
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = projectDirectory,
+      mainModuleDirectory = mainDirectory
+    )
     val submoduleName = module.takeUnless { it == "main" }
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val database = debugMainDatabase
       .copy(submoduleName = submoduleName)
     val orderedTables = CreationOrderedTables.from(database.tables)
     val latestVersion = when {
@@ -390,7 +335,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       "other1001.sql",
       "seed.sql"
     )
-    preservedFiles.forEach { name -> assetsDirectory.resolve(name).writeText("preserved") }
+    preservedFiles.forEach { assetsDirectory.resolve(it).writeText("preserved") }
     val preservedDirectory = assetsDirectory.resolve("${prefix}1002.sql/nested.txt")
     check(preservedDirectory.parentFile.mkdirs())
     preservedDirectory.writeText("preserved directory")
@@ -400,15 +345,14 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(
       DebugMigrationOutcome(databaseVersionOverride = latestVersion.takeUnless { database.isSubmodule })
     )
 
-    val retainedFiles = (latestVersion - 9..latestVersion).map { version -> "$prefix$version.sql" }
+    val retainedFiles = (latestVersion - 9..latestVersion).map { "$prefix$it.sql" }
     assertThat(
       assetsDirectory
         .listFiles()
@@ -428,16 +372,11 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   fun `reads a configured main version and restores only the local write target`() {
     val mainDirectory = temporaryDirectory.resolve("main")
     val projectDirectory = temporaryDirectory.resolve("project")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = projectDirectory,
-          mainModuleDirectory = mainDirectory
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = projectDirectory,
+      mainModuleDirectory = mainDirectory
+    )
+    val database = debugMainDatabase
     val structure = DatabaseStructure.from(CreationOrderedTables.from(database.tables))
     DatabaseStructureJson.write(
       file = projectDirectory.resolve("db/latest.struct").toFile(),
@@ -453,18 +392,16 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val failure = IOException("manager generation failed")
 
     val actual = assertThrows<IOException> {
-      DebugMigrationCoordinator(
-        configuration = DebugMigrationConfiguration.from(compilation.environment.options),
-        logger = compilation.environment.logger
-      ).handle(
-        database = database,
-        currentStructure = structure,
-        completion = { outcome ->
-          assertThat(outcome).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
-          assertThat(localVersion.readText()).isEqualTo("1008")
-          throw failure
-        }
-      )
+      debugMigrationCoordinator(configuration)
+        .handle(
+          database = database,
+          currentStructure = structure,
+          completion = { outcome ->
+            assertThat(outcome).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
+            assertThat(localVersion.readText()).isEqualTo("1008")
+            throw failure
+          }
+        )
     }
 
     assertThat(actual).isSameInstanceAs(failure)
@@ -475,14 +412,8 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
   @Test
   fun `increments and persists the debug version after a main migration`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
-    val orderedTables = CreationOrderedTables.from(database.tables)
+    val configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory)
+    val database = debugMainDatabase
     DatabaseStructureJson.write(
       file = temporaryDirectory
         .resolve("db/latest.struct")
@@ -504,21 +435,19 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1021))
     assertThat(
       temporaryDirectory
         .resolve("db/latest_debug.version")
-        .toFile()
         .readText()
     ).isEqualTo("1021")
     assertThat(
-      Files.exists(
-        temporaryDirectory.resolve("src/debug/assets/1021.sql")
-      )
+      temporaryDirectory
+        .resolve("src/debug/assets/1021.sql")
+        .exists()
     ).isTrue()
     assertThat(
       assetsDirectory
@@ -529,57 +458,9 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `consumes a submodule change marker after advancing an unchanged main database`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
-    val orderedTables = CreationOrderedTables.from(database.tables)
-    DatabaseStructureJson.write(
-      file = temporaryDirectory
-        .resolve("db/latest.struct")
-        .toFile(),
-      structure = DatabaseStructure.from(orderedTables)
-    )
-    val versionFile = temporaryDirectory
-      .resolve("db/latest_debug.version")
-      .toFile()
-    versionFile.writeText("1007")
-    val changeMarker = temporaryDirectory
-      .resolve("db/feature.changed")
-      .toFile()
-    changeMarker.writeText("")
-
-    assertThat(
-      runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
-      )
-    ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
-    assertThat(versionFile.readText())
-      .isEqualTo("1008")
-    assertThat(changeMarker.exists())
-      .isFalse()
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
-      .isFalse()
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.views")))
-      .isFalse()
-  }
-
-  @Test
   fun `table-only submodule change advances version without publishing view resources`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory)
+    val database = debugMainDatabase
       .copy(views = listOf(mockView(name = "main_view")))
     val orderedTables = CreationOrderedTables.from(database.tables)
     val previous = DatabaseStructure.from(
@@ -605,18 +486,15 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
-    val viewsFile = temporaryDirectory
-      .resolve("src/debug/assets/1008.views")
-      .toFile()
-    assertThat(viewsFile.exists())
-      .isFalse()
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
-      .isFalse()
+    assertThat(
+      temporaryDirectory
+        .resolve("src/debug/assets/1008.sql")
+        .exists()
+    ).isFalse()
     assertThat(DatabaseStructureJson.read(structureFile))
       .isEqualTo(previous)
     assertThat(versionFile.readText())
@@ -627,42 +505,32 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
   @Test
   fun `ignores directories whose names end in changed`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement.from(compilation.environment)
+    val configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory)
+    val database = debugMainDatabase
     val orderedTables = CreationOrderedTables.from(database.tables)
     DatabaseStructureJson.write(
       file = temporaryDirectory.resolve("db/latest.struct").toFile(),
       structure = DatabaseStructure.from(orderedTables)
     )
-    temporaryDirectory.resolve("db/latest_debug.version").toFile().writeText("1007")
+    temporaryDirectory
+      .resolve("db/latest_debug.version")
+      .writeText("1007")
     val directory = temporaryDirectory.resolve("db/ignored.changed")
-    Files.createDirectory(directory)
+    directory.createDirectory()
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1007))
-    assertThat(Files.isDirectory(directory)).isTrue()
+    assertThat(directory.isDirectory()).isTrue()
   }
 
   @Test
   fun `consumes submodule markers without reading their obsolete view names`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory)
+    val database = debugMainDatabase
       .copy(views = listOf(mockView(name = "main_view")))
     val orderedTables = CreationOrderedTables.from(database.tables)
     DatabaseStructureJson.write(
@@ -677,7 +545,6 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     )
     temporaryDirectory
       .resolve("db/latest_debug.version")
-      .toFile()
       .writeText("1007")
     val marker = temporaryDirectory
       .resolve("db/feature.changed")
@@ -686,13 +553,10 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.views")))
-      .isFalse()
     assertThat(marker.exists())
       .isFalse()
   }
@@ -701,22 +565,16 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
   fun `submodule retries retain pending SQL and mark another view change`() {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submoduleDirectory = temporaryDirectory.resolve("feature")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory
-        )
-      )
-      .isOk()
-    val baseDatabase = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = submoduleDirectory,
+      mainModuleDirectory = mainDirectory
+    )
+    val baseDatabase = debugMainDatabase
       .copy(submoduleName = "feature")
     val orderedTables = CreationOrderedTables.from(baseDatabase.tables)
     val previous = DatabaseStructure.from(orderedTables)
       .copy(
-        views = linkedMapOf("old_view" to ViewStructure(name = "old_view"))
+        views = mapOf("old_view" to ViewStructure(name = "old_view"))
       )
     DatabaseStructureJson.write(
       file = submoduleDirectory
@@ -733,36 +591,26 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val sqlFile = assetsDirectory
       .resolve("feature1001.sql")
       .toFile()
-    val viewsFile = assetsDirectory
-      .resolve("feature1001.views")
-      .toFile()
     sqlFile.parentFile.mkdirs()
     sqlFile.writeText("SELECT 1;\n")
-    viewsFile.writeText("previous_removed_view\n")
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = baseDatabase.copy(views = listOf(mockView(name = "old_view"))),
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = baseDatabase.copy(views = listOf(mockView(name = "old_view")))
       )
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(sqlFile.readText())
       .isEqualTo("SELECT 1;\n")
-    assertThat(viewsFile.readText())
-      .isEqualTo("previous_removed_view\n")
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = baseDatabase.copy(views = listOf(mockView(name = "new_view"))),
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = baseDatabase.copy(views = listOf(mockView(name = "new_view")))
       )
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(sqlFile.readText())
       .isEqualTo("SELECT 1;\n")
-    assertThat(viewsFile.readText())
-      .isEqualTo("previous_removed_view\n")
     assertThat(mainMarker.readText())
       .isEmpty()
   }
@@ -772,18 +620,12 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submoduleDirectory = temporaryDirectory.resolve("feature")
     val stagingDirectory = temporaryDirectory.resolve("staged")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory,
-          structureOutputDirectory = stagingDirectory
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = submoduleDirectory,
+      mainModuleDirectory = mainDirectory,
+      structureOutputDirectory = stagingDirectory
+    )
+    val database = debugMainDatabase
       .copy(
         submoduleName = "feature",
         views = listOf(mockView(name = "new_view"))
@@ -792,25 +634,21 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     DatabaseStructureJson.write(
       file = submoduleDirectory.resolve("db/latest.struct").toFile(),
       structure = DatabaseStructure(
-        views = linkedMapOf("old_view" to ViewStructure(name = "old_view"))
+        views = mapOf("old_view" to ViewStructure(name = "old_view"))
       )
     )
     val assetsDirectory = submoduleDirectory.resolve("src/debug/assets")
     val sqlFile = assetsDirectory.resolve("feature1001.sql").toFile()
-    val viewsFile = assetsDirectory.resolve("feature1001.views").toFile()
     val mainMarker = mainDirectory.resolve("db/feature.changed").toFile()
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(sqlFile.isFile)
       .isTrue()
-    assertThat(viewsFile.exists())
-      .isFalse()
     assertThat(DatabaseStructureJson.read(stagingDirectory.resolve("latest_feature.struct").toFile()))
       .isEqualTo(
         DatabaseStructure.from(
@@ -822,39 +660,30 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     assertThat(mainMarker.exists())
       .isFalse()
     val originalSql = sqlFile.readBytes()
-    assertThat(originalSql.size)
-      .isGreaterThan(0)
+    assertThat(originalSql)
+      .isNotEmpty()
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome())
     assertThat(sqlFile.readBytes())
       .isEqualTo(originalSql)
-    assertThat(viewsFile.exists())
-      .isFalse()
     assertThat(mainMarker.exists())
       .isFalse()
   }
 
   @Test
   fun `completion failure restores migration artifacts version and submodule markers`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory)
+    val database = debugMainDatabase
       .copy(views = listOf(mockView(name = "new_view")))
     val orderedTables = CreationOrderedTables.from(database.tables)
     val previous = DatabaseStructure.from(orderedTables)
       .copy(
-        views = linkedMapOf("old_view" to ViewStructure(name = "old_view"))
+        views = mapOf("old_view" to ViewStructure(name = "old_view"))
       )
     val structureFile = temporaryDirectory
       .resolve("db/latest.struct")
@@ -879,27 +708,23 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     expiredSqlFile.writeText("old debug migration\n")
     val sqlFile = assetsDirectory.resolve("1021.sql")
     sqlFile.writeText("previous sql\n")
-    val viewsFile = assetsDirectory.resolve("1021.views")
-    viewsFile.writeText("previous view\n")
     val failure = IOException("manager generation failed")
 
     val actual = assertThrows<IOException> {
-      DebugMigrationCoordinator(
-        configuration = DebugMigrationConfiguration.from(compilation.environment.options),
-        logger = compilation.environment.logger
-      ).handle(
-        database = database,
-        currentStructure = DatabaseStructure.from(
-          orderedTables = orderedTables,
-          indexes = database.indices,
-          views = database.views
-        ),
-        completion = { outcome ->
-          assertThat(outcome)
-            .isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1021))
-          throw failure
-        }
-      )
+      debugMigrationCoordinator(configuration)
+        .handle(
+          database = database,
+          currentStructure = DatabaseStructure.from(
+            orderedTables = orderedTables,
+            indexes = database.indices,
+            views = database.views
+          ),
+          completion = { outcome ->
+            assertThat(outcome)
+              .isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1021))
+            throw failure
+          }
+        )
     }
 
     assertThat(actual)
@@ -912,27 +737,19 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       .isEqualTo("old debug migration\n")
     assertThat(sqlFile.readText())
       .isEqualTo("previous sql\n")
-    assertThat(viewsFile.readText())
-      .isEqualTo("previous view\n")
     assertThat(marker.readText())
       .isEqualTo("removed_feature_view\n")
   }
 
   @Test
   fun `view-only debug rename advances version without publishing view resources`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory)
+    val database = debugMainDatabase
       .copy(views = listOf(mockView(name = "new_view")))
     val orderedTables = CreationOrderedTables.from(database.tables)
     val previous = DatabaseStructure.from(orderedTables)
       .copy(
-        views = linkedMapOf("old_view" to ViewStructure(name = "old_view"))
+        views = mapOf("old_view" to ViewStructure(name = "old_view"))
       )
     DatabaseStructureJson.write(
       file = temporaryDirectory
@@ -942,43 +759,35 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     )
     temporaryDirectory
       .resolve("db/latest_debug.version")
-      .toFile()
       .writeText("1007")
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome(databaseVersionOverride = 1008))
     assertThat(
       temporaryDirectory
         .resolve("db/latest_debug.version")
-        .toFile()
         .readText()
     ).isEqualTo("1008")
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.views")))
-      .isFalse()
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
-      .isFalse()
+    assertThat(
+      temporaryDirectory
+        .resolve("src/debug/assets/1008.sql")
+        .exists()
+    ).isFalse()
   }
 
   @Test
   fun `submodule view-only change marks main version for advancement`() {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submoduleDirectory = temporaryDirectory.resolve("feature")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = submoduleDirectory,
+      mainModuleDirectory = mainDirectory
+    )
+    val database = debugMainDatabase
       .copy(
         submoduleName = "feature",
         views = listOf(mockView(name = "feature_view"))
@@ -993,13 +802,15 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
 
     assertThat(
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = orderedTables
+        configuration = configuration,
+        database = database
       )
     ).isEqualTo(DebugMigrationOutcome())
-    assertThat(Files.exists(mainDirectory.resolve("db/feature.changed")))
-      .isTrue()
+    assertThat(
+      mainDirectory
+        .resolve("db/feature.changed")
+        .exists()
+    ).isTrue()
     assertThat(
       DatabaseStructureJson.read(
         mainDirectory
@@ -1007,8 +818,6 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
           .toFile()
       )?.views?.keys
     ).containsExactly("feature_view")
-    assertThat(Files.exists(submoduleDirectory.resolve("src/debug/assets/feature1001.views")))
-      .isFalse()
   }
 
   @Test
@@ -1019,18 +828,12 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       .resolve("blocked-staging")
       .toFile()
     blockedStaging.writeText("not a directory")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory,
-          structureOutputDirectory = blockedStaging.toPath()
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = submoduleDirectory,
+      mainModuleDirectory = mainDirectory,
+      structureOutputDirectory = blockedStaging.toPath()
+    )
+    val database = debugMainDatabase
       .copy(
         submoduleName = "feature",
         views = listOf(mockView(name = "new_view"))
@@ -1038,7 +841,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val orderedTables = CreationOrderedTables.from(database.tables)
     val previous = DatabaseStructure.from(orderedTables)
       .copy(
-        views = linkedMapOf("old_view" to ViewStructure(name = "old_view"))
+        views = mapOf("old_view" to ViewStructure(name = "old_view"))
       )
     val structureFile = submoduleDirectory
       .resolve("db/latest.struct")
@@ -1049,17 +852,17 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     )
 
     runDebugMigration(
-      compilation = compilation,
-      database = database,
-      orderedTables = orderedTables
+      configuration = configuration,
+      database = database
     )
 
     assertThat(DatabaseStructureJson.read(structureFile))
       .isEqualTo(previous)
-    assertThat(Files.exists(submoduleDirectory.resolve("src/debug/assets/feature1001.views")))
-      .isFalse()
-    assertThat(Files.exists(mainDirectory.resolve("db/feature.changed")))
-      .isFalse()
+    assertThat(
+      mainDirectory
+        .resolve("db/feature.changed")
+        .exists()
+    ).isFalse()
   }
 
   @Test
@@ -1068,7 +871,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     val submoduleDirectory = temporaryDirectory.resolve("feature")
     val stagingDirectory = temporaryDirectory.resolve("staged")
     val blockedTarget = stagingDirectory.resolve("latest_feature.struct")
-    Files.createDirectories(blockedTarget)
+    blockedTarget.createDirectories()
     val staleStructure = stagingDirectory
       .resolve("latest_old.struct")
       .toFile()
@@ -1077,26 +880,19 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       .resolve("old.changed")
       .toFile()
     staleMarker.writeText("stale marker")
-    val compilation = SqliteMagicCompilation
-      .compile(
-        debugMainDatabase(),
-        kspOptions = debugMigrationOptions(
-          projectDirectory = submoduleDirectory,
-          mainModuleDirectory = mainDirectory,
-          migrateDebug = false,
-          structureOutputDirectory = stagingDirectory
-        )
-      )
-      .isOk()
-    val database = GeneratedDatabaseElement
-      .from(compilation.environment)
+    val configuration = debugMigrationConfiguration(
+      projectDirectory = submoduleDirectory,
+      mainModuleDirectory = mainDirectory,
+      migrateDebug = false,
+      structureOutputDirectory = stagingDirectory
+    )
+    val database = debugMainDatabase
       .copy(submoduleName = "feature")
 
     assertThrows<Exception> {
       runDebugMigration(
-        compilation = compilation,
-        database = database,
-        orderedTables = CreationOrderedTables.from(database.tables)
+        configuration = configuration,
+        database = database
       )
     }
 
@@ -1104,7 +900,7 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
       .isEqualTo("stale structure")
     assertThat(staleMarker.readText())
       .isEqualTo("stale marker")
-    assertThat(Files.isDirectory(blockedTarget))
+    assertThat(blockedTarget.isDirectory())
       .isTrue()
   }
 
@@ -1112,75 +908,79 @@ internal class DebugMigrationCoordinatorTest : ProcessingStepsTest {
     identity = mockSqliteSchemaIdentity(identifier = mockSqliteIdentifier(rawName = name))
   )
 
-  private fun debugMigrationOptions(
+  private fun debugMigrationConfiguration(
     projectDirectory: Path,
     mainModuleDirectory: Path? = null,
     migrateDebug: Boolean = true,
     structureOutputDirectory: Path? = null
-  ) = buildMap {
-    put(
-      key = "sqlitemagic.migrate.debug",
-      value = migrateDebug.toString()
-    )
-    put(
-      key = "sqlitemagic.project.dir",
-      value = projectDirectory.toString()
-    )
-    put(
-      key = "sqlitemagic.variant.name",
-      value = "debug"
-    )
-    put(
-      key = "sqlitemagic.variant.debug",
-      value = "true"
-    )
-    mainModuleDirectory?.let { directory ->
-      put(
-        key = "sqlitemagic.main.module.path",
-        value = directory.toString()
+  ) = DebugMigrationConfiguration.from(
+    CompilerOptions.from(
+      debugMigrationOptions(
+        projectDirectory = projectDirectory,
+        mainModuleDirectory = mainModuleDirectory,
+        migrateDebug = migrateDebug,
+        structureOutputDirectory = structureOutputDirectory
       )
-    }
-    structureOutputDirectory?.let { directory ->
-      put(
-        key = OPTION_STRUCTURE_OUTPUT_DIR,
-        value = directory.toString()
-      )
-    }
-  }
-
-  private fun debugMainDatabase() = SourceFile.kotlin(
-    name = "DebugMainDatabase.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.annotation.Id
-      import com.siimkinks.sqlitemagic.annotation.Table
-
-      @Table("debug_items")
-      data class DebugItem(
-        @Id val id: Long,
-        val name: String
-      )
-    """
+    )
   )
+
+  private fun debugMigrationCoordinator(configuration: DebugMigrationConfiguration) = DebugMigrationCoordinator(
+    configuration = configuration,
+    logger = DEBUG_MAIN_DATABASE.logger
+  )
+
+  private val debugMainDatabase get() = DEBUG_MAIN_DATABASE.database
 
   private fun runDebugMigration(
-    compilation: ProcessorCompilationResult,
-    database: GeneratedDatabaseElement,
-    orderedTables: CreationOrderedTables
-  ) = DebugMigrationCoordinator(
-    configuration = DebugMigrationConfiguration.from(compilation.environment.options),
-    logger = compilation.environment.logger
-  )
+    configuration: DebugMigrationConfiguration,
+    database: GeneratedDatabaseElement
+  ) = debugMigrationCoordinator(configuration)
     .handle(
       database = database,
       currentStructure = DatabaseStructure.from(
-        orderedTables = orderedTables,
+        orderedTables = CreationOrderedTables.from(database.tables),
         indexes = database.indices,
         views = database.views
       )
     )
+
+  private companion object {
+    val DEBUG_MAIN_DATABASE by lazy {
+      SqliteMagicCompilation
+        .compile(
+          SourceFile.kotlin(
+            name = "DebugMainDatabase.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              @Table("debug_items")
+              data class DebugItem(
+                @Id val id: Long,
+                val name: String
+              )
+            """
+          ),
+          processingStepsFactory = ::migrationCollectionSteps
+        )
+        .isOk()
+        .environment
+        .let { environment ->
+          DebugMainDatabase(
+            logger = environment.logger,
+            database = environment.generatedDatabaseElement()
+          )
+        }
+    }
+  }
+
+  private class DebugMainDatabase(
+    val logger: KSPLogger,
+    val database: GeneratedDatabaseElement
+  )
 }
 
-private fun migrationCollectionSteps(environment: Environment): List<ProcessingStep> =
+private fun migrationCollectionSteps(environment: Environment) =
   transformerCollectionProcessingSteps(environment) + ModelCollectionStep(environment)

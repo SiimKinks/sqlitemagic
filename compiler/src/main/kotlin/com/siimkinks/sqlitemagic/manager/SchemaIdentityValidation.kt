@@ -68,7 +68,7 @@ private fun MutableList<SchemaIdentityConflict>.collectSchemaIdentityConflicts(
   objects.forEach { name ->
     val identity = SqliteSchemaIdentity(
       schema = schema,
-      identifier = SqliteIdentifier.from(name)
+      identifier = SqliteIdentifier(name)
     )
     val owner = SchemaIdentityOwner(
       source = source,

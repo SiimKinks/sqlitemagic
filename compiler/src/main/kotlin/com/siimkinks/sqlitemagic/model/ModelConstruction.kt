@@ -3,12 +3,12 @@ package com.siimkinks.sqlitemagic.model
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERTIES
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
 
-enum class ModelConstructionStrategy {
+internal enum class ModelConstructionStrategy {
   PRIMARY_CONSTRUCTOR,
   MUTABLE_PROPERTIES
 }
 
-data class ModelConstruction(
+internal data class ModelConstruction(
   val strategy: ModelConstructionStrategy,
   val constructorParameters: List<PropertyPath>,
   val defaultableParameters: Set<PropertyPath>

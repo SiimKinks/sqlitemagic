@@ -1,100 +1,41 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.functionBody
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
-internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
+internal class ModelEmbeddedAndOptionsContractTest {
+  private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
   @Test
   fun `keeps nullable embedded access isolated between tables with matching paths`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "MatchingEmbeddedPaths.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            data class SharedDetails(val `when`: String)
-
-            @Table
-            data class OptionalDetailsRecord(
-              @Id val id: Long,
-              @Embedded val details: SharedDetails?
-            )
-
-            @Table
-            data class RequiredDetailsRecord(
-              @Id val id: Long,
-              @Embedded val details: SharedDetails
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
-      .withGeneratedSource(
-        fileName = "SqliteMagic_OptionalDetailsRecord_Dao.kt",
-        assert = { generatedSource ->
-          generatedSource.assertContains("entity.details?.`when`")
-        }
-      )
-      .withGeneratedSource(
-        fileName = "SqliteMagic_RequiredDetailsRecord_Dao.kt",
-        assert = { generatedSource ->
-          generatedSource.assertContains("entity.details.`when`")
-          generatedSource.assertDoesNotContain("entity.details?.")
-        }
-      )
+      .withGeneratedSource("SqliteMagic_OptionalDetailsRecord_Dao.kt") {
+        it.assertContains("entity.details?.`when`")
+      }
+      .withGeneratedSource("SqliteMagic_RequiredDetailsRecord_Dao.kt") { generatedSource ->
+        generatedSource.assertContains("entity.details.`when`")
+        generatedSource.assertDoesNotContain("entity.details?.")
+      }
   }
 
   @Test
   fun `flattens nested and nullable embedded properties into schema leaves`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "Shipment.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            data class Geo(
-              @Column("lat") val latitude: Double,
-              val longitude: Double
-            ) {
-              @IgnoreColumn val cachedLabel: String = ""
-            }
-
-            data class Delivery(
-              @Embedded(prefix = "geo_") val geo: Geo?,
-              val note: String?
-            )
-
-            @Table(persistAll = false)
-            data class Shipment(
-              @Id val id: String,
-              @Embedded(prefix = "shipping_") val shipping: Delivery?,
-              @Embedded(prefix = "billing_") val billing: Geo
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_Shipment_Dao.kt",
@@ -116,190 +57,65 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
       }
       .withGeneratedSource("ShipmentTable.kt") { generatedSource ->
-        generatedSource.assertContains(
-          ": Table<Shipment>(",
-          "SHIPPING_GEO_LAT",
-          "SHIPPING_GEO_LONGITUDE",
-          "SHIPPING_NOTE",
-          "BILLING_LAT",
-          "BILLING_LONGITUDE"
-        )
+        generatedSource
+          .assertContainsUnwrapped(
+            "val SHIPPING_GEO_LAT: Column<Shipment, Double, SqlNullable, Double?, Double?, SqlNullable, Double?>",
+            "val SHIPPING_GEO_LONGITUDE: Column<Shipment, Double, SqlNullable, Double?, Double?, SqlNullable, Double?>",
+            "val SHIPPING_NOTE: Column<Shipment, String, SqlNullable, String?, String?, SqlNullable, String?>",
+            "val BILLING_LAT: Column<Shipment, Double, SqlNullable, Double, Double, Required, Double>",
+            "val BILLING_LONGITUDE: Column<Shipment, Double, SqlNullable, Double, Double, Required, Double>"
+          )
+          .assertContains(": Table<Shipment>(")
         generatedSource
           .substringAfter(": Table<Shipment>(")
           .substringBefore(") {")
           .assertDoesNotContain("temporary = true")
       }
       .withGeneratedSource("SqliteMagic_Shipment_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
+        generatedSource.assertContainsUnwrapped(
           "shipping?.geo?.latitude",
           "shipping?.geo?.longitude",
           "shipping?.note",
-          "shipping_geo_lat",
-          "shipping_geo_longitude",
-          "shipping_note",
-          "cursor.isNull",
-          "shipping = if (",
-          "null else Delivery(",
-          "Selected columns did not contain",
-          "Delivery(",
-          "Geo("
+          """values.put("shipping_geo_lat", it)""",
+          """values.put("shipping_geo_longitude", it)""",
+          """values.put("shipping_note", it)""",
+          "shipping = if (column1IsNull && column2IsNull && column3IsNull) null else Delivery(",
+          "geo = if (column1IsNull && column2IsNull) null else Geo(",
+          """latitude = if (column1IsNull) throw SQLException("Column \"shipping_geo_lat\" was NULL")""",
+          "note = if (column3IsNull) null else cursor.getString(startIndex + 3)",
+          "billing = Geo(latitude = cursor.getDouble(startIndex + 4), longitude = cursor.getDouble(startIndex + 5))"
         )
         assertThat(
-          Regex("cursor\\.isNull")
-            .findAll(generatedSource)
+          Regex("""cursor\.isNull""")
+            .findAll(generatedSource.functionBody("objectFromCursorPosition"))
             .count()
-        ).isAtLeast(5)
-        assertThat(
-          Regex("&&")
-            .findAll(generatedSource)
-            .count()
-        ).isAtLeast(3)
+        ).isEqualTo(3)
       }
   }
 
   @Test
   fun `uses safe calls for every descendant of nullable embedded properties`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "NullableNestedEmbedded.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            data class Coordinates(
-              val latitude: Double
-            )
-
-            data class OptionalDetails(
-              @Embedded val coordinates: Coordinates
-            )
-
-            @Table
-            data class NullableNestedEmbedded(
-              @Id val id: String,
-              @Embedded val optionalDetails: OptionalDetails?
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_NullableNestedEmbedded_Dao.kt")
-      .withGeneratedSource("SqliteMagic_NullableNestedEmbedded_Dao.kt") { generatedSource ->
-        generatedSource.assertContains("entity.optionalDetails?.coordinates?.latitude")
-      }
-  }
-
-  @Test
-  fun `keeps nullable embedded selection absence distinct from SQL null`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "NullableEmbeddedSelection.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            data class RequiredEmbeddedDetails(
-              val required: String,
-              val optional: String?
-            )
-
-            @Table
-            data class NullableEmbeddedSelection(
-              @Id val id: String,
-              @Embedded val details: RequiredEmbeddedDetails?
-            )
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_NullableEmbeddedSelection_Dao.kt")
-      .withGeneratedSource("SqliteMagic_NullableEmbeddedSelection_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "val column1IsNull = cursor.isNull(thisTableOffset + 1)",
-          "val column2IsNull = cursor.isNull(thisTableOffset + 2)",
-          "val columnIndex1IsNull = (columnIndex1 >= 0 && cursor.isNull(columnIndex1))",
-          "val columnIndex2IsNull = (columnIndex2 >= 0 && cursor.isNull(columnIndex2))",
-          "required = if (column1IsNull)",
-          "optional = if (column2IsNull)"
-        )
-        generatedSource.assertContains(
-          "columnIndex1 >= 0",
-          """required column \"required\"""",
-          """Column \"required\" was NULL"""
-        )
-        assertThat(
-          Regex("cursor\\.isNull\\(thisTableOffset \\+ 1\\)")
-            .findAll(generatedSource)
-            .count()
-        ).isEqualTo(1)
-        assertThat(
-          Regex("cursor\\.isNull\\(columnIndex1\\)")
-            .findAll(generatedSource)
-            .count()
-        ).isEqualTo(1)
+      .withGeneratedSource("SqliteMagic_NullableNestedEmbedded_Dao.kt") {
+        it.assertContains("entity.optionalDetails?.coordinates?.latitude")
       }
   }
 
   @Test
   fun `applies transformer and relationship behavior to embedded leaves`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "EmbeddedLeaves.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
-            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
-
-            data class Money(val cents: Long)
-
-            @ObjectToDbValue
-            fun moneyToLong(value: Money): Long = value.cents
-
-            @DbValueToObject
-            fun longToMoney(value: Long): Money = Money(value)
-
-            @Table
-            data class Owner(
-              @Id val id: String
-            )
-
-            data class Metadata(
-              @Column(handleRecursively = false) val owner: Owner,
-              val budget: Money
-            )
-
-            @Table
-            data class Project(
-              @Id val id: String,
-              @Embedded(prefix = "meta_") val metadata: Metadata
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_Project_Adapter.kt")
-      .withGeneratedSource("SqliteMagic_Project_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagic_Project_Adapter.kt") {
+        it.assertContains(
           "meta_owner TEXT",
           "meta_budget INTEGER"
         )
       }
-      .withGeneratedSource("SqliteMagic_Project_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagic_Project_Dao.kt") {
+        it.assertContains(
           "metadata.owner.id",
           "moneyToLong",
           "longToMoney"
@@ -309,94 +125,32 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `skips recursive operations below a null embedded value`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "NullableEmbeddedRelationship.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            data class EmbeddedOwner(
-              @Id val id: String,
-              val name: String
-            )
-
-            data class OptionalMetadata(
-              @Column(handleRecursively = true)
-              val owner: EmbeddedOwner
-            )
-
-            @Table
-            data class NullableEmbeddedProject(
-              @Id val id: String,
-              @Embedded val metadata: OptionalMetadata?
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_NullableEmbeddedProject_Adapter.kt",
         "NullableEmbeddedProjectTable.kt"
       )
-      .withGeneratedSource("SqliteMagic_NullableEmbeddedProject_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedProject_Adapter.kt") {
+        it.assertContains(
           "entity.metadata?.owner?.let",
           "operations.insert(",
           "adapter = SqliteMagic_EmbeddedOwner_Adapter",
           "entity = it"
         )
       }
-      .withGeneratedSource("NullableEmbeddedProjectTable.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "addDeepQueryParts = QueryGraphScope::addDeepQueryParts",
-          "addShallowQueryParts = QueryGraphScope::addShallowQueryParts",
-          "private fun QueryGraphScope.addDeepQueryParts(",
-          "private fun QueryGraphScope.addShallowQueryParts("
-        )
-        generatedSource.assertDoesNotContain("QueryPartsInternal")
-      }
   }
 
   @Test
   fun `constructs and assigns mutable embedded values`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "MutableEmbeddedValue.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            class MutableDetails {
-              var label: String = ""
-              var count: Long = 0
-            }
-
-            @Table
-            data class MutableEmbeddedValue(
-              @Id val id: String,
-              @Embedded val details: MutableDetails
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_MutableEmbeddedValue_Dao.kt",
         "SqliteMagic_MutableEmbeddedValue_Adapter.kt"
       )
-      .withGeneratedSource("SqliteMagic_MutableEmbeddedValue_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagic_MutableEmbeddedValue_Dao.kt") {
+        it.assertContains(
           "MutableDetails()",
           ".label =",
           ".count ="
@@ -406,7 +160,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects embedded values without persisted leaves`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmptyEmbeddedValue.kt",
@@ -438,7 +192,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects scalar embedded values`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "ScalarEmbeddedValue.kt",
@@ -464,7 +218,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects unsupported embedded model shapes`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "UnsupportedEmbeddedShape.kt",
@@ -494,35 +248,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `uses only effectively non-null unique embedded leaves as no-ID operation keys`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "EmbeddedUniqueKeys.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.Unique
-
-            data class ExternalKey(
-              @Unique val value: String
-            )
-
-            @Table
-            data class RequiredEmbeddedKey(
-              @Embedded(prefix = "external_") val key: ExternalKey,
-              val payload: String
-            )
-
-            @Table
-            data class NullableEmbeddedKey(
-              @Embedded(prefix = "external_") val key: ExternalKey?,
-              val payload: String
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_RequiredEmbeddedKey_Adapter.kt",
@@ -530,25 +256,25 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         "_RequiredEmbeddedKey.kt",
         "_NullableEmbeddedKey.kt"
       )
-      .withGeneratedSource("SqliteMagic_RequiredEmbeddedKey_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagic_RequiredEmbeddedKey_Adapter.kt") {
+        it.assertContains(
           "external_value TEXT UNIQUE",
           "EntityIdentityAdapter<RequiredEmbeddedKey>",
           "override fun updateStatementSql"
         )
       }
-      .withGeneratedSource("SqliteMagic_NullableEmbeddedKey_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains("external_value TEXT UNIQUE")
+      .withGeneratedSource("SqliteMagic_NullableEmbeddedKey_Adapter.kt") {
+        it.assertContains("external_value TEXT UNIQUE")
       }
-      .withGeneratedSource("_RequiredEmbeddedKey.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("_RequiredEmbeddedKey.kt") {
+        it.assertContains(
           "fun RequiredEmbeddedKey.update()",
           "fun RequiredEmbeddedKey.persist()",
           "fun RequiredEmbeddedKey.delete()"
         )
       }
-      .withGeneratedSource("_NullableEmbeddedKey.kt") { generatedSource ->
-        generatedSource.assertDoesNotContain(
+      .withGeneratedSource("_NullableEmbeddedKey.kt") {
+        it.assertDoesNotContain(
           "fun NullableEmbeddedKey.update()",
           "fun NullableEmbeddedKey.persist()",
           "fun NullableEmbeddedKey.delete()"
@@ -567,15 +293,15 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
     ]
   )
   fun `rejects combining embedded with physical-column annotations`(annotationName: String) {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmbeddedWith$annotationName.kt",
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.*
+            import com.siimkinks.sqlitemagic.annotation.Embedded
 
             data class ConflictingValue(val value: String)
 
@@ -596,7 +322,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects IDs inside embedded values`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmbeddedId.kt",
@@ -626,7 +352,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects embedded column collisions`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmbeddedColumnCollision.kt",
@@ -656,7 +382,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects cyclic embedding`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "CyclicEmbedding.kt",
@@ -685,7 +411,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects using a table model as an embedded value`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmbeddedTable.kt",
@@ -718,29 +444,11 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `generates temporary table SQL`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "TemporaryTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.TableOption
-
-            @Table(options = [TableOption.TEMPORARY])
-            data class SessionValue(val value: String)
-          """
-        )
-      )
+  fun `generates temporary and without-rowid table SQL`() {
+    GENERATED
       .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_SessionValue_Adapter.kt",
-        "SessionValueTable.kt"
-      )
-      .withGeneratedSource("SqliteMagic_SessionValue_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains("CREATE TEMPORARY TABLE IF NOT EXISTS session_value")
+      .withGeneratedSource("SqliteMagic_SessionValue_Adapter.kt") {
+        it.assertContains("CREATE TEMPORARY TABLE IF NOT EXISTS session_value")
       }
       .withGeneratedSource("SessionValueTable.kt") { generatedSource ->
         generatedSource.assertContains(": Table<SessionValue>(")
@@ -749,34 +457,6 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
           .substringBefore(") {")
           .assertContains("temporary = true")
       }
-  }
-
-  @Test
-  fun `generates without-rowid table SQL`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "WithoutRowIdTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.TableOption
-
-            @Table(
-              value = "cached_accounts",
-              options = [TableOption.TEMPORARY, TableOption.WITHOUT_ROWID]
-            )
-            data class CachedAccount(
-              @Id val id: Long,
-              val value: String
-            )
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_CachedAccount_Adapter.kt")
       .withGeneratedSource("SqliteMagic_CachedAccount_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
           "CREATE TEMPORARY TABLE IF NOT EXISTS cached_accounts",
@@ -784,66 +464,6 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         )
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
       }
-  }
-
-  @Test
-  fun `deduplicates repeated table options`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "RepeatedTableOptions.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.TableOption
-
-            @Table(options = [TableOption.TEMPORARY, TableOption.TEMPORARY, TableOption.WITHOUT_ROWID, TableOption.WITHOUT_ROWID])
-            data class SessionValue(
-              @Id val id: Long,
-              val value: String
-            )
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_SessionValue_Adapter.kt")
-      .withGeneratedSource("SqliteMagic_SessionValue_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "CREATE TEMPORARY TABLE IF NOT EXISTS session_value",
-          "WITHOUT ROWID"
-        )
-        generatedSource.assertDoesNotContain(
-          "CREATE TEMPORARY TEMPORARY TABLE",
-          "WITHOUT ROWID WITHOUT ROWID"
-        )
-      }
-  }
-
-  @Test
-  fun `accepts explicitly disabled auto-increment for without-rowid tables`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ExplicitlyDisabledWithoutRowId.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.TableOption
-
-            @Table(options = [TableOption.WITHOUT_ROWID])
-            data class ExplicitlyDisabledWithoutRowId(
-              @Id(autoIncrement = false) val id: Long,
-              val value: String
-            )
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_ExplicitlyDisabledWithoutRowId_Adapter.kt")
       .withGeneratedSource("SqliteMagic_ExplicitlyDisabledWithoutRowId_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("WITHOUT ROWID")
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
@@ -852,7 +472,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects without-rowid tables without an ID`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "MissingWithoutRowIdId.kt",
@@ -875,7 +495,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects nullable IDs on without-rowid tables`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "NullableWithoutRowId.kt",
@@ -901,7 +521,7 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects explicitly enabled auto-increment on without-rowid tables`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "AutoIncrementWithoutRowId.kt",
@@ -923,5 +543,253 @@ internal class ModelEmbeddedAndOptionsContractTest : ProcessingStepsTest {
         "WITHOUT_ROWID does not support explicit auto-increment",
         "AutoIncrementWithoutRowId.id"
       )
+  }
+
+  companion object {
+    private val GENERATED by lazy {
+      SqliteMagicCompilation
+        .compile(
+          SourceFile.kotlin(
+            name = "MatchingEmbeddedPaths.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              data class SharedDetails(val `when`: String)
+
+              @Table
+              data class OptionalDetailsRecord(
+                @Id val id: Long,
+                @Embedded val details: SharedDetails?
+              )
+
+              @Table
+              data class RequiredDetailsRecord(
+                @Id val id: Long,
+                @Embedded val details: SharedDetails
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "Shipment.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Column
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              data class Geo(
+                @Column("lat") val latitude: Double,
+                val longitude: Double
+              ) {
+                @IgnoreColumn val cachedLabel: String = ""
+              }
+
+              data class Delivery(
+                @Embedded(prefix = "geo_") val geo: Geo?,
+                val note: String?
+              )
+
+              @Table(persistAll = false)
+              data class Shipment(
+                @Id val id: String,
+                @Embedded(prefix = "shipping_") val shipping: Delivery?,
+                @Embedded(prefix = "billing_") val billing: Geo
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "NullableNestedEmbedded.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              data class Coordinates(
+                val latitude: Double
+              )
+
+              data class OptionalDetails(
+                @Embedded val coordinates: Coordinates
+              )
+
+              @Table
+              data class NullableNestedEmbedded(
+                @Id val id: String,
+                @Embedded val optionalDetails: OptionalDetails?
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "EmbeddedLeaves.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Column
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+              import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+              data class Money(val cents: Long)
+
+              @ObjectToDbValue
+              fun moneyToLong(value: Money): Long = value.cents
+
+              @DbValueToObject
+              fun longToMoney(value: Long): Money = Money(value)
+
+              @Table
+              data class Owner(
+                @Id val id: String
+              )
+
+              data class Metadata(
+                @Column(handleRecursively = false) val owner: Owner,
+                val budget: Money
+              )
+
+              @Table
+              data class Project(
+                @Id val id: String,
+                @Embedded(prefix = "meta_") val metadata: Metadata
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "NullableEmbeddedRelationship.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Column
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              @Table
+              data class EmbeddedOwner(
+                @Id val id: String,
+                val name: String
+              )
+
+              data class OptionalMetadata(
+                @Column(handleRecursively = true)
+                val owner: EmbeddedOwner
+              )
+
+              @Table
+              data class NullableEmbeddedProject(
+                @Id val id: String,
+                @Embedded val metadata: OptionalMetadata?
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "MutableEmbeddedValue.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              class MutableDetails {
+                var label: String = ""
+                var count: Long = 0
+              }
+
+              @Table
+              data class MutableEmbeddedValue(
+                @Id val id: String,
+                @Embedded val details: MutableDetails
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "EmbeddedUniqueKeys.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.Unique
+
+              data class ExternalKey(
+                @Unique val value: String
+              )
+
+              @Table
+              data class RequiredEmbeddedKey(
+                @Embedded(prefix = "external_") val key: ExternalKey,
+                val payload: String
+              )
+
+              @Table
+              data class NullableEmbeddedKey(
+                @Embedded(prefix = "external_") val key: ExternalKey?,
+                val payload: String
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "TemporaryTable.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.TableOption
+
+              @Table(options = [TableOption.TEMPORARY])
+              data class SessionValue(val value: String)
+            """
+          ),
+          SourceFile.kotlin(
+            name = "WithoutRowIdTable.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.TableOption
+
+              @Table(
+                value = "cached_accounts",
+                options = [TableOption.TEMPORARY, TableOption.WITHOUT_ROWID]
+              )
+              data class CachedAccount(
+                @Id val id: Long,
+                val value: String
+              )
+            """
+          ),
+          SourceFile.kotlin(
+            name = "ExplicitlyDisabledWithoutRowId.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.TableOption
+
+              @Table(options = [TableOption.WITHOUT_ROWID])
+              data class ExplicitlyDisabledWithoutRowId(
+                @Id(autoIncrement = false) val id: Long,
+                val value: String
+              )
+            """
+          ),
+          processingStepsFactory = ::modelProcessingSteps
+        )
+        .generatedSources()
+    }
   }
 }

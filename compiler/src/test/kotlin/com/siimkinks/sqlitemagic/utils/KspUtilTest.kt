@@ -4,23 +4,19 @@ import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.Modifier.JAVA_STATIC
-import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class KspUtilTest : ProcessingStepsTest {
+internal class KspUtilTest {
   private val propertySurfaces = linkedMapOf<String, PropertySurface>()
 
-  override val processingSteps
-    get() = { _: Environment ->
-      listOf(PropertySurfaceStep(propertySurfaces))
-    }
+  private val compiler = SqliteMagicCompiler { listOf(PropertySurfaceStep(propertySurfaces)) }
 
   @Test
   fun `local and inherited properties include all instance KSP properties`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "KotlinModels.kt",

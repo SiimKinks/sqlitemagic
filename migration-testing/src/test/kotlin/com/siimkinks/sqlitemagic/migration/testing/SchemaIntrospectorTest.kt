@@ -8,7 +8,7 @@ import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class SchemaIntrospectorTest {
+internal class SchemaIntrospectorTest {
   @Test
   fun `foreign key columns retain sequence actions and implicit primary key targets`() {
     val schema = inspect(

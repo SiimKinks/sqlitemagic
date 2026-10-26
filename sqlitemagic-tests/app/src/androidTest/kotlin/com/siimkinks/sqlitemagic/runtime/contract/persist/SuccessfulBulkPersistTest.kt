@@ -4,35 +4,38 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class SuccessfulBulkPersistTest(
+internal class SuccessfulBulkPersistTest(
   private val modelCase: BulkPersistModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executePersistsExistingAndMissingRowsAndReadsBack() {
-    capturePersist(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observePersistsExistingAndMissingRowsAndReadsBack() {
-    capturePersist(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executePersistsExistingAndMissingRowsAndReadsBack() = capturePersist(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observePersistsExistingAndMissingRowsAndReadsBack() = capturePersist(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> capturePersist(
     modelCase: BulkPersistModelCase<T>,
@@ -67,10 +70,10 @@ class SuccessfulBulkPersistTest(
     val values = updatedValues + insertedValue
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase.executeBulkPersist(values = values)
       ).isTrue()
-      OperationTerminal.OBSERVE -> modelCase
+      OBSERVE -> modelCase
         .observeBulkPersist(values = values)
         .blockingAwait()
     }
@@ -106,10 +109,10 @@ class SuccessfulBulkPersistTest(
     val values = updatedValues + insertedValue
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase.executeBulkPersist(values = values)
       ).isTrue()
-      OperationTerminal.OBSERVE -> modelCase
+      OBSERVE -> modelCase
         .observeBulkPersist(values = values)
         .blockingAwait()
     }
@@ -135,7 +138,7 @@ class SuccessfulBulkPersistTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.bulkPersistCases
   }
 }

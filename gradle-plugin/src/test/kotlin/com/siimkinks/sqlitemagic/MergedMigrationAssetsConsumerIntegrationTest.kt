@@ -15,7 +15,6 @@ import java.nio.file.Path
 import java.util.Properties
 import java.util.zip.ZipFile
 
-/** Exercises AGP's actual asset merge and published KSP artifacts, including native SQLite data migrations. */
 internal class MergedMigrationAssetsConsumerIntegrationTest {
   @TempDir
   lateinit var temporaryDirectory: Path
@@ -32,7 +31,7 @@ internal class MergedMigrationAssetsConsumerIntegrationTest {
       file = project.resolve("settings.gradle.kts"),
       text = original.resolve("settings.gradle.kts")
         .readText()
-        .substringBefore("include(\":app\")") + "include(\":app\", \":asset-library\")\n"
+        .substringBefore("""include(":app")""") + """include(":app", ":asset-library")""" + "\n"
     )
     writeFile(
       file = project.resolve("build.gradle.kts"),
@@ -54,11 +53,11 @@ internal class MergedMigrationAssetsConsumerIntegrationTest {
       .map(::File)
       .firstOrNull(File::isDirectory)
       ?: error("The merged migration asset consumer integration test requires a configured Android SDK")
-    val sdkProperties = Properties()
-    sdkProperties.setProperty("sdk.dir", sdk.canonicalPath)
-    project.resolve("local.properties").outputStream().use { stream ->
-      sdkProperties.store(stream, "SDK for merged migration assets regression")
-    }
+    val sdkProperties = Properties().apply { setProperty("sdk.dir", sdk.canonicalPath) }
+    project
+      .resolve("local.properties")
+      .outputStream()
+      .use { sdkProperties.store(it, "SDK for merged migration assets regression") }
     writeFile(
       file = project.resolve("app/build.gradle.kts"),
       text = checkNotNull(javaClass.getResourceAsStream("/migration-consumer/merged-assets-app.gradle.kts"))
@@ -83,7 +82,7 @@ android {
     listOf("app", "asset-library").forEach { module ->
       writeFile(
         file = project.resolve("$module/src/main/AndroidManifest.xml"),
-        text = "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" />\n"
+        text = """<manifest xmlns:android="http://schemas.android.com/apk/res/android" />""" + "\n"
       )
     }
     writeFile(
@@ -149,7 +148,6 @@ data class AssetRecord(
     )
       .containsExactly("2.sql", "3.sql", "4.sql", "5.sql", "6.sql", "7.sql", "8.sql")
       .inOrder()
-    // A data-only main asset must not become a newly generated build-type overlay.
     assertThat(application.resolve("src/release/assets/2.sql").exists()).isFalse()
     assertThat(application.resolve("src/paidRelease/assets/2.sql").exists()).isFalse()
 
@@ -213,7 +211,6 @@ data class AssetRecord(
       assertPackagedResources(application)
       assertThat(manifestFile.readText()).isEqualTo(manifestText)
     }
-    // Optional conventional SQL is discovered even when the immutable published step had no SQL.
     writeFile(
       file = application.resolve("src/main/assets/9.sql"),
       text = sql("optional")

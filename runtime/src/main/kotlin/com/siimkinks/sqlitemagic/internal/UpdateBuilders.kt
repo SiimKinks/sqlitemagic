@@ -1,10 +1,7 @@
 package com.siimkinks.sqlitemagic.internal
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import com.siimkinks.sqlitemagic.BulkOperationOutcome
-import com.siimkinks.sqlitemagic.Column
-import com.siimkinks.sqlitemagic.NotNullable
-import com.siimkinks.sqlitemagic.OperationConfigurationSnapshot
+import com.siimkinks.sqlitemagic.OperationContext
 import com.siimkinks.sqlitemagic.Unique
 import com.siimkinks.sqlitemagic.UpdateExecutors
 import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateBuilder
@@ -12,149 +9,114 @@ import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
-import com.siimkinks.sqlitemagic.executeBulkRxOperation
 import io.reactivex.Completable
 
+@InternalSqliteMagicApi
 class UpdateBuilder<M>(
   private val adapter: EntityDefaultIdentityAdapter<M>,
   private val entity: M
 ) : DefaultIdentityBuilder<EntityUpdateBuilder, M>(adapter), EntityUpdateBuilder {
-  override fun execute() = execute(
-    configuration = configurationSnapshot(),
-    selection = identitySelection()
+  override fun execute() = perform(operation = update(identityColumnName()))
+
+  override fun observe() = observeUpdate(
+    entity = entity,
+    update = update(identityColumnName())
   )
 
-  override fun observe(): Completable {
-    val configuration = configurationSnapshot()
-    val selection = identitySelection()
-    return Completable.fromAction {
-      val success = execute(
-        configuration = configuration,
-        selection = selection
-      )
-      if (!success && configuration.conflictAlgorithm != CONFLICT_IGNORE) {
-        throw OperationFailedException("Failed to update $entity")
-      }
-    }
-  }
-
-  private fun execute(
-    configuration: OperationConfigurationSnapshot,
-    selection: IdentitySelection<M>
-  ) = UpdateExecutors.execute(
+  private fun update(columnName: String) = update(
     adapter = adapter,
     entity = entity,
-    context = newContext(configuration),
-    byColumn = selection.column,
-    defaultIdentity = selection.usesDefault
+    columnName = columnName
   )
 }
 
+@InternalSqliteMagicApi
 class UpdateByColumnBuilder<M>(
   private val adapter: EntityIdentityAdapter<M>,
   private val entity: M
 ) : OperationBuilder<EntityUpdateByColumnBuilder<M>>(adapter), EntityUpdateByColumnBuilder<M> {
-  override fun <D> execute(byColumn: D): Boolean
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> = execute(
-    configuration = configurationSnapshot(),
-    byColumn = byColumn
+  override fun execute(byColumn: Unique<M>) = perform(operation = update(byColumn))
+
+  override fun observe(byColumn: Unique<M>) = observeUpdate(
+    entity = entity,
+    update = update(byColumn)
   )
 
-  override fun <D> observe(byColumn: D): Completable
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> {
-    val configuration = configurationSnapshot()
-    return Completable.fromAction {
-      val success = execute(
-        configuration = configuration,
-        byColumn = byColumn
-      )
-      if (!success && configuration.conflictAlgorithm != CONFLICT_IGNORE) {
-        throw OperationFailedException("Failed to update $entity")
-      }
-    }
-  }
-
-  private fun execute(
-    configuration: OperationConfigurationSnapshot,
-    byColumn: IdentityColumn<M>
-  ) = UpdateExecutors.execute(
+  private fun update(byColumn: Unique<M>) = update(
     adapter = adapter,
     entity = entity,
-    context = newContext(configuration),
-    byColumn = byColumn,
-    defaultIdentity = false
+    columnName = adapter.identityColumnName(byColumn)
   )
 }
 
+@InternalSqliteMagicApi
 class BulkUpdateBuilder<M>(
   private val adapter: EntityDefaultIdentityAdapter<M>,
   private val entities: Iterable<M>
 ) : DefaultIdentityBuilder<EntityBulkUpdateBuilder, M>(adapter), EntityBulkUpdateBuilder {
-  override fun execute(): Boolean {
-    val selection = identitySelection()
-    return UpdateExecutors.executeBulk(
-      adapter = adapter,
-      entities = entities,
-      byColumn = selection.column,
-      defaultIdentity = selection.usesDefault,
-      context = newContext(),
-      isCancelled = ::neverCancelled
-    ) == BulkOperationOutcome.APPLIED
-  }
+  override fun execute() = executeBulk(update(identityColumnName()))
 
-  override fun observe(): Completable {
-    val configuration = configurationSnapshot()
-    val selection = identitySelection()
-    return executeBulkRxOperation(
-      contextFactory = { newContext(configuration) },
-      operation = { context, isCancelled ->
-        UpdateExecutors.executeBulk(
-          adapter = adapter,
-          entities = entities,
-          byColumn = selection.column,
-          defaultIdentity = selection.usesDefault,
-          context = context,
-          isCancelled = isCancelled
-        )
-      }
-    )
-  }
+  override fun observe() = observeBulk(update(identityColumnName()))
+
+  private fun update(columnName: String) = bulkUpdate(
+    adapter = adapter,
+    entities = entities,
+    columnName = columnName
+  )
 }
 
+@InternalSqliteMagicApi
 class BulkUpdateByColumnBuilder<M>(
   private val adapter: EntityIdentityAdapter<M>,
   private val entities: Iterable<M>
 ) : OperationBuilder<EntityBulkUpdateByColumnBuilder<M>>(adapter), EntityBulkUpdateByColumnBuilder<M> {
-  override fun <D> execute(byColumn: D): Boolean
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> =
-    UpdateExecutors.executeBulk(
-      adapter = adapter,
-      entities = entities,
-      byColumn = byColumn,
-      defaultIdentity = false,
-      context = newContext(),
-      isCancelled = ::neverCancelled
-    ) == BulkOperationOutcome.APPLIED
+  override fun execute(byColumn: Unique<M>) = executeBulk(update(byColumn))
 
-  override fun <D> observe(byColumn: D): Completable
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> {
-    val configuration = configurationSnapshot()
-    return executeBulkRxOperation(
-      contextFactory = { newContext(configuration) },
-      operation = { context, isCancelled ->
-        UpdateExecutors.executeBulk(
-          adapter = adapter,
-          entities = entities,
-          byColumn = byColumn,
-          defaultIdentity = false,
-          context = context,
-          isCancelled = isCancelled
-        )
-      }
-    )
-  }
+  override fun observe(byColumn: Unique<M>) = observeBulk(update(byColumn))
+
+  private fun update(byColumn: Unique<M>) = bulkUpdate(
+    adapter = adapter,
+    entities = entities,
+    columnName = adapter.identityColumnName(byColumn)
+  )
 }
+
+private fun <M> update(
+  adapter: EntityIdentityAdapter<M>,
+  entity: M,
+  columnName: String
+) = { context: OperationContext ->
+  UpdateExecutors.execute(
+    adapter = adapter,
+    entity = entity,
+    context = context,
+    columnName = columnName
+  )
+}
+
+private fun <M> bulkUpdate(
+  adapter: EntityIdentityAdapter<M>,
+  entities: Iterable<M>,
+  columnName: String
+) = { context: OperationContext, isCancelled: () -> Boolean ->
+  UpdateExecutors.executeBulk(
+    adapter = adapter,
+    entities = entities,
+    columnName = columnName,
+    context = context,
+    isCancelled = isCancelled
+  )
+}
+
+private fun OperationBuilder<*>.observeUpdate(entity: Any?, update: (OperationContext) -> Boolean) =
+  configurationSnapshot().let { configuration ->
+    Completable.fromAction {
+      val updated = perform(
+        operation = update,
+        configuration = configuration
+      )
+      if (!updated && configuration.conflictAlgorithm != CONFLICT_IGNORE) {
+        throw OperationFailedException("Failed to update $entity")
+      }
+    }
+  }

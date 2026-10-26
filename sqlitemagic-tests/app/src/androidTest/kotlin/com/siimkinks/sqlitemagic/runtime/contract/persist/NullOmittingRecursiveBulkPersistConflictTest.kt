@@ -3,109 +3,86 @@ package com.siimkinks.sqlitemagic.runtime.contract.persist
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistConflictModelCase
-import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class NullOmittingRecursiveBulkPersistConflictTest(
+internal class NullOmittingRecursiveBulkPersistConflictTest(
   private val modelCase: RecursiveNullOmittingPersistConflictModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeWithParentConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() {
-    assertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeWithParentConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() {
-    assertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithParentConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() = assertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithChildConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() {
-    assertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeWithParentConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() = assertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithChildConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() {
-    assertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithChildConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() = assertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeWithChildConflictAndConflictIgnoreOmitsNullValuesAndRollsBackFailedGraph() = assertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertConflict(
     modelCase: RecursiveNullOmittingPersistConflictModelCase<T>,
     conflict: RecursiveConflictTarget,
     terminal: OperationTerminal
   ) {
-    val scenario = mixedConflictScenario(
-      modelCase = modelCase,
-      conflict = conflict
-    )
-    assertSuccessfulBulkPersist(
-      modelCase = modelCase,
-      values = scenario.values,
-      terminal = terminal
-    )
-    assertDatabaseSnapshotIgnoringOrder(
-      modelCase = modelCase,
-      expected = scenario.expected
-    )
-  }
-
-  private fun <T> mixedConflictScenario(
-    modelCase: RecursiveNullOmittingPersistConflictModelCase<T>,
-    conflict: RecursiveConflictTarget
-  ): RecursiveBulkPersistScenario<T> {
     seedRows(
       modelCase = modelCase,
       count = 1
     )
     val expected = captureDatabaseSnapshot(modelCase = modelCase)
     val seed = expected.parents.single()
-    val successfulUpdate = modelCase.withNullOmittingValues(value = seed)
-    val failedGraph = modelCase.valueWithNullOmittingInsertConflict(
-      existing = seed,
-      conflict = conflict,
-      sequence = 3
-    )
-    return RecursiveBulkPersistScenario(
+    assertSuccessfulBulkPersist(
+      modelCase = modelCase,
       values = listOf(
-        successfulUpdate,
-        failedGraph
+        modelCase.withNullOmittingValues(value = seed),
+        modelCase.valueWithNullOmittingInsertConflict(
+          existing = seed,
+          conflict = conflict,
+          sequence = 3
+        )
       ),
+      terminal = terminal
+    )
+    assertDatabaseSnapshotIgnoringOrder(
+      modelCase = modelCase,
       expected = expected
     )
   }
 
-  private data class RecursiveBulkPersistScenario<T>(
-    val values: List<T>,
-    val expected: DatabaseSnapshot<T>
-  )
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.recursiveNullOmittingPersistConflictCases
   }
 }

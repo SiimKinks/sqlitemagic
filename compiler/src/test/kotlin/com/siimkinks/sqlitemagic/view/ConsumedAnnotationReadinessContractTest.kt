@@ -1,31 +1,32 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.google.devtools.ksp.symbol.KSDeclaration
-import com.google.devtools.ksp.symbol.KSName
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.index.IndexCollectionStep
-import com.siimkinks.sqlitemagic.index.IndexElement
-import com.siimkinks.sqlitemagic.internal.SqliteSchema
-import com.siimkinks.sqlitemagic.model.AutoIncrementMode
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.IdElement
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
+import com.siimkinks.sqlitemagic.utils.MappingMetadata
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.deferredNames
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.mappingMetadata
+import com.siimkinks.sqlitemagic.utils.observing
+import com.siimkinks.sqlitemagic.utils.unwrapped
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
-internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ConsumedAnnotationReadinessContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @ParameterizedTest(name = "{0}")
   @CsvSource(
@@ -105,7 +106,7 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
       isView -> """
         companion object {
           $queryProbe
-          @ViewQuery val QUERY: CompiledSelect<String, Select1> = error("compile only")
+          @ViewQuery val QUERY: SelectQuery<String, *> = error("compile only")
         }
       """
       else -> ""
@@ -137,8 +138,8 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
     }
     val collectionResults = mutableListOf<Boolean>()
     val indexResults = mutableListOf<Boolean>()
-    val firstRoundMetadata = mutableListOf<Metadata>()
-    val expected = Metadata(
+    val firstRoundMetadata = mutableListOf<MappingMetadata>()
+    val expected = MappingMetadata(
       name = "consumed_owner",
       columns = columnKeys,
       defaults = when {
@@ -160,10 +161,9 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           name = "ConsumedOwner.kt",
           contents = """
             package $PACKAGE
-            import kotlin.reflect.KClass
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.*
+            import kotlin.reflect.KClass
 
             annotation class NestedProbe(val value: String = "")
             @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.FIELD)
@@ -201,75 +201,42 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           viewProcessingSteps(environment).map { step ->
             when {
               isView && step is ViewCollectionStep || !isView && step is ModelCollectionStep ->
-                object : ProcessingStep {
-                  override fun process(resolver: Resolver): ProcessingStepResult {
-                    val result = step.process(resolver)
-                    collectionResults += result == Continue
-                    return result
-                  }
-                }
-              step is IndexCollectionStep -> object : ProcessingStep {
-                override fun process(resolver: Resolver): ProcessingStepResult {
-                  val result = step.process(resolver)
-                  indexResults += result == Continue
-                  if (indexResults.size == 1) {
-                    metadata(
-                      environment = environment,
-                      isView = isView
-                    )?.let(firstRoundMetadata::add)
-                  }
-                  return result
+                step.observing { collectionResults += it == Continue }
+              step is IndexCollectionStep -> step.observing { result ->
+                indexResults += result == Continue
+                if (indexResults.size == 1) {
+                  environment
+                    .mappingMetadata(isView)
+                    ?.let(firstRoundMetadata::add)
                 }
               }
               else -> step
             }
-          } + object : ProcessingStep {
-            private var generated = false
-
-            override fun process(resolver: Resolver): ProcessingStepResult {
-              if (generated) return Continue
-              generated = true
-              environment.codeGenerator
-                .createNewFile(
-                  dependencies = Dependencies(aggregating = false),
-                  packageName = PACKAGE,
-                  fileName = "LaterMetadata"
-                )
-                .bufferedWriter()
-                .use { writer ->
-                  writer.write(
-                    """
-                      package $PACKAGE
-                      class LaterType
-                      object LaterMetadata { const val NAME = "later" }
-                    """.trimIndent()
-                  )
-                }
-              return Continue
-            }
-          }
+          } + GeneratedSourceStep(
+            environment = environment,
+            fileName = "LaterMetadata",
+            contents = """
+              package $PACKAGE
+              class LaterType
+              object LaterMetadata { const val NAME = "later" }
+            """
+          )
         }
       )
       .isOk()
       .apply {
-        assertThat(
-          metadata(
-            environment = environment,
-            isView = isView
-          )
-        ).isEqualTo(expected)
+        assertThat(environment.mappingMetadata(isView)).isEqualTo(expected)
         withGeneratedSource(
-          fileName = when {
+          when {
             isView -> "SqliteMagic_ConsumedOwner_Dao.kt"
             else -> "SqliteMagic_ConsumedOwner_Adapter.kt"
           }
-        ) { generated ->
+        ) {
           when {
-            isView -> assertThat(generated).contains("""".selected_value"""")
-            else -> {
-              assertThat(generated).contains("CREATE TABLE IF NOT EXISTS consumed_owner")
-              assertThat(generated).contains("stored_value TEXT")
-            }
+            isView -> it
+              .unwrapped()
+              .assertContains("columns = listOf(${columnKeys.joinToString { key -> """"$key"""" }})")
+            else -> it.assertContains("CREATE TABLE IF NOT EXISTS consumed_owner", "stored_value TEXT")
           }
         }
       }
@@ -278,107 +245,130 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
     assertThat(firstRoundMetadata).containsExactly(expected)
   }
 
-  @ParameterizedTest(name = "{0}")
-  @CsvSource(
-    "table defaults, Table, omitted, default",
-    "table explicit enabled ID, Table, true, default",
-    "table explicit disabled ID, Table, false, default",
-    "table enum array, Table, false, array",
-    "view defaults, View, omitted, default",
-    "view enum array, View, omitted, array"
-  )
-  fun `consumed defaults explicit ID and option arrays preserve metadata`(
-    label: String,
-    ownerAnnotation: String,
-    idArgument: String,
-    optionsArgument: String
-  ) {
-    val isView = ownerAnnotation == "View"
-    val options = when {
-      optionsArgument == "default" -> ""
-      isView -> "(options = [ViewOption.TEMPORARY])"
-      else -> "(options = [TableOption.TEMPORARY, TableOption.WITHOUT_ROWID])"
-    }
-    val member = when {
-      isView -> """@ViewColumn("selected_value") var value: String = """""
-      idArgument == "omitted" -> "@Id var id: Long = 0"
-      else -> "@Id(autoIncrement = $idArgument) var id: Long = 0"
-    }
-    val query = when {
-      isView -> """
-        companion object {
-          @ViewQuery val QUERY: CompiledSelect<String, Select1> = error("compile only")
-        }
-      """
-      else -> ""
-    }
-    SqliteMagicCompilation
+  @Test
+  fun `consumed defaults explicit ID and option arrays preserve metadata`() {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "AnnotationDefaults.kt",
           contents = """
             package $PACKAGE
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.*
 
-            @$ownerAnnotation$options
-            class AnnotationDefaults {
-              $member
-              $query
+            @Table
+            class TableDefaults {
+              @Id var id: Long = 0
+            }
+
+            @Table
+            class EnabledIdTable {
+              @Id(autoIncrement = true) var id: Long = 0
+            }
+
+            @Table
+            class DisabledIdTable {
+              @Id(autoIncrement = false) var id: Long = 0
+            }
+
+            @Table(options = [TableOption.TEMPORARY, TableOption.WITHOUT_ROWID])
+            class TableOptions {
+              @Id(autoIncrement = false) var id: Long = 0
+            }
+
+            @View
+            class ViewDefaults {
+              @ViewColumn("selected_value") var value: String = ""
+              companion object {
+                @ViewQuery val QUERY: SelectQuery<String, *> = error("compile only")
+              }
+            }
+
+            @View(options = [ViewOption.TEMPORARY])
+            class ViewOptions {
+              @ViewColumn("selected_value") var value: String = ""
+              companion object {
+                @ViewQuery val QUERY: SelectQuery<String, *> = error("compile only")
+              }
             }
           """
         )
       )
       .isOk()
       .apply {
-        val actual = when {
-          isView -> environment.viewElements.values.single().let { view ->
-            DefaultMetadata(
-              name = view.viewName,
-              options = when (view.identity.schema) {
-                SqliteSchema.TEMPORARY -> setOf("TEMPORARY")
-                else -> emptySet()
-              },
-              columns = view.leaves.map(ViewLeafElement::selectionKey),
+        val tables = environment.tableElements.values.associate { table ->
+          table.modelName to DefaultMetadata(
+            name = table.tableName,
+            options = table.options
+              .map(Enum<*>::name)
+              .toSet(),
+            columns = table.allColumns.map(ColumnElement::columnName),
+            id = table.allColumns.single().id
+          )
+        }
+        val views = environment.viewElements.values.associate { view ->
+          view.modelName to DefaultMetadata(
+            name = view.viewName,
+            options = when (view.identity.schema) {
+              TEMPORARY -> setOf("TEMPORARY")
+              else -> emptySet()
+            },
+            columns = view.leaves.map(ViewLeafElement::selectionKey),
+            id = null
+          )
+        }
+        assertThat(tables + views).isEqualTo(
+          mapOf(
+            "TableDefaults" to DefaultMetadata(
+              name = "table_defaults",
+              options = emptySet(),
+              columns = listOf("id"),
+              id = IdElement(
+                isAutoIncrement = true,
+                canAssignGeneratedId = true
+              )
+            ),
+            "EnabledIdTable" to DefaultMetadata(
+              name = "enabled_id_table",
+              options = emptySet(),
+              columns = listOf("id"),
+              id = IdElement(
+                isAutoIncrement = true,
+                canAssignGeneratedId = true
+              )
+            ),
+            "DisabledIdTable" to DefaultMetadata(
+              name = "disabled_id_table",
+              options = emptySet(),
+              columns = listOf("id"),
+              id = IdElement(
+                isAutoIncrement = false,
+                canAssignGeneratedId = true
+              )
+            ),
+            "TableOptions" to DefaultMetadata(
+              name = "table_options",
+              options = setOf("TEMPORARY", "WITHOUT_ROWID"),
+              columns = listOf("id"),
+              id = IdElement(
+                isAutoIncrement = false,
+                canAssignGeneratedId = true
+              )
+            ),
+            "ViewDefaults" to DefaultMetadata(
+              name = "view_defaults",
+              options = emptySet(),
+              columns = listOf("selected_value"),
+              id = null
+            ),
+            "ViewOptions" to DefaultMetadata(
+              name = "view_options",
+              options = setOf("TEMPORARY"),
+              columns = listOf("selected_value"),
               id = null
             )
-          }
-          else -> environment.tableElements.values.single().let { table ->
-            DefaultMetadata(
-              name = table.tableName,
-              options = table.options.map(Enum<*>::name)
-                .toSet(),
-              columns = table.allColumns.map(ColumnElement::columnName),
-              id = table.allColumns.single().id
-            )
-          }
-        }
-        val expected = DefaultMetadata(
-          name = "annotation_defaults",
-          options = when {
-            optionsArgument == "default" -> emptySet()
-            isView -> setOf("TEMPORARY")
-            else -> setOf("TEMPORARY", "WITHOUT_ROWID")
-          },
-          columns = when {
-            isView -> listOf("selected_value")
-            else -> listOf("id")
-          },
-          id = when {
-            isView -> null
-            else -> IdElement(
-              autoIncrementMode = when (idArgument) {
-                "true" -> AutoIncrementMode.ENABLED
-                "false" -> AutoIncrementMode.DISABLED
-                else -> AutoIncrementMode.AUTOMATIC
-              },
-              isAutoIncrement = idArgument != "false",
-              canAssignGeneratedId = true
-            )
-          }
+          )
         )
-        assertThat(actual).isEqualTo(expected)
       }
   }
 
@@ -421,7 +411,7 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
     val query = when {
       isView -> """
         companion object {
-          @ViewQuery val QUERY: CompiledSelect<String, Select1> = error("compile only")
+          @ViewQuery val QUERY: SelectQuery<String, *> = error("compile only")
         }
       """
       else -> ""
@@ -433,8 +423,7 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           name = "RequiredOwner.kt",
           contents = """
             package $PACKAGE
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.*
 
             open class KnownBase { $delayedMapping var delayed: String = "" }
@@ -452,39 +441,17 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           viewProcessingSteps(environment).map { step ->
             when {
               isView && step is ViewCollectionStep || !isView && step is ModelCollectionStep ->
-                object : ProcessingStep {
-                  override fun process(resolver: Resolver): ProcessingStepResult {
-                    val result = step.process(resolver)
-                    ready += result == Continue
-                    return result
-                  }
-                }
+                step.observing { ready += it == Continue }
               else -> step
             }
-          } + object : ProcessingStep {
-            private var generated = false
-
-            override fun process(resolver: Resolver): ProcessingStepResult {
-              if (generated) return Continue
-              generated = true
-              environment.codeGenerator
-                .createNewFile(
-                  dependencies = Dependencies(aggregating = false),
-                  packageName = PACKAGE,
-                  fileName = "LaterMetadata"
-                )
-                .bufferedWriter()
-                .use { writer ->
-                  writer.write(
-                    """
-                      package $PACKAGE
-                      object LaterMetadata { const val NAME = "chosen" }
-                    """.trimIndent()
-                  )
-                }
-              return Continue
-            }
-          }
+          } + GeneratedSourceStep(
+            environment = environment,
+            fileName = "LaterMetadata",
+            contents = """
+              package $PACKAGE
+              object LaterMetadata { const val NAME = "chosen" }
+            """
+          )
         }
       )
       .isOk()
@@ -493,13 +460,8 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           "inherited" -> listOf("chosen", "local")
           else -> listOf("local", "chosen")
         }
-        assertThat(
-          metadata(
-            environment = environment,
-            isView = isView
-          )
-        ).isEqualTo(
-          Metadata(
+        assertThat(environment.mappingMetadata(isView)).isEqualTo(
+          MappingMetadata(
             name = "required_owner",
             columns = columns,
             defaults = when {
@@ -514,14 +476,16 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           )
         )
         withGeneratedSource(
-          fileName = when {
+          when {
             isView -> "SqliteMagic_RequiredOwner_Dao.kt"
             else -> "SqliteMagic_RequiredOwner_Adapter.kt"
           }
-        ) { generated ->
+        ) {
           when {
-            isView -> assertThat(generated).contains("""".chosen"""")
-            else -> assertThat(generated).contains("chosen TEXT")
+            isView -> it
+              .unwrapped()
+              .assertContains("columns = listOf(${columns.joinToString { key -> """"$key"""" }})")
+            else -> it.assertContains("chosen TEXT")
           }
         }
       }
@@ -550,14 +514,14 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
     val query = when {
       isView -> """
         companion object {
-          @ViewQuery val QUERY: CompiledSelect<String, Select1> = error("compile only")
+          @ViewQuery val QUERY: SelectQuery<String, *> = error("compile only")
         }
       """
       else -> ""
     }
     val firstDeferredNames = mutableListOf<List<String>>()
-    val firstRoundChildren = mutableListOf<Metadata>()
-    val expected = Metadata(
+    val firstRoundChildren = mutableListOf<MappingMetadata>()
+    val expected = MappingMetadata(
       name = "child_owner",
       columns = when {
         isView -> listOf("selected_base", "selected_local")
@@ -574,15 +538,12 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
       }
     )
 
-    fun childMetadata(environment: Environment): Metadata? = when {
-      isView -> metadata(
-        environment = environment,
-        isView = true
-      )
+    fun childMetadata(environment: Environment) = when {
+      isView -> environment.mappingMetadata(isView = true)
       else -> environment.tableElements.values
-        .firstOrNull { table -> table.tableName == "child_owner" }
+        .firstOrNull { it.tableName == "child_owner" }
         ?.let { table ->
-          Metadata(
+          MappingMetadata(
             name = table.tableName,
             columns = table.allColumns.map(ColumnElement::columnName),
             defaults = table.allColumns.map(ColumnElement::defaultValue),
@@ -597,8 +558,7 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           name = "ChildOwner.kt",
           contents = """
             package $PACKAGE
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.*
 
             @Table(LaterMetadata.NAME)
@@ -617,107 +577,47 @@ internal class ConsumedAnnotationReadinessContractTest : ProcessingStepsTest {
           var observedFirstRound = false
           viewProcessingSteps(environment).map { step ->
             when (step) {
-              is ModelCollectionStep -> object : ProcessingStep {
-                override fun process(resolver: Resolver): ProcessingStepResult {
-                  val result = step.process(resolver)
-                  if (firstDeferredNames.isEmpty()) {
-                    firstDeferredNames += when (result) {
-                      is Deferred -> result.symbols
-                        .filterIsInstance<KSDeclaration>()
-                        .map(KSDeclaration::simpleName)
-                        .map(KSName::asString)
-                      else -> emptyList()
-                    }
-                  }
-                  return result
+              is ModelCollectionStep -> step.observing { result ->
+                if (firstDeferredNames.isEmpty()) {
+                  firstDeferredNames += result.deferredNames()
                 }
               }
-              is IndexCollectionStep -> object : ProcessingStep {
-                override fun process(resolver: Resolver): ProcessingStepResult {
-                  val result = step.process(resolver)
-                  if (!observedFirstRound) {
-                    observedFirstRound = true
-                    childMetadata(environment)?.let(firstRoundChildren::add)
-                  }
-                  return result
+              is IndexCollectionStep -> step.observing {
+                if (!observedFirstRound) {
+                  observedFirstRound = true
+                  childMetadata(environment)?.let(firstRoundChildren::add)
                 }
               }
               else -> step
             }
-          } + object : ProcessingStep {
-            private var generated = false
-
-            override fun process(resolver: Resolver): ProcessingStepResult {
-              if (generated) return Continue
-              generated = true
-              environment.codeGenerator
-                .createNewFile(
-                  dependencies = Dependencies(aggregating = false),
-                  packageName = PACKAGE,
-                  fileName = "LaterMetadata"
-                )
-                .bufferedWriter()
-                .use { writer ->
-                  writer.write(
-                    """
-                      package $PACKAGE
-                      object LaterMetadata { const val NAME = "base_name" }
-                    """.trimIndent()
-                  )
-                }
-              return Continue
-            }
-          }
+          } + GeneratedSourceStep(
+            environment = environment,
+            fileName = "LaterMetadata",
+            contents = """
+              package $PACKAGE
+              object LaterMetadata { const val NAME = "base_name" }
+            """
+          )
         }
       )
       .isOk()
       .apply {
         assertThat(childMetadata(environment)).isEqualTo(expected)
         withGeneratedSource(
-          fileName = when {
+          when {
             isView -> "SqliteMagic_ChildOwner_Dao.kt"
             else -> "SqliteMagic_ChildOwner_Adapter.kt"
           }
-        ) { generated ->
+        ) {
           when {
-            isView -> assertThat(generated).contains("""".selected_base"""")
-            else -> assertThat(generated).contains("base_value TEXT")
+            isView -> it
+              .unwrapped()
+              .assertContains("columns = listOf(${expected.columns.joinToString { key -> """"$key"""" }})")
+            else -> it.assertContains("base_value TEXT")
           }
         }
       }
     assertThat(firstDeferredNames.single()).containsExactly("KnownBase")
     assertThat(firstRoundChildren).containsExactly(expected)
   }
-
-  private fun metadata(
-    environment: Environment,
-    isView: Boolean
-  ): Metadata? = when {
-    isView -> environment.viewElements.values.singleOrNull()?.let { view ->
-      Metadata(
-        name = view.viewName,
-        columns = view.leaves.map(ViewLeafElement::selectionKey),
-        defaults = emptyList(),
-        indexes = environment.indexElements.values.map(IndexElement::name),
-        query = view.query.propertyName
-      )
-    }
-    else -> environment.tableElements.values.singleOrNull()?.let { table ->
-      Metadata(
-        name = table.tableName,
-        columns = table.allColumns.map(ColumnElement::columnName),
-        defaults = table.allColumns.map(ColumnElement::defaultValue),
-        indexes = environment.indexElements.values.map(IndexElement::name),
-        query = null
-      )
-    }
-  }
-
-  private data class Metadata(
-    val name: String,
-    val columns: List<String>,
-    val defaults: List<String>,
-    val indexes: List<String>,
-    val query: String?
-  )
 }

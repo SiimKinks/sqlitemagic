@@ -1,67 +1,20 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import org.junit.jupiter.api.Test
 
-internal class ViewNamingContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewNamingContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @Test
   fun `uses default explicit and nested view names`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "ViewNames",
-          body = """
-            import com.siimkinks.sqlitemagic.DefaultNamedViewTable.Companion.DEFAULT_NAMED_VIEW
-            import com.siimkinks.sqlitemagic.ExplicitNamedViewTable.Companion.EXPLICIT_NAMED_VIEW
-            import com.siimkinks.sqlitemagic.NameContainer_NestedNamedViewTable.Companion.NAME_CONTAINER__NESTED_NAMED_VIEW
-
-            @View
-            data class DefaultNamedView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("explicit_view_name")
-            data class ExplicitNamedView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            class NameContainer {
-              @View
-              data class NestedNamedView(
-                @ViewColumn("value")
-                val value: String
-              ) {
-                companion object {
-                  @ViewQuery
-                  val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-                }
-              }
-            }
-
-            fun generatedViewMembers() = listOf(
-              DEFAULT_NAMED_VIEW,
-              EXPLICIT_NAMED_VIEW,
-              NAME_CONTAINER__NESTED_NAMED_VIEW
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "DefaultNamedViewTable.kt",
@@ -72,149 +25,59 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
 
   @Test
   fun `derives view members from model names while preserving SQL names`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "UnusualViewIdentifiers",
-          body = """
-            import com.siimkinks.sqlitemagic.AccentedIdentifierViewTable.Companion.ACCENTED_IDENTIFIER_VIEW
-            import com.siimkinks.sqlitemagic.DottedIdentifierViewTable.Companion.DOTTED_IDENTIFIER_VIEW
-            import com.siimkinks.sqlitemagic.HyphenIdentifierViewTable.Companion.HYPHEN_IDENTIFIER_VIEW
-            import com.siimkinks.sqlitemagic.KeywordIdentifierViewTable.Companion.KEYWORD_IDENTIFIER_VIEW
-            import com.siimkinks.sqlitemagic.NonbreakingSpaceIdentifierViewTable.Companion.NONBREAKING_SPACE_IDENTIFIER_VIEW
-            import com.siimkinks.sqlitemagic.PunctuationIdentifierViewTable.Companion.PUNCTUATION_IDENTIFIER_VIEW
-            import com.siimkinks.sqlitemagic.QuotedIdentifierViewTable.Companion.QUOTED_IDENTIFIER_VIEW
-            import com.siimkinks.sqlitemagic.SpacedIdentifierViewTable.Companion.SPACED_IDENTIFIER_VIEW
-
-            @View("report.v1")
-            data class DottedIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("report space")
-            data class SpacedIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("report\"quote")
-            data class QuotedIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("select")
-            data class KeywordIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("report!?'@")
-            data class PunctuationIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("report\u00A0space")
-            data class NonbreakingSpaceIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("report-ok")
-            data class HyphenIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            @View("café")
-            data class AccentedIdentifierView(@ViewColumn("value") val value: String) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-
-            fun generatedViewMembers() = listOf(
-              DOTTED_IDENTIFIER_VIEW,
-              SPACED_IDENTIFIER_VIEW,
-              QUOTED_IDENTIFIER_VIEW,
-              KEYWORD_IDENTIFIER_VIEW,
-              PUNCTUATION_IDENTIFIER_VIEW,
-              NONBREAKING_SPACE_IDENTIFIER_VIEW,
-              HYPHEN_IDENTIFIER_VIEW,
-              ACCENTED_IDENTIFIER_VIEW
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .apply {
         listOf(
-          Triple(
-            first = "DottedIdentifierView",
-            second = "DOTTED_IDENTIFIER_VIEW",
-            third = """"report.v1""""
+          NamingCase(
+            modelName = "DottedIdentifierView",
+            memberName = "DOTTED_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"report.v1""""
           ),
-          Triple(
-            first = "SpacedIdentifierView",
-            second = "SPACED_IDENTIFIER_VIEW",
-            third = """"report space""""
+          NamingCase(
+            modelName = "SpacedIdentifierView",
+            memberName = "SPACED_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"report space""""
           ),
-          Triple(
-            first = "QuotedIdentifierView",
-            second = "QUOTED_IDENTIFIER_VIEW",
-            third = """"report\"quote""""
+          NamingCase(
+            modelName = "QuotedIdentifierView",
+            memberName = "QUOTED_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"report\"quote""""
           ),
-          Triple(
-            first = "KeywordIdentifierView",
-            second = "KEYWORD_IDENTIFIER_VIEW",
-            third = """"select""""
+          NamingCase(
+            modelName = "KeywordIdentifierView",
+            memberName = "KEYWORD_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"select""""
           ),
-          Triple(
-            first = "PunctuationIdentifierView",
-            second = "PUNCTUATION_IDENTIFIER_VIEW",
-            third = """"report!?'@""""
+          NamingCase(
+            modelName = "PunctuationIdentifierView",
+            memberName = "PUNCTUATION_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"report!?'@""""
           ),
-          Triple(
-            first = "NonbreakingSpaceIdentifierView",
-            second = "NONBREAKING_SPACE_IDENTIFIER_VIEW",
-            third = """"report${'\u00A0'}space""""
+          NamingCase(
+            modelName = "NonbreakingSpaceIdentifierView",
+            memberName = "NONBREAKING_SPACE_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"report${'\u00A0'}space""""
           ),
-          Triple(
-            first = "HyphenIdentifierView",
-            second = "HYPHEN_IDENTIFIER_VIEW",
-            third = """"report-ok""""
+          NamingCase(
+            modelName = "HyphenIdentifierView",
+            memberName = "HYPHEN_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"report-ok""""
           ),
-          Triple(
-            first = "AccentedIdentifierView",
-            second = "ACCENTED_IDENTIFIER_VIEW",
-            third = """"café""""
+          NamingCase(
+            modelName = "AccentedIdentifierView",
+            memberName = "ACCENTED_IDENTIFIER_VIEW",
+            sqlNameLiteral = """"café""""
           )
         ).forEach { (modelName, memberName, sqlNameLiteral) ->
-          withGeneratedSource("${modelName}Table.kt") { generatedSource ->
-            generatedSource.assertContains(
+          withGeneratedSource("${modelName}Table.kt") {
+            it.assertContains(
               "val $memberName:",
               "name = $sqlNameLiteral"
             )
           }
-          withGeneratedSource("SqliteMagic_${modelName}_Dao.kt") { generatedSource ->
-            generatedSource.assertContains("viewName = $sqlNameLiteral")
+          withGeneratedSource("SqliteMagic_${modelName}_Dao.kt") {
+            it.assertContains("viewName = $sqlNameLiteral")
           }
         }
       }
@@ -222,7 +85,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects a blank view column key`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "BlankKeyView",
@@ -234,7 +97,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -248,33 +111,14 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
 
   @Test
   fun `preserves dotted and quoted view column keys`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "DottedQuotedKeysView",
-          body = """
-            @View
-            data class DottedQuotedKeysView(
-              @ViewColumn("author.name")
-              val authorName: String,
-              @ViewColumn("\"quoted_alias\"")
-              val quotedAlias: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, SelectN> = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("DottedQuotedKeysViewTable.kt")
   }
 
   @Test
   fun `rejects duplicate resolved view column keys`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "DuplicateViewColumnKeys",
@@ -288,7 +132,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, SelectN> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -303,7 +147,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects colliding nested view artifact stems`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "CollidingNestedViews",
@@ -316,7 +160,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
               ) {
                 companion object {
                   @ViewQuery
-                  val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
                 }
               }
             }
@@ -329,7 +173,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
               ) {
                 companion object {
                   @ViewQuery
-                  val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
                 }
               }
             }
@@ -345,7 +189,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects a view name colliding with a table identity`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "ViewTableNameCollision",
@@ -363,7 +207,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -377,7 +221,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects a view name colliding with an index identity`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "ViewIndexNameCollision",
@@ -398,7 +242,7 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -407,5 +251,175 @@ internal class ViewNamingContractTest : ProcessingStepsTest {
       .assertCompilationError(
         "Index name 'shared_schema_name' conflicts with view name 'SHARED_SCHEMA_NAME'"
       )
+  }
+
+  private data class NamingCase(
+    val modelName: String,
+    val memberName: String,
+    val sqlNameLiteral: String
+  )
+
+  companion object {
+    private val GENERATED by lazy {
+      SqliteMagicCompilation
+        .compile(
+          ViewSources.view(
+            name = "ViewNames",
+            body = """
+              import com.siimkinks.sqlitemagic.DefaultNamedViewTable.Companion.DEFAULT_NAMED_VIEW
+              import com.siimkinks.sqlitemagic.ExplicitNamedViewTable.Companion.EXPLICIT_NAMED_VIEW
+              import com.siimkinks.sqlitemagic.NameContainer_NestedNamedViewTable
+
+              @View
+              data class DefaultNamedView(
+                @ViewColumn("value")
+                val value: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("explicit_view_name")
+              data class ExplicitNamedView(
+                @ViewColumn("value")
+                val value: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              class NameContainer {
+                @View
+                data class NestedNamedView(
+                  @ViewColumn("value")
+                  val value: String
+                ) {
+                  companion object {
+                    @ViewQuery
+                    val QUERY: SelectQuery<String, *> = error("compile-only")
+                  }
+                }
+              }
+
+              fun generatedViewMembers() = listOf(
+                DEFAULT_NAMED_VIEW,
+                EXPLICIT_NAMED_VIEW,
+                NameContainer_NestedNamedViewTable.NAME_CONTAINER__NESTED_NAMED_VIEW
+              )
+            """
+          ),
+          ViewSources.view(
+            name = "UnusualViewIdentifiers",
+            body = """
+              import com.siimkinks.sqlitemagic.AccentedIdentifierViewTable.Companion.ACCENTED_IDENTIFIER_VIEW
+              import com.siimkinks.sqlitemagic.DottedIdentifierViewTable.Companion.DOTTED_IDENTIFIER_VIEW
+              import com.siimkinks.sqlitemagic.HyphenIdentifierViewTable.Companion.HYPHEN_IDENTIFIER_VIEW
+              import com.siimkinks.sqlitemagic.KeywordIdentifierViewTable.Companion.KEYWORD_IDENTIFIER_VIEW
+              import com.siimkinks.sqlitemagic.NonbreakingSpaceIdentifierViewTable
+              import com.siimkinks.sqlitemagic.PunctuationIdentifierViewTable.Companion.PUNCTUATION_IDENTIFIER_VIEW
+              import com.siimkinks.sqlitemagic.QuotedIdentifierViewTable.Companion.QUOTED_IDENTIFIER_VIEW
+              import com.siimkinks.sqlitemagic.SpacedIdentifierViewTable.Companion.SPACED_IDENTIFIER_VIEW
+
+              @View("report.v1")
+              data class DottedIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("report space")
+              data class SpacedIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("report\"quote")
+              data class QuotedIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("select")
+              data class KeywordIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("report!?'@")
+              data class PunctuationIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("report\u00A0space")
+              data class NonbreakingSpaceIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("report-ok")
+              data class HyphenIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              @View("café")
+              data class AccentedIdentifierView(@ViewColumn("value") val value: String) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+
+              fun unusualIdentifierViewMembers() = listOf(
+                DOTTED_IDENTIFIER_VIEW,
+                SPACED_IDENTIFIER_VIEW,
+                QUOTED_IDENTIFIER_VIEW,
+                KEYWORD_IDENTIFIER_VIEW,
+                PUNCTUATION_IDENTIFIER_VIEW,
+                NonbreakingSpaceIdentifierViewTable.NONBREAKING_SPACE_IDENTIFIER_VIEW,
+                HYPHEN_IDENTIFIER_VIEW,
+                ACCENTED_IDENTIFIER_VIEW
+              )
+            """
+          ),
+          ViewSources.view(
+            name = "DottedQuotedKeysView",
+            body = """
+              @View
+              data class DottedQuotedKeysView(
+                @ViewColumn("author.name")
+                val authorName: String,
+                @ViewColumn("\"quoted_alias\"")
+                val quotedAlias: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          processingStepsFactory = ::viewProcessingSteps
+        )
+        .generatedSources()
+    }
   }
 }

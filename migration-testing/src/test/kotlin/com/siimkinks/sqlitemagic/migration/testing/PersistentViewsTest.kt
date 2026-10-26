@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class PersistentViewsTest {
+internal class PersistentViewsTest {
   @Test
   fun `target views create in dependency order`() {
     val events = mutableListOf<String>()

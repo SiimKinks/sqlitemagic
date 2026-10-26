@@ -4,58 +4,52 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class TransitiveRelationshipOperationTest(
+internal class TransitiveRelationshipOperationTest(
   private val modelCase: TransitiveRelationshipModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeSingleInsertPersistsAllTransitiveRows() {
-    assertSingleInsert(
-      operation = EntityInsertBuilder::execute
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeSingleInsertPersistsAllTransitiveRows() {
-    assertSingleInsert { builder ->
-      builder
-        .observe()
-        .blockingGet()
-    }
-  }
+  fun executeSingleInsertPersistsAllTransitiveRows() = assertSingleInsert(
+    modelCase = modelCase,
+    operation = EntityInsertBuilder::execute
+  )
 
   @Test
-  fun executeBulkInsertPersistsAllTransitiveRows() {
-    assertBulkInsert(
-      operation = EntityBulkInsertBuilder::execute
-    )
-  }
+  fun observeSingleInsertPersistsAllTransitiveRows() = assertSingleInsert(
+    modelCase = modelCase,
+    operation = { it.observe().blockingGet() }
+  )
 
   @Test
-  fun observeBulkInsertPersistsAllTransitiveRows() {
-    assertBulkInsert { builder ->
+  fun executeBulkInsertPersistsAllTransitiveRows() = assertBulkInsert(
+    modelCase = modelCase,
+    operation = EntityBulkInsertBuilder::execute
+  )
+
+  @Test
+  fun observeBulkInsertPersistsAllTransitiveRows() = assertBulkInsert(
+    modelCase = modelCase,
+    operation = { builder ->
       builder
         .observe()
         .blockingAwait()
       true
     }
-  }
-
-  private fun assertSingleInsert(
-    operation: (EntityInsertBuilder) -> EntityInsertResult
-  ) = assertSingleInsert(
-    modelCase = modelCase,
-    operation = operation
   )
 
   private fun <T> assertSingleInsert(
@@ -63,14 +57,11 @@ class TransitiveRelationshipOperationTest(
     operation: (EntityInsertBuilder) -> EntityInsertResult
   ) {
     val value = modelCase.newValue(sequence = 1)
-    val inserted = when (val result = operation(modelCase.insert(value = value))) {
-      is EntityInsertResult.Inserted -> result
-      EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
-    }
-    when (modelCase.rowIdExpectation) {
-      InsertRowIdExpectation.PRESENT -> assertThat(inserted.rowId).isNotNull()
-      InsertRowIdExpectation.ABSENT -> assertThat(inserted.rowId).isNull()
-    }
+    val inserted = insertedResult(
+      result = operation(modelCase.insert(value = value)),
+      modelName = modelCase.name
+    )
+    modelCase.rowIdExpectation.assertRowId(inserted.rowId)
     modelCase.verifyAfterInsert(
       value = value,
       result = inserted
@@ -87,13 +78,6 @@ class TransitiveRelationshipOperationTest(
       values = listOf(expected)
     )
   }
-
-  private fun assertBulkInsert(
-    operation: (EntityBulkInsertBuilder) -> Boolean
-  ) = assertBulkInsert(
-    modelCase = modelCase,
-    operation = operation
-  )
 
   private fun <T> assertBulkInsert(
     modelCase: TransitiveRelationshipModelCase<T>,
@@ -139,7 +123,7 @@ class TransitiveRelationshipOperationTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.transitiveRelationshipCases
   }
 }

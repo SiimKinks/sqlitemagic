@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RelationshipQueryModelCase
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 
 internal data class RelationshipQueryExpectedRows<T>(
   val deep: List<T>,
@@ -14,21 +14,20 @@ internal fun <T> seedExpectedRows(
   count: Int
 ) = List(size = count) { index ->
   val value = modelCase.newValue(sequence = index + 1)
-  when (val result = modelCase.insert(value = value).execute()) {
-    is EntityInsertResult.Inserted -> {
-      modelCase.verifyAfterInsert(
-        value = value,
-        result = result
-      )
-      modelCase.expectedAfterInsert(
-        value = value,
-        result = result
-      )
-    }
-    EntityInsertResult.Ignored -> throw AssertionError(
-      "Seed insert was ignored for ${modelCase.name}"
-    )
-  }
+  val result = insertedResult(
+    result = modelCase
+      .insert(value = value)
+      .execute(),
+    modelName = modelCase.name
+  )
+  modelCase.verifyAfterInsert(
+    value = value,
+    result = result
+  )
+  modelCase.expectedAfterInsert(
+    value = value,
+    result = result
+  )
 }
 
 internal fun <T> seedRelationshipQueryExpectedRows(

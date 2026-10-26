@@ -25,18 +25,18 @@ internal class MigrationsPublicationTest {
       schema = "id INTEGER PRIMARY KEY"
     )
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(idColumn)
+          columns = listOf(idColumn)
         )
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn,
             migrationColumn(
               name = "title",
@@ -62,10 +62,10 @@ internal class MigrationsPublicationTest {
   @Test
   fun `removes a stale migration asset when no migration is needed`() {
     val structure = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -106,10 +106,10 @@ internal class MigrationsPublicationTest {
   @Test
   fun `restores the structure snapshot when publishing the migration fails`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -119,10 +119,10 @@ internal class MigrationsPublicationTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -163,10 +163,10 @@ internal class MigrationsPublicationTest {
   fun `externally owned transaction restores publication only when its owner requests it`() {
     val previous = DatabaseStructure()
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"

@@ -4,37 +4,38 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class EmptyBulkInsertTest(
+internal class EmptyBulkInsertTest(
   private val modelCase: BulkInsertModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeReturnsFalseAndLeavesDatabaseUnchanged() {
-    assertEmptyBulkInsert(
-      modelCase = modelCase,
-      operation = EntityBulkInsertBuilder::execute
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeCompletesAndLeavesDatabaseUnchanged() {
-    assertEmptyBulkInsert(
-      modelCase = modelCase,
-      operation = { builder ->
-        builder
-          .observe()
-          .blockingAwait()
-        false
-      }
-    )
-  }
+  fun executeReturnsFalseAndLeavesDatabaseUnchanged() = assertEmptyBulkInsert(
+    modelCase = modelCase,
+    operation = EntityBulkInsertBuilder::execute
+  )
+
+  @Test
+  fun observeCompletesAndLeavesDatabaseUnchanged() = assertEmptyBulkInsert(
+    modelCase = modelCase,
+    operation = { builder ->
+      builder
+        .observe()
+        .blockingAwait()
+      false
+    }
+  )
 
   private fun <T> assertEmptyBulkInsert(
     modelCase: BulkInsertModelCase<T>,
@@ -62,7 +63,7 @@ class EmptyBulkInsertTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() =
       ModelCatalog.uniqueInsertCases +
           ModelCatalog.recursiveInsertConflictCases

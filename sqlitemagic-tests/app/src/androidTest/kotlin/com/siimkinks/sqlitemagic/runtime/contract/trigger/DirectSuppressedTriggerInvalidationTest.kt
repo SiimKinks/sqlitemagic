@@ -6,96 +6,83 @@ import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.observeRows
+import com.siimkinks.sqlitemagic.runtime.support.seed
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class DirectSuppressedTriggerInvalidationTest(
+internal class DirectSuppressedTriggerInvalidationTest(
   private val modelCase: TriggerConflictModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeInsertConflictWithConflictIgnoreDoesNotRefresh() {
-    assertInsertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeInsertConflictWithConflictIgnoreDoesNotRefresh() {
-    assertInsertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeInsertConflictWithConflictIgnoreDoesNotRefresh() = assertInsertConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeInsertConflictWithConflictIgnoreDoesNotRefresh() = assertInsertConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertUpdateConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executePersistInsertConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistInsertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertUpdateConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observePersistInsertConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistInsertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executePersistInsertConflictWithConflictIgnoreDoesNotRefresh() = assertPersistInsertConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executePersistUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistUpdateConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observePersistInsertConflictWithConflictIgnoreDoesNotRefresh() = assertPersistInsertConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observePersistUpdateConflictWithConflictIgnoreDoesNotRefresh() {
-    assertPersistUpdateConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executePersistUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertPersistUpdateConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observePersistUpdateConflictWithConflictIgnoreDoesNotRefresh() = assertPersistUpdateConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertInsertConflict(
     modelCase: TriggerConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val existing = modelCase.newValue(sequence = 1)
-    assertSeedInserted(
-      result = modelCase
-        .insert(value = existing)
-        .execute(),
-      modelName = modelCase.name
-    )
+    val existing = modelCase.seed()
     val persisted = captureRows(table = modelCase.table).single()
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val observer = observeRows(table = modelCase.table)
@@ -129,7 +116,11 @@ class DirectSuppressedTriggerInvalidationTest(
     modelCase: TriggerConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val persisted = seedConflictRows(modelCase = modelCase)
+    val persisted = seedRows(
+      modelCase = modelCase,
+      count = 2,
+      firstSequence = 1
+    )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val observer = observeRows(table = modelCase.table)
     try {
@@ -161,13 +152,7 @@ class DirectSuppressedTriggerInvalidationTest(
     modelCase: TriggerConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val existing = modelCase.newValue(sequence = 1)
-    assertSeedInserted(
-      result = modelCase
-        .insert(value = existing)
-        .execute(),
-      modelName = modelCase.name
-    )
+    val existing = modelCase.seed()
     val persisted = captureRows(table = modelCase.table).single()
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val observer = observeRows(table = modelCase.table)
@@ -201,7 +186,11 @@ class DirectSuppressedTriggerInvalidationTest(
     modelCase: TriggerConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val persisted = seedConflictRows(modelCase = modelCase)
+    val persisted = seedRows(
+      modelCase = modelCase,
+      count = 2,
+      firstSequence = 1
+    )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val observer = observeRows(table = modelCase.table)
     try {
@@ -231,39 +220,24 @@ class DirectSuppressedTriggerInvalidationTest(
     }
   }
 
-  private fun <T> seedConflictRows(
-    modelCase: TriggerConflictModelCase<T>
-  ): List<T> {
-    val values = listOf(
-      modelCase.newValue(sequence = 1),
-      modelCase.newValue(sequence = 2)
-    )
-    values.forEach { value ->
-      assertSeedInserted(
-        result = modelCase
-          .insert(value = value)
-          .execute(),
-        modelName = modelCase.name
-      )
-    }
-    return captureRows(table = modelCase.table)
-  }
-
   private fun <T> runInsertConflict(
     modelCase: TriggerConflictModelCase<T>,
     value: T,
     terminal: OperationTerminal
-  ) = when (terminal) {
-    OperationTerminal.EXECUTE -> modelCase
-      .insert(value = value)
-      .withConflictAlgorithm(CONFLICT_IGNORE)
-      .execute()
-    OperationTerminal.OBSERVE -> modelCase
-      .insert(value = value)
-      .withConflictAlgorithm(CONFLICT_IGNORE)
-      .observe()
-      .blockingGet()
-  }
+  ) = terminal.select(
+    execute = {
+      modelCase
+        .insert(value = value)
+        .withConflictAlgorithm(CONFLICT_IGNORE)
+        .execute()
+    },
+    observe = {
+      modelCase
+        .insert(value = value)
+        .withConflictAlgorithm(CONFLICT_IGNORE)
+        .observe()
+    }
+  )
 
   private fun <T> runUpdateConflict(
     modelCase: TriggerConflictModelCase<T>,
@@ -271,13 +245,13 @@ class DirectSuppressedTriggerInvalidationTest(
     terminal: OperationTerminal
   ) {
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase
           .update(value = value)
           .withConflictAlgorithm(CONFLICT_IGNORE)
           .execute()
       ).isFalse()
-      OperationTerminal.OBSERVE -> modelCase
+      OBSERVE -> modelCase
         .update(value = value)
         .withConflictAlgorithm(CONFLICT_IGNORE)
         .observe()
@@ -289,21 +263,24 @@ class DirectSuppressedTriggerInvalidationTest(
     modelCase: TriggerConflictModelCase<T>,
     value: T,
     terminal: OperationTerminal
-  ) = when (terminal) {
-    OperationTerminal.EXECUTE -> modelCase
-      .persist(value = value)
-      .withConflictAlgorithm(CONFLICT_IGNORE)
-      .execute()
-    OperationTerminal.OBSERVE -> modelCase
-      .persist(value = value)
-      .withConflictAlgorithm(CONFLICT_IGNORE)
-      .observe()
-      .blockingGet()
-  }
+  ) = terminal.select(
+    execute = {
+      modelCase
+        .persist(value = value)
+        .withConflictAlgorithm(CONFLICT_IGNORE)
+        .execute()
+    },
+    observe = {
+      modelCase
+        .persist(value = value)
+        .withConflictAlgorithm(CONFLICT_IGNORE)
+        .observe()
+    }
+  )
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.triggerConflictCases
   }
 }

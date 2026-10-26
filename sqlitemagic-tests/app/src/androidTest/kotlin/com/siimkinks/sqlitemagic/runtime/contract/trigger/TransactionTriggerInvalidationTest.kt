@@ -4,31 +4,33 @@ import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TriggerModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class TransactionTriggerInvalidationTest(
+internal class TransactionTriggerInvalidationTest(
   private val modelCase: TriggerModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun committedTransactionWithTwoGeneratedInsertsInvalidatesOnce() {
-    assertCommittedTransaction(
-      modelCase = modelCase
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun rolledBackTransactionWithGeneratedInsertsDoesNotInvalidate() {
-    assertRolledBackTransaction(
-      modelCase = modelCase
-    )
-  }
+  fun committedTransactionWithTwoGeneratedInsertsInvalidatesOnce() = assertCommittedTransaction(
+    modelCase = modelCase
+  )
+
+  @Test
+  fun rolledBackTransactionWithGeneratedInsertsDoesNotInvalidate() = assertRolledBackTransaction(
+    modelCase = modelCase
+  )
 
   private fun <T> assertCommittedTransaction(
     modelCase: TriggerModelCase<T>
@@ -44,28 +46,26 @@ class TransactionTriggerInvalidationTest(
       operation = {
         buildList {
           inTransaction {
-            addAll(values.map { value ->
+            addAll(values.map {
               modelCase
-                .insert(value = value)
+                .insert(value = it)
                 .execute()
             })
           }
         }
       },
       expected = { results ->
-        val insertedResults = results.map { result ->
+        val insertedResults = results.map {
           insertedResult(
-            result = result,
+            result = it,
             modelName = modelCase.name
           )
         }
         DatabaseSnapshot(
-          parents = values.zip(insertedResults).map { (value, result) ->
-            modelCase.expectedAfterInsert(
-              value = value,
-              result = result
-            )
-          }
+          parents = values.zip(
+            other = insertedResults,
+            transform = modelCase::expectedAfterInsert
+          )
         )
       }
     )
@@ -100,7 +100,7 @@ class TransactionTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.triggerCases
   }
 }

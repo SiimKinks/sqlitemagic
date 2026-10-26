@@ -9,54 +9,52 @@ import com.siimkinks.sqlitemagic.annotation.ViewQuery
 
 @View("migration_person_summary")
 data class MigrationPersonSummary(
-  @ViewColumn("migration_person.id")
+  @ViewColumn("id")
   val id: Long,
-  @ViewColumn("migration_person.name")
+  @ViewColumn("name")
   val name: String,
-  @ViewColumn("migration_person.slug")
+  @ViewColumn("slug")
   val slug: String?,
-  @ViewColumn("migration_person.name_length")
+  @ViewColumn("name_length")
   val nameLength: Int?
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        MIGRATION_PERSON.ID,
-        MIGRATION_PERSON.NAME,
-        MIGRATION_PERSON.SLUG,
-        MIGRATION_PERSON.NAME_LENGTH
+    val query = SELECT
+      .COLUMNS(
+        MIGRATION_PERSON.ID AS "id",
+        MIGRATION_PERSON.NAME AS "name",
+        MIGRATION_PERSON.SLUG AS "slug",
+        MIGRATION_PERSON.NAME_LENGTH AS "name_length"
       )
-      .from(MIGRATION_PERSON)
-      .where(MIGRATION_PERSON.SLUG.isNotNull())
-      .compile()
+      .FROM(MIGRATION_PERSON)
+      .WHERE(MIGRATION_PERSON.SLUG.IS_NOT_NULL())
   }
 }
 
 @View("migration_entry_summary")
 data class MigrationEntrySummary(
-  @ViewColumn("migration_entry.id")
+  @ViewColumn("id")
   val id: Long?,
-  @ViewColumn("migration_entry.amount")
+  @ViewColumn("amount")
   val amount: Double,
-  @ViewColumn("migration_account.label")
+  @ViewColumn("label")
   val accountLabel: String,
-  @ViewColumn("migration_entry.status")
+  @ViewColumn("status")
   val status: String,
-  @ViewColumn("migration_entry.reference")
+  @ViewColumn("reference")
   val reference: String
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        MIGRATION_ENTRY.ID,
-        MIGRATION_ENTRY.AMOUNT,
-        MIGRATION_ACCOUNT.LABEL,
-        MIGRATION_ENTRY.STATUS,
-        MIGRATION_ENTRY.REFERENCE
+    val query = SELECT
+      .COLUMNS(
+        MIGRATION_ENTRY.ID AS "id",
+        MIGRATION_ENTRY.AMOUNT AS "amount",
+        MIGRATION_ACCOUNT.LABEL AS "label",
+        MIGRATION_ENTRY.STATUS AS "status",
+        MIGRATION_ENTRY.REFERENCE AS "reference"
       )
-      .from(MIGRATION_ENTRY)
-      .compile()
+      .FROM(MIGRATION_ENTRY)
   }
 }

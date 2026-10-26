@@ -3,14 +3,17 @@ package com.siimkinks.sqlitemagic.runtime.contract.identity
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.NoIdMultiUniqueEntityTable.Companion.NO_ID_MULTI_UNIQUE_ENTITY
 import com.siimkinks.sqlitemagic.NoIdMultiUniqueEntitys
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.fixture.model.NoIdMultiUniqueEntity
-import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.update
+import org.junit.Rule
 import org.junit.Test
 
-class NoIdMultiUniqueRuntimeTest : RuntimeDatabaseTest() {
+internal class NoIdMultiUniqueRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun aliasedSlugColumnUpdatesOnlySelectedRow() {
     val seeded = listOf(
@@ -40,12 +43,11 @@ class NoIdMultiUniqueRuntimeTest : RuntimeDatabaseTest() {
     assertThat(
       updated
         .update()
-        .execute(byColumn = NO_ID_MULTI_UNIQUE_ENTITY.`as`("multi_alias").SLUG)
+        .execute(byColumn = NO_ID_MULTI_UNIQUE_ENTITY.AS("multi_alias").SLUG)
     ).isTrue()
 
     assertThat(
-      Select
-        .from(NO_ID_MULTI_UNIQUE_ENTITY)
+      SELECT.FROM(NO_ID_MULTI_UNIQUE_ENTITY)
         .execute()
     ).containsExactlyElementsIn(
       listOf(

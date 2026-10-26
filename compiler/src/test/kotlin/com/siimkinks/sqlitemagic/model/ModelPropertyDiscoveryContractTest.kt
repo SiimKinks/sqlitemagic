@@ -1,20 +1,21 @@
 package com.siimkinks.sqlitemagic.model
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
+internal class ModelPropertyDiscoveryContractTest {
+  private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
   @Test
-  fun `does not persist Kotlin companion properties`() {
-    SqliteMagicCompilation
+  fun `persists only discovered Kotlin properties in inherited-before-local order`() {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "CompanionProperty.kt",
@@ -32,20 +33,7 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
               }
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_CompanionProperty_Adapter.kt")
-      .withGeneratedSource("SqliteMagic_CompanionProperty_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains("instance_value")
-        generatedSource.assertDoesNotContain("companion_value")
-      }
-  }
-
-  @Test
-  fun `applies persistAll false to mutable Kotlin models`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         SourceFile.kotlin(
           name = "SelectiveMutableKotlin.kt",
           contents = """
@@ -61,20 +49,7 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
               var ignoredValue: String = ""
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_SelectiveMutableKotlin_Adapter.kt")
-      .withGeneratedSource("SqliteMagic_SelectiveMutableKotlin_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains("persisted_value")
-        generatedSource.assertDoesNotContain("ignored_value")
-      }
-  }
-
-  @Test
-  fun `preserves inherited-before-local mutable property order`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         SourceFile.kotlin(
           name = "InheritedPropertyOrder.kt",
           contents = """
@@ -93,24 +68,7 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
               var localSecond: String = ""
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_InheritedPropertyOrder_Adapter.kt")
-      .withGeneratedSource("SqliteMagic_InheritedPropertyOrder_Adapter.kt") { generatedSource ->
-        generatedSource.assertContainsInOrder(
-          "inherited_first",
-          "inherited_second",
-          "local_first",
-          "local_second"
-        )
-      }
-  }
-
-  @Test
-  fun `does not persist computed or delegated properties`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         SourceFile.kotlin(
           name = "CalculatedValues.kt",
           contents = """
@@ -132,9 +90,24 @@ internal class ModelPropertyDiscoveryContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_CalculatedValues_Adapter.kt")
-      .withGeneratedSource("SqliteMagic_CalculatedValues_Adapter.kt") { generatedSource ->
-        generatedSource.assertDoesNotContain(
+      .withGeneratedSource("SqliteMagic_CompanionProperty_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains("instance_value")
+        generatedSource.assertDoesNotContain("companion_value")
+      }
+      .withGeneratedSource("SqliteMagic_SelectiveMutableKotlin_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains("persisted_value")
+        generatedSource.assertDoesNotContain("ignored_value")
+      }
+      .withGeneratedSource("SqliteMagic_InheritedPropertyOrder_Adapter.kt") {
+        it.assertContainsInOrder(
+          "inherited_first",
+          "inherited_second",
+          "local_first",
+          "local_second"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_CalculatedValues_Adapter.kt") {
+        it.assertDoesNotContain(
           "computed",
           "delegated"
         )

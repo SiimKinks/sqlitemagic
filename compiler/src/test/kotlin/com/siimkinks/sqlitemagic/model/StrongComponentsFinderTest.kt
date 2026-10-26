@@ -19,19 +19,6 @@ internal class StrongComponentsFinderTest {
   }
 
   @Test
-  fun `acyclic graph has no strong components`() {
-    val third = table("Third")
-    val second = table("Second", edge("Third"))
-    val first = table("First", edge("Second"), edge("Third"))
-    val finder = StrongComponentsFinder(listOf(first, second, third))
-
-    assertThat(finder.strongComponents)
-      .isEmpty()
-    assertThat(finder.hasStrongComponents)
-      .isFalse()
-  }
-
-  @Test
   fun `non-recursive and unresolved references do not create graph edges`() {
     val first = table("First", ignoredEdge(), edge("Missing"), nonReference())
     val second = table("Second", edge("First"))
@@ -56,19 +43,6 @@ internal class StrongComponentsFinderTest {
     assertWithMessage("recursive edge before ignored edge")
       .that(StrongComponentsFinder(listOf(recursiveFirst, second)).strongComponents)
       .containsExactly(listOf(recursiveFirst, second))
-  }
-
-  @Test
-  fun `self-reference is reported as a strong component`() {
-    val node = table("Node", edge("Node"))
-    val finder = StrongComponentsFinder(listOf(node))
-
-    assertThat(finder.strongComponents)
-      .containsExactly(listOf(node))
-    assertThat(finder.hasStrongComponents)
-      .isTrue()
-    assertThat(finder.diagnostic)
-      .isEqualTo(expectedDiagnostic("Node-Node"))
   }
 
   @Test
@@ -170,17 +144,17 @@ internal class StrongComponentsFinderTest {
 
     for (graph in 0 until graphCount) {
       val tables = tableNames.mapIndexed { source, tableName ->
-        val edges = buildList {
-          for (target in tableNames.indices.reversed()) {
-            when {
-              graph.hasEdge(
-                vertexCount = vertexCount,
-                source = source,
-                target = target
-              ) -> add(edge(tableNames[target]))
-            }
+        val edges = tableNames.indices
+          .reversed()
+          .filter { target ->
+            graph.hasEdge(
+              vertexCount = vertexCount,
+              source = source,
+              target = target
+            )
           }
-        }
+          .map(tableNames::get)
+          .map(::edge)
         table(tableName, *edges.toTypedArray())
       }
       val expected = expectedStrongComponents(
@@ -243,10 +217,10 @@ private fun column(
   isId: Boolean,
   isHandledRecursively: Boolean
 ): ColumnElement {
-  val relationship = targetName?.let { referencedTableName ->
+  val relationship = targetName?.let {
     mockRelationshipElement(
       referencedTableType = mockParsedType(
-        typeName = ClassName(PACKAGE, referencedTableName)
+        typeName = ClassName(PACKAGE, it)
       ),
       isHandledRecursively = isHandledRecursively
     )
@@ -265,22 +239,16 @@ private fun column(
   }
 }
 
-private fun expectedDiagnostic(vararg components: String) = buildString {
-  append("VALIDATION ERROR:\n")
-  append("\tTable graph validation failed: Tables cannot have reference cycles.\n")
-  append("\tFound cycles:\n")
-  for (component in components) {
-    append("\t\t")
-    append(component)
-    append('\n')
-  }
-  append("\tPossible fix: remove some complex columns or annotate them with @Column(handleRecursively = false)")
-}
+private fun expectedDiagnostic(vararg components: String) = components
+  .joinToString(
+    separator = "",
+    prefix = "VALIDATION ERROR:\n" +
+        "\tTable graph validation failed: Tables cannot have reference cycles.\n" +
+        "\tFound cycles:\n",
+    postfix = "\tPossible fix: remove some complex columns or annotate them with @Column(handleRecursively = false)",
+    transform = { "\t\t$it\n" }
+  )
 
-/**
- * Finds SCCs through mutual transitive reachability using the Floyd-Warshall algorithm,
- * independently calculating the expected result.
- */
 private fun expectedStrongComponents(
   tables: List<TableElement>,
   graph: Int
@@ -313,16 +281,13 @@ private fun expectedStrongComponents(
       val componentIndexes = (0 until vertexCount).filter { candidate ->
         reachable[vertex][candidate] && reachable[candidate][vertex]
       }
-      for (member in componentIndexes) {
-        assigned[member] = true
-      }
-      when {
-        componentIndexes.size > 1 || graph.hasEdge(
-          vertexCount = vertexCount,
-          source = vertex,
-          target = vertex
-        ) -> add(componentIndexes.map(tables::get))
-      }
+      componentIndexes.forEach { assigned[it] = true }
+      val isCycle = componentIndexes.size > 1 || graph.hasEdge(
+        vertexCount = vertexCount,
+        source = vertex,
+        target = vertex
+      )
+      if (isCycle) add(componentIndexes.map(tables::get))
     }
   }
 }

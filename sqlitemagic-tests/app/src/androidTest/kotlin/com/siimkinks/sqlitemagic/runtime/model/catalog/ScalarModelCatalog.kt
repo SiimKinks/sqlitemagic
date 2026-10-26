@@ -13,8 +13,8 @@ import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable.Companion
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldss
 import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
 import com.siimkinks.sqlitemagic.LibraryBooks
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE_COLUMNS_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
@@ -33,8 +33,7 @@ import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
-import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
+import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation.PRESENT
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingAllNullPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RawCursorModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RepresentativeEmptyBulkModelCase
@@ -69,7 +68,7 @@ internal object ScalarModelCatalog {
     RawCursorModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = SimpleMutableEntity(
       id = null,
@@ -101,16 +100,18 @@ internal object ScalarModelCatalog {
 
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
 
-    override fun rawSelect() = Select
-      .raw("SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity ORDER BY id")
-      .from(table)
-      .compile()
+    override fun rawSelect() = SELECT
+      .RAW("SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity ORDER BY id")
+      .observes(table)
+      .toCursor()
 
-    override fun rawSelectWithArgs(value: SimpleMutableEntity) = Select
-      .raw("SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity WHERE value = ? ORDER BY id")
-      .from(table)
-      .withArgs(checkNotNull(value.value))
-      .compile()
+    override fun rawSelectWithArgs(value: SimpleMutableEntity) = SELECT
+      .RAW(
+        "SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity WHERE value = ? ORDER BY id",
+        checkNotNull(value.value)
+      )
+      .observes(table)
+      .toCursor()
 
     override fun readCurrentPosition(cursor: Cursor) = SimpleMutableEntity(
       id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
@@ -134,7 +135,7 @@ internal object ScalarModelCatalog {
     StandardBulkDeleteModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntityWithPresetAutoId"
     override val table = SIMPLE_MUTABLE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = SimpleMutableEntity(
       id = 9001L,
@@ -181,7 +182,7 @@ internal object ScalarModelCatalog {
     SuccessfulModelProjectionCase<ImmutableValueWithNullableFields> {
     override val name = "ImmutableValueWithNullableFields"
     override val table = IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override val projectionColumns = listOf(
       IMMUTABLE_VALUE_WITH_NULLABLE_FIELDS.ID,
@@ -247,14 +248,8 @@ internal object ScalarModelCatalog {
       integer = null
     )
 
-    override fun expectedAfterAllNullBulkInsert(actual: List<ImmutableValueWithNullableFields>) = actual.map { value ->
-      ImmutableValueWithNullableFields(
-        id = value.id,
-        string = null,
-        aBoolean = null,
-        integer = null
-      )
-    }
+    override fun expectedAfterAllNullBulkInsert(actual: List<ImmutableValueWithNullableFields>) =
+      actual.map(::allNullValueForExistingRow)
 
     override fun expectedAfterInsert(
       value: ImmutableValueWithNullableFields,
@@ -280,17 +275,10 @@ internal object ScalarModelCatalog {
 
   private object ImmutableValueWithFieldsCase :
     StandardBulkPersistModelCase<ImmutableValueWithFields>,
-    StandardBulkDeleteModelCase<ImmutableValueWithFields>,
-    MissingRequiredProjectionCase<ImmutableValueWithFields> {
+    StandardBulkDeleteModelCase<ImmutableValueWithFields> {
     override val name = "ImmutableValueWithFields"
     override val table = IMMUTABLE_VALUE_WITH_FIELDS
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
-
-    override val missingRequiredProjectionColumns = listOf(
-      IMMUTABLE_VALUE_WITH_FIELDS.ID
-    )
-    override val expectedSQLExceptionMessage =
-      """Selected columns did not contain table "immutable_value_with_fields" required column "string_value""""
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = ImmutableValueWithFields(
       id = null,
@@ -348,7 +336,7 @@ internal object ScalarModelCatalog {
     StandardBulkDeleteModelCase<CustomColumnEntity> {
     override val name = "CustomColumnEntity"
     override val table = CUSTOM_COLUMN_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = CustomColumnEntity(
       id = null,
@@ -384,7 +372,7 @@ internal object ScalarModelCatalog {
     StandardBulkDeleteModelCase<SelectiveColumnsEntity> {
     override val name = "SelectiveColumnsEntity"
     override val table = SELECTIVE_COLUMNS_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = SelectiveColumnsEntity().apply {
       persistedValue = "selective-persisted-$sequence"
@@ -447,7 +435,7 @@ internal object ScalarModelCatalog {
     StandardBulkDeleteModelCase<EntityWithIgnoredValue> {
     override val name = "EntityWithIgnoredValue"
     override val table = ENTITY_WITH_IGNORED_VALUE
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = EntityWithIgnoredValue().apply {
       persistedValue = "ignored-persisted-$sequence"
@@ -510,7 +498,7 @@ internal object ScalarModelCatalog {
     StandardBulkDeleteModelCase<BlobEntity> {
     override val name = "BlobEntity"
     override val table = BLOB_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = BlobEntity(
       id = null,
@@ -559,10 +547,10 @@ internal object ScalarModelCatalog {
     ) = actual.map { persisted ->
       values
         .single { it.payload.contentEquals(persisted.payload) }
-        .let { value ->
+        .let {
           BlobEntity(
             id = persisted.id,
-            payload = value.payload
+            payload = it.payload
           )
         }
     }
@@ -573,20 +561,22 @@ internal object ScalarModelCatalog {
   private object ScalarStorageEntityCase : StandardUpdateModelCase<ScalarStorageEntity> {
     override val name = "ScalarStorageEntity"
     override val table = SCALAR_STORAGE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = ScalarStorageEntity(
       id = null,
       longValue = 1000L + sequence,
-      nullableLong = if (sequence % 2 == 0) null else 2000L + sequence,
+      nullableLong = (2000L + sequence).takeIf { sequence % 2 != 0 },
       floatValue = 1.5f + sequence,
-      nullableFloat = if (sequence % 2 == 0) null else 2.5f + sequence,
+      nullableFloat = (2.5f + sequence).takeIf { sequence % 2 != 0 },
       byteValue = (10 + sequence).toByte(),
-      nullableByte = if (sequence % 2 == 0) null else (20 + sequence).toByte(),
+      nullableByte = (20 + sequence)
+        .toByte()
+        .takeIf { sequence % 2 != 0 },
       byteArray = byteArrayOf(sequence.toByte(), (sequence + 1).toByte()),
-      nullableByteArray = if (sequence % 2 == 0) null else byteArrayOf((sequence + 2).toByte()),
+      nullableByteArray = byteArrayOf((sequence + 2).toByte()).takeIf { sequence % 2 != 0 },
       boxedByteArray = arrayOf(sequence.toByte(), (sequence + 3).toByte()),
-      nullableBoxedByteArray = if (sequence % 2 == 0) null else arrayOf((sequence + 4).toByte())
+      nullableBoxedByteArray = arrayOf((sequence + 4).toByte()).takeIf { sequence % 2 != 0 }
     )
 
     override fun insert(value: ScalarStorageEntity) = value.insert()
@@ -619,7 +609,7 @@ internal object ScalarModelCatalog {
     StandardBulkDeleteModelCase<LibraryBook> {
     override val name = "LibraryBook"
     override val table = LIBRARY_BOOK
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = LibraryBook(
       id = "library-book-$sequence",

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.entity
 
+import android.database.SQLException
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult.Ignored
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult.Inserted
@@ -15,7 +16,9 @@ interface EntityInsertBuilder : EntityOperationBuilder<EntityInsertBuilder> {
    * a transaction if the inserted entity has complex columns which also need to be inserted.
    *
    * @return [Inserted] when a row was inserted or [Ignored] when a conflict was intentionally ignored
-   * @throws [OperationFailedException] when the insert fails without being intentionally ignored
+   * @throws SQLException when SQLite rejects the insert, for example on a constraint violation
+   * @throws OperationFailedException when SQLite writes no row without an error and the conflict algorithm does not
+   *     ignore conflicts
    */
   fun execute(): EntityInsertResult
 

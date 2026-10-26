@@ -22,14 +22,12 @@ internal data class ViewLeafSeed(
 ) : ViewPropertySeed {
   override fun sourceProperties() = sequenceOf(roundElement.sourceDeclaration)
     .filterIsInstance<KSPropertyDeclaration>()
-    .map { declaration -> access.path to declaration }
+    .map { access.path to it }
 }
 
 internal data class ViewEmbeddedSeed(
   override val roundElement: ViewPropertyRoundElement,
   val access: PropertyAccess,
-  val prefix: String,
-  val cumulativePrefix: String,
   val construction: ModelConstruction,
   val properties: List<ViewPropertySeed>
 ) : ViewPropertySeed {
@@ -49,7 +47,7 @@ internal data class ViewSeed(
   val properties: List<ViewPropertySeed>,
   val isPublic: Boolean
 ) : ParsedType by parsedType, SqliteSchemaProvider by identity {
-  fun sourceProperties(): Map<PropertyPath, KSPropertyDeclaration> = properties
+  fun sourceProperties() = properties
     .asSequence()
     .flatMap(ViewPropertySeed::sourceProperties)
     .toMap()

@@ -1,49 +1,47 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.element.mockParsedType
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
-import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
 import com.siimkinks.sqlitemagic.model.mockPropertyAccess
 import com.siimkinks.sqlitemagic.model.mockPropertyPath
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.transformer.TransformerCallableKind.CLASS_MEMBER
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.transformer.TransformerMethodElementImpl
 import com.siimkinks.sqlitemagic.transformer.TransformerTypeElementImpl
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
+import com.siimkinks.sqlitemagic.utils.OriginRecordingStep
+import com.siimkinks.sqlitemagic.utils.OriginatingFilesSnapshot
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.insertAfter
+import com.siimkinks.sqlitemagic.utils.insertBeforeLast
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.squareup.kotlinpoet.ClassName
-import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.tschuchort.compiletesting.SourceFile
-import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
 
-internal class ViewCollectionStepTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewCollectionStepTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @Test
   fun `collects a complete durable view value`() {
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "CollectedView.kt",
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.Id
             import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
@@ -84,7 +82,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<Author, Select.SelectN> = error("compile-only")
+                val QUERY: SelectQuery<Author, *> = error("compile-only")
               }
             }
 
@@ -99,7 +97,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val DEFINITION: CompiledSelect<Author, Select.SelectN> = error("compile-only")
+                val DEFINITION: SelectQuery<Author, *> = error("compile-only")
               }
             }
           """
@@ -133,15 +131,10 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
         ownerClassName = ClassName(PACKAGE, "EmailTransformer"),
         callableKind = CLASS_MEMBER
       ),
-      serializedTypeCanBeNull = false
-    )
-    val authorConstruction = ModelConstruction(
-      strategy = PRIMARY_CONSTRUCTOR,
-      constructorParameters = listOf(
-        mockPropertyPath("id"),
-        mockPropertyPath("name")
-      ),
-      defaultableParameters = emptySet()
+      encoderInputNullable = false,
+      serializedTypeCanBeNull = false,
+      decoderResultNullable = false,
+      decoderInputNullable = false
     )
     val detailsConstruction = ModelConstruction(
       strategy = PRIMARY_CONSTRUCTOR,
@@ -151,16 +144,11 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
       ),
       defaultableParameters = emptySet()
     )
-    val innerSummaryConstruction = ModelConstruction(
-      strategy = PRIMARY_CONSTRUCTOR,
-      constructorParameters = listOf(mockPropertyPath("label")),
-      defaultableParameters = emptySet()
-    )
     val expected = mockViewElement(
       parsedType = mockParsedType(typeName = authorSummaryType),
       identity = SqliteSchemaIdentity(
-        schema = SqliteSchema.MAIN,
-        identifier = SqliteIdentifier.from("author_summary")
+        schema = MAIN,
+        identifier = SqliteIdentifier("author_summary")
       ),
       artifactStem = "AuthorSummary",
       declarationOrder = 1,
@@ -177,15 +165,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
         ),
         defaultableParameters = setOf(mockPropertyPath("ignored"))
       ),
-      query = mockViewQueryElement(
-        ownerType = authorSummaryType,
-        propertyName = "DEFINITION",
-        declaredType = ClassName("com.siimkinks.sqlitemagic", "CompiledSelect")
-          .parameterizedBy(
-            authorType,
-            ClassName("com.siimkinks.sqlitemagic", "Select", "SelectN")
-          )
-      ),
+      queryPropertyName = "DEFINITION",
       properties = listOf(
         mockViewScalarPropertyElement(
           access = mockPropertyAccess(path = mockPropertyPath("title")),
@@ -207,8 +187,6 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
           access = mockPropertyAccess(path = mockPropertyPath("details")),
           deserializedType = mockParsedType(typeName = detailsType),
           isNullable = false,
-          prefix = "details_",
-          cumulativePrefix = "details_",
           construction = detailsConstruction,
           properties = listOf(
             mockViewScalarPropertyElement(
@@ -234,20 +212,14 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
           deserializedType = mockParsedType(typeName = authorType),
           isNullable = false,
           selectionKey = "author",
-          targetKind = ViewProjectionKind.TABLE,
-          targetArtifactStem = "Author",
-          targetConstruction = authorConstruction,
-          expandedWidth = 2
+          target = GenerationNames("Author")
         ),
         mockViewProjectionPropertyElement(
           access = mockPropertyAccess(path = mockPropertyPath("summary")),
           deserializedType = mockParsedType(typeName = innerSummaryType.copy(nullable = true)),
           isNullable = true,
           selectionKey = "summary",
-          targetKind = ViewProjectionKind.VIEW,
-          targetArtifactStem = "InnerSummary",
-          targetConstruction = innerSummaryConstruction,
-          expandedWidth = 1
+          target = GenerationNames("InnerSummary")
         )
       ),
       isPublic = true
@@ -261,58 +233,8 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `retries a generated dependency and keeps one durable view without live KSP symbols`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "DeferredCollectedView.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-            import com.siimkinks.sqlitemagic.LateCollectedRowTable
-
-            private fun inferredQuery(): CompiledSelect<String, Select.Select1> {
-              LateCollectedRowTable.LATE_COLLECTED_ROW
-              return error("compile-only inferred query")
-            }
-
-            @View("deferred_collected_view")
-            data class DeferredCollectedView(
-              @ViewColumn("value") val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY = inferredQuery()
-              }
-            }
-          """
-        ),
-        processingStepsFactory = { environment ->
-          val steps = viewProcessingSteps(environment)
-          steps.dropLast(1) + GeneratedSourceStep(environment) + steps.last()
-        }
-      )
-      .isOk()
-
-    val environment = compilation.environment
-    assertThat(environment.processingRounds)
-      .isAtLeast(2)
-    assertThat(environment.viewElements.values.map(ViewElement::modelName))
-      .containsExactly("DeferredCollectedView")
-    assertThat(environment.viewElements)
-      .hasSize(1)
-    assertThat(environment.viewRoundElementsForCurrentRound)
-      .isEmpty()
-  }
-
-  @Test
   fun `retains complete originating files for a current-round view graph`() {
-    val snapshots = mutableMapOf<String, ViewOriginatingFilesSnapshot>()
+    val snapshots = mutableMapOf<String, OriginatingFilesSnapshot>()
     SqliteMagicCompilation
       .compile(
         SourceFile.kotlin(
@@ -378,8 +300,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
             import com.siimkinks.sqlitemagic.annotation.ViewQuery
@@ -388,7 +309,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
             data class OriginInnerView(@ViewColumn("value") val value: String) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -398,8 +319,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
             import com.siimkinks.sqlitemagic.annotation.ViewQuery
@@ -416,28 +336,25 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
         ),
         processingStepsFactory = { environment ->
-          viewProcessingSteps(environment).toMutableList().apply {
-            add(
-              index = indexOfFirst { it is ViewCollectionStep } + 1,
-              element = ViewOriginRecordingStep(
-                environment = environment,
-                snapshots = snapshots
-              )
+          viewProcessingSteps(environment).insertAfter<ViewCollectionStep>(
+            viewOriginRecordingStep(
+              environment = environment,
+              snapshots = snapshots
             )
-          }
+          )
         }
       )
       .isOk()
 
     assertThat(snapshots.getValue("OriginOuterView"))
       .isEqualTo(
-        ViewOriginatingFilesSnapshot(
+        OriginatingFilesSnapshot(
           files = setOf(
             "OriginOuterView.kt",
             "OriginRow.kt",
@@ -454,7 +371,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
 
   @Test
   fun `marks a later generated view over an earlier view as aggregating`() {
-    val snapshots = mutableMapOf<String, ViewOriginatingFilesSnapshot>()
+    val snapshots = mutableMapOf<String, OriginatingFilesSnapshot>()
     SqliteMagicCompilation
       .compile(
         SourceFile.kotlin(
@@ -462,8 +379,7 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
             import com.siimkinks.sqlitemagic.annotation.ViewQuery
@@ -472,45 +388,41 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
             data class EarlierOriginView(@ViewColumn("value") val value: String) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
         ),
         processingStepsFactory = { environment ->
-          val steps = viewProcessingSteps(environment).toMutableList()
-          steps.add(
-            index = steps.indexOfFirst { it is ViewCollectionStep } + 1,
-            element = ViewOriginRecordingStep(
-              environment = environment,
-              snapshots = snapshots
+          viewProcessingSteps(environment)
+            .insertAfter<ViewCollectionStep>(
+              viewOriginRecordingStep(
+                environment = environment,
+                snapshots = snapshots
+              )
             )
-          )
-          steps.add(
-            index = steps.size - 1,
-            element = GeneratedSourceStep(
-              environment = environment,
-              fileName = "LaterOriginView",
-              contents = """
-                package $PACKAGE
+            .insertBeforeLast(
+              GeneratedSourceStep(
+                environment = environment,
+                fileName = "LaterOriginView",
+                contents = """
+                  package $PACKAGE
 
-                import com.siimkinks.sqlitemagic.CompiledSelect
-                import com.siimkinks.sqlitemagic.Select
-                import com.siimkinks.sqlitemagic.annotation.View
-                import com.siimkinks.sqlitemagic.annotation.ViewColumn
-                import com.siimkinks.sqlitemagic.annotation.ViewQuery
+                  import com.siimkinks.sqlitemagic.SelectQuery
+                  import com.siimkinks.sqlitemagic.annotation.View
+                  import com.siimkinks.sqlitemagic.annotation.ViewColumn
+                  import com.siimkinks.sqlitemagic.annotation.ViewQuery
 
-                @View
-                data class LaterOriginView(@ViewColumn("inner") val inner: EarlierOriginView) {
-                  companion object {
-                    @ViewQuery
-                    val QUERY: CompiledSelect<String, Select.Select1> = error("compile-only")
+                  @View
+                  data class LaterOriginView(@ViewColumn("inner") val inner: EarlierOriginView) {
+                    companion object {
+                      @ViewQuery
+                      val QUERY: SelectQuery<String, *> = error("compile-only")
+                    }
                   }
-                }
-              """
+                """
+              )
             )
-          )
-          steps
         }
       )
       .isOk()
@@ -518,12 +430,12 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
     assertThat(snapshots)
       .containsExactly(
         "EarlierOriginView",
-        ViewOriginatingFilesSnapshot(
+        OriginatingFilesSnapshot(
           files = setOf("EarlierOriginView.kt"),
           isComplete = true
         ),
         "LaterOriginView",
-        ViewOriginatingFilesSnapshot(
+        OriginatingFilesSnapshot(
           files = setOf("LaterOriginView.kt", "EarlierOriginView.kt"),
           isComplete = false
         )
@@ -531,58 +443,11 @@ internal class ViewCollectionStepTest : ProcessingStepsTest {
   }
 }
 
-private class GeneratedSourceStep(
-  private val environment: Environment,
-  private val fileName: String = "LateCollectedRow",
-  @Language("kotlin")
-  private val contents: String = """
-    package $PACKAGE
-
-    import com.siimkinks.sqlitemagic.annotation.Table
-
-    @Table("late_collected_rows")
-    data class LateCollectedRow(
-      val value: String
-    )
-  """
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = fileName
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(contents.trimIndent())
-      }
-    return Continue
-  }
-}
-
-private data class ViewOriginatingFilesSnapshot(
-  val files: Set<String>,
-  val isComplete: Boolean
-)
-
-private class ViewOriginRecordingStep(
-  private val environment: Environment,
-  private val snapshots: MutableMap<String, ViewOriginatingFilesSnapshot>
-) : ProcessingStep {
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    environment.viewRoundElementsForCurrentRound.forEach { roundElement ->
-      snapshots[roundElement.view.modelName] = ViewOriginatingFilesSnapshot(
-        files = roundElement.originatingFiles.files
-          .map(KSFile::fileName)
-          .toSet(),
-        isComplete = roundElement.originatingFiles.isComplete
-      )
-    }
-    return Continue
+private fun viewOriginRecordingStep(
+  environment: Environment,
+  snapshots: MutableMap<String, OriginatingFilesSnapshot>
+) = OriginRecordingStep(snapshots = snapshots) {
+  environment.viewRoundElementsForCurrentRound.associate { roundElement ->
+    roundElement.view.modelName to roundElement.originatingFiles
   }
 }

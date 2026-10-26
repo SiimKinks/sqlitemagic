@@ -41,3 +41,6 @@ workspace.xml
 
 # Keystore files
 *.jks
+
+# Claude Code (symlink to .agents)
+/.claude

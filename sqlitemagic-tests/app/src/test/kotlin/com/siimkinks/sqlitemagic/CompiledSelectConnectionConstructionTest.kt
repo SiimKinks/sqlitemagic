@@ -1,95 +1,97 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
-import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.TestFactory
 
-class CompiledSelectConnectionConstructionTest {
+internal class CompiledSelectConnectionConstructionTest {
+  private val source = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
+
   @TestFactory
-  fun constructionDoesNotResolveDefaultConnection() = listOf(
+  fun `construction does not resolve the default connection`() = listOf(
     constructionCase(
-      label = "multi-column compile",
+      label = "generated scalar compile",
       construct = {
-        Select
-          .from(SIMPLE_MUTABLE_ENTITY)
+        SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
+          .FROM(SIMPLE_MUTABLE_ENTITY)
           .compile()
       }
     ),
     constructionCase(
-      label = "multi-column first",
+      label = "generated scalar first",
       construct = {
-        Select
-          .from(SIMPLE_MUTABLE_ENTITY)
+        SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
+          .FROM(SIMPLE_MUTABLE_ENTITY)
           .takeFirst()
       }
     ),
     constructionCase(
-      label = "multi-column count",
+      label = "generated scalar count",
       construct = {
-        Select
-          .from(SIMPLE_MUTABLE_ENTITY)
+        SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
+          .FROM(SIMPLE_MUTABLE_ENTITY)
           .count()
       }
     ),
     constructionCase(
-      label = "multi-column cursor",
+      label = "generated scalar cursor",
       construct = {
-        Select
-          .from(SIMPLE_MUTABLE_ENTITY)
+        SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
+          .FROM(SIMPLE_MUTABLE_ENTITY)
           .toCursor()
       }
     ),
     constructionCase(
-      label = "single-column compile",
+      label = "generated Row2 compile",
       construct = {
-        Select
-          .column(SIMPLE_MUTABLE_ENTITY.VALUE)
-          .from(SIMPLE_MUTABLE_ENTITY)
+        SELECT
+          .COLUMNS(SIMPLE_MUTABLE_ENTITY.ID, SIMPLE_MUTABLE_ENTITY.VALUE)
+          .FROM(SIMPLE_MUTABLE_ENTITY)
           .compile()
       }
     ),
     constructionCase(
-      label = "single-column first",
+      label = "generated entity compile",
       construct = {
-        Select
-          .column(SIMPLE_MUTABLE_ENTITY.VALUE)
-          .from(SIMPLE_MUTABLE_ENTITY)
-          .takeFirst()
+        source.compile()
       }
     ),
     constructionCase(
-      label = "single-column count",
+      label = "generated entity first",
       construct = {
-        Select
-          .column(SIMPLE_MUTABLE_ENTITY.VALUE)
-          .from(SIMPLE_MUTABLE_ENTITY)
-          .count()
+        source.takeFirst()
       }
     ),
     constructionCase(
-      label = "single-column cursor",
+      label = "generated entity count",
       construct = {
-        Select
-          .column(SIMPLE_MUTABLE_ENTITY.VALUE)
-          .from(SIMPLE_MUTABLE_ENTITY)
-          .toCursor()
+        source.count()
       }
     ),
     constructionCase(
-      label = "raw compile",
+      label = "generated entity cursor",
       construct = {
-        Select
-          .raw("SELECT * FROM simple_mutable_entity")
+        source.toCursor()
+      }
+    ),
+    constructionCase(
+      label = "distinct generated scalar compile",
+      construct = {
+        SELECT.DISTINCT(SIMPLE_MUTABLE_ENTITY.VALUE)
+          .FROM(SIMPLE_MUTABLE_ENTITY)
           .compile()
       }
     ),
     constructionCase(
-      label = "raw from-table compile",
+      label = "infix distinct generated scalar first",
       construct = {
-        Select
-          .raw("SELECT * FROM simple_mutable_entity")
-          .from(SIMPLE_MUTABLE_ENTITY)
-          .compile()
+        (SELECT DISTINCT SIMPLE_MUTABLE_ENTITY.VALUE FROM SIMPLE_MUTABLE_ENTITY).takeFirst()
+      }
+    ),
+    constructionCase(
+      label = "distinct generated entity count",
+      construct = {
+        (SELECT.DISTINCT FROM SIMPLE_MUTABLE_ENTITY).count()
       }
     )
   )
@@ -97,15 +99,11 @@ class CompiledSelectConnectionConstructionTest {
   private fun constructionCase(
     label: String,
     construct: () -> Unit
-  ) = DynamicTest.dynamicTest(label) {
-    withoutDefaultConnection(construct)
-  }
-
-  private fun withoutDefaultConnection(block: () -> Unit) {
+  ) = dynamicTest(label) {
     val previousConnection = SqliteMagic.defaultConnection
     SqliteMagic.defaultConnection = null
     try {
-      block()
+      construct()
     } finally {
       SqliteMagic.defaultConnection = previousConnection
     }

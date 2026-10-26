@@ -1,15 +1,20 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
-internal class ViewDeclarationContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewDeclarationContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @Test
-  fun `generates a data class constructor-backed view`() {
-    SqliteMagicCompilation
+  fun `generates data, non-data, inherited mutable and nested internal views`() {
+    compiler
       .compile(
         ViewSources.view(
           name = "DataClassView",
@@ -21,20 +26,11 @@ internal class ViewDeclarationContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("DataClassViewTable.kt")
-  }
-
-  @Test
-  fun `generates a non-data constructor-backed view`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         ViewSources.view(
           name = "NonDataConstructorView",
           body = """
@@ -45,20 +41,11 @@ internal class ViewDeclarationContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("NonDataConstructorViewTable.kt")
-  }
-
-  @Test
-  fun `generates a mutable view with inherited properties`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         ViewSources.view(
           name = "MutableInheritedView",
           body = """
@@ -74,20 +61,11 @@ internal class ViewDeclarationContractTest : ProcessingStepsTest {
 
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("MutableInheritedViewTable.kt")
-  }
-
-  @Test
-  fun `generates a nested internal view`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         ViewSources.view(
           name = "NestedInternalView",
           body = """
@@ -99,7 +77,7 @@ internal class ViewDeclarationContractTest : ProcessingStepsTest {
               ) {
                 companion object {
                   @ViewQuery
-                  val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
                 }
               }
             }
@@ -107,105 +85,98 @@ internal class ViewDeclarationContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("ViewContainer_NestedInternalViewTable.kt")
+      .assertGeneratedSources(
+        "DataClassViewTable.kt",
+        "NonDataConstructorViewTable.kt",
+        "MutableInheritedViewTable.kt",
+        "ViewContainer_NestedInternalViewTable.kt"
+      )
   }
 
-  @Test
-  fun `rejects generic view models`() {
-    SqliteMagicCompilation
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidViewModels")
+  fun `view models outside their contracts do not compile`(
+    viewName: String,
+    body: String,
+    diagnostic: String,
+    subject: String
+  ) {
+    compiler
       .compile(
         ViewSources.view(
-          name = "GenericView",
-          body = """
-            @View
-            class GenericView<T>(
-              @ViewColumn("value")
-              val value: T
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-          """
+          name = viewName,
+          body = body
         )
       )
-      .assertCompilationError(
+      .assertCompilationError(diagnostic, subject)
+  }
+
+  companion object {
+    @JvmStatic
+    fun invalidViewModels() = listOf(
+      Arguments.of(
+        "GenericView",
+        """
+          @View
+          class GenericView<T>(
+            @ViewColumn("value")
+            val value: T
+          ) {
+            companion object {
+              @ViewQuery
+              val QUERY: SelectQuery<String, *> = error("compile-only")
+            }
+          }
+        """,
         "Generic @View models are unsupported",
         "GenericView"
-      )
-  }
-
-  @Test
-  fun `rejects inner view models`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "InnerView",
-          body = """
-            class ViewContainer {
-              @View
-              inner class InnerView(
-                @ViewColumn("value")
-                val value: String
-              )
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "Inner @View models are unsupported",
-        "ViewContainer.InnerView"
-      )
-  }
-
-  @Test
-  fun `rejects object view models`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "ObjectView",
-          body = """
+      ),
+      Arguments.of(
+        "InnerView",
+        """
+          class ViewContainer {
             @View
-            object ObjectView {
-              @ViewColumn("value")
-              var value: String = ""
-
-              @ViewQuery
-              val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "Unsupported @View model shape",
-        "ObjectView"
-      )
-  }
-
-  @Test
-  fun `rejects abstract view models`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "AbstractView",
-          body = """
-            @View
-            abstract class AbstractView(
+            inner class InnerView(
               @ViewColumn("value")
               val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
+            )
+          }
+        """,
+        "Inner @View models are unsupported",
+        "ViewContainer.InnerView"
+      ),
+      Arguments.of(
+        "ObjectView",
+        """
+          @View
+          object ObjectView {
+            @ViewColumn("value")
+            var value: String = ""
+
+            @ViewQuery
+            val QUERY: SelectQuery<String, *> = error("compile-only")
+          }
+        """,
+        "Unsupported @View model shape",
+        "ObjectView"
+      ),
+      Arguments.of(
+        "AbstractView",
+        """
+          @View
+          abstract class AbstractView(
+            @ViewColumn("value")
+            val value: String
+          ) {
+            companion object {
+              @ViewQuery
+              val QUERY: SelectQuery<String, *> = error("compile-only")
             }
-          """
-        )
-      )
-      .assertCompilationError(
+          }
+        """,
         "Unsupported @View model shape",
         "AbstractView"
       )
+    )
   }
 }

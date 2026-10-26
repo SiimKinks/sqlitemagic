@@ -6,8 +6,8 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.siimkinks.sqlitemagic.AnnotationNames.VIEW_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.VIEW_QUERY_ANNOTATION
-import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.SelectQuery
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
@@ -20,7 +20,7 @@ import com.siimkinks.sqlitemagic.utils.normalizePropertySymbol
 import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.validateModelMembers
 
-class ViewCollectionStep(
+internal class ViewCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
@@ -46,10 +46,10 @@ class ViewCollectionStep(
     environment.setDeferredViewSourceKeys(
       deferred.filterIsInstance<KSClassDeclaration>()
     )
-    val compiledSelectType = checkNotNull(
+    val selectQueryType = checkNotNull(
       resolver.getClassDeclarationByName(
         resolver.getKSNameFromString(
-          checkNotNull(CompiledSelect::class.qualifiedName)
+          checkNotNull(SelectQuery::class.qualifiedName)
         )
       )
     ).asStarProjectedType()
@@ -57,7 +57,7 @@ class ViewCollectionStep(
       orphanQueries.isNotEmpty() -> false
       else -> ViewCollector(
         environment = environment,
-        compiledSelectType = compiledSelectType,
+        selectQueryType = selectQueryType,
         annotations = annotations
       ).collect(declarations)
     }
@@ -79,8 +79,8 @@ private fun KSAnnotated.validateView(annotations: ConsumedAnnotations): Boolean 
     .mapNotNullTo(mutableSetOf()) { it.name?.toString() }
   return declaration.validateModelMembers(
     annotations = annotations,
-    isRequiredProperty = { property ->
-      property.parentDeclaration == declaration && property.simpleName.asString() in constructorPropertyNames
+    isRequiredProperty = {
+      it.parentDeclaration == declaration && it.simpleName.asString() in constructorPropertyNames
     }
   )
 }

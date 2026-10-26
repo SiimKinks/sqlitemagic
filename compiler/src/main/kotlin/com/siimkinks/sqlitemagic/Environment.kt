@@ -38,7 +38,7 @@ import com.siimkinks.sqlitemagic.view.ViewRoundElement
 import com.squareup.kotlinpoet.ClassName
 import java.io.File
 
-class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
+internal class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   val codeGenerator = symbolProcessorEnvironment.codeGenerator
   val logger = symbolProcessorEnvironment.logger
   val options = CompilerOptions.from(symbolProcessorEnvironment.options)
@@ -206,8 +206,7 @@ class Environment(symbolProcessorEnvironment: SymbolProcessorEnvironment) {
   )
 }
 
-@ConsistentCopyVisibility
-data class CompilerOptions internal constructor(
+internal data class CompilerOptions(
   val debug: Boolean,
   val isDebugVariant: Boolean,
   val dbName: String?,

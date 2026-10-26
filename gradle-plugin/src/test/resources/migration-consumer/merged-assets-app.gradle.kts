@@ -1,7 +1,10 @@
 import com.android.build.api.variant.BuildConfigField
+import org.gradle.api.DefaultTask
+import org.gradle.api.JavaVersion
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
+import org.gradle.kotlin.dsl.jvm
 
 plugins {
   alias(libs.plugins.android.application)
@@ -71,7 +74,7 @@ androidComponents {
         ),
         "DB_NAME" to BuildConfigField(
           type = "String",
-          value = "\"merged-assets.db\"",
+          value = """"merged-assets.db"""",
           comment = null
         )
       )

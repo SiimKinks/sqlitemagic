@@ -10,7 +10,7 @@ import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ScalarModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
 
-object ModelCatalog {
+internal object ModelCatalog {
   val allCases: List<RuntimeModelCase<*>> = listOf(
     ScalarModelCatalog.cases,
     EmbeddedModelCatalog.cases,
@@ -23,84 +23,81 @@ object ModelCatalog {
     TransformerModelCatalog.cases
   ).flatten()
 
-  val insertCases: List<InsertModelCase<*>> = allCases
+  val insertCases = allCases
     .filterIsInstance<InsertModelCase<*>>()
 
-  val directModelQueryCases: List<InsertModelCase<*>> = allCases
+  val directModelQueryCases = allCases
     .filterIsInstance<InsertModelCase<*>>()
     .filterNot { it is RecursiveModelCase<*> }
 
-  val relationshipModelQueryCases: List<RelationshipQueryModelCase<*>> = allCases
+  val relationshipModelQueryCases = allCases
     .filterIsInstance<RelationshipQueryModelCase<*>>()
 
-  val transitiveRelationshipCases: List<TransitiveRelationshipModelCase<*>> = allCases
+  val transitiveRelationshipCases = allCases
     .filterIsInstance<TransitiveRelationshipModelCase<*>>()
 
-  val successfulModelProjectionCases: List<SuccessfulModelProjectionCase<*>> = allCases
+  val successfulModelProjectionCases = allCases
     .filterIsInstance<SuccessfulModelProjectionCase<*>>()
 
-  val missingRequiredProjectionCases: List<MissingRequiredProjectionCase<*>> = allCases
-    .filterIsInstance<MissingRequiredProjectionCase<*>>()
-
-  val rawCursorCases: List<RawCursorModelCase<*>> = allCases
+  val rawCursorCases = allCases
     .filterIsInstance<RawCursorModelCase<*>>()
 
-  val updateCases: List<UpdateModelCase<*>> = allCases
+  val updateCases = allCases
     .filterIsInstance<UpdateModelCase<*>>()
 
-  val persistCases: List<PersistModelCase<*>> = allCases
+  val persistCases = allCases
     .filterIsInstance<PersistModelCase<*>>()
 
-  val persistConflictCases: List<PersistConflictModelCase<*>> = allCases
+  val persistConflictCases = allCases
     .filterIsInstance<PersistConflictModelCase<*>>()
     .filterNot { it is RecursivePersistConflictModelCase<*> }
 
-  val recursivePersistConflictCases: List<RecursivePersistConflictModelCase<*>> = allCases
+  val recursivePersistConflictCases = allCases
     .filterIsInstance<RecursivePersistConflictModelCase<*>>()
 
-  val updateConflictCases: List<UpdateConflictModelCase<*>> = allCases
+  val updateConflictCases = allCases
     .filterIsInstance<UpdateConflictModelCase<*>>()
     .filterNot { it is RecursiveUpdateConflictModelCase<*> }
 
-  val bulkUpdateConflictCases: List<BulkUpdateConflictModelCase<*>> = allCases
+  val bulkUpdateConflictCases = allCases
     .filterIsInstance<BulkUpdateConflictModelCase<*>>()
     .filterNot { it is RecursiveUpdateConflictModelCase<*> }
 
-  val recursiveUpdateConflictCases: List<RecursiveUpdateConflictModelCase<*>> = allCases
+  val recursiveUpdateConflictCases = allCases
     .filterIsInstance<RecursiveUpdateConflictModelCase<*>>()
 
-  val bulkInsertCases: List<BulkInsertModelCase<*>> = allCases
+  val bulkInsertCases = allCases
     .filterIsInstance<BulkInsertModelCase<*>>()
 
-  val bulkUpdateCases: List<BulkUpdateModelCase<*>> = allCases
+  val bulkUpdateCases = allCases
     .filterIsInstance<BulkUpdateModelCase<*>>()
 
-  val bulkPersistCases: List<BulkPersistModelCase<*>> = allCases
+  val bulkPersistCases = allCases
     .filterIsInstance<BulkPersistModelCase<*>>()
 
-  val deleteCases: List<DeleteModelCase<*>> = allCases
+  val deleteCases = allCases
     .filterIsInstance<DeleteModelCase<*>>()
 
-  val bulkDeleteCases: List<BulkDeleteModelCase<*>> = allCases
+  val bulkDeleteCases = allCases
     .filterIsInstance<BulkDeleteModelCase<*>>()
 
-  val tableDeleteCases: List<TableDeleteModelCase<*>> = allCases
+  val tableDeleteCases = allCases
     .filterIsInstance<TableDeleteModelCase<*>>()
 
-  val referencedDeleteCases: List<ReferencedDeleteModelCase<*, *>> = allCases
+  val referencedDeleteCases = allCases
     .filterIsInstance<ReferencedDeleteModelCase<*, *>>()
 
-  val nullOmittingPersistCases: List<NullOmittingPersistModelCase<*>> = allCases
+  val nullOmittingPersistCases = allCases
     .filterIsInstance<NullOmittingPersistModelCase<*>>()
 
-  val nullOmittingAllNullPersistCases: List<NullOmittingAllNullPersistModelCase<*>> = allCases
+  val nullOmittingAllNullPersistCases = allCases
     .filterIsInstance<NullOmittingAllNullPersistModelCase<*>>()
 
-  val nullOmittingPersistConflictCases: List<NullOmittingPersistConflictModelCase<*>> = allCases
+  val nullOmittingPersistConflictCases = allCases
     .filterIsInstance<NullOmittingPersistConflictModelCase<*>>()
     .filterNot { it is RecursiveNullOmittingPersistConflictModelCase<*> }
 
-  val recursiveNullOmittingPersistConflictCases: List<RecursiveNullOmittingPersistConflictModelCase<*>> = allCases
+  val recursiveNullOmittingPersistConflictCases = allCases
     .filterIsInstance<RecursiveNullOmittingPersistConflictModelCase<*>>()
 
   val emptyBulkPersistCases: List<BulkPersistModelCase<*>> = allCases
@@ -109,21 +106,21 @@ object ModelCatalog {
   val emptyBulkUpdateCases: List<BulkUpdateModelCase<*>> = allCases
     .filterIsInstance<RepresentativeEmptyBulkModelCase<*>>()
 
-  val uniqueInsertCases: List<UniqueInsertModelCase<*>> = allCases
+  val uniqueInsertCases = allCases
     .filterIsInstance<UniqueInsertModelCase<*>>()
 
-  val recursiveInsertConflictCases: List<RecursiveInsertConflictModelCase<*>> = allCases
+  val recursiveInsertConflictCases = allCases
     .filterIsInstance<RecursiveInsertConflictModelCase<*>>()
 
-  val triggerCases: List<TriggerModelCase<*>> = allCases
+  val triggerCases = allCases
     .filterIsInstance<TriggerModelCase<*>>()
 
-  val recursiveTriggerCases: List<RecursiveTriggerModelCase<*>> = allCases
+  val recursiveTriggerCases = allCases
     .filterIsInstance<RecursiveTriggerModelCase<*>>()
 
-  val triggerConflictCases: List<TriggerConflictModelCase<*>> = allCases
+  val triggerConflictCases = allCases
     .filterIsInstance<TriggerConflictModelCase<*>>()
 
-  val recursiveTriggerConflictCases: List<RecursiveTriggerConflictModelCase<*>> = allCases
+  val recursiveTriggerConflictCases = allCases
     .filterIsInstance<RecursiveTriggerConflictModelCase<*>>()
 }

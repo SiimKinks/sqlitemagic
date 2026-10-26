@@ -1,16 +1,13 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.AS
-import com.siimkinks.sqlitemagic.CompiledSelect
-import com.siimkinks.sqlitemagic.CompiledSelectImpl
+import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
-import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.ReaderNestedSpansViewTable.Companion.READER_NESTED_SPANS_VIEW
 import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION_VIEW
 import com.siimkinks.sqlitemagic.ReviewStarAuthorViewTable.Companion.REVIEW_STAR_AUTHOR_VIEW
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Select.SelectN
+import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.SelectQuery
+import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.cursorOf
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
@@ -22,110 +19,64 @@ import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipTrailingScalarVi
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRepeatedNestedView
 import com.siimkinks.sqlitemagic.fixture.view.ReviewRelationshipCompositionView
 import com.siimkinks.sqlitemagic.fixture.view.ReviewStarAuthorView
+import com.siimkinks.sqlitemagic.mapTo
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.api.assertThrows
 
 internal class GeneratedViewCompositionTest {
-  @ParameterizedTest(name = "queryDeep={0}")
-  @ValueSource(booleans = [false, true])
-  fun `star definition maps explicit view selections at zero nonzero and repeated alias offsets`(queryDeep: Boolean) {
-    data class Case(
-      val label: String,
-      val query: CompiledSelect<ReviewStarAuthorView, SelectN>,
-      val values: List<Any?>,
-      val expected: ReviewStarAuthorView
-    )
+  private fun <T> SelectQuery<T, *>.readRow(vararg values: Any?) = toCursor().getFromCurrentPosition(cursorOf(*values))
 
+  @Test
+  fun `view field lists map partial views at zero and nonzero positions and wide rows read aliased views`() {
     val view = REVIEW_STAR_AUTHOR_VIEW
     val left = view AS "left_author"
     val right = view AS "right_author"
-    val cases = listOf(
-      Case(
-        label = "zero offset",
-        query = Select
-          .columns(view.all())
-          .from(view)
-          .apply { if (queryDeep) queryDeep() }
-          .compile(),
-        values = listOf(7L, "Ada"),
-        expected = ReviewStarAuthorView(
-          id = 7L,
-          name = "Ada"
+    val zero = SELECT
+      .COLUMNS(view.all())
+      .FROM(view)
+      .mapTo(view)
+    val prefixed = SELECT
+      .COLUMNS(view.QUERY_COMPOSITION_AUTHOR_NAME, view.all())
+      .FROM(view)
+      .mapTo(view)
+    val rootSecond = SELECT
+      .COLUMNS(right.all(), left.all())
+      .FROM(left)
+      .INNER_JOIN(right)
+      .ON(left.QUERY_COMPOSITION_AUTHOR_ID IS right.QUERY_COMPOSITION_AUTHOR_ID)
+      .mapTo { row ->
+        ReviewStarAuthorView(
+          id = row[left.QUERY_COMPOSITION_AUTHOR_ID],
+          name = checkNotNull(row[left.QUERY_COMPOSITION_AUTHOR_NAME])
         )
-      ),
-      Case(
-        label = "scalar prefix",
-        query = Select
-          .columns(
-            Select.asColumn(99) AS "prefix",
-            view.all()
-          )
-          .from(view)
-          .apply { if (queryDeep) queryDeep() }
-          .compile(),
-        values = listOf(99, 7L, "Ada"),
-        expected = ReviewStarAuthorView(
-          id = 7L,
-          name = "Ada"
-        )
-      ),
-      Case(
-        label = "repeated aliases with root second",
-        query = Select
-          .columns(
-            right.all(),
-            left.all()
-          )
-          .from(left)
-          .innerJoin(right.on(left.QUERY_COMPOSITION_AUTHOR_ID IS right.QUERY_COMPOSITION_AUTHOR_ID))
-          .apply { if (queryDeep) queryDeep() }
-          .compile(),
-        values = listOf(9L, "Grace", 7L, "Ada"),
-        expected = ReviewStarAuthorView(
-          id = 7L,
-          name = "Ada"
-        )
-      )
-    )
+      }
+    val computed = SELECT
+      .COLUMNS(99.asValue() AS "prefix", view.all())
+      .FROM(view)
+      .mapTo(view)
 
-    cases.forEach { case ->
-      val actual = case.query
-        .toCursor()
-        .getFromCurrentPosition(cursorOf(*case.values.toTypedArray()))
-      assertWithMessage("${case.label}, queryDeep=$queryDeep")
-        .that(actual)
-        .isEqualTo(case.expected)
-    }
+    assertThat(
+      listOf(
+        zero.readRow(7L, "Ada"),
+        prefixed.readRow("Ada", 7L, "Ada"),
+        rootSecond.readRow(9L, "Grace", 7L, "Ada")
+      )
+    ).isEqualTo(
+      List(size = 3) {
+        ReviewStarAuthorView(
+          id = 7L,
+          name = "Ada"
+        )
+      }
+    )
+    assertThat(assertThrows<IllegalArgumentException> { computed.compile() })
+      .hasMessageThat()
+      .isEqualTo("mapTo(review_star_author) reads plain fields, but selected value 1 is computed")
   }
 
-  @ParameterizedTest(name = "queryDeep={0}")
-  @ValueSource(booleans = [false, true])
-  fun `relationship projection maps the complete joined row around a scalar`(queryDeep: Boolean) {
+  @Test
+  fun `a relationship block around a literal tail reads the complete joined row`() {
     val view = REVIEW_RELATIONSHIP_COMPOSITION_VIEW
-    val cases = listOf(
-      MappingCase(
-        label = "positional",
-        query = Select
-          .all()
-          .from(view)
-          .apply { if (queryDeep) queryDeep() }
-          .compile(),
-        values = listOf(1L, 2L, "tail", 2L, "Ada")
-      ),
-      MappingCase(
-        label = "selected with scalar prefix",
-        query = Select
-          .columns(
-            Select.asColumn(99) AS "prefix",
-            view.all()
-          )
-          .from(view)
-          .apply { if (queryDeep) queryDeep() }
-          .compile(),
-        values = listOf(99, 1L, 2L, "tail", 2L, "Ada")
-      )
-    )
     val expected = ReviewRelationshipCompositionView(
       book = ReaderRelationshipBook(
         id = 1L,
@@ -136,46 +87,23 @@ internal class GeneratedViewCompositionTest {
       ),
       tail = "tail"
     )
+    val partial = SELECT
+      .COLUMNS(view.all())
+      .FROM(view)
+      .mapTo(view)
 
-    cases.forEach { case ->
-      val actual = case.query
-        .toCursor()
-        .getFromCurrentPosition(cursorOf(*case.values.toTypedArray()))
-      assertWithMessage("${case.label}, queryDeep=$queryDeep")
-        .that(actual)
-        .isEqualTo(expected)
-    }
+    assertThat((SELECT FROM view).readRow("tail", 1L, 2L, 2L, "Ada")).isEqualTo(expected)
+    assertThat(assertThrows<IllegalArgumentException> { partial.compile() })
+      .hasMessageThat()
+      .isEqualTo(
+        "mapTo(review_relationship_composition) cannot read a view whose required properties hold tables or views"
+      )
   }
 
-  @ParameterizedTest(name = "queryDeep={0}")
-  @ValueSource(booleans = [false, true])
-  fun `nested view projections use the same mapper with positional and selected spans`(queryDeep: Boolean) {
+  @Test
+  fun `nested view blocks read the same model through the view and an alias`() {
     val view = READER_NESTED_SPANS_VIEW
-    val alias = view AS "nested_spans"
-    val values = listOf(1L, 2L, 2L, "Ada", "inner-tail", "Left", "Right", "repeat-tail")
-    val cases = listOf(
-      MappingCase(
-        label = "positional",
-        query = Select
-          .all()
-          .from(view)
-          .apply { if (queryDeep) queryDeep() }
-          .compile(),
-        values = values
-      ),
-      MappingCase(
-        label = "selected alias with scalar prefix",
-        query = Select
-          .columns(
-            Select.asColumn(99) AS "prefix",
-            alias.all()
-          )
-          .from(alias)
-          .apply { if (queryDeep) queryDeep() }
-          .compile(),
-        values = listOf(99) + values
-      )
-    )
+    val values = arrayOf<Any?>("inner-tail", 1L, 2L, 2L, "Ada", "repeat-tail", "Left", "Right")
     val expected = ReaderNestedSpansView(
       relationship = ReaderRelationshipTrailingScalarView(
         book = ReaderRelationshipBook(
@@ -194,45 +122,37 @@ internal class GeneratedViewCompositionTest {
       )
     )
 
-    cases.forEach { case ->
-      assertWithMessage("${case.label} mapper queryDeep")
-        .that((case.query as CompiledSelectImpl<*, *>).queryDeep)
-        .isEqualTo(queryDeep)
-      val actual = case.query
-        .toCursor()
-        .getFromCurrentPosition(cursorOf(*case.values.toTypedArray()))
-      assertWithMessage("${case.label}, queryDeep=$queryDeep")
-        .that(actual)
-        .isEqualTo(expected)
-    }
+    assertThat(
+      listOf(
+        (SELECT FROM view).readRow(*values),
+        (SELECT FROM (view AS "nested_spans")).readRow(*values)
+      )
+    ).isEqualTo(listOf(expected, expected))
   }
 
   @Test
-  fun `shallow relationship root stays within its span beside a deep scalar view definition`() {
+  fun `a shallow relationship root reads only its own columns beside a joined view`() {
     val root = ENTITY_WITH_RELATIONSHIP
     val joinedView = REVIEW_STAR_AUTHOR_VIEW AS "joined_author"
-    val actual = Select
-      .all()
-      .from(root)
-      .innerJoin(joinedView.on(root.VALUE IS joinedView.QUERY_COMPOSITION_AUTHOR_NAME))
-      .compile()
-      .toCursor()
-      .getFromCurrentPosition(cursorOf(7L, "root", 2L, 3, 11L, "Ada"))
+    val query = SELECT
+      .FROM(root)
+      .INNER_JOIN(joinedView)
+      .ON(root.VALUE IS joinedView.QUERY_COMPOSITION_AUTHOR_NAME)
 
-    val expected = EntityWithRelationship().apply {
-      id = 7L
-      value = "root"
-      relatedEntity = SimpleMutableEntity(id = 2L)
-      count = 3
-    }
-    assertWithMessage("shallow root next to joined view")
-      .that(actual)
-      .isEqualTo(expected)
+    assertThat(query.compile().sql).isEqualTo(
+      """SELECT "entity_with_relationship"."id", "entity_with_relationship"."value", """ +
+          """"entity_with_relationship"."related_entity", "entity_with_relationship"."count" """ +
+          """FROM "main"."entity_with_relationship" """ +
+          """INNER JOIN "main"."review_star_author" AS "joined_author" """ +
+          """ON "entity_with_relationship"."value" = "joined_author"."query_composition_author.name""""
+    )
+    assertThat(query.readRow(7L, "root", 2L, 3)).isEqualTo(
+      EntityWithRelationship().apply {
+        id = 7L
+        value = "root"
+        relatedEntity = SimpleMutableEntity(id = 2L)
+        count = 3
+      }
+    )
   }
 }
-
-private data class MappingCase<T>(
-  val label: String,
-  val query: CompiledSelect<T, SelectN>,
-  val values: List<Any?>
-)

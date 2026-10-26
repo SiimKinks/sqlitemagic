@@ -1,43 +1,51 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_MIGRATE_DEBUG
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_PROJECT_DIR
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_INPUT_DIRS
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_STRUCTURE_OUTPUT_DIR
 import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_NAME
 import com.siimkinks.sqlitemagic.manager.DatabaseStructureJson
 import com.siimkinks.sqlitemagic.manager.ViewStructure
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.mainDatabaseWithSubmodule
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.assertNotGeneratedSources
+import com.siimkinks.sqlitemagic.utils.debugMigrationOptions
+import com.siimkinks.sqlitemagic.utils.functionBody
+import com.siimkinks.sqlitemagic.utils.insertAfter
+import com.siimkinks.sqlitemagic.utils.insertBeforeLast
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.unwrapped
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
-import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.createParentDirectories
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
-internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewLifecycleAndRoundsContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @TempDir
   lateinit var temporaryDirectory: Path
 
   @Test
   fun `generates a manager for a view-only main module without counting views as entities`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         persistentViewSource(
           className = "ViewOnlyLifecycle",
@@ -47,7 +55,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "ViewOnlyDatabase",
           version = 7
         ),
-        kspOptions = debugOptions()
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
       )
       .isOk()
       .assertGeneratedSources(
@@ -55,27 +63,17 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         "ViewOnlyLifecycleTable.kt",
         "SqliteMagicDatabase.kt"
       )
-      .withGeneratedSource("ViewOnlyLifecycleTable.kt") { generatedSource ->
-        generatedSource.assertContains(": Table<ViewOnlyLifecycle>(")
-        generatedSource
-          .substringAfter(": Table<ViewOnlyLifecycle>(")
-          .substringBefore(") {")
-          .assertDoesNotContain("temporary = true")
-      }
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContainsUnwrapped(
           "views.add(SqliteMagic_ViewOnlyLifecycle_Dao.GENERATED_VIEW)",
-          "migrateViews",
           "getNrOfTables(moduleName: String?): Int = 0"
         )
-        generatedSource.assertDoesNotContain("DELETE FROM view_only_lifecycle")
       }
   }
 
   @Test
-  fun `creates a persistent view between its table and index and rethrows schema failures`() {
-    SqliteMagicCompilation
+  fun `delegates a persistent view with its table and index to the shared schema creation`() {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "MixedLifecycleRow.kt",
@@ -105,19 +103,6 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        val createSchema = generatedSource
-          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-        createSchema.assertContainsInOrder(
-          "createSchemaTables(db = db, temporary = false)",
-          "collectGeneratedViews(views = generatedViews)",
-          "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
-          "createSchemaIndexes(db = db, temporary = false)"
-        )
-        createSchema.assertContainsInOrder(
-          "catch (exception: Exception)",
-          "throw exception"
-        )
         generatedSource.assertContains(
           "db.execSQL(SqliteMagic_MixedLifecycleRow_Adapter.TABLE_SCHEMA)",
           "views.add(SqliteMagic_MixedLifecycleView_Dao.GENERATED_VIEW)",
@@ -130,116 +115,41 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `does not require executing a defining query while compiling a manager`() {
-    SqliteMagicCompilation
-      .compile(
-        persistentViewSource(
-          className = "ThrowingQueryLifecycle",
-          viewName = "throwing_query_lifecycle",
-          queryInitializer = """error("the defining query must not execute during compilation")"""
-        ),
-        databaseSource(
-          className = "ThrowingQueryDatabase",
-          version = 8
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagicDatabase.kt")
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "views.add(SqliteMagic_ThrowingQueryLifecycle_Dao.GENERATED_VIEW)",
-          "migrateViews"
-        )
-      }
-  }
-
-  @Test
-  fun `generated retained definition carries view identity into schema creation`() {
-    SqliteMagicCompilation
-      .compile(
-        unsupportedQueryViewSource(),
-        databaseSource(
-          className = "UnsupportedQueryDatabase",
-          version = 16
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_UnsupportedDefinitionView_Dao.kt",
-        "SqliteMagicDatabase.kt"
-      )
-      .withGeneratedSource("SqliteMagic_UnsupportedDefinitionView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "query = UnsupportedDefinitionView.QUERY",
-          """viewName = "unsupported_definition_view""""
-        )
-      }
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "views.add(SqliteMagic_UnsupportedDefinitionView_Dao.GENERATED_VIEW)"
-        )
-      }
-  }
-
-  @Test
-  fun `generates a view-only submodule manager and publishes current ownership`() {
-    val structureOutputDirectory = temporaryDirectory.resolve("staged")
-
-    SqliteMagicCompilation
-      .compile(
-        submoduleDatabaseSource(),
-        persistentViewSource(
-          className = "FeatureLifecycleView",
-          viewName = "feature_lifecycle_view"
-        ),
-        kspOptions = debugOptions(
-          structureOutputDirectory = structureOutputDirectory
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_FeatureLifecycleView_Dao.kt",
-        "FeatureLifecycleViewTable.kt",
-        "FeatureGeneratedClassesManager.kt"
-      )
-      .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "views.add(SqliteMagic_FeatureLifecycleView_Dao.GENERATED_VIEW)",
-          "migrateViews",
-          "getNrOfTables(moduleName: String?): Int = 0"
-        )
-      }
-
-    val structureFile = structureOutputDirectory.resolve("latest_feature.struct")
-    assertThat(Files.exists(structureFile)).isTrue()
-    structureFile.toFile().readText().assertContains(
-      """"views"""",
-      "feature_lifecycle_view"
-    )
-  }
-
-  @Test
-  fun `aggregates a configured view-only submodule in the main manager`() {
+  fun `publishes a view-only submodule manager and aggregates it in the main manager`() {
     val structureOutputDirectory = temporaryDirectory.resolve("aggregated-staged")
-    val submodule = SqliteMagicCompilation
+    val submodule = compiler
       .compile(
         submoduleDatabaseSource(),
         persistentViewSource(
           className = "AggregatedFeatureView",
           viewName = "aggregated_feature_view"
         ),
-        kspOptions = debugOptions(
+        kspOptions = debugMigrationOptions(
+          projectDirectory = temporaryDirectory,
           structureOutputDirectory = structureOutputDirectory
         )
       )
       .isOk()
-      .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "views.add(SqliteMagic_AggregatedFeatureView_Dao.GENERATED_VIEW)"
+      .assertGeneratedSources(
+        "SqliteMagic_AggregatedFeatureView_Dao.kt",
+        "AggregatedFeatureViewTable.kt",
+        "FeatureGeneratedClassesManager.kt"
+      )
+      .withGeneratedSource("FeatureGeneratedClassesManager.kt") {
+        it.assertContains(
+          "views.add(SqliteMagic_AggregatedFeatureView_Dao.GENERATED_VIEW)",
+          "getNrOfTables(moduleName: String?): Int = 0"
         )
       }
 
-    submodule
+    val structureFile = structureOutputDirectory.resolve("latest_feature.struct")
+    assertThat(structureFile.exists()).isTrue()
+    structureFile.readText().assertContains(
+      """"views"""",
+      "aggregated_feature_view"
+    )
+
+    compiler
       .compile(
         mainDatabaseWithSubmodule(),
         persistentViewSource(
@@ -247,59 +157,35 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           viewName = "aggregated_main_view"
         ),
         temporaryViewSource(),
-        kspOptions = debugOptions(
+        kspOptions = debugMigrationOptions(
           projectDirectory = temporaryDirectory.resolve("aggregated-main"),
-          structureInputDirectory = structureOutputDirectory
-        )
+          structureInputDirectories = listOf(structureOutputDirectory)
+        ),
+        classpaths = listOf(submodule.outputDirectory)
       )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
+        generatedSource.assertContainsUnwrapped(
           "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
           "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
           "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
           "FeatureGeneratedClassesManager.getNrOfTables(moduleName)"
         )
         generatedSource
-          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .assertContainsInOrder(
-            "createSchemaTables(db = db, temporary = false)",
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
-            "createSchemaIndexes(db = db, temporary = false)"
-          )
-        generatedSource
-          .substringAfter("fun collectGeneratedViews(views: MutableList<GeneratedView>)")
-          .substringBefore("fun createSchemaIndexes(")
+          .functionBody("collectGeneratedViews")
+          .unwrapped()
           .assertContainsInOrder(
             "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
             "views.add(SqliteMagic_AggregatedMainView_Dao.GENERATED_VIEW)",
             "views.add(SqliteMagic_TemporaryLifecycleView_Dao.GENERATED_VIEW)"
-          )
-        generatedSource
-          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
-          .assertContainsInOrder(
-            "createSchemaTables(db = db, temporary = true)",
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
-            "createSchemaIndexes(db = db, temporary = true)"
-          )
-        generatedSource
-          .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun getNrOfTables(")
-          .assertContainsInOrder(
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)"
           )
       }
   }
 
   @Test
   fun `accepts the approved temporary view annotation surface and emits temporary artifacts`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "TemporaryLifecycleRow.kt",
@@ -326,7 +212,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "TemporaryLifecycleDatabase",
           version = 9
         ),
-        kspOptions = debugOptions()
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
       )
       .isOk()
       .assertGeneratedSources(
@@ -337,86 +223,73 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       .withGeneratedSource("TemporaryLifecycleViewTable.kt") { generatedSource ->
         generatedSource.assertContains(": Table<TemporaryLifecycleView>(")
         generatedSource
+          .unwrapped()
           .substringAfter(": Table<TemporaryLifecycleView>(")
           .substringBefore(") {")
-          .assertContains("temporary = true")
+          .assertDoesNotContain("temporary =")
       }
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource
-          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .assertDoesNotContain("temporary = true")
-        generatedSource
-          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
-          .assertContainsInOrder(
-            "createSchemaTables(db = db, temporary = true)",
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
-            "createSchemaIndexes(db = db, temporary = true)"
-          )
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContains(
           "db.execSQL(SqliteMagic_TemporaryLifecycleRow_Adapter.TABLE_SCHEMA)",
           "views.add(SqliteMagic_TemporaryLifecycleView_Dao.GENERATED_VIEW)",
           "CREATE INDEX IF NOT EXISTS temp."
         )
       }
 
-    Files
-      .readString(temporaryDirectory.resolve("db/latest.struct"))
+    temporaryDirectory
+      .resolve("db/latest.struct")
+      .readText()
       .assertContains(
         """"temporaryViews"""",
         "temporary_lifecycle_view"
       )
-    assertThat(Files.exists(temporaryDirectory.resolve("db/latest_debug.version"))).isFalse()
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.sql"))).isFalse()
+    assertThat(temporaryDirectory.resolve("db/latest_debug.version").exists()).isFalse()
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.sql").exists()).isFalse()
   }
 
   @Test
   fun `generates a temporary-view-only submodule manager and publishes current ownership`() {
     val structureOutputDirectory = temporaryDirectory.resolve("staged-temporary")
 
-    SqliteMagicCompilation
+    compiler
       .compile(
         submoduleDatabaseSource(),
         temporaryViewSource(),
-        kspOptions = debugOptions(
+        kspOptions = debugMigrationOptions(
+          projectDirectory = temporaryDirectory,
           structureOutputDirectory = structureOutputDirectory
         )
       )
       .isOk()
       .assertGeneratedSources("FeatureGeneratedClassesManager.kt")
       .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
-        generatedSource
-          .substringAfter("fun createSchema(db: SupportSQLiteDatabase)")
-          .substringBefore("fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .assertDoesNotContain("temporary = true")
-        generatedSource
-          .substringAfter("fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .substringBefore("fun clearData(db: SupportSQLiteDatabase)")
-          .assertContains(
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
-            "collectGeneratedViews(views = generatedViews)"
-          )
-        generatedSource.assertContains("views.add(SqliteMagic_TemporaryLifecycleView_Dao.GENERATED_VIEW)")
-        generatedSource.assertContains("getNrOfTables(moduleName: String?): Int = 0")
+        generatedSource.assertDoesNotContain(
+          "fun createSchema(",
+          "fun createTemporarySchema(",
+          "fun migrateViews("
+        )
+        generatedSource.assertContains(
+          "views.add(SqliteMagic_TemporaryLifecycleView_Dao.GENERATED_VIEW)",
+          "getNrOfTables(moduleName: String?): Int = 0"
+        )
       }
 
-    Files
-      .readString(structureOutputDirectory.resolve("latest_feature.struct"))
+    structureOutputDirectory
+      .resolve("latest_feature.struct")
+      .readText()
       .assertContains(
         """"temporaryViews"""",
         "temporary_lifecycle_view"
       )
-    assertThat(Files.exists(structureOutputDirectory.resolve("feature.changed"))).isFalse()
+    assertThat(structureOutputDirectory.resolve("feature.changed").exists()).isFalse()
   }
 
   @Test
   fun `renaming only a temporary view updates current ownership without a persistent migration`() {
-    val options = debugOptions()
+    val options = debugMigrationOptions(projectDirectory = temporaryDirectory)
     val structureFile = temporaryDirectory.resolve("db/latest.struct")
 
-    SqliteMagicCompilation
+    compiler
       .compile(
         temporaryViewSource(),
         databaseSource(
@@ -426,9 +299,9 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         kspOptions = options
       )
       .isOk()
-    Files.readString(structureFile).assertContains("temporary_lifecycle_view")
+    structureFile.readText().assertContains("temporary_lifecycle_view")
 
-    SqliteMagicCompilation
+    compiler
       .compile(
         temporaryViewSource(
           className = "RenamedTemporaryLifecycleView",
@@ -442,23 +315,38 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       )
       .isOk()
 
-    Files.readString(structureFile).apply {
+    structureFile.readText().apply {
       assertContains(""""temporaryViews"""", "renamed_temporary_lifecycle_view")
       assertDoesNotContain(""""temporary_lifecycle_view"""")
     }
-    assertThat(Files.exists(temporaryDirectory.resolve("db/latest_debug.version"))).isFalse()
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.sql"))).isFalse()
+    assertThat(temporaryDirectory.resolve("db/latest_debug.version").exists()).isFalse()
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.sql").exists()).isFalse()
   }
 
   @Test
-  fun `publishes current persistent view ownership and removes stale names from a legacy snapshot`() {
+  fun `publishes current persistent view ownership over a legacy snapshot and recreates current views`() {
     val structureFile = temporaryDirectory.resolve("db/latest.struct")
-    structureFile.toFile().apply {
-      parentFile.mkdirs()
-      writeText(legacySnapshotWithView(viewName = "retired_lifecycle_view"))
-    }
+    structureFile
+      .createParentDirectories()
+      .writeText(
+        """
+          {
+            "tables": {},
+            "indices": {},
+            "temporaryTables": {},
+            "temporaryIndices": {},
+            "views": {
+              "retired_lifecycle_view": {
+                "name": "retired_lifecycle_view",
+                "schema": "main",
+                "module": null
+              }
+            }
+          }
+        """.trimIndent()
+      )
 
-    SqliteMagicCompilation
+    compiler
       .compile(
         tableSource(
           className = "LifecycleMigrationRow",
@@ -472,65 +360,29 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "LifecycleMigrationDatabase",
           version = 10
         ),
-        kspOptions = debugOptions()
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
       )
       .isOk()
+      .assertGeneratedSources("SqliteMagicDatabase.kt")
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContains("views.add(SqliteMagic_CurrentLifecycleView_Dao.GENERATED_VIEW)")
+      }
 
-    assertThat(Files.exists(structureFile)).isTrue()
-    structureFile.toFile().readText().apply {
+    assertThat(structureFile.exists()).isTrue()
+    structureFile.readText().apply {
       assertContains(
         """"views"""",
         "current_lifecycle_view"
       )
       assertDoesNotContain("retired_lifecycle_view")
     }
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.views").exists())
       .isFalse()
   }
 
   @Test
-  fun `creates current views after the upgrade engine removes previous views`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct")
-    structureFile.toFile().apply {
-      parentFile.mkdirs()
-      writeText(legacySnapshotWithView(viewName = "old_ordered_lifecycle_view"))
-    }
-
-    SqliteMagicCompilation
-      .compile(
-        tableSource(
-          className = "OrderedLifecycleRow",
-          tableName = "ordered_lifecycle_rows"
-        ),
-        persistentViewSource(
-          className = "NewOrderedLifecycleView",
-          viewName = "new_ordered_lifecycle_view"
-        ),
-        databaseSource(
-          className = "OrderedLifecycleDatabase",
-          version = 11
-        ),
-        kspOptions = debugOptions()
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagicDatabase.kt")
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
-          .isFalse()
-        generatedSource
-          .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun getNrOfTables(")
-          .assertContainsInOrder(
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)"
-          )
-        generatedSource.assertContains("views.add(SqliteMagic_NewOrderedLifecycleView_Dao.GENERATED_VIEW)")
-      }
-  }
-
-  @Test
   fun `recreates views for an explicit query-only database version bump`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         persistentViewSource(
           className = "QueryOnlyLifecycleView",
@@ -540,77 +392,52 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "QueryOnlyLifecycleDatabase",
           version = 12
         ),
-        kspOptions = debugOptions() + (OPTION_VARIANT_DEBUG to "false")
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory) + (OPTION_VARIANT_DEBUG to "false")
       )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.sql")))
-          .isFalse()
-        assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
-          .isFalse()
-        generatedSource.assertContains(
-          "override val dbVersion: Int = 12"
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContains(
+          "override val dbVersion: Int = 12",
+          "views.add(SqliteMagic_QueryOnlyLifecycleView_Dao.GENERATED_VIEW)"
         )
-        generatedSource
-          .substringAfter("override fun migrateViews(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun getNrOfTables(")
-          .assertContainsInOrder(
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)"
-          )
-        generatedSource.assertContains("views.add(SqliteMagic_QueryOnlyLifecycleView_Dao.GENERATED_VIEW)")
       }
-  }
-
-  @Test
-  fun `rejects a persistent view name colliding with a table identity`() {
-    SqliteMagicCompilation
-      .compile(
-        tableSource(
-          className = "LifecycleCollisionTable",
-          tableName = "SHARED_LIFECYCLE_IDENTITY"
-        ),
-        persistentViewSource(
-          className = "LifecycleCollisionView",
-          viewName = "shared_lifecycle_identity"
-        ),
-        databaseSource(
-          className = "LifecycleCollisionDatabase",
-          version = 13
-        )
-      )
-      .assertCompilationError("shared_lifecycle_identity")
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.sql").exists())
+      .isFalse()
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.views").exists())
+      .isFalse()
   }
 
   @Test
   fun `rejects a main view colliding with a staged submodule table before publishing its manager`() {
     val structureOutputDirectory = temporaryDirectory.resolve("staged")
-    val submodule = SqliteMagicCompilation
+    val submodule = compiler
       .compile(
         submoduleDatabaseSource(),
         tableSource(
           className = "FeatureCollisionRow",
           tableName = "SHARED_STAGED_IDENTITY"
         ),
-        kspOptions = debugOptions(
+        kspOptions = debugMigrationOptions(
+          projectDirectory = temporaryDirectory,
           structureOutputDirectory = structureOutputDirectory
         )
       )
       .isOk()
-    assertThat(Files.exists(structureOutputDirectory.resolve("latest_feature.struct"))).isTrue()
+    assertThat(structureOutputDirectory.resolve("latest_feature.struct").exists()).isTrue()
 
-    submodule
+    compiler
       .compile(
         mainDatabaseWithSubmodule(),
         persistentViewSource(
           className = "MainCollisionView",
           viewName = "shared_staged_identity"
         ),
-        kspOptions = debugOptions(
+        kspOptions = debugMigrationOptions(
           projectDirectory = temporaryDirectory.resolve("main"),
-          structureInputDirectory = structureOutputDirectory
-        )
+          structureInputDirectories = listOf(structureOutputDirectory)
+        ),
+        classpaths = listOf(submodule.outputDirectory)
       )
       .assertCompilationError(
         "Duplicate SQLite schema identifier 'SHARED_STAGED_IDENTITY'",
@@ -621,18 +448,27 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
 
   @Test
   fun `does not publish a manager after view validation fails`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         tableSource(
           className = "InvalidLifecycleTable",
           tableName = "invalid_lifecycle_rows"
         ),
-        invalidViewSource(),
+        ViewSources.view(
+          name = "InvalidLifecycleView",
+          body = """
+            @View("invalid_lifecycle_view")
+            data class InvalidLifecycleView(
+              @ViewColumn("value") val value: String
+            )
+          """,
+          packageName = PACKAGE
+        ),
         databaseSource(
           className = "InvalidLifecycleDatabase",
           version = 14
         ),
-        kspOptions = debugOptions()
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
       )
       .assertCompilationError(
         "@View must declare exactly one @ViewQuery",
@@ -646,19 +482,55 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
   fun `defers an inferred view query that refers to a table generated in a later round`() {
     SqliteMagicCompilation
       .compile(
-        inferredGeneratedTableViewSource(),
+        SourceFile.kotlin(
+          name = "InferredGeneratedTableView.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.LateLifecycleRowTable
+            import com.siimkinks.sqlitemagic.SelectQuery
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+            private fun inferredLateQuery(): SelectQuery<String, *> {
+              LateLifecycleRowTable.LATE_LIFECYCLE_ROW
+              return error("compile-only inferred query")
+            }
+
+            @View("inferred_generated_table_view")
+            data class InferredGeneratedTableView(
+              @ViewColumn("value") val value: String
+            ) {
+              companion object {
+                @ViewQuery
+                val QUERY = inferredLateQuery()
+              }
+            }
+          """
+        ),
         databaseSource(
           className = "InferredGeneratedTableDatabase",
           version = 16
         ),
-        kspOptions = debugOptions(),
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory),
         processingStepsFactory = { environment ->
-          val steps = viewProcessingSteps(environment)
-          steps.dropLast(1) + GeneratedSourceStep(
-            environment = environment,
-            fileName = "LateLifecycleRow",
-            contents = lateLifecycleRowSource()
-          ) + steps.last()
+          viewProcessingSteps(environment).insertBeforeLast(
+            GeneratedSourceStep(
+              environment = environment,
+              fileName = "LateLifecycleRow",
+              contents = """
+                package $PACKAGE
+
+                import com.siimkinks.sqlitemagic.annotation.Table
+
+                @Table("late_lifecycle_rows")
+                data class LateLifecycleRow(
+                  val value: String
+                )
+              """
+            )
+          )
         }
       )
       .isOk()
@@ -668,14 +540,22 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
         "InferredGeneratedTableViewTable.kt",
         "SqliteMagicDatabase.kt"
       )
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContains(
           "db.execSQL(SqliteMagic_LateLifecycleRow_Adapter.TABLE_SCHEMA)",
           "views.add(SqliteMagic_InferredGeneratedTableView_Dao.GENERATED_VIEW)"
         )
       }
+      .apply {
+        assertThat(environment.processingRounds).isAtLeast(2)
+        assertThat(environment.viewElements.values.map(ViewElement::modelName))
+          .containsExactly("InferredGeneratedTableView")
+        assertThat(environment.viewRoundElementsForCurrentRound).isEmpty()
+      }
     val structure = DatabaseStructureJson.read(
-      Files.readString(temporaryDirectory.resolve("db/latest.struct"))
+      temporaryDirectory
+        .resolve("db/latest.struct")
+        .readText()
     )
     assertThat(structure.tables.keys).containsExactly("late_lifecycle_rows")
     assertThat(structure.views).containsExactly(
@@ -696,14 +576,29 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "LaterViewDatabase",
           version = 17
         ),
-        kspOptions = debugOptions(),
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory),
         processingStepsFactory = { environment ->
-          val steps = viewProcessingSteps(environment)
-          steps.dropLast(1) + GeneratedSourceStep(
-            environment = environment,
-            fileName = "LateLifecycleView",
-            contents = lateLifecycleViewSource()
-          ) + steps.last()
+          viewProcessingSteps(environment).insertBeforeLast(
+            GeneratedSourceStep(
+              environment = environment,
+              fileName = "LateLifecycleView",
+              contents = ViewSources.viewContents(
+                body = """
+                  @View("late_lifecycle_view")
+                  data class LateLifecycleView(
+                    @ViewColumn("value") val value: String
+                  ) {
+                    companion object {
+                      @ViewQuery
+                      val QUERY: SelectQuery<String, *> =
+                        error("compile-only later view query")
+                    }
+                  }
+                """,
+                packageName = PACKAGE
+              )
+            )
+          )
         }
       )
       .isOk()
@@ -719,12 +614,14 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
             "LateLifecycleViewTable.kt"::equals
           )
         ).isEqualTo(1)
-        withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-          generatedSource.assertContains("views.add(SqliteMagic_LateLifecycleView_Dao.GENERATED_VIEW)")
+        withGeneratedSource("SqliteMagicDatabase.kt") {
+          it.assertContains("views.add(SqliteMagic_LateLifecycleView_Dao.GENERATED_VIEW)")
         }
       }
     val structure = DatabaseStructureJson.read(
-      Files.readString(temporaryDirectory.resolve("db/latest.struct"))
+      temporaryDirectory
+        .resolve("db/latest.struct")
+        .readText()
     )
     assertThat(structure.tables).isEmpty()
     assertThat(structure.views).containsExactly(
@@ -745,14 +642,9 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "ChangedIdentityLifecycleDatabase",
           version = 18
         ),
-        kspOptions = debugOptions(),
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory),
         processingStepsFactory = { environment ->
-          val steps = viewProcessingSteps(environment).toMutableList()
-          steps.add(
-            index = steps.indexOfFirst { it is ViewCodeGenerationStep },
-            element = ChangedViewElementStep(environment)
-          )
-          steps
+          viewProcessingSteps(environment).insertAfter<ViewCollectionStep>(ChangedViewElementStep(environment))
         }
       )
       .assertCompilationError(
@@ -775,14 +667,32 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
           className = "LateInvalidLifecycleDatabase",
           version = 19
         ),
-        kspOptions = debugOptions(),
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory),
         processingStepsFactory = { environment ->
-          val steps = viewProcessingSteps(environment)
-          steps.dropLast(1) + GeneratedSourceStep(
-            environment = environment,
-            fileName = "LateInvalidLifecycleView",
-            contents = lateInvalidLifecycleViewSource()
-          ) + steps.last()
+          viewProcessingSteps(environment).insertBeforeLast(
+            GeneratedSourceStep(
+              environment = environment,
+              fileName = "LateInvalidLifecycleView",
+              contents = """
+                package $PACKAGE
+
+                import com.siimkinks.sqlitemagic.annotation.Id
+                import com.siimkinks.sqlitemagic.annotation.Table
+                import com.siimkinks.sqlitemagic.annotation.View
+                import com.siimkinks.sqlitemagic.annotation.ViewColumn
+
+                @Table("late_invalid_lifecycle_rows")
+                data class LateInvalidLifecycleRow(
+                  @Id val id: Long
+                )
+
+                @View("late_invalid_lifecycle_view")
+                data class LateInvalidLifecycleView(
+                  @ViewColumn("value") val value: String
+                )
+              """
+            )
+          )
         }
       )
       .assertCompilationError(
@@ -793,56 +703,16 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
     assertNoDebugPublication()
   }
 
-  private fun assertNoDebugPublication() {
-    listOf(
-      "db/latest.struct",
-      "db/latest_debug.version",
-      "src/debug/assets/1001.sql",
-      "src/debug/assets/1001.views"
-    ).forEach { path ->
-      assertThat(Files.exists(temporaryDirectory.resolve(path))).isFalse()
-    }
-  }
-
-  private fun debugOptions(
-    projectDirectory: Path = temporaryDirectory,
-    structureInputDirectory: Path? = null,
-    structureOutputDirectory: Path? = null
-  ) = buildMap {
-    put(
-      key = OPTION_MIGRATE_DEBUG,
-      value = "true"
-    )
-    put(
-      key = OPTION_PROJECT_DIR,
-      value = projectDirectory.toString()
-    )
-    put(
-      key = OPTION_VARIANT_NAME,
-      value = "debug"
-    )
-    put(
-      key = OPTION_VARIANT_DEBUG,
-      value = "true"
-    )
-    structureInputDirectory?.let { directory ->
-      put(
-        key = OPTION_STRUCTURE_INPUT_DIRS,
-        value = directory.toString()
-      )
-    }
-    structureOutputDirectory?.let { directory ->
-      put(
-        key = OPTION_STRUCTURE_OUTPUT_DIR,
-        value = directory.toString()
-      )
-    }
-  }
+  private fun assertNoDebugPublication() = listOf(
+    "db/latest.struct",
+    "db/latest_debug.version",
+    "src/debug/assets/1001.sql",
+    "src/debug/assets/1001.views"
+  ).forEach { assertThat(temporaryDirectory.resolve(it).exists()).isFalse() }
 
   private fun persistentViewSource(
     className: String,
-    viewName: String,
-    queryInitializer: String = """error("compile-only view query")"""
+    viewName: String
   ) = ViewSources.view(
     name = className,
     body = """
@@ -852,40 +722,11 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       ) {
         companion object {
           @ViewQuery
-          val QUERY: CompiledSelect<String, Select1> = $queryInitializer
+          val QUERY: SelectQuery<String, *> = error("compile-only view query")
         }
       }
     """,
     packageName = PACKAGE
-  )
-
-  private fun unsupportedQueryViewSource() = SourceFile.kotlin(
-    name = "UnsupportedDefinitionView.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.CompiledSelect
-      import com.siimkinks.sqlitemagic.annotation.View
-      import com.siimkinks.sqlitemagic.annotation.ViewColumn
-      import com.siimkinks.sqlitemagic.annotation.ViewQuery
-      import java.lang.reflect.Proxy
-
-      @Suppress("UNCHECKED_CAST")
-      private val unsupportedQuery = Proxy.newProxyInstance(
-        CompiledSelect::class.java.classLoader,
-        arrayOf(CompiledSelect::class.java)
-      ) { _, _, _ -> null } as CompiledSelect<Any, Any>
-
-      @View("unsupported_definition_view")
-      data class UnsupportedDefinitionView(
-        @ViewColumn("value") val value: String
-      ) {
-        companion object {
-          @ViewQuery
-          val QUERY: CompiledSelect<Any, Any> = unsupportedQuery
-        }
-      }
-    """
   )
 
   private fun temporaryViewSource(
@@ -896,8 +737,7 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
     contents = """
       package $PACKAGE
 
-      import com.siimkinks.sqlitemagic.CompiledSelect
-      import com.siimkinks.sqlitemagic.Select
+      import com.siimkinks.sqlitemagic.SelectQuery
       import com.siimkinks.sqlitemagic.annotation.View
       import com.siimkinks.sqlitemagic.annotation.ViewColumn
       import com.siimkinks.sqlitemagic.annotation.ViewOption
@@ -912,100 +752,12 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       ) {
         companion object {
           @ViewQuery
-          val QUERY: CompiledSelect<String, Select.Select1> =
+          val QUERY: SelectQuery<String, *> =
             error("compile-only temporary view query")
         }
       }
     """
   )
-
-  private fun invalidViewSource() = ViewSources.view(
-    name = "InvalidLifecycleView",
-    body = """
-      @View("invalid_lifecycle_view")
-      data class InvalidLifecycleView(
-        @ViewColumn("value") val value: String
-      )
-    """,
-    packageName = PACKAGE
-  )
-
-  private fun inferredGeneratedTableViewSource() = SourceFile.kotlin(
-    name = "InferredGeneratedTableView.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.CompiledSelect
-      import com.siimkinks.sqlitemagic.Select
-      import com.siimkinks.sqlitemagic.annotation.View
-      import com.siimkinks.sqlitemagic.annotation.ViewColumn
-      import com.siimkinks.sqlitemagic.annotation.ViewQuery
-      import com.siimkinks.sqlitemagic.LateLifecycleRowTable
-
-      private fun inferredLateQuery(): CompiledSelect<String, Select.Select1> {
-        LateLifecycleRowTable.LATE_LIFECYCLE_ROW
-        return error("compile-only inferred query")
-      }
-
-      @View("inferred_generated_table_view")
-      data class InferredGeneratedTableView(
-        @ViewColumn("value") val value: String
-      ) {
-        companion object {
-          @ViewQuery
-          val QUERY = inferredLateQuery()
-        }
-      }
-    """
-  )
-
-  @Language("kotlin")
-  private fun lateLifecycleRowSource() = """
-    package $PACKAGE
-
-    import com.siimkinks.sqlitemagic.annotation.Table
-
-    @Table("late_lifecycle_rows")
-    data class LateLifecycleRow(
-      val value: String
-    )
-  """
-
-  private fun lateLifecycleViewSource() = ViewSources.viewContents(
-    body = """
-      @View("late_lifecycle_view")
-      data class LateLifecycleView(
-        @ViewColumn("value") val value: String
-      ) {
-        companion object {
-          @ViewQuery
-          val QUERY: CompiledSelect<String, Select1> =
-            error("compile-only later view query")
-        }
-      }
-    """,
-    packageName = PACKAGE
-  )
-
-  @Language("kotlin")
-  private fun lateInvalidLifecycleViewSource() = """
-    package $PACKAGE
-
-    import com.siimkinks.sqlitemagic.annotation.Id
-    import com.siimkinks.sqlitemagic.annotation.Table
-    import com.siimkinks.sqlitemagic.annotation.View
-    import com.siimkinks.sqlitemagic.annotation.ViewColumn
-
-    @Table("late_invalid_lifecycle_rows")
-    data class LateInvalidLifecycleRow(
-      @Id val id: Long
-    )
-
-    @View("late_invalid_lifecycle_view")
-    data class LateInvalidLifecycleView(
-      @ViewColumn("value") val value: String
-    )
-  """
 
   private fun tableSource(
     className: String,
@@ -1052,45 +804,6 @@ internal class ViewLifecycleAndRoundsContractTest : ProcessingStepsTest {
       class FeatureDatabase
     """
   )
-
-  @Language("json")
-  private fun legacySnapshotWithView(viewName: String) = """
-    {
-      "tables": {},
-      "indices": {},
-      "temporaryTables": {},
-      "temporaryIndices": {},
-      "views": {
-        "$viewName": {
-          "name": "$viewName",
-          "schema": "main",
-          "module": null
-        }
-      }
-    }
-  """.trimIndent()
-
-  private class GeneratedSourceStep(
-    private val environment: Environment,
-    private val fileName: String,
-    private val contents: String
-  ) : ProcessingStep {
-    private var generated = false
-
-    override fun process(resolver: Resolver): ProcessingStepResult {
-      if (generated) return Continue
-      generated = true
-      environment.codeGenerator
-        .createNewFile(
-          dependencies = Dependencies(aggregating = false),
-          packageName = PACKAGE,
-          fileName = fileName
-        )
-        .bufferedWriter()
-        .use { it.write(contents) }
-      return Continue
-    }
-  }
 
   private class ChangedViewElementStep(
     private val environment: Environment

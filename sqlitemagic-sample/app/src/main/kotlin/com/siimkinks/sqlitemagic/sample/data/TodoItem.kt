@@ -1,20 +1,15 @@
 package com.siimkinks.sqlitemagic.sample.data
 
 import com.siimkinks.sqlitemagic.AND
-import com.siimkinks.sqlitemagic.FROM
-import com.siimkinks.sqlitemagic.IS
-import com.siimkinks.sqlitemagic.ORDER_BY
 import com.siimkinks.sqlitemagic.SELECT
-import com.siimkinks.sqlitemagic.SET
-import com.siimkinks.sqlitemagic.TABLE
 import com.siimkinks.sqlitemagic.TodoItemTable.Companion.TODO_ITEM
 import com.siimkinks.sqlitemagic.UPDATE
-import com.siimkinks.sqlitemagic.WHERE
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.persist
+import com.siimkinks.sqlitemagic.queryDeep
 import io.reactivex.Completable
 
 @Table
@@ -48,10 +43,9 @@ data class TodoItem(
         SELECT
             FROM TODO_ITEM
             WHERE (TODO_ITEM.LIST IS listId)
-            ORDER_BY arrayOf(TODO_ITEM.COMPLETED.asc(), TODO_ITEM.TITLE.asc())
+            ORDER_BY arrayOf(TODO_ITEM.COMPLETED.ASC(), TODO_ITEM.TITLE.ASC())
         )
       .queryDeep()
-      .compile()
 
     fun countItemsFor(listId: Long) = (
         SELECT

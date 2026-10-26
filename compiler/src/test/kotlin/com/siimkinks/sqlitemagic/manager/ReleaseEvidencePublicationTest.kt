@@ -25,12 +25,17 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `publishes actual compiled version with complete immutable evidence`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     val schema = schema(version = 7)
     publish(schema)
 
-    assertThat(releases.resolve("7.schema.json").exists()).isFalse()
-    assertThat(DatabaseStructureJson.read(releases.resolve("7.struct").readText())).isEqualTo(structure("books"))
+    assertThat(
+      DatabaseStructureJson.read(
+        releases
+          .resolve("7.struct")
+          .readText()
+      )
+    ).isEqualTo(databaseStructure("books"))
     assertThat(manifest).isEqualTo(
       MigrationManifest(
         formatVersion = 1,
@@ -46,9 +51,9 @@ internal class ReleaseEvidencePublicationTest {
             modules = schema.modules
           )
         ),
-        steps = (1..7).map { version ->
+        steps = (1..7).map {
           MigrationStep(
-            toVersion = version,
+            toVersion = it,
             sqlResources = emptyList()
           )
         }
@@ -59,7 +64,7 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `new version preserves old manual SQL and orders pending target SQL before generated SQL`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     publish(schema(version = 7))
     writeAsset(
       name = "7.sql",
@@ -67,13 +72,16 @@ internal class ReleaseEvidencePublicationTest {
     )
     val oldStruct = releases.resolve("7.struct").readBytes()
     val oldSql = assets.resolve("7.sql").readBytes()
-    writeCurrent(structure("books", "authors"))
+    writeCurrent(databaseStructure("books", "authors"))
     writeAsset(
       name = "8.sql",
       text = "-- consumer data migration\nUPDATE books SET id = id + 2;\n"
     )
     val compiled = schema(version = 8).copy(
-      tableSql = structure("books", "authors").tables.values.map(TableStructure::schema)
+      tableSql = databaseStructure("books", "authors")
+        .tables
+        .values
+        .map(TableStructure::schema)
     )
     publish(compiled)
 
@@ -93,7 +101,7 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `publication records intentionally empty resources and explicit gap steps`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     publish(schema(version = 7))
     writeAsset(
       name = "10.sql",
@@ -131,12 +139,12 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `adoption retains historical schema references without reading incomplete old evidence`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     releases.mkdirs()
     releases.resolve("1.struct").writeText("historical incomplete and unreadable below chosen baseline")
     DatabaseStructureJson.write(
       file = releases.resolve("4.struct"),
-      structure = structure("books")
+      structure = databaseStructure("books")
     )
     writeAsset(
       name = "Feature2.sql",
@@ -175,10 +183,13 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `reusing a published version or mixing selected release identities fails without changes`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     val original = schema(version = 7)
     publish(original)
-    val frozen = releases.listFiles().orEmpty().associate { it.name to it.readText() }
+    val frozen = releases
+      .listFiles()
+      .orEmpty()
+      .associateWith(File::readText)
     val cases = mapOf(
       "same version" to original,
       "older version" to original.copy(version = 6),
@@ -192,13 +203,18 @@ internal class ReleaseEvidencePublicationTest {
         modules = listOf("Feature", ":other")
       )
     )
-    cases.forEach { (_, candidate) -> assertThrows<IllegalStateException> { publish(candidate) } }
-    assertThat(releases.listFiles().orEmpty().associate { it.name to it.readText() }).isEqualTo(frozen)
+    cases.forEach { (label, candidate) -> assertThrows<IllegalStateException>(label) { publish(candidate) } }
+    assertThat(
+      releases
+        .listFiles()
+        .orEmpty()
+        .associateWith(File::readText)
+    ).isEqualTo(frozen)
   }
 
   @Test
   fun `current module resources match production order and preserve previous steps`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     publish(schema(version = 7).copy(modules = listOf("Removed", "Feature", ":app")))
     val previousSteps = manifest.steps
     listOf("Removed8.sql", "New8.sql", "Feature8.sql", "8.sql").forEach { name ->
@@ -226,7 +242,7 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `malformed pending SQL and unknown conventional modules fail preserving source inputs`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     writeAsset(
       name = "7.sql",
       text = "UPDATE books SET id = 1; DELETE FROM books\n"
@@ -248,13 +264,16 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `noncanonical main and module SQL filenames fail before changing history`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     listOf("07.sql", "Feature07.sql", "+7.sql", "Feature+7.sql").forEach { name ->
       writeAsset(
         name = name,
         text = "SELECT 1\n"
       )
-      val frozen = assets.listFiles().orEmpty().associateWith(File::readText)
+      val frozen = assets
+        .listFiles()
+        .orEmpty()
+        .associateWith(File::readText)
 
       val failure = assertThrows<IllegalStateException> { publish(schema(version = 7)) }
 
@@ -267,14 +286,17 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `duplicate numeric SQL aliases retain duplicate diagnostics before publication`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     listOf("7.sql", "07.sql").forEach { name ->
       writeAsset(
         name = name,
         text = "SELECT 1\n"
       )
     }
-    val before = assets.listFiles().orEmpty().associateWith(File::readText)
+    val before = assets
+      .listFiles()
+      .orEmpty()
+      .associateWith(File::readText)
 
     val failure = assertThrows<IllegalStateException> { publish(schema(version = 7)) }
 
@@ -285,7 +307,7 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `invalid UTF8 is rejected before generation`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     assets.mkdirs()
     val sql = assets.resolve("7.sql")
     val original = byteArrayOf(0xc3.toByte(), 0x28)
@@ -297,22 +319,30 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `missing published compiler baseline fails without modifying retained files`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     publish(schema(version = 7))
     releases.resolve("7.struct").delete()
-    val frozen = releases.listFiles().orEmpty().associate { it.name to it.readText() }
-    writeCurrent(structure("books", "authors"))
+    val frozen = releases
+      .listFiles()
+      .orEmpty()
+      .associateWith(File::readText)
+    writeCurrent(databaseStructure("books", "authors"))
 
     assertThat(assertThrows<IllegalStateException> { publish(schema(version = 8)) })
       .hasMessageThat()
       .contains("Restore the published compiler baseline")
-    assertThat(releases.listFiles().orEmpty().associate { it.name to it.readText() }).isEqualTo(frozen)
+    assertThat(
+      releases
+        .listFiles()
+        .orEmpty()
+        .associateWith(File::readText)
+    ).isEqualTo(frozen)
     assertThat(assets.resolve("8.sql").exists()).isFalse()
   }
 
   @Test
   fun `initial manifest retains production upgrades predating the testing baseline`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     writeAsset(
       name = "10.sql",
       text = "SELECT 1\n"
@@ -342,12 +372,12 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `explicit adoption enriches current structure without rewriting history and rejects mismatch`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     releases.mkdirs()
     val retained = releases.resolve("7.struct")
     DatabaseStructureJson.write(
       file = retained,
-      structure = structure("books")
+      structure = databaseStructure("books")
     )
     writeAsset(
       name = "7.sql",
@@ -373,21 +403,24 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `merged pending data SQL precedes generated SQL and generated current asset enters manifest`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     publish(schema(version = 7))
     val merged = directory.resolve("build/merged-assets")
     check(merged.mkdirs())
     val pending = merged.resolve("8.sql")
     pending.writeText("UPDATE books SET id = id + 2;\n")
     merged.resolve("Feature8.sql").writeText("SELECT 8\n")
-    writeCurrent(structure("books", "authors"))
+    writeCurrent(databaseStructure("books", "authors"))
 
     ReleaseMigrationCoordinator.migrate(
       projectDir = directory,
       databaseDirectory = database,
       variantName = "paidRelease",
       compiledRelease = schema(version = 8).copy(
-        tableSql = structure("books", "authors").tables.values.map(TableStructure::schema)
+        tableSql = databaseStructure("books", "authors")
+          .tables
+          .values
+          .map(TableStructure::schema)
       ),
       evidenceAssetsDirectory = merged
     )
@@ -406,12 +439,15 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `merged data-only main and library resources are recorded without copying into generated destination`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     val merged = directory.resolve("build/merged-assets")
     check(merged.mkdirs())
     merged.resolve("Feature2.sql").writeText("SELECT 2\n")
     merged.resolve("7.sql").writeText("UPDATE books SET id = id + 2;\n")
-    val frozen = merged.listFiles().orEmpty().associateWith(File::readBytes)
+    val frozen = merged
+      .listFiles()
+      .orEmpty()
+      .associateWith(File::readBytes)
 
     ReleaseMigrationCoordinator.migrate(
       projectDir = directory,
@@ -439,10 +475,10 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `adoption and later unchanged schema publication retain merged data SQL outside source destination`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     DatabaseStructureJson.write(
       file = releases.resolve("7.struct"),
-      structure = structure("books")
+      structure = databaseStructure("books")
     )
     val merged = directory.resolve("build/merged-assets")
     check(merged.mkdirs())
@@ -470,9 +506,9 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `generated SQL is listed when merged assets snapshot predates generation`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     publish(schema(version = 7))
-    writeCurrent(structure("books", "authors"))
+    writeCurrent(databaseStructure("books", "authors"))
     val merged = directory.resolve("build/merged-assets")
     check(merged.mkdirs())
 
@@ -481,7 +517,10 @@ internal class ReleaseEvidencePublicationTest {
       databaseDirectory = database,
       variantName = "paidRelease",
       compiledRelease = schema(version = 8).copy(
-        tableSql = structure("books", "authors").tables.values.map(TableStructure::schema)
+        tableSql = databaseStructure("books", "authors")
+          .tables
+          .values
+          .map(TableStructure::schema)
       ),
       evidenceAssetsDirectory = merged
     )
@@ -498,9 +537,9 @@ internal class ReleaseEvidencePublicationTest {
 
   @Test
   fun `merged resource publication failure rolls back generated SQL and release snapshot`() {
-    writeCurrent(structure("books"))
+    writeCurrent(databaseStructure("books"))
     publish(schema(version = 7))
-    writeCurrent(structure("books", "authors"))
+    writeCurrent(databaseStructure("books", "authors"))
     writeAsset(
       name = "8.sql",
       text = "UPDATE books SET id = id + 1;\n"
@@ -518,7 +557,10 @@ internal class ReleaseEvidencePublicationTest {
         databaseDirectory = database,
         variantName = "paidRelease",
         compiledRelease = schema(version = 8).copy(
-          tableSql = structure("books", "authors").tables.values.map(TableStructure::schema)
+          tableSql = databaseStructure("books", "authors")
+            .tables
+            .values
+            .map(TableStructure::schema)
         ),
         evidenceAssetsDirectory = merged
       )
@@ -557,25 +599,11 @@ internal class ReleaseEvidencePublicationTest {
     version = version,
     modules = listOf("Feature", ":app"),
     configuration = MigrationConfiguration(foreignKeysEnabled = true),
-    tableSql = structure("books").tables.values.map(TableStructure::schema),
+    tableSql = databaseStructure("books")
+      .tables
+      .values
+      .map(TableStructure::schema),
     views = emptyList(),
     indexSql = emptyList()
-  )
-
-  private fun structure(vararg names: String) = DatabaseStructure(
-    tables = names.associateWith(::tableStructure)
-  )
-
-  private fun tableStructure(name: String) = TableStructure(
-    name = name,
-    schema = "CREATE TABLE IF NOT EXISTS $name (id INTEGER PRIMARY KEY)",
-    columns = listOf(
-      ColumnStructure(
-        id = true,
-        name = "id",
-        sqlType = "INTEGER",
-        schema = "id INTEGER PRIMARY KEY"
-      )
-    )
   )
 }

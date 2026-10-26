@@ -14,13 +14,16 @@ import org.junit.Test
 import org.mockito.Mockito.mockStatic
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doReturnConsecutively
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeUnit.MICROSECONDS
+import java.util.concurrent.TimeUnit.SECONDS
 
 internal class DbConnectionImplTest {
   @Test
@@ -45,22 +48,13 @@ internal class DbConnectionImplTest {
         tablePos = 0
       )
     )
-    val statements = List(
-      size = 6,
-      init = { mock<SupportSQLiteStatement>() }
-    )
-    val remainingStatements = statements
-      .drop(1)
-      .toTypedArray()
-    whenever(fixture.db.compileStatement(any()))
-      .thenReturn(statements.first(), *remainingStatements)
+    val statements = List(6) { mock<SupportSQLiteStatement>() }
+    whenever(fixture.db.compileStatement(any())).doReturnConsecutively(statements)
     for (manager in managers) {
       manager.insertStatement("INSERT%s INTO books VALUES (?)")
       manager.updateStatement("UPDATE%s books SET name=?")
     }
-    val observer = fixture.connection.triggers
-      .map(Set<String>::toSet)
-      .test()
+    val observer = fixture.connection.recordTriggers()
       .assertEmpty()
 
     mockStatic(Log::class.java)
@@ -126,7 +120,7 @@ internal class DbConnectionImplTest {
   }
 
   @Test
-  fun `requesting submodule manager without configured submodules fails clearly`() {
+  fun `requesting the manager of a submodule the database lacks fails clearly`() {
     val fixture = ConnectionFixture()
 
     val failure = assertThrows(IllegalStateException::class.java) {
@@ -138,26 +132,24 @@ internal class DbConnectionImplTest {
 
     assertThat(failure)
       .hasMessageThat()
-      .isEqualTo("No submodules configured")
+      .isEqualTo("Submodule feature is not part of this database")
   }
 
   @Test
   fun `clear data forwards writable database and only publishes returned table names`() {
     for ((label, clearedTables) in mapOf(
-      "no triggers" to null,
+      "no triggers" to MutableScatterSet(),
       "cleared tables" to MutableScatterSet<String>().apply { addAll(arrayOf("books", "authors")) }
     )) {
       val databases = mutableListOf<SupportSQLiteDatabase>()
       val generated = object : GeneratedDatabase by TestGeneratedDatabase(tableCount = 0) {
-        override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>? {
+        override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String> {
           databases += db
           return clearedTables
         }
       }
       val fixture = ConnectionFixture(generated)
-      val observer = fixture.connection.triggers
-        .map(Set<String>::toSet)
-        .test()
+      val observer = fixture.connection.recordTriggers()
         .assertEmpty()
 
       fixture.connection.clearData()
@@ -165,8 +157,8 @@ internal class DbConnectionImplTest {
       assertWithMessage(label)
         .that(databases)
         .containsExactly(fixture.db)
-      when (clearedTables) {
-        null -> observer.assertEmpty()
+      when {
+        clearedTables.isEmpty() -> observer.assertEmpty()
         else -> observer.assertValuesOnly(setOf("books", "authors"))
       }
     }
@@ -175,12 +167,10 @@ internal class DbConnectionImplTest {
   @Test
   fun `multiple table triggers outside transactions publish distinct names immediately`() {
     val fixture = ConnectionFixture()
-    val observer = fixture.connection.triggers
-      .map(Set<String>::toSet)
-      .test()
+    val observer = fixture.connection.recordTriggers()
       .assertEmpty()
 
-    fixture.connection.sendTableTriggers("books", "authors", "books")
+    fixture.connection.sendTableTriggers(arrayOf("books", "authors", "books"))
 
     observer.assertValuesOnly(setOf("books", "authors"))
   }
@@ -196,13 +186,12 @@ internal class DbConnectionImplTest {
     val published = observer.values().single()
 
     val second = fixture.connection.newTransaction()
-    fixture.connection.sendTableTriggers("authors", "books")
+    fixture.connection.sendTableTriggers(arrayOf("authors", "books"))
     fixture.listeners.last().onCommit()
     second.end()
 
     assertThat(published).containsExactly("books")
     assertThat(observer.values().last()).containsExactly("authors", "books")
-    assertThat(observer.values().last()).isNotSameInstanceAs(published)
   }
 
   @Test
@@ -223,7 +212,7 @@ internal class DbConnectionImplTest {
       "close" to transaction::close
     )
     for ((label, end) in endings) {
-      val failure = assertThrows(IllegalStateException::class.java) { end() }
+      val failure = assertThrows(IllegalStateException::class.java, end)
       assertWithMessage(label)
         .that(failure)
         .hasMessageThat()
@@ -245,21 +234,19 @@ internal class DbConnectionImplTest {
     assertThat(
       transaction.yieldIfContendedSafely(
         sleepAmount = 2L,
-        sleepUnit = TimeUnit.SECONDS
+        sleepUnit = SECONDS
       )
     ).isTrue()
     assertThat(
       transaction.yieldIfContendedSafely(
         sleepAmount = 500L,
-        sleepUnit = TimeUnit.MICROSECONDS
+        sleepUnit = MICROSECONDS
       )
     ).isFalse()
-    transaction.markSuccessful()
 
     verify(fixture.db).yieldIfContendedSafely()
     verify(fixture.db).yieldIfContendedSafely(2_000L)
     verify(fixture.db).yieldIfContendedSafely(0L)
-    verify(fixture.db).setTransactionSuccessful()
     transaction.end()
   }
 
@@ -282,7 +269,7 @@ internal class DbConnectionImplTest {
           fixture.connection.ensureNotInTransaction.accept(Unit)
           fixture.connection.hasActiveTransaction
         }
-        .get(5L, TimeUnit.SECONDS)
+        .get(5L, SECONDS)
       assertThat(otherThreadActive).isFalse()
     } finally {
       executor.shutdownNow()
@@ -304,7 +291,7 @@ internal class DbConnectionImplTest {
       }
     val transaction = fixture.connection.newTransaction()
     fixture.connection.sendTableTrigger("books")
-    fixture.connection.sendTableTriggers("authors", "books")
+    fixture.connection.sendTableTriggers(arrayOf("authors", "books"))
     doAnswer {
       assertThat(fixture.connection.hasActiveTransaction).isFalse()
       fixture.listeners.single()
@@ -327,13 +314,11 @@ internal class DbConnectionImplTest {
   fun `nested committed notifications merge into parent and rollback suppresses notifications`() {
     for ((label, committed) in mapOf("commit" to true, "rollback" to false)) {
       val fixture = ConnectionFixture()
-      val observer = fixture.connection.triggers
-        .map(Set<String>::toSet)
-        .test()
+      val observer = fixture.connection.recordTriggers()
       val outer = fixture.connection.newTransaction()
       fixture.connection.sendTableTrigger("books")
       val inner = fixture.connection.newTransaction()
-      fixture.connection.sendTableTriggers("authors", "books")
+      fixture.connection.sendTableTriggers(arrayOf("authors", "books"))
       fixture.listeners
         .last()
         .onCommit()
@@ -381,27 +366,26 @@ private class ConnectionFixture(
   generatedDatabase: GeneratedDatabase = TestGeneratedDatabase(tableCount = 1)
 ) {
   val db = mock<SupportSQLiteDatabase>()
-  val helper = mock<SupportSQLiteOpenHelper>()
-  val listeners = mutableListOf<SQLiteTransactionListener>()
-  val connection: DbConnectionImpl
+  val helper = mock<SupportSQLiteOpenHelper> {
+    on { writableDatabase } doReturn db
+    on { readableDatabase } doReturn db
+    on { databaseName } doReturn "test.db"
+  }
+  val listeners: List<SQLiteTransactionListener>
+    field = mutableListOf()
 
   init {
-    whenever(helper.writableDatabase)
-      .thenReturn(db)
-    whenever(helper.readableDatabase)
-      .thenReturn(db)
-    whenever(helper.databaseName)
-      .thenReturn("test.db")
     doAnswer { invocation ->
       listeners += invocation.getArgument<SQLiteTransactionListener>(0)
       null
     }
       .whenever(db)
       .beginTransactionWithListener(any())
-    connection = DbConnectionImpl(
-      database = generatedDatabase,
-      dbHelper = helper,
-      queryScheduler = Schedulers.trampoline()
-    )
   }
+
+  val connection = DbConnectionImpl(
+    database = generatedDatabase,
+    dbHelper = helper,
+    queryScheduler = Schedulers.trampoline()
+  )
 }

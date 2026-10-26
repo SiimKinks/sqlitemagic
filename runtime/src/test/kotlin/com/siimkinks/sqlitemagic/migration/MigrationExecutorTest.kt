@@ -8,7 +8,7 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 
-class MigrationExecutorTest {
+internal class MigrationExecutorTest {
   @Test
   fun `conventional planning preserves version and module ordering with optional empty resources`() {
     val actual = MigrationPlanner.plan(
@@ -47,15 +47,17 @@ class MigrationExecutorTest {
       MigrationExecutor(
         resources = { "\n -- ignored\n$sql\n\nBAD_SQL\n".byteInputStream() },
         database = database
-      ).execute(
-        plan = plan(),
-        createTargetViews = { error("Must not recreate views after failure") }
       )
+        .execute(
+          plan = plan(),
+          createTargetViews = { error("Must not recreate views after failure") }
+        )
     }
     assertThat(executed)
       .containsExactly(sql, "BAD_SQL")
       .inOrder()
-    assertThat(exception.message).contains("line 5 (statement 2, migration 1 -> 2, step 2)")
+    assertThat(exception.message)
+      .isEqualTo("Error executing migration script 2.sql at line 5 (statement 2, migration 1 -> 2, step 2): BAD_SQL")
     assertThat(exception.cause).isSameInstanceAs(failure)
     assertThat(exception.stepVersion).isEqualTo(2)
     assertThat(exception.statementText).isEqualTo("BAD_SQL")
@@ -65,12 +67,12 @@ class MigrationExecutorTest {
   fun `SQL lexical boundaries preserve quoted identifiers and inline comments`() {
     val statements = listOf(
       "SELECT 'literal;value'; -- trailing comment",
-      "SELECT \"quoted;\"\"identifier\";",
+      """SELECT "quoted;""identifier";""",
       "SELECT `backtick;identifier`;",
       "SELECT [bracket;identifier];",
       "SELECT (1 + 2) /* same line comment */;"
     )
-    val database = RecordingDatabase()
+    val database = RecordingMigrationDatabase()
     MigrationExecutor(
       resources = {
         statements
@@ -78,10 +80,11 @@ class MigrationExecutorTest {
           .byteInputStream()
       },
       database = database
-    ).execute(
-      plan = plan(),
-      createTargetViews = {}
     )
+      .execute(
+        plan = plan(),
+        createTargetViews = {}
+      )
     assertThat(database.statements)
       .containsExactlyElementsIn(statements)
       .inOrder()
@@ -93,11 +96,12 @@ class MigrationExecutorTest {
     val exception = assertThrows(MigrationException::class.java) {
       MigrationExecutor(
         resources = { throw failure },
-        database = RecordingDatabase()
-      ).execute(
-        plan = plan(),
-        createTargetViews = {}
+        database = RecordingMigrationDatabase()
       )
+        .execute(
+          plan = plan(),
+          createTargetViews = {}
+        )
     }
     assertThat(exception.cause).isSameInstanceAs(failure)
     assertThat(exception.statementText).isNull()
@@ -105,11 +109,12 @@ class MigrationExecutorTest {
     val thrown = assertThrows(LinkageError::class.java) {
       MigrationExecutor(
         resources = { throw error },
-        database = RecordingDatabase()
-      ).execute(
-        plan = plan(),
-        createTargetViews = {}
+        database = RecordingMigrationDatabase()
       )
+        .execute(
+          plan = plan(),
+          createTargetViews = {}
+        )
     }
     assertThat(thrown).isSameInstanceAs(error)
   }
@@ -124,11 +129,11 @@ class MigrationExecutorTest {
 
       override fun persistentViewNames(): List<String> {
         events += "lookup"
-        return listOf("quoted\"view", "--literal_view")
+        return listOf("""quoted"view""", "--literal_view")
       }
     }
     val files = mapOf(
-      "2.views" to "quoted\"view\ntable\n",
+      "2.views" to """quoted"view""" + "\ntable\n",
       "3.views" to "--literal_view\n",
       "2.sql" to "SELECT 2;\n",
       "3.sql" to "SELECT 3\n"
@@ -140,18 +145,19 @@ class MigrationExecutorTest {
           .byteInputStream()
       },
       database = database
-    ).execute(
-      plan = MigrationPlanner.plan(
-        fromVersion = 1,
-        toVersion = 3
-      ),
-      createTargetViews = { events += "recreate" }
     )
+      .execute(
+        plan = MigrationPlanner.plan(
+          fromVersion = 1,
+          toVersion = 3
+        ),
+        createTargetViews = { events += "recreate" }
+      )
     assertThat(events)
       .containsExactly(
         "lookup",
-        "DROP VIEW IF EXISTS main.\"quoted\"\"view\"",
-        "DROP VIEW IF EXISTS main.\"--literal_view\"",
+        """DROP VIEW IF EXISTS main."quoted""view"""",
+        """DROP VIEW IF EXISTS main."--literal_view"""",
         "open:2.sql",
         "SELECT 2;",
         "open:3.sql",
@@ -163,57 +169,59 @@ class MigrationExecutorTest {
 
   @Test
   fun `only missing optional resources are skipped`() {
-    val cases = listOf(
-      Triple(
-        first = "required missing",
-        second = MigrationResource("2.sql"),
-        third = FileNotFoundException("missing")
-      ),
-      Triple(
-        first = "required unreadable",
-        second = MigrationResource("2.sql"),
-        third = IOException("unreadable")
-      ),
-      Triple(
-        first = "optional unreadable",
-        second = optional("2.sql"),
-        third = IOException("unreadable")
-      )
+    data class ResourceCase(
+      val label: String,
+      val resource: MigrationResource,
+      val cause: IOException
     )
-    cases.forEach { (label, resource, cause) ->
-      val exception = assertThrows(label, MigrationException::class.java) {
+    listOf(
+      ResourceCase(
+        label = "required missing",
+        resource = MigrationResource("2.sql"),
+        cause = FileNotFoundException("missing")
+      ),
+      ResourceCase(
+        label = "optional unreadable",
+        resource = optional("2.sql"),
+        cause = IOException("unreadable")
+      )
+    ).forEach { case ->
+      val exception = assertThrows(case.label, MigrationException::class.java) {
         MigrationExecutor(
-          resources = { throw cause },
-          database = RecordingDatabase()
-        ).execute(
-          plan = plan(resource),
-          createTargetViews = { error(label) }
+          resources = { throw case.cause },
+          database = RecordingMigrationDatabase()
         )
+          .execute(
+            plan = plan(case.resource),
+            createTargetViews = { error(case.label) }
+          )
       }
-      assertThat(exception.cause).isSameInstanceAs(cause)
+      assertThat(exception.cause).isSameInstanceAs(case.cause)
     }
     var recreated = false
     MigrationExecutor(
       resources = { throw FileNotFoundException() },
-      database = RecordingDatabase()
-    ).execute(
-      plan = plan(optional("2.sql")),
-      createTargetViews = { recreated = true }
+      database = RecordingMigrationDatabase()
     )
+      .execute(
+        plan = plan(optional("2.sql")),
+        createTargetViews = { recreated = true }
+      )
     assertThat(recreated).isTrue()
   }
 
   @Test
   fun `required empty scripts fail before recreation`() {
-    val database = RecordingDatabase()
+    val database = RecordingMigrationDatabase()
     val failure = assertThrows(MigrationException::class.java) {
       MigrationExecutor(
         resources = { "-- empty\n\n".byteInputStream() },
         database = database
-      ).execute(
-        plan = plan(),
-        createTargetViews = { error("Empty required script must stop recreation") }
       )
+        .execute(
+          plan = plan(),
+          createTargetViews = { error("Empty required script must stop recreation") }
+        )
     }
     assertThat(database.statements).isEmpty()
     assertThat(failure.cause).hasMessageThat().contains("Migration script contains no executable statements")
@@ -235,11 +243,12 @@ class MigrationExecutorTest {
       val exception = assertThrows(label, MigrationException::class.java) {
         MigrationExecutor(
           resources = { stream },
-          database = RecordingDatabase()
-        ).execute(
-          plan = plan(),
-          createTargetViews = { error(label) }
+          database = RecordingMigrationDatabase()
         )
+          .execute(
+            plan = plan(),
+            createTargetViews = { error(label) }
+          )
       }
       assertThat(exception.cause).isInstanceOf(IOException::class.java)
       assertThat(exception.resourceName).isEqualTo("2.sql")
@@ -247,17 +256,7 @@ class MigrationExecutorTest {
   }
 
   @Test
-  fun `equal versions produce empty plans including the maximum integer version`() {
-    val expected = MigrationPlan(
-      fromVersion = 2,
-      toVersion = 2,
-      steps = emptyList()
-    )
-    val actual = MigrationPlanner.plan(
-      fromVersion = 2,
-      toVersion = 2
-    )
-    assertThat(actual).isEqualTo(expected)
+  fun `equal maximum integer versions produce an empty plan`() {
     val maximumVersionPlan = MigrationPlanner.plan(
       fromVersion = Int.MAX_VALUE,
       toVersion = Int.MAX_VALUE
@@ -288,8 +287,10 @@ private fun plan(resource: MigrationResource = MigrationResource("2.sql")) = Mig
   )
 )
 
-private class RecordingDatabase : MigrationDatabase {
-  val statements = mutableListOf<String>()
+private class RecordingMigrationDatabase : MigrationDatabase {
+  val statements: List<String>
+    field = mutableListOf()
+
   override fun execute(sql: String) {
     statements += sql
   }

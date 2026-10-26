@@ -1,29 +1,29 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
-import com.siimkinks.sqlitemagic.IS
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SelectSqlNode
+import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.SelectQuery
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
-import com.siimkinks.sqlitemagic.Update
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.UPDATE
+import com.siimkinks.sqlitemagic.asScalar
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.queryDeep
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 
 data class QueryObservationMutation<T>(
   val name: String,
-  val apply: () -> Unit,
+  val mutate: () -> Unit,
   val expected: List<T>
 )
 
 data class QueryObservationScenario<T>(
-  val query: () -> SelectSqlNode.SelectNode<T, *, *>,
+  val query: () -> SelectQuery<T, *>,
   val initial: List<T>,
-  val mutations: List<QueryObservationMutation<T>>,
-  val unrelatedWrite: () -> Unit
+  val mutations: List<QueryObservationMutation<T>>
 )
 
 data class QueryObservationCase<T>(
@@ -34,7 +34,11 @@ data class QueryObservationCase<T>(
 }
 
 internal object QueryObservationCatalog {
-  val subqueryCases: List<QueryObservationCase<*>> = listOf(
+  val cases = listOf<QueryObservationCase<*>>(
+    QueryObservationCase(
+      name = "explicit joined tables",
+      newScenario = ::newExplicitJoinScenario
+    ),
     QueryObservationCase(
       name = "simple scalar subquery in simple outer query",
       newScenario = ::newSimpleScalarSubqueryScenario
@@ -49,13 +53,6 @@ internal object QueryObservationCatalog {
     )
   )
 
-  val cases: List<QueryObservationCase<*>> = listOf(
-    QueryObservationCase(
-      name = "explicit joined tables",
-      newScenario = ::newExplicitJoinScenario
-    )
-  ) + subqueryCases
-
   private fun newExplicitJoinScenario(): QueryObservationScenario<EntityWithRelationship> {
     val related = newSimple(value = "explicit-join-match")
     val parent = newRelationship(
@@ -69,15 +66,12 @@ internal object QueryObservationCatalog {
 
     return QueryObservationScenario(
       query = {
-        Select
-          .from(Topology.relationshipTable)
-          .leftJoin(
-            Topology.simpleTable.on(
-              Topology.relationshipTable.RELATED_ENTITY IS Topology.simpleTable.ID
-            )
-          )
-          .where(Topology.relationshipTable.VALUE IS Topology.simpleTable.VALUE)
-          .orderBy(Topology.relationshipTable.ID.asc())
+        SELECT
+          .FROM(Topology.relationshipTable)
+          .LEFT_JOIN(Topology.simpleTable)
+          .ON(Topology.relationshipTable.RELATED_ENTITY IS Topology.simpleTable.ID)
+          .WHERE(Topology.relationshipTable.VALUE IS Topology.simpleTable.VALUE)
+          .ORDER_BY(Topology.relationshipTable.ID.ASC())
           .queryDeep()
       },
       initial = listOf(
@@ -92,7 +86,7 @@ internal object QueryObservationCatalog {
       mutations = listOf(
         QueryObservationMutation(
           name = "EntityWithRelationship",
-          apply = {
+          mutate = {
             Topology.updateRelationshipValue(
               value = parent,
               newValue = "explicit-join-updated"
@@ -103,7 +97,7 @@ internal object QueryObservationCatalog {
         ),
         QueryObservationMutation(
           name = "SimpleMutableEntity",
-          apply = {
+          mutate = {
             Topology.updateSimpleValue(
               value = related,
               newValue = "explicit-join-updated"
@@ -120,8 +114,7 @@ internal object QueryObservationCatalog {
             )
           )
         )
-      ),
-      unrelatedWrite = QueryPredicateCatalog::seed
+      )
     )
   }
 
@@ -137,21 +130,22 @@ internal object QueryObservationCatalog {
 
     return QueryObservationScenario(
       query = {
-        Select
-          .column(Topology.simpleTable.ID)
-          .from(Topology.simpleTable)
-          .where(
-            Topology.simpleTable.VALUE IS Select
-              .column(Topology.stringTable.VALUE)
-              .from(Topology.stringTable)
+        SELECT
+          .COLUMN(Topology.simpleTable.ID)
+          .FROM(Topology.simpleTable)
+          .WHERE(
+            Topology.simpleTable.VALUE IS SELECT
+              .COLUMN(Topology.stringTable.VALUE)
+              .FROM(Topology.stringTable)
+              .asScalar()
           )
-          .orderBy(Topology.simpleTable.ID.asc())
+          .ORDER_BY(Topology.simpleTable.ID.ASC())
       },
       initial = listOf(outerId),
       mutations = listOf(
         QueryObservationMutation(
           name = "StringIdEntity",
-          apply = {
+          mutate = {
             Topology.updateStringValue(
               value = target,
               newValue = "simple-subquery-updated"
@@ -161,7 +155,7 @@ internal object QueryObservationCatalog {
         ),
         QueryObservationMutation(
           name = "SimpleMutableEntity",
-          apply = {
+          mutate = {
             Topology.updateSimpleValue(
               value = outer,
               newValue = "simple-subquery-updated"
@@ -170,12 +164,11 @@ internal object QueryObservationCatalog {
           },
           expected = listOf(outerId)
         )
-      ),
-      unrelatedWrite = QueryPredicateCatalog::seed
+      )
     )
   }
 
-  private fun newComplexSubqueryInSimpleOuterScenario(): QueryObservationScenario<String> {
+  private fun newComplexSubqueryInSimpleOuterScenario(): QueryObservationScenario<String?> {
     val related = newSimple(value = "complex-subquery-match")
     val parent = newRelationship(
       value = "complex-subquery-match",
@@ -191,33 +184,26 @@ internal object QueryObservationCatalog {
 
     return QueryObservationScenario(
       query = {
-        val subquery = Select
-          .column(Topology.stringTable.ID)
-          .from(Topology.relationshipTable)
-          .leftJoin(
-            Topology.simpleTable.on(
-              Topology.relationshipTable.RELATED_ENTITY IS Topology.simpleTable.ID
-            )
-          )
-          .leftJoin(
-            Topology.stringTable.on(
-              Topology.stringTable.VALUE IS Topology.simpleTable.VALUE
-            )
-          )
-          .where(Topology.relationshipTable.VALUE IS Topology.simpleTable.VALUE)
-          .queryDeep()
+        val subquery = SELECT
+          .COLUMN(Topology.stringTable.ID)
+          .FROM(Topology.relationshipTable)
+          .LEFT_JOIN(Topology.simpleTable)
+          .ON(Topology.relationshipTable.RELATED_ENTITY IS Topology.simpleTable.ID)
+          .LEFT_JOIN(Topology.stringTable)
+          .ON(Topology.stringTable.VALUE IS Topology.simpleTable.VALUE)
+          .WHERE(Topology.relationshipTable.VALUE IS Topology.simpleTable.VALUE)
 
-        Select
-          .column(Topology.stringTable.ID)
-          .from(Topology.stringTable)
-          .where(Topology.stringTable.ID IS subquery)
-          .orderBy(Topology.stringTable.ID.asc())
+        SELECT
+          .COLUMN(Topology.stringTable.ID)
+          .FROM(Topology.stringTable)
+          .WHERE(Topology.stringTable.ID IS subquery.asScalar())
+          .ORDER_BY(Topology.stringTable.ID.ASC())
       },
       initial = listOf(outer.id),
       mutations = listOf(
         QueryObservationMutation(
           name = "EntityWithRelationship",
-          apply = {
+          mutate = {
             Topology.updateRelationshipValue(
               value = parent,
               newValue = "complex-subquery-updated"
@@ -228,7 +214,7 @@ internal object QueryObservationCatalog {
         ),
         QueryObservationMutation(
           name = "SimpleMutableEntity",
-          apply = {
+          mutate = {
             Topology.updateSimpleValue(
               value = related,
               newValue = "complex-subquery-updated"
@@ -239,7 +225,7 @@ internal object QueryObservationCatalog {
         ),
         QueryObservationMutation(
           name = "StringIdEntity",
-          apply = {
+          mutate = {
             Topology.updateStringValue(
               value = outer,
               newValue = "complex-subquery-updated"
@@ -247,8 +233,7 @@ internal object QueryObservationCatalog {
           },
           expected = listOf(outer.id)
         )
-      ),
-      unrelatedWrite = QueryPredicateCatalog::seed
+      )
     )
   }
 
@@ -265,21 +250,17 @@ internal object QueryObservationCatalog {
 
     return QueryObservationScenario(
       query = {
-        val subquery = Select
-          .column(Topology.relationshipTable.ID)
-          .from(Topology.relationshipTable)
-          .leftJoin(
-            Topology.simpleTable.on(
-              Topology.relationshipTable.RELATED_ENTITY IS Topology.simpleTable.ID
-            )
-          )
-          .where(Topology.relationshipTable.VALUE IS Topology.simpleTable.VALUE)
-          .queryDeep()
+        val subquery = SELECT
+          .COLUMN(Topology.relationshipTable.ID)
+          .FROM(Topology.relationshipTable)
+          .LEFT_JOIN(Topology.simpleTable)
+          .ON(Topology.relationshipTable.RELATED_ENTITY IS Topology.simpleTable.ID)
+          .WHERE(Topology.relationshipTable.VALUE IS Topology.simpleTable.VALUE)
 
-        Select
-          .from(Topology.relationshipTable)
-          .where(Topology.relationshipTable.ID IS subquery)
-          .orderBy(Topology.relationshipTable.ID.asc())
+        SELECT
+          .FROM(Topology.relationshipTable)
+          .WHERE(Topology.relationshipTable.ID IS subquery.asScalar())
+          .ORDER_BY(Topology.relationshipTable.ID.ASC())
           .queryDeep()
       },
       initial = listOf(
@@ -294,7 +275,7 @@ internal object QueryObservationCatalog {
       mutations = listOf(
         QueryObservationMutation(
           name = "EntityWithRelationship",
-          apply = {
+          mutate = {
             Topology.updateRelationshipValue(
               value = parent,
               newValue = "complex-outer-updated"
@@ -305,7 +286,7 @@ internal object QueryObservationCatalog {
         ),
         QueryObservationMutation(
           name = "SimpleMutableEntity",
-          apply = {
+          mutate = {
             Topology.updateSimpleValue(
               value = related,
               newValue = "complex-outer-updated"
@@ -322,8 +303,7 @@ internal object QueryObservationCatalog {
             )
           )
         )
-      ),
-      unrelatedWrite = QueryPredicateCatalog::seed
+      )
     )
   }
 
@@ -367,64 +347,58 @@ internal object QueryObservationCatalog {
     val relationshipTable = ENTITY_WITH_RELATIONSHIP
     val stringTable = STRING_ID_ENTITY
 
-    fun insert(value: SimpleMutableEntity) =
-      check(
-        value
-          .insert()
-          .execute() is EntityInsertResult.Inserted
-      )
+    fun insert(value: SimpleMutableEntity) = insertedResult(
+      result = value
+        .insert()
+        .execute(),
+      modelName = "SimpleMutableEntity"
+    )
 
-    fun insert(value: EntityWithRelationship) =
-      check(
-        value
-          .insert()
-          .execute() is EntityInsertResult.Inserted
-      )
+    fun insert(value: EntityWithRelationship) = insertedResult(
+      result = value
+        .insert()
+        .execute(),
+      modelName = "EntityWithRelationship"
+    )
 
-    fun insert(value: StringIdEntity) =
-      check(
-        value
-          .insert()
-          .execute() is EntityInsertResult.Inserted
-      )
+    fun insert(value: StringIdEntity) = insertedResult(
+      result = value
+        .insert()
+        .execute(),
+      modelName = "StringIdEntity"
+    )
 
     fun updateSimpleValue(
       value: SimpleMutableEntity,
       newValue: String
-    ) {
-      check(
-        Update
-          .table(simpleTable)
-          .setNullable(simpleTable.VALUE, newValue)
-          .where(simpleTable.ID IS checkNotNull(value.id))
-          .execute() == 1
-      )
-    }
+    ) = check(
+      UPDATE
+        .TABLE(simpleTable)
+        .SET(simpleTable.VALUE, newValue)
+        .WHERE(simpleTable.ID IS checkNotNull(value.id))
+        .execute() == 1
+    )
 
     fun updateRelationshipValue(
       value: EntityWithRelationship,
       newValue: String
-    ) {
-      check(
-        Update
-          .table(relationshipTable)
-          .setNullable(relationshipTable.VALUE, newValue)
-          .where(relationshipTable.ID IS checkNotNull(value.id))
-          .execute() == 1
-      )
-    }
+    ) = check(
+      UPDATE
+        .TABLE(relationshipTable)
+        .SET(relationshipTable.VALUE, newValue)
+        .WHERE(relationshipTable.ID IS checkNotNull(value.id))
+        .execute() == 1
+    )
 
     fun updateStringValue(
       value: StringIdEntity,
       newValue: String
-    ) {
-      check(
-        Update
-          .table(stringTable)
-          .set(stringTable.VALUE, newValue)
-          .where(stringTable.ID IS value.id)
-          .execute() == 1
-      )
-    }
+    ) = check(
+      UPDATE
+        .TABLE(stringTable)
+        .SET(stringTable.VALUE, newValue)
+        .WHERE(stringTable.ID IS value.id)
+        .execute() == 1
+    )
   }
 }

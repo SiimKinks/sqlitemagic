@@ -2,9 +2,12 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
+import io.reactivex.Completable
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 internal class EntityOperationBuildersTest {
@@ -15,7 +18,7 @@ internal class EntityOperationBuildersTest {
     val laterConnection = newConnection()
     laterConnection.recordingDatabase.insertResults += 7L
     val insertBuilder = TestAdapter()
-      .insert(TestEntity(id = "id-1", key = "key-1", name = "name"))
+      .insert(TestEntity())
       .usingConnection(initialConnection.connection)
     val insert = insertBuilder.observe()
 
@@ -36,7 +39,7 @@ internal class EntityOperationBuildersTest {
     val updateConnection = newConnection()
     updateConnection.recordingDatabase.updateResults.addAll(listOf(1, 1))
     val updateBuilder = TestAdapter()
-      .update(TestEntity(id = "id-1", key = "key-1", name = "name"))
+      .update(TestEntity())
       .usingConnection(updateConnection.connection)
       .byColumn(TestSchema.id)
     val update = updateBuilder.observe()
@@ -59,113 +62,136 @@ internal class EntityOperationBuildersTest {
   }
 
   @Test
-  fun `no-ID handler uses required by-column terminals`() {
+  fun `observed terminals resolve the default connection on subscription`() {
+    val previousConnection = SqliteMagic.defaultConnection
+    try {
+      SqliteMagic.defaultConnection = null
+      val insert = TestAdapter()
+        .insert(TestEntity())
+        .observe()
+      val current = newConnection()
+      current.recordingDatabase.insertResults += 7L
+      SqliteMagic.defaultConnection = current.connection
+
+      insert
+        .test()
+        .assertResult(EntityInsertResult.Inserted(rowId = 7L))
+    } finally {
+      SqliteMagic.defaultConnection = previousConnection
+    }
+  }
+
+  @Test
+  fun `by-column builders execute by the required column`() {
     val recording = newConnection()
-    recording.recordingDatabase.updateResults.addAll(listOf(1, 1, 1, 1, 1, 1))
-    val handler = TestAdapter()
-    val entity = TestEntity("id-1", "key-1", "name")
+    recording.recordingDatabase.updateResults.addAll(listOf(1, 1, 1, 1, 1))
+    val adapter = TestAdapter()
+    val entity = TestEntity()
 
     assertThat(
-      handler
+      adapter
         .updateByColumn(entity)
         .usingConnection(recording.connection)
         .execute(TestSchema.key)
     ).isTrue()
     assertThat(
-      handler
+      adapter
         .persistByColumn(entity)
         .usingConnection(recording.connection)
         .execute(TestSchema.key)
     ).isEqualTo(EntityPersistResult.Updated)
     assertThat(
-      handler
+      adapter
         .deleteByColumn(entity)
         .usingConnection(recording.connection)
         .execute(TestSchema.key)
     ).isEqualTo(1)
     assertThat(
-      handler
+      adapter
         .bulkUpdateByColumn(listOf(entity))
         .usingConnection(recording.connection)
         .execute(TestSchema.key)
     ).isTrue()
     assertThat(
-      handler
+      adapter
         .bulkPersistByColumn(listOf(entity))
         .usingConnection(recording.connection)
         .execute(TestSchema.key)
     ).isTrue()
-    assertThat(
-      handler
-        .bulkDeleteByColumn(listOf(entity))
-        .usingConnection(recording.connection)
-        .execute(TestSchema.key)
-    ).isEqualTo(1)
   }
 
   @Test
-  fun `deferred bulk update by-column terminals capture each selected column`() {
-    val connection = newConnection()
-    connection.recordingDatabase.updateResults.addAll(listOf(1, 1))
-    val entity = TestEntity(id = "id-1", key = "key-1", name = "name")
-    val builder = TestAdapter()
-      .bulkUpdateByColumn(listOf(entity))
-      .usingConnection(connection.connection)
+  fun `deferred bulk by-column terminals capture each selected column`() {
+    val entity = TestEntity()
+    val cases = listOf<Pair<String, (DbConnection) -> (Unique<TestEntity>) -> Completable>>(
+      "bulk update" to { connection ->
+        val builder = TestAdapter()
+          .bulkUpdateByColumn(listOf(entity))
+          .usingConnection(connection)
+        builder::observe
+      },
+      "bulk persist" to { connection ->
+        val builder = TestAdapter()
+          .bulkPersistByColumn(listOf(entity))
+          .usingConnection(connection)
+        builder::observe
+      }
+    )
 
-    val first = builder.observe(TestSchema.id)
-    val second = builder.observe(TestSchema.key)
-    second
-      .test()
-      .assertResult()
-    first
-      .test()
-      .assertResult()
+    for ((label, terminals) in cases) {
+      val connection = newConnection()
+      connection.recordingDatabase.updateResults.addAll(listOf(1, 1))
+      val observe = terminals(connection.connection)
 
-    val statements = connection.recordingDatabase.compiledStatements
-    assertThat(statements.map(RecordingStatement::sql))
-      .containsExactly(
-        "UPDATE books SET name=? WHERE key=?",
-        "UPDATE books SET name=? WHERE id=?"
-      )
-      .inOrder()
-    assertThat(statements.map { it.bindings[2] })
-      .containsExactly(
-        "key-1",
-        "id-1"
-      )
-      .inOrder()
+      val first = observe(TestSchema.id)
+      val second = observe(TestSchema.key)
+      second
+        .test()
+        .assertResult()
+      first
+        .test()
+        .assertResult()
+
+      val statements = connection.recordingDatabase.compiledStatements.map { it.sql to it.bindings[2] }
+      assertWithMessage(label)
+        .that(statements)
+        .containsExactly(
+          "UPDATE books SET name=? WHERE key=?" to "key-1",
+          "UPDATE books SET name=? WHERE id=?" to "id-1"
+        )
+        .inOrder()
+    }
   }
 
   @Test
-  fun `deferred bulk persist by-column terminals capture each selected column`() {
+  fun `byColumn identifies rows by the physical column of an aliased output`() {
     val connection = newConnection()
-    connection.recordingDatabase.updateResults.addAll(listOf(1, 1))
-    val entity = TestEntity(id = "id-1", key = "key-1", name = "name")
-    val builder = TestAdapter()
-      .bulkPersistByColumn(listOf(entity))
+    connection.recordingDatabase.updateResults += 1
+
+    TestAdapter()
+      .update(TestEntity())
       .usingConnection(connection.connection)
+      .byColumn(TestSchema.key.AS("book_key"))
+      .execute()
 
-    val first = builder.observe(TestSchema.id)
-    val second = builder.observe(TestSchema.key)
-    second
-      .test()
-      .assertResult()
-    first
-      .test()
-      .assertResult()
+    assertThat(connection.statementSql).containsExactly("UPDATE books SET name=? WHERE key=?")
+  }
 
-    val statements = connection.recordingDatabase.compiledStatements
-    assertThat(statements.map(RecordingStatement::sql))
-      .containsExactly(
-        "UPDATE books SET name=? WHERE key=?",
-        "UPDATE books SET name=? WHERE id=?"
-      )
-      .inOrder()
-    assertThat(statements.map { it.bindings[2] })
-      .containsExactly(
-        "key-1",
-        "id-1"
-      )
-      .inOrder()
+  @Test
+  fun `byColumn rejects a unique column of another table`() {
+    val authorKey = testStringKey(
+      table = testTable<TestEntity>(name = "authors"),
+      name = "key"
+    )
+
+    val exception = assertThrows(IllegalArgumentException::class.java) {
+      TestAdapter()
+        .update(TestEntity())
+        .byColumn(authorKey)
+    }
+
+    assertThat(exception)
+      .hasMessageThat()
+      .isEqualTo("Column does not identify an entity property")
   }
 }

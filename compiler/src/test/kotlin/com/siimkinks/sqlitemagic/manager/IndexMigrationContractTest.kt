@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.exists
 
 internal class IndexMigrationContractTest {
   @TempDir
@@ -11,12 +12,12 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `creates an index added without table changes`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable())
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable())
     )
-    val current = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "books_id" to index(name = "books_id")
       )
     )
@@ -34,14 +35,14 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `drops an index removed without table changes`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "books_id" to index(name = "books_id")
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable())
+    val current = DatabaseStructure(
+      tables = mapOf("books" to persistentTable())
     )
 
     assertThat(
@@ -57,19 +58,19 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `replaces a same-name index when its SQL changes around table work`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "books_lookup" to index(
           name = "books_lookup",
           columns = listOf("id")
         )
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -78,7 +79,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_lookup" to index(
           name = "books_lookup",
           columns = listOf("title")
@@ -101,16 +102,16 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `replaces a same-name index when uniqueness changes around table work`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "books_id" to index(name = "books_id")
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -119,7 +120,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_id" to index(
           name = "books_id",
           unique = true
@@ -142,10 +143,10 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `replaces a same-name index when column order changes around table work`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -154,17 +155,17 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_lookup" to index(
           name = "books_lookup",
           columns = listOf("id", "title")
         )
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -177,7 +178,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_lookup" to index(
           name = "books_lookup",
           columns = listOf("title", "id")
@@ -200,19 +201,19 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `replaces a same-name index when its owner changes around table work`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "shared_lookup" to index(
           name = "shared_lookup",
           table = "books"
         )
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -222,7 +223,7 @@ internal class IndexMigrationContractTest {
         ),
         "authors" to persistentTable(name = "authors")
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "shared_lookup" to index(
           name = "shared_lookup",
           table = "authors"
@@ -246,15 +247,15 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `treats a case-only index rename as drop and create`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "Books_ID" to index(name = "Books_ID")
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "books_id" to index(name = "books_id")
       )
     )
@@ -278,10 +279,10 @@ internal class IndexMigrationContractTest {
       name = "books_title",
       columns = listOf("title")
     )
-    val previous = databaseStructure(
-      tables = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -290,19 +291,19 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         firstIndex.name to firstIndex,
         secondIndex.name to secondIndex
       )
     )
-    val current = databaseStructure(
-      tables = LinkedHashMap(previous.tables),
-      indices = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = previous.tables,
+      indices = mapOf(
         secondIndex.name to secondIndex,
         firstIndex.name to firstIndex
       )
     )
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
+    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql")
 
     assertThat(
       runMigrationResult(
@@ -316,16 +317,16 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `keeps an unchanged index during a safe append-column migration`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "books_id" to index(name = "books_id")
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -334,7 +335,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_id" to index(name = "books_id")
       )
     )
@@ -352,10 +353,10 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `recreates every desired index after a direct table rebuild`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -364,7 +365,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_id" to index(name = "books_id"),
         "books_title" to index(
           name = "books_title",
@@ -372,10 +373,10 @@ internal class IndexMigrationContractTest {
         )
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -384,7 +385,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_id" to index(name = "books_id"),
         "books_title" to index(
           name = "books_title",
@@ -413,12 +414,12 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `recreates every desired index after a cascading dependency rebuild`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf(
         "parents" to persistentTable(name = "parents"),
         "children" to persistentTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "parent_id",
@@ -428,7 +429,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "parents_id" to index(
           name = "parents_id",
           table = "parents"
@@ -440,11 +441,11 @@ internal class IndexMigrationContractTest {
         )
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "parents" to persistentTable(
           name = "parents",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "value",
@@ -454,7 +455,7 @@ internal class IndexMigrationContractTest {
         ),
         "children" to persistentTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "parent_id",
@@ -464,7 +465,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "parents_id" to index(
           name = "parents_id",
           table = "parents"
@@ -501,45 +502,19 @@ internal class IndexMigrationContractTest {
   }
 
   @Test
-  fun `creates a unique index added without table changes`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable())
-    )
-    val current = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
-        "books_unique_id" to index(
-          name = "books_unique_id",
-          unique = true
-        )
-      )
-    )
-
-    assertThat(
-      runMigration(
-        previous = previous,
-        current = current,
-        temporaryDirectory = temporaryDirectory
-      )
-    ).containsExactly(
-      """CREATE UNIQUE INDEX IF NOT EXISTS main."books_unique_id" ON "books" ("id")"""
-    )
-  }
-
-  @Test
   fun `reconciles index ownership through a simple table rename`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("legacy_books" to persistentTable(name = "legacy_books")),
-      indices = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf("legacy_books" to persistentTable(name = "legacy_books")),
+      indices = mapOf(
         "books_lookup" to index(
           name = "books_lookup",
           table = "legacy_books"
         )
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(
         "books_lookup" to index(
           name = "books_lookup",
           table = "books"
@@ -562,12 +537,12 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `drops indexes owned by a removed table before dropping the table`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(),
         "authors" to persistentTable(name = "authors")
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_id" to index(name = "books_id"),
         "authors_id" to index(
           name = "authors_id",
@@ -575,9 +550,9 @@ internal class IndexMigrationContractTest {
         )
       )
     )
-    val current = databaseStructure(
-      tables = linkedMapOf("authors" to persistentTable(name = "authors")),
-      indices = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf("authors" to persistentTable(name = "authors")),
+      indices = mapOf(
         "authors_id" to index(
           name = "authors_id",
           table = "authors"
@@ -599,15 +574,15 @@ internal class IndexMigrationContractTest {
 
   @Test
   fun `creates indexes for a new table after creating the table`() {
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable())
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable())
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(),
         "authors" to persistentTable(name = "authors")
       ),
-      indices = linkedMapOf(
+      indices = mapOf(
         "authors_id" to index(
           name = "authors_id",
           table = "authors"
@@ -628,49 +603,16 @@ internal class IndexMigrationContractTest {
   }
 
   @Test
-  fun `quotes special index names in schema-qualified create SQL`() {
-    val specialIndex = index(name = "book.idx\"quoted")
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable())
-    )
-    val current = databaseStructure(
-      tables = linkedMapOf(
-        "books" to persistentTable(
-          columns = arrayListOf(
-            idColumn(),
-            migrationColumn(
-              name = "title",
-              schema = "title TEXT DEFAULT ''"
-            )
-          )
-        )
-      ),
-      indices = linkedMapOf(specialIndex.name to specialIndex)
-    )
-
-    assertThat(
-      runMigration(
-        previous = previous,
-        current = current,
-        temporaryDirectory = temporaryDirectory
-      )
-    ).containsExactly(
-      "ALTER TABLE books ADD COLUMN title TEXT DEFAULT ''",
-      """CREATE INDEX IF NOT EXISTS main."book.idx""quoted" ON "books" ("id")"""
-    ).inOrder()
-  }
-
-  @Test
   fun `quotes special index names in schema-qualified drop SQL`() {
-    val specialIndex = index(name = "book.idx\"quoted")
-    val previous = databaseStructure(
-      tables = linkedMapOf("books" to persistentTable()),
-      indices = linkedMapOf(specialIndex.name to specialIndex)
+    val specialIndex = index(name = """book.idx"quoted""")
+    val previous = DatabaseStructure(
+      tables = mapOf("books" to persistentTable()),
+      indices = mapOf(specialIndex.name to specialIndex)
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -696,10 +638,10 @@ internal class IndexMigrationContractTest {
   @Test
   fun `reserves previous and current index identities for rebuild scratch names`() {
     val previousIndex = index(name = "books_")
-    val previous = databaseStructure(
-      tables = linkedMapOf(
+    val previous = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -708,12 +650,12 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(previousIndex.name to previousIndex)
+      indices = mapOf(previousIndex.name to previousIndex)
     )
-    val current = databaseStructure(
-      tables = linkedMapOf(
+    val current = DatabaseStructure(
+      tables = mapOf(
         "books" to persistentTable(
-          columns = arrayListOf(
+          columns = listOf(
             idColumn(),
             migrationColumn(
               name = "title",
@@ -722,7 +664,7 @@ internal class IndexMigrationContractTest {
           )
         )
       ),
-      indices = linkedMapOf(previousIndex.name to previousIndex)
+      indices = mapOf(previousIndex.name to previousIndex)
     )
 
     assertThat(
@@ -742,53 +684,9 @@ internal class IndexMigrationContractTest {
   }
 }
 
-private data class MigrationRun(
-  val migrationHappened: Boolean,
-  val statements: List<String>
-)
-
-internal fun runMigration(
-  previous: DatabaseStructure,
-  current: DatabaseStructure,
-  temporaryDirectory: Path
-): List<String> = runMigrationResult(
-  previous = previous,
-  current = current,
-  temporaryDirectory = temporaryDirectory
-).also { result ->
-  assertThat(result.migrationHappened).isTrue()
-}.statements
-
-private fun runMigrationResult(
-  previous: DatabaseStructure,
-  current: DatabaseStructure,
-  temporaryDirectory: Path
-): MigrationRun {
-  val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-  val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
-  val migrationHappened = MigrationsHandler(
-    currentStructure = current,
-    previousStructure = previous,
-    outputStructureFile = structureFile,
-    migrationOutputFile = migrationFile
-  ).migrate()
-  return MigrationRun(
-    migrationHappened = migrationHappened,
-    statements = migrationFile.takeIf(java.io.File::isFile)?.readLines().orEmpty()
-  )
-}
-
-private fun databaseStructure(
-  tables: LinkedHashMap<String, TableStructure> = linkedMapOf(),
-  indices: LinkedHashMap<String, IndexStructure> = linkedMapOf()
-) = DatabaseStructure(
-  tables = tables,
-  indices = indices
-)
-
 private fun persistentTable(
   name: String = "books",
-  columns: ArrayList<ColumnStructure> = arrayListOf(idColumn())
+  columns: List<ColumnStructure> = listOf(idColumn())
 ) = migrationTable(
   name = name,
   columns = columns
@@ -810,20 +708,15 @@ private fun index(
   schema: String = "main"
 ) = IndexStructure(
   name = name,
-  indexSql = buildString {
-    if (unique) append("CREATE UNIQUE") else append("CREATE")
-    append(" INDEX IF NOT EXISTS ")
-    append(schema)
-    append('.')
-    append(quoteIdentifier(name))
-    append(" ON ")
-    append(quoteIdentifier(table))
-    append(" (")
-    append(columns.joinToString(separator = ", ", transform = ::quoteIdentifier))
-    append(')')
-  },
+  indexSql = listOfNotNull(
+    "CREATE",
+    "UNIQUE".takeIf { unique },
+    "INDEX IF NOT EXISTS $schema.${quoteIdentifier(name)} ON ${quoteIdentifier(table)}",
+    "(${columns.joinToString(separator = ", ", transform = ::quoteIdentifier)})"
+  )
+    .joinToString(separator = " "),
   forTable = table
 )
 
 private fun quoteIdentifier(identifier: String) =
-  "\"${identifier.replace(oldValue = "\"", newValue = "\"\"")}\""
+  """"${identifier.replace(oldValue = "\"", newValue = "\"\"")}""""

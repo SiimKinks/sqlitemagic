@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 
-class MigrationMetadataTasksTest {
+internal class MigrationMetadataTasksTest {
   @TempDir
   lateinit var directory: Path
 
@@ -149,7 +149,7 @@ class MigrationMetadataTasksTest {
         "unknown module" -> assets.resolve("RemovedFeature140.sql")
           .writeText("SELECT 1\n")
         "changed schema" -> currentSchema.writeText("{}")
-        "changed view" -> currentSchema.writeText(STRUCTURE.dropLast(1) + ",\"views\":{}}")
+        "changed view" -> currentSchema.writeText(STRUCTURE.dropLast(1) + ""","views":{}}""")
       }
       val before = sourceBytes(task.project.projectDir)
 
@@ -274,8 +274,8 @@ class MigrationMetadataTasksTest {
 
   private fun sourceBytes(root: File) = root.walkTopDown()
     .filter(File::isFile)
-    .filterNot { file ->
-      file.relativeTo(root)
+    .filterNot {
+      it.relativeTo(root)
         .path.startsWith("build/")
     }
     .associate { it.relativeTo(root).path to fileBytes(it) }

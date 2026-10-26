@@ -3,35 +3,38 @@ package com.siimkinks.sqlitemagic.runtime.contract.delete
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.BulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class SuccessfulBulkDeleteTest(
+internal class SuccessfulBulkDeleteTest(
   private val modelCase: BulkDeleteModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeDeletesMiddleRowsAndRetainsRemainingState() {
-    assertSuccessfulDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeDeletesMiddleRowsAndRetainsRemainingState() {
-    assertSuccessfulDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeDeletesMiddleRowsAndRetainsRemainingState() = assertSuccessfulDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeDeletesMiddleRowsAndRetainsRemainingState() = assertSuccessfulDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertSuccessfulDelete(
     modelCase: BulkDeleteModelCase<T>,
@@ -66,7 +69,7 @@ class SuccessfulBulkDeleteTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.bulkDeleteCases
   }
 }

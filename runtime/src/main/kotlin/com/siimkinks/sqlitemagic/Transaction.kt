@@ -41,6 +41,7 @@ interface Transaction : Closeable {
    *
    * @param sleepAmount If greater than zero, sleep this long before restarting a transaction when
    * the lock was yielded, allowing other background threads to make more progress.
+   * @param sleepUnit Time unit of [sleepAmount]
    * @return true if the transaction was yielded
    * @see SQLiteDatabase.yieldIfContendedSafely
    */

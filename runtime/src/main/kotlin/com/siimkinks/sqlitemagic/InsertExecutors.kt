@@ -2,67 +2,78 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import androidx.sqlite.db.SupportSQLiteStatement
-import com.siimkinks.sqlitemagic.EntityOperation.INSERT
+import com.siimkinks.sqlitemagic.BulkEntityOutcome.APPLIED
+import com.siimkinks.sqlitemagic.BulkEntityOutcome.IGNORED
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
+import com.siimkinks.sqlitemagic.internal.recursiveOrNull
 
 internal object InsertExecutors {
-  @Suppress("UNCHECKED_CAST")
-  private fun <M> generatedIdAdapter(adapter: EntityAdapter<M>) =
-    adapter as? EntityGeneratedIdAdapter<M>
-
   fun <M> execute(
     adapter: EntityAdapter<M>,
     entity: M,
     context: OperationContext,
-    includeRelationships: Boolean = true,
-    publishTriggers: Boolean = true,
-    logOperation: Boolean = true
+    standalone: Boolean = true
   ): EntityInsertResult {
-    val recursiveAdapter = adapter as? EntityRecursiveAdapter<M>
-    val includesRecursiveRelationships = includeRelationships && recursiveAdapter != null
-    val operation = {
-      val relationshipsInserted = when {
-        includesRecursiveRelationships -> recursiveAdapter.insertRelationships(
-          entity = entity,
-          operations = RelationshipOperations(context)
-        )
-        else -> true
-      }
-      when {
-        !relationshipsInserted && context.conflictAlgorithm == CONFLICT_IGNORE -> EntityInsertResult.Ignored
-        !relationshipsInserted -> throw OperationFailedException("Failed to insert relationship for $entity")
-        else -> mapResult(
+    val recursiveAdapter = when {
+      standalone -> adapter.recursiveOrNull()
+      else -> null
+    }
+    return when (recursiveAdapter) {
+      null -> insert(
+        adapter = adapter,
+        recursiveAdapter = null,
+        entity = entity,
+        context = context,
+        standalone = standalone
+      )
+      else -> context.executeInTransaction {
+        insert(
           adapter = adapter,
-          rowId = executeInternal(
-            adapter = adapter,
-            entity = entity,
-            context = context,
-            logOperation = logOperation
-          ),
-          conflictAlgorithm = context.conflictAlgorithm,
-          failureMessage = "Failed to insert $entity"
+          recursiveAdapter = recursiveAdapter,
+          entity = entity,
+          context = context,
+          standalone = true
         )
-      }.also { result ->
-        if (publishTriggers && (result is EntityInsertResult.Inserted || includesRecursiveRelationships)) {
-          context.sendTableTriggers(adapter)
-        }
       }
     }
-    return try {
-      when {
-        includesRecursiveRelationships -> context.executeInTransaction(operation)
-        else -> operation()
+  }
+
+  private fun <M> insert(
+    adapter: EntityAdapter<M>,
+    recursiveAdapter: EntityRecursiveAdapter<M>?,
+    entity: M,
+    context: OperationContext,
+    standalone: Boolean
+  ): EntityInsertResult {
+    val relationshipsInserted = recursiveAdapter
+      ?.insertRelationships(
+        entity = entity,
+        operations = RelationshipOperations(context)
+      )
+      ?: true
+    return when {
+      !relationshipsInserted && context.conflictAlgorithm == CONFLICT_IGNORE -> EntityInsertResult.Ignored
+      !relationshipsInserted -> throw OperationFailedException("Failed to insert relationship for $entity")
+      else -> mapResult(
+        adapter = adapter,
+        rowId = executeInternal(
+          adapter = adapter,
+          entity = entity,
+          context = context,
+          logOperation = standalone
+        ),
+        conflictAlgorithm = context.conflictAlgorithm,
+        failureMessage = "Failed to insert $entity"
+      )
+    }.also { result ->
+      if (standalone && (result is EntityInsertResult.Inserted || recursiveAdapter != null)) {
+        context.sendTableTriggers(adapter)
       }
-    } catch (exception: OperationFailedException) {
-      context.logError(exception = exception, message = "Operation failed")
-      throw exception
-    } catch (exception: Exception) {
-      throw OperationFailedException("Failed to insert $entity", exception)
     }
   }
 
@@ -77,31 +88,21 @@ internal object InsertExecutors {
       if (logOperation) {
         context.logInsert(entity = entity)
       }
-      val rowId = context
-        .operationHelper(operation = INSERT)
-        .use { helper ->
-          val statement = helper.insertStatement(
-            tableName = adapter.tableName,
-            sql = adapter.insertSql,
-            manager = context.entityDbManager()
-          )
-          synchronized(statement) {
-            adapter.bindToInsertStatement(
-              statement = statement,
-              entity = entity,
-              generatedRelationshipIds = context.generatedRelationshipIds
-            )
-            executeStatement(
-              statement = statement,
-              withoutRowId = adapter.withoutRowId,
-              execution = this@mutation
-            )
-          }
-        }
+      val rowId = context.withInsertStatement(adapter.insertSql) { statement ->
+        adapter.bindToInsertStatement(
+          statement = statement,
+          entity = entity,
+          generatedRelationshipIds = context.generatedRelationshipIds
+        )
+        executeStatement(
+          statement = statement,
+          withoutRowId = adapter.withoutRowId,
+          execution = this@mutation
+        )
+      }
       complete(
         adapter = adapter,
         entity = entity,
-        context = context,
         rowId = rowId,
         logOperation = logOperation
       )
@@ -111,54 +112,29 @@ internal object InsertExecutors {
   fun <M> executeIgnoringNullValues(
     adapter: EntityIdentityAdapter<M>,
     entity: M,
-    context: OperationContext,
-    logOperation: Boolean
+    context: OperationContext
   ) = context.executeMutation(
     adapter = adapter,
     operation = mutation@{
-      if (logOperation) {
-        context.logInsert(entity = entity)
-      }
       adapter.bindNotNullForInsert(
         entity = entity,
         values = context.bindValues,
         generatedRelationshipIds = context.generatedRelationshipIds
       )
-      val rowId = when {
-        context.bindValues.isEmpty() -> context
-          .entityDbManager()
-          .compileStatement(
-            "INSERT${context.conflictValue()} INTO ${adapter.tableName} DEFAULT VALUES"
+      val rowId = context
+        .compileInsertStatement(adapter.tableName)
+        .use { statement ->
+          executeStatement(
+            statement = statement,
+            withoutRowId = adapter.withoutRowId,
+            execution = this@mutation
           )
-          .use { statement ->
-            executeStatement(
-              statement = statement,
-              withoutRowId = adapter.withoutRowId,
-              execution = this@mutation
-            )
-          }
-        else -> context
-          .variableArgsOperationHelper
-          .compileInsertStatement(
-            tableName = adapter.tableName,
-            maxColumns = adapter.maxColumns,
-            values = context.bindValues,
-            manager = context.entityDbManager()
-          )
-          .use { statement ->
-            executeStatement(
-              statement = statement,
-              withoutRowId = adapter.withoutRowId,
-              execution = this@mutation
-            )
-          }
-      }
+        }
       complete(
         adapter = adapter,
         entity = entity,
-        context = context,
         rowId = rowId,
-        logOperation = logOperation
+        logOperation = false
       )
     }
   )
@@ -178,18 +154,17 @@ internal object InsertExecutors {
   private fun <M> complete(
     adapter: EntityAdapter<M>,
     entity: M,
-    context: OperationContext,
     rowId: Long,
     logOperation: Boolean
   ): Long {
     if (rowId != -1L && !adapter.withoutRowId) {
-      generatedIdAdapter(adapter)?.assignGeneratedId(
+      (adapter as? EntityGeneratedIdAdapter<M>)?.assignGeneratedId(
         entity = entity,
         rowId = rowId
       )
     }
     if (logOperation) {
-      context.logInsertId(rowId = rowId)
+      logInsertId(rowId = rowId)
     }
     return rowId
   }
@@ -202,7 +177,12 @@ internal object InsertExecutors {
   ) = when (rowId) {
     -1L if conflictAlgorithm == CONFLICT_IGNORE -> EntityInsertResult.Ignored
     -1L -> throw OperationFailedException(failureMessage)
-    else -> EntityInsertResult.Inserted(if (adapter.withoutRowId) null else rowId)
+    else -> EntityInsertResult.Inserted(
+      when {
+        adapter.withoutRowId -> null
+        else -> rowId
+      }
+    )
   }
 
   fun <M> executeBulk(
@@ -210,7 +190,7 @@ internal object InsertExecutors {
     entities: Iterable<M>,
     context: OperationContext,
     isCancelled: () -> Boolean
-  ): BulkOperationOutcome = executeBulkOperation(
+  ) = executeBulkOperation(
     adapter = adapter,
     entities = entities,
     context = context,
@@ -222,12 +202,9 @@ internal object InsertExecutors {
         context = context.childWithoutTableTriggers()
       )
       when (result) {
-        is EntityInsertResult.Inserted -> BulkEntityOutcome.APPLIED
-        EntityInsertResult.Ignored -> BulkEntityOutcome.IGNORED
+        is EntityInsertResult.Inserted -> APPLIED
+        EntityInsertResult.Ignored -> IGNORED
       }
     }
   )
 }
-
-private fun OperationContext.conflictValue() =
-  ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm]

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.migration
 
+import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 import java.io.FileNotFoundException
 import java.io.InputStreamReader
 import java.nio.charset.CodingErrorAction
@@ -30,9 +31,8 @@ class MigrationExecutor(
     onScript: (MigrationResource) -> Unit = {}
   ) {
     for (name in database.persistentViewNames()) {
-      val escapedName = name.replace(oldValue = "\"", newValue = "\"\"")
       try {
-        database.execute("DROP VIEW IF EXISTS main.\"$escapedName\"")
+        database.execute("DROP VIEW IF EXISTS main.${quoteSqlIdentifier(name)}")
       } catch (exception: Exception) {
         throw IllegalStateException("Error removing persistent view $name", exception)
       }
@@ -88,34 +88,35 @@ class MigrationExecutor(
         Charsets.UTF_8.newDecoder()
           .onMalformedInput(CodingErrorAction.REPORT)
           .onUnmappableCharacter(CodingErrorAction.REPORT)
-      ).buffered().use { reader ->
-        onScript(resource)
-        reader
-          .lineSequence()
-          .withIndex()
-          .forEach { (index, line) ->
-            lineNumber = index + 1
-            if (line.isNotBlank() && !line.isSqlComment()) {
-              try {
-                database.execute(line)
-              } catch (exception: Exception) {
-                throw failure(
-                  cause = exception,
-                  statementText = line.take(500)
-                )
+      )
+        .buffered()
+        .use { reader ->
+          onScript(resource)
+          reader
+            .lineSequence()
+            .withIndex()
+            .forEach { (index, line) ->
+              lineNumber = index + 1
+              if (line.isNotBlank() && !line.isSqlComment()) {
+                try {
+                  database.execute(line)
+                } catch (exception: Exception) {
+                  throw failure(
+                    cause = exception,
+                    statementText = line.take(500)
+                  )
+                }
+                statementNumber++
               }
-              statementNumber++
             }
+          check(resource.allowEmpty || statementNumber > 0) {
+            "Migration script contains no executable statements"
           }
-        check(resource.allowEmpty || statementNumber > 0) {
-          "Migration script contains no executable statements"
         }
-      }
+    } catch (exception: MigrationException) {
+      throw exception
     } catch (exception: Exception) {
-      when {
-        exception is MigrationException -> throw exception
-        else -> throw failure(cause = exception)
-      }
+      throw failure(cause = exception)
     }
   }
 

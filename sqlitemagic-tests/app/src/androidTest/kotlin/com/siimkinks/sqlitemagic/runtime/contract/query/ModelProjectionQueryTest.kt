@@ -2,38 +2,34 @@ package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import android.annotation.SuppressLint
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @SuppressLint("CheckResult")
 @RunWith(Parameterized::class)
-class ModelProjectionQueryTest(
+internal class ModelProjectionQueryTest(
   private val modelCase: SuccessfulModelProjectionCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeReturnsExpectedProjectedModels() {
-    assertExecutedModels(modelCase = modelCase)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeRunQueryOnceReturnsExpectedProjectedModels() {
-    assertObservedModels(modelCase = modelCase)
-  }
+  fun executeReturnsExpectedProjectedModels() = assertExecutedModels(modelCase = modelCase)
 
   @Test
-  fun executeTakeFirstReturnsExpectedProjectedModel() {
-    assertFirstExecute(modelCase = modelCase)
-  }
+  fun observeRunQueryOnceReturnsExpectedProjectedModels() = assertObservedModels(modelCase = modelCase)
 
   @Test
-  fun observeRunQueryOnceTakeFirstReturnsExpectedProjectedModel() {
-    assertFirstObserved(modelCase = modelCase)
-  }
+  fun executeTakeFirstReturnsExpectedProjectedModel() = assertFirstExecute(modelCase = modelCase)
+
+  @Test
+  fun observeRunQueryOnceTakeFirstReturnsExpectedProjectedModel() = assertFirstObserved(modelCase = modelCase)
 
   private fun <T> assertExecutedModels(modelCase: SuccessfulModelProjectionCase<T>) {
     val expected = seedExpectedRows(
@@ -42,9 +38,8 @@ class ModelProjectionQueryTest(
     ).map(modelCase::expectedAfterProjection)
 
     assertThat(
-      Select
-        .columns(*modelCase.projectionColumns.toTypedArray())
-        .from(modelCase.table)
+      modelCase
+        .projection()
         .execute()
     ).containsExactlyElementsIn(expected)
   }
@@ -56,9 +51,8 @@ class ModelProjectionQueryTest(
     ).map(modelCase::expectedAfterProjection)
 
     assertThat(
-      Select
-        .columns(*modelCase.projectionColumns.toTypedArray())
-        .from(modelCase.table)
+      modelCase
+        .projection()
         .observe()
         .runQueryOnce()
         .blockingGet()
@@ -74,9 +68,8 @@ class ModelProjectionQueryTest(
       .single()
 
     assertThat(
-      Select
-        .columns(*modelCase.projectionColumns.toTypedArray())
-        .from(modelCase.table)
+      modelCase
+        .projection()
         .takeFirst()
         .execute()
     ).isEqualTo(expected)
@@ -90,9 +83,8 @@ class ModelProjectionQueryTest(
       .map(modelCase::expectedAfterProjection)
       .single()
 
-    Select
-      .columns(*modelCase.projectionColumns.toTypedArray())
-      .from(modelCase.table)
+    modelCase
+      .projection()
       .takeFirst()
       .observe()
       .runQueryOnce()
@@ -102,7 +94,7 @@ class ModelProjectionQueryTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.successfulModelProjectionCases
   }
 }

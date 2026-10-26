@@ -27,7 +27,7 @@ import com.siimkinks.sqlitemagic.internal.ContainerHelpers.EmptyIntArray
  * @see [MutableObjectIntMap]
  * @see ScatterMap
  */
-sealed class ObjectIntMap<K> {
+internal sealed class ObjectIntMap<K> {
   // NOTE: Our arrays are marked internal to implement inlined forEach{}
   // The backing array for the metadata bytes contains
   // `capacity + 1 + ClonedMetadataCount` entries, including when
@@ -88,6 +88,12 @@ sealed class ObjectIntMap<K> {
   /** Returns the value for [key], or `null` if the key is not present in the map. */
   fun getOrNull(key: K): Int? = when (val index = findKeyIndex(key)) {
     -1 -> null
+    else -> values[index]
+  }
+
+  /** Returns the value for [key], or [defaultValue] if the key is not present in the map. */
+  fun getOrDefault(key: K, defaultValue: Int) = when (val index = findKeyIndex(key)) {
+    -1 -> defaultValue
     else -> values[index]
   }
 
@@ -255,7 +261,7 @@ sealed class ObjectIntMap<K> {
  * @constructor Creates a new [MutableObjectIntMap]
  * @see MutableScatterMap
  */
-class MutableObjectIntMap<K>(initialCapacity: Int = DefaultScatterCapacity) : ObjectIntMap<K>() {
+internal class MutableObjectIntMap<K>(initialCapacity: Int = DefaultScatterCapacity) : ObjectIntMap<K>() {
   // Number of entries we can add before we need to grow
   private var growthLimit = 0
 

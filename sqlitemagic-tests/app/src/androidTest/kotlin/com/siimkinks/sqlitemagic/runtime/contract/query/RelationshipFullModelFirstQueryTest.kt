@@ -2,44 +2,42 @@ package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import android.annotation.SuppressLint
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.queryDeep
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RelationshipQueryModelCase
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @SuppressLint("CheckResult")
 @RunWith(Parameterized::class)
-class RelationshipFullModelFirstQueryTest(
+internal class RelationshipFullModelFirstQueryTest(
   private val modelCase: RelationshipQueryModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeReturnsExpectedShallowModel() {
-    assertFirstShallowExecute(modelCase = modelCase)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeRunQueryOnceReturnsExpectedShallowModel() {
-    assertFirstShallowObserved(modelCase = modelCase)
-  }
+  fun executeReturnsExpectedShallowModel() = assertFirstShallowExecute(modelCase = modelCase)
 
   @Test
-  fun executeReturnsExpectedDeepModel() {
-    assertFirstDeepExecute(modelCase = modelCase)
-  }
+  fun observeRunQueryOnceReturnsExpectedShallowModel() = assertFirstShallowObserved(modelCase = modelCase)
 
   @Test
-  fun observeRunQueryOnceReturnsExpectedDeepModel() {
-    assertFirstDeepObserved(modelCase = modelCase)
-  }
+  fun executeReturnsExpectedDeepModel() = assertFirstDeepExecute(modelCase = modelCase)
+
+  @Test
+  fun observeRunQueryOnceReturnsExpectedDeepModel() = assertFirstDeepObserved(modelCase = modelCase)
 
   @Test
   fun executeReturnsNullForEmptyTableWithShallowQuery() {
     assertThat(
-      Select
-        .from(modelCase.table)
+      SELECT
+        .FROM(modelCase.table)
         .takeFirst()
         .execute()
     ).isNull()
@@ -47,8 +45,8 @@ class RelationshipFullModelFirstQueryTest(
 
   @Test
   fun observeRunQueryOnceReturnsNoValueForEmptyTableWithShallowQuery() {
-    Select
-      .from(modelCase.table)
+    SELECT
+      .FROM(modelCase.table)
       .takeFirst()
       .observe()
       .runQueryOnce()
@@ -59,8 +57,8 @@ class RelationshipFullModelFirstQueryTest(
   @Test
   fun executeReturnsNullForEmptyTableWithDeepQuery() {
     assertThat(
-      Select
-        .from(modelCase.table)
+      SELECT
+        .FROM(modelCase.table)
         .queryDeep()
         .takeFirst()
         .execute()
@@ -69,8 +67,8 @@ class RelationshipFullModelFirstQueryTest(
 
   @Test
   fun observeRunQueryOnceReturnsNoValueForEmptyTableWithDeepQuery() {
-    Select
-      .from(modelCase.table)
+    SELECT
+      .FROM(modelCase.table)
       .queryDeep()
       .takeFirst()
       .observe()
@@ -86,8 +84,8 @@ class RelationshipFullModelFirstQueryTest(
     ).shallow.single()
 
     assertThat(
-      Select
-        .from(modelCase.table)
+      SELECT
+        .FROM(modelCase.table)
         .takeFirst()
         .execute()
     ).isEqualTo(expected)
@@ -99,8 +97,8 @@ class RelationshipFullModelFirstQueryTest(
       count = 1
     ).shallow.single()
 
-    Select
-      .from(modelCase.table)
+    SELECT
+      .FROM(modelCase.table)
       .takeFirst()
       .observe()
       .runQueryOnce()
@@ -115,8 +113,8 @@ class RelationshipFullModelFirstQueryTest(
     ).deep.single()
 
     assertThat(
-      Select
-        .from(modelCase.table)
+      SELECT
+        .FROM(modelCase.table)
         .queryDeep()
         .takeFirst()
         .execute()
@@ -129,8 +127,8 @@ class RelationshipFullModelFirstQueryTest(
       count = 1
     ).deep.single()
 
-    Select
-      .from(modelCase.table)
+    SELECT
+      .FROM(modelCase.table)
       .queryDeep()
       .takeFirst()
       .observe()
@@ -141,7 +139,7 @@ class RelationshipFullModelFirstQueryTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.relationshipModelQueryCases
   }
 }

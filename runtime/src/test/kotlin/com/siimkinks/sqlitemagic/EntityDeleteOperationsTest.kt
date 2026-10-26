@@ -13,14 +13,25 @@ internal class EntityDeleteOperationsTest {
 
     assertThat(
       handler
-        .delete(TestEntity("id-1", "key-1", "name"))
+        .delete(TestEntity())
         .usingConnection(recording.connection)
         .execute()
     ).isEqualTo(1)
     assertThat(
       handler
         .bulkDeleteByColumn(
-          listOf(TestEntity("id-1", "key-1", "name"), TestEntity("id-2", "key-2", "name"))
+          listOf(
+            TestEntity(
+              id = "id-1",
+              key = "key-1",
+              name = "name"
+            ),
+            TestEntity(
+              id = "id-2",
+              key = "key-2",
+              name = "name"
+            )
+          )
         )
         .usingConnection(recording.connection)
         .execute(TestSchema.key)
@@ -31,10 +42,9 @@ internal class EntityDeleteOperationsTest {
         .usingConnection(recording.connection)
         .execute()
     ).isEqualTo(0)
-    assertThat(recording.statementSql).contains("DELETE FROM books WHERE id IN (?)")
-    assertThat(recording.statementSql).contains("DELETE FROM books WHERE key IN (?,?)")
-    assertThat(recording.triggers).hasSize(2)
-    assertThat(recording.triggers).containsExactlyElementsIn(listOf(setOf("books"), setOf("books")))
+    assertThat(recording.statementSql)
+      .containsExactly("DELETE FROM books WHERE id IN (?)", "DELETE FROM books WHERE key IN (?,?)")
+    assertThat(recording.triggers).containsExactly(setOf("books"), setOf("books"))
   }
 
   @Test

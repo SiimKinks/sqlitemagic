@@ -1,22 +1,12 @@
 package com.siimkinks.sqlitemagic.runtime.support
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.insert
 
-internal fun simpleRow(
-  id: Long,
-  value: String?
-) = SimpleMutableEntity(
-  id = id,
-  value = value,
-  boxedBoolean = null,
-  primitiveBoolean = false
-)
-
-internal fun insertSimpleRow(value: SimpleMutableEntity) = assertSeedInserted(
+internal fun insertSimpleRow(value: SimpleMutableEntity) = insertedResult(
   result = value
     .insert()
     .execute(),
@@ -24,8 +14,7 @@ internal fun insertSimpleRow(value: SimpleMutableEntity) = assertSeedInserted(
 )
 
 internal fun assertSimpleRows(vararg expected: SimpleMutableEntity) = assertThat(
-  Select
-    .from(SIMPLE_MUTABLE_ENTITY)
-    .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
+  SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
+    .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
     .execute()
 ).isEqualTo(expected.toList())

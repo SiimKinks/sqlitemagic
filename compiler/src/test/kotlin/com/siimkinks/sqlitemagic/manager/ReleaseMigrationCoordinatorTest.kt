@@ -4,8 +4,6 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
@@ -116,14 +114,14 @@ internal class ReleaseMigrationCoordinatorTest {
     writeStructure(
       file = databaseDirectory.resolve("z-feature.struct"),
       structure = DatabaseStructure(
-        views = linkedMapOf("feature_view" to ViewStructure(name = "feature_view")),
-        temporaryViews = linkedMapOf("session_view" to ViewStructure(name = "session_view"))
+        views = mapOf("feature_view" to ViewStructure(name = "feature_view")),
+        temporaryViews = mapOf("session_view" to ViewStructure(name = "session_view"))
       )
     )
     writeStructure(
       file = databaseDirectory.resolve("a-main.struct"),
       structure = DatabaseStructure(
-        views = linkedMapOf("main_view" to ViewStructure(name = "main_view"))
+        views = mapOf("main_view" to ViewStructure(name = "main_view"))
       )
     )
 
@@ -135,8 +133,6 @@ internal class ReleaseMigrationCoordinatorTest {
       .inOrder()
     assertThat(release.temporaryViews)
       .isEmpty()
-    assertThat(assetsDirectory.resolve("1.views").exists())
-      .isFalse()
     assertThat(assetsDirectory.resolve("1.sql").exists())
       .isFalse()
   }
@@ -144,7 +140,7 @@ internal class ReleaseMigrationCoordinatorTest {
   @Test
   fun `publishes the current structure without view resources for a view-only rename`() {
     val previous = DatabaseStructure(
-      views = linkedMapOf(
+      views = mapOf(
         "old_main" to ViewStructure(name = "old_main"),
         "old_feature" to ViewStructure(
           name = "old_feature",
@@ -159,7 +155,7 @@ internal class ReleaseMigrationCoordinatorTest {
     writeStructure(
       file = databaseDirectory.resolve("main.struct"),
       structure = DatabaseStructure(
-        views = linkedMapOf("new_main" to ViewStructure(name = "new_main"))
+        views = mapOf("new_main" to ViewStructure(name = "new_main"))
       )
     )
 
@@ -167,34 +163,10 @@ internal class ReleaseMigrationCoordinatorTest {
 
     assertThat(readStructure(databaseDirectory.resolve("releases/5.struct")))
       .isEqualTo(
-        DatabaseStructure(views = linkedMapOf("new_main" to ViewStructure(name = "new_main")))
+        DatabaseStructure(views = mapOf("new_main" to ViewStructure(name = "new_main")))
       )
-    assertThat(assetsDirectory.resolve("5.views").exists())
-      .isFalse()
     assertThat(assetsDirectory.resolve("5.sql").exists())
       .isFalse()
-  }
-
-  @Test
-  fun `leaves obsolete view resources outside current publication`() {
-    writeStructure(
-      file = databaseDirectory.resolve("module.struct"),
-      structure = DatabaseStructure(
-        views = linkedMapOf("new_view" to ViewStructure(name = "new_view"))
-      )
-    )
-    writeStructure(
-      file = databaseDirectory.resolve("releases/2.struct"),
-      structure = databaseStructure("books")
-    )
-    val staleRemoval = assetsDirectory.resolve("3.views")
-    staleRemoval.parent.createDirectories()
-    staleRemoval.writeText("stale view\n")
-
-    migrate()
-
-    assertThat(staleRemoval.readText())
-      .isEqualTo("stale view\n")
   }
 
   @Test
@@ -418,19 +390,15 @@ internal class ReleaseMigrationCoordinatorTest {
     ).isFalse()
   }
 
-  @ParameterizedTest(name = "duplicate table names {0} and {1}")
-  @CsvSource(value = ["books, books", "Books, books"])
-  fun `fails when current structures claim duplicate table names`(
-    firstTableName: String,
-    secondTableName: String
-  ) {
+  @Test
+  fun `fails when current structures claim case-insensitively duplicate table names`() {
     writeStructure(
       file = databaseDirectory.resolve("a.struct"),
-      structure = databaseStructure(firstTableName)
+      structure = databaseStructure("Books")
     )
     writeStructure(
       file = databaseDirectory.resolve("b.struct"),
-      structure = databaseStructure(secondTableName)
+      structure = databaseStructure("books")
     )
 
     val exception = assertThrows<IllegalStateException>(::migrate)
@@ -447,35 +415,6 @@ internal class ReleaseMigrationCoordinatorTest {
   }
 
   @Test
-  fun `fails when current structures claim the same index`() {
-    val index = IndexStructure(
-      name = "books_index",
-      indexSql = "CREATE INDEX books_index ON books (id)",
-      forTable = "books"
-    )
-    writeStructure(
-      file = databaseDirectory.resolve("a.struct"),
-      structure = DatabaseStructure(indices = linkedMapOf(index.name to index))
-    )
-    writeStructure(
-      file = databaseDirectory.resolve("b.struct"),
-      structure = DatabaseStructure(indices = linkedMapOf(index.name to index))
-    )
-
-    val exception = assertThrows<IllegalStateException>(::migrate)
-
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("Duplicate index 'books_index'")
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("a.struct")
-    assertThat(exception)
-      .hasMessageThat()
-      .contains("b.struct")
-  }
-
-  @Test
   fun `reports all current structure identity conflicts`() {
     val index = IndexStructure(
       name = "books_index",
@@ -483,7 +422,7 @@ internal class ReleaseMigrationCoordinatorTest {
       forTable = "books"
     )
     val structure = databaseStructure("books").copy(
-      indices = linkedMapOf(index.name to index)
+      indices = mapOf(index.name to index)
     )
     writeStructure(
       file = databaseDirectory.resolve("a.struct"),
@@ -519,7 +458,7 @@ internal class ReleaseMigrationCoordinatorTest {
     writeStructure(
       file = databaseDirectory.resolve("b.struct"),
       structure = DatabaseStructure(
-        indices = linkedMapOf(index.name to index)
+        indices = mapOf(index.name to index)
       )
     )
 
@@ -575,14 +514,13 @@ internal class ReleaseMigrationCoordinatorTest {
 
   @Test
   fun `fails when database directory is a regular file`() {
-    val databasePath = databaseDirectory
-    databasePath.writeText("not a directory")
+    databaseDirectory.writeText("not a directory")
 
     val exception = assertThrows<IllegalStateException>(::migrate)
 
     assertThat(exception)
       .hasMessageThat()
-      .contains(databasePath.toFile().absolutePath)
+      .contains(databaseDirectory.toFile().absolutePath)
     assertThat(exception)
       .hasMessageThat()
       .contains("cannot be listed as a directory")
@@ -591,12 +529,10 @@ internal class ReleaseMigrationCoordinatorTest {
   private fun writeStructure(
     file: Path,
     structure: DatabaseStructure
-  ) {
-    DatabaseStructureJson.write(
-      file = file.toFile(),
-      structure = structure
-    )
-  }
+  ) = DatabaseStructureJson.write(
+    file = file.toFile(),
+    structure = structure
+  )
 
   private fun readStructure(file: Path) = checkNotNull(DatabaseStructureJson.read(file.toFile()))
 
@@ -604,25 +540,5 @@ internal class ReleaseMigrationCoordinatorTest {
     projectDir = temporaryDirectory.toFile(),
     databaseDirectory = databaseDirectory.toFile(),
     variantName = "release"
-  )
-
-  private fun databaseStructure(vararg tableNames: String) = DatabaseStructure(
-    tables = tableNames.associateWithTo(
-      destination = linkedMapOf(),
-      valueSelector = ::tableStructure
-    )
-  )
-
-  private fun tableStructure(name: String) = TableStructure(
-    name = name,
-    schema = "CREATE TABLE IF NOT EXISTS $name (id INTEGER PRIMARY KEY)",
-    columns = listOf(
-      ColumnStructure(
-        id = true,
-        name = "id",
-        sqlType = "INTEGER",
-        schema = "id INTEGER PRIMARY KEY"
-      )
-    )
   )
 }

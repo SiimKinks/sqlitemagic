@@ -4,7 +4,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
-class SQLiteQueriesTest {
+internal class SQLiteQueriesTest {
   @Test
   fun `parameters bind without SQL interpolation and results retain SQLite value types`() {
     BundledSQLiteDriver()

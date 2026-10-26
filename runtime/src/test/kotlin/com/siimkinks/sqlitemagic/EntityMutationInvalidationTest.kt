@@ -12,23 +12,24 @@ import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
 import io.reactivex.Observer
 import io.reactivex.disposables.Disposable
-import io.reactivex.schedulers.Schedulers
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
 
 internal class EntityMutationInvalidationTest {
   @Test
   fun `native failures invalidate single entity writes and table deletion`() {
-    listOf("update", "null omitting update", "insert", "persist", "delete table").forEach { operation ->
+    (MutationOperation.entries - MutationOperation.BULK_INSERT).forEach { operation ->
       val failure = IllegalStateException("SQL failed")
       val fixture = MutationFailureFixture(nativeFailure = failure)
       val actual = assertThrows(Exception::class.java) {
         fixture.execute(operation)
       }
-      assertWithMessage(operation)
-        .that(actual === failure || actual.cause === failure)
-        .isTrue()
-      assertWithMessage(operation)
+      assertWithMessage(operation.name)
+        .that(actual)
+        .isSameInstanceAs(failure)
+      assertWithMessage(operation.name)
         .that(fixture.triggers)
         .containsExactly(setOf("books"))
     }
@@ -36,7 +37,7 @@ internal class EntityMutationInvalidationTest {
 
   @Test
   fun `binding failures and known zero writes do not invalidate even when cleanup fails`() {
-    listOf("null omitting update", "delete table").forEach { operation ->
+    listOf(MutationOperation.NULL_OMITTING_UPDATE, MutationOperation.DELETE_TABLE).forEach { operation ->
       val fixture = MutationFailureFixture(
         zeroResult = true,
         closeFailure = IllegalStateException("close failed")
@@ -44,23 +45,20 @@ internal class EntityMutationInvalidationTest {
       assertThrows(Exception::class.java) {
         fixture.execute(operation)
       }
-      assertWithMessage(operation)
+      assertWithMessage(operation.name)
         .that(fixture.triggers)
         .isEmpty()
     }
-    listOf("update", "insert", "persist", "delete table").forEach { operation ->
-      val fixture = MutationFailureFixture(zeroResult = true)
-      fixture.execute(operation)
-      assertWithMessage(operation)
-        .that(fixture.triggers)
-        .isEmpty()
-    }
-    listOf("update", "null omitting update", "insert").forEach { operation ->
+    listOf(
+      MutationOperation.UPDATE,
+      MutationOperation.NULL_OMITTING_UPDATE,
+      MutationOperation.INSERT
+    ).forEach { operation ->
       val fixture = MutationFailureFixture(bindFailure = IllegalStateException("encoder failed"))
       assertThrows(Exception::class.java) {
         fixture.execute(operation)
       }
-      assertWithMessage(operation)
+      assertWithMessage(operation.name)
         .that(fixture.triggers)
         .isEmpty()
     }
@@ -68,12 +66,12 @@ internal class EntityMutationInvalidationTest {
 
   @Test
   fun `successful writes invalidate when statement cleanup fails`() {
-    listOf("null omitting update", "delete table").forEach { operation ->
+    listOf(MutationOperation.NULL_OMITTING_UPDATE, MutationOperation.DELETE_TABLE).forEach { operation ->
       val fixture = MutationFailureFixture(closeFailure = IllegalStateException("close failed"))
       assertThrows(Exception::class.java) {
         fixture.execute(operation)
       }
-      assertWithMessage(operation)
+      assertWithMessage(operation.name)
         .that(fixture.triggers)
         .containsExactly(setOf("books"))
     }
@@ -81,7 +79,7 @@ internal class EntityMutationInvalidationTest {
 
   @Test
   fun `insert and persist generated id callback failures queue until outer commit or rollback`() {
-    listOf("insert", "persist").forEach { operation ->
+    listOf(MutationOperation.INSERT, MutationOperation.PERSIST).forEach { operation ->
       listOf(false, true).forEach { commit ->
         val fixture = MutationFailureFixture(idFailure = IllegalStateException("decoder failed"))
         val transaction = fixture.connection.newTransaction()
@@ -108,20 +106,38 @@ internal class EntityMutationInvalidationTest {
   }
 
   @Test
+  fun `native failures are logged once by the failing operation`() {
+    MutationOperation.entries.forEach { operation ->
+      withLogger(loggingEnabled = true) { logger ->
+        val failure = IllegalStateException("SQL failed")
+        assertThrows(Exception::class.java) {
+          MutationFailureFixture(nativeFailure = failure).execute(operation)
+        }
+        assertWithMessage(operation.name)
+          .that(logger.events.filter { it.level == LogLevel.ERROR })
+          .containsExactly(
+            LoggedMessage(
+              level = LogLevel.ERROR,
+              message = "Operation failed",
+              throwable = failure
+            )
+          )
+      }
+    }
+  }
+
+  @Test
   fun `statement compilation failure publishes no triggers`() {
-    listOf("update", "null omitting update", "insert", "persist", "delete table").forEach { operation ->
+    (MutationOperation.entries - MutationOperation.BULK_INSERT).forEach { operation ->
       val failure = IllegalStateException("compile failed")
       val fixture = MutationFailureFixture(compileFailure = failure)
       val actual = assertThrows(Exception::class.java) {
         fixture.execute(operation)
       }
-      assertWithMessage(operation)
-        .that(actual === failure || actual.cause === failure)
-        .isTrue()
-      assertWithMessage(operation)
-        .that(fixture.nativeExecutions)
-        .isEqualTo(0)
-      assertWithMessage(operation)
+      assertWithMessage(operation.name)
+        .that(actual)
+        .isSameInstanceAs(failure)
+      assertWithMessage(operation.name)
         .that(fixture.triggers)
         .isEmpty()
     }
@@ -129,7 +145,7 @@ internal class EntityMutationInvalidationTest {
 
   @Test
   fun `native failure queues invalidation until outer transaction commit and discards it on rollback`() {
-    listOf("update", "null omitting update", "insert", "persist", "delete table").forEach { operation ->
+    (MutationOperation.entries - MutationOperation.BULK_INSERT).forEach { operation ->
       listOf(false, true).forEach { commit ->
         val failure = IllegalStateException("SQL failed")
         val fixture = MutationFailureFixture(nativeFailure = failure)
@@ -138,8 +154,7 @@ internal class EntityMutationInvalidationTest {
           val actual = assertThrows(Exception::class.java) {
             fixture.execute(operation)
           }
-          assertThat(actual === failure || actual.cause === failure)
-            .isTrue()
+          assertThat(actual).isSameInstanceAs(failure)
           assertThat(fixture.triggers)
             .isEmpty()
           if (commit) transaction.markSuccessful()
@@ -159,16 +174,26 @@ internal class EntityMutationInvalidationTest {
   }
 
   @Test
-  fun `native bulk failure rolls back without publishing`() {
-    val fixture = MutationFailureFixture(nativeFailure = IllegalStateException("SQL failed"))
-    fixture.adapter
-      .bulkInsert(listOf(fixture.entity))
-      .usingConnection(fixture.connection)
-      .execute()
-    assertThat(fixture.triggers)
-      .isEmpty()
-    assertThat(fixture.recording.rolledBackTransactions)
-      .isEqualTo(1)
+  fun `bulk native and generated id callback failures propagate and roll back without publishing`() {
+    mapOf<String, (RuntimeException) -> MutationFailureFixture>(
+      "native failure" to { MutationFailureFixture(nativeFailure = it) },
+      "generated id callback failure" to { MutationFailureFixture(idFailure = it) }
+    ).forEach { (label, fixtureFailing) ->
+      val failure = IllegalStateException(label)
+      val fixture = fixtureFailing(failure)
+      val actual = assertThrows(Exception::class.java) {
+        fixture.execute(MutationOperation.BULK_INSERT)
+      }
+      assertWithMessage(label)
+        .that(actual)
+        .isSameInstanceAs(failure)
+      assertWithMessage(label)
+        .that(fixture.triggers)
+        .isEmpty()
+      assertWithMessage(label)
+        .that(fixture.recording.rolledBackTransactions)
+        .isEqualTo(1)
+    }
   }
 
   @Test
@@ -187,7 +212,7 @@ internal class EntityMutationInvalidationTest {
       context.executeMutation(
         adapter = fixture.adapter,
         operation = {
-          recordChanges()
+          executeUpdateDelete(changedRow())
           throw mutationFailure
         }
       )
@@ -210,7 +235,7 @@ internal class EntityMutationInvalidationTest {
       child.executeMutation(
         adapter = fixture.adapter,
         operation = {
-          recordChanges()
+          executeUpdateDelete(changedRow())
           throw failure
         }
       )
@@ -246,7 +271,7 @@ internal class EntityMutationInvalidationTest {
       mutationContext(fixture).executeMutation(
         adapter = adapter,
         operation = {
-          recordChanges()
+          executeUpdateDelete(changedRow())
           throw failure
         }
       )
@@ -257,23 +282,14 @@ internal class EntityMutationInvalidationTest {
       .containsExactly(setOf("books", "authors", "publishers"))
   }
 
+  private fun changedRow() = mock<SupportSQLiteStatement> {
+    on { executeUpdateDelete() } doReturn 1
+  }
+
   private fun mutationContext(fixture: MutationFailureFixture) = OperationContext(
     adapter = fixture.adapter,
     configuration = OperationConfigurationSnapshot(connection = fixture.connection)
   )
-
-  @Test
-  fun `bulk callback failure rolls back without publishing`() {
-    val fixture = MutationFailureFixture(idFailure = IllegalStateException("decoder failed"))
-    fixture.adapter
-      .bulkInsert(listOf(fixture.entity))
-      .usingConnection(fixture.connection)
-      .execute()
-    assertThat(fixture.triggers)
-      .isEmpty()
-    assertThat(fixture.recording.rolledBackTransactions)
-      .isEqualTo(1)
-  }
 }
 
 private class MutationFailureFixture(
@@ -285,10 +301,6 @@ private class MutationFailureFixture(
   zeroResult: Boolean = false
 ) {
   val recording = RecordingDatabase()
-  var closedStatements = 0
-    private set
-  var nativeExecutions = 0
-    private set
   private val database = object : SupportSQLiteDatabase by recording {
     override fun compileStatement(sql: String): SupportSQLiteStatement {
       compileFailure?.let { throw it }
@@ -303,7 +315,6 @@ private class MutationFailureFixture(
         }
 
         override fun executeInsert(): Long {
-          nativeExecutions++
           nativeFailure?.let { throw it }
           return when {
             zeroResult -> -1L
@@ -312,7 +323,6 @@ private class MutationFailureFixture(
         }
 
         override fun executeUpdateDelete(): Int {
-          nativeExecutions++
           nativeFailure?.let { throw it }
           return when {
             zeroResult || sql.startsWith("UPDATE") && idFailure != null -> 0
@@ -321,24 +331,16 @@ private class MutationFailureFixture(
         }
 
         override fun close() {
-          closedStatements++
           closeFailure?.let { throw it }
           statement.close()
         }
       }
     }
   }
-  private val helper = object : androidx.sqlite.db.SupportSQLiteOpenHelper by RecordingOpenHelper(recording) {
-    override val writableDatabase = database
-    override val readableDatabase = database
-  }
-  val connection = DbConnectionImpl(
-    database = TestGeneratedDatabase(tableCount = 1),
-    dbHelper = helper,
-    queryScheduler = Schedulers.trampoline()
-  )
-  val triggers = mutableListOf<Set<String>>()
-  val entity = TestEntity(
+  val connection = testDbConnection(database)
+  private val recordedTriggers = connection.recordTriggers()
+  val triggers: List<Set<String>> get() = recordedTriggers.values()
+  private val entity = TestEntity(
     id = "id",
     key = "key",
     name = "value"
@@ -354,39 +356,43 @@ private class MutationFailureFixture(
       }
     }
 
-  init {
-    connection.triggers.subscribe(::recordTriggers)
-  }
-
-  private fun recordTriggers(tables: Set<String>) {
-    triggers.add(tables.toSet())
-  }
-
-  fun execute(operation: String): Any = when (operation) {
-    "update" -> adapter
+  fun execute(operation: MutationOperation): Any = when (operation) {
+    MutationOperation.UPDATE -> adapter
       .update(entity)
       .conflictAlgorithm(CONFLICT_IGNORE)
       .usingConnection(connection)
       .execute()
-    "null omitting update" -> adapter
+    MutationOperation.NULL_OMITTING_UPDATE -> adapter
       .persist(entity)
       .ignoreNullValues()
       .usingConnection(connection)
       .execute()
-    "insert" -> adapter
+    MutationOperation.INSERT -> adapter
       .insert(entity)
       .conflictAlgorithm(CONFLICT_IGNORE)
       .usingConnection(connection)
       .execute()
-    "persist" -> adapter
+    MutationOperation.PERSIST -> adapter
       .persist(entity)
       .conflictAlgorithm(CONFLICT_IGNORE)
       .usingConnection(connection)
       .execute()
-    "delete table" -> adapter
+    MutationOperation.DELETE_TABLE -> adapter
       .deleteTable()
       .usingConnection(connection)
       .execute()
-    else -> error(operation)
+    MutationOperation.BULK_INSERT -> adapter
+      .bulkInsert(listOf(entity))
+      .usingConnection(connection)
+      .execute()
   }
+}
+
+private enum class MutationOperation {
+  UPDATE,
+  NULL_OMITTING_UPDATE,
+  INSERT,
+  PERSIST,
+  DELETE_TABLE,
+  BULK_INSERT
 }

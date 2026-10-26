@@ -93,7 +93,7 @@ internal fun validIndexSources() = SourceFile.kotlin(
 
 internal fun invalidIndexSource(
   indexDeclaration: String,
-  tableDeclaration: String = "@Table(\"invalid_indexes\")"
+  tableDeclaration: String = """@Table("invalid_indexes")"""
 ) = SourceFile.kotlin(
   name = "InvalidIndex.kt",
   contents = """

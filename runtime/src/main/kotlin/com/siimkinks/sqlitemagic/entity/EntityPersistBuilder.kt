@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.entity
 
+import android.database.SQLException
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult.Ignored
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult.Inserted
@@ -20,10 +21,12 @@ interface EntityPersistBuilder :
    * a transaction if the persisted entity has complex columns which also need to be persisted.
    *
    * Returns [Inserted] when a new row was inserted, [Updated] when an existing row was updated, or
-   * [Ignored] when the configured conflict algorithm intentionally ignored
-   * the write. A failure that was not intentionally ignored throws [OperationFailedException].
+   * [Ignored] when the configured conflict algorithm intentionally ignored the write.
    *
    * @return The persist operation result
+   * @throws SQLException when SQLite rejects the write, for example on a constraint violation
+   * @throws OperationFailedException when SQLite writes no row without an error and the conflict algorithm does not
+   *     ignore conflicts
    */
   fun execute(): EntityPersistResult
 

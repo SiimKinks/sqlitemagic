@@ -1,31 +1,32 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
-import com.tschuchort.compiletesting.JvmCompilationResult
-import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.OK
+import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.readDriverSupport
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class NullableTransformerCursorReadContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
+internal class NullableTransformerCursorReadContractTest {
+  private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
   @Test
   fun `required scalar reads explain null decoder results and preserve nullable transformer inputs`() {
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "NullableTransformerCursorRead.kt",
           contents = """
             package $PACKAGE
 
-            import android.database.Cursor
+            import com.siimkinks.sqlitemagic.SqliteMagic_NullableDecoded_Dao
+            import com.siimkinks.sqlitemagic.SqliteMagic_RequiredBoolean_Dao
+            import com.siimkinks.sqlitemagic.SqliteMagic_RequiredDecoded_Dao
             import com.siimkinks.sqlitemagic.annotation.Table
             import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
             import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
-            import java.lang.reflect.Proxy
+            import fixtures.driver.cursor
 
             data class DecodedValue(val value: String)
 
@@ -52,51 +53,34 @@ internal class NullableTransformerCursorReadContractTest : ProcessingStepsTest {
 
             object NullableCursorReadDriver {
               @JvmStatic
-              fun read(target: String, value: String?): List<String> {
-                val cursor = Proxy.newProxyInstance(
-                  Cursor::class.java.classLoader,
-                  arrayOf(Cursor::class.java)
-                ) { _, method, _ ->
-                  when (method.name) {
-                    "isNull" -> value == null
-                    "getString" -> value
-                    "getInt" -> value?.toInt() ?: 0
-                    else -> error("Unexpected cursor method: " + method.name)
-                  }
-                } as Cursor
-                return try {
-                  val decoded = when (target) {
-                    "required" -> SqliteMagic_RequiredDecoded_Dao
-                      .shallowObjectFromCursorPosition(cursor)
-                    "nullable" -> SqliteMagic_NullableDecoded_Dao
-                      .shallowObjectFromCursorPosition(cursor)
-                    "boolean" -> SqliteMagic_RequiredBoolean_Dao
-                      .shallowObjectFromCursorPosition(cursor)
-                    else -> error("Unknown target: " + target)
-                  }
-                  listOf("value", decoded.toString())
-                } catch (failure: Exception) {
-                  listOf("error", failure.javaClass.simpleName, failure.message.orEmpty())
+              fun read(target: String, value: Any?): List<String> = try {
+                val decoded = when (target) {
+                  "required" -> SqliteMagic_RequiredDecoded_Dao
+                    .objectFromCursorPosition(cursor = cursor(value), startIndex = 0)
+                  "nullable" -> SqliteMagic_NullableDecoded_Dao
+                    .objectFromCursorPosition(cursor = cursor(value), startIndex = 0)
+                  "boolean" -> SqliteMagic_RequiredBoolean_Dao
+                    .objectFromCursorPosition(cursor = cursor(value), startIndex = 0)
+                  else -> error("Unknown target: " + target)
                 }
+                listOf("value", decoded.toString())
+              } catch (failure: Exception) {
+                listOf("error", failure.javaClass.simpleName, failure.message.orEmpty())
               }
             }
           """
-        )
+        ),
+        readDriverSupport()
       )
-      .apply {
-        assertWithMessage(result.messages)
-          .that(result.exitCode)
-          .isEqualTo(OK)
-      }
-    val driver = (compilation.result as JvmCompilationResult)
-      .classLoader
+      .isOk()
+    val driver = compilation
       .loadClass("$PACKAGE.NullableCursorReadDriver")
-      .getMethod("read", String::class.java, String::class.java)
+      .getMethod("read", String::class.java, Any::class.java)
 
     data class ReadCase(
       val label: String,
       val target: String,
-      val input: String?,
+      val input: Any?,
       val expected: List<String>
     )
 
@@ -144,13 +128,13 @@ internal class NullableTransformerCursorReadContractTest : ProcessingStepsTest {
       ReadCase(
         label = "default Boolean true",
         target = "boolean",
-        input = "1",
+        input = 1L,
         expected = listOf("value", "RequiredBoolean(requiredBoolean=true)")
       ),
       ReadCase(
         label = "default Boolean false",
         target = "boolean",
-        input = "0",
+        input = 0L,
         expected = listOf("value", "RequiredBoolean(requiredBoolean=false)")
       ),
       ReadCase(

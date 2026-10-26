@@ -3,38 +3,25 @@ package com.siimkinks.sqlitemagic.transformer
 import com.google.devtools.ksp.processing.Resolver
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
-import com.siimkinks.sqlitemagic.writer.ColumnClassWriter
-import java.io.IOException
+import com.siimkinks.sqlitemagic.processing.writeEach
 
-class TransformerCodeGenerationStep(
+internal class TransformerCodeGenerationStep(
   private val environment: Environment
 ) : ProcessingStep {
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    for (roundTransformer in environment.transformerElementsForCurrentRound.values) {
-      val transformer = roundTransformer.toTransformerElement()
-      when {
-        transformer.isDefaultTransformer -> continue
-        resolver.hasGeneratedTransformerColumn(
-          transformer = transformer,
-          unique = false
-        ) -> continue
-      }
-      try {
-        ColumnClassWriter
-          .from(
-            transformerElement = transformer,
-            codeGenerator = environment.codeGenerator,
-            createUniqueClass = false
-          )
-          .write(roundTransformer.originatingFiles)
-      } catch (exception: IOException) {
-        environment.logger.exception(exception)
-        return Failed
-      }
+  private val generatedDescriptors = mutableSetOf<String>()
+
+  override fun process(resolver: Resolver) = environment.writeEach(
+    elements = environment.transformerElementsForCurrentRound.values
+  ) { roundTransformer ->
+    val transformer = roundTransformer.toTransformerElement()
+    when {
+      transformer.isDefaultTransformer -> Unit
+      resolver.hasGeneratedTransformerDescriptor(transformer) -> Unit
+      !generatedDescriptors.add(transformer.typeKey) -> Unit
+      else -> TransformerSqlTypeWriter(
+        transformer = transformer,
+        codeGenerator = environment.codeGenerator
+      ).write(roundTransformer.originatingFiles)
     }
-    return Continue
   }
 }

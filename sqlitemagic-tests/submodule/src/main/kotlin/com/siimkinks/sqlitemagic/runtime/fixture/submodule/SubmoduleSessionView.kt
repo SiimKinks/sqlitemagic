@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.fixture.submodule
 
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SubmoduleSessionValueTable.Companion.SUBMODULE_SESSION_VALUE
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
@@ -17,12 +17,8 @@ data class SubmoduleSessionView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        SUBMODULE_SESSION_VALUE.ID,
-        SUBMODULE_SESSION_VALUE.VALUE
-      )
-      .from(SUBMODULE_SESSION_VALUE)
-      .compile()
+    val query = SELECT
+      .COLUMNS(SUBMODULE_SESSION_VALUE.ID, SUBMODULE_SESSION_VALUE.VALUE)
+      .FROM(SUBMODULE_SESSION_VALUE)
   }
 }

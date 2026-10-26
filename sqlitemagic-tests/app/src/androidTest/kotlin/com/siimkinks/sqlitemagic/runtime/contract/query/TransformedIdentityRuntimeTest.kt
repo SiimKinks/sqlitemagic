@@ -1,14 +1,12 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
+import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.AccountTable.Companion.ACCOUNT
 import com.siimkinks.sqlitemagic.ArticleTable.Companion.ARTICLE
 import com.siimkinks.sqlitemagic.AutomaticTransformedTable.Companion.AUTOMATIC_TRANSFORMED
-import com.siimkinks.sqlitemagic.IS
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.delete
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.fixture.model.Account
 import com.siimkinks.sqlitemagic.fixture.model.AccountId
@@ -17,64 +15,43 @@ import com.siimkinks.sqlitemagic.fixture.model.AutomaticTransformed
 import com.siimkinks.sqlitemagic.fixture.model.SequenceId
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.queryDeep
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.insertedRowId
+import com.siimkinks.sqlitemagic.runtime.support.readRows
 import com.siimkinks.sqlitemagic.update
+import org.junit.Rule
 import org.junit.Test
 
-class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
+internal class TransformedIdentityRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
-  fun reboundTransformedIdBindsPredicateUsingStoredValue() {
-    val expected = insertAccount(id = "rebound-predicate")
+  fun reboundTransformedIdBindsPredicatesAndReadsDeclaredValueType() {
+    val expected = Account(
+      id = AccountId("rebound-account"),
+      label = "rebound-account-label"
+    )
+    insertedResult(
+      result = expected
+        .insert()
+        .execute(),
+      modelName = "Account"
+    )
     val reboundTable = ACCOUNT AS "rebound_account"
-    val reboundId = ACCOUNT.ID.inTable(reboundTable)
 
     assertThat(
-      Select
-        .from(reboundTable)
-        .where(reboundId IS expected.id)
+      SELECT
+        .FROM(reboundTable)
+        .WHERE(reboundTable.ID IS expected.id)
         .execute()
     ).containsExactly(expected)
-  }
-
-  @Test
-  fun reboundTransformedIdReadsDeclaredValueType() {
-    val expected = insertAccount(id = "rebound-selection")
-    val reboundTable = ACCOUNT AS "rebound_account"
-    val reboundId = ACCOUNT.ID.inTable(reboundTable)
-
     assertThat(
-      Select
-        .column(reboundId)
-        .from(reboundTable)
-        .takeFirst()
-        .execute()
-    ).isEqualTo(expected.id)
-  }
-
-  @Test
-  fun reboundNumericTransformedIdBindsPredicateUsingStoredValue() {
-    val expected = insertAutomaticTransformed(value = "rebound-numeric-predicate")
-    val reboundTable = AUTOMATIC_TRANSFORMED AS "rebound_numeric"
-    val reboundId = AUTOMATIC_TRANSFORMED.ID.inTable(reboundTable)
-
-    assertThat(
-      Select
-        .from(reboundTable)
-        .where(reboundId IS expected.id)
-        .execute()
-    ).containsExactly(expected)
-  }
-
-  @Test
-  fun reboundNumericTransformedIdReadsDeclaredValueType() {
-    val expected = insertAutomaticTransformed(value = "rebound-numeric-selection")
-    val reboundTable = AUTOMATIC_TRANSFORMED AS "rebound_numeric"
-    val reboundId = AUTOMATIC_TRANSFORMED.ID.inTable(reboundTable)
-
-    assertThat(
-      Select
-        .column(reboundId)
-        .from(reboundTable)
+      SELECT
+        .COLUMN(reboundTable.ID)
+        .FROM(reboundTable)
         .takeFirst()
         .execute()
     ).isEqualTo(expected.id)
@@ -86,36 +63,40 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
       id = SequenceId(0),
       value = "automatic-transformed-value"
     )
-    val result = value
-      .insert()
-      .execute()
-    val inserted = when (result) {
-      is EntityInsertResult.Inserted -> result
-      EntityInsertResult.Ignored -> throw AssertionError("AutomaticTransformed insert was ignored")
-    }
-    val expected = value.copy(id = SequenceId(checkNotNull(inserted.rowId)))
+    val expected = value.copy(
+      id = SequenceId(
+        insertedRowId(
+          result = value
+            .insert()
+            .execute(),
+          modelName = "AutomaticTransformed"
+        )
+      )
+    )
+    val reboundTable = AUTOMATIC_TRANSFORMED AS "rebound_numeric"
 
     assertThat(
-      Select
-        .from(AUTOMATIC_TRANSFORMED)
-        .where(AUTOMATIC_TRANSFORMED.ID IS expected.id)
+      SELECT
+        .FROM(reboundTable)
+        .WHERE(reboundTable.ID IS expected.id)
         .execute()
     ).containsExactly(expected)
+    assertThat(
+      SELECT
+        .COLUMN(reboundTable.ID)
+        .FROM(reboundTable)
+        .takeFirst()
+        .execute()
+    ).isEqualTo(expected.id)
 
-    val rawStorage = Select
-      .raw("SELECT id, typeof(id), value FROM automatic_transformed")
-      .from(AUTOMATIC_TRANSFORMED)
-      .execute()
-      .use { cursor ->
-        check(cursor.moveToFirst())
-        listOf(
-          cursor.getLong(0),
-          cursor.getString(1),
-          cursor.getString(2)
-        )
-      }
-    assertThat(rawStorage)
-      .isEqualTo(listOf(expected.id.value, "integer", expected.value))
+    assertThat(
+      SELECT
+        .RAW("SELECT id, typeof(id), value FROM automatic_transformed")
+        .toCursor()
+        .execute()
+        .use(Cursor::readRows)
+        .single()
+    ).isEqualTo(listOf(expected.id.value.toString(), "integer", expected.value))
   }
 
   @Test
@@ -124,75 +105,65 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
       id = AccountId("account-runtime"),
       label = "account-label"
     )
-    assertThat(
-      account
+    insertedResult(
+      result = account
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "Account"
+    )
 
     val article = Article(
       id = "article-runtime",
       account = account,
       value = "article-value"
     )
-    assertThat(
-      article
+    insertedResult(
+      result = article
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "Article"
+    )
 
     assertThat(
-      Select
-        .from(ACCOUNT)
-        .where(ACCOUNT.ID IS account.id)
+      SELECT
+        .FROM(ACCOUNT)
+        .WHERE(ACCOUNT.ID IS account.id)
         .execute()
     ).containsExactly(account)
     assertThat(
-      Select
-        .from(ARTICLE)
-        .where(ARTICLE.ACCOUNT IS account.id)
+      SELECT
+        .FROM(ARTICLE)
+        .WHERE(ARTICLE.ACCOUNT IS account.id)
         .execute()
     ).containsExactly(
       article.copy(account = Account(id = account.id))
     )
     assertThat(
-      Select
-        .from(ARTICLE)
-        .where(ARTICLE.ACCOUNT IS account.id)
+      SELECT
+        .FROM(ARTICLE)
+        .WHERE(ARTICLE.ACCOUNT IS account.id)
         .queryDeep()
         .execute()
     ).containsExactly(
       article.copy(account = Account(id = account.id))
     )
 
-    val accountStorage = Select
-      .raw("SELECT id, typeof(id) FROM account")
-      .from(ACCOUNT)
-      .execute()
-      .use { cursor ->
-        check(cursor.moveToFirst())
-        listOf(
-          cursor.getString(0),
-          cursor.getString(1)
-        )
-      }
-    assertThat(accountStorage)
-      .isEqualTo(listOf(account.id.value, "text"))
-
-    val articleStorage = Select
-      .raw("SELECT account, typeof(account), value FROM article")
-      .from(ARTICLE)
-      .execute()
-      .use { cursor ->
-        check(cursor.moveToFirst())
-        listOf(
-          cursor.getString(0),
-          cursor.getString(1),
-          cursor.getString(2)
-        )
-      }
-    assertThat(articleStorage)
-      .isEqualTo(listOf(account.id.value, "text", article.value))
+    assertThat(
+      listOf("SELECT id, typeof(id) FROM account", "SELECT account, typeof(account), value FROM article")
+        .map {
+          SELECT
+            .RAW(it)
+            .toCursor()
+            .execute()
+            .use(Cursor::readRows)
+            .single()
+        }
+    ).isEqualTo(
+      listOf(
+        listOf(account.id.value, "text"),
+        listOf(account.id.value, "text", article.value)
+      )
+    )
   }
 
   @Test
@@ -201,22 +172,24 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
       id = AccountId("account-operation-runtime"),
       label = "account-original-label"
     )
-    assertThat(
-      account
+    insertedResult(
+      result = account
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "Account"
+    )
 
     val article = Article(
       id = "article-operation-runtime",
       account = account,
       value = "article-original-value"
     )
-    assertThat(
-      article
+    insertedResult(
+      result = article
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "Article"
+    )
 
     val updatedArticle = article.copy(
       account = Account(
@@ -231,15 +204,15 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
         .execute()
     ).isTrue()
     assertThat(
-      Select
-        .from(ARTICLE)
+      SELECT
+        .FROM(ARTICLE)
         .execute()
     ).containsExactly(
       updatedArticle.copy(account = Account(id = account.id))
     )
     assertThat(
-      Select
-        .from(ACCOUNT)
+      SELECT
+        .FROM(ACCOUNT)
         .execute()
     ).containsExactly(account)
 
@@ -256,15 +229,15 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
         .execute()
     ).isEqualTo(EntityPersistResult.Updated)
     assertThat(
-      Select
-        .from(ARTICLE)
+      SELECT
+        .FROM(ARTICLE)
         .execute()
     ).containsExactly(
       persistedArticle.copy(account = Account(id = account.id))
     )
     assertThat(
-      Select
-        .from(ACCOUNT)
+      SELECT
+        .FROM(ACCOUNT)
         .execute()
     ).containsExactly(account)
 
@@ -274,40 +247,14 @@ class TransformedIdentityRuntimeTest : RuntimeDatabaseTest() {
         .execute()
     ).isEqualTo(1)
     assertThat(
-      Select
-        .from(ARTICLE)
+      SELECT
+        .FROM(ARTICLE)
         .execute()
     ).isEmpty()
     assertThat(
-      Select
-        .from(ACCOUNT)
+      SELECT
+        .FROM(ACCOUNT)
         .execute()
     ).containsExactly(account)
-  }
-
-  private fun insertAccount(id: String) = Account(
-    id = AccountId(id),
-    label = "rebound-account"
-  ).also { account ->
-    assertThat(
-      account
-        .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
-  }
-
-  private fun insertAutomaticTransformed(value: String): AutomaticTransformed {
-    val model = AutomaticTransformed(
-      id = SequenceId(0),
-      value = value
-    )
-    val result = model
-      .insert()
-      .execute()
-    val inserted = when (result) {
-      is EntityInsertResult.Inserted -> result
-      EntityInsertResult.Ignored -> throw AssertionError("AutomaticTransformed insert was ignored")
-    }
-    return model.copy(id = SequenceId(checkNotNull(inserted.rowId)))
   }
 }

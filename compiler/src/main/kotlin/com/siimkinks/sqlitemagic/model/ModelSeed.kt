@@ -27,15 +27,12 @@ internal data class ColumnSeed(
   val idAnnotation: KSAnnotation?,
   val isUnique: Boolean,
   val index: FieldIndexElement?,
-  val belongsToIndex: String?,
-  val embeddedPrefixes: List<String>
+  val belongsToIndex: String?
 ) : PropertySeed
 
 internal data class EmbeddedSeed(
   override val roundElement: PropertyRoundElement,
   val access: PropertyAccess,
-  val prefix: String,
-  val cumulativePrefix: String,
   val construction: ModelConstruction,
   val properties: List<PropertySeed>
 ) : PropertySeed

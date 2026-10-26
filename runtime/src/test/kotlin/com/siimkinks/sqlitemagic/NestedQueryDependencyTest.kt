@@ -1,210 +1,208 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
-import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.GeneratedView
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import org.junit.Test
 
 internal class NestedQueryDependencyTest {
-  @Test
-  fun twoLevelExpressionScalarAndCompoundQueriesRetainDeepestDependencies() {
-    val root = sourceTable("root")
-    val middle = sourceTable("middle")
-    val deepest = sourceTable("deepest")
-    val cases = listOf(
-      "expression" to {
-        Select
-          .from(root)
-          .where(
-            Select.asColumn(1)
-              .`in`(
-                Select
-                  .column(Select.asColumn(1))
-                  .from(middle)
-                  .where(
-                    Select.asColumn(1)
-                      .`in`(
-                        Select
-                          .column(Select.asColumn(1))
-                          .from(deepest)
-                      )
-                  )
-              )
-          )
-          .compile()
-      },
-      "scalar" to {
-        val scalar = Select
-          .column(Select.asColumn(1))
-          .from(middle)
-          .where(
-            Select.asColumn(1)
-              .`in`(
-                Select
-                  .column(Select.asColumn(1))
-                  .from(deepest)
-              )
-          )
-          .toColumn("nested_value")
-        Select
-          .columns(scalar)
-          .from(root)
-          .compile()
-      },
-      "compound" to {
-        val branch = Select
-          .column(Select.asColumn(1))
-          .from(middle)
-          .where(
-            Select.asColumn(1)
-              .`in`(
-                Select
-                  .column(Select.asColumn(1))
-                  .from(deepest)
-              )
-          )
-        Select
-          .column(Select.asColumn(1))
-          .from(root)
-          .union(branch)
-          .compile()
-      }
-    )
+  private fun viewDependencies(
+    name: String,
+    column: String,
+    temporary: Boolean = false,
+    query: () -> SelectQuery<*, *>
+  ) = GeneratedView(
+    viewName = name,
+    temporary = temporary,
+    query = query,
+    columns = listOf(column)
+  ).definition.queryDependencies
 
-    for ((label, compile) in cases) {
-      val actual = compile() as CompiledSelectDetails
-      assertDependencies(
-        label = label,
-        actual = actual,
-        expectedTables = listOf("root", "middle", "deepest")
+  private fun tables(vararg names: String) = DependencySnapshot(
+    observed = names.asList(),
+    direct = names.map { name ->
+      SqliteQuerySource(
+        schema = MAIN,
+        name = name
       )
     }
-  }
+  )
 
   @Test
-  fun sharedPredicateContributesToBothOuterBuildersBeforeEitherCompiles() {
-    val nested = sourceTable("shared_predicate")
-    val firstRoot = sourceTable("first_root")
-    val secondRoot = sourceTable("second_root")
-    val predicate = Select.asColumn(1)
-      .`in`(
-        Select
-          .column(Select.asColumn(1))
-          .from(nested)
-      )
-    val first = Select.from(firstRoot).where(predicate)
-    val second = Select.from(secondRoot).where(predicate)
-
-    val secondCompiled = second.compile() as CompiledSelectDetails
-    val firstCompiled = first.compile() as CompiledSelectDetails
-
-    assertDependencies(
-      label = "second predicate user",
-      actual = secondCompiled,
-      expectedTables = listOf("second_root", "shared_predicate")
+  fun `enclosing queries depend on every table their nested queries and arms read`() {
+    val writers = SELECT
+      .COLUMN(AUTHOR.ID)
+      .FROM(AUTHOR)
+      .WHERE(AUTHOR.ID IN (SELECT COLUMN BOOK.AUTHOR FROM BOOK))
+    val firstBooks = SELECT
+      .COLUMN(SERIES.FIRST_BOOK)
+      .FROM(SERIES)
+      .UNION(writers)
+    val members = firstBooks AS "members"
+    val session = testTable<Any>(
+      name = "author",
+      temporary = true
     )
-    assertDependencies(
-      label = "first predicate user",
-      actual = firstCompiled,
-      expectedTables = listOf("first_root", "shared_predicate")
+    val emmasAuthor = SELECT
+      .COLUMN(BOOK.AUTHOR)
+      .FROM(BOOK)
+      .WHERE(BOOK.TITLE IS "Emma")
+      .asScalar()
+    val titled = SELECT
+      .COLUMNS(BOOK.AUTHOR, BOOK.TITLE)
+      .FROM(BOOK)
+      .WHERE(BOOK.TITLE IS_NOT "Dune") AS "titled"
+    val cases = listOf(
+      "two levels in WHERE" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .WHERE(PERSON.ID IN writers),
+      "two levels in a selected scalar" to SELECT
+        .COLUMNS(PUBLISHER.NAME, writers.asScalar())
+        .FROM(PUBLISHER),
+      "two levels in a later arm" to firstBooks,
+      "a compound later arm" to SELECT
+        .COLUMN(PERSON.ID)
+        .FROM(PERSON)
+        .EXCEPT(firstBooks),
+      "a compound in IN" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .WHERE(PERSON.ID IN firstBooks),
+      "a compound derived source" to SELECT
+        .COLUMN(members[SERIES.FIRST_BOOK])
+        .FROM(members),
+      "a nested query in ON" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .INNER_JOIN(PUBLISHER)
+        .ON(PUBLISHER.ID IN writers),
+      "a nested query in HAVING" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .GROUP_BY(PERSON.NAME)
+        .HAVING(EXISTS(writers)),
+      "an automatic join in a nested query" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .WHERE(EXISTS(SELECT COLUMN BOOK.ID FROM BOOK WHERE (AUTHOR.NAME IS PERSON.NAME))),
+      "an automatic join in a later arm" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .UNION(SELECT COLUMN BOOK.TITLE FROM BOOK WHERE (AUTHOR.NAME IS "Ada")),
+      "a nested query in GROUP BY" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .GROUP_BY(emmasAuthor),
+      "a nested query in ORDER BY" to SELECT
+        .COLUMN(PERSON.NAME)
+        .FROM(PERSON)
+        .ORDER_BY(emmasAuthor.ASC()),
+      "a derived source in JOIN" to SELECT
+        .COLUMN(AUTHOR.NAME)
+        .FROM(AUTHOR)
+        .INNER_JOIN(titled)
+        .ON(titled[BOOK.AUTHOR] IS AUTHOR.ID),
+      "a temporary table in a later arm" to SELECT
+        .COLUMN(AUTHOR.ID)
+        .FROM(AUTHOR)
+        .UNION(SELECT COLUMN 1L.asLiteral() FROM session)
     )
-    assertThat(firstCompiled.queryDependencies)
-      .isNotSameInstanceAs(secondCompiled.queryDependencies)
-    assertThat(firstCompiled.queryDependencies.directSources)
-      .isNotSameInstanceAs(secondCompiled.queryDependencies.directSources)
-    assertThat(firstCompiled.queryDependencies.observedTables)
-      .isNotSameInstanceAs(secondCompiled.queryDependencies.observedTables)
-  }
-
-  @Test
-  fun sharedScalarColumnContributesToBothOuterBuildersBeforeEitherCompiles() {
-    val nested = sourceTable("shared_scalar")
-    val firstRoot = sourceTable("first_root")
-    val secondRoot = sourceTable("second_root")
-    val scalar = Select
-      .column(Select.asColumn(1))
-      .from(nested)
-      .toColumn("nested_value")
-    val first = Select.columns(scalar).from(firstRoot)
-    val second = Select.columns(scalar).from(secondRoot)
-
-    val firstCompiled = first.compile() as CompiledSelectDetails
-    val secondCompiled = second.compile() as CompiledSelectDetails
-
-    assertDependencies(
-      label = "first scalar user",
-      actual = firstCompiled,
-      expectedTables = listOf("first_root", "shared_scalar")
-    )
-    assertDependencies(
-      label = "second scalar user",
-      actual = secondCompiled,
-      expectedTables = listOf("second_root", "shared_scalar")
-    )
-    assertThat(firstCompiled.sql).contains("(SELECT")
-    assertThat(secondCompiled.sql).contains("(SELECT")
-    assertThat(firstCompiled.queryDependencies)
-      .isNotSameInstanceAs(secondCompiled.queryDependencies)
-    assertThat(firstCompiled.queryDependencies.directSources)
-      .isNotSameInstanceAs(secondCompiled.queryDependencies.directSources)
-    assertThat(firstCompiled.queryDependencies.observedTables)
-      .isNotSameInstanceAs(secondCompiled.queryDependencies.observedTables)
-  }
-
-  @Test
-  fun nestedQueryGraphJoinContributesToBothDependencySets() {
-    val joined = sourceTable("graph_join")
-    val nested = testTable(
-      name = "nested_root",
-      mapper = { _, _, _ -> Query.Mapper { Any() } },
-      addDeepQueryParts = { _, _, _ ->
-        addLeftJoin(
-          table = joined,
-          on = Expr.raw("1 = 1")
-        )
+    val views = listOf(
+      "a nested query in a view definition" to viewDependencies(
+        name = "writing_author",
+        column = "author.name"
+      ) {
+        (SELECT COLUMN AUTHOR.NAME FROM AUTHOR)
+          .WHERE(AUTHOR.ID IN (SELECT COLUMN BOOK.AUTHOR FROM BOOK WHERE (BOOK.TITLE IS_NOT "Dune")))
+      },
+      "a derived source in a view definition" to viewDependencies(
+        name = "titled_book",
+        column = "titled.book.title"
+      ) {
+        SELECT
+          .COLUMN(titled[BOOK.TITLE])
+          .FROM(titled)
+      },
+      "a temporary table in a later arm of a temporary view" to viewDependencies(
+        name = "session_author",
+        column = "author.id",
+        temporary = true
+      ) {
+        SELECT
+          .COLUMN(AUTHOR.ID)
+          .FROM(AUTHOR)
+          .UNION(SELECT COLUMN 1L.asLiteral() FROM session)
       }
     )
-    val actual = Select
-      .from(sourceTable("outer_root"))
-      .where(
-        Select.asColumn(1)
-          .`in`(
-            Select
-              .column(Select.asColumn(1))
-              .from(nested)
-          )
-      )
-      .compile() as CompiledSelectDetails
 
-    assertDependencies(
-      label = "nested graph join",
-      actual = actual,
-      expectedTables = listOf("outer_root", "nested_root", "graph_join")
+    assertThat(cases.map { (label, query) -> label to query.observedTables() }).isEqualTo(
+      listOf(
+        "two levels in WHERE" to listOf("person", "author", "book"),
+        "two levels in a selected scalar" to listOf("author", "book", "publisher"),
+        "two levels in a later arm" to listOf("series", "author", "book"),
+        "a compound later arm" to listOf("person", "series", "author", "book"),
+        "a compound in IN" to listOf("person", "series", "author", "book"),
+        "a compound derived source" to listOf("series", "author", "book"),
+        "a nested query in ON" to listOf("person", "publisher", "author", "book"),
+        "a nested query in HAVING" to listOf("person", "author", "book"),
+        "an automatic join in a nested query" to listOf("person", "book", "author"),
+        "an automatic join in a later arm" to listOf("person", "book", "author"),
+        "a nested query in GROUP BY" to listOf("person", "book"),
+        "a nested query in ORDER BY" to listOf("person", "book"),
+        "a derived source in JOIN" to listOf("author", "book"),
+        "a temporary table in a later arm" to listOf("author")
+      )
+    )
+    assertThat(views.map { (label, dependencies) -> label to dependencySnapshot(dependencies) }).isEqualTo(
+      listOf(
+        "a nested query in a view definition" to tables("author", "book"),
+        "a derived source in a view definition" to tables("book"),
+        "a temporary table in a later arm of a temporary view" to DependencySnapshot(
+          observed = listOf("author"),
+          direct = listOf(
+            SqliteQuerySource(
+              schema = MAIN,
+              name = "author"
+            ),
+            SqliteQuerySource(
+              schema = TEMPORARY,
+              name = "author"
+            )
+          )
+        )
+      )
     )
   }
 
-  private fun assertDependencies(
-    label: String,
-    actual: CompiledSelectDetails,
-    expectedTables: List<String>
-  ) {
-    assertWithMessage("$label observed tables")
-      .that(actual.queryDependencies.observedTables.asList())
-      .containsExactlyElementsIn(expectedTables)
-    assertWithMessage("$label direct sources")
-      .that(actual.queryDependencies.directSources)
-      .containsExactlyElementsIn(
-        expectedTables.map { table ->
-          SqliteQuerySource(
-            schema = SqliteSchema.MAIN,
-            name = table
-          )
-        }
+  @Test
+  fun `an observed compound reruns after changes to a table only a later arm's nested query reads`() {
+    val idle = SELECT
+      .COLUMN(AUTHOR.NAME)
+      .FROM(AUTHOR)
+      .EXCEPT(
+        SELECT
+          .COLUMN(AUTHOR.NAME)
+          .FROM(AUTHOR)
+          .WHERE(AUTHOR.ID IN (SELECT COLUMN BOOK.AUTHOR FROM BOOK))
       )
-  }
 
-  private fun sourceTable(name: String) = testTable(
-    name = name,
-    mapper = { _, _, _ -> Query.Mapper { Any() } }
-  )
+    libraryDatabase().use { database ->
+      val connection = database.dbConnection()
+      val observed = idle
+        .usingConnection(connection)
+        .observe()
+        .runQuery()
+        .test()
+      DELETE
+        .FROM(BOOK)
+        .WHERE(BOOK.TITLE IS "Emma")
+        .usingConnection(connection)
+        .execute()
+
+      assertThat(observed.values()).isEqualTo(listOf(emptyList(), listOf("Grace")))
+      observed.dispose()
+    }
+  }
 }

@@ -2,37 +2,52 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
+import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.emailValueType
-import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.nullableObjectTransformer
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.mainDatabaseWithSubmodule
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.assertNotGeneratedSources
+import com.siimkinks.sqlitemagic.utils.debugMigrationOptions
+import com.siimkinks.sqlitemagic.utils.functionBody
+import com.siimkinks.sqlitemagic.utils.insertBeforeLast
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.unwrapped
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
-internal class GenClassesManagerContractTest : ProcessingStepsTest {
-  override val processingSteps = ::genClassesManagerProcessingSteps
+internal class GenClassesManagerContractTest {
+  private val compiler = SqliteMagicCompiler(::genClassesManagerProcessingSteps)
 
   @TempDir
   lateinit var temporaryDirectory: Path
 
   @Test
   fun `generates the main database from optional and non-Long ID tables`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "MainDatabaseTables.kt",
@@ -59,8 +74,8 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           """
         ),
         kspOptions = mapOf(
-          "sqlitemagic.db.version" to "7",
-          "sqlitemagic.variant.debug" to "true"
+          OPTION_DB_VERSION to "7",
+          OPTION_VARIANT_DEBUG to "true"
         )
       )
       .isOk()
@@ -75,12 +90,13 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "SqliteMagic_Book_Adapter.TABLE_SCHEMA",
           "override fun getNrOfTables(moduleName: String?): Int = 2"
         )
+        generatedSource.assertDoesNotContain("createTemporarySchema")
       }
   }
 
   @Test
   fun `separates persistent and temporary schemas and preserves relationship order`() {
-    SqliteMagicCompilation
+    compiler
       .compile(schemaTables())
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
@@ -88,40 +104,103 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
         generatedSource.assertContains(
           "override fun configureDatabase(db: SupportSQLiteDatabase)",
           "db.setForeignKeyConstraintsEnabled(true)",
-          "override fun createSchema(db: SupportSQLiteDatabase)",
           "db.execSQL(SqliteMagic_Parent_Adapter.TABLE_SCHEMA)",
           "db.execSQL(SqliteMagic_Child_Adapter.TABLE_SCHEMA)",
-          "override fun createTemporarySchema(db: SupportSQLiteDatabase)",
           "db.execSQL(SqliteMagic_SessionOwner_Adapter.TABLE_SCHEMA)",
-          "db.execSQL(SqliteMagic_SessionCache_Adapter.TABLE_SCHEMA)",
-          "override fun migrateViews(db: SupportSQLiteDatabase): Unit = Unit"
+          "db.execSQL(SqliteMagic_SessionCache_Adapter.TABLE_SCHEMA)"
         )
-        generatedSource.assertDoesNotContain(
-          "createSchema(db: SupportSQLiteDatabase) {\n" +
-              "    db.execSQL(SqliteMagic_SessionCache_Adapter.TABLE_SCHEMA)"
+        generatedSource.assertContainsUnwrapped(
+          "override fun createSchema(db: SupportSQLiteDatabase): Unit = " +
+              "SqlUtil.createSchema(db = db, schema = this, temporary = false)",
+          CREATE_TEMPORARY_SCHEMA_DELEGATION,
+          "override fun migrateViews(db: SupportSQLiteDatabase): Unit = SqlUtil.migrateViews(db = db, schema = this)"
         )
-        check(
-          generatedSource.indexOf("SqliteMagic_Parent_Adapter.TABLE_SCHEMA") <
-              generatedSource.indexOf("SqliteMagic_Child_Adapter.TABLE_SCHEMA")
-        )
-        check(
-          generatedSource.indexOf("SqliteMagic_SessionOwner_Adapter.TABLE_SCHEMA") <
-              generatedSource.indexOf("SqliteMagic_SessionCache_Adapter.TABLE_SCHEMA")
+        generatedSource
+          .functionBody("createSchemaTables")
+          .unwrapped()
+          .assertContainsInOrder(
+            "if (temporary)",
+            "SqliteMagic_SessionOwner_Adapter.TABLE_SCHEMA",
+            "SqliteMagic_SessionCache_Adapter.TABLE_SCHEMA",
+            "else",
+            "SqliteMagic_Parent_Adapter.TABLE_SCHEMA",
+            "SqliteMagic_Child_Adapter.TABLE_SCHEMA"
+          )
+      }
+      .apply {
+        val database = environment.generatedDatabaseElement()
+        val tablesByName = database.tables.associateBy(TableElement::tableName)
+
+        assertThat(DatabaseStructure.from(CreationOrderedTables.from(database.tables))).isEqualTo(
+          DatabaseStructure(
+            tables = mapOf(
+              "parents" to TableStructure.from(tablesByName.getValue("parents")),
+              "children" to TableStructure.from(tablesByName.getValue("children"))
+            ),
+            temporaryTables = mapOf(
+              "session_owners" to TableStructure.from(tablesByName.getValue("session_owners")),
+              "session_cache" to TableStructure.from(tablesByName.getValue("session_cache"))
+            )
+          )
         )
       }
   }
 
   @Test
-  fun `generates clear counts transformer dispatch and the empty-module gate`() {
-    SqliteMagicCompilation
-      .compile(SourceFile.kotlin(name = "Empty.kt", contents = "package $PACKAGE\nclass Empty"))
-      .isOk()
-      .apply {
-        check("SqliteMagicDatabase.kt" !in generatedSourceNames())
-      }
+  fun `generates clear counts and the empty-module gate`() {
+    compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "Empty.kt",
+          contents = """
+            package $PACKAGE
 
-    SqliteMagicCompilation
-      .compile(transformerTable())
+            class Empty
+          """
+        )
+      )
+      .isOk()
+      .assertNotGeneratedSources("SqliteMagicDatabase.kt")
+
+    compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "TransformerTable.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+            data class Token(val value: String)
+
+            data class NumericToken(val value: Long)
+
+            object TokenTransformers {
+              @ObjectToDbValue
+              fun toDatabaseValue(value: Token): String = value.value
+
+              @DbValueToObject
+              fun fromDatabaseValue(value: String): Token = Token(value)
+            }
+
+            object NumericTokenTransformers {
+              @ObjectToDbValue
+              fun toDatabaseValue(value: NumericToken): Long = value.value
+
+              @DbValueToObject
+              fun fromDatabaseValue(value: Long): NumericToken = NumericToken(value)
+            }
+
+            @Table("transformed_values")
+            data class TransformedValue(
+              val token: Token,
+              val numericToken: NumericToken
+            )
+          """
+        )
+      )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
@@ -129,57 +208,73 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
           "override val dbName: String? = null",
           "override val submoduleNames: Array<String>?",
           "get() = null",
-          "override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>",
           """db.execSQL("DELETE FROM transformed_values")""",
-          """allChangedTables.add("transformed_values")""",
-          "TokenColumn<",
-          "val sqlValue = TokenTransformers.toDatabaseValue(input as Token)\n" +
-              "        val stringValue = SqlUtil.quoteSqlStringLiteral(sqlValue)\n" +
-              "        TokenColumn",
-          "val sqlValue = NumericTokenTransformers.toDatabaseValue(input as NumericToken)\n" +
-              "        val stringValue = sqlValue.toString()\n" +
-              "        NumericTokenColumn",
-          "else -> Column<V, V, V, Any, NotNullable>(",
-          "SqlUtil.quoteSqlStringLiteral(input.toString()),"
+          """changedTables.add("transformed_values")"""
+        )
+        generatedSource.assertContainsUnwrapped(
+          "override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String> = " +
+              "SqlUtil.clearData(db = db, schema = this, tableCount = getNrOfTables(null))"
         )
       }
   }
 
   @Test
   fun `generates public submodule aggregation and module-aware adapters`() {
-    val submodule = SqliteMagicCompilation
-      .compile(submoduleDatabase())
+    val submodule = compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "FeatureDatabase.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @SubmoduleDatabase("feature")
+            class FeatureDatabase
+
+            @Table("feature_items")
+            data class FeatureItem(
+              @Id val id: Long,
+              val name: String
+            )
+          """
+        )
+      )
       .isOk()
       .assertGeneratedSources(
         "FeatureGeneratedClassesManager.kt",
         "SqliteMagic_FeatureItem_Adapter.kt"
       )
-      .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("FeatureGeneratedClassesManager.kt") {
+        it.assertContains(
           "public object FeatureGeneratedClassesManager",
-          "public fun getNrOfTables(moduleName: String?): Int = 1",
-          "public fun <V : Any> columnForValueOrNull("
+          "public fun getNrOfTables(moduleName: String?): Int = 1"
         )
       }
-      .withGeneratedSource("SqliteMagic_FeatureItem_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains("""override val moduleName: String? = "Feature"""")
+      .withGeneratedSource("SqliteMagic_FeatureItem_Adapter.kt") {
+        it.assertContains("""override val moduleName: String? = "Feature"""")
       }
 
-    submodule
-      .compile(mainDatabaseWithSubmodule())
+    compiler
+      .compile(
+        mainDatabaseWithSubmodule(),
+        classpaths = listOf(submodule.outputDirectory)
+      )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContainsUnwrapped(
           "FeatureGeneratedClassesManager.configureDatabase(db)",
           "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
           "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
           "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
-          "allChangedTables.addAll(FeatureGeneratedClassesManager.clearData(db))",
+          "FeatureGeneratedClassesManager.clearTables(db = db, changedTables = changedTables)",
+          CREATE_TEMPORARY_SCHEMA_DELEGATION,
           "override val submoduleNames: Array<String>?",
           """get() = arrayOf("Feature")""",
-          """"Feature" -> FeatureGeneratedClassesManager.getNrOfTables(moduleName)""",
-          "FeatureGeneratedClassesManager.columnForValueOrNull(className = className, input = input)"
+          """"Feature" -> FeatureGeneratedClassesManager.getNrOfTables(moduleName)"""
         )
       }
   }
@@ -190,7 +285,7 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
     fileName: String,
     contents: String
   ) {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = fileName,
@@ -206,59 +301,48 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
 
   @Test
   fun `persists complete debug migration state`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         schemaTables(),
-        kspOptions = mapOf(
-          "sqlitemagic.migrate.debug" to "true",
-          "sqlitemagic.project.dir" to temporaryDirectory.toString(),
-          "sqlitemagic.variant.name" to "debug",
-          "sqlitemagic.variant.debug" to "true"
-        )
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
       )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
 
-    Files
-      .readString(temporaryDirectory.resolve("db/latest.struct"))
-      .apply {
-        assertContains(
-          """"parents"""",
-          """"children"""",
-          """"indices":{}""",
-          """"temporaryTables"""",
-          "session_owners",
-          "session_cache"
-        )
-      }
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.views")))
-      .isFalse()
+    temporaryDirectory
+      .resolve("db/latest.struct")
+      .readText()
+      .assertContains(
+        """"parents"""",
+        """"children"""",
+        """"indices":{}""",
+        """"temporaryTables"""",
+        "session_owners",
+        "session_cache"
+      )
   }
 
   @Test
   fun `restores debug migration state when manager generation fails`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
+    val structureFile = temporaryDirectory
+      .resolve("db/latest.struct")
+      .toFile()
     DatabaseStructureJson.write(
       file = structureFile,
       structure = DatabaseStructure()
     )
-    val versionFile = temporaryDirectory.resolve("db/latest_debug.version").toFile()
+    val versionFile = temporaryDirectory.resolve("db/latest_debug.version")
     versionFile.writeText("1007")
-    val marker = temporaryDirectory.resolve("db/feature.changed").toFile()
+    val marker = temporaryDirectory.resolve("db/feature.changed")
     marker.writeText("old_feature_view\n")
 
     SqliteMagicCompilation
       .compile(
         schemaTables(),
-        kspOptions = mapOf(
-          "sqlitemagic.migrate.debug" to "true",
-          "sqlitemagic.project.dir" to temporaryDirectory.toString(),
-          "sqlitemagic.variant.name" to "debug",
-          "sqlitemagic.variant.debug" to "true"
-        ),
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory),
         processingStepsFactory = { environment ->
-          val steps = genClassesManagerProcessingSteps(environment)
-          steps.dropLast(1) + listOf(ReserveManagerFileStep(environment), steps.last())
+          genClassesManagerProcessingSteps(environment)
+            .insertBeforeLast(ReserveManagerFileStep(environment))
         }
       )
       .assertCompilationError("SqliteMagicDatabase")
@@ -269,23 +353,39 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
       .isEqualTo("1007")
     assertThat(marker.readText())
       .isEqualTo("old_feature_view\n")
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.sql")))
-      .isFalse()
-    assertThat(Files.exists(temporaryDirectory.resolve("src/debug/assets/1008.views")))
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1008.sql").exists())
       .isFalse()
   }
 
   @Test
-  fun `includes tables generated in later rounds before finalizing the manager`() {
+  fun `includes tables and indexes generated in later rounds before finalizing the manager`() {
     SqliteMagicCompilation
       .compile(
         SourceFile.kotlin(
           name = "Initial.kt",
-          contents = "package $PACKAGE\nclass Initial"
+          contents = """
+            package $PACKAGE
+
+            class Initial
+          """
         ),
         processingStepsFactory = { environment ->
-          val steps = genClassesManagerProcessingSteps(environment)
-          steps.dropLast(1) + listOf(LateTableGenerationStep(environment), steps.last())
+          genClassesManagerProcessingSteps(environment)
+            .insertBeforeLast(
+              GeneratedSourceStep(
+                environment = environment,
+                fileName = "LateTable",
+                contents = """
+                  package $PACKAGE
+
+                  import com.siimkinks.sqlitemagic.annotation.Index
+                  import com.siimkinks.sqlitemagic.annotation.Table
+
+                  @Table("late_tables")
+                  data class LateTable(@Index("late_index") val value: String)
+                """
+              )
+            )
         }
       )
       .isOk()
@@ -293,103 +393,24 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
         "SqliteMagic_LateTable_Adapter.kt",
         "SqliteMagicDatabase.kt"
       )
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContains(
           "db.execSQL(SqliteMagic_LateTable_Adapter.TABLE_SCHEMA)",
-          "override fun getNrOfTables(moduleName: String?): Int = 1"
+          "override fun getNrOfTables(moduleName: String?): Int = 1",
+          "late_index"
         )
       }
-  }
-
-  @Test
-  fun `guards nullable serializers and rejects erased transformer ambiguity`() {
-    SqliteMagicCompilation
-      .compile(
-        emailValueType(),
-        nullableObjectTransformer(),
-        erasedTransformerAmbiguity()
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagicDatabase.kt")
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "val sqlValue = NullableEmailTransformer.emailToString(input as Email)\n" +
-              "        val stringValue = SqlUtil.quoteSqlStringLiteral(sqlValue ?: " +
-              """throw NullPointerException("SQL argument cannot be null"))""",
-          "throw UnsupportedOperationException(",
-          """"Unable to disambiguate transformer for kotlin.collections.List""""
-        )
+      .apply {
+        assertThat(environment.indexElements.values.map(IndexElement::name))
+          .containsExactly("late_index")
       }
   }
-
-  private fun transformerTable() = SourceFile.kotlin(
-    name = "TransformerTable.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.annotation.Table
-      import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
-      import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
-
-      data class Token(val value: String)
-
-      data class NumericToken(val value: Long)
-
-      object TokenTransformers {
-        @ObjectToDbValue
-        fun toDatabaseValue(value: Token): String = value.value
-
-        @DbValueToObject
-        fun fromDatabaseValue(value: String): Token = Token(value)
-      }
-
-      object NumericTokenTransformers {
-        @ObjectToDbValue
-        fun toDatabaseValue(value: NumericToken): Long = value.value
-
-        @DbValueToObject
-        fun fromDatabaseValue(value: Long): NumericToken = NumericToken(value)
-      }
-
-      @Table("transformed_values")
-      data class TransformedValue(
-        val token: Token,
-        val numericToken: NumericToken
-      )
-    """
-  )
-
-  private fun erasedTransformerAmbiguity() = SourceFile.kotlin(
-    name = "ErasedTransformerAmbiguity.kt",
-    contents = """
-      package $PACKAGE.transformers
-
-      import com.siimkinks.sqlitemagic.annotation.Table
-      import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
-      import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
-
-      data class Phone(val value: String)
-
-      object GenericTransformers {
-        @ObjectToDbValue
-        fun emailsToString(values: List<Email>): String = values.joinToString(transform = Email::value)
-
-        @DbValueToObject
-        fun stringToEmails(value: String): List<Email> = value.split(',').map(::Email)
-
-        @ObjectToDbValue
-        fun phonesToString(values: List<Phone>): String = values.joinToString(transform = Phone::value)
-
-        @DbValueToObject
-        fun stringToPhones(value: String): List<Phone> = value.split(',').map(::Phone)
-      }
-
-      @Table("contacts")
-      data class Contact(val name: String)
-    """
-  )
 
   companion object {
+    private const val CREATE_TEMPORARY_SCHEMA_DELEGATION =
+      "override fun createTemporarySchema(db: SupportSQLiteDatabase): Unit = " +
+          "SqlUtil.createSchema(db = db, schema = this, temporary = true)"
+
     @JvmStatic
     fun modulesWithoutManagerContents() = listOf(
       Arguments.of(
@@ -426,42 +447,9 @@ internal class GenClassesManagerContractTest : ProcessingStepsTest {
   }
 }
 
-private class LateTableGenerationStep(
-  private val environment: Environment
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = "LateTable"
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(
-          """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table("late_tables")
-            data class LateTable(val value: String)
-          """.trimIndent()
-        )
-      }
-    return Continue
-  }
-}
-
 private class ReserveManagerFileStep(
   private val environment: Environment
 ) : ProcessingStep {
-  override fun process(resolver: Resolver): ProcessingStepResult = Continue
-
   override fun finish(): ProcessingStepResult {
     val className = environment.getGenClassesManagerClassName()
     environment.codeGenerator

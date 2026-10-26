@@ -2,60 +2,61 @@ package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
 import com.siimkinks.sqlitemagic.internal.MutableOrderedScatterSet
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.internal.toTypedArray
 
 internal class QueryDependencies private constructor(
   val directSources: List<SqliteQuerySource>,
-  val observedTables: Array<String>,
-  val directSourcesComplete: Boolean
+  val observedTables: Array<String>
 ) {
-  internal class Builder(initialCapacity: Int = 0) {
-    private val directSourcesByIdentity = LinkedHashMap<SqliteSchemaKey, SqliteQuerySource>()
-    private val observedTableNames = MutableOrderedScatterSet<String>(initialCapacity = initialCapacity)
-    private var directSourcesComplete = true
+  companion object {
+    val NONE = Builder().build()
 
-    fun addSource(source: SqliteQuerySource) = apply {
+    fun declared(table: Table<*>, tables: Array<out Table<*>>) = Builder(initialCapacity = tables.size + 1)
+      .apply {
+        table.addDependencies(this)
+        tables.forEach { it.addDependencies(this) }
+      }
+      .build()
+  }
+
+  class Builder(
+    initialCapacity: Int = 0,
+    collectDirectSources: Boolean = true
+  ) {
+    private val directSources = when {
+      collectDirectSources -> ArrayList<SqliteQuerySource>(initialCapacity)
+      else -> null
+    }
+    private val directSourceKeys = when {
+      collectDirectSources -> MutableScatterSet<SqliteSchemaKey>(initialCapacity)
+      else -> null
+    }
+    private val observedTableNames = MutableOrderedScatterSet<String>(initialCapacity = initialCapacity)
+
+    fun addSource(source: SqliteQuerySource) {
       addDirectSource(source)
       if (source.kind == TABLE) {
-        addObservedTable(source.name)
+        observedTableNames += source.name
       }
     }
 
-    fun addObservedTable(name: String) = apply {
-      observedTableNames += name
-    }
+    fun addObservedTables(names: Array<out String>) = names.forEach(observedTableNames::add)
 
-    fun addObservedTables(names: Array<out String>) = apply {
-      names.forEach(observedTableNames::add)
-    }
-
-    fun merge(dependencies: QueryDependencies) = apply {
+    fun merge(dependencies: QueryDependencies) {
       dependencies.directSources.forEach(::addDirectSource)
       addObservedTables(dependencies.observedTables)
-      if (!dependencies.directSourcesComplete) {
-        markDirectSourcesIncomplete()
-      }
-    }
-
-    fun markDirectSourcesIncomplete() = apply {
-      directSourcesComplete = false
     }
 
     fun build() = QueryDependencies(
-      directSources = directSourcesByIdentity.values.toList(),
-      observedTables = observedTableNames.toTypedArray(),
-      directSourcesComplete = directSourcesComplete
+      directSources = directSources ?: emptyList(),
+      observedTables = observedTableNames.toTypedArray()
     )
 
     private fun addDirectSource(source: SqliteQuerySource) {
-      val normalizedKey = source.identity.normalizedKey
-      val previous = directSourcesByIdentity[normalizedKey]
-      require(previous == null || previous.kind == source.kind) {
-        "Conflicting SQLite source kinds for ${source.identity}: ${previous?.kind} and ${source.kind}"
-      }
-      if (previous == null) {
-        directSourcesByIdentity[normalizedKey] = source
+      if (directSourceKeys?.add(source.identity.normalizedKey) == true) {
+        directSources?.add(source)
       }
     }
   }

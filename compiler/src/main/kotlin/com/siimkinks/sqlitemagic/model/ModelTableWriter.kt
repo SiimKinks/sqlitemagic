@@ -1,261 +1,224 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_DEEP_QUERY_PARTS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_SHALLOW_QUERY_PARTS
-import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
+import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.COMPLEX_NUMERIC_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
-import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE
-import com.siimkinks.sqlitemagic.WriterTypes.NUMERIC_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.QUERY_GRAPH_SCOPE
-import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
-import com.siimkinks.sqlitemagic.WriterTypes.TABLE
+import com.siimkinks.sqlitemagic.WriterTypes.ENCODING_TYPE
+import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE_READ_TYPE
+import com.siimkinks.sqlitemagic.WriterTypes.PARAMETER_ENCODING_FACTORY
+import com.siimkinks.sqlitemagic.WriterTypes.RELATIONSHIP_READ
+import com.siimkinks.sqlitemagic.WriterTypes.SQL_NULLABLE
+import com.siimkinks.sqlitemagic.WriterTypes.SQL_STORAGE
+import com.siimkinks.sqlitemagic.WriterTypes.TABLE_RELATIONSHIP
 import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_NUMERIC_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.UTILS
+import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.utils.callCode
+import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter
-import com.squareup.kotlinpoet.ClassName
+import com.siimkinks.sqlitemagic.writer.entityProperties
 import com.squareup.kotlinpoet.CodeBlock
-import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.PRIVATE
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
-import com.squareup.kotlinpoet.STAR
-import com.squareup.kotlinpoet.STRING
-import com.squareup.kotlinpoet.TypeName
 
 internal class ModelTableWriter(
   private val environment: Environment
 ) : ModelWriter {
   override fun write(tableRoundElement: TableRoundElement) = with(tableRoundElement) {
-    ReadTableStructureWriter
-      .from(
-        table = table,
-        columns = table.allColumns.map { column ->
-          columnProperty(
-            table = table,
-            column = column
-          )
-        },
-        otherFunctions = buildList {
-          if (table.hasRecursiveRelationships) {
-            add(queryGraphContributor(table = table))
-          }
-          if (table.needsShallowQueryParts) {
-            add(queryGraphContributor(table = table, shallow = true))
+    readTableStructureWriter(table)
+      .write(
+        codeGenerator = environment.codeGenerator,
+        originatingFiles = originatingFiles,
+        fileProperties = table.allColumns.mapNotNull { column ->
+          column.relationshipBackedId?.let { relationship ->
+            relationshipBackedIdType(
+              column = column,
+              relationship = relationship
+            )
           }
         }
       )
-      .write(
-        codeGenerator = environment.codeGenerator,
-        originatingFiles = originatingFiles
-      )
   }
+
+  private fun readTableStructureWriter(table: TableElement) = ReadTableStructureWriter(
+    names = table.generationNames,
+    modelClassName = table.modelClassName,
+    isPublic = table.isPublic,
+    constructorArguments = buildList {
+      add(namedArgument("name", "%S", table.tableName))
+      add(namedArgument("alias", "%N", VARIABLE_ALIAS))
+      if (table.schema == TEMPORARY) {
+        add(namedArgument("temporary", "true"))
+      }
+    },
+    columns = table.allColumns.map {
+      columnProperty(
+        table = table,
+        column = it
+      )
+    },
+    readsRelated = table.hasRecursiveRelationships,
+    relationships = table.relationshipColumns
+      .takeIf(List<ColumnElement>::isNotEmpty)
+      ?.let(::relationships),
+    partialRead = ReadTableStructureWriter.PartialRead(
+      entityProperties = entityProperties(
+        modelName = table.modelName,
+        properties = table.allColumns,
+        partialRequirements = table.partialRequirements
+      ),
+      readsRelated = table.hasRecursiveRelationships
+    )
+  )
 
   private fun columnProperty(
     table: TableElement,
     column: ColumnElement
-  ): PropertySpec = PropertySpec
-    .builder(
-      name = column.fieldName,
-      type = columnType(table = table, column = column)
-    )
-    .initializer(
-      when {
-        column.hasGeneratedColumnClass -> CodeBlock.of(
-          "%T(this, %S, %T.%N, %L, null)",
-          generatedColumnClass(table = table, column = column),
-          column.columnName,
-          UTILS,
-          parserName(column),
-          column.isSchemaNullable
+  ): PropertySpec {
+    val relationship = column.relationship
+    val relationshipBackedId = column.relationshipBackedId
+    return when {
+      relationshipBackedId != null -> relationshipBackedIdProperty(
+        table = table,
+        column = column,
+        relationship = relationshipBackedId
+      )
+      relationship == null -> scalarColumnProperty(
+        table = table,
+        column = column,
+        value = column
+      )
+      else -> scalarColumnProperty(
+        table = table,
+        column = column,
+        value = column.copy(
+          deserializedType = relationship.referencedIdType,
+          transformer = relationship.referencedIdTransformer,
+          relationship = null
         )
-        else -> CodeBlock.of(
-          "%T(table = this, name = %S, valueParser = %T.%N, nullable = %L, alias = null)",
-          factoryColumnClass(column),
-          column.columnName,
-          UTILS,
-          parserName(column),
-          column.isSchemaNullable
-        )
-      }
-    )
-    .build()
-
-  private fun factoryColumnClass(column: ColumnElement) = when {
-    column.transformer?.isDefaultTransformer == true -> BOOLEAN_COLUMN
-    column.relationship != null && column.sqlStorageType.isNumeric -> COMPLEX_NUMERIC_COLUMN
-    column.relationship != null -> COMPLEX_COLUMN
-    column.isUnique || column.isId -> when {
-      column.sqlStorageType.isNumeric -> UNIQUE_NUMERIC_COLUMN
-      else -> UNIQUE_COLUMN
-    }
-    column.sqlStorageType.isNumeric -> NUMERIC_COLUMN
-    else -> COLUMN
-  }
-
-  private fun columnType(
-    table: TableElement,
-    column: ColumnElement
-  ): TypeName {
-    val nullability = when {
-      column.isSchemaNullable -> NULLABLE
-      else -> NOT_NULLABLE
-    }
-    val transformer = column.transformer
-    when {
-      column.hasGeneratedColumnClass -> return generatedColumnClass(table, column)
-        .parameterizedBy(table.modelClassName, nullability)
-      transformer?.isDefaultTransformer == true -> return BOOLEAN_COLUMN.parameterizedBy(
-        table.modelClassName,
-        nullability
       )
     }
-    val valueType = when {
-      column.relationship != null -> column.relationship.referencedIdType.typeName
-      else -> column.deserializedType.typeName
-    }.copy(nullable = false)
-    val returnType = valueType.copy(
-      nullable = column.isSchemaNullable
-    )
-    val equivalentType = column.equivalentType(declaredType = valueType)
-    return columnClass(column).parameterizedBy(
-      valueType,
-      returnType,
-      equivalentType,
-      table.modelClassName,
-      nullability
-    )
   }
 
-  private fun columnClass(column: ColumnElement) = when {
-    column.relationship != null && column.hasGeneratedColumnClass -> error(
-      "Transformed relationship columns use a generated column class"
+  private fun scalarColumnProperty(
+    table: TableElement,
+    column: ColumnElement,
+    value: ColumnElement
+  ) = scalarFieldProperty(
+    ownerType = table.modelClassName,
+    fieldClass = column.fieldClass,
+    fieldName = column.fieldName,
+    columnName = column.columnName,
+    deserializedType = value.deserializedType.typeName,
+    sqlStorageType = value.sqlStorageType,
+    transformer = value.transformer,
+    isSchemaNullable = value.isSchemaNullable,
+    isModelPathNullable = value.isModelPathNullable,
+    sqlRequired = value.isId && (value.sqlStorageType.affinity == INTEGER || WITHOUT_ROWID in table.options)
+  )
+
+  /** A relationship whose referenced ID is itself a relationship has the ID-only referenced model as its value. */
+  private fun relationshipBackedIdProperty(
+    table: TableElement,
+    column: ColumnElement,
+    relationship: RelationshipElement
+  ): PropertySpec {
+    val idType = relationship.nullableIdType
+    return PropertySpec
+      .builder(
+        name = column.fieldName,
+        type = column.fieldClass.parameterizedBy(
+          table.modelClassName,
+          idType,
+          SQL_NULLABLE,
+          idType,
+          idType,
+          SQL_NULLABLE,
+          idType
+        )
+      )
+      .initializer(
+        callCode(
+          callee = CodeBlock.of("%T", column.fieldClass),
+          arguments = listOf(
+            namedArgument("table", "this"),
+            namedArgument("name", "%S", column.columnName),
+            namedArgument("nullness", "%T", SQL_NULLABLE),
+            namedArgument(
+              "parameterEncoding",
+              "%N.%M()",
+              column.relationshipBackedIdTypeName,
+              PARAMETER_ENCODING_FACTORY
+            )
+          )
+        )
+      )
+      .build()
+  }
+
+  private fun relationshipBackedIdType(column: ColumnElement, relationship: RelationshipElement): PropertySpec {
+    val idType = relationship.nullableIdType
+    val serializedType = relationship.referencedIdSerializedType.typeName.copy(nullable = true)
+    return PropertySpec
+      .builder(
+        name = column.relationshipBackedIdTypeName,
+        type = ENCODING_TYPE.parameterizedBy(idType, idType, SQL_NULLABLE, SQL_NULLABLE)
+      )
+      .addModifiers(PRIVATE)
+      .initializer(
+        callCode(
+          callee = CodeBlock.of("%M", NULLABLE_READ_TYPE),
+          arguments = listOf(
+            namedArgument("storage", "%T.%N", SQL_STORAGE, column.sqlStorageType.name),
+            namedArgument(
+              "encode",
+              "{ value: %T -> value?.let { %L } }",
+              idType,
+              relationship.serializedDeclaredIdValue(value = CodeBlock.of("it"))
+            ),
+            namedArgument(
+              "decode",
+              "{ dbValue: %T -> dbValue?.let { %L } }",
+              serializedType,
+              relationship.deserializedDeclaredIdValue(CodeBlock.of("it"))
+            ),
+            namedArgument("encodingNullness", "%T", SQL_NULLABLE)
+          )
+        )
+      )
+      .build()
+  }
+}
+
+/** Targets resolve lazily, since tables can reference each other. */
+private fun relationships(columns: List<ColumnElement>) = callCode(
+  callee = CodeBlock.of("listOf"),
+  arguments = columns.map { column ->
+    val relationship = checkNotNull(column.relationship)
+    callCode(
+      callee = CodeBlock.of("%T", TABLE_RELATIONSHIP),
+      arguments = listOf(
+        namedArgument("columnName", "%S", column.columnName),
+        namedArgument("target", "{ %L }", relationship.referencedTableNames.tableHandle),
+        namedArgument("targetIdColumnName", "%S", relationship.referencedIdColumnName),
+        namedArgument("nullable", "%L", column.isNullable),
+        namedArgument("read", "%T.%L", RELATIONSHIP_READ, relationship.read.name)
+      )
     )
-    column.transformer != null && !column.transformer.isDefaultTransformer -> generatedTransformerColumnClass(column)
-    column.transformer?.isDefaultTransformer == true -> BOOLEAN_COLUMN
-    column.relationship != null && column.sqlStorageType.isNumeric -> COMPLEX_NUMERIC_COLUMN
-    column.relationship != null -> COMPLEX_COLUMN
-    column.isUnique || column.isId -> when {
-      column.sqlStorageType.isNumeric -> UNIQUE_NUMERIC_COLUMN
-      else -> UNIQUE_COLUMN
-    }
-    column.sqlStorageType.isNumeric -> NUMERIC_COLUMN
+  }
+)
+
+private val ColumnElement.relationshipBackedIdTypeName get() = "${fieldName}_TYPE"
+
+private val ColumnElement.fieldClass
+  get() = when {
+    (isUnique || isId) && hasEntityKeyValue -> UNIQUE_COLUMN
     else -> COLUMN
   }
 
-  private fun generatedColumnClass(
-    table: TableElement,
-    column: ColumnElement
-  ) = when {
-    column.relationship != null -> table.relationshipColumnClassName(column)
-    else -> generatedTransformerColumnClass(column)
-  }
+private val ColumnElement.relationshipBackedId
+  get() = relationship?.takeIf { it.referencedIdRelationship != null }
 
-  private fun generatedTransformerColumnClass(column: ColumnElement): ClassName {
-    val transformer = checkNotNull(column.transformer)
-    return transformer.generatedColumnClassName(unique = column.isUnique || column.isId)
-  }
-
-  private fun parserName(column: ColumnElement) = column
-    .sqlStorageType
-    .parserName(column.isSchemaNullable)
-
-  private fun queryGraphContributor(
-    table: TableElement,
-    shallow: Boolean = false
-  ): FunSpec {
-    val function = FunSpec
-      .builder(if (shallow) METHOD_ADD_SHALLOW_QUERY_PARTS else METHOD_ADD_DEEP_QUERY_PARTS)
-      .receiver(QUERY_GRAPH_SCOPE)
-      .addModifiers(PRIVATE)
-      .addParameter(name = "table", type = TABLE.parameterizedBy(STAR))
-      .addParameter(name = "tableAlias", type = TABLE.parameterizedBy(STAR))
-      .addParameter(name = "nodeName", type = STRING)
-      .addStatement("val sourceTable = table as %T", table.generationNames.tableClassName)
-    table.recursiveRelationshipColumns
-      .filter { !shallow || it.relationship?.canConstructWithOnlyId == false }
-      .forEachIndexed { index, column ->
-        val referencedTable = checkNotNull(
-          environment.tableElements[column.relationship?.referencedTableTypeKey]
-        )
-        val referencedTableClassName = referencedTable.generationNames.tableClassName
-        val referencedId = checkNotNull(referencedTable.idColumn)
-        val referencedTableName = "referencedTable$index"
-        val joinedTableName = "joinedTable$index"
-        val relationshipNodeName = "relationshipNodeName$index"
-        val parentColumnName = "parentColumn$index"
-        val referencedIdName = "referencedId$index"
-        function
-          .addStatement(
-            "val %N = %T.%N",
-            referencedTableName,
-            referencedTableClassName,
-            referencedTable.structureFieldName
-          )
-          .beginControlFlow("if (includes(%S))", referencedTable.tableName)
-          .addStatement("val %N = nodeName + %S", relationshipNodeName, column.columnName)
-          .addStatement(
-            "val %N = rebindColumn(newTable = tableAlias, column = sourceTable.%N)",
-            parentColumnName,
-            column.fieldName
-          )
-          .addStatement(
-            "val userJoin = findJoin(table = %N, joinedOnColumn = %N)",
-            referencedTableName,
-            parentColumnName
-          )
-          .beginControlFlow("if (userJoin != null)")
-          .addStatement(
-            "visit(table = %N, tableAlias = userJoin, nodeName = %N)",
-            referencedTableName,
-            relationshipNodeName
-          )
-          .nextControlFlow("else")
-          .addStatement(
-            "val %N = tableForAutomaticJoin(%N)",
-            joinedTableName,
-            referencedTableName
-          )
-          .addStatement("recordAutomaticTableOccurrence(%N)", joinedTableName)
-          .addStatement(
-            "val %N = rebindColumn(newTable = %N, column = %T.%N.%N)",
-            referencedIdName,
-            joinedTableName,
-            referencedTableClassName,
-            referencedTable.structureFieldName,
-            referencedId.fieldName
-          )
-          .addStatement(
-            "addLeftJoin(table = %N, on = %N.%N(%N))",
-            joinedTableName,
-            parentColumnName,
-            "is",
-            referencedIdName
-          )
-          .addStatement(
-            "visit(table = %N, tableAlias = %N, nodeName = %N)",
-            referencedTableName,
-            joinedTableName,
-            relationshipNodeName
-          )
-          .endControlFlow()
-        when {
-          column.isModelPathNullable -> function.endControlFlow()
-          else -> function
-            .nextControlFlow("else if (!select1)")
-            .addStatement(
-              "throw %T(%S)",
-              SQL_EXCEPTION,
-              "Column ${column.columnName} is not nullable and was not part of selected columns"
-            )
-            .endControlFlow()
-        }
-      }
-    return function.build()
-  }
-
-}
+private val RelationshipElement.nullableIdType get() = referencedIdType.typeName.copy(nullable = true)

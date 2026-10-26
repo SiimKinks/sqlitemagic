@@ -9,7 +9,7 @@ import org.junit.Test
 internal class RecursiveEntityBulkOperationsTest {
   @Test
   fun `bulk insert publishes one aggregate trigger`() {
-    val scenario = recursiveScenario()
+    val scenario = RecursiveScenario()
     scenario.database.insertResults.addAll(listOf(141L, 142L, 151L, 152L))
 
     assertThat(
@@ -19,12 +19,12 @@ internal class RecursiveEntityBulkOperationsTest {
         .execute()
     ).isTrue()
     assertThat(scenario.triggers)
-        .containsExactly(RECURSIVE_TABLES)
+      .containsExactly(RECURSIVE_TABLES)
   }
 
   @Test
   fun `bulk insert rolls back the failed graph without publishing a trigger`() {
-    val scenario = recursiveScenario()
+    val scenario = RecursiveScenario()
     scenario.database.insertResults.addAll(listOf(181L, 182L, 191L, -1L))
 
     assertThat(
@@ -34,9 +34,9 @@ internal class RecursiveEntityBulkOperationsTest {
         .execute()
     ).isFalse()
     assertThat(scenario.database.rolledBackTransactions)
-        .isEqualTo(1)
+      .isEqualTo(1)
     assertThat(scenario.triggers)
-        .isEmpty()
+      .isEmpty()
   }
 
   @Test
@@ -93,7 +93,7 @@ internal class RecursiveEntityBulkOperationsTest {
         expectedRolledBack = 1
       )
     ).forEach { case ->
-      val scenario = recursiveScenario()
+      val scenario = RecursiveScenario()
       scenario.database.insertResults.addAll(case.insertResults)
       scenario.database.updateResults.addAll(case.updateResults)
 
@@ -114,8 +114,8 @@ internal class RecursiveEntityBulkOperationsTest {
         .isEqualTo(case.expectedRolledBack)
       when (case.expectedCommitted) {
         0 -> assertWithMessage(case.label)
-            .that(scenario.triggers)
-            .isEmpty()
+          .that(scenario.triggers)
+          .isEmpty()
         else -> assertWithMessage(case.label)
           .that(scenario.triggers)
           .containsExactly(RECURSIVE_TABLES)
@@ -125,7 +125,7 @@ internal class RecursiveEntityBulkOperationsTest {
 
   @Test
   fun `disposing bulk insert rolls back the active graph`() {
-    val scenario = recursiveScenario()
+    val scenario = RecursiveScenario()
     scenario.database.insertResults.addAll(listOf(201L, 202L, 211L, 212L))
     val observer = TestObserver<Void>()
     val entities = disposeAfterFirst(
@@ -141,14 +141,14 @@ internal class RecursiveEntityBulkOperationsTest {
 
     observer.assertEmpty()
     assertThat(scenario.database.rolledBackTransactions)
-        .isEqualTo(1)
+      .isEqualTo(1)
     assertThat(scenario.triggers)
-        .isEmpty()
+      .isEmpty()
   }
 
   @Test
   fun `disposing ignored bulk insert retains completed graphs and publishes their trigger`() {
-    val scenario = recursiveScenario()
+    val scenario = RecursiveScenario()
     scenario.database.insertResults.addAll(listOf(211L, 212L, 221L, 222L))
     val observer = TestObserver<Void>()
     val entities = disposeAfterFirst(
@@ -165,11 +165,11 @@ internal class RecursiveEntityBulkOperationsTest {
 
     observer.assertEmpty()
     assertThat(scenario.database.successfulTransactions)
-        .isEqualTo(1)
+      .isEqualTo(1)
     assertThat(scenario.database.rolledBackTransactions)
-        .isEqualTo(0)
+      .isEqualTo(0)
     assertThat(scenario.triggers)
-        .containsExactly(RECURSIVE_TABLES)
+      .containsExactly(RECURSIVE_TABLES)
   }
 
   private fun disposeAfterFirst(

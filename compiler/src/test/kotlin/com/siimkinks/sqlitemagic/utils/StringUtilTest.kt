@@ -4,7 +4,6 @@ import com.google.common.truth.Truth.assertWithMessage
 import org.junit.jupiter.api.Test
 
 internal class StringUtilTest {
-  //region firstCharToUpperCase
   @Test
   fun `uppercases only a lowercase first character`() {
     assertTransformations(
@@ -26,9 +25,7 @@ internal class StringUtilTest {
       "_value" mapsTo "_value"
     )
   }
-  //endregion
 
-  //region camelCaseToSnakeCase
   @Test
   fun `converts camel case to snake case`() {
     assertTransformations(
@@ -61,7 +58,6 @@ internal class StringUtilTest {
       "value-with spaces" mapsTo "value-with spaces"
     )
   }
-  //endregion
 }
 
 private data class StringTransformationCase(

@@ -1,14 +1,12 @@
 package com.siimkinks.sqlitemagic
 
 import android.content.Context
-import android.content.res.AssetManager
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
+import com.siimkinks.sqlitemagic.internal.LogUtil.logDebug
 import com.siimkinks.sqlitemagic.migration.MigrationDatabase
 import com.siimkinks.sqlitemagic.migration.MigrationExecutor
 import com.siimkinks.sqlitemagic.migration.MigrationPlanner
-import com.siimkinks.sqlitemagic.migration.MigrationResource
-import com.siimkinks.sqlitemagic.migration.MigrationResources
 
 internal class DbCallback(
   private val context: Context,
@@ -24,43 +22,33 @@ internal class DbCallback(
   }
 
   override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
-    if (SqliteMagic.loggingEnabled) {
-      LogUtil.logDebug("Executing upgrade scripts")
-    }
+    logDebug { "Executing upgrade scripts" }
     val plan = MigrationPlanner.plan(
       fromVersion = oldVersion,
       toVersion = newVersion,
       submoduleNames = database
         .submoduleNames
-        ?.toList()
+        ?.asList()
         .orEmpty()
     )
     MigrationExecutor(
-      resources = AssetMigrationResources(context.assets),
+      resources = { context.assets.open(it.name) },
       database = SupportSQLiteMigrationDatabase(db)
-    ).execute(
-      plan = plan,
-      createTargetViews = { database.migrateViews(db) },
-      onScript = ::logScript
     )
+      .execute(
+        plan = plan,
+        createTargetViews = { database.migrateViews(db) },
+        onScript = { resource -> logDebug { "Executing script ${resource.name}" } }
+      )
   }
 
-  private fun logScript(resource: MigrationResource) {
-    if (SqliteMagic.loggingEnabled) {
-      LogUtil.logDebug("Executing script %s", resource.name)
-    }
-  }
-
-  override fun onDowngrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) =
-    downgrader.onDowngrade(db, oldVersion, newVersion)
+  override fun onDowngrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = downgrader.onDowngrade(
+    db = db,
+    oldVersion = oldVersion,
+    newVersion = newVersion
+  )
 
   override fun onConfigure(db: SupportSQLiteDatabase) = database.configureDatabase(db)
-}
-
-internal class AssetMigrationResources(
-  private val assets: AssetManager
-) : MigrationResources {
-  override fun open(resource: MigrationResource) = assets.open(resource.name)
 }
 
 internal class SupportSQLiteMigrationDatabase(

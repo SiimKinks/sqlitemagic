@@ -15,7 +15,7 @@ import java.io.File
 import java.nio.file.Path
 import java.util.Properties
 
-class MigrationTestingTaskCacheTest {
+internal class MigrationTestingTaskCacheTest {
   @TempDir
   lateinit var directory: Path
 

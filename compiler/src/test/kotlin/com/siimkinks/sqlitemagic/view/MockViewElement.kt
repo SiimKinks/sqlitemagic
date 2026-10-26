@@ -10,7 +10,7 @@ import com.siimkinks.sqlitemagic.model.mockPropertyPath
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName
 
-fun mockViewElement(
+internal fun mockViewElement(
   parsedType: ParsedType = mockParsedType(
     typeName = ClassName(PACKAGE, "TestView")
   ),
@@ -21,7 +21,7 @@ fun mockViewElement(
   construction: ModelConstruction = mockModelConstruction(
     constructorParameters = listOf(mockPropertyPath("value"))
   ),
-  query: ViewQueryElement = mockViewQueryElement(),
+  queryPropertyName: String = "QUERY",
   properties: List<ViewPropertyElement> = listOf(
     mockViewScalarPropertyElement()
   ),
@@ -33,7 +33,7 @@ fun mockViewElement(
   declarationOrder = declarationOrder,
   moduleName = moduleName,
   construction = construction,
-  query = query,
+  queryPropertyName = queryPropertyName,
   properties = properties,
   isPublic = isPublic
 )

@@ -45,7 +45,7 @@ import com.siimkinks.sqlitemagic.utils.normalizePropertySymbol
 import com.siimkinks.sqlitemagic.utils.qualifiedNameOrSimpleName
 import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
 
-class IndexCollectionStep(
+internal class IndexCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
@@ -248,7 +248,7 @@ class IndexCollectionStep(
           index = IndexElement(
             identity = SqliteSchemaIdentity(
               schema = table.schema,
-              identifier = SqliteIdentifier.from(fieldIndex.name)
+              identifier = SqliteIdentifier(fieldIndex.name)
             ),
             tableType = table.modelClassName,
             tableIdentity = table.identity,
@@ -467,7 +467,7 @@ private fun compositeIndex(
 ) = IndexElement(
   identity = SqliteSchemaIdentity(
     schema = table.schema,
-    identifier = SqliteIdentifier.from(
+    identifier = SqliteIdentifier(
       name.ifEmpty {
         "index_${table.tableName}_${columns.joinToString(separator = "_", transform = ColumnElement::columnName)}"
       }

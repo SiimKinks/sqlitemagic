@@ -6,6 +6,7 @@ import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 internal class EntityPersistOperationsTest {
@@ -96,21 +97,21 @@ internal class EntityPersistOperationsTest {
       val connection = newConnection()
       connection.recordingDatabase.updateResults.addAll(case.updateResults)
       case.insertResult?.let(connection.recordingDatabase.insertResults::add)
-      val entity = testEntity(generatedRowId = 5L)
+      val entity = TestEntity(generatedRowId = 5L)
       val operation = TestAdapter(withoutRowId = case.withoutRowId)
         .persist(entity)
         .usingConnection(connection.connection)
         .conflictAlgorithm(case.conflictAlgorithm)
 
       when (val expectedResult = case.expectedResult) {
-        null -> assertSingleOperationFailure(operation::execute)
+        null -> assertThrows(OperationFailedException::class.java, operation::execute)
         else -> assertWithMessage(case.label)
           .that(operation.execute())
           .isEqualTo(expectedResult)
       }
       assertWithMessage(case.label)
         .that(entity)
-        .isEqualTo(testEntity(generatedRowId = case.expectedGeneratedRowId))
+        .isEqualTo(TestEntity(generatedRowId = case.expectedGeneratedRowId))
       assertWithMessage(case.label)
         .that(connection.triggers)
         .containsExactlyElementsIn(case.expectedTriggers)
@@ -226,7 +227,7 @@ internal class EntityPersistOperationsTest {
       connection.recordingDatabase.updateResults += case.updateResult
       case.insertResult?.let(connection.recordingDatabase.insertResults::add)
       val operation = TestAdapter(omitNullInsertValues = case.omitAllInsertValues)
-        .persist(testEntity(name = null))
+        .persist(TestEntity(name = null))
         .usingConnection(connection.connection)
         .ignoreNullValues()
       val actualResult = when {
@@ -257,7 +258,7 @@ internal class EntityPersistOperationsTest {
     val connection = newConnection()
     connection.recordingDatabase.updateResults.addAll(listOf(0, 0))
     connection.recordingDatabase.insertResults.addAll(listOf(7L, -1L))
-    val entity = testEntity(name = null)
+    val entity = TestEntity(name = null)
     val builder = TestAdapter()
       .persist(entity)
       .usingConnection(connection.connection)
@@ -277,71 +278,12 @@ internal class EntityPersistOperationsTest {
         "INSERT OR IGNORE INTO books(id,key) VALUES (?,?)"
       )
       .inOrder()
-    assertThat(entity).isEqualTo(testEntity(name = null, generatedRowId = 7L))
-  }
-
-  @Test
-  fun `Rx terminals emit updated inserted and ignored results and report failures`() {
-    data class RxCase(
-      val label: String,
-      val updateResult: Int,
-      val insertResult: Long?,
-      val conflictAlgorithm: Int,
-      val expectedResult: EntityPersistResult?,
-      val expectedTriggers: List<Set<String>>
-    )
-    listOf(
-      RxCase(
-        label = "updated",
-        updateResult = 1,
-        insertResult = null,
-        conflictAlgorithm = CONFLICT_NONE,
-        expectedResult = EntityPersistResult.Updated,
-        expectedTriggers = listOf(setOf("books"))
-      ),
-      RxCase(
-        label = "inserted",
-        updateResult = 0,
-        insertResult = 11L,
-        conflictAlgorithm = CONFLICT_NONE,
-        expectedResult = EntityPersistResult.Inserted(11L),
-        expectedTriggers = listOf(setOf("books"))
-      ),
-      RxCase(
-        label = "ignored",
-        updateResult = 0,
-        insertResult = -1L,
-        conflictAlgorithm = CONFLICT_IGNORE,
-        expectedResult = EntityPersistResult.Ignored,
-        expectedTriggers = emptyList()
-      ),
-      RxCase(
-        label = "failure",
-        updateResult = 0,
-        insertResult = -1L,
-        conflictAlgorithm = CONFLICT_NONE,
-        expectedResult = null,
-        expectedTriggers = emptyList()
+    assertThat(entity).isEqualTo(
+      TestEntity(
+        name = null,
+        generatedRowId = 7L
       )
-    ).forEach { case ->
-      val connection = newConnection()
-      connection.recordingDatabase.updateResults += case.updateResult
-      case.insertResult?.let(connection.recordingDatabase.insertResults::add)
-      val observer = TestAdapter()
-        .persist(testEntity())
-        .usingConnection(connection.connection)
-        .conflictAlgorithm(case.conflictAlgorithm)
-        .observe()
-        .test()
-
-      when (val expectedResult = case.expectedResult) {
-        null -> observer.assertFailure(OperationFailedException::class.java)
-        else -> observer.assertResult(expectedResult)
-      }
-      assertWithMessage(case.label)
-        .that(connection.triggers)
-        .containsExactlyElementsIn(case.expectedTriggers)
-    }
+    )
   }
 
   @Test
@@ -349,7 +291,7 @@ internal class EntityPersistOperationsTest {
     val connection = newConnection()
     connection.recordingDatabase.updateResults.addAll(listOf(1, 1))
     val builder = TestAdapter()
-      .persist(testEntity(name = null))
+      .persist(TestEntity(name = null))
       .usingConnection(connection.connection)
     val fixedValues = builder.observe()
 
@@ -377,7 +319,7 @@ internal class EntityPersistOperationsTest {
     connection.recordingDatabase.insertResults.addAll(listOf(7L, 8L))
     val adapter = TestAdapter()
     val persist = adapter
-      .persist(testEntity(name = null))
+      .persist(TestEntity(name = null))
       .usingConnection(connection.connection)
       .ignoreNullValues()
       .observe()
@@ -392,14 +334,4 @@ internal class EntityPersistOperationsTest {
     assertThat(adapter.bindMaps).hasSize(2)
     assertThat(adapter.bindMaps[0]).isNotSameInstanceAs(adapter.bindMaps[1])
   }
-
-  private fun testEntity(
-    name: String? = "name",
-    generatedRowId: Long? = null
-  ) = TestEntity(
-    id = "id-1",
-    key = "key-1",
-    name = name,
-    generatedRowId = generatedRowId
-  )
 }

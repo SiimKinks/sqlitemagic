@@ -1,36 +1,44 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class FullModelListQueryTest(
+internal class FullModelListQueryTest(
   private val modelCase: InsertModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeReturnsExpectedModels() {
-    assertExecutedModels(modelCase = modelCase)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeRunQueryOnceReturnsExpectedModels() {
-    assertObservedModels(modelCase = modelCase)
-  }
+  fun executeReturnsExpectedModels() = assertExecutedModels(modelCase = modelCase)
+
+  @Test
+  fun observeRunQueryOnceReturnsExpectedModels() = assertObservedModels(modelCase = modelCase)
 
   @Test
   fun executeReturnsEmptyModelListForEmptyTable() {
-    assertEmptyModels(modelCase = modelCase)
+    assertThat(
+      SELECT.FROM(modelCase.table)
+        .execute()
+    ).isEmpty()
   }
 
   @Test
   fun observeRunQueryOnceReturnsEmptyModelListForEmptyTable() {
-    assertObservedEmptyModels(modelCase = modelCase)
+    SELECT.FROM(modelCase.table)
+      .observe()
+      .runQueryOnce()
+      .test()
+      .assertResult(emptyList())
   }
 
   private fun <T> assertExecutedModels(modelCase: InsertModelCase<T>) {
@@ -40,18 +48,9 @@ class FullModelListQueryTest(
     )
 
     assertThat(
-      Select
-        .from(modelCase.table)
+      SELECT.FROM(modelCase.table)
         .execute()
     ).containsExactlyElementsIn(expected)
-  }
-
-  private fun <T> assertEmptyModels(modelCase: InsertModelCase<T>) {
-    assertThat(
-      Select
-        .from(modelCase.table)
-        .execute()
-    ).isEmpty()
   }
 
   private fun <T> assertObservedModels(modelCase: InsertModelCase<T>) {
@@ -61,26 +60,16 @@ class FullModelListQueryTest(
     )
 
     assertThat(
-      Select
-        .from(modelCase.table)
+      SELECT.FROM(modelCase.table)
         .observe()
         .runQueryOnce()
         .blockingGet()
     ).containsExactlyElementsIn(expected)
   }
 
-  private fun <T> assertObservedEmptyModels(modelCase: InsertModelCase<T>) {
-    Select
-      .from(modelCase.table)
-      .observe()
-      .runQueryOnce()
-      .test()
-      .assertResult(emptyList())
-  }
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.directModelQueryCases
   }
 }

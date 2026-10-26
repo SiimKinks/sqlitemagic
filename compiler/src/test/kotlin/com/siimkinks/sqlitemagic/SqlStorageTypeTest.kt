@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic
 
+import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.squareup.kotlinpoet.ARRAY
 import com.squareup.kotlinpoet.BOOLEAN
@@ -93,6 +94,21 @@ internal class SqlStorageTypeTest {
       ARRAY.parameterizedBy(INT) mapsTo null,
       LIST.parameterizedBy(BYTE) mapsTo null,
       ClassName(packageName = "com.example", "Value") mapsTo null
+    )
+  }
+
+  @Test
+  fun `maps SQL storage types to their affinities`() {
+    assertThat(SqlStorageType.entries.associateWith(SqlStorageType::affinity)).containsExactly(
+      SqlStorageType.BYTE_ARRAY, SqlAffinity.BLOB,
+      SqlStorageType.BOXED_BYTE_ARRAY, SqlAffinity.BLOB,
+      SqlStorageType.BYTE, SqlAffinity.BLOB,
+      SqlStorageType.DOUBLE, SqlAffinity.REAL,
+      SqlStorageType.FLOAT, SqlAffinity.REAL,
+      SqlStorageType.INT, SqlAffinity.INTEGER,
+      SqlStorageType.LONG, SqlAffinity.INTEGER,
+      SqlStorageType.SHORT, SqlAffinity.INTEGER,
+      SqlStorageType.STRING, SqlAffinity.TEXT
     )
   }
 

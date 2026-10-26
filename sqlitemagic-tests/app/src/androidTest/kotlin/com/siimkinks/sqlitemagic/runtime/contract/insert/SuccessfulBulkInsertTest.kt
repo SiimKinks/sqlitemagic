@@ -5,33 +5,34 @@ import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveInsertConflictModelCase
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class SuccessfulBulkInsertTest(
+internal class SuccessfulBulkInsertTest(
   private val modelCase: BulkInsertModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeInsertsAndReadsBack() {
-    assertSuccessfulBulkInsert(
-      operation = EntityBulkInsertBuilder::execute
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeInsertsAndReadsBack() {
-    assertSuccessfulBulkInsert { builder ->
-      builder
-        .observe()
-        .blockingAwait()
-      true
-    }
+  fun executeInsertsAndReadsBack() = assertSuccessfulBulkInsert(
+    operation = EntityBulkInsertBuilder::execute
+  )
+
+  @Test
+  fun observeInsertsAndReadsBack() = assertSuccessfulBulkInsert { builder ->
+    builder
+      .observe()
+      .blockingAwait()
+    true
   }
 
   private fun assertSuccessfulBulkInsert(
@@ -51,7 +52,10 @@ class SuccessfulBulkInsertTest(
     modelCase: BulkInsertModelCase<T>,
     operation: (EntityBulkInsertBuilder) -> Boolean
   ) {
-    val values = List(3, init = modelCase::newValue)
+    val values = List(
+      size = 3,
+      init = modelCase::newValue
+    )
     assertThat(
       operation(
         modelCase.bulkInsert(values = values)
@@ -74,7 +78,10 @@ class SuccessfulBulkInsertTest(
     modelCase: RecursiveInsertConflictModelCase<T>,
     operation: (EntityBulkInsertBuilder) -> Boolean
   ) {
-    val values = List(3, init = modelCase::newValue)
+    val values = List(
+      size = 3,
+      init = modelCase::newValue
+    )
     assertThat(
       operation(
         modelCase.bulkInsert(values = values)
@@ -102,7 +109,7 @@ class SuccessfulBulkInsertTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.bulkInsertCases
   }
 }

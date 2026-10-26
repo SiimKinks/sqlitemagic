@@ -4,33 +4,34 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class SuccessfulSingleInsertTest(
+internal class SuccessfulSingleInsertTest(
   private val modelCase: InsertModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeInsertsAndReadsBack() {
-    captureInsert(
-      modelCase = modelCase,
-      operation = EntityInsertBuilder::execute
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeInsertsAndReadsBack() {
-    captureInsert(
-      modelCase = modelCase,
-      operation = { it.observe().blockingGet() }
-    )
-  }
+  fun executeInsertsAndReadsBack() = captureInsert(
+    modelCase = modelCase,
+    operation = EntityInsertBuilder::execute
+  )
+
+  @Test
+  fun observeInsertsAndReadsBack() = captureInsert(
+    modelCase = modelCase,
+    operation = { it.observe().blockingGet() }
+  )
 
   private fun <T> captureInsert(
     modelCase: InsertModelCase<T>,
@@ -38,14 +39,11 @@ class SuccessfulSingleInsertTest(
   ) {
     val value = modelCase.newValue(sequence = 1)
     val result = operation(modelCase.insert(value = value))
-    val inserted = when (result) {
-      is EntityInsertResult.Inserted -> result
-      EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
-    }
-    when (modelCase.rowIdExpectation) {
-      InsertRowIdExpectation.PRESENT -> assertThat(inserted.rowId).isNotNull()
-      InsertRowIdExpectation.ABSENT -> assertThat(inserted.rowId).isNull()
-    }
+    val inserted = insertedResult(
+      result = result,
+      modelName = modelCase.name
+    )
+    modelCase.rowIdExpectation.assertRowId(inserted.rowId)
     modelCase.verifyAfterInsert(
       value = value,
       result = inserted
@@ -60,7 +58,7 @@ class SuccessfulSingleInsertTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.insertCases
   }
 }

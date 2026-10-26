@@ -14,7 +14,7 @@ import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
-class TransformerValidator(
+internal class TransformerValidator(
   private val environment: Environment
 ) {
   fun isTransformerValid(transformer: TransformerRoundElement): Boolean {
@@ -25,7 +25,7 @@ class TransformerValidator(
           append("There must be 2 annotated transform methods callable without an instance -- ")
           append("@${ObjectToDbValue::class.simpleName} annotated method with single parameter which transforms objects to SQLite compatible objects and ")
           append("@${DbValueToObject::class.simpleName} annotated method with single parameter which transforms database values to objects.\n")
-          append(transformer.missingMethodsErrorInfo())
+          append(transformer.missingMethodsErrorInfo)
         },
         symbol = blameSymbol
       )
@@ -47,10 +47,18 @@ class TransformerValidator(
     if (!isTransformerMethodValid(method = dbValueToObjectMethod)) {
       return false
     }
-    if (!assertReturnTypeSameAsFirstParamType(firstMethod = objectToDbValueMethod, secondMethod = dbValueToObjectMethod)) {
+    if (!assertReturnTypeSameAsFirstParamType(
+        firstMethod = objectToDbValueMethod,
+        secondMethod = dbValueToObjectMethod
+      )
+    ) {
       return false
     }
-    if (!assertReturnTypeSameAsFirstParamType(firstMethod = dbValueToObjectMethod, secondMethod = objectToDbValueMethod)) {
+    if (!assertReturnTypeSameAsFirstParamType(
+        firstMethod = dbValueToObjectMethod,
+        secondMethod = objectToDbValueMethod
+      )
+    ) {
       return false
     }
 

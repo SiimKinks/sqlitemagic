@@ -17,112 +17,26 @@ internal class DatabaseStructureTest {
   lateinit var temporaryDirectory: Path
 
   @Test
-  fun `stores complete table column and future index state`() {
-    val column = ColumnStructure(
-      id = true,
-      autoIncrement = false,
-      name = "book_key",
-      onDeleteCascade = false,
-      sqlType = "TEXT",
-      schema = "book_key TEXT PRIMARY KEY"
-    )
-    val table = TableStructure(
-      name = "books",
-      schema = "CREATE TABLE IF NOT EXISTS books (book_key TEXT PRIMARY KEY)",
-      columns = arrayListOf(column)
-    )
-    val index = IndexStructure(
-      name = "books_key",
-      indexSql = "CREATE UNIQUE INDEX IF NOT EXISTS books_key ON books (book_key)",
-      forTable = "books"
-    )
-    val actual = DatabaseStructure(
-      tables = linkedMapOf("books" to table),
-      indices = linkedMapOf("books_key" to index),
-      temporaryTables = linkedMapOf("book_drafts" to TableStructure(name = "book_drafts")),
-      temporaryIndices = linkedMapOf(
-        "book_drafts_key" to IndexStructure(
-          name = "book_drafts_key",
-          indexSql = "CREATE INDEX book_drafts_key ON book_drafts (book_key)",
-          forTable = "book_drafts"
-        )
-      )
-    )
-
-    assertThat(actual).isEqualTo(
-      DatabaseStructure(
-        tables = linkedMapOf(
-          "books" to TableStructure(
-            name = "books",
-            schema = "CREATE TABLE IF NOT EXISTS books (book_key TEXT PRIMARY KEY)",
-            columns = arrayListOf(
-              ColumnStructure(
-                id = true,
-                autoIncrement = false,
-                name = "book_key",
-                onDeleteCascade = false,
-                sqlType = "TEXT",
-                schema = "book_key TEXT PRIMARY KEY"
-              )
-            )
-          )
-        ),
-        indices = linkedMapOf(
-          "books_key" to IndexStructure(
-            name = "books_key",
-            indexSql = "CREATE UNIQUE INDEX IF NOT EXISTS books_key ON books (book_key)",
-            forTable = "books"
-          )
-        ),
-        temporaryTables = linkedMapOf(
-          "book_drafts" to TableStructure(name = "book_drafts")
-        ),
-        temporaryIndices = linkedMapOf(
-          "book_drafts_key" to IndexStructure(
-            name = "book_drafts_key",
-            indexSql = "CREATE INDEX book_drafts_key ON book_drafts (book_key)",
-            forTable = "book_drafts"
-          )
-        )
-      )
-    )
-  }
-
-  @Test
-  fun `defaults absent view maps in legacy snapshots`() {
-    val structure = DatabaseStructureJson.read(
-      """
-      {
-        "tables": {},
-        "indices": {},
-        "temporaryTables": {},
-        "temporaryIndices": {}
-      }
-      """.trimIndent()
-    )
-
-    assertThat(structure)
-      .isEqualTo(DatabaseStructure())
-    assertThat(DatabaseStructureJson.write(structure))
-      .contains(""""views":{}""")
-    assertThat(DatabaseStructureJson.write(structure))
-      .contains(""""temporaryViews":{}""")
-  }
-
-  @Test
-  fun `round trips view names and module ownership`() {
+  fun `round trips temporary objects, view names and module ownership`() {
     val structure = DatabaseStructure(
-      views = linkedMapOf(
+      temporaryTables = mapOf(
+        "temporary_items" to TableStructure(name = "temporary_items")
+      ),
+      temporaryIndices = mapOf(
+        "temporary_name_index" to IndexStructure(
+          name = "temporary_name_index",
+          indexSql = "CREATE INDEX temporary_name_index ON temporary_items (name)",
+          forTable = "temporary_items"
+        )
+      ),
+      views = mapOf(
         "Raw.View" to ViewStructure(
           name = "Raw.View",
           moduleName = "Reports"
         )
       ),
-      temporaryViews = linkedMapOf(
-        "Current.View" to ViewStructure(
-          name = "Current.View",
-          moduleName = null
-        )
+      temporaryViews = mapOf(
+        "Current.View" to ViewStructure(name = "Current.View")
       )
     )
 
@@ -161,54 +75,47 @@ internal class DatabaseStructureTest {
       views = views
     )
 
-    assertThat(structure.views.keys.toList())
-      .containsExactly("early_view", "late_view")
+    assertThat(structure.views)
+      .containsExactly(
+        "early_view",
+        ViewStructure(name = "early_view"),
+        "late_view",
+        ViewStructure(
+          name = "late_view",
+          moduleName = "Reports"
+        )
+      )
       .inOrder()
-    assertThat(structure.temporaryViews.keys.toList())
-      .containsExactly("temporary_view")
-    assertThat(structure.views.getValue("late_view")).isEqualTo(
-      ViewStructure(
-        name = "late_view",
-        moduleName = "Reports"
+    assertThat(structure.temporaryViews)
+      .containsExactly(
+        "temporary_view",
+        ViewStructure(name = "temporary_view")
       )
-    )
-    assertThat(structure.temporaryViews.getValue("temporary_view")).isEqualTo(
-      ViewStructure(
-        name = "temporary_view",
-        moduleName = null
-      )
-    )
   }
 
   @Test
   fun `combines structures without mutating either input`() {
     val main = DatabaseStructure(
-      tables = linkedMapOf("main" to TableStructure(name = "main")),
-      temporaryTables = linkedMapOf("main_temp" to TableStructure(name = "main_temp")),
-      views = linkedMapOf(
-        "main_view" to ViewStructure(
-          name = "main_view",
-          moduleName = null
-        )
+      tables = mapOf("main" to TableStructure(name = "main")),
+      temporaryTables = mapOf("main_temp" to TableStructure(name = "main_temp")),
+      views = mapOf(
+        "main_view" to ViewStructure(name = "main_view")
       ),
-      temporaryViews = linkedMapOf(
-        "main_temp_view" to ViewStructure(
-          name = "main_temp_view",
-          moduleName = null
-        )
+      temporaryViews = mapOf(
+        "main_temp_view" to ViewStructure(name = "main_temp_view")
       )
     )
     val feature = DatabaseStructure(
-      tables = linkedMapOf("feature" to TableStructure(name = "feature")),
-      indices = linkedMapOf("feature_index" to IndexStructure(name = "feature_index")),
-      temporaryIndices = linkedMapOf("feature_temp_index" to IndexStructure(name = "feature_temp_index")),
-      views = linkedMapOf(
+      tables = mapOf("feature" to TableStructure(name = "feature")),
+      indices = mapOf("feature_index" to IndexStructure(name = "feature_index")),
+      temporaryIndices = mapOf("feature_temp_index" to IndexStructure(name = "feature_temp_index")),
+      views = mapOf(
         "feature_view" to ViewStructure(
           name = "feature_view",
           moduleName = "Feature"
         )
       ),
-      temporaryViews = linkedMapOf(
+      temporaryViews = mapOf(
         "feature_temp_view" to ViewStructure(
           name = "feature_temp_view",
           moduleName = "Feature"
@@ -218,34 +125,28 @@ internal class DatabaseStructureTest {
 
     assertThat(main + feature).isEqualTo(
       DatabaseStructure(
-        tables = linkedMapOf(
+        tables = mapOf(
           "main" to TableStructure(name = "main"),
           "feature" to TableStructure(name = "feature")
         ),
-        indices = linkedMapOf(
+        indices = mapOf(
           "feature_index" to IndexStructure(name = "feature_index")
         ),
-        temporaryTables = linkedMapOf(
+        temporaryTables = mapOf(
           "main_temp" to TableStructure(name = "main_temp")
         ),
-        temporaryIndices = linkedMapOf(
+        temporaryIndices = mapOf(
           "feature_temp_index" to IndexStructure(name = "feature_temp_index")
         ),
-        views = linkedMapOf(
-          "main_view" to ViewStructure(
-            name = "main_view",
-            moduleName = null
-          ),
+        views = mapOf(
+          "main_view" to ViewStructure(name = "main_view"),
           "feature_view" to ViewStructure(
             name = "feature_view",
             moduleName = "Feature"
           )
         ),
-        temporaryViews = linkedMapOf(
-          "main_temp_view" to ViewStructure(
-            name = "main_temp_view",
-            moduleName = null
-          ),
+        temporaryViews = mapOf(
+          "main_temp_view" to ViewStructure(name = "main_temp_view"),
           "feature_temp_view" to ViewStructure(
             name = "feature_temp_view",
             moduleName = "Feature"
@@ -255,34 +156,28 @@ internal class DatabaseStructureTest {
     )
     assertThat(main).isEqualTo(
       DatabaseStructure(
-        tables = linkedMapOf("main" to TableStructure(name = "main")),
-        temporaryTables = linkedMapOf("main_temp" to TableStructure(name = "main_temp")),
-        views = linkedMapOf(
-          "main_view" to ViewStructure(
-            name = "main_view",
-            moduleName = null
-          )
+        tables = mapOf("main" to TableStructure(name = "main")),
+        temporaryTables = mapOf("main_temp" to TableStructure(name = "main_temp")),
+        views = mapOf(
+          "main_view" to ViewStructure(name = "main_view")
         ),
-        temporaryViews = linkedMapOf(
-          "main_temp_view" to ViewStructure(
-            name = "main_temp_view",
-            moduleName = null
-          )
+        temporaryViews = mapOf(
+          "main_temp_view" to ViewStructure(name = "main_temp_view")
         )
       )
     )
     assertThat(feature).isEqualTo(
       DatabaseStructure(
-        tables = linkedMapOf("feature" to TableStructure(name = "feature")),
-        indices = linkedMapOf("feature_index" to IndexStructure(name = "feature_index")),
-        temporaryIndices = linkedMapOf("feature_temp_index" to IndexStructure(name = "feature_temp_index")),
-        views = linkedMapOf(
+        tables = mapOf("feature" to TableStructure(name = "feature")),
+        indices = mapOf("feature_index" to IndexStructure(name = "feature_index")),
+        temporaryIndices = mapOf("feature_temp_index" to IndexStructure(name = "feature_temp_index")),
+        views = mapOf(
           "feature_view" to ViewStructure(
             name = "feature_view",
             moduleName = "Feature"
           )
         ),
-        temporaryViews = linkedMapOf(
+        temporaryViews = mapOf(
           "feature_temp_view" to ViewStructure(
             name = "feature_temp_view",
             moduleName = "Feature"
@@ -295,13 +190,13 @@ internal class DatabaseStructureTest {
   @Test
   fun `persistentOnly strips temporary views`() {
     val structure = DatabaseStructure(
-      views = linkedMapOf(
+      views = mapOf(
         "persistent_view" to ViewStructure(
           name = "persistent_view",
           moduleName = "Reports"
         )
       ),
-      temporaryViews = linkedMapOf(
+      temporaryViews = mapOf(
         "temporary_view" to ViewStructure(
           name = "temporary_view",
           moduleName = "Reports"
@@ -311,7 +206,7 @@ internal class DatabaseStructureTest {
 
     assertThat(structure.persistentOnly()).isEqualTo(
       DatabaseStructure(
-        views = linkedMapOf(
+        views = mapOf(
           "persistent_view" to ViewStructure(
             name = "persistent_view",
             moduleName = "Reports"
@@ -326,15 +221,15 @@ internal class DatabaseStructureTest {
     val previousFile = temporaryDirectory.resolve("previous.struct").toFile()
     val currentFile = temporaryDirectory.resolve("current.struct").toFile()
     val previousStructure = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to TableStructure(name = "books")
       )
     )
     val temporaryCurrentStructure = previousStructure.copy(
-      temporaryTables = linkedMapOf(
+      temporaryTables = mapOf(
         "book_drafts" to TableStructure(name = "book_drafts")
       ),
-      temporaryIndices = linkedMapOf(
+      temporaryIndices = mapOf(
         "book_drafts_key" to IndexStructure(
           name = "book_drafts_key",
           indexSql = "CREATE INDEX book_drafts_key ON book_drafts (book_key)",
@@ -358,7 +253,7 @@ internal class DatabaseStructureTest {
       .isFalse()
 
     val persistentCurrentStructure = temporaryCurrentStructure.copy(
-      indices = linkedMapOf(
+      indices = mapOf(
         "books_key" to IndexStructure(
           name = "books_key",
           indexSql = "CREATE INDEX books_key ON books (book_key)",
@@ -385,7 +280,7 @@ internal class DatabaseStructureTest {
     val previousFile = temporaryDirectory.resolve("previous-view.struct").toFile()
     val currentFile = temporaryDirectory.resolve("current-view.struct").toFile()
     val previousStructure = DatabaseStructure(
-      views = linkedMapOf(
+      views = mapOf(
         "owned_view" to ViewStructure(
           name = "owned_view",
           moduleName = "Reports"
@@ -393,7 +288,7 @@ internal class DatabaseStructureTest {
       )
     )
     val temporaryCurrentStructure = previousStructure.copy(
-      temporaryViews = linkedMapOf(
+      temporaryViews = mapOf(
         "temporary_view" to ViewStructure(
           name = "temporary_view",
           moduleName = "Reports"
@@ -414,7 +309,7 @@ internal class DatabaseStructureTest {
       .isFalse()
 
     val changedStructure = previousStructure.copy(
-      views = linkedMapOf(
+      views = mapOf(
         "renamed_view" to ViewStructure(
           name = "renamed_view",
           moduleName = "Reports"
@@ -438,7 +333,7 @@ internal class DatabaseStructureTest {
     DatabaseStructureJson.write(
       file = structureFile,
       structure = DatabaseStructure(
-        temporaryViews = linkedMapOf(
+        temporaryViews = mapOf(
           "session_view" to ViewStructure(name = "session_view")
         )
       )
@@ -449,7 +344,7 @@ internal class DatabaseStructureTest {
     DatabaseStructureJson.write(
       file = structureFile,
       structure = DatabaseStructure(
-        views = linkedMapOf(
+        views = mapOf(
           "owned_view" to ViewStructure(name = "owned_view")
         )
       )

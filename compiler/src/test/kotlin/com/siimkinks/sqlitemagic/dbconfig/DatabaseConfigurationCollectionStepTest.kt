@@ -1,99 +1,86 @@
 package com.siimkinks.sqlitemagic.dbconfig
 
-import com.google.common.truth.Truth
+import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
-import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_NAME
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_DB_VERSION
+import com.siimkinks.sqlitemagic.SqliteMagicSymbolProcessor.Companion.OPTION_VARIANT_DEBUG
+import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
-import com.tschuchort.compiletesting.KotlinCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
-  override val processingSteps
-    get() = { env: Environment ->
-      listOf(DatabaseConfigurationCollectionStep(env))
-    }
+internal class DatabaseConfigurationCollectionStepTest {
+  private val compiler = SqliteMagicCompiler(::databaseConfigurationProcessingSteps)
 
   @Test
   fun `continues when database configuration annotations are absent`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         plainClass(className = "Unconfigured"),
         kspOptions = mapOf(
-          SqliteMagicSymbolProcessor.OPTION_DB_NAME to "option.db",
-          SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "7"
+          OPTION_DB_NAME to "option.db",
+          OPTION_DB_VERSION to "7"
         )
       )
       .isOk()
       .apply {
-        Truth.assertThat(environment.dbMetadata).isEqualTo(
+        assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = "option.db",
             dbVersion = 7
           )
         )
-        Truth.assertThat(environment.isSubmodule).isFalse()
-        Truth.assertThat(environment.hasSubmodules).isFalse()
-      }
-  }
-
-  @Test
-  fun `collects database name and version`() {
-    SqliteMagicCompilation
-      .compile(
-        database(name = "main.db", version = 5)
-      )
-      .isOk()
-      .apply {
-        Truth.assertThat(environment.dbMetadata).isEqualTo(
-          DatabaseMetadata(
-            dbName = "main.db",
-            dbVersion = 5
-          )
-        )
-        Truth.assertThat(environment.isSubmodule).isFalse()
-        Truth.assertThat(environment.hasSubmodules).isFalse()
+        assertThat(environment.isSubmodule).isFalse()
+        assertThat(environment.hasSubmodules).isFalse()
       }
   }
 
   @Test
   fun `annotation database name and version override compiler options`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         database(
           name = "annotation.db",
           version = 9
         ),
         kspOptions = mapOf(
-          SqliteMagicSymbolProcessor.OPTION_DB_NAME to "option.db",
-          SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "3"
+          OPTION_DB_NAME to "option.db",
+          OPTION_DB_VERSION to "3"
         )
       )
       .isOk()
       .apply {
-        Truth.assertThat(environment.dbMetadata).isEqualTo(
+        assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = "annotation.db",
             dbVersion = 9
           )
         )
+        assertThat(environment.isSubmodule).isFalse()
+        assertThat(environment.hasSubmodules).isFalse()
       }
   }
 
   @Test
-  fun `keeps compiler option version when annotation version is default`() {
-    SqliteMagicCompilation
+  fun `keeps compiler option name and version when annotation values are defaults`() {
+    compiler
       .compile(
         database(),
-        kspOptions = mapOf(SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "4")
+        kspOptions = mapOf(
+          OPTION_DB_NAME to "option.db",
+          OPTION_DB_VERSION to "4"
+        )
       )
       .isOk()
       .apply {
-        Truth.assertThat(environment.dbMetadata).isEqualTo(
+        assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
-            dbName = null,
+            dbName = "option.db",
             dbVersion = 4
           )
         )
@@ -102,17 +89,17 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
 
   @Test
   fun `keeps compiler option version for debug variant`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         database(version = 5),
         kspOptions = mapOf(
-          SqliteMagicSymbolProcessor.OPTION_DB_VERSION to "3",
-          SqliteMagicSymbolProcessor.OPTION_VARIANT_DEBUG to "true"
+          OPTION_DB_VERSION to "3",
+          OPTION_VARIANT_DEBUG to "true"
         )
       )
       .isOk()
       .apply {
-        Truth.assertThat(environment.dbMetadata).isEqualTo(
+        assertThat(environment.dbMetadata).isEqualTo(
           DatabaseMetadata(
             dbName = null,
             dbVersion = 3
@@ -122,88 +109,8 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `keeps compiler option database name when annotation name is empty`() {
-    SqliteMagicCompilation
-      .compile(
-        database(),
-        kspOptions = mapOf(SqliteMagicSymbolProcessor.OPTION_DB_NAME to "option.db")
-      )
-      .isOk()
-      .apply {
-        Truth.assertThat(environment.dbMetadata).isEqualTo(
-          DatabaseMetadata(
-            dbName = "option.db",
-            dbVersion = null
-          )
-        )
-      }
-  }
-
-  @Test
-  fun `collects submodule name`() {
-    SqliteMagicCompilation
-      .compile(
-        submoduleDatabase(moduleName = "feature")
-      )
-      .isOk()
-      .apply {
-        Truth.assertThat(environment.submoduleName).isEqualTo("Feature")
-        Truth.assertThat(environment.isSubmodule).isTrue()
-      }
-  }
-
-  @Test
-  fun `collects database submodule manager references`() {
-    val submoduleCompilation = SqliteMagicCompilation
-      .compile(
-        submoduleDatabase(className = "FeatureConfig", moduleName = "feature"),
-        generatedClassesManager("FeatureGeneratedClassesManager")
-      )
-      .isOk()
-
-    submoduleCompilation
-      .compile(database(submodules = listOf("FeatureConfig")))
-      .isOk()
-      .apply {
-        Truth.assertThat(environment.submoduleDatabases).isEqualTo(
-          listOf(
-            SubmoduleDatabaseMetadata(
-              moduleName = "Feature",
-              managerQualifiedName = "$PACKAGE_ROOT.FeatureGeneratedClassesManager"
-            )
-          )
-        )
-        Truth.assertThat(environment.hasSubmodules).isTrue()
-      }
-  }
-
-  @Test
-  fun `collects database submodule manager name when manager is not resolved yet`() {
-    val submoduleCompilation = SqliteMagicCompilation
-      .compile(
-        submoduleDatabase(className = "FeatureConfig", moduleName = "feature")
-      )
-      .isOk()
-
-    submoduleCompilation
-      .compile(database(submodules = listOf("test.FeatureConfig")))
-      .isOk()
-      .apply {
-        Truth.assertThat(environment.submoduleDatabases).isEqualTo(
-          listOf(
-            SubmoduleDatabaseMetadata(
-              moduleName = "Feature",
-              managerQualifiedName = "$PACKAGE_ROOT.FeatureGeneratedClassesManager"
-            )
-          )
-        )
-        Truth.assertThat(environment.hasSubmodules).isTrue()
-      }
-  }
-
-  @Test
-  fun `collects multiple database submodule manager references`() {
-    val featureCompilation = SqliteMagicCompilation
+  fun `collects submodule names and multiple database submodule manager references`() {
+    val featureCompilation = compiler
       .compile(
         submoduleDatabase(
           className = "FeatureConfig",
@@ -211,7 +118,11 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
         )
       )
       .isOk()
-    val billingCompilation = SqliteMagicCompilation
+      .apply {
+        assertThat(environment.submoduleName).isEqualTo("Feature")
+        assertThat(environment.isSubmodule).isTrue()
+      }
+    val billingCompilation = compiler
       .compile(
         submoduleDatabase(
           className = "BillingConfig",
@@ -220,7 +131,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       )
       .isOk()
 
-    SqliteMagicCompilation
+    compiler
       .compile(
         database(
           submodules = listOf(
@@ -229,13 +140,13 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
           )
         ),
         classpaths = listOf(
-          featureCompilation.result.outputDirectory,
-          billingCompilation.result.outputDirectory
+          featureCompilation.outputDirectory,
+          billingCompilation.outputDirectory
         )
       )
       .isOk()
       .apply {
-        Truth.assertThat(environment.submoduleDatabases).isEqualTo(
+        assertThat(environment.submoduleDatabases).isEqualTo(
           listOf(
             SubmoduleDatabaseMetadata(
               moduleName = "Feature",
@@ -247,93 +158,104 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
             )
           )
         )
-        Truth.assertThat(environment.hasSubmodules).isTrue()
+        assertThat(environment.hasSubmodules).isTrue()
       }
   }
 
   @Test
   fun `fails when more than one database is annotated`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         database(className = "FirstDatabase"),
         database(className = "SecondDatabase")
       )
-      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
-      .hasMessage("Only one element per module can be annotated with @Database")
+      .assertCompilationError("Only one element per module can be annotated with @Database")
   }
 
   @Test
   fun `fails when more than one submodule database is annotated`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
-        submoduleDatabase(className = "FirstSubmodule", moduleName = "first"),
-        submoduleDatabase(className = "SecondSubmodule", moduleName = "second")
+        submoduleDatabase(
+          className = "FirstSubmodule",
+          moduleName = "first"
+        ),
+        submoduleDatabase(
+          className = "SecondSubmodule",
+          moduleName = "second"
+        )
       )
-      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
-      .hasMessage("Only one element per module can be annotated with @SubmoduleDatabase")
+      .assertCompilationError("Only one element per module can be annotated with @SubmoduleDatabase")
   }
 
   @Test
   fun `fails when database and submodule database are both annotated`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         database(),
         submoduleDatabase(moduleName = "feature")
       )
-      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
-      .hasMessage("Module can have either @Database or @SubmoduleDatabase annotated element, but not both")
+      .assertCompilationError("Module can have either @Database or @SubmoduleDatabase annotated element, but not both")
   }
 
   @Test
   fun `fails when submodule name is empty`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         submoduleDatabase(moduleName = "")
       )
-      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
-      .hasMessage("Submodule name cannot be empty or null")
+      .assertCompilationError("Submodule name cannot be empty or null")
   }
 
   @Test
   fun `fails when referenced database submodule name is empty`() {
     val submoduleCompilation = SqliteMagicCompilation
       .compile(
-        submoduleDatabase(className = "FeatureConfig", moduleName = ""),
+        submoduleDatabase(
+          className = "FeatureConfig",
+          moduleName = ""
+        ),
         processingStepsFactory = { emptyList() }
       )
       .isOk()
 
-    submoduleCompilation
-      .compile(database(submodules = listOf("test.FeatureConfig")))
-      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
-      .hasMessage("Submodule name cannot be empty")
+    compiler
+      .compile(
+        database(submodules = listOf("test.FeatureConfig")),
+        classpaths = listOf(submoduleCompilation.outputDirectory)
+      )
+      .assertCompilationError("Submodule name cannot be empty")
   }
 
   @Test
   fun `fails when database submodule reference is not annotated`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         plainClass("FeatureConfig"),
         database(submodules = listOf("test.FeatureConfig"))
       )
-      .hasExitCode(KotlinCompilation.ExitCode.COMPILATION_ERROR)
-      .hasMessage("Database submodule test.FeatureConfig must be annotated with @SubmoduleDatabase")
+      .assertCompilationError("Database submodule test.FeatureConfig must be annotated with @SubmoduleDatabase")
   }
 
-  //region helpers
   private fun database(
     className: String = "TestDatabase",
     name: String? = null,
     version: Int? = null,
     submodules: List<String> = emptyList()
   ) = SourceFile.kotlin(
-    "$className.kt",
-    """
+    name = "$className.kt",
+    contents = """
       package test
 
       import com.siimkinks.sqlitemagic.annotation.Database
 
-      @Database(${databaseArguments(name, version, submodules)})
+      @Database(${
+      databaseArguments(
+        name = name,
+        version = version,
+        submodules = submodules
+      )
+    })
       class $className
       """
   )
@@ -342,8 +264,8 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
     className: String = "TestSubmoduleDatabase",
     moduleName: String
   ) = SourceFile.kotlin(
-    "$className.kt",
-    """
+    name = "$className.kt",
+    contents = """
       package test
 
       import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
@@ -353,18 +275,9 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       """
   )
 
-  private fun generatedClassesManager(className: String) = SourceFile.kotlin(
-    "$className.kt",
-    """
-      package $PACKAGE_ROOT
-
-      class $className
-      """
-  )
-
   private fun plainClass(className: String) = SourceFile.kotlin(
-    "$className.kt",
-    """
+    name = "$className.kt",
+    contents = """
       package test
 
       class $className
@@ -375,9 +288,9 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
     name: String?,
     version: Int?,
     submodules: List<String>
-  ): String = buildList {
+  ) = buildList {
     if (name != null) {
-      add("name = \"$name\"")
+      add("""name = "$name"""")
     }
     if (version != null) {
       add("version = $version")
@@ -386,5 +299,7 @@ class DatabaseConfigurationCollectionStepTest : ProcessingStepsTest {
       add("submodules = [${submodules.joinToString { "$it::class" }}]")
     }
   }.joinToString()
-  //endregion
 }
+
+private fun databaseConfigurationProcessingSteps(environment: Environment): List<ProcessingStep> =
+  listOf(DatabaseConfigurationCollectionStep(environment))

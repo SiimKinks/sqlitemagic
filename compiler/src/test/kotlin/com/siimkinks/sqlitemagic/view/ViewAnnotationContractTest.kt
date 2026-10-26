@@ -1,54 +1,23 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.assertNotGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class ViewAnnotationContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewAnnotationContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @Test
   fun `recognizes exact annotation identities`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ExactAnnotationIdentity.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
-
-            @Target(AnnotationTarget.CLASS)
-            annotation class View
-
-            @Target(AnnotationTarget.FIELD)
-            annotation class ViewColumn(val value: String)
-
-            @Target(AnnotationTarget.FIELD)
-            annotation class ViewQuery
-
-            private fun <T, S> compileOnlySelect(): CompiledSelect<T, S> = error("compile-only")
-
-            @View
-            class ForeignView
-
-            @com.siimkinks.sqlitemagic.annotation.View
-            data class ExactIdentityView(
-              @com.siimkinks.sqlitemagic.annotation.ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @com.siimkinks.sqlitemagic.annotation.ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("ExactIdentityViewTable.kt")
       .assertNotGeneratedSources(
@@ -59,39 +28,15 @@ internal class ViewAnnotationContractTest : ProcessingStepsTest {
 
   @Test
   fun `ignores ordinary members and unowned view columns`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "IgnoredMembersView",
-          body = """
-            class UnownedColumnHolder {
-              @ViewColumn("orphan_value")
-              val orphanValue: String = ""
-            }
-
-            @View
-            data class IgnoredMembersView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              val ordinaryMember: String = ""
-
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("IgnoredMembersViewTable.kt")
       .assertNotGeneratedSources(
         "UnownedColumnHolderTable.kt",
         "SqliteMagic_UnownedColumnHolder_Dao.kt"
       )
-      .withGeneratedSource("IgnoredMembersViewTable.kt") { generatedSource ->
-        generatedSource.assertDoesNotContain(
+      .withGeneratedSource("IgnoredMembersViewTable.kt") {
+        it.assertDoesNotContain(
           "ordinaryMember",
           "orphanValue"
         )
@@ -100,13 +45,13 @@ internal class ViewAnnotationContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an orphan view query`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "OrphanQuery",
           body = """
             @ViewQuery
-            val ORPHAN_QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+            val ORPHAN_QUERY: SelectQuery<String, *> = error("compile-only")
           """
         )
       )
@@ -118,7 +63,7 @@ internal class ViewAnnotationContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects a table and view annotation conflict`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "TableViewConflict",
@@ -131,7 +76,7 @@ internal class ViewAnnotationContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -145,7 +90,7 @@ internal class ViewAnnotationContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects table-only annotations on view properties`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         ViewSources.view(
           name = "PropertyAnnotationConflict",
@@ -158,7 +103,7 @@ internal class ViewAnnotationContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -168,5 +113,68 @@ internal class ViewAnnotationContractTest : ProcessingStepsTest {
         "@Column is not valid on a @View property",
         "PropertyAnnotationConflict.value"
       )
+  }
+
+  companion object {
+    private val GENERATED by lazy {
+      SqliteMagicCompilation
+        .compile(
+          SourceFile.kotlin(
+            name = "ExactAnnotationIdentity.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+
+              @Target(AnnotationTarget.CLASS)
+              annotation class View
+
+              @Target(AnnotationTarget.FIELD)
+              annotation class ViewColumn(val value: String)
+
+              @Target(AnnotationTarget.FIELD)
+              annotation class ViewQuery
+
+              @View
+              class ForeignView
+
+              @com.siimkinks.sqlitemagic.annotation.View
+              data class ExactIdentityView(
+                @com.siimkinks.sqlitemagic.annotation.ViewColumn("value")
+                val value: String
+              ) {
+                companion object {
+                  @com.siimkinks.sqlitemagic.annotation.ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          ViewSources.view(
+            name = "IgnoredMembersView",
+            body = """
+              class UnownedColumnHolder {
+                @ViewColumn("orphan_value")
+                val orphanValue: String = ""
+              }
+
+              @View
+              data class IgnoredMembersView(
+                @ViewColumn("value")
+                val value: String
+              ) {
+                val ordinaryMember: String = ""
+
+                companion object {
+                  @ViewQuery
+                  val QUERY: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          processingStepsFactory = ::viewProcessingSteps
+        )
+        .generatedSources()
+    }
   }
 }

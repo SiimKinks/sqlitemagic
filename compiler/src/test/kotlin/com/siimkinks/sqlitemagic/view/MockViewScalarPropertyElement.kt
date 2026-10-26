@@ -8,7 +8,7 @@ import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName
 
-fun mockViewScalarPropertyElement(
+internal fun mockViewScalarPropertyElement(
   access: PropertyAccess = mockPropertyAccess(),
   deserializedType: ParsedType = mockParsedType(
     typeName = ClassName(PACKAGE, "Value")

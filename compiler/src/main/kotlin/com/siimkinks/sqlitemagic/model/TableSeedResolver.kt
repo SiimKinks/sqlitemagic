@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.model
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.Origin.SYNTHETIC
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.annotation.Id
@@ -28,12 +29,12 @@ internal class TableSeedResolver(
     .values
     .mapNotNull(::materializeTableElement)
 
-  private fun materializeTableElement(seed: TableSeed): TableElement? = reporter
+  private fun materializeTableElement(seed: TableSeed) = reporter
     .takeIfNoNewErrors {
-      val properties = seed.propertySeeds.mapNotNull { property ->
+      val properties = seed.propertySeeds.mapNotNull {
         materializePropertyElement(
           tableSeed = seed,
-          property = property,
+          property = it,
           resolvingIds = emptySet()
         )
       }
@@ -46,9 +47,9 @@ internal class TableSeedResolver(
         construction = seed.construction,
         properties = properties,
         isPublic = seed.isPublic
-      ).also { table ->
+      ).also {
         validateTableColumns(
-          table = table,
+          table = it,
           seed = seed
         )
       }
@@ -68,13 +69,11 @@ internal class TableSeedResolver(
       access = property.access,
       deserializedType = property.roundElement.parsedType,
       isNullable = property.roundElement.canBeNull,
-      prefix = property.prefix,
-      cumulativePrefix = property.cumulativePrefix,
       construction = property.construction,
-      properties = property.properties.mapNotNull { child ->
+      properties = property.properties.mapNotNull {
         materializePropertyElement(
           tableSeed = tableSeed,
-          property = child,
+          property = it,
           resolvingIds = resolvingIds
         )
       }
@@ -119,10 +118,10 @@ internal class TableSeedResolver(
     seed: ColumnSeed,
     resolvingIds: Set<TypeKey>
   ): ColumnElement? {
-    val relationship = seed.relationshipTypeKey?.let { typeKey ->
+    val relationship = seed.relationshipTypeKey?.let {
       resolveRelationshipElement(
         source = seed,
-        targetTypeKey = typeKey,
+        targetTypeKey = it,
         sourceTableOptions = tableSeed.options,
         resolvingIds = resolvingIds
       )
@@ -134,7 +133,8 @@ internal class TableSeedResolver(
     val storageType = serializedType.sqlStorageType
     if (storageType == null) {
       reporter.error(
-        message = "Persisted property type must be a supported SQLite type, transformed type, or @Table relationship: ${seed.diagnosticPath}; ${seed.roundElement.qualifiedName}",
+        message = "Persisted property type must be a supported SQLite type, transformed type, " +
+            "or @Table relationship: ${seed.diagnosticPath}; ${seed.roundElement.qualifiedName}",
         symbol = seed.roundElement.sourceDeclaration
       )
       return null
@@ -161,7 +161,6 @@ internal class TableSeedResolver(
         )
       }
       IdElement(
-        autoIncrementMode = mode,
         isAutoIncrement = !withoutRowId && compatible && mode != DISABLED,
         canAssignGeneratedId = seed.access.isMutable
       )
@@ -183,8 +182,7 @@ internal class TableSeedResolver(
       id = id,
       isUnique = seed.isUnique,
       index = seed.index,
-      belongsToIndex = seed.belongsToIndex,
-      embeddedPrefixes = seed.embeddedPrefixes
+      belongsToIndex = seed.belongsToIndex
     )
   }
 
@@ -199,7 +197,8 @@ internal class TableSeedResolver(
       val targetId = durableTarget.idColumn
       if (targetId == null) {
         reporter.error(
-          message = "Relationship target must declare an explicit @Id: ${source.diagnosticPath}; ${durableTarget.modelName}",
+          message = "Relationship target must declare an explicit @Id: " +
+              "${source.diagnosticPath}; ${durableTarget.modelName}",
           symbol = source.roundElement.sourceDeclaration
         )
         return null
@@ -218,7 +217,8 @@ internal class TableSeedResolver(
     val targetSeed = tableSeeds[targetTypeKey]
     if (targetSeed == null) {
       reporter.error(
-        message = "Persisted property type must be a supported SQLite type, transformed type, or @Table relationship: ${source.diagnosticPath}; ${source.roundElement.qualifiedName}",
+        message = "Persisted property type must be a supported SQLite type, transformed type, " +
+            "or @Table relationship: ${source.diagnosticPath}; ${source.roundElement.qualifiedName}",
         symbol = source.roundElement.sourceDeclaration
       )
       return null
@@ -232,7 +232,8 @@ internal class TableSeedResolver(
     }
     if (targetSeed.idSeed == null) {
       reporter.error(
-        message = "Relationship target must declare an explicit @Id: ${source.diagnosticPath}; ${targetSeed.classDeclaration.displayName()}",
+        message = "Relationship target must declare an explicit @Id: " +
+            "${source.diagnosticPath}; ${targetSeed.classDeclaration.displayName()}",
         symbol = source.roundElement.sourceDeclaration
       )
       return null
@@ -275,14 +276,16 @@ internal class TableSeedResolver(
     val canConstructWithOnlyId = targetConstruction.canConstructWithOnly(targetId.access.path)
     if (targetId.relationship?.canConstructWithOnlyId == false) {
       reporter.error(
-        message = "A relationship-backed @Id target must be constructible from only its own @Id: ${source.diagnosticPath}",
+        message = "A relationship-backed @Id target must be constructible from only its own @Id: " +
+            source.diagnosticPath,
         symbol = source.roundElement.sourceDeclaration
       )
       return null
     }
     if (!source.isHandledRecursively && !canConstructWithOnlyId) {
       reporter.error(
-        message = "A non-recursive relationship target must be constructible from only its @Id: ${source.diagnosticPath}; $targetTypeName",
+        message = "A non-recursive relationship target must be constructible from only its @Id: " +
+            "${source.diagnosticPath}; $targetTypeName",
         symbol = source.roundElement.sourceDeclaration
       )
       return null
@@ -299,8 +302,9 @@ internal class TableSeedResolver(
       isHandledRecursively = source.isHandledRecursively,
       onDeleteCascade = source.isHandledRecursively && source.onDeleteCascade,
       canConstructWithOnlyId = canConstructWithOnlyId,
-      referencedIdRelationship = targetId.relationship,
-      referencedTableArtifactStem = targetArtifactStem
+      needsGeneratedId = targetId.id?.run { isAutoIncrement && !canAssignGeneratedId } == true,
+      referencedTableNames = GenerationNames(targetArtifactStem),
+      referencedIdRelationship = targetId.relationship
     )
   }
 
@@ -314,7 +318,8 @@ internal class TableSeedResolver(
     val targetIsTemporary = TEMPORARY in targetTableOptions
     return when {
       !sourceIsTemporary && targetIsTemporary -> reporter.error(
-        message = "Persistent table relationships cannot target temporary tables: ${source.diagnosticPath}; $targetName",
+        message = "Persistent table relationships cannot target temporary tables: " +
+            "${source.diagnosticPath}; $targetName",
         symbol = source.roundElement.sourceDeclaration
       )
       sourceIsTemporary &&
@@ -332,32 +337,41 @@ internal class TableSeedResolver(
     table: TableElement,
     seed: TableSeed
   ) {
+    val modelName = seed.classDeclaration.displayName()
     if (table.allColumns.isEmpty()) {
       reporter.error(
-        message = "Table must define at least one persisted column: ${seed.classDeclaration.displayName()}",
+        message = "Table must define at least one persisted column: $modelName",
         symbol = seed.classDeclaration
       )
       return
     }
+    fun describe(column: ColumnElement) = "$modelName.${column.access.path.displayName}"
     val duplicateColumn = table.allColumns
       .groupBy(ColumnElement::columnName)
       .values
       .firstOrNull { it.size > 1 }
     if (duplicateColumn != null) {
-      val modelName = seed.classDeclaration.displayName()
-      val duplicateColumnsDescription = duplicateColumn.joinToString {
-        "$modelName.${it.access.path.displayName}"
-      }
+      val duplicateColumnsDescription = duplicateColumn.joinToString(transform = ::describe)
       reporter.error(
         message = "Duplicate column name '${duplicateColumn.first().columnName}': $duplicateColumnsDescription",
         symbol = seed.classDeclaration
       )
     }
+    table.allColumns
+      .groupBy(ColumnElement::fieldName)
+      .values
+      .firstOrNull { it.distinctBy(ColumnElement::columnName).size > 1 }
+      ?.let { columns ->
+        val columnsDescription = columns.joinToString(transform = ::describe)
+        reporter.error(
+          message = "Duplicate generated column name '${columns.first().fieldName}': $columnsDescription",
+          symbol = seed.classDeclaration
+        )
+      }
     if (WITHOUT_ROWID in table.options) {
       val id = table.idColumn
       if (id == null || id.isSchemaNullable) {
-        val modelName = seed.classDeclaration.displayName()
-        val idDescription = id?.let { "$modelName.${it.access.path.displayName}" } ?: modelName
+        val idDescription = id?.let(::describe) ?: modelName
         reporter.error(
           message = "WITHOUT_ROWID requires an explicit non-null @Id: $idDescription",
           symbol = seed.classDeclaration

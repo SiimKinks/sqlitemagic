@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.siimkinks.sqlitemagic.FROM
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.TodoListSummaryTable.Companion.TODO_LIST_SUMMARY
 import com.siimkinks.sqlitemagic.sample.data.TodoList

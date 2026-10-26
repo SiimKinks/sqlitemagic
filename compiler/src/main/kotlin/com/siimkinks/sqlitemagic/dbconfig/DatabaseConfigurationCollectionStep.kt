@@ -15,7 +15,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.utils.findAnnotationWithType
 import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
 
-class DatabaseConfigurationCollectionStep(
+internal class DatabaseConfigurationCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {

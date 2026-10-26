@@ -21,7 +21,7 @@ import com.siimkinks.sqlitemagic.annotation.ViewQuery
 import kotlin.reflect.KCallable
 import kotlin.reflect.KClass
 
-/** One collection pass owns this cache */
+/** One collection pass owns this cache. */
 internal class ConsumedAnnotations {
   private val declarations = mutableMapOf<KSAnnotated, Map<String, KSAnnotation>>()
   private val decoded = mutableMapOf<KSAnnotation, Annotation>()
@@ -50,10 +50,7 @@ internal class ConsumedAnnotations {
     .values
     .any(KSAnnotation::hasUnresolvedArguments)
 
-  fun table(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = Table::class
-  )?.decode {
+  fun table(symbol: KSAnnotated) = decode(symbol) {
     Table(
       value = argument(Table::value),
       persistAll = argument(Table::persistAll),
@@ -62,10 +59,7 @@ internal class ConsumedAnnotations {
     )
   }
 
-  fun view(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = View::class
-  )?.decode {
+  fun view(symbol: KSAnnotated) = decode(symbol) {
     View(
       value = argument(View::value),
       options = enumArguments<ViewOption>(View::options)
@@ -73,10 +67,7 @@ internal class ConsumedAnnotations {
     )
   }
 
-  fun column(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = Column::class
-  )?.decode {
+  fun column(symbol: KSAnnotated) = decode(symbol) {
     Column(
       value = argument(Column::value),
       defaultValue = argument(Column::defaultValue),
@@ -86,44 +77,29 @@ internal class ConsumedAnnotations {
     )
   }
 
-  fun embedded(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = Embedded::class
-  )?.decode {
+  fun embedded(symbol: KSAnnotated) = decode(symbol) {
     Embedded(prefix = argument(Embedded::prefix))
   }
 
-  fun index(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = Index::class
-  )?.decode {
+  fun index(symbol: KSAnnotated) = decode(symbol) {
     Index(
       value = argument(Index::value),
       unique = argument(Index::unique)
     )
   }
 
-  fun viewColumn(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = ViewColumn::class
-  )?.decode {
+  fun viewColumn(symbol: KSAnnotated) = decode(symbol) {
     ViewColumn(value = argument(ViewColumn::value))
   }
 
-  fun ignoreColumn(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = IgnoreColumn::class
-  )?.decode { IgnoreColumn() }
+  fun ignoreColumn(symbol: KSAnnotated) = decode(symbol) { IgnoreColumn() }
 
-  fun unique(symbol: KSAnnotated) = raw(
-    symbol = symbol,
-    annotationClass = Unique::class
-  )?.decode { Unique() }
+  fun unique(symbol: KSAnnotated) = decode(symbol) { Unique() }
 
   private fun scan(symbol: KSAnnotated) = declarations.getOrPut(symbol) {
     buildMap {
       val property = symbol.normalizePropertySymbol()
-      val backingFieldAnnotations = (property as? KSPropertyDeclaration)?.backingField?.annotations ?: emptySequence()
+      val backingFieldAnnotations = (property as? KSPropertyDeclaration)?.backingField?.annotations.orEmpty()
       (property.annotations + backingFieldAnnotations).forEach { annotation ->
         val name = annotation.shortName.asString()
         if (name in CONSUMED_ANNOTATION_NAMES) {
@@ -133,35 +109,43 @@ internal class ConsumedAnnotations {
     }
   }
 
-  @Suppress("UNCHECKED_CAST")
-  private fun <T : Annotation> KSAnnotation.decode(create: KSAnnotation.() -> T) =
-    decoded.getOrPut(this) { create() } as T
+  private inline fun <reified T : Annotation> decode(
+    symbol: KSAnnotated,
+    create: KSAnnotation.() -> T
+  ) = raw(
+    symbol = symbol,
+    annotationClass = T::class
+  )?.let { annotation ->
+    decoded.getOrPut(annotation) { annotation.create() } as T
+  }
 }
 
-internal val CONSUMED_ANNOTATION_NAMES = setOf(
-  checkNotNull(Table::class.simpleName),
-  checkNotNull(View::class.simpleName),
-  checkNotNull(Column::class.simpleName),
-  checkNotNull(Embedded::class.simpleName),
-  checkNotNull(Id::class.simpleName),
-  checkNotNull(IgnoreColumn::class.simpleName),
-  checkNotNull(Index::class.simpleName),
-  checkNotNull(Unique::class.simpleName),
-  checkNotNull(ViewColumn::class.simpleName),
-  checkNotNull(ViewQuery::class.simpleName)
+internal val CONSUMED_ANNOTATION_NAMES = listOf(
+  Table::class,
+  View::class,
+  Column::class,
+  Embedded::class,
+  Id::class,
+  IgnoreColumn::class,
+  Index::class,
+  Unique::class,
+  ViewColumn::class,
+  ViewQuery::class
 )
+  .map { checkNotNull(it.simpleName) }
+  .toSet()
 
 internal fun KSAnnotation.isConsumedAnnotation() = shortName.asString() in CONSUMED_ANNOTATION_NAMES
 
-@Suppress("UNCHECKED_CAST")
-private fun <T> KSAnnotation.argument(property: KCallable<*>) = checkNotNull(getArgument(property).value) as T
+private inline fun <reified T> KSAnnotation.argument(property: KCallable<*>) =
+  checkNotNull(getArgument(property).value) as T
 
 private inline fun <reified T : Enum<T>> KSAnnotation.enumArguments(
   property: KCallable<*>
 ) = argument<List<*>>(property)
-  .map { value ->
+  .map {
     enumValueOf<T>(
-      checkNotNull(value)
+      checkNotNull(it)
         .annotationEnumName()
     )
   }

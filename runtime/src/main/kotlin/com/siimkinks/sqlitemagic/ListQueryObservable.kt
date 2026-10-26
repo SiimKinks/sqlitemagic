@@ -23,12 +23,12 @@ open class ListQueryObservable<R>(
    * frequently or very large result sets this can result in the creation of many objects.
    */
   @CheckResult
-  fun runQuery(): Observable<List<R>> = lift(OperatorRunListQuery.instance())
+  fun runQuery(): Observable<List<R>> = lift(runListQuery())
 
   /** Transform only the first emitted [Query] to a `List<R>`. */
   @CheckResult
   fun runQueryOnce(): Single<List<R>> =
     take(1)
-      .lift(OperatorRunListQuery.instance())
+      .lift(runListQuery())
       .firstOrError()
 }

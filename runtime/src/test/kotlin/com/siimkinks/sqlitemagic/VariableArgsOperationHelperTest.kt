@@ -4,88 +4,77 @@ import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import org.junit.Test
 
 internal class VariableArgsOperationHelperTest {
   @Test
-  fun `reused SQL builder follows changing tables columns and operation kinds`() {
+  fun `statement SQL follows changing tables columns and operation kinds`() {
     val connection = newConnection()
-    val manager = EntityDbManager(connection.connection)
-    val helper = VariableArgsOperationHelper(CONFLICT_IGNORE)
-    val values = MutableScatterMap<String, Any>()
-      .apply {
-        put("b", "second")
-        put("a", "first")
-      }
-    helper.compileInsertStatement(
-      tableName = "books",
-      maxColumns = 3,
-      values = values,
-      manager = manager
+    val context = operationContext(
+      connection = connection,
+      conflictAlgorithm = CONFLICT_IGNORE
     )
+    val values = context.bindValues.apply {
+      this["b"] = "second"
+      this["a"] = "first"
+    }
+    context.compileInsertStatement("books")
     values.remove("b")
-    helper.compileInsertStatement(
-      tableName = "authors",
-      maxColumns = 3,
-      values = values,
-      manager = manager
-    )
-    helper.compileUpdateStatement(
+    context.compileInsertStatement("authors")
+    context.compileUpdateStatement(
       tableName = "books",
-      maxColumns = 3,
-      values = values,
       resolutionColumn = "key",
-      resolutionValue = "book-key",
-      manager = manager
+      resolutionValue = "book-key"
     )
-    values.put("b", 2)
-    helper.compileUpdateStatement(
+    values["b"] = 2
+    context.compileUpdateStatement(
       tableName = "authors",
-      maxColumns = 3,
-      values = values,
       resolutionColumn = "id",
-      resolutionValue = 9L,
-      manager = manager
+      resolutionValue = 9L
     )
-    helper.compileInsertStatement(
-      tableName = "books",
-      maxColumns = 3,
-      values = values,
-      manager = manager
+    context.compileInsertStatement("books")
+
+    data class ExpectedStatement(
+      val prefix: String,
+      val suffix: String,
+      val values: Map<String, Any>
     )
 
-    val expectedValues = listOf(
-      mapOf("a" to "first", "b" to "second"),
-      mapOf("a" to "first"),
-      mapOf("a" to "first"),
-      mapOf("a" to "first", "b" to 2L),
-      mapOf("a" to "first", "b" to 2L)
+    val expectedStatements = listOf(
+      ExpectedStatement(
+        prefix = "INSERT OR IGNORE INTO books",
+        suffix = ") VALUES (?,?)",
+        values = mapOf("a" to "first", "b" to "second")
+      ),
+      ExpectedStatement(
+        prefix = "INSERT OR IGNORE INTO authors",
+        suffix = ") VALUES (?)",
+        values = mapOf("a" to "first")
+      ),
+      ExpectedStatement(
+        prefix = "UPDATE OR IGNORE books",
+        suffix = " WHERE key=?",
+        values = mapOf("a" to "first")
+      ),
+      ExpectedStatement(
+        prefix = "UPDATE OR IGNORE authors",
+        suffix = " WHERE id=?",
+        values = mapOf("a" to "first", "b" to 2L)
+      ),
+      ExpectedStatement(
+        prefix = "INSERT OR IGNORE INTO books",
+        suffix = ") VALUES (?,?)",
+        values = mapOf("a" to "first", "b" to 2L)
+      )
     )
-    val expectedPrefixes = listOf(
-      "INSERT OR IGNORE INTO books",
-      "INSERT OR IGNORE INTO authors",
-      "UPDATE OR IGNORE books",
-      "UPDATE OR IGNORE authors",
-      "INSERT OR IGNORE INTO books"
-    )
-    assertThat(connection.recordingDatabase.compiledStatements).hasSize(5)
-    connection.recordingDatabase.compiledStatements.forEachIndexed { index, statement ->
-      assertThat(statement.sql).startsWith(expectedPrefixes[index])
-      when (index) {
-        2 -> assertThat(statement.sql).endsWith(" WHERE key=?")
-        3 -> assertThat(statement.sql).endsWith(" WHERE id=?")
-        else -> assertThat(statement.sql).endsWith(
-          expectedValues[index].keys.joinToString(
-            separator = ",",
-            prefix = ") VALUES (",
-            postfix = ")"
-          ) { "?" }
-        )
-      }
+    val statements = connection.recordingDatabase.compiledStatements
+    assertThat(statements).hasSize(expectedStatements.size)
+    statements.zip(expectedStatements).forEach { (statement, expected) ->
+      assertThat(statement.sql).startsWith(expected.prefix)
+      assertThat(statement.sql).endsWith(expected.suffix)
       assertBoundColumns(
         statement = statement,
-        expected = expectedValues[index]
+        expected = expected.values
       )
     }
     assertThat(connection.statementBindings[2][2]).isEqualTo("book-key")
@@ -95,11 +84,9 @@ internal class VariableArgsOperationHelperTest {
   @Test
   fun `native traversal aligns columns and bindings after collisions growth and repeated refill`() {
     val connection = newConnection()
-    val manager = EntityDbManager(connection.connection)
-    val helper = VariableArgsOperationHelper(CONFLICT_NONE)
-    val values = MutableScatterMap<String, Any>(initialCapacity = 0)
-    // Each Aa/BB pair has the same String hash, yielding sixteen colliding keys.
-    val columns = listOf("Aa", "BB").flatMap { first ->
+    val context = operationContext(connection)
+    val values = context.bindValues
+    val collidingColumns = listOf("Aa", "BB").flatMap { first ->
       listOf("Aa", "BB").flatMap { second ->
         listOf("Aa", "BB").flatMap { third ->
           listOf("Aa", "BB").map { fourth -> first + second + third + fourth }
@@ -108,28 +95,20 @@ internal class VariableArgsOperationHelperTest {
     }
     repeat(3) { refill ->
       values.clear()
-      columns.forEachIndexed { index, column -> values[column] = index.toLong() + refill }
-      columns.take(4).forEach(values::remove)
-      values[columns.first()] = 99L
-      val expected = columns.drop(4)
-        .associateWith { columns.indexOf(it).toLong() + refill } + (columns.first() to 99L)
-      helper.compileInsertStatement(
-        tableName = "books",
-        maxColumns = columns.size,
-        values = values,
-        manager = manager
-      )
+      collidingColumns.forEachIndexed { index, column -> values[column] = index.toLong() + refill }
+      collidingColumns.take(4).forEach(values::remove)
+      values[collidingColumns.first()] = 99L
+      val expected = collidingColumns.drop(4)
+        .associateWith { collidingColumns.indexOf(it).toLong() + refill } + (collidingColumns.first() to 99L)
+      context.compileInsertStatement("books")
       assertBoundColumns(
         statement = connection.recordingDatabase.compiledStatements.last(),
         expected = expected
       )
-      helper.compileUpdateStatement(
+      context.compileUpdateStatement(
         tableName = "books",
-        maxColumns = columns.size,
-        values = values,
         resolutionColumn = "id",
-        resolutionValue = 5L,
-        manager = manager
+        resolutionValue = 5L
       )
       val statement = connection.recordingDatabase.compiledStatements.last()
       assertBoundColumns(
@@ -148,7 +127,6 @@ internal class VariableArgsOperationHelperTest {
       val expected: Any
     )
 
-    val nonByteArray = arrayOf("text")
     listOf(
       BindingCase(
         label = "string",
@@ -186,55 +164,42 @@ internal class VariableArgsOperationHelperTest {
         expected = 2.5
       ),
       BindingCase(
-        label = "primitive blob",
+        label = "blob",
         value = byteArrayOf(1, 2),
         expected = byteArrayOf(1, 2)
-      ),
-      BindingCase(
-        label = "boxed blob",
-        value = arrayOf<Byte>(3, 4),
-        expected = byteArrayOf(3, 4)
-      ),
-      BindingCase(
-        label = "object string fallback",
-        value = StringBuilder("text"),
-        expected = "text"
-      ),
-      BindingCase(
-        label = "non-byte array string fallback",
-        value = nonByteArray,
-        expected = nonByteArray.toString()
       )
     ).forEach { case ->
       val connection = newConnection()
-      val values = MutableScatterMap<String, Any>()
-      values.put("value", case.value)
-      VariableArgsOperationHelper(CONFLICT_NONE)
-        .compileUpdateStatement(
-          tableName = "books",
-          maxColumns = 1,
-          values = values,
-          resolutionColumn = "id",
-          resolutionValue = case.value,
-          manager = EntityDbManager(connection.connection)
-        )
+      val context = operationContext(connection)
+      context.bindValues["value"] = case.value
+      context.compileUpdateStatement(
+        tableName = "books",
+        resolutionColumn = "id",
+        resolutionValue = case.value
+      )
       val statement = connection.recordingDatabase.compiledStatements.single()
 
       assertWithMessage(case.label)
         .that(statement.sql)
         .isEqualTo("UPDATE books SET value=? WHERE id=?")
       for (index in 1..2) {
-        when (val expected = case.expected) {
-          is ByteArray -> assertWithMessage("${case.label}: binding $index")
-            .that(statement.bindings[index] as ByteArray)
-            .isEqualTo(expected)
-          else -> assertWithMessage("${case.label}: binding $index")
-            .that(statement.bindings[index])
-            .isEqualTo(expected)
-        }
+        assertWithMessage("${case.label}: binding $index")
+          .that(statement.bindings[index])
+          .isEqualTo(case.expected)
       }
     }
   }
+
+  private fun operationContext(
+    connection: RecordingConnection,
+    conflictAlgorithm: Int = CONFLICT_NONE
+  ) = OperationContext(
+    adapter = TestAdapter(),
+    configuration = OperationConfigurationSnapshot(
+      connection = connection.connection,
+      conflictAlgorithm = conflictAlgorithm
+    )
+  )
 }
 
 private fun assertBoundColumns(

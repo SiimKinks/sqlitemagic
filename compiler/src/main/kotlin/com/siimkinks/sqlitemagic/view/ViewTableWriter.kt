@@ -1,41 +1,51 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.WriterTypes.BOOLEAN_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.CHAR_SEQUENCE
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.NOT_NULLABLE
-import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE
-import com.siimkinks.sqlitemagic.WriterTypes.NUMERIC_COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.UTILS
-import com.siimkinks.sqlitemagic.model.parserName
+import com.siimkinks.sqlitemagic.model.scalarFieldProperty
+import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter
-import com.squareup.kotlinpoet.CodeBlock
-import com.squareup.kotlinpoet.NUMBER
-import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.siimkinks.sqlitemagic.writer.entityProperties
 import com.squareup.kotlinpoet.PropertySpec
-import com.squareup.kotlinpoet.TypeName
 
 internal class ViewTableWriter(
   private val environment: Environment
 ) : ViewWriter {
   override fun write(roundElement: ViewRoundElement) {
-    val view = roundElement.view
-    ReadTableStructureWriter
-      .from(
-        view = view,
-        columns = columnProperties(
-          view = view,
-          properties = view.properties,
-          enclosingNullable = false
-        )
-      )
+    readTableStructureWriter(roundElement.view)
       .write(
         codeGenerator = environment.codeGenerator,
         originatingFiles = roundElement.originatingFiles
       )
   }
+
+  private fun readTableStructureWriter(view: ViewElement) = ReadTableStructureWriter(
+    names = view.generationNames,
+    modelClassName = view.modelClassName,
+    isPublic = view.isPublic,
+    constructorArguments = listOf(
+      namedArgument("name", "%S", view.viewName),
+      namedArgument("alias", "%N", VARIABLE_ALIAS),
+      namedArgument("generatedView", "%T.%N", view.generationNames.daoClassName, FIELD_GENERATED_VIEW)
+    ),
+    columns = columnProperties(
+      view = view,
+      properties = view.properties,
+      enclosingNullable = false
+    ),
+    readsRelated = view.hasBlocks,
+    relationships = null,
+    partialRead = ReadTableStructureWriter.PartialRead(
+      entityProperties = entityProperties(
+        modelName = view.modelName,
+        properties = view.scalarProperties,
+        partialRequirements = view.partialRequirements
+      ),
+      readsRelated = false
+    ).takeIf { view.supportsPartialRead }
+  )
 
   private fun columnProperties(
     view: ViewElement,
@@ -43,13 +53,23 @@ internal class ViewTableWriter(
     enclosingNullable: Boolean
   ): List<PropertySpec> = properties.flatMap { property ->
     when (property) {
-      is ViewScalarPropertyElement -> listOf(
-        columnProperty(
-          view = view,
-          property = property,
-          effectiveNullable = enclosingNullable || property.isNullable
+      is ViewScalarPropertyElement -> {
+        val nullable = enclosingNullable || property.isNullable
+        listOf(
+          scalarFieldProperty(
+            ownerType = view.modelClassName,
+            fieldClass = COLUMN,
+            fieldName = property.generatedFieldName,
+            columnName = property.selectionKey,
+            deserializedType = property.deserializedType.typeName,
+            sqlStorageType = property.sqlStorageType,
+            transformer = property.transformer,
+            isSchemaNullable = nullable,
+            isModelPathNullable = nullable,
+            sqlRequired = false
+          )
         )
-      )
+      }
       is ViewEmbeddedPropertyElement -> columnProperties(
         view = view,
         properties = property.properties,
@@ -57,82 +77,5 @@ internal class ViewTableWriter(
       )
       is ViewProjectionPropertyElement -> emptyList()
     }
-  }
-
-  private fun columnProperty(
-    view: ViewElement,
-    property: ViewScalarPropertyElement,
-    effectiveNullable: Boolean
-  ) = PropertySpec
-    .builder(
-      name = property.generatedFieldName,
-      type = columnType(
-        view = view,
-        property = property,
-        effectiveNullable = effectiveNullable
-      )
-    )
-    .initializer(
-      columnInitializer(
-        property = property,
-        effectiveNullable = effectiveNullable
-      )
-    )
-    .build()
-
-  private fun columnType(
-    view: ViewElement,
-    property: ViewScalarPropertyElement,
-    effectiveNullable: Boolean
-  ): TypeName {
-    val nullability = when {
-      effectiveNullable -> NULLABLE
-      else -> NOT_NULLABLE
-    }
-    val columnClass = columnClassName(property)
-    return when {
-      property.transformer != null -> columnClass.parameterizedBy(view.modelClassName, nullability)
-      else -> {
-        val valueType = property.deserializedType.typeName.copy(nullable = false)
-        val returnType = valueType.copy(nullable = effectiveNullable)
-        val storageType = checkNotNull(property.serializedType.sqlStorageType)
-        val equivalentType = when {
-          storageType.isNumeric -> NUMBER
-          storageType == SqlStorageType.STRING -> CHAR_SEQUENCE
-          else -> valueType
-        }
-        columnClass.parameterizedBy(
-          valueType,
-          returnType,
-          equivalentType,
-          view.modelClassName,
-          nullability
-        )
-      }
-    }
-  }
-
-  private fun columnInitializer(
-    property: ViewScalarPropertyElement,
-    effectiveNullable: Boolean
-  ): CodeBlock {
-    val parserName = checkNotNull(property.serializedType.sqlStorageType)
-      .parserName(effectiveNullable)
-    val physicalName = property.selectionKey.substringAfterLast('.')
-    return CodeBlock.of(
-      "%T(table = this, name = %S, valueParser = %T.%N, nullable = %L, alias = null)",
-      columnClassName(property),
-      physicalName,
-      UTILS,
-      parserName,
-      effectiveNullable
-    )
-  }
-
-  private fun columnClassName(property: ViewScalarPropertyElement) = when {
-    property.transformer != null && !property.transformer.isDefaultTransformer -> property.transformer.generatedColumnClassName()
-    property.transformer?.isDefaultTransformer == true -> BOOLEAN_COLUMN
-    property.serializedType.sqlStorageType?.isNumeric == true -> NUMERIC_COLUMN
-    else -> COLUMN
   }
 }

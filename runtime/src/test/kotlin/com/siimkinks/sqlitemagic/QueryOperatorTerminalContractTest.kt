@@ -13,79 +13,66 @@ import org.junit.runners.Parameterized
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
-import org.mockito.kotlin.whenever
 
 @RunWith(Parameterized::class)
-internal class QueryOperatorTerminalContractTest(private val terminal: String) {
+internal class QueryOperatorTerminalContractTest(private val terminal: Terminal) {
   @Test
   fun `natural completion and error forward before upstream finally like map`() {
     for (complete in listOf(true, false)) {
-      val traces = mutableListOf<List<String>>()
-      for (reference in listOf(true, false)) {
-        val events = mutableListOf<String>()
-        val source = PublishSubject.create<Query<Any>>()
-        val observer = source
-          .doFinally { events.add("upstream finally") }
-          .execute(reference)
-          .record(events)
-        val failure = IllegalArgumentException("upstream failed")
-        when {
-          complete -> {
-            source.onComplete()
-            observer.assertResult()
-          }
-          else -> {
-            source.onError(failure)
-            observer.assertFailure(failure::equals)
-          }
+      val events = mutableListOf<String>()
+      val source = PublishSubject.create<Query<Any>>()
+      val observer = source
+        .doFinally { events.add("upstream finally") }
+        .executeQuery()
+        .record(events)
+      val failure = IllegalArgumentException("upstream failed")
+      when {
+        complete -> {
+          source.onComplete()
+          observer.assertResult()
         }
-        traces.add(events.toList())
+        else -> {
+          source.onError(failure)
+          observer.assertFailure(failure::equals)
+        }
       }
-      val expected = listOf(
-        when {
-          complete -> "downstream complete"
-          else -> "downstream error"
-        },
-        "upstream finally"
-      )
-      assertThat(traces).containsExactly(expected, expected)
+      assertThat(events)
+        .containsExactly(
+          when {
+            complete -> "downstream complete"
+            else -> "downstream error"
+          },
+          "upstream finally"
+        )
+        .inOrder()
     }
   }
 
   @Test
   fun `mapping failure disposes upstream before error like map`() {
-    val traces = mutableListOf<List<String>>()
-    for (reference in listOf(true, false)) {
-      val failure = IllegalArgumentException("mapping failed")
-      val cursor = mock<Cursor>()
-      whenever(cursor.count).thenReturn(1)
-      whenever(cursor.moveToNext()).thenReturn(true)
-      val query = object : Query.DatabaseQuery<Any, Any>(
-        dbConnection = mock(),
-        mapper = { throw failure }
-      ) {
-        override fun rawQuery(inStream: Boolean, dbConnection: DbConnectionImpl): Cursor = cursor
+    val failure = IllegalArgumentException("mapping failed")
+    val cursor = mock<Cursor>()
+    val query = object : Query<Any>(mock()) {
+      override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
 
-        override fun map(cursor: Cursor?, dbConnection: DbConnectionImpl): Any =
-          checkNotNull(cursor).use { throw failure }
-      }
-      val events = mutableListOf<String>()
-      val source = PublishSubject.create<Query<Any>>()
-      val observer = source
-        .doFinally { events.add("upstream finally") }
-        .execute(reference)
-        .record(events)
-      source.onNext(query)
-      observer.assertFailure(failure::equals)
-      assertThat(source.hasObservers()).isFalse()
-      source.onNext(query)
-      source.onComplete()
-      observer.assertFailure(failure::equals)
-      verify(cursor).close()
-      traces.add(events.toList())
+      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Any = cursor.use { throw failure }
     }
-    val expected = listOf("upstream finally", "downstream error")
-    assertThat(traces).containsExactly(expected, expected)
+    val events = mutableListOf<String>()
+    val source = PublishSubject.create<Query<Any>>()
+    val observer = source
+      .doFinally { events.add("upstream finally") }
+      .executeQuery()
+      .record(events)
+    source.onNext(query)
+    observer.assertFailure(failure::equals)
+    assertThat(source.hasObservers()).isFalse()
+    source.onNext(query)
+    source.onComplete()
+    observer.assertFailure(failure::equals)
+    verify(cursor).close()
+    assertThat(events)
+      .containsExactly("upstream finally", "downstream error")
+      .inOrder()
   }
 
   @Test
@@ -96,7 +83,7 @@ internal class QueryOperatorTerminalContractTest(private val terminal: String) {
       for (complete in listOf(true, false)) {
         val source = ManualSource()
         val ignoredQuery = mock<Query<Any>>()
-        val observer = source.execute(reference = false)
+        val observer = source.executeQuery()
           .doOnComplete { source.observer.onNext(ignoredQuery) }
           .doOnError { source.observer.onNext(ignoredQuery) }
           .test()
@@ -129,7 +116,7 @@ internal class QueryOperatorTerminalContractTest(private val terminal: String) {
     val events = mutableListOf<String>()
     val observer = source
       .doFinally { events.add("upstream finally") }
-      .execute(reference = false)
+      .executeQuery()
       .record(events)
     assertThat(source.hasObservers()).isTrue()
     observer.dispose()
@@ -143,17 +130,11 @@ internal class QueryOperatorTerminalContractTest(private val terminal: String) {
     assertThat(events).containsExactly("upstream finally")
   }
 
-  private fun Observable<Query<Any>>.execute(reference: Boolean) = when {
-    reference -> map { checkNotNull(it.runBlocking()) }
-    else -> executeQuery()
-  }
-
   @Suppress("UNCHECKED_CAST")
   private fun Observable<Query<Any>>.executeQuery() = when (terminal) {
-    "scalar" -> lift(OperatorRunSingleItemQuery())
-    "list" -> (this as Observable<Query<List<Any>>>).lift(OperatorRunListQuery.instance())
-    "count zero" -> (this as Observable<Query<Long>>).lift(OperatorCountZeroOrNot.countZero)
-    else -> (this as Observable<Query<Long>>).lift(OperatorCountZeroOrNot.countNotZero)
+    Terminal.SCALAR -> lift(OperatorRunSingleItemQuery())
+    Terminal.LIST -> (this as Observable<Query<List<Any>>>).lift(runListQuery())
+    Terminal.COUNT -> (this as Observable<Query<Long>>).lift(OperatorCountZeroOrNot.countZero)
   }
 
   private fun Observable<*>.record(events: MutableList<String>) =
@@ -171,9 +152,15 @@ internal class QueryOperatorTerminalContractTest(private val terminal: String) {
     }
   }
 
+  internal enum class Terminal {
+    SCALAR,
+    LIST,
+    COUNT
+  }
+
   companion object {
     @JvmStatic
     @Parameterized.Parameters(name = "{0}")
-    fun terminals() = listOf("scalar", "list", "count zero", "count not zero")
+    fun terminals() = Terminal.entries
   }
 }

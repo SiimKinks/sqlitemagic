@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.FailureStage.CLOSE
 import com.siimkinks.sqlitemagic.FailureStage.CREATE
 import com.siimkinks.sqlitemagic.FailureStage.DROP
 import com.siimkinks.sqlitemagic.FailureStage.MOVE
-import com.siimkinks.sqlitemagic.FailureStage.READ
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -26,8 +25,8 @@ internal class DefaultDbDowngraderTest {
     assertThat(fixture.events)
       .containsExactly(
         "query",
-        "drop:DROP TABLE IF EXISTS first_table",
-        "drop:DROP TABLE IF EXISTS second_table",
+        """drop:DROP TABLE IF EXISTS "first_table"""",
+        """drop:DROP TABLE IF EXISTS "second_table"""",
         "close",
         "create"
       )
@@ -35,28 +34,70 @@ internal class DefaultDbDowngraderTest {
   }
 
   @Test
-  fun `downgrade with no tables closes the cursor before recreating the schema`() {
-    val fixture = DowngradeFixture(tableNames = emptyList())
+  fun `downgrade drops the newer version's views and quoted tables before recreating the schema`() {
+    val names = BundledSqliteDatabase().use { db ->
+      db.execSQL("CREATE TABLE android_metadata (locale TEXT)")
+      db.execSQL("""CREATE TABLE "newer item" (id INTEGER)""")
+      db.execSQL("""CREATE VIEW newer_view AS SELECT id FROM "newer item"""")
+      val database = mock<GeneratedDatabase>()
+      doAnswer {
+        db.execSQL("CREATE TABLE item (id INTEGER)")
+      }
+        .whenever(database)
+        .createSchema(any())
 
-    fixture.downgrade()
+      DefaultDbDowngrader(database).onDowngrade(
+        db = db,
+        oldVersion = 7,
+        newVersion = 2
+      )
+      db.query("SELECT name FROM sqlite_master ORDER BY name").use { cursor ->
+        buildList {
+          while (cursor.moveToNext()) {
+            add(cursor.getString(0))
+          }
+        }
+      }
+    }
 
-    assertThat(fixture.events)
-      .containsExactly("query", "close", "create")
+    assertThat(names).containsExactly("android_metadata", "item")
       .inOrder()
   }
 
   @Test
-  fun `cursor and drop failures close the cursor and prevent schema recreation`() {
+  fun `failures propagate after closing the cursor and stop the downgrade`() {
+    data class FailureCase(
+      val stages: Set<FailureStage>,
+      val tableNames: List<String> = listOf("first_table", "second_table"),
+      val thrown: (DowngradeFixture) -> IllegalStateException = DowngradeFixture::failure,
+      val suppressed: (DowngradeFixture) -> List<IllegalStateException> = { emptyList() },
+      val expectedEvents: List<String> = listOf("query", "close")
+    )
     listOf(
-      setOf(MOVE),
-      setOf(READ),
-      setOf(DROP),
-      setOf(MOVE, CLOSE),
-      setOf(DROP, CLOSE)
-    ).forEach { stages ->
+      FailureCase(stages = setOf(MOVE)),
+      FailureCase(
+        stages = setOf(DROP),
+        expectedEvents = listOf("query", """drop:DROP TABLE IF EXISTS "first_table"""", "close")
+      ),
+      FailureCase(
+        stages = setOf(MOVE, CLOSE),
+        suppressed = { listOf(it.closeFailure) }
+      ),
+      FailureCase(
+        stages = setOf(CLOSE),
+        tableNames = emptyList(),
+        thrown = DowngradeFixture::closeFailure
+      ),
+      FailureCase(
+        stages = setOf(CREATE),
+        tableNames = emptyList(),
+        expectedEvents = listOf("query", "close", "create")
+      )
+    ).forEach { case ->
+      val label = case.stages.joinToString()
       val fixture = DowngradeFixture(
-        tableNames = listOf("first_table", "second_table"),
-        failureStages = stages
+        tableNames = case.tableNames,
+        failureStages = case.stages
       )
 
       val failure = assertThrows(
@@ -64,75 +105,22 @@ internal class DefaultDbDowngraderTest {
         fixture::downgrade
       )
 
-      assertWithMessage(stages.joinToString())
+      assertWithMessage(label)
         .that(failure)
-        .isSameInstanceAs(fixture.failure)
-      assertWithMessage(stages.joinToString())
+        .isSameInstanceAs(case.thrown(fixture))
+      assertWithMessage(label)
         .that(failure.suppressed.toList())
-        .containsExactlyElementsIn(
-          when {
-            CLOSE in stages -> listOf(fixture.closeFailure)
-            else -> emptyList()
-          }
-        )
-      assertWithMessage(stages.joinToString())
+        .containsExactlyElementsIn(case.suppressed(fixture))
+      assertWithMessage(label)
         .that(fixture.events)
-        .containsExactlyElementsIn(
-          when {
-            DROP in stages -> listOf("query", "drop:DROP TABLE IF EXISTS first_table", "close")
-            else -> listOf("query", "close")
-          }
-        )
+        .containsExactlyElementsIn(case.expectedEvents)
         .inOrder()
     }
-  }
-
-  @Test
-  fun `cursor close failure propagates and prevents schema recreation`() {
-    val fixture = DowngradeFixture(
-      tableNames = emptyList(),
-      failureStages = setOf(CLOSE)
-    )
-
-    val failure = assertThrows(
-      IllegalStateException::class.java,
-      fixture::downgrade
-    )
-
-    assertThat(failure)
-      .isSameInstanceAs(fixture.closeFailure)
-    assertThat(failure.suppressed)
-      .isEmpty()
-    assertThat(fixture.events)
-      .containsExactly("query", "close")
-      .inOrder()
-  }
-
-  @Test
-  fun `schema recreation failure propagates after closing the cursor`() {
-    val fixture = DowngradeFixture(
-      tableNames = emptyList(),
-      failureStages = setOf(CREATE)
-    )
-
-    val failure = assertThrows(
-      IllegalStateException::class.java,
-      fixture::downgrade
-    )
-
-    assertThat(failure)
-      .isSameInstanceAs(fixture.failure)
-    assertThat(failure.suppressed)
-      .isEmpty()
-    assertThat(fixture.events)
-      .containsExactly("query", "close", "create")
-      .inOrder()
   }
 }
 
 private enum class FailureStage {
   MOVE,
-  READ,
   DROP,
   CLOSE,
   CREATE
@@ -158,10 +146,9 @@ private class DowngradeFixture(
         ++row < tableNames.size
       }
     whenever(cursor.getString(0))
-      .thenAnswer {
-        failAt(READ)
-        tableNames[row]
-      }
+      .thenReturn("TABLE")
+    whenever(cursor.getString(1))
+      .thenAnswer { tableNames[row] }
     doAnswer {
       events += "close"
       failAt(CLOSE)

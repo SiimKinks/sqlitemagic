@@ -2,94 +2,110 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.index.indexProcessingSteps
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.debugMigrationOptions
+import com.siimkinks.sqlitemagic.utils.functionBody
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.unwrapped
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.readText
 
-internal class IndexManagerContractTest : ProcessingStepsTest {
-  override val processingSteps = ::indexProcessingSteps
+internal class IndexManagerContractTest {
+  private val compiler = SqliteMagicCompiler(::indexProcessingSteps)
 
   @TempDir
   lateinit var temporaryDirectory: Path
 
   @Test
-  fun `creates local persistent indexes after ordered tables and submodule delegation`() {
-    val submodule = SqliteMagicCompilation
+  fun `creates indexes after tables in submodule and main managers with submodule delegation`() {
+    val submodule = compiler
       .compile(indexedSubmodule())
       .isOk()
+      .assertGeneratedSources("FeatureGeneratedClassesManager.kt")
+      .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
+        generatedSource
+          .functionBody("createSchemaTables")
+          .unwrapped()
+          .assertContainsInOrder(
+            "if (!temporary)",
+            "SqliteMagic_FeatureItem_Adapter.TABLE_SCHEMA"
+          )
+        generatedSource
+          .functionBody("createSchemaIndexes")
+          .unwrapped()
+          .assertContainsInOrder(
+            "if (!temporary)",
+            """CREATE INDEX IF NOT EXISTS main.\"feature_name_index\" ON \"feature_items\" (\"name\")"""
+          )
+      }
 
-    submodule
-      .compile(indexedMainDatabase())
+    compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "MainDatabase.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Database
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Index
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+            @Database(submodules = [FeatureDatabase::class])
+            class MainDatabase
+
+            @Table("main_children")
+            data class MainChild(
+              @Id val id: Long,
+              @Column(handleRecursively = true) val parent: MainParent
+            )
+
+            @Table("main_parents")
+            data class MainParent(
+              @Id val id: Long,
+              @Index(
+                value = "main_parent_name_index",
+                unique = true
+              )
+              val name: String
+            )
+
+            @Table(
+              value = "main_sessions",
+              options = [TEMPORARY]
+            )
+            data class MainSession(
+              @Id val id: Long,
+              @Index("main_session_name_index") val name: String
+            )
+          """
+        ),
+        classpaths = listOf(submodule.outputDirectory)
+      )
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource
-          .substringAfter("override fun createSchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .assertContainsInOrder(
-            "createSchemaTables(db = db, temporary = false)",
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = false)",
-            "createSchemaIndexes(db = db, temporary = false)"
-          )
-        generatedSource
-          .substringAfter("fun createSchemaTables(")
-          .substringBefore("fun collectGeneratedViews(")
-          .assertContainsInOrder(
-            "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
-            "SqliteMagic_MainParent_Adapter.TABLE_SCHEMA",
-            "SqliteMagic_MainChild_Adapter.TABLE_SCHEMA"
-          )
-        generatedSource
-          .substringAfter("fun createSchemaIndexes(")
-          .substringBefore("override fun createSchema(db: SupportSQLiteDatabase)")
+          .functionBody("createSchemaTables")
+          .unwrapped()
           .run {
             assertContainsInOrder(
-              "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
-              "CREATE UNIQUE INDEX IF NOT EXISTS",
-              "main_parent_name_index"
+              "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+              "SqliteMagic_MainParent_Adapter.TABLE_SCHEMA",
+              "SqliteMagic_MainChild_Adapter.TABLE_SCHEMA"
             )
-            substringAfter("else").assertContains("main_parent_name_index")
-            substringBefore("else").assertDoesNotContain("main_parent_name_index")
-          }
-        generatedSource.assertContains(
-          "main_parents",
-          "name"
-        )
-      }
-  }
-
-  @Test
-  fun `creates local temporary indexes after temporary submodule delegation`() {
-    val submodule = SqliteMagicCompilation
-      .compile(indexedSubmodule())
-      .isOk()
-
-    submodule
-      .compile(indexedMainDatabase())
-      .isOk()
-      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
-        generatedSource
-          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
-          .assertContainsInOrder(
-            "createSchemaTables(db = db, temporary = true)",
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
-            "createSchemaIndexes(db = db, temporary = true)"
-          )
-        generatedSource
-          .substringAfter("fun createSchemaTables(")
-          .substringBefore("fun collectGeneratedViews(")
-          .run {
             assertContainsInOrder(
               "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
               "if (temporary)",
@@ -99,9 +115,15 @@ internal class IndexManagerContractTest : ProcessingStepsTest {
             substringAfter("else").assertDoesNotContain("SqliteMagic_MainSession_Adapter.TABLE_SCHEMA")
           }
         generatedSource
-          .substringAfter("fun createSchemaIndexes(")
-          .substringBefore("override fun createSchema(db: SupportSQLiteDatabase)")
+          .functionBody("createSchemaIndexes")
+          .unwrapped()
           .run {
+            assertContainsInOrder(
+              "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
+              """CREATE UNIQUE INDEX IF NOT EXISTS main.\"main_parent_name_index\" ON \"main_parents\" (\"name\")"""
+            )
+            substringAfter("else").assertContains("main_parent_name_index")
+            substringBefore("else").assertDoesNotContain("main_parent_name_index")
             assertContainsInOrder(
               "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
               "if (temporary)",
@@ -115,129 +137,62 @@ internal class IndexManagerContractTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `creates indexes in the submodule persistent manager after its tables`() {
-    SqliteMagicCompilation
-      .compile(indexedSubmodule())
-      .isOk()
-      .assertGeneratedSources("FeatureGeneratedClassesManager.kt")
-      .withGeneratedSource("FeatureGeneratedClassesManager.kt") { generatedSource ->
-        generatedSource
-          .substringAfter("fun createSchemaTables(")
-          .substringBefore("fun collectGeneratedViews(")
-          .substringAfter("else")
-          .assertContains("SqliteMagic_FeatureItem_Adapter.TABLE_SCHEMA")
-        generatedSource
-          .substringAfter("fun createSchemaIndexes(")
-          .substringBefore("fun createSchema(db: SupportSQLiteDatabase)")
-          .substringAfter("else")
-          .assertContainsInOrder(
-            "CREATE INDEX IF NOT EXISTS",
-            "feature_name_index"
-          )
-        generatedSource.assertContains(
-          "feature_items",
-          "name"
-        )
-      }
-  }
-
-  @Test
   fun `creates temporary indexes in the temporary schema method used on open`() {
-    SqliteMagicCompilation
+    compiler
       .compile(indexedTemporaryTable())
       .isOk()
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource
-          .substringAfter("override fun createTemporarySchema(db: SupportSQLiteDatabase)")
-          .substringBefore("override fun clearData(db: SupportSQLiteDatabase)")
-          .assertContainsInOrder(
-            "createSchemaTables(db = db, temporary = true)",
-            "collectGeneratedViews(views = generatedViews)",
-            "SqlUtil.createViews(db = db, views = generatedViews, temporary = true)",
-            "createSchemaIndexes(db = db, temporary = true)"
-          )
-        generatedSource
-          .substringAfter("fun createSchemaTables(")
-          .substringBefore("fun collectGeneratedViews(")
+          .functionBody("createSchemaTables")
+          .unwrapped()
           .run {
             assertContainsInOrder(
               "if (temporary)",
-              "SqliteMagic_SessionItem_Adapter.TABLE_SCHEMA",
-              "else"
+              "SqliteMagic_SessionItem_Adapter.TABLE_SCHEMA"
             )
-            substringAfter("else").assertDoesNotContain("SqliteMagic_SessionItem_Adapter.TABLE_SCHEMA")
+            assertDoesNotContain("else")
           }
         generatedSource
-          .substringAfter("fun createSchemaIndexes(")
-          .substringBefore("override fun createSchema(db: SupportSQLiteDatabase)")
+          .functionBody("createSchemaIndexes")
+          .unwrapped()
           .run {
             assertContainsInOrder(
               "if (temporary)",
-              "CREATE UNIQUE INDEX IF NOT EXISTS",
-              "session_name_index",
-              "else"
+              """CREATE UNIQUE INDEX IF NOT EXISTS temp.\"session_name_index\" ON \"session_items\" (\"name\")"""
             )
-            substringAfter("else").assertDoesNotContain("session_name_index")
+            assertDoesNotContain("else")
           }
-        generatedSource.assertContains(
-          "session_items",
-          "name"
-        )
       }
   }
 
   @Test
-  fun `latest structure records persistent and temporary tables and indexes`() {
-    SqliteMagicCompilation
-      .compile(
-        *indexedPersistentAndTemporaryTables().toTypedArray(),
-        kspOptions = debugMigrationOptions()
-      )
-      .isOk()
-
-    val latestStructure = Files.readString(
-      temporaryDirectory.resolve("db/latest.struct")
-    )
-    latestStructure.assertContains(
-      "\"tables\"",
-      "persistent_items",
-      "persistent_name_index",
-      "\"temporaryTables\"",
-      "temporary_items",
-      "\"temporaryIndices\"",
-      "temporary_name_index"
-    )
-  }
-
-  @Test
   fun `temporary-only changes do not create migration SQL or a version marker`() {
-    val options = debugMigrationOptions()
-    SqliteMagicCompilation
+    val options = debugMigrationOptions(projectDirectory = temporaryDirectory)
+    compiler
       .compile(
         indexedTemporaryTable(tableName = "temporary_items_v1"),
         kspOptions = options
       )
       .isOk()
-    SqliteMagicCompilation
+    compiler
       .compile(
         indexedTemporaryTable(tableName = "temporary_items_v2"),
         kspOptions = options
       )
       .isOk()
 
-    assertThat(
-      Files.exists(temporaryDirectory.resolve("db/latest_debug.version"))
-    ).isFalse()
-    assertThat(
-      Files.exists(temporaryDirectory.resolve("src/debug/assets/1001.sql"))
-    ).isFalse()
-    Files.readString(temporaryDirectory.resolve("db/latest.struct")).assertContains(
-      "\"temporaryTables\"",
-      "temporary_items_v2",
-      "\"temporaryIndices\"",
-      "session_name_index"
-    )
+    assertThat(temporaryDirectory.resolve("db/latest_debug.version").exists()).isFalse()
+    assertThat(temporaryDirectory.resolve("src/debug/assets/1001.sql").exists()).isFalse()
+    temporaryDirectory
+      .resolve("db/latest.struct")
+      .readText()
+      .assertContains(
+        """"temporaryTables"""",
+        "temporary_items_v2",
+        """"temporaryIndices"""",
+        "session_name_index"
+      )
   }
 
   @Test
@@ -245,33 +200,26 @@ internal class IndexManagerContractTest : ProcessingStepsTest {
     val mainDirectory = temporaryDirectory.resolve("main")
     val submoduleDirectory = temporaryDirectory.resolve("feature")
 
-    SqliteMagicCompilation
+    compiler
       .compile(
         indexedSubmodule(),
-        kspOptions = mapOf(
-          "sqlitemagic.migrate.debug" to "false",
-          "sqlitemagic.project.dir" to submoduleDirectory.toString(),
-          "sqlitemagic.main.module.path" to mainDirectory.toString(),
-          "sqlitemagic.variant.name" to "debug",
-          "sqlitemagic.variant.debug" to "true"
+        kspOptions = debugMigrationOptions(
+          projectDirectory = submoduleDirectory,
+          migrateDebug = false,
+          mainModuleDirectory = mainDirectory
         )
       )
       .isOk()
 
     val publishedStructure = mainDirectory.resolve("db/latest_feature.struct")
-    assertThat(Files.exists(publishedStructure)).isTrue()
-    Files.readString(publishedStructure).assertContains(
-      "feature_items",
-      "feature_name_index"
-    )
+    assertThat(publishedStructure.exists()).isTrue()
+    publishedStructure
+      .readText()
+      .assertContains(
+        "feature_items",
+        "feature_name_index"
+      )
   }
-
-  private fun debugMigrationOptions() = mapOf(
-    "sqlitemagic.migrate.debug" to "true",
-    "sqlitemagic.project.dir" to temporaryDirectory.toString(),
-    "sqlitemagic.variant.name" to "debug",
-    "sqlitemagic.variant.debug" to "true"
-  )
 }
 
 private fun indexedSubmodule() = SourceFile.kotlin(
@@ -295,51 +243,8 @@ private fun indexedSubmodule() = SourceFile.kotlin(
   """
 )
 
-private fun indexedMainDatabase() = SourceFile.kotlin(
-  name = "MainDatabase.kt",
-  contents = """
-    package $PACKAGE
-
-    import com.siimkinks.sqlitemagic.annotation.Column
-    import com.siimkinks.sqlitemagic.annotation.Database
-    import com.siimkinks.sqlitemagic.annotation.Id
-    import com.siimkinks.sqlitemagic.annotation.Index
-    import com.siimkinks.sqlitemagic.annotation.Table
-    import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
-
-    @Database(submodules = [FeatureDatabase::class])
-    class MainDatabase
-
-    @Table("main_children")
-    data class MainChild(
-      @Id val id: Long,
-      @Column(handleRecursively = true) val parent: MainParent
-    )
-
-    @Table("main_parents")
-    data class MainParent(
-      @Id val id: Long,
-      @Index(
-        value = "main_parent_name_index",
-        unique = true
-      )
-      val name: String
-    )
-
-    @Table(
-      value = "main_sessions",
-      options = [TEMPORARY]
-    )
-    data class MainSession(
-      @Id val id: Long,
-      @Index("main_session_name_index") val name: String
-    )
-  """
-)
-
 private fun indexedTemporaryTable(
-  tableName: String = "session_items",
-  indexName: String = "session_name_index"
+  tableName: String = "session_items"
 ) = SourceFile.kotlin(
   name = "SessionItem.kt",
   contents = """
@@ -357,33 +262,10 @@ private fun indexedTemporaryTable(
     data class SessionItem(
       @Id val id: Long,
       @Index(
-        value = "$indexName",
+        value = "session_name_index",
         unique = true
       )
       val name: String
     )
   """
-)
-
-private fun indexedPersistentAndTemporaryTables() = listOf(
-  SourceFile.kotlin(
-    name = "PersistentItem.kt",
-    contents = """
-      package $PACKAGE
-
-      import com.siimkinks.sqlitemagic.annotation.Id
-      import com.siimkinks.sqlitemagic.annotation.Index
-      import com.siimkinks.sqlitemagic.annotation.Table
-
-      @Table("persistent_items")
-      data class PersistentItem(
-        @Id val id: Long,
-        @Index("persistent_name_index") val name: String
-      )
-    """
-  ),
-  indexedTemporaryTable(
-    tableName = "temporary_items",
-    indexName = "temporary_name_index"
-  )
 )

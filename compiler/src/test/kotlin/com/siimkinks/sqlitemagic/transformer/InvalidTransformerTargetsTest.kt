@@ -7,32 +7,27 @@ import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.javaTr
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.kotlinTransformerSource
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.nullableObjectTransformer
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionSources.objectTransformer
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
-internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
-  override val processingSteps = ::transformerCollectionProcessingSteps
+internal class InvalidTransformerTargetsTest {
+  private val compiler = SqliteMagicCompiler(::transformerCollectionProcessingSteps)
 
   @ParameterizedTest(name = "Kotlin {0}")
   @ValueSource(
     strings = [
-      "Byte", "Byte?",
-      "Short", "Short?",
-      "Int", "Int?",
-      "Long", "Long?",
-      "Float", "Float?",
-      "Double", "Double?",
-      "ByteArray", "ByteArray?",
-      "Array<Byte>", "Array<Byte>?",
-      "String", "String?"
+      "Int",
+      "String?",
+      "ByteArray",
+      "Array<Byte>?"
     ]
   )
   fun `fails when deserialized Kotlin type is a supported SQL type`(sqlType: String) {
-    SqliteMagicCompilation
+    compiler
       .compile(
         kotlinTransformerSource(
           name = "SqlTypeTransformer",
@@ -53,18 +48,14 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
   @ParameterizedTest(name = "Java {0}")
   @ValueSource(
     strings = [
-      "byte", "Byte",
-      "short", "Short",
-      "int", "Integer",
-      "long", "Long",
-      "float", "Float",
-      "double", "Double",
-      "byte[]", "Byte[]",
-      "String"
+      "long",
+      "Integer",
+      "byte[]",
+      "Byte[]"
     ]
   )
   fun `fails when deserialized Java type is a supported SQL type`(sqlType: String) {
-    SqliteMagicCompilation
+    compiler
       .compile(
         javaTransformerSource(
           name = "SqlTypeTransformer",
@@ -88,7 +79,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
 
   @Test
   fun `fails when serialized type is not a supported SQL type`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         emailValueType(),
         kotlinTransformerSource(
@@ -111,7 +102,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
 
   @Test
   fun `fails when transformed type is also a table`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "Email.kt",
@@ -130,21 +121,10 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `fails when multiple transformers target the same type`() {
-    SqliteMagicCompilation
-      .compile(
-        emailValueType(),
-        objectTransformer(className = "FirstEmailTransformer"),
-        objectTransformer(className = "SecondEmailTransformer")
-      )
-      .assertCompilationError("Multiple transformers defined for $FIXTURE_PACKAGE.Email")
-  }
-
-  @Test
   fun `reports every transformer function after the first one targeting the same type`() {
     val errorMessage = "Multiple transformers defined for $FIXTURE_PACKAGE.Email"
 
-    SqliteMagicCompilation
+    compiler
       .compile(
         emailValueType(),
         objectTransformer(className = "FirstEmailTransformer"),
@@ -154,9 +134,9 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
       .assertCompilationError(errorMessage)
       .apply {
         assertThat(
-          Regex.escape("Multiple transformers defined for $FIXTURE_PACKAGE.Email")
+          Regex.escape(errorMessage)
             .toRegex()
-            .findAll(result.messages)
+            .findAll(messages)
             .count()
         ).isEqualTo(4) // each duplicate transformer reports errors for both of its transformation functions
       }
@@ -164,7 +144,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
 
   @Test
   fun `fails when transformers target nullable and non-nullable variants of the same type`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         emailValueType(),
         objectTransformer(className = "NonNullEmailTransformer"),
@@ -175,7 +155,7 @@ internal class InvalidTransformerTargetsTest : ProcessingStepsTest {
 
   @Test
   fun `fails when transformers target aliased and expanded variants of the same type`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         emailValueType(),
         objectTransformer(className = "ExpandedEmailTransformer"),

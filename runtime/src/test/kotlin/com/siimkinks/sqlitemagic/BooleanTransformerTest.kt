@@ -6,7 +6,7 @@ import org.junit.Test
 import kotlin.Int.Companion.MAX_VALUE
 import kotlin.Int.Companion.MIN_VALUE
 
-class BooleanTransformerTest {
+internal class BooleanTransformerTest {
   @Test
   fun `nullable booleans serialize to canonical database values`() {
     mapOf(null to null, true to 1, false to 0)
@@ -18,8 +18,8 @@ class BooleanTransformerTest {
   }
 
   @Test
-  fun `only database value one deserializes as true and null stays null`() {
-    mapOf(null to null, 1 to true, 0 to false, -1 to false, 2 to false, MIN_VALUE to false, MAX_VALUE to false)
+  fun `every non-zero database value deserializes as true and null stays null`() {
+    mapOf(null to null, 1 to true, 0 to false, -1 to true, 2 to true, MIN_VALUE to true, MAX_VALUE to true)
       .forEach { (value, expected) ->
         assertWithMessage("Database value: $value")
           .that(BooleanTransformer.dbValueToObject(value))

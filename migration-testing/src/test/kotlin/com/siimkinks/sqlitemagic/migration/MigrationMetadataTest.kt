@@ -4,15 +4,15 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class MigrationMetadataTest {
+internal class MigrationMetadataTest {
   @Test
-  fun temporaryCompiledSchemaRoundTrips() {
+  fun `temporary compiled schema round-trips`() {
     val schema = snapshot()
     assertThat(MigrationMetadataJson.readSchema(MigrationMetadataJson.writeSchema(schema))).isEqualTo(schema)
   }
 
   @Test
-  fun schemaRejectsUnsupportedFormatsAndMissingEvidence() {
+  fun `schema rejects unsupported formats and missing evidence`() {
     val valid = MigrationMetadataJson.writeSchema(snapshot())
     val cases = mapOf(
       "new format" to valid.replace(oldValue = "\"formatVersion\":1", newValue = "\"formatVersion\":2"),
@@ -29,7 +29,7 @@ class MigrationMetadataTest {
   }
 
   @Test
-  fun manifestRoundTripsAndResolvesTheCompletePlan() {
+  fun `manifest round-trips and resolves the complete plan`() {
     val manifest = manifest()
     assertThat(MigrationMetadataJson.readManifest(MigrationMetadataJson.writeManifest(manifest))).isEqualTo(manifest)
     assertThat(manifest.resolve(fromVersion = 1, toVersion = 3)).isEqualTo(
@@ -42,7 +42,7 @@ class MigrationMetadataTest {
   }
 
   @Test
-  fun manifestRejectsInvalidMetadataWithLabeledCases() {
+  fun `manifest rejects invalid metadata with labeled cases`() {
     val valid = manifest()
     val cases = mapOf(
       "new format" to valid.copy(formatVersion = 2),
@@ -76,7 +76,7 @@ class MigrationMetadataTest {
   }
 
   @Test
-  fun missingInterveningStepsFailInsteadOfSkippingVersions() {
+  fun `missing intervening steps fail instead of skipping versions`() {
     val manifest = manifest().copy(steps = manifest().steps.drop(1))
     assertThrows(IllegalArgumentException::class.java) {
       manifest.resolve(fromVersion = 1, toVersion = 3)
@@ -84,7 +84,7 @@ class MigrationMetadataTest {
   }
 
   @Test
-  fun sameVersionNeedsNoUpgradeSteps() {
+  fun `same version needs no upgrade steps`() {
     assertThat(manifest().resolve(fromVersion = 3, toVersion = 3)).isEqualTo(
       MigrationPlan(
         fromVersion = 3,
@@ -95,7 +95,7 @@ class MigrationMetadataTest {
   }
 
   @Test
-  fun retainedSchemasMustMatchManifestIdentityAndModuleOrder() {
+  fun `retained schemas must match manifest identity and module order`() {
     val manifest = manifest()
     val schema = snapshot()
     manifest.validateSchema(schema)
@@ -115,7 +115,7 @@ class MigrationMetadataTest {
   }
 
   @Test
-  fun historicalModuleAdditionsRemovalsAndOrderRemainValid() {
+  fun `historical module additions, removals and order remain valid`() {
     val manifest = manifest().copy(modules = listOf("Removed", "Feature", "Added", "main"))
     val cases = mapOf(
       "removed module" to listOf("Removed", "main"),
@@ -126,7 +126,7 @@ class MigrationMetadataTest {
   }
 
   @Test
-  fun evidencePlansCanStartBeforeRetainedSchemaHistory() {
+  fun `evidence plans can start before retained schema history`() {
     val manifest = manifest().copy(schemas = manifest().schemas.drop(1))
     assertThat(manifest.resolve(fromVersion = 1, toVersion = 3)).isEqualTo(
       MigrationPlan(

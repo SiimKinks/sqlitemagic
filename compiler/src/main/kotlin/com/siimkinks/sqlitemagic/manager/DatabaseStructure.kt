@@ -10,7 +10,7 @@ import com.siimkinks.sqlitemagic.view.ViewElement
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ColumnStructure(
+internal data class ColumnStructure(
   val id: Boolean = false,
   val autoIncrement: Boolean = false,
   val name: String = "",
@@ -33,7 +33,7 @@ data class ColumnStructure(
 }
 
 @Serializable
-data class TableStructure(
+internal data class TableStructure(
   val name: String = "",
   val schema: String = "",
   val columns: List<ColumnStructure> = emptyList()
@@ -53,7 +53,7 @@ data class TableStructure(
 }
 
 @Serializable
-data class IndexStructure(
+internal data class IndexStructure(
   val name: String = "",
   val indexSql: String = "",
   val forTable: String = ""
@@ -68,13 +68,13 @@ data class IndexStructure(
 }
 
 @Serializable
-data class ViewStructure(
+internal data class ViewStructure(
   val name: String = "",
   val moduleName: String? = null
 )
 
 @Serializable
-data class DatabaseStructure(
+internal data class DatabaseStructure(
   val tables: Map<String, TableStructure> = emptyMap(),
   val indices: Map<String, IndexStructure> = emptyMap(),
   val temporaryTables: Map<String, TableStructure> = emptyMap(),

@@ -1,425 +1,159 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.assertNoWarnings
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class ViewProjectionContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewProjectionContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @Test
   fun `reconstructs complete same-row projections without relying on identity`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "CompleteProjections.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @Table("no_id_row")
-            data class NoIdRow(
-              val message: String,
-              val count: Int?
-            )
-
-            @Table("text_id_row")
-            data class TextIdRow(
-              @Id val key: String,
-              val label: String
-            )
-
-            @Table("late_id_row")
-            data class LateIdRow(
-              val label: String,
-              @Id val id: Long,
-              val note: String?
-            )
-
-            @View
-            data class CompleteProjectionView(
-              @ViewColumn("no_id_row") val noId: NoIdRow,
-              @ViewColumn("text_id_row") val textId: TextIdRow,
-              @ViewColumn("late_id_row") val lateId: LateIdRow
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<NoIdRow, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_CompleteProjectionView_Dao.kt")
-      .withGeneratedSource("SqliteMagic_CompleteProjectionView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "noId = NoIdRow(",
-          "textId = TextIdRow(",
-          "lateId = LateIdRow(",
-          "columnOffset.value",
-          "cursor.getString"
-        )
-        generatedSource.assertDoesNotContain(
-          "newInstanceWithOnlyId",
-          "execute()",
-          "observe()"
+      .withGeneratedSource("SqliteMagic_CompleteProjectionView_Dao.kt") {
+        it.assertContainsUnwrapped(
+          "columns = emptyList()",
+          """ViewBlock(key = "no_id_row", target = NoIdRowTable.NO_ID_ROW)""",
+          """ViewBlock(key = "text_id_row", target = TextIdRowTable.TEXT_ID_ROW)""",
+          """ViewBlock(key = "late_id_row", target = LateIdRowTable.LATE_ID_ROW)""",
+          "noId = related.read(cursor, 0) as NoIdRow",
+          "textId = related.read(cursor, 1) as TextIdRow",
+          "lateId = related.read(cursor, 2) as LateIdRow"
         )
       }
   }
 
   @Test
-  fun `generates warning-free relationship graph lookups for complete table projections`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "RelationshipGraphProjection.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @Table
-            data class ProjectionAuthor(
-              @Id val id: Long,
-              val name: String
-            )
-
-            @Table
-            data class ProjectionBook(
-              @Id val id: Long,
-              @Column(handleRecursively = true) val author: ProjectionAuthor
-            )
-
-            @View
-            data class RelationshipGraphProjection(
-              @ViewColumn("book") val book: ProjectionBook
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<ProjectionBook, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+  fun `reads a complete table projection with nested relationships through one warning-free block`() {
+    GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_RelationshipGraphProjection_Dao.kt")
       .withGeneratedSource("SqliteMagic_RelationshipGraphProjection_Dao.kt") { generatedSource ->
-        generatedSource.assertContains("""tableGraphNodeNames.get(path + "author")""")
-        generatedSource.assertDoesNotContain("tableGraphNodeNames?.get(path")
+        generatedSource.assertContainsUnwrapped(
+          """blocks = listOf(ViewBlock(key = "book", target = ProjectionBookTable.PROJECTION_BOOK))""",
+          "book = related.read(cursor, 0) as ProjectionBook"
+        )
+        generatedSource.assertDoesNotContain(
+          "ProjectionAuthor"
+        )
       }
+      .assertNoWarnings("SqliteMagic_RelationshipGraphProjection_Dao.kt")
   }
 
   @Test
   fun `keeps repeated nullable projections isolated and applies all-null presence`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "RepeatedProjections.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @Table("no_id_row")
-            data class NoIdRow(
-              val message: String?,
-              val count: Int?
-            )
-
-            @View
-            data class RepeatedProjectionView(
-              @ViewColumn("first_no_id") val first: NoIdRow?,
-              @ViewColumn("second_no_id") val second: NoIdRow?
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<NoIdRow, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_RepeatedProjectionView_Dao.kt")
-      .withGeneratedSource("SqliteMagic_RepeatedProjectionView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "first_no_id",
-          "second_no_id",
-          "columnIndex",
-          "first = if (",
-          "second = if (",
-          "NoIdRow("
+      .withGeneratedSource("SqliteMagic_RepeatedProjectionView_Dao.kt") {
+        it.assertContainsUnwrapped(
+          """ViewBlock(key = "first_no_id", target = NoIdRowTable.NO_ID_ROW)""",
+          """ViewBlock(key = "second_no_id", target = NoIdRowTable.NO_ID_ROW)""",
+          "first = related.readOrNull(cursor, 0) as NoIdRow?",
+          "second = related.readOrNull(cursor, 1) as NoIdRow?"
         )
-        generatedSource.assertDoesNotContain("newInstanceWithOnlyId")
+      }
+  }
+
+  @Test
+  fun `composes view field lists with scalar tails, aliased view joins and partial view reads`() {
+    GENERATED
+      .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_ComposedView_Dao.kt",
+        "ComposedViewTable.kt",
+        "SqliteMagic_PartialView_Dao.kt",
+        "PartialViewTable.kt"
+      )
+      .withGeneratedSource("ComposedViewTable.kt") { generatedSource ->
+        generatedSource.assertContains(
+          "Table<ComposedView>",
+          "val TAIL: Column<ComposedView,",
+          "listOf(TAIL)",
+          "generatedView = SqliteMagic_ComposedView_Dao.GENERATED_VIEW"
+        )
+        generatedSource.assertDoesNotContain(
+          "entityProperties",
+          "readPartialEntity"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_ComposedView_Dao.kt") { generatedSource ->
+        generatedSource.assertContainsUnwrapped(
+          """ViewBlock(key = "base", target = BaseViewTable.BASE_VIEW)""",
+          "base = related.read(cursor, 0) as BaseView",
+          "tail = "
+        )
+        generatedSource.assertDoesNotContain(
+          "objectFromSelectedPositions"
+        )
+      }
+      .withGeneratedSource("PartialViewTable.kt") {
+        it.assertContainsUnwrapped(
+          """EntityProperty(path = "PartialView.name", required = true)""",
+          "SqliteMagic_PartialView_Dao.objectFromSelectedPositions(cursor, positions)"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_PartialView_Dao.kt") {
+        it.assertContains(
+          "fun objectFromSelectedPositions(cursor: Cursor, positions: IntArray): PartialView",
+          "base = null"
+        )
       }
   }
 
   @Test
   fun `reconstructs a nested view from the same cursor row`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "NestedViewProjection.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @Table
-            data class Author(
-              @Id val id: Long,
-              val name: String
-            )
-
-            @View("inner_author")
-            data class InnerAuthor(
-              @ViewColumn("name") val name: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<Author, SelectN> = error("compile-only")
-              }
-            }
-
-            @View("outer_author")
-            data class OuterAuthor(
-              @ViewColumn("inner_author") val inner: InnerAuthor?
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<InnerAuthor, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_InnerAuthor_Dao.kt",
         "SqliteMagic_OuterAuthor_Dao.kt"
       )
-      .withGeneratedSource("SqliteMagic_OuterAuthor_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "InnerAuthor(",
-          "`inner` =",
-          "columnIndex",
-          "shallowObjectFromCursorPosition"
+      .withGeneratedSource("SqliteMagic_OuterAuthor_Dao.kt") {
+        it.assertContainsUnwrapped(
+          """ViewBlock(key = "inner_author", target = InnerAuthorTable.INNER_AUTHOR)""",
+          "`inner` = related.readOrNull(cursor, 0) as InnerAuthor?",
+          "fun objectFromCursorPosition("
         )
-        generatedSource.assertDoesNotContain(
-          "InnerAuthorTable.INNER_AUTHOR.execute",
-          "newInstanceWithOnlyId"
-        )
-      }
-  }
-
-  @Test
-  fun `composes full view selections with scalar tails aliases joins and partial selections`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ViewComposition.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.AS
-            import com.siimkinks.sqlitemagic.COLUMN
-            import com.siimkinks.sqlitemagic.COLUMNS
-            import com.siimkinks.sqlitemagic.FROM
-            import com.siimkinks.sqlitemagic.INNER_JOIN
-            import com.siimkinks.sqlitemagic.SELECT
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-            import com.siimkinks.sqlitemagic.BaseViewTable.Companion.BASE_VIEW
-
-            @Table
-            data class Author(
-              @Id val id: Long,
-              val name: String
-            )
-
-            @View("base")
-            data class BaseView(
-              @ViewColumn("name") val name: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<Author, SelectN> = error("compile-only")
-              }
-            }
-
-            @View("composed")
-            data class ComposedView(
-              @ViewColumn("base") val base: BaseView,
-              @ViewColumn("tail") val tail: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<BaseView, SelectN> = error("compile-only")
-              }
-            }
-
-            @View("partial")
-            data class PartialView(
-              @ViewColumn("name") val name: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<BaseView, SelectN> = error("compile-only")
-              }
-            }
-
-            fun requireComposedViewQuerySurface() {
-              val left = BASE_VIEW.`as`("left")
-              val right = BASE_VIEW.`as`("right")
-              (SELECT COLUMNS arrayOf(BASE_VIEW.all(), BASE_VIEW.NAME AS "tail") FROM BASE_VIEW).compile()
-              (SELECT COLUMN left.NAME FROM left).compile()
-              (SELECT COLUMNS arrayOf(left.all(), right.all())
-                FROM left INNER_JOIN right.on(left.NAME.`is`(right.NAME))).compile()
-            }
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_ComposedView_Dao.kt",
-        "ComposedViewTable.kt",
-        "SqliteMagic_PartialView_Dao.kt"
-      )
-      .withGeneratedSource("ComposedViewTable.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "Table<ComposedView>",
-          "TAIL",
-          "mapper =",
-          "generatedView = SqliteMagic_ComposedView_Dao.GENERATED_VIEW"
-        )
-      }
-      .withGeneratedSource("SqliteMagic_ComposedView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "base = BaseView(",
-          "tail =",
-          "columnOffset.value",
-          "shallowObjectFromCursorPosition"
-        )
-        generatedSource.assertDoesNotContain("fullObjectFromCursorPosition")
       }
   }
 
   @Test
   fun `flattens embedded scalar transformer and model leaves with nested nullable boundaries`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "EmbeddedView.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
-            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
-
-            data class Email(val value: String)
-
-            object EmbeddedEmailTransformer {
-              @ObjectToDbValue
-              fun toDb(value: Email): String = value.value
-
-              @DbValueToObject
-              fun fromDb(value: String): Email = Email(value)
-            }
-
-            @Table
-            data class Author(
-              @Id val id: Long,
-              val name: String
-            )
-
-            data class Contact(
-              @ViewColumn("email_alias") val email: Email,
-              val city: String,
-              @IgnoreColumn val ignored: String = "ignored"
-            )
-
-            data class Details(
-              @Embedded(prefix = "contact_") val contact: Contact?,
-              @ViewColumn("author") val author: Author?
-            )
-
-            @View
-            data class EmbeddedView(
-              @Embedded(prefix = "details_") val details: Details,
-              @Embedded(prefix = "other_") val other: Contact?
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<Author, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_EmbeddedView_Dao.kt", "EmbeddedViewTable.kt")
       .withGeneratedSource("EmbeddedViewTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "DETAILS_CONTACT_EMAIL_ALIAS",
-          "DETAILS_CONTACT_CITY",
-          "OTHER_EMAIL_ALIAS",
-          "OTHER_CITY"
+          "val DETAILS_CONTACT_EMAIL_ALIAS:",
+          "val DETAILS_CONTACT_CITY:",
+          "val OTHER_EMAIL_ALIAS:",
+          "val OTHER_CITY:",
+          "Column<EmbeddedView, String, SqlNullable, String?, String?, SqlNullable, String?>"
         )
         generatedSource.assertDoesNotContain("DETAILS_AUTHOR")
       }
       .withGeneratedSource("SqliteMagic_EmbeddedView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "Details(",
-          "Contact(",
-          "fromDb",
-          "cursor.isNull",
-          "details =",
-          "other ="
+        generatedSource.assertContainsUnwrapped(
+          """columns = listOf("details_contact_email_alias", "details_contact_city", "other_email_alias", """ +
+              """"other_city")""",
+          """blocks = listOf(ViewBlock(key = "details_author", target = AuthorTable.AUTHOR))""",
+          "details = Details(contact = if (column0IsNull && column1IsNull) null else Contact(",
+          "EmbeddedEmailTransformer.fromDb(cursor.getString(startIndex))",
+          "author = related.readOrNull(cursor, 0) as Author?",
+          "other = if (column2IsNull && column3IsNull) null else Contact("
         )
         generatedSource.assertDoesNotContain("ignored =")
       }
@@ -427,55 +161,7 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
 
   @Test
   fun `reconstructs a complete view leaf inside an embedded container from the same row`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "EmbeddedViewProjection.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Embedded
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @Table
-            data class SourceRow(
-              @Id val id: Long,
-              val name: String
-            )
-
-            @View("inner_view")
-            data class InnerView(
-              @ViewColumn("name") val name: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<SourceRow, SelectN> = error("compile-only")
-              }
-            }
-
-            data class NestedDetails(
-              @ViewColumn("inner") val inner: InnerView,
-              val marker: String
-            )
-
-            @View
-            data class EmbeddedViewProjection(
-              @Embedded(prefix = "details_") val details: NestedDetails
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<InnerView, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "EmbeddedViewProjectionTable.kt",
@@ -486,32 +172,26 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
         generatedSource.assertContains("DETAILS_MARKER")
         generatedSource.assertDoesNotContain("DETAILS_INNER")
       }
-      .withGeneratedSource("SqliteMagic_EmbeddedViewProjection_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "details = NestedDetails(",
-          "`inner` = InnerView(",
-          "details_inner",
-          "cursor.getString",
-          "columnOffset.value"
-        )
-        generatedSource.assertDoesNotContain(
-          "InnerViewTable.INNER_VIEW.execute",
-          "newInstanceWithOnlyId"
+      .withGeneratedSource("SqliteMagic_EmbeddedViewProjection_Dao.kt") {
+        it.assertContainsUnwrapped(
+          """columns = listOf("details_marker")""",
+          """blocks = listOf(ViewBlock(key = "details_inner", target = InnerViewTable.INNER_VIEW))""",
+          "details = NestedDetails(`inner` = related.read(cursor, 0) as InnerView",
+          "marker = if (cursor.isNull(startIndex)) throw SQLException("
         )
       }
   }
 
   @Test
   fun `rejects recursive embedded view shapes`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "RecursiveEmbeddedView.kt",
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
@@ -527,26 +207,25 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val query: CompiledSelect<Any, SelectN> = null as CompiledSelect<Any, SelectN>
+                val query: SelectQuery<Any, *> = error("compile-only")
               }
             }
           """
         )
       )
-      .assertCompilationError()
+      .assertCompilationError("Cyclic embedded property graph: RecursiveEmbeddedView.details.child")
   }
 
   @Test
   fun `rejects collisions between resolved embedded scalar keys`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmbeddedViewCollision.kt",
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
@@ -567,12 +246,327 @@ internal class ViewProjectionContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val query: CompiledSelect<Any, SelectN> = null as CompiledSelect<Any, SelectN>
+                val query: SelectQuery<Any, *> = error("compile-only")
               }
             }
           """
         )
       )
-      .assertCompilationError()
+      .assertCompilationError(
+        "Duplicate @ViewColumn key 'same': EmbeddedViewCollision.left.first, EmbeddedViewCollision.right.second"
+      )
+  }
+
+  companion object {
+    private val GENERATED by lazy {
+      SqliteMagicCompilation
+        .compile(
+          SourceFile.kotlin(
+            name = "CompleteProjections.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+              @Table("text_id_row")
+              data class TextIdRow(
+                @Id val key: String,
+                val label: String
+              )
+
+              @Table("late_id_row")
+              data class LateIdRow(
+                val label: String,
+                @Id val id: Long,
+                val note: String?
+              )
+
+              @View
+              data class CompleteProjectionView(
+                @ViewColumn("no_id_row") val noId: NoIdRow,
+                @ViewColumn("text_id_row") val textId: TextIdRow,
+                @ViewColumn("late_id_row") val lateId: LateIdRow
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<NoIdRow, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "RelationshipGraphProjection.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.Column
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+              @Table
+              data class ProjectionAuthor(
+                @Id val id: Long,
+                val name: String
+              )
+
+              @Table
+              data class ProjectionBook(
+                @Id val id: Long,
+                @Column(handleRecursively = true) val author: ProjectionAuthor
+              )
+
+              @View
+              data class RelationshipGraphProjection(
+                @ViewColumn("book") val book: ProjectionBook
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<ProjectionBook, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "RepeatedProjections.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+              @Table("no_id_row")
+              data class NoIdRow(
+                val message: String?,
+                val count: Int?
+              )
+
+              @View
+              data class RepeatedProjectionView(
+                @ViewColumn("first_no_id") val first: NoIdRow?,
+                @ViewColumn("second_no_id") val second: NoIdRow?
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<NoIdRow, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "ViewComposition.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.BaseViewTable.Companion.BASE_VIEW
+              import com.siimkinks.sqlitemagic.IS
+              import com.siimkinks.sqlitemagic.PartialViewTable.Companion.PARTIAL_VIEW
+              import com.siimkinks.sqlitemagic.SELECT
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+              import com.siimkinks.sqlitemagic.mapTo
+
+              @Table
+              data class Author(
+                @Id val id: Long,
+                val name: String
+              )
+
+              @View("base")
+              data class BaseView(
+                @ViewColumn("name") val name: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<Author, *> = error("compile-only")
+                }
+              }
+
+              @View("composed")
+              data class ComposedView(
+                @ViewColumn("base") val base: BaseView,
+                @ViewColumn("tail") val tail: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<BaseView, *> = error("compile-only")
+                }
+              }
+
+              @View("partial")
+              data class PartialView(
+                @ViewColumn("name") val name: String,
+                @ViewColumn("base") val base: BaseView?
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<BaseView, *> = error("compile-only")
+                }
+              }
+
+              fun requireComposedViewQuerySurface() {
+                val left = BASE_VIEW AS "left"
+                val right = BASE_VIEW AS "right"
+                SELECT
+                  .COLUMNS(BASE_VIEW.all(), BASE_VIEW.NAME AS "tail")
+                  .FROM(BASE_VIEW)
+                  .compile()
+                (SELECT COLUMN left.NAME FROM left).compile()
+                SELECT
+                  .COLUMNS(left.all(), right.all())
+                  .FROM(left)
+                  .INNER_JOIN(right)
+                  .ON(left.NAME IS right.NAME)
+                  .compile()
+                SELECT
+                  .COLUMN(PARTIAL_VIEW.NAME)
+                  .FROM(PARTIAL_VIEW)
+                  .mapTo(PARTIAL_VIEW)
+                  .compile()
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "NestedViewProjection.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+              @View("inner_author")
+              data class InnerAuthor(
+                @ViewColumn("name") val name: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<Author, *> = error("compile-only")
+                }
+              }
+
+              @View("outer_author")
+              data class OuterAuthor(
+                @ViewColumn("inner_author") val inner: InnerAuthor?
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<InnerAuthor, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "EmbeddedView.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+              import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+              import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+              data class Email(val value: String)
+
+              object EmbeddedEmailTransformer {
+                @ObjectToDbValue
+                fun toDb(value: Email): String = value.value
+
+                @DbValueToObject
+                fun fromDb(value: String): Email = Email(value)
+              }
+
+              data class Contact(
+                @ViewColumn("email_alias") val email: Email,
+                val city: String,
+                @IgnoreColumn val ignored: String = "ignored"
+              )
+
+              data class Details(
+                @Embedded(prefix = "contact_") val contact: Contact?,
+                @ViewColumn("author") val author: Author?
+              )
+
+              @View
+              data class EmbeddedView(
+                @Embedded(prefix = "details_") val details: Details,
+                @Embedded(prefix = "other_") val other: Contact?
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<Author, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "EmbeddedViewProjection.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+              @Table
+              data class SourceRow(
+                @Id val id: Long,
+                val name: String
+              )
+
+              @View("inner_view")
+              data class InnerView(
+                @ViewColumn("name") val name: String
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<SourceRow, *> = error("compile-only")
+                }
+              }
+
+              data class NestedDetails(
+                @ViewColumn("inner") val inner: InnerView,
+                val marker: String
+              )
+
+              @View
+              data class EmbeddedViewProjection(
+                @Embedded(prefix = "details_") val details: NestedDetails
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<InnerView, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          processingStepsFactory = ::viewProcessingSteps
+        )
+        .generatedSources()
+    }
   }
 }

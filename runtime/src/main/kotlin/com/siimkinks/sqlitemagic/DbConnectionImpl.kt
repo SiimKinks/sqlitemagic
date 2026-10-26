@@ -3,6 +3,8 @@ package com.siimkinks.sqlitemagic
 import android.database.sqlite.SQLiteTransactionListener
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteOpenHelper
+import com.siimkinks.sqlitemagic.internal.LogUtil.logDebug
+import com.siimkinks.sqlitemagic.internal.LogUtil.logInfo
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.ScatterSet
@@ -14,22 +16,21 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Note: some parts are forked from [sqlbrite](https://github.com/square/sqlbrite) and
- * modified to extended functionality and improvements.
+ * modified to extend functionality and improvements.
  */
 internal class DbConnectionImpl(
   private val database: GeneratedDatabase,
   private val dbHelper: SupportSQLiteOpenHelper,
-  internal val queryScheduler: Scheduler
+  val queryScheduler: Scheduler
 ) : DbConnection {
   private val transactions = ThreadLocal<SqliteTransaction?>()
 
-  /** Publishes sets of tables which have changed. */
-  internal val triggers: Observable<Set<String>>
+  val triggers: Observable<Set<String>>
     field = PublishSubject.create()
 
   private val transactionHandle = object : Transaction {
     override fun markSuccessful() {
-      if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TXN SUCCESS %s", transactions.get())
+      logDebug { "TXN SUCCESS ${transactions.get()}" }
       writableDatabase.setTransactionSuccessful()
     }
 
@@ -43,9 +44,8 @@ internal class DbConnectionImpl(
     override fun end() {
       val transactionState = checkNotNull(transactions.get()) { "Not in transaction." }
       transactions.set(transactionState.parent)
-      if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TXN END %s", transactionState)
+      logDebug { "TXN END $transactionState" }
       writableDatabase.endTransaction()
-      // Send the triggers after ending the transaction in the DB.
       if (transactionState.commit && transactionState.isNotEmpty()) {
         sendTableTriggers(transactionState)
       }
@@ -54,7 +54,7 @@ internal class DbConnectionImpl(
     override fun close() = end()
   }
 
-  internal val ensureNotInTransaction = Consumer<Any> {
+  val ensureNotInTransaction = Consumer<Any> {
     check(!hasActiveTransaction) {
       "Cannot subscribe to observable query in a transaction."
     }
@@ -66,7 +66,10 @@ internal class DbConnectionImpl(
       MutableScatterMap<String, Array<EntityDbManager?>>(submoduleNames.size)
         .apply {
           for (submoduleName in submoduleNames) {
-            put(submoduleName, createEntityDbManagers(submoduleName))
+            put(
+              key = submoduleName,
+              value = createEntityDbManagers(submoduleName)
+            )
           }
         }
     }
@@ -85,7 +88,7 @@ internal class DbConnectionImpl(
     closeEntityDbManagers(entityDbManagers)
     submoduleEntityDbManagers?.forEachValue(::closeEntityDbManagers)
     dbHelper.close()
-    LogUtil.logInfo("Closed database [name=%s]", dbHelper.databaseName)
+    logInfo("Closed database [name=${dbHelper.databaseName}]")
   }
 
   private fun closeEntityDbManagers(managers: Array<EntityDbManager?>) {
@@ -99,54 +102,58 @@ internal class DbConnectionImpl(
   override fun newTransaction(): Transaction {
     val transactionState = SqliteTransaction(transactions.get())
     transactions.set(transactionState)
-    if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TXN BEGIN %s", transactionState)
+    logDebug { "TXN BEGIN $transactionState" }
     writableDatabase.beginTransactionWithListener(transactionState)
     return transactionHandle
   }
 
   override fun clearData() {
-    database
-      .clearData(writableDatabase)
-      ?.let(::sendTableTriggers)
+    val cleared = database.clearData(writableDatabase)
+    if (cleared.isNotEmpty()) {
+      sendTableTriggers(cleared)
+    }
   }
 
-  internal val readableDatabase get() = dbHelper.readableDatabase
+  val readableDatabase get() = dbHelper.readableDatabase
 
-  internal val writableDatabase get() = dbHelper.writableDatabase
+  val writableDatabase get() = dbHelper.writableDatabase
 
-  internal val hasActiveTransaction get() = transactions.get() != null
+  val hasActiveTransaction get() = transactions.get() != null
 
   @CheckResult
-  internal fun getEntityDbManager(
+  fun getEntityDbManager(
     moduleName: String?,
     tablePos: Int
-  ): EntityDbManager {
-    val managers = when (moduleName) {
-      null -> entityDbManagers
-      else -> checkNotNull(submoduleEntityDbManagers?.get(moduleName)) {
-        "No submodules configured"
-      }
+  ) = checkNotNull(moduleEntityDbManagers(moduleName)[tablePos]) { "DB connection closed" }
+
+  private fun moduleEntityDbManagers(moduleName: String?) = when (moduleName) {
+    null -> entityDbManagers
+    else -> checkNotNull(submoduleEntityDbManagers?.get(moduleName)) {
+      "Submodule $moduleName is not part of this database"
     }
-    return checkNotNull(managers[tablePos]) { "DB connection closed" }
   }
 
-  internal fun compileStatement(sql: String) = writableDatabase.compileStatement(sql)
+  fun compileStatement(sql: String) = writableDatabase.compileStatement(sql)
 
-  internal fun sendTableTrigger(table: String) {
+  fun sendTableTrigger(table: String) {
     when (val transactionState = transactions.get()) {
       null -> publishTableTriggers(setOf(table))
       else -> transactionState.add(table)
     }
   }
 
-  internal fun sendTableTriggers(vararg tables: String) {
-    when (val transactionState = transactions.get()) {
-      null -> publishTableTriggers(
-        MutableScatterSet<String>(initialCapacity = tables.size)
-          .apply { addAll(tables) }
-          .asSet()
-      )
-      else -> transactionState.addAll(tables)
+  fun sendTableTriggers(tables: Array<out String>) {
+    when (tables.size) {
+      0 -> Unit
+      1 -> sendTableTrigger(tables[0])
+      else -> when (val transactionState = transactions.get()) {
+        null -> publishTableTriggers(
+          MutableScatterSet<String>(initialCapacity = tables.size)
+            .apply { addAll(tables) }
+            .asSet()
+        )
+        else -> transactionState.addAll(tables)
+      }
     }
   }
 
@@ -158,7 +165,7 @@ internal class DbConnectionImpl(
   }
 
   private fun publishTableTriggers(tables: Set<String>) {
-    if (SqliteMagic.loggingEnabled) LogUtil.logDebug("TRIGGER %s", tables)
+    logDebug { "TRIGGER $tables" }
     triggers.onNext(tables)
   }
 
@@ -185,3 +192,5 @@ internal class DbConnectionImpl(
     }
   }
 }
+
+internal fun DbConnectionImpl?.orDefault() = this ?: SqliteMagic.defaultDbConnection

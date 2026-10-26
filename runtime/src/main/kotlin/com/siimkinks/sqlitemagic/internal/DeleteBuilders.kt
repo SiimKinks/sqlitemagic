@@ -1,9 +1,7 @@
 package com.siimkinks.sqlitemagic.internal
 
-import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.DeleteExecutors
-import com.siimkinks.sqlitemagic.NotNullable
-import com.siimkinks.sqlitemagic.OperationConfigurationSnapshot
+import com.siimkinks.sqlitemagic.OperationContext
 import com.siimkinks.sqlitemagic.Unique
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteByColumnBuilder
@@ -12,127 +10,95 @@ import com.siimkinks.sqlitemagic.entity.EntityDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteTableBuilder
 import io.reactivex.Single
 
+@InternalSqliteMagicApi
 class DeleteBuilder<M>(
-  private val adapter: EntityIdentityAdapter<M>,
-  private val entity: M,
-  private val byColumn: IdentityColumn<M>
+  adapter: EntityDefaultIdentityAdapter<M>,
+  entity: M
 ) : OperationBuilder<EntityDeleteBuilder>(adapter), EntityDeleteBuilder {
-  override fun execute() = DeleteExecutors.execute(
+  private val delete = delete(
     adapter = adapter,
     entities = listOf(entity),
-    byColumn = byColumn,
-    context = newContext()
+    columnName = adapter.defaultIdentityColumnName
   )
 
-  override fun observe(): Single<Int> {
-    val configuration = configurationSnapshot()
-    return Single.fromCallable {
-      DeleteExecutors.execute(
-        adapter = adapter,
-        entities = listOf(entity),
-        byColumn = byColumn,
-        context = newContext(configuration)
-      )
-    }
-  }
+  override fun execute() = perform(operation = delete)
+
+  override fun observe(): Single<Int> = observeSingle(delete)
 }
 
+@InternalSqliteMagicApi
 class DeleteByColumnBuilder<M>(
   private val adapter: EntityIdentityAdapter<M>,
   private val entity: M
 ) : OperationBuilder<EntityDeleteByColumnBuilder<M>>(adapter), EntityDeleteByColumnBuilder<M> {
-  override fun <D> execute(byColumn: D): Int
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> =
-    DeleteExecutors.execute(
-      adapter = adapter,
-      entities = listOf(entity),
-      byColumn = byColumn,
-      context = newContext()
-    )
+  override fun execute(byColumn: Unique<M>) = perform(operation = delete(byColumn))
 
-  override fun <D> observe(byColumn: D): Single<Int>
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> {
-    val configuration = configurationSnapshot()
-    return Single.fromCallable {
-      DeleteExecutors.execute(
-        adapter = adapter,
-        entities = listOf(entity),
-        byColumn = byColumn,
-        context = newContext(configuration)
-      )
-    }
-  }
+  override fun observe(byColumn: Unique<M>): Single<Int> = observeSingle(delete(byColumn))
+
+  private fun delete(byColumn: Unique<M>) = delete(
+    adapter = adapter,
+    entities = listOf(entity),
+    columnName = adapter.identityColumnName(byColumn)
+  )
 }
 
+@InternalSqliteMagicApi
 class BulkDeleteBuilder<M>(
-  private val adapter: EntityIdentityAdapter<M>,
-  private val entities: Collection<M>,
-  private val byColumn: IdentityColumn<M>
+  adapter: EntityDefaultIdentityAdapter<M>,
+  entities: Collection<M>
 ) : OperationBuilder<EntityBulkDeleteBuilder>(adapter), EntityBulkDeleteBuilder {
-  override fun execute() = DeleteExecutors.execute(
+  private val delete = delete(
     adapter = adapter,
     entities = entities,
-    byColumn = byColumn,
-    context = newContext()
+    columnName = adapter.defaultIdentityColumnName
   )
 
-  override fun observe(): Single<Int> {
-    val configuration = configurationSnapshot()
-    return Single.fromCallable {
-      DeleteExecutors.execute(
-        adapter = adapter,
-        entities = entities,
-        byColumn = byColumn,
-        context = newContext(configuration)
-      )
-    }
-  }
+  override fun execute() = perform(operation = delete)
+
+  override fun observe(): Single<Int> = observeSingle(delete)
 }
 
+@InternalSqliteMagicApi
 class BulkDeleteByColumnBuilder<M>(
   private val adapter: EntityIdentityAdapter<M>,
   private val entities: Collection<M>
 ) : OperationBuilder<EntityBulkDeleteByColumnBuilder<M>>(adapter), EntityBulkDeleteByColumnBuilder<M> {
-  override fun <D> execute(byColumn: D): Int
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> =
-    DeleteExecutors.execute(
-      adapter = adapter,
-      entities = entities,
-      byColumn = byColumn,
-      context = newContext()
-    )
+  override fun execute(byColumn: Unique<M>) = perform(operation = delete(byColumn))
 
-  override fun <D> observe(byColumn: D): Single<Int>
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> {
-    val configuration = configurationSnapshot()
-    return Single.fromCallable {
-      DeleteExecutors.execute(
-        adapter = adapter,
-        entities = entities,
-        byColumn = byColumn,
-        context = newContext(configuration)
-      )
-    }
-  }
+  override fun observe(byColumn: Unique<M>): Single<Int> = observeSingle(delete(byColumn))
+
+  private fun delete(byColumn: Unique<M>) = delete(
+    adapter = adapter,
+    entities = entities,
+    columnName = adapter.identityColumnName(byColumn)
+  )
 }
 
+@InternalSqliteMagicApi
 class DeleteTableBuilder<M>(
-  private val adapter: EntityAdapter<M>
+  adapter: EntityAdapter<M>
 ) : OperationBuilder<EntityDeleteTableBuilder>(adapter), EntityDeleteTableBuilder {
-  override fun execute() = execute(configurationSnapshot())
-
-  override fun observe(): Single<Int> {
-    val configuration = configurationSnapshot()
-    return Single.fromCallable { execute(configuration) }
-  }
-
-  private fun execute(configuration: OperationConfigurationSnapshot) =
+  private val delete = { context: OperationContext ->
     DeleteExecutors.deleteTable(
       adapter = adapter,
-      context = newContext(configuration)
+      context = context
     )
+  }
+
+  override fun execute() = perform(operation = delete)
+
+  override fun observe(): Single<Int> = observeSingle(delete)
+}
+
+private fun <M> delete(
+  adapter: EntityIdentityAdapter<M>,
+  entities: Collection<M>,
+  columnName: String
+) = { context: OperationContext ->
+  DeleteExecutors.execute(
+    adapter = adapter,
+    entities = entities,
+    columnName = columnName,
+    context = context
+  )
 }

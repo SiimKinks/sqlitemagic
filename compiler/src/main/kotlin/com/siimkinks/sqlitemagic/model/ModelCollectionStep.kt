@@ -14,7 +14,7 @@ import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.validateModelMembers
 
-class ModelCollectionStep(
+internal class ModelCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {

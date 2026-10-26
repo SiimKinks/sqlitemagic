@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic.fixture.view
 
-import com.siimkinks.sqlitemagic.CompiledSelect
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Select.SelectN
+import com.siimkinks.sqlitemagic.ReaderRelationshipBookTable.Companion.READER_RELATIONSHIP_BOOK
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
@@ -13,13 +12,10 @@ import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.annotation.ViewQuery
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
-import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 
-private val READER_QUERY: CompiledSelect<SimpleMutableEntity, SelectN> =
-  Select
-    .all()
-    .from(SIMPLE_MUTABLE_ENTITY)
-    .compile()
+private val READER_QUERY = SELECT FROM SIMPLE_MUTABLE_ENTITY
+
+internal val READER_RELATIONSHIP_QUERY = SELECT FROM (READER_RELATIONSHIP_BOOK AS "book")
 
 @Table
 data class ReaderNoIdProjection(
@@ -105,7 +101,7 @@ data class ReaderRelationshipTrailingScalarView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = READER_RELATIONSHIP_QUERY
   }
 }
 
@@ -116,7 +112,7 @@ data class ReaderNullableRelationshipTrailingScalarView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = READER_RELATIONSHIP_QUERY
   }
 }
 

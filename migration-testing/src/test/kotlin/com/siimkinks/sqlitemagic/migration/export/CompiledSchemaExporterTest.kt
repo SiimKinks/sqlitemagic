@@ -2,9 +2,7 @@ package com.siimkinks.sqlitemagic.migration.export
 
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.GeneratedDatabase
-import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.migration.MigrationConfiguration
@@ -13,10 +11,9 @@ import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class CompiledSchemaExporterTest {
+internal class CompiledSchemaExporterTest {
   @Test
-  fun exportsSelectedManagerAndRestoresLibraryState() {
-    val previousDatabase = ExportRuntimeState.database
+  fun `exports the selected manager and restores library state`() {
     val previousLogging = SqliteMagic.loggingEnabled
     val schema = CompiledSchemaExporter.export(
       generatedDatabaseClassName = ExportFixtureDatabase::class.java.name,
@@ -41,13 +38,12 @@ class CompiledSchemaExporterTest {
         indexSql = emptyList()
       )
     )
-    assertThat(ExportRuntimeState.database).isSameInstanceAs(previousDatabase)
     assertThat(SqliteMagic.loggingEnabled).isEqualTo(previousLogging)
     assertThat(ExportRuntimeState.defaultConnection).isNull()
   }
 
   @Test
-  fun initializationFailurePreservesCauseAndSelectedDeclaration() {
+  fun `initialization failure preserves the cause and selected declaration`() {
     val failure = assertThrows(IllegalStateException::class.java) {
       CompiledSchemaExporter.export(
         generatedDatabaseClassName = FailingExportFixtureDatabase::class.java.name,
@@ -64,8 +60,7 @@ class CompiledSchemaExporterTest {
   }
 
   @Test
-  fun fatalConstructorErrorPropagatesUnwrappedAndRestoresLibraryState() {
-    val previousDatabase = ExportRuntimeState.database
+  fun `fatal constructor error propagates unwrapped and restores library state`() {
     val previousLogging = SqliteMagic.loggingEnabled
     assertThrows(ExportFatalVmError::class.java) {
       CompiledSchemaExporter.export(
@@ -74,12 +69,11 @@ class CompiledSchemaExporterTest {
         releaseVariant = "release"
       )
     }
-    assertThat(ExportRuntimeState.database).isSameInstanceAs(previousDatabase)
     assertThat(SqliteMagic.loggingEnabled).isEqualTo(previousLogging)
   }
 
   @Test
-  fun linkageFailurePreservesCauseAndReleaseContext() {
+  fun `linkage failure preserves the cause and release context`() {
     val failure = assertThrows(IllegalStateException::class.java) {
       CompiledSchemaExporter.export(
         generatedDatabaseClassName = LinkageExportFixtureDatabase::class.java.name,
@@ -103,7 +97,6 @@ class ExportFixtureDatabase : GeneratedDatabase {
   override fun configureDatabase(db: SupportSQLiteDatabase) = db.setForeignKeyConstraintsEnabled(true)
 
   override fun createSchema(db: SupportSQLiteDatabase) {
-    check(ExportRuntimeState.database === this)
     check(ExportRuntimeState.defaultConnection == null)
     check(!SqliteMagic.loggingEnabled)
     db.beginTransaction()
@@ -116,10 +109,9 @@ class ExportFixtureDatabase : GeneratedDatabase {
     }
   }
 
-  override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>? = null
+  override fun clearData(db: SupportSQLiteDatabase) = MutableScatterSet<String>()
   override fun migrateViews(db: SupportSQLiteDatabase) = Unit
   override fun getNrOfTables(moduleName: String?) = 1
-  override fun <V : Any> columnForValue(input: V): Column<V, V, V, *, NotNullable> = error("Unused fixture method")
 }
 
 class FailingExportFixtureDatabase : GeneratedDatabase by ExportFixtureDatabase() {

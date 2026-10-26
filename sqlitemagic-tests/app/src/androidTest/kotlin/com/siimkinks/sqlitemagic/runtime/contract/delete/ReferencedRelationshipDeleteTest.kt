@@ -3,78 +3,73 @@ package com.siimkinks.sqlitemagic.runtime.contract.delete
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.ReferencedDeleteModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
-import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import io.reactivex.Single
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class ReferencedRelationshipDeleteTest(
+internal class ReferencedRelationshipDeleteTest(
   private val modelCase: ReferencedDeleteModelCase<*, *>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeDeletesReferencedChild() {
-    assertSingleDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeDeletesReferencedChild() {
-    assertSingleDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeDeletesReferencedChild() = assertSingleDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeBulkDeletesReferencedChildren() {
-    assertBulkDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeDeletesReferencedChild() = assertSingleDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeBulkDeletesReferencedChildren() {
-    assertBulkDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeBulkDeletesReferencedChildren() = assertBulkDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeDeletesReferencedChildrenByTable() {
-    assertTableDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeBulkDeletesReferencedChildren() = assertBulkDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeDeletesReferencedChildrenByTable() {
-    assertTableDelete(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeDeletesReferencedChildrenByTable() = assertTableDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeDeletesReferencedChildrenByTable() = assertTableDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T, R> assertSingleDelete(
     modelCase: ReferencedDeleteModelCase<T, R>,
     terminal: OperationTerminal
   ) {
-    val snapshotBefore = seedGraphs(
+    val parents = seedRows(
       modelCase = modelCase,
-      count = 1
+      count = 1,
+      firstSequence = 1
     )
-    val child = snapshotBefore.parents
+    val child = parents
       .flatMap(modelCase::relatedDeleteValues)
       .single()
     assertRelatedDelete(
@@ -90,11 +85,12 @@ class ReferencedRelationshipDeleteTest(
     modelCase: ReferencedDeleteModelCase<T, R>,
     terminal: OperationTerminal
   ) {
-    val snapshotBefore = seedGraphs(
+    val parents = seedRows(
       modelCase = modelCase,
-      count = 2
+      count = 2,
+      firstSequence = 1
     )
-    val children = snapshotBefore.parents
+    val children = parents
       .flatMap(modelCase::relatedDeleteValues)
     assertRelatedDelete(
       modelCase = modelCase,
@@ -109,11 +105,12 @@ class ReferencedRelationshipDeleteTest(
     modelCase: ReferencedDeleteModelCase<T, R>,
     terminal: OperationTerminal
   ) {
-    val snapshotBefore = seedGraphs(
+    val parents = seedRows(
       modelCase = modelCase,
-      count = 2
+      count = 2,
+      firstSequence = 1
     )
-    val expectedCount = snapshotBefore.parents
+    val expectedCount = parents
       .flatMap(modelCase::relatedDeleteValues)
       .size
     assertRelatedDelete(
@@ -146,25 +143,9 @@ class ReferencedRelationshipDeleteTest(
     )
   }
 
-  private fun <T, R> seedGraphs(
-    modelCase: ReferencedDeleteModelCase<T, R>,
-    count: Int
-  ): DatabaseSnapshot<T> {
-    repeat(count) { index ->
-      val value = modelCase.newValue(sequence = index + 1)
-      assertSeedInserted(
-        result = modelCase
-          .insert(value = value)
-          .execute(),
-        modelName = modelCase.name
-      )
-    }
-    return captureDatabaseSnapshot(modelCase = modelCase)
-  }
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.referencedDeleteCases
   }
 }

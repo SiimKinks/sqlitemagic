@@ -1,12 +1,14 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query.connection
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.CompiledCountSelect
-import com.siimkinks.sqlitemagic.CompiledCursorSelect
-import com.siimkinks.sqlitemagic.CompiledFirstSelect
+import com.siimkinks.sqlitemagic.CompiledCount
+import com.siimkinks.sqlitemagic.CompiledCursor
+import com.siimkinks.sqlitemagic.CompiledFirst
 import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.DbConnection
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.SelectQuery
+import com.siimkinks.sqlitemagic.Selection
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.runtime.contract.query.readTypedCursor
@@ -17,9 +19,10 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class CompiledSelectConnectionRuntimeTest(
+internal class CompiledSelectConnectionRuntimeTest(
   private val variant: SelectVariant<*>
 ) {
   @Before
@@ -42,7 +45,7 @@ class CompiledSelectConnectionRuntimeTest(
 
   private fun <T> assertDefaultSynchronous(variant: SelectVariant<T>) {
     val terminals = variant
-      .compile(connection = null)
+      .query(connection = null)
       .terminals()
     val expected = variant.expected(insertCompiledSelectEntity(value = "default"))
     assertSynchronous(
@@ -53,7 +56,7 @@ class CompiledSelectConnectionRuntimeTest(
 
   private fun <T> assertDefaultObserved(variant: SelectVariant<T>) {
     val terminals = variant
-      .compile(connection = null)
+      .query(connection = null)
       .terminals()
     val expected = variant.expected(insertCompiledSelectEntity(value = "default"))
     assertObserved(
@@ -87,7 +90,7 @@ class CompiledSelectConnectionRuntimeTest(
         )
       )
       val terminals = variant
-        .compile(connection = alternate)
+        .query(connection = alternate)
         .terminals()
       insertCompiledSelectEntity(value = "default")
       assertion(terminals, expected)
@@ -98,12 +101,7 @@ class CompiledSelectConnectionRuntimeTest(
     assertThat(terminals.main.execute()).isEqualTo(expected)
     assertThat(terminals.first.execute()).isEqualTo(expected.single())
     assertThat(terminals.count.execute()).isEqualTo(1L)
-    assertThat(
-      readTypedCursor(
-        cursorSelect = terminals.cursor,
-        cursor = terminals.cursor.execute()
-      )
-    ).isEqualTo(expected)
+    assertThat(readTypedCursor(cursorSelect = terminals.cursor)).isEqualTo(expected)
   }
 
   private fun <T> assertObserved(terminals: CompiledTerminals<T>, expected: List<T>) {
@@ -140,48 +138,44 @@ class CompiledSelectConnectionRuntimeTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
-    fun selectVariants(): List<SelectVariant<*>> = listOf(MultiColumn, SingleColumn)
+    @Parameters(name = "{0}")
+    fun selectVariants() = listOf(MultiColumn, SingleColumn)
   }
 }
 
 sealed class SelectVariant<T>(private val name: String) {
-  abstract fun compile(connection: DbConnection?): CompiledSelect<T, *>
+  abstract fun query(connection: DbConnection?): SelectQuery<T, *>
   abstract fun expected(entity: SimpleMutableEntity): List<T>
   override fun toString() = name
 }
 
 private object MultiColumn : SelectVariant<SimpleMutableEntity>(name = "multi-column model") {
-  override fun compile(connection: DbConnection?): CompiledSelect<SimpleMutableEntity, *> {
-    val select = Select.from(SIMPLE_MUTABLE_ENTITY)
-    if (connection != null) select.usingConnection(connection)
-    return select.compile()
-  }
+  override fun query(connection: DbConnection?) = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
+    .withConnection(connection)
 
   override fun expected(entity: SimpleMutableEntity) = listOf(entity)
 }
 
 private object SingleColumn : SelectVariant<String?>(name = "single-column scalar") {
-  override fun compile(connection: DbConnection?): CompiledSelect<String?, *> {
-    val select = Select
-      .column(SIMPLE_MUTABLE_ENTITY.VALUE)
-      .from(SIMPLE_MUTABLE_ENTITY)
-    if (connection != null) select.usingConnection(connection)
-    return select.compile()
-  }
+  override fun query(connection: DbConnection?) = SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
+    .FROM(SIMPLE_MUTABLE_ENTITY)
+    .withConnection(connection)
 
   override fun expected(entity: SimpleMutableEntity) = listOf(checkNotNull(entity.value))
 }
 
+private fun <T, S : Selection<T>> SelectQuery<T, S>.withConnection(connection: DbConnection?) =
+  connection?.let(this::usingConnection) ?: this
+
 private data class CompiledTerminals<T>(
-  val main: CompiledSelect<T, *>,
-  val first: CompiledFirstSelect<T, *>,
-  val count: CompiledCountSelect<*>,
-  val cursor: CompiledCursorSelect<T, *>
+  val main: CompiledSelect<T>,
+  val first: CompiledFirst<T>,
+  val count: CompiledCount,
+  val cursor: CompiledCursor<T>
 )
 
-private fun <T> CompiledSelect<T, *>.terminals() = CompiledTerminals(
-  main = this,
+private fun <T> SelectQuery<T, *>.terminals() = CompiledTerminals(
+  main = compile(),
   first = takeFirst(),
   count = count(),
   cursor = toCursor()

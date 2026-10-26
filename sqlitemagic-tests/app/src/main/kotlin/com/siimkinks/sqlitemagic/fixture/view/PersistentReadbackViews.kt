@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic.fixture.view
 
-import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SubmodulePersistentValueTable.Companion.SUBMODULE_PERSISTENT_VALUE
 import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.View
@@ -15,10 +14,9 @@ data class PersistentEmailReadbackView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME AS "email")
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "email")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -33,13 +31,9 @@ data class PersistentEmbeddedReadbackView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        QUERY_COMPOSITION_AUTHOR.NAME AS "contact_city",
-        QUERY_COMPOSITION_AUTHOR.ID AS "contact_zip"
-      )
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMNS(QUERY_COMPOSITION_AUTHOR.NAME AS "contact_city", QUERY_COMPOSITION_AUTHOR.ID AS "contact_zip")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -49,10 +43,9 @@ data class PersistentInnerReadbackView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(QUERY_COMPOSITION_AUTHOR.NAME)
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "name")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -63,13 +56,9 @@ data class PersistentNestedReadbackView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        QUERY_COMPOSITION_AUTHOR.NAME AS "inner.name",
-        QUERY_COMPOSITION_AUTHOR.NAME AS "tail"
-      )
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMNS(QUERY_COMPOSITION_AUTHOR.NAME AS "inner.name", QUERY_COMPOSITION_AUTHOR.NAME AS "tail")
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }
 
@@ -80,12 +69,8 @@ data class PersistentSubmoduleReadbackView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        SUBMODULE_PERSISTENT_VALUE.ID,
-        SUBMODULE_PERSISTENT_VALUE.VALUE
-      )
-      .from(SUBMODULE_PERSISTENT_VALUE)
-      .compile()
+    val query = SELECT
+      .COLUMNS(SUBMODULE_PERSISTENT_VALUE.ID, SUBMODULE_PERSISTENT_VALUE.VALUE)
+      .FROM(SUBMODULE_PERSISTENT_VALUE)
   }
 }

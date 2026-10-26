@@ -18,7 +18,7 @@ import com.siimkinks.sqlitemagic.model.RoundPropertyShape
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
 
-data class ViewPropertyRoundAnnotations(
+internal data class ViewPropertyRoundAnnotations(
   val viewColumn: ViewColumn?,
   val embedded: Embedded?,
   val ignoreColumn: IgnoreColumn?,
@@ -53,14 +53,14 @@ internal data class ViewPropertyRoundElement(
   val annotations: ViewPropertyRoundAnnotations,
 ) : RoundTypeElement by metadata, RoundPropertyShape by metadata
 
-data class ViewQueryRoundElement(
+internal data class ViewQueryRoundElement(
   val sourceDeclaration: KSPropertyDeclaration,
   val roundTypeElement: RoundTypeElement
 ) : RoundTypeElement by roundTypeElement {
   val name get() = sourceDeclaration.simpleName.asString()
 }
 
-data class ViewRoundElement(
+internal data class ViewRoundElement(
   val view: ViewElement,
   val originatingFiles: OriginatingFiles,
   val sourceDeclaration: KSClassDeclaration,

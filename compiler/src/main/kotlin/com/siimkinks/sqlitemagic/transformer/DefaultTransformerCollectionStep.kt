@@ -14,7 +14,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.utils.getLocalAndInheritedFunctions
 import com.siimkinks.sqlitemagic.utils.isUncheckedAnnotationPresent
 
-class DefaultTransformerCollectionStep(
+internal class DefaultTransformerCollectionStep(
   private val environment: Environment
 ) : ProcessingStep {
   private var isCollected = false

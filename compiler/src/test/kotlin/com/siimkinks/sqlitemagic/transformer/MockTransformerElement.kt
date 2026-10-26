@@ -6,32 +6,25 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.LONG
 
-fun mockTransformerElement(
-  deserializedType: TransformerTypeElement = mockTransformerTypeElement(),
-  serializedType: TransformerTypeElement = mockSerializedTransformerTypeElement(),
-  objectToDbValueMethod: TransformerMethodElement = mockTransformerMethodElement("moneyToLong"),
-  dbValueToObjectMethod: TransformerMethodElement = mockTransformerMethodElement("longToMoney"),
-  serializedTypeCanBeNull: Boolean = false
-) = TransformerElement(
-  deserializedType = deserializedType,
-  serializedType = serializedType,
-  objectToDbValueMethod = objectToDbValueMethod,
-  dbValueToObjectMethod = dbValueToObjectMethod,
-  serializedTypeCanBeNull = serializedTypeCanBeNull
-)
-
-private fun mockTransformerTypeElement() = TransformerTypeElementImpl(
-  parsedType = mockParsedType(
-    typeName = ClassName(PACKAGE, "Money")
+internal fun mockTransformerElement() = TransformerElement(
+  deserializedType = TransformerTypeElementImpl(
+    parsedType = mockParsedType(
+      typeName = ClassName(PACKAGE, "Money")
+    ),
+    transformerName = "Money"
   ),
-  transformerName = "Money"
-)
-
-private fun mockSerializedTransformerTypeElement() = TransformerTypeElementImpl(
-  parsedType = mockParsedType(
-    typeName = LONG
+  serializedType = TransformerTypeElementImpl(
+    parsedType = mockParsedType(
+      typeName = LONG
+    ),
+    transformerName = "Long"
   ),
-  transformerName = "Long"
+  objectToDbValueMethod = mockTransformerMethodElement("moneyToLong"),
+  dbValueToObjectMethod = mockTransformerMethodElement("longToMoney"),
+  encoderInputNullable = false,
+  serializedTypeCanBeNull = false,
+  decoderResultNullable = false,
+  decoderInputNullable = false
 )
 
 private fun mockTransformerMethodElement(methodName: String) = TransformerMethodElementImpl(

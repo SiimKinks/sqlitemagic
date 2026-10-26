@@ -6,29 +6,12 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
-import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
-
-internal typealias GeneratedIdChild = TestEntity
 
 internal data class GeneratedIdParent(
   var id: String,
-  var child: GeneratedIdChild
+  var child: TestEntity
 )
-
-private typealias GeneratedIdParentColumn = Column<*, *, *, GeneratedIdParent, NotNullable>
-
-private object GeneratedIdTestSchema {
-  val parentTable = testTable<GeneratedIdParent>(name = "generated_id_parent")
-  val parentId = UniqueColumn<String, String, String, GeneratedIdParent, NotNullable>(
-    parentTable,
-    "id",
-    false,
-    Utils.STRING_PARSER,
-    false,
-    null
-  )
-}
 
 internal class GeneratedIdOperationState {
   val fixedChildIds: List<Long>
@@ -47,7 +30,7 @@ internal class GeneratedIdOperationState {
 
 private class GeneratedIdChildAdapter(
   delegate: TestAdapter = TestAdapter()
-) : EntityDefaultIdentityAdapter<GeneratedIdChild> by delegate
+) : EntityDefaultIdentityAdapter<TestEntity> by delegate
 
 private class GeneratedIdParentAdapter(
   private val state: GeneratedIdOperationState,
@@ -60,7 +43,7 @@ private class GeneratedIdParentAdapter(
   override val tablePosition = 1
   override val maxColumns = 2
   override val withoutRowId = false
-  override val defaultIdentityColumn = GeneratedIdTestSchema.parentId
+  override val defaultIdentityColumnName = "id"
   override val triggerTableNames = arrayOf("generated_id_parent", "books")
 
   override fun bindToInsertStatement(
@@ -71,18 +54,30 @@ private class GeneratedIdParentAdapter(
     val childId = generatedRelationshipIds["child"] ?: 0L
     state.recordFixedChildId(childId)
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    statement.bindLong(2, childId)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    statement.bindLong(
+      index = 2,
+      value = childId
+    )
   }
 
   override fun bindToUpdateStatement(
     statement: SupportSQLiteStatement,
     entity: GeneratedIdParent,
-    byColumn: GeneratedIdParentColumn
+    columnName: String
   ) {
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    statement.bindString(2, entity.id)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    statement.bindString(
+      index = 2,
+      value = entity.id
+    )
   }
 
   override fun bindNotNullForInsert(
@@ -93,53 +88,49 @@ private class GeneratedIdParentAdapter(
     val childId = generatedRelationshipIds["child"] ?: 0L
     state.recordNullOmittingChildId(childId)
     values.clear()
-    values.put("id", entity.id)
-    values.put("child", childId)
+    values["id"] = entity.id
+    values["child"] = childId
   }
 
   override fun bindNotNullForUpdate(
     entity: GeneratedIdParent,
     values: MutableScatterMap<String, Any>,
-    byColumn: GeneratedIdParentColumn
+    columnName: String
   ) {
     values.clear()
   }
 
   override fun identity(
     entity: GeneratedIdParent,
-    byColumn: GeneratedIdParentColumn
-  ) = GeneratedEntityIdentity(
-    columnName = "id",
-    serializedValue = entity.id
-  )
+    columnName: String
+  ) = entity.id
 
   override fun hasIdentityValue(
     entity: GeneratedIdParent,
-    byColumn: GeneratedIdParentColumn
+    columnName: String
   ) = entity.id.isNotEmpty()
 
-  override fun updateStatementSql(byColumn: GeneratedIdParentColumn) =
+  override fun updateStatementSql(columnName: String) =
     "UPDATE%s generated_id_parent SET child=? WHERE id=?"
 
   override fun insertRelationships(
     entity: GeneratedIdParent,
     operations: EntityRelationshipOperations
-  ): Boolean {
+  ) = when (
     val result = operations.insert(
       adapter = childAdapter,
       entity = entity.child
     )
-    return when (result) {
-      EntityInsertResult.Ignored -> false
-      is EntityInsertResult.Inserted -> {
-        result.rowId?.let {
-          operations.rememberGeneratedId(
-            columnName = "child",
-            rowId = it
-          )
-        }
-        true
+  ) {
+    EntityInsertResult.Ignored -> false
+    is EntityInsertResult.Inserted -> {
+      result.rowId?.let {
+        operations.rememberGeneratedId(
+          columnName = "child",
+          rowId = it
+        )
       }
+      true
     }
   }
 
@@ -154,40 +145,31 @@ private class GeneratedIdParentAdapter(
   override fun persistRelationships(
     entity: GeneratedIdParent,
     operations: EntityRelationshipOperations
-  ): Boolean {
+  ) = when (
     val result = operations.persist(
       adapter = childAdapter,
       entity = entity.child
     )
-    return when (result) {
-      EntityPersistResult.Ignored -> false
-      EntityPersistResult.Updated -> true
-      is EntityPersistResult.Inserted -> {
-        result.rowId?.let {
-          operations.rememberGeneratedId(
-            columnName = "child",
-            rowId = it
-          )
-        }
-        true
+  ) {
+    EntityPersistResult.Ignored -> false
+    EntityPersistResult.Updated -> true
+    is EntityPersistResult.Inserted -> {
+      result.rowId?.let {
+        operations.rememberGeneratedId(
+          columnName = "child",
+          rowId = it
+        )
       }
+      true
     }
   }
 }
 
-internal data class GeneratedIdAdapters(
-  val state: GeneratedIdOperationState,
-  val parent: EntityDefaultIdentityAdapter<GeneratedIdParent>
-)
-
-internal fun generatedIdAdapters(): GeneratedIdAdapters {
+internal class GeneratedIdAdapters {
   val state = GeneratedIdOperationState()
-  return GeneratedIdAdapters(
+  val parent: EntityDefaultIdentityAdapter<GeneratedIdParent> = GeneratedIdParentAdapter(
     state = state,
-    parent = GeneratedIdParentAdapter(
-      state = state,
-      childAdapter = GeneratedIdChildAdapter()
-    )
+    childAdapter = GeneratedIdChildAdapter()
   )
 }
 

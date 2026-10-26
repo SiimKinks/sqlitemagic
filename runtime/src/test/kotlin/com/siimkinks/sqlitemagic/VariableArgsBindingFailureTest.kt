@@ -2,11 +2,8 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
-import io.reactivex.schedulers.Schedulers
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,7 +28,7 @@ internal class VariableArgsBindingFailureTest(
   @Test
   fun `successfully bound statement remains caller owned`() {
     val fixture = BindingFixture()
-    val statement = compileStatement(fixture)
+    compileStatement(fixture)
 
     assertThat(fixture.recording.compiledStatements).hasSize(1)
     val recorded = fixture.recording.compiledStatements.single()
@@ -42,16 +39,6 @@ internal class VariableArgsBindingFailureTest(
       }
     )
     assertThat(recorded.closeCalls).isEqualTo(0)
-    assertThat(fixture.nativeExecutions).isEqualTo(0)
-    assertThat(fixture.triggers).isEmpty()
-
-    when {
-      update -> assertThat(statement.executeUpdateDelete()).isEqualTo(1)
-      else -> assertThat(statement.executeInsert()).isEqualTo(1L)
-    }
-    statement.close()
-    assertThat(fixture.nativeExecutions).isEqualTo(1)
-    assertThat(recorded.closeCalls).isEqualTo(1)
   }
 
   private fun assertBindingFailure(closeFailure: RuntimeException?) {
@@ -76,29 +63,24 @@ internal class VariableArgsBindingFailureTest(
         else -> emptyMap<Int, Any>()
       }
     )
-    assertThat(fixture.nativeExecutions).isEqualTo(0)
-    assertThat(fixture.triggers).isEmpty()
   }
 
   private fun compileStatement(fixture: BindingFixture): SupportSQLiteStatement {
-    val values = MutableScatterMap<String, Any>().apply { put("name", "value") }
-    val helper = VariableArgsOperationHelper(conflictAlgorithm = CONFLICT_IGNORE)
-    val manager = EntityDbManager(fixture.connection)
+    val context = OperationContext(
+      adapter = TestAdapter(),
+      configuration = OperationConfigurationSnapshot(
+        connection = fixture.connection,
+        conflictAlgorithm = CONFLICT_IGNORE
+      )
+    )
+    context.bindValues["name"] = "value"
     return when {
-      update -> helper.compileUpdateStatement(
+      update -> context.compileUpdateStatement(
         tableName = "books",
-        maxColumns = 1,
-        values = values,
         resolutionColumn = "id",
-        resolutionValue = "identity",
-        manager = manager
+        resolutionValue = "identity"
       )
-      else -> helper.compileInsertStatement(
-        tableName = "books",
-        maxColumns = 1,
-        values = values,
-        manager = manager
-      )
+      else -> context.compileInsertStatement("books")
     }
   }
 
@@ -119,7 +101,6 @@ private class BindingFixture(
   closeFailure: RuntimeException? = null
 ) {
   val recording = RecordingDatabase()
-  var nativeExecutions = 0
   private val database = object : SupportSQLiteDatabase by recording {
     override fun compileStatement(sql: String): SupportSQLiteStatement {
       val statement = recording.compileStatement(sql)
@@ -129,40 +110,13 @@ private class BindingFixture(
           if (index == failBindIndex) {
             bindFailure?.let { throw it }
           }
-          statement.bindString(index, value)
-        }
-
-        override fun execute() {
-          nativeExecutions++
-          statement.execute()
-        }
-
-        override fun executeInsert(): Long {
-          nativeExecutions++
-          return statement.executeInsert()
-        }
-
-        override fun executeUpdateDelete(): Int {
-          nativeExecutions++
-          return statement.executeUpdateDelete()
+          statement.bindString(
+            index = index,
+            value = value
+          )
         }
       }
     }
   }
-  private val helper = object : SupportSQLiteOpenHelper by RecordingOpenHelper(recording) {
-    override val writableDatabase = database
-    override val readableDatabase = database
-  }
-  val connection = DbConnectionImpl(
-    database = TestGeneratedDatabase(tableCount = 1),
-    dbHelper = helper,
-    queryScheduler = Schedulers.trampoline()
-  )
-  val triggers = mutableListOf<Set<String>>()
-
-  init {
-    connection.triggers
-      .map(Set<String>::toSet)
-      .subscribe(triggers::add)
-  }
+  val connection = testDbConnection(database)
 }

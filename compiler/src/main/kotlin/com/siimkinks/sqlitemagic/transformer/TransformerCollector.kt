@@ -19,10 +19,8 @@ internal class TransformerCollector(
   ) {
     for (objectToDbValue in objectToDbValueElements) {
       val objectToDbValueMethod = TransformerRoundMethodElement.from(objectToDbValue)
-      val transformer = TransformerRoundElement.fromObjectToDbValue(
-        method = objectToDbValueMethod,
-        additionalOriginatingFiles = additionalOriginatingFiles
-      )
+      val transformer = TransformerRoundElement(additionalOriginatingFiles)
+        .also { it.addObjectToDbValueMethod(objectToDbValueMethod) }
       val deserializedType = transformer.deserializedType ?: continue
       val deserializedTypeKey = deserializedType.typeKey
       val existingTransformer = transformers[deserializedTypeKey]
@@ -39,10 +37,8 @@ internal class TransformerCollector(
 
     for (dbValueToObject in dbValueToObjectElements) {
       val dbValueToObjectMethod = TransformerRoundMethodElement.from(dbValueToObject)
-      val collectedTransformer = TransformerRoundElement.fromDbValueToObject(
-        method = dbValueToObjectMethod,
-        additionalOriginatingFiles = additionalOriginatingFiles
-      )
+      val collectedTransformer = TransformerRoundElement(additionalOriginatingFiles)
+        .also { it.addDbValueToObjectMethod(dbValueToObjectMethod) }
       val deserializedType = collectedTransformer.deserializedType ?: continue
       val deserializedTypeKey = deserializedType.typeKey
       val transformer = transformers[deserializedTypeKey]

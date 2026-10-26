@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class MigrationScriptValidationTest {
+internal class MigrationScriptValidationTest {
   @Test
   fun `explicit transaction controls are rejected before reaching the database`() {
     val commands = listOf(

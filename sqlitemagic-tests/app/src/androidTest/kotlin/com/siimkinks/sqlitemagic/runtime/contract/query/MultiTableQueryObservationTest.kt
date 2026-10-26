@@ -1,20 +1,25 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
-import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.runtime.model.catalog.NonNullQueryFixture
 import com.siimkinks.sqlitemagic.runtime.model.catalog.QueryObservationCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.QueryObservationCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import io.reactivex.observers.TestObserver
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class MultiTableQueryObservationTest(
+internal class MultiTableQueryObservationTest(
   private val queryCase: QueryObservationCase<*>
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
-  fun eachDependencyRefreshes() {
+  fun eachDependencyRefreshesAndUnrelatedWriteDoesNot() {
     val scenario = queryCase.newScenario()
     val observer = scenario
       .query()
@@ -23,31 +28,18 @@ class MultiTableQueryObservationTest(
       .subscribeWith(TestObserver())
     try {
       observer.assertValuesOnly(scenario.initial)
+      NonNullQueryFixture.seed()
+      observer
+        .withTag("${queryCase.name}: unrelated write")
+        .assertValuesOnly(scenario.initial)
       val expected = mutableListOf(scenario.initial)
       scenario.mutations.forEach { mutation ->
-        mutation.apply()
+        mutation.mutate()
         expected += mutation.expected
         observer
           .withTag("${queryCase.name}: ${mutation.name}")
           .assertValuesOnly(*expected.toTypedArray())
       }
-    } finally {
-      observer.dispose()
-    }
-  }
-
-  @Test
-  fun unrelatedDoesNotRefresh() {
-    val scenario = queryCase.newScenario()
-    val observer = scenario
-      .query()
-      .observe()
-      .runQuery()
-      .subscribeWith(TestObserver())
-    try {
-      observer.assertValuesOnly(scenario.initial)
-      scenario.unrelatedWrite()
-      observer.assertValuesOnly(scenario.initial)
     } finally {
       observer.dispose()
     }
@@ -65,12 +57,11 @@ class MultiTableQueryObservationTest(
       observer.assertValuesOnly(scenario.initial)
       observer.dispose()
       scenario.mutations.forEach { mutation ->
-        mutation.apply()
+        mutation.mutate()
         observer
           .withTag("${queryCase.name}: ${mutation.name} after disposal")
           .assertValuesOnly(scenario.initial)
       }
-      assertThat(observer.isDisposed).isTrue()
     } finally {
       observer.dispose()
     }
@@ -78,7 +69,7 @@ class MultiTableQueryObservationTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun queryCases() = QueryObservationCatalog.cases
   }
 }

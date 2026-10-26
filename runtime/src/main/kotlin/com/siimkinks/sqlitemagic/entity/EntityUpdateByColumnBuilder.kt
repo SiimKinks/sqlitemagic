@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic.entity
 
+import android.database.SQLException
 import androidx.annotation.CheckResult
-import com.siimkinks.sqlitemagic.Column
-import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.Unique
 import io.reactivex.Completable
 
@@ -18,12 +17,11 @@ interface EntityUpdateByColumnBuilder<P> : EntityOperationBuilder<EntityUpdateBy
    * entity has complex columns which also need to be updated.
    *
    * @param byColumn Generated non-null unique column of the table for this operation
-   * @param C Not nullable unique column type
-   * @return `true` if the operation was successful; `false` when operation failed and it was rolled back.
+   * @return `true` if the operation was successful; `false` when no row was updated and the operation was rolled
+   *     back
+   * @throws SQLException when SQLite rejects the update, for example on a constraint violation
    */
-  fun <C> execute(byColumn: C): Boolean
-      where C : Column<*, *, *, P, NotNullable>,
-            C : Unique<NotNullable>
+  fun execute(byColumn: Unique<P>): Boolean
 
   /**
    * Creates a [Completable] that when subscribed to executes this configured update operation
@@ -33,12 +31,8 @@ interface EntityUpdateByColumnBuilder<P> : EntityOperationBuilder<EntityUpdateBy
    * operation failed then it will be rolled back and error will be emitted to downstream.
    *
    * @param byColumn Generated non-null unique column of the table for this operation
-   * @param C Not nullable unique column type
-   * @return Deferred [Completable] that when subscribed to executes the operation and emits
-   * its result to downstream
+   * @return Deferred [Completable] that when subscribed to executes the operation and emits its result to downstream
    */
   @CheckResult
-  fun <C> observe(byColumn: C): Completable
-      where C : Column<*, *, *, P, NotNullable>,
-            C : Unique<NotNullable>
+  fun observe(byColumn: Unique<P>): Completable
 }

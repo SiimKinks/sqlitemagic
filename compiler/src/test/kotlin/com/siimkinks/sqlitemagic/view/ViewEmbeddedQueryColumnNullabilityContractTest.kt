@@ -1,18 +1,20 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class ViewEmbeddedQueryColumnNullabilityContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewEmbeddedQueryColumnNullabilityContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
   @Test
   fun `embedded ancestors determine query column nullability without changing declared leaf nullability`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmbeddedQueryColumnNullability.kt",
@@ -20,12 +22,10 @@ internal class ViewEmbeddedQueryColumnNullabilityContractTest : ProcessingStepsT
             package $PACKAGE
 
             import com.siimkinks.sqlitemagic.Column
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.EmbeddedQueryColumnNullabilityViewTable.Companion.EMBEDDED_QUERY_COLUMN_NULLABILITY_VIEW
-            import com.siimkinks.sqlitemagic.NotNullable
-            import com.siimkinks.sqlitemagic.Nullable
-            import com.siimkinks.sqlitemagic.NumericColumn
-            import com.siimkinks.sqlitemagic.Select.SelectN
+            import com.siimkinks.sqlitemagic.EmbeddedQueryColumnNullabilityViewTable
+            import com.siimkinks.sqlitemagic.Required
+            import com.siimkinks.sqlitemagic.SelectQuery
+            import com.siimkinks.sqlitemagic.SqlNullable
             import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.Id
             import com.siimkinks.sqlitemagic.annotation.Table
@@ -60,23 +60,25 @@ internal class ViewEmbeddedQueryColumnNullabilityContractTest : ProcessingStepsT
             ) {
               companion object {
                 @ViewQuery
-                val query: CompiledSelect<SourceRow, SelectN> = error("compile-only")
+                val query: SelectQuery<SourceRow, *> = error("compile-only")
               }
             }
 
+            private typealias NullabilityView = EmbeddedQueryColumnNullabilityView
+
             fun requireEmbeddedQueryColumnTypes() {
-              val viewTable = EMBEDDED_QUERY_COLUMN_NULLABILITY_VIEW
-              val outerText: Column<String, String?, CharSequence, EmbeddedQueryColumnNullabilityView, Nullable> =
+              val viewTable = EmbeddedQueryColumnNullabilityViewTable.EMBEDDED_QUERY_COLUMN_NULLABILITY_VIEW
+              val outerText: Column<NullabilityView, String, SqlNullable, String?, String?, SqlNullable, String?> =
                 viewTable.OUTER_OPTIONAL_INNER_TEXT
-              val outerOptionalNumber: NumericColumn<Int, Int?, Number, EmbeddedQueryColumnNullabilityView, Nullable> =
+              val outerNumber: Column<NullabilityView, Int, SqlNullable, Int?, Int?, SqlNullable, Int?> =
                 viewTable.OUTER_OPTIONAL_INNER_NUMBER
-              val innerText: Column<String, String?, CharSequence, EmbeddedQueryColumnNullabilityView, Nullable> =
+              val innerText: Column<NullabilityView, String, SqlNullable, String?, String?, SqlNullable, String?> =
                 viewTable.INNER_OPTIONAL_INNER_TEXT
-              val innerOptionalNumber: NumericColumn<Int, Int?, Number, EmbeddedQueryColumnNullabilityView, Nullable> =
+              val innerNumber: Column<NullabilityView, Int, SqlNullable, Int?, Int?, SqlNullable, Int?> =
                 viewTable.INNER_OPTIONAL_INNER_NUMBER
-              val requiredText: Column<String, String, CharSequence, EmbeddedQueryColumnNullabilityView, NotNullable> =
+              val requiredText: Column<NullabilityView, String, SqlNullable, String?, String, Required, String> =
                 viewTable.REQUIRED_INNER_TEXT
-              val requiredNumber: NumericColumn<Int, Int, Number, EmbeddedQueryColumnNullabilityView, NotNullable> =
+              val requiredNumber: Column<NullabilityView, Int, SqlNullable, Int, Int, Required, Int> =
                 viewTable.REQUIRED_INNER_NUMBER
             }
           """
@@ -87,18 +89,18 @@ internal class ViewEmbeddedQueryColumnNullabilityContractTest : ProcessingStepsT
         "EmbeddedQueryColumnNullabilityViewTable.kt",
         "SqliteMagic_EmbeddedQueryColumnNullabilityView_Dao.kt"
       )
-      .withGeneratedSource("EmbeddedQueryColumnNullabilityViewTable.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "Utils.NULLABLE_INTEGER_PARSER",
-          "Utils.INTEGER_PARSER",
-          "nullable = true",
-          "nullable = false"
+      .withGeneratedSource("EmbeddedQueryColumnNullabilityViewTable.kt") {
+        it.assertContains(
+          "selectedRead = { cursor, index -> (if (cursor.isNull(index)) null else cursor.getInt(index)) }",
+          "selectedRead = { cursor, index -> cursor.getInt(index) }",
+          "parameterEncoding = SqlType.INT.nullBypassParameterEncoding()",
+          "parameterEncoding = SqlType.INT.parameterEncoding()"
         )
       }
-      .withGeneratedSource("SqliteMagic_EmbeddedQueryColumnNullabilityView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "Column \\\"outer_optional_inner_text\\\" was NULL",
-          "Column \\\"inner_optional_inner_number\\\" was NULL"
+      .withGeneratedSource("SqliteMagic_EmbeddedQueryColumnNullabilityView_Dao.kt") {
+        it.assertContains(
+          """Column \"outer_optional_inner_text\" was NULL""",
+          """Column \"inner_optional_inner_number\" was NULL"""
         )
       }
   }

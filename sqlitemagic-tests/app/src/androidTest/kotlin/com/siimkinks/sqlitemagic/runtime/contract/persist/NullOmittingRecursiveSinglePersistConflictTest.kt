@@ -3,90 +3,81 @@ package com.siimkinks.sqlitemagic.runtime.contract.persist
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class NullOmittingRecursiveSinglePersistConflictTest(
+internal class NullOmittingRecursiveSinglePersistConflictTest(
   private val modelCase: RecursiveNullOmittingPersistConflictModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeWithParentInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertInsertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeWithParentInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertInsertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithParentInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertInsertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithChildInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertInsertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeWithParentInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertInsertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithChildInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertInsertConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithChildInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertInsertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithParentUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeWithChildInsertConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertInsertConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithParentUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithParentUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithChildUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeWithParentUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.PARENT,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithChildUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() {
-    assertUpdateConflict(
-      modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithChildUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeWithChildUpdateConflictAndConflictIgnoreOmitsNullValuesAndReturnsIgnored() = assertUpdateConflict(
+    modelCase = modelCase,
+    conflict = RecursiveConflictTarget.CHILD,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertInsertConflict(
     modelCase: RecursiveNullOmittingPersistConflictModelCase<T>,
@@ -94,7 +85,7 @@ class NullOmittingRecursiveSinglePersistConflictTest(
     terminal: OperationTerminal
   ) {
     val existing = modelCase.newValue(sequence = 1)
-    assertSeedInserted(
+    insertedResult(
       result = modelCase
         .insert(value = existing)
         .execute(),
@@ -123,14 +114,14 @@ class NullOmittingRecursiveSinglePersistConflictTest(
     terminal: OperationTerminal
   ) {
     val first = modelCase.newValue(sequence = 1)
-    assertSeedInserted(
+    insertedResult(
       result = modelCase
         .insert(value = first)
         .execute(),
       modelName = modelCase.name
     )
     val second = modelCase.newValue(sequence = 2)
-    assertSeedInserted(
+    insertedResult(
       result = modelCase
         .insert(value = second)
         .execute(),
@@ -156,7 +147,7 @@ class NullOmittingRecursiveSinglePersistConflictTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.recursiveNullOmittingPersistConflictCases
   }
 }

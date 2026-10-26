@@ -1,8 +1,7 @@
 package com.siimkinks.sqlitemagic.entity
 
+import android.database.SQLException
 import androidx.annotation.CheckResult
-import com.siimkinks.sqlitemagic.Column
-import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.Unique
 import io.reactivex.Completable
 
@@ -16,30 +15,30 @@ import io.reactivex.Completable
 interface EntityBulkPersistByColumnBuilder<P> : EntityPersistOperationBuilder<EntityBulkPersistByColumnBuilder<P>> {
   /**
    * Execute this configured bulk persist operation against a database using the provided column
-   * to identify each entity row. Operation will be executed inside a transaction.
+   * to identify each entity row.
+   * Non-recursive operations and recursive operations without `CONFLICT_IGNORE` execute inside one transaction.
+   * Recursive operations using `CONFLICT_IGNORE` execute each entity graph in its own transaction.
    *
    * @param byColumn Generated non-null unique column of the table for this operation
-   * @param C Not nullable unique column type
-   * @return `true` if the operation was successful; `false` when some operation failed
-   * and this operation was rolled back.
+   * @return `true` if at least one entity graph committed; `false` when no entity graph committed.
+   *     With `CONFLICT_IGNORE`, ignored recursive graphs are rolled back independently and successful graphs remain
+   *     committed.
+   * @throws SQLException when SQLite rejects a write, for example on a constraint violation; the operation rolls
+   *     back as above
    */
-  fun <C> execute(byColumn: C): Boolean
-      where C : Column<*, *, *, P, NotNullable>,
-            C : Unique<NotNullable>
+  fun execute(byColumn: Unique<P>): Boolean
 
   /**
    * Creates a [Completable] that when subscribed to executes this configured bulk persist operation
-   * against a database using the provided column to identify each entity row. Operation will be
-   * executed inside a transaction. If the operation was successful then complete will be emitted
-   * to downstream. If the operation failed then it will be rolled back and error will be emitted
-   * to downstream.
+   * against a database using the provided column to identify each entity row and emits operation result to downstream.
+   * Non-recursive operations and recursive operations without `CONFLICT_IGNORE` execute inside one transaction.
+   * Recursive operations using `CONFLICT_IGNORE` execute each entity graph in its own transaction. If the operation was
+   * successful then complete will be emitted to downstream. An error rolls back the active transaction; recursive
+   * `CONFLICT_IGNORE` graphs that committed before a later error or cancellation remain committed.
    *
    * @param byColumn Generated non-null unique column of the table for this operation
-   * @param C Not nullable unique column type
    * @return Deferred [Completable] that when subscribed to executes the operation and emits its result to downstream
    */
   @CheckResult
-  fun <C> observe(byColumn: C): Completable
-      where C : Column<*, *, *, P, NotNullable>,
-            C : Unique<NotNullable>
+  fun observe(byColumn: Unique<P>): Completable
 }

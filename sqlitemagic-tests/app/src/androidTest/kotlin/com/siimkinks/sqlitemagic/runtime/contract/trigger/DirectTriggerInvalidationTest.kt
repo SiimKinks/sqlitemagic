@@ -5,87 +5,101 @@ import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TriggerModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.insertedPersistResult
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class DirectTriggerInvalidationTest(
+internal class DirectTriggerInvalidationTest(
   private val modelCase: TriggerModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeInsertsAndInvalidatesOnce() {
-    assertInsert(terminal = OperationTerminal.EXECUTE)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeInsertsAndInvalidatesOnce() {
-    assertInsert(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeInsertsAndInvalidatesOnce() = assertInsert(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeUpdatesAndInvalidatesOnce() {
-    assertUpdate(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observeInsertsAndInvalidatesOnce() = assertInsert(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeUpdatesAndInvalidatesOnce() {
-    assertUpdate(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeUpdatesAndInvalidatesOnce() = assertUpdate(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executePersistsMissingRowAndInvalidatesOnce() {
-    assertPersistInsert(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observeUpdatesAndInvalidatesOnce() = assertUpdate(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observePersistsMissingRowAndInvalidatesOnce() {
-    assertPersistInsert(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executePersistsMissingRowAndInvalidatesOnce() = assertPersistInsert(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executePersistsExistingRowAndInvalidatesOnce() {
-    assertPersistUpdate(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observePersistsMissingRowAndInvalidatesOnce() = assertPersistInsert(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observePersistsExistingRowAndInvalidatesOnce() {
-    assertPersistUpdate(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executePersistsExistingRowAndInvalidatesOnce() = assertPersistUpdate(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeDeletesSingleRowAndInvalidatesOnce() {
-    assertDelete(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observePersistsExistingRowAndInvalidatesOnce() = assertPersistUpdate(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeDeletesSingleRowAndInvalidatesOnce() {
-    assertDelete(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeDeletesSingleRowAndInvalidatesOnce() = assertDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeDeletesTableAndInvalidatesOnce() {
-    assertTableDelete(terminal = OperationTerminal.EXECUTE)
-  }
+  fun observeDeletesSingleRowAndInvalidatesOnce() = assertDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeDeletesTableAndInvalidatesOnce() {
-    assertTableDelete(terminal = OperationTerminal.OBSERVE)
-  }
+  fun executeDeletesTableAndInvalidatesOnce() = assertTableDelete(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
-  private fun assertInsert(terminal: OperationTerminal) {
-    assertInsertForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
+  @Test
+  fun observeDeletesTableAndInvalidatesOnce() = assertTableDelete(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
-  private fun <T> assertInsertForCase(
+  private fun <T> assertInsert(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -95,15 +109,18 @@ class DirectTriggerInvalidationTest(
       modelCase = modelCase,
       before = before,
       operation = {
-        when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase
-            .insert(value = value)
-            .execute()
-          OperationTerminal.OBSERVE -> modelCase
-            .insert(value = value)
-            .observe()
-            .blockingGet()
-        }
+        terminal.select(
+          execute = {
+            modelCase
+              .insert(value = value)
+              .execute()
+          },
+          observe = {
+            modelCase
+              .insert(value = value)
+              .observe()
+          }
+        )
       },
       expected = { result ->
         val inserted = insertedResult(
@@ -126,14 +143,7 @@ class DirectTriggerInvalidationTest(
     )
   }
 
-  private fun assertUpdate(terminal: OperationTerminal) {
-    assertUpdateForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertUpdateForCase(
+  private fun <T> assertUpdate(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -153,8 +163,8 @@ class DirectTriggerInvalidationTest(
       before = before,
       operation = {
         when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executeUpdate(value = updatedValue)
-          OperationTerminal.OBSERVE -> {
+          EXECUTE -> modelCase.executeUpdate(value = updatedValue)
+          OBSERVE -> {
             modelCase
               .observeUpdate(value = updatedValue)
               .blockingAwait()
@@ -169,14 +179,7 @@ class DirectTriggerInvalidationTest(
     )
   }
 
-  private fun assertPersistInsert(terminal: OperationTerminal) {
-    assertPersistInsertForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertPersistInsertForCase(
+  private fun <T> assertPersistInsert(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -186,23 +189,16 @@ class DirectTriggerInvalidationTest(
       modelCase = modelCase,
       before = before,
       operation = {
-        when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executePersist(value = value)
-          OperationTerminal.OBSERVE -> modelCase
-            .observePersist(value = value)
-            .blockingGet()
-        }
+        terminal.select(
+          execute = { modelCase.executePersist(value = value) },
+          observe = { modelCase.observePersist(value = value) }
+        )
       },
       expected = { result ->
-        val inserted = when (result) {
-          is EntityPersistResult.Inserted -> result
-          EntityPersistResult.Updated -> throw AssertionError(
-            "Persist unexpectedly updated for ${modelCase.name}"
-          )
-          EntityPersistResult.Ignored -> throw AssertionError(
-            "Persist was ignored for ${modelCase.name}"
-          )
-        }
+        val inserted = insertedPersistResult(
+          result = result,
+          modelName = modelCase.name
+        )
         val insertResult = EntityInsertResult.Inserted(rowId = inserted.rowId)
         modelCase.verifyAfterInsert(
           value = value,
@@ -220,14 +216,7 @@ class DirectTriggerInvalidationTest(
     )
   }
 
-  private fun assertPersistUpdate(terminal: OperationTerminal) {
-    assertPersistUpdateForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertPersistUpdateForCase(
+  private fun <T> assertPersistUpdate(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -245,12 +234,10 @@ class DirectTriggerInvalidationTest(
       modelCase = modelCase,
       before = before,
       operation = {
-        when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executePersist(value = updatedValue)
-          OperationTerminal.OBSERVE -> modelCase
-            .observePersist(value = updatedValue)
-            .blockingGet()
-        }
+        terminal.select(
+          execute = { modelCase.executePersist(value = updatedValue) },
+          observe = { modelCase.observePersist(value = updatedValue) }
+        )
       },
       expected = { result ->
         assertThat(result).isEqualTo(EntityPersistResult.Updated)
@@ -259,14 +246,7 @@ class DirectTriggerInvalidationTest(
     )
   }
 
-  private fun assertDelete(terminal: OperationTerminal) {
-    assertDeleteForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertDeleteForCase(
+  private fun <T> assertDelete(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -282,12 +262,10 @@ class DirectTriggerInvalidationTest(
       modelCase = modelCase,
       before = before,
       operation = {
-        when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executeDelete(value = before.parents.first())
-          OperationTerminal.OBSERVE -> modelCase
-            .observeDelete(value = before.parents.first())
-            .blockingGet()
-        }
+        terminal.select(
+          execute = { modelCase.executeDelete(value = before.parents.first()) },
+          observe = { modelCase.observeDelete(value = before.parents.first()) }
+        )
       },
       expected = { result ->
         assertThat(result).isEqualTo(1)
@@ -296,14 +274,7 @@ class DirectTriggerInvalidationTest(
     )
   }
 
-  private fun assertTableDelete(terminal: OperationTerminal) {
-    assertTableDeleteForCase(
-      modelCase = modelCase,
-      terminal = terminal
-    )
-  }
-
-  private fun <T> assertTableDeleteForCase(
+  private fun <T> assertTableDelete(
     modelCase: TriggerModelCase<T>,
     terminal: OperationTerminal
   ) {
@@ -317,12 +288,10 @@ class DirectTriggerInvalidationTest(
       modelCase = modelCase,
       before = before,
       operation = {
-        when (terminal) {
-          OperationTerminal.EXECUTE -> modelCase.executeTableDelete()
-          OperationTerminal.OBSERVE -> modelCase
-            .observeTableDelete()
-            .blockingGet()
-        }
+        terminal.select(
+          execute = modelCase::executeTableDelete,
+          observe = modelCase::observeTableDelete
+        )
       },
       expected = { result ->
         assertThat(result).isEqualTo(3)
@@ -333,7 +302,7 @@ class DirectTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.triggerCases
   }
 }

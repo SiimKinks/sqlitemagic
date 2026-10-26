@@ -5,6 +5,7 @@ import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration
 import androidx.sqlite.db.SupportSQLiteOpenHelper.Factory
+import com.siimkinks.sqlitemagic.internal.LogUtil.logInfo
 import io.reactivex.Scheduler
 import io.reactivex.schedulers.Schedulers
 
@@ -12,8 +13,8 @@ object SqliteMagic {
   var loggingEnabled = false
     internal set
   internal var logger: Logger? = null
-  internal var database: GeneratedDatabase? = null
   internal var defaultConnection: DbConnectionImpl? = null
+  internal val defaultDbConnection get() = defaultConnection ?: error("Looks like SqliteMagic is not initialized...")
 
   /**
    * Starts new transaction on the default DB connection.
@@ -22,14 +23,11 @@ object SqliteMagic {
    * @see DbConnection.newTransaction
    */
   @CheckResult
-  fun newTransaction(): Transaction = getDefaultDbConnection().newTransaction()
+  fun newTransaction(): Transaction = defaultDbConnection.newTransaction()
 
   /** @return Default DB connection. */
   @CheckResult
-  fun getDefaultConnection(): DbConnection = getDefaultDbConnection()
-
-  internal fun getDefaultDbConnection(): DbConnectionImpl = defaultConnection
-    ?: error("Looks like SqliteMagic is not initialized...")
+  fun getDefaultConnection(): DbConnection = defaultDbConnection
 
   /**
    * Specify a custom logger for debug messages when [logging is enabled][setLoggingEnabled].
@@ -43,6 +41,7 @@ object SqliteMagic {
   /**
    * Create a new database connection configuration builder.
    *
+   * @param context Application context
    * @return A new database connection configuration builder
    */
   @CheckResult
@@ -161,7 +160,6 @@ object SqliteMagic {
     private fun openConnection(): DbConnectionImpl {
       val sqliteFactory = sqliteFactory ?: throw NullPointerException("SQLite Factory cannot be missing")
       val database = database ?: throw NullPointerException("Generated database cannot be missing")
-      SqliteMagic.database = database
       val downgrader = downgrader ?: DefaultDbDowngrader(database)
       return try {
         val name = when {
@@ -180,7 +178,7 @@ object SqliteMagic {
           .callback(dbCallback)
           .build()
         val helper = sqliteFactory.create(configuration)
-        LogUtil.logInfo("Initializing database with [name=%s, version=%s, logging=%s]", name, version, loggingEnabled)
+        logInfo("Initializing database with [name=$name, version=$version, logging=$loggingEnabled]")
         DbConnectionImpl(
           database = database,
           dbHelper = helper,

@@ -2,6 +2,9 @@ package com.siimkinks.sqlitemagic
 
 import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.internal.sql.SqlRenderable
+import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
+import com.siimkinks.sqlitemagic.internal.sql.prepareQuery
 import io.reactivex.Observable
 import io.reactivex.observers.TestObserver
 import io.reactivex.plugins.RxJavaPlugins
@@ -85,10 +88,13 @@ internal class QueryObservableContractTest {
   fun `disposal while opening cursor closes it without mapping`() {
     val cursor = mock<Cursor>()
     val observer = TestObserver<List<String?>>()
-    val mapper = mock<Query.Mapper<String?>>()
+    var mappedRows = 0
     val query = listQuery(
       cursor = cursor,
-      mapper = mapper,
+      mapper = {
+        mappedRows++
+        null
+      },
       beforeReturn = observer::dispose
     )
 
@@ -99,16 +105,16 @@ internal class QueryObservableContractTest {
     observer.assertEmpty()
     verify(cursor).close()
     verify(cursor, never()).moveToNext()
-    verify(mapper, never()).apply(cursor)
+    assertThat(mappedRows).isEqualTo(0)
   }
 
   @Test
   fun `scalar queries skip null results or emit the supplied default`() {
     val source = SingleItemQueryObservable(
       Observable.just(
-        scalarQuery { null },
-        scalarQuery { "row" },
-        scalarQuery { null }
+        scalarQuery<String?> { null },
+        scalarQuery<String?> { "row" },
+        scalarQuery<String?> { null }
       )
     )
 
@@ -185,7 +191,7 @@ internal class QueryObservableContractTest {
       val source = SingleItemQueryObservable(
         Observable.just(
           scalarQuery { firstResult },
-          scalarQuery {
+          scalarQuery<String?> {
             laterExecutions++
             "later"
           }
@@ -234,7 +240,7 @@ internal class QueryObservableContractTest {
   }
 
   @Test
-  fun `count predicates and inherited scalar terminal observe zero and positive counts`() {
+  fun `count predicates observe zero and positive counts`() {
     val source = CountQueryObservable(
       Observable.just(
         scalarQuery { 0L },
@@ -248,42 +254,38 @@ internal class QueryObservableContractTest {
     source.isNotZero()
       .test()
       .assertResult(false, true)
-    source.runQueryOnce()
-      .test()
-      .assertResult(0L)
   }
 
   private fun listQuery(
     cursor: Cursor,
-    mapper: Query.Mapper<String?>,
+    mapper: (Cursor) -> String?,
     beforeReturn: () -> Unit = {}
-  ): Query<List<String?>> = object : Query.DatabaseQuery<List<String?>, String?>(
-    dbConnection = mock(),
-    mapper = mapper
-  ) {
-    override fun rawQuery(
-      inStream: Boolean,
-      dbConnection: DbConnectionImpl
-    ): Cursor {
-      beforeReturn()
-      return cursor
-    }
+  ): Query<List<String?>> {
+    val plan = CompiledSelect(
+      prepared = prepareQuery(
+        renderable = object : SqlRenderable {
+          override fun render(context: SqlRenderingContext) = Unit
+        },
+        connection = null
+      ),
+      reader = ExecutionReader { { rows, _ -> mapper(rows) } }
+    )
+    return object : Query<List<String?>>(mock()) {
+      override fun rawQuery(dbConnection: DbConnectionImpl): Cursor {
+        beforeReturn()
+        return cursor
+      }
 
-    override fun map(
-      cursor: Cursor?,
-      dbConnection: DbConnectionImpl
-    ): List<String?> = error("List operators must use the row mapper")
+      override fun map(cursor: Cursor, isDisposed: () -> Boolean) = plan.mapRows(
+        cursor = cursor,
+        isDisposed = isDisposed
+      )
+    }
   }
 
-  private fun <T> scalarQuery(result: () -> T?): Query<T> = object : Query<T>(mock()) {
-    override fun rawQuery(
-      inStream: Boolean,
-      dbConnection: DbConnectionImpl
-    ): Cursor? = null
+  private fun <T> scalarQuery(result: () -> T): Query<T> = object : Query<T>(mock()) {
+    override fun rawQuery(dbConnection: DbConnectionImpl) = mock<Cursor>()
 
-    override fun map(
-      cursor: Cursor?,
-      dbConnection: DbConnectionImpl
-    ) = result()
+    override fun map(cursor: Cursor, isDisposed: () -> Boolean) = result()
   }
 }

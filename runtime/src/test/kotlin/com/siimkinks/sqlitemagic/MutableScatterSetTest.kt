@@ -4,9 +4,9 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import org.junit.Test
 
-class MutableScatterSetTest {
+internal class MutableScatterSetTest {
   @Test
-  fun constructionAndCopyPreserveMembershipWithoutSharingStorage() {
+  fun `construction and copy preserve membership without sharing storage`() {
     val keys = Array(
       size = 100,
       init = { "key-$it" }
@@ -24,7 +24,7 @@ class MutableScatterSetTest {
   }
 
   @Test
-  fun bulkAdditionDeduplicatesAndSupportsEmptyStringsAndCollidingHashes() {
+  fun `bulk addition deduplicates and supports empty strings and colliding hashes`() {
     val set = MutableScatterSet<String>(0)
     assertThat(set.addAll(arrayOf("", "Aa", "BB", "Aa", "", "other"))).isTrue()
     assertThat(contents(set)).isEqualTo(setOf("", "Aa", "BB", "other"))
@@ -37,7 +37,7 @@ class MutableScatterSetTest {
   }
 
   @Test
-  fun emptySetAllocatesStorageOnlyOnFirstInsertion() {
+  fun `empty set allocates storage only on first insertion`() {
     val set = MutableScatterSet<String>(0)
     assertThat(set.capacity).isEqualTo(0)
     assertThat(set.size).isEqualTo(0)

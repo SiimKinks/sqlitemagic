@@ -4,31 +4,41 @@ import com.siimkinks.sqlitemagic.TransformerRuntimeEntityTable.Companion.TRANSFO
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.BlobToken
+import com.siimkinks.sqlitemagic.fixture.model.NullableToken
 import com.siimkinks.sqlitemagic.fixture.model.OwnedToken
 import com.siimkinks.sqlitemagic.fixture.model.ParameterizedToken
-import com.siimkinks.sqlitemagic.fixture.model.NullableToken
 import com.siimkinks.sqlitemagic.fixture.model.TransformerRuntimeEmbedded
 import com.siimkinks.sqlitemagic.fixture.model.TransformerRuntimeEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.ExternalToken
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation.PRESENT
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.insertedRowId
 import com.siimkinks.sqlitemagic.update
 
 internal object TransformerModelCatalog {
   val runtimeCase: InsertModelCase<TransformerRuntimeEntity> = TransformerRuntimeEntityCase
   val cases: List<RuntimeModelCase<*>> = listOf(runtimeCase)
 
+  fun insertRuntimeValue(value: TransformerRuntimeEntity) = value.copy(
+    id = insertedRowId(
+      result = value
+        .insert()
+        .execute(),
+      modelName = runtimeCase.name
+    )
+  )
+
   private object TransformerRuntimeEntityCase :
     StandardPersistModelCase<TransformerRuntimeEntity>,
     StandardDeleteModelCase<TransformerRuntimeEntity> {
     override val name = "TransformerRuntimeEntity"
     override val table = TRANSFORMER_RUNTIME_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = TransformerRuntimeEntity(
       id = sequence.toLong(),

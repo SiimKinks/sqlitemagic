@@ -7,17 +7,17 @@ import com.siimkinks.sqlitemagic.utils.typeKey
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
 import com.squareup.kotlinpoet.ClassName
 
-enum class IndexKind {
+internal enum class IndexKind {
   COMPOSITE,
   FIELD
 }
 
-data class IndexColumnElement(
+internal data class IndexColumnElement(
   val propertyPath: PropertyPath,
   val columnName: String
 )
 
-data class IndexElement(
+internal data class IndexElement(
   val identity: SqliteSchemaIdentity,
   val tableType: ClassName,
   val tableIdentity: SqliteSchemaIdentity,
@@ -46,7 +46,7 @@ data class IndexElement(
   val tableTypeKey get() = tableType.typeKey()
 }
 
-data class IndexRoundElement(
+internal data class IndexRoundElement(
   val index: IndexElement,
   val originatingFiles: OriginatingFiles
 )

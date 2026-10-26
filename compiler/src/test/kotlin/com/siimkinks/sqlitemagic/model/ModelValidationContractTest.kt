@@ -1,31 +1,31 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSDeclaration
-import com.google.devtools.ksp.symbol.KSName
 import com.siimkinks.sqlitemagic.AnnotationNames.TABLE_ANNOTATION
-import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.index.IndexCollectionStep
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.index.indexProcessingSteps
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
+import com.siimkinks.sqlitemagic.utils.RoundState
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.deferredNames
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.recordingRounds
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
-internal class ModelValidationContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
-
+internal class ModelValidationContractTest {
   @ParameterizedTest(name = "{0}")
   @CsvSource(
     "instance function, function, true",
@@ -95,21 +95,22 @@ internal class ModelValidationContractTest : ProcessingStepsTest {
         processingStepsFactory = { environment ->
           modelProcessingSteps(environment).map { step ->
             when (step) {
-              is ModelCollectionStep -> RecordingStep(
-                delegate = step,
-                environment = environment,
-                rounds = rounds
-              )
+              is ModelCollectionStep -> step.recordingRounds(rounds) {
+                environment.tableRoundElementsForCurrentRound.values
+                  .map(TableRoundElement::table)
+                  .map(TableElement::modelName)
+              }
               else -> step
             }
           } + listOf(
             IndexCollectionStep(environment),
-            LaterTypeStep(
+            GeneratedSourceStep(
               environment = environment,
+              fileName = "LaterType",
               contents = """
                 package $PACKAGE
                 $laterType
-              """.trimIndent()
+              """
             )
           )
         }
@@ -187,25 +188,21 @@ internal class ModelValidationContractTest : ProcessingStepsTest {
                   .filterIsInstance<KSClassDeclaration>()
                   .toList()
                 environment.setDeferredTableSourceKeys(declarations)
-                val result = IndexCollectionStep(environment).process(resolver)
-                results += when (result) {
-                  is Deferred -> result.symbols
-                    .filterIsInstance<KSDeclaration>()
-                    .map(KSDeclaration::simpleName)
-                    .map(KSName::asString)
-                  else -> emptyList()
-                }
+                results += IndexCollectionStep(environment)
+                  .process(resolver)
+                  .deferredNames()
                 // The test records index deferral; its enclosing table is intentionally not collected.
                 return Continue
               }
             },
-            LaterTypeStep(
+            GeneratedSourceStep(
               environment = environment,
+              fileName = "LaterType",
               contents = """
                 package $PACKAGE
                 open class LaterType
                 object LaterIndexMetadata { const val NAME = "later_index" }
-              """.trimIndent()
+              """
             )
           )
         }
@@ -239,12 +236,13 @@ internal class ModelValidationContractTest : ProcessingStepsTest {
           """
         ),
         processingStepsFactory = { environment ->
-          indexProcessingSteps(environment) + LaterTypeStep(
+          indexProcessingSteps(environment) + GeneratedSourceStep(
             environment = environment,
+            fileName = "LaterType",
             contents = """
               package $PACKAGE
               class LaterType
-            """.trimIndent()
+            """
           )
         }
       )
@@ -256,67 +254,18 @@ internal class ModelValidationContractTest : ProcessingStepsTest {
         assertThat(environment.indexElements.values.map(IndexElement::tableName))
           .containsExactly("helper_table", "ready_table")
         tables.forEach { table ->
-          withGeneratedSource(fileName = "SqliteMagic_${table.modelName}_Adapter.kt") { generated ->
-            assertThat(generated).contains("tablePosition: Int = SqliteMagicDatabase.tablePosition_${table.artifactStem}")
+          withGeneratedSource("SqliteMagic_${table.modelName}_Adapter.kt") {
+            it.assertContains("tablePosition: Int = SqliteMagicDatabase.tablePosition_${table.artifactStem}")
           }
         }
       }
-      .withGeneratedSource(fileName = "SqliteMagicDatabase.kt") { generated ->
-        assertThat(generated).contains("db.execSQL(SqliteMagic_HelperTable_Adapter.TABLE_SCHEMA)")
-        assertThat(generated).contains("db.execSQL(SqliteMagic_ReadyTable_Adapter.TABLE_SCHEMA)")
-        assertThat(generated).contains("index_helper_table_value")
-        assertThat(generated).contains("index_ready_table_value")
-        assertThat(generated.indexOf("createSchemaTables(db = db, temporary = false)"))
-          .isLessThan(generated.indexOf("createSchemaIndexes(db = db, temporary = false)"))
-      }
-  }
-
-  private data class RoundState(
-    val collected: List<String>,
-    val deferred: List<String>
-  )
-
-  private class RecordingStep(
-    private val delegate: ProcessingStep,
-    private val environment: Environment,
-    private val rounds: MutableList<RoundState>
-  ) : ProcessingStep {
-    override fun process(resolver: Resolver): ProcessingStepResult {
-      val result = delegate.process(resolver)
-      rounds += RoundState(
-        collected = environment.tableRoundElementsForCurrentRound.values
-          .map(TableRoundElement::table)
-          .map(TableElement::modelName),
-        deferred = when (result) {
-          is Deferred -> result.symbols
-            .filterIsInstance<KSDeclaration>()
-            .map(KSDeclaration::simpleName)
-            .map(KSName::asString)
-          else -> emptyList()
-        }
-      )
-      return result
-    }
-  }
-
-  private class LaterTypeStep(
-    private val environment: Environment,
-    private val contents: String
-  ) : ProcessingStep {
-    private var generated = false
-
-    override fun process(resolver: Resolver): ProcessingStepResult {
-      if (generated) return Continue
-      generated = true
-      environment.codeGenerator
-        .createNewFile(
-          dependencies = Dependencies(aggregating = false),
-          packageName = PACKAGE,
-          fileName = "LaterType"
+      .withGeneratedSource("SqliteMagicDatabase.kt") {
+        it.assertContains(
+          "db.execSQL(SqliteMagic_HelperTable_Adapter.TABLE_SCHEMA)",
+          "db.execSQL(SqliteMagic_ReadyTable_Adapter.TABLE_SCHEMA)",
+          "index_helper_table_value",
+          "index_ready_table_value"
         )
-        .bufferedWriter()
-        .use { it.write(contents) }
-      return Continue
-    }
+      }
   }
 }

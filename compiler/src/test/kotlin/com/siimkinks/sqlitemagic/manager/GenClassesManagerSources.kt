@@ -37,23 +37,3 @@ internal fun schemaTables() = SourceFile.kotlin(
     )
   """
 )
-
-internal fun submoduleDatabase() = SourceFile.kotlin(
-  name = "FeatureDatabase.kt",
-  contents = """
-    package $PACKAGE
-
-    import com.siimkinks.sqlitemagic.annotation.Id
-    import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
-    import com.siimkinks.sqlitemagic.annotation.Table
-
-    @SubmoduleDatabase("feature")
-    class FeatureDatabase
-
-    @Table("feature_items")
-    data class FeatureItem(
-      @Id val id: Long,
-      val name: String
-    )
-  """
-)

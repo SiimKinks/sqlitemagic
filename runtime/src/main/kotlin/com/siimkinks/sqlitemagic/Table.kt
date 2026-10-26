@@ -1,63 +1,33 @@
+@file:Suppress("FunctionName")
+
 package com.siimkinks.sqlitemagic
 
+import android.database.Cursor
 import androidx.annotation.CheckResult
-import androidx.annotation.Size
 import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
 import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
-import com.siimkinks.sqlitemagic.Utils.TABLE_ALL_PARSER
-import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.EntityProperty
+import com.siimkinks.sqlitemagic.internal.GeneratedView
+import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
-import java.util.LinkedList
-
-/** Row mapper for the current selection shape. */
-fun interface TableMapper<T> {
-  operator fun invoke(
-    columnPositions: MutableObjectIntMap<String>?,
-    tableGraphNodeNames: MutableScatterMap<String, String>?,
-    queryDeep: Boolean
-  ): Query.Mapper<T>
-}
-
-/** Contributes one generated table's relationships to a query graph. */
-fun interface TableQueryGraphContributor {
-  fun QueryGraphScope.contribute(
-    table: Table<*>,
-    tableAlias: Table<*>,
-    nodeName: String
-  )
-}
+import com.siimkinks.sqlitemagic.internal.TableRelationship
+import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 
 /**
- * Metadata of a table in a database.
+ * Metadata of a table or view in a database.
  *
- * @param T Table object type
+ * @param T Model type
  */
-open class Table<T> protected constructor(
+open class Table<T> @InternalSqliteMagicApi protected constructor(
   internal val name: String,
   internal val alias: String?,
-  internal val nrOfColumns: Int,
-  internal val mapper: TableMapper<T> = { _, _, _ ->
-    error("Table does not provide row mapping")
-  },
-  internal val addDeepQueryParts: TableQueryGraphContributor = { _, _, _ -> },
-  internal val addShallowQueryParts: TableQueryGraphContributor = { _, _, _ -> },
-  private val viewDefinition: (() -> ViewDefinition)? = null,
   private val generatedView: GeneratedView? = null,
-  private val quoteSqlObjectName: Boolean = generatedView != null || viewDefinition != null,
   internal val temporary: Boolean = false
-) {
-  internal val hasAlias = alias != null
-  private val resolvedViewDefinition get() = generatedView?.definition ?: viewDefinition?.invoke()
-  internal val hasViewDefinitionPositions get() = resolvedViewDefinition?.hasColumnPositions == true
-  internal val nameInQuery = alias ?: name
-  private val sqlObjectName = when {
-    quoteSqlObjectName -> SqlUtil.quoteSqlIdentifier(name)
-    else -> name
-  }
-  internal val sqlQualifier = alias ?: sqlObjectName
+) : Source {
   internal val objectIdentity = generatedView
     ?.identity
     ?: SqliteSchemaIdentity.from(
@@ -68,197 +38,121 @@ open class Table<T> protected constructor(
       rawName = name
     )
 
-  internal open fun addDependencies(destination: QueryDependencies.Builder) {
-    resolvedViewDefinition?.let { definition ->
-      destination.addSource(
-        SqliteQuerySource(
-          identity = objectIdentity,
-          kind = VIEW
-        )
-      )
-      destination.addObservedTables(definition.queryDependencies.observedTables)
-      return
+  private val querySource = SqliteQuerySource(
+    identity = objectIdentity,
+    kind = when (generatedView) {
+      null -> TABLE
+      else -> VIEW
     }
-    destination.addSource(
-      SqliteQuerySource(
-        identity = objectIdentity,
-        kind = TABLE
-      )
-    )
-  }
-
-  private val selectAllColumn = Column<Any, Any, Any, T, NotNullable>(
-    table = this,
-    name = "*",
-    allFromTable = true,
-    valueParser = TABLE_ALL_PARSER,
-    nullable = false,
-    alias = null
   )
 
-  internal open fun appendToSqlFromClause(sb: StringBuilder) {
-    if (name.isNotEmpty()) {
-      sb.append(objectIdentity.schema.qualifier)
-        .append('.')
-    }
-    sb.append(sqlObjectName)
-    if (hasAlias) {
-      sb.append(" AS ")
-        .append(alias)
+  internal val referenceName get() = alias ?: name
+
+  internal open val sqlQualifier = quoteSqlIdentifier(referenceName)
+
+  internal open fun qualifier(context: SqlRenderingContext) = sqlQualifier
+
+  internal val sqlSource = buildString {
+    append(quoteSqlIdentifier(objectIdentity.schema.qualifier))
+    append('.')
+    append(quoteSqlIdentifier(name))
+    if (alias != null) {
+      append(" AS ")
+      append(quoteSqlIdentifier(alias))
     }
   }
+
+  internal open fun renderSource(context: SqlRenderingContext) {
+    context.sql.append(sqlSource)
+    addDependencies(context.dependencies)
+  }
+
+  internal open val isPhysical get() = true
+
+  internal open fun addDependencies(destination: QueryDependencies.Builder) {
+    destination.addSource(querySource)
+    if (generatedView != null) {
+      destination.addObservedTables(generatedView.definition.queryDependencies.observedTables)
+    }
+  }
+
+  @InternalSqliteMagicApi
+  protected open val entityFields: List<Column<T, *, *, *, *, *, *>>? = null
+
+  @InternalSqliteMagicApi
+  protected open val relationships: List<TableRelationship>
+    get() = emptyList()
+
+  @InternalSqliteMagicApi
+  protected open fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?): T =
+    throw UnsupportedOperationException("$name has no generated entity reader")
+
+  @InternalSqliteMagicApi
+  protected open val entityProperties: List<EntityProperty>? = null
 
   /**
-   * Gives a runtime table the opportunity to perfect a selection at build time.
-   *
-   * @param tableGraphNodeNames Selection graph node names
-   * @param columnPositions Column positions in the selection
-   * @return Whether selection should be deep.
+   * [positions] holds the column position of each entity field, or -1 when the field is not selected.
    */
-  internal open fun perfectSelection(
-    tableGraphNodeNames: MutableScatterMap<String, String>?,
-    columnPositions: MutableObjectIntMap<String>?,
-    implicitOffset: Int = 0,
-    implicitSelection: Boolean = columnPositions?.isEmpty() == true
-  ): Boolean {
-    resolvedViewDefinition?.let { definition ->
-      definition.contributeTo(
-        tableIdentifier = nameInQuery,
-        tableGraphNodeNames = tableGraphNodeNames,
-        columnPositions = columnPositions,
-        implicitOffset = implicitOffset,
-        implicitSelection = implicitSelection
-      )
-      return definition.queryDeep
-    }
-    return false
-  }
+  @InternalSqliteMagicApi
+  protected open fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?): T =
+    throw UnsupportedOperationException("$name has no generated partial reader")
 
-  internal fun internalAlias(alias: String) = Table<T>(
-    name = name,
-    alias = alias,
-    nrOfColumns = nrOfColumns,
-    quoteSqlObjectName = quoteSqlObjectName,
-    temporary = temporary
+  internal val partialProperties get() = entityProperties
+
+  internal fun readPartialEntityAt(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = readPartialEntity(
+    cursor = cursor,
+    positions = positions,
+    related = related
+  )
+
+  internal fun selectedEntityFields() = checkNotNull(entityFields) { "$name has no generated entity reader" }
+
+  /**
+   * All columns of this table.
+   *
+   * Use it to select all columns of this table together with other values.
+   *
+   * Example:
+   * ```
+   * SELECT
+   *     .COLUMNS(BOOK.ID, AUTHOR.all())
+   *     .FROM(BOOK)
+   * ```
+   *
+   * @return All columns of this table
+   */
+  fun all() = TableFields(selectedEntityFields())
+
+  internal val tableRelationships get() = relationships
+
+  internal val viewDefinition get() = generatedView?.definition
+
+  internal open val isDefaultHandle get() = alias == null
+
+  internal fun readEntityAt(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = readEntity(
+    cursor = cursor,
+    startIndex = startIndex,
+    related = related
   )
 
   /**
    * Create an alias for this table.
    *
+   * Example:
+   * ```
+   * val peer = AUTHOR AS "peer"
+   * ```
+   *
    * @param alias The alias name
-   * @return New table with provided alias.
+   * @return New table with provided alias
    */
   @CheckResult
-  open fun `as`(alias: String) = Table<T>(
+  open infix fun AS(alias: String) = Table<T>(
     name = name,
     alias = alias,
-    nrOfColumns = nrOfColumns,
-    quoteSqlObjectName = quoteSqlObjectName,
+    generatedView = generatedView,
     temporary = temporary
   )
 
-  /**
-   * All columns from this table (`*`).
-   *
-   * @return Column that represents all columns in this table
-   */
-  fun all() = selectAllColumn
-
-  /**
-   * Create a join `ON` clause.
-   *
-   * @param expr Expression to use in join `ON` clause
-   * @return Join clause
-   */
-  @CheckResult
-  fun on(expr: Expr) = object : JoinClause(
-    table = this@Table,
-    operator = "",
-    constraint = "ON "
-  ) {
-    override fun appendSql(sb: StringBuilder) {
-      super.appendSql(sb)
-      expr.appendToSql(sb)
-    }
-
-    override fun appendSql(
-      sb: StringBuilder,
-      systemRenamedTables: MutableScatterMap<String, LinkedList<String>>
-    ) {
-      super.appendSql(sb, systemRenamedTables)
-      expr.appendToSql(sb, systemRenamedTables)
-    }
-
-    override fun containsColumn(column: Column<*, *, *, *, *>) = expr.containsColumn(column)
-
-    override fun addArgs(args: ArrayList<String?>) {
-      super.addArgs(args)
-      expr.addArgs(args)
-    }
-
-    override fun addDependencies(dependencies: QueryDependencies.Builder) = expr.addDependencies(dependencies)
-  }
-
-  /**
-   * Create a join `USING` clause.
-   *
-   * Each of the columns specified must exist in the datasets to both the left and right
-   * of the join-operator. For each pair of columns, the expression `lhs.X = rhs.X`
-   * is evaluated for each row of the cartesian product as a boolean expression.
-   * Only rows for which all such expressions evaluates to true are included from the
-   * result set. When comparing values as a result of a USING clause, the normal rules
-   * for handling affinities, collation sequences and NULL values in comparisons apply.
-   * The column from the dataset on the left-hand side of the join-operator is considered
-   * to be on the left-hand side of the comparison operator (=) for the purposes of
-   * collation sequence and affinity precedence.
-   *
-   * For each pair of columns identified by a USING clause, the column from the
-   * right-hand dataset is omitted from the joined dataset. This is the only difference
-   * between a USING clause and its equivalent ON constraint.
-   *
-   * @param columns Columns to use in the USING clause
-   * @return Join clause
-   */
-  @CheckResult
-  fun using(
-    @Size(min = 1) vararg columns: Column<*, *, *, *, *>
-  ) = object : JoinClause(
-    table = this@Table,
-    operator = "",
-    constraint = buildString(8 + columns.size * 12) {
-      append("USING (")
-      columns.forEachIndexed { index, column ->
-        if (index > 0) {
-          append(',')
-        }
-        append(column.name)
-      }
-      append(')')
-    }
-  ) {
-    override fun containsColumn(column: Column<*, *, *, *, *>) = column in columns
-
-    override fun addDependencies(dependencies: QueryDependencies.Builder) =
-      columns.forEach { column ->
-        column.addDependencies(dependencies)
-      }
-  }
-
-  internal fun baseNameEquals(other: Any?): Boolean = this === other ||
-      other is Table<*> && objectIdentity.normalizedKey == other.objectIdentity.normalizedKey
-
-  override fun equals(other: Any?): Boolean = this === other ||
-      other is Table<*> && nameInQuery == other.nameInQuery
-
-  override fun hashCode() = nameInQuery.hashCode()
-
   override fun toString() = name
-
-  companion object {
-    val ANONYMOUS_TABLE: Table<*> = Table<Any>(
-      name = "",
-      alias = null,
-      nrOfColumns = 1
-    )
-  }
 }

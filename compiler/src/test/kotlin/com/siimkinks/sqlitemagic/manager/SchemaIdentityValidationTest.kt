@@ -11,27 +11,27 @@ internal class SchemaIdentityValidationTest {
     val conflicts = findSchemaIdentityConflicts(
       structures = listOf(
         "main" to DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "Books" to TableStructure(name = "Books")
           ),
-          indices = linkedMapOf(
+          indices = mapOf(
             "books" to IndexStructure(name = "books")
           ),
-          temporaryTables = linkedMapOf(
+          temporaryTables = mapOf(
             "Cache" to TableStructure(name = "Cache")
           )
         ),
         "feature" to DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "BOOKS" to TableStructure(name = "BOOKS")
           ),
-          indices = linkedMapOf(
+          indices = mapOf(
             "BOOKS" to IndexStructure(name = "BOOKS")
           ),
-          temporaryTables = linkedMapOf(
+          temporaryTables = mapOf(
             "CACHE" to TableStructure(name = "CACHE")
           ),
-          temporaryIndices = linkedMapOf(
+          temporaryIndices = mapOf(
             "cache" to IndexStructure(name = "cache")
           )
         )
@@ -102,37 +102,37 @@ internal class SchemaIdentityValidationTest {
     val conflicts = findSchemaIdentityConflicts(
       structures = listOf(
         "main" to DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "Users" to TableStructure(name = "Users")
           ),
-          indices = linkedMapOf(
+          indices = mapOf(
             "user_index" to IndexStructure(name = "user_index")
           ),
-          views = linkedMapOf(
+          views = mapOf(
             "USERS" to ViewStructure(name = "USERS"),
             "Cache" to ViewStructure(name = "Cache")
           ),
-          temporaryTables = linkedMapOf(
+          temporaryTables = mapOf(
             "Cache" to TableStructure(name = "Cache")
           ),
-          temporaryIndices = linkedMapOf(
+          temporaryIndices = mapOf(
             "cache_index" to IndexStructure(name = "cache_index")
           ),
-          temporaryViews = linkedMapOf(
+          temporaryViews = mapOf(
             "CACHE_INDEX" to ViewStructure(name = "CACHE_INDEX")
           )
         ),
         "feature" to DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "users" to TableStructure(name = "users")
           ),
-          indices = linkedMapOf(
+          indices = mapOf(
             "USERS" to IndexStructure(name = "USERS")
           ),
-          views = linkedMapOf(
+          views = mapOf(
             "USER_INDEX" to ViewStructure(name = "USER_INDEX")
           ),
-          temporaryViews = linkedMapOf(
+          temporaryViews = mapOf(
             "cache" to ViewStructure(name = "cache")
           )
         )

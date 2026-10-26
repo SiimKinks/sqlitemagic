@@ -20,10 +20,24 @@ dependencies {
   testImplementation libs.junit
   testImplementation libs.mockito.kotlin
   testImplementation libs.truth
+  testImplementation libs.android.sqlite.bundled.jvm
 
   mockitoAgent(libs.mockito) {
     transitive = false
   }
+}
+
+kotlin {
+  compilerOptions {
+    optIn.add('com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi')
+  }
+  abiValidation {
+    enabled = true
+  }
+}
+
+tasks.named('check') {
+  dependsOn(kotlin.abiValidation.checkTaskProvider)
 }
 
 tasks.withType(Jar).configureEach {

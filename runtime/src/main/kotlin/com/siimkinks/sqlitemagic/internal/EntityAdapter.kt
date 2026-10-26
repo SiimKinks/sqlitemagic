@@ -1,12 +1,20 @@
 package com.siimkinks.sqlitemagic.internal
 
-import com.siimkinks.sqlitemagic.Column
-import com.siimkinks.sqlitemagic.NotNullable
+import com.siimkinks.sqlitemagic.Unique
+import com.siimkinks.sqlitemagic.UniqueColumn
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 
-internal typealias IdentityColumn<M> = Column<*, *, *, M, NotNullable>
+internal fun EntityAdapterMetadata.identityColumnName(column: Unique<*>) = when (column) {
+  is UniqueColumn<*, *, *, *, *, *, *> -> {
+    require(column.table.name == tableName) { "Column does not identify an entity property" }
+    column.name
+  }
+}
 
+internal fun <M> EntityAdapter<M>.recursiveOrNull() = this as? EntityRecursiveAdapter<M>
+
+@InternalSqliteMagicApi
 interface EntityAdapterMetadata {
   val moduleName: String?
   val tableName: String
@@ -16,6 +24,7 @@ interface EntityAdapterMetadata {
   val maxColumns: Int
 }
 
+@InternalSqliteMagicApi
 interface EntityRecursiveAdapter<M> : EntityAdapter<M> {
   val triggerTableNames: Array<String>
 
@@ -35,9 +44,8 @@ interface EntityRecursiveAdapter<M> : EntityAdapter<M> {
   ): Boolean
 }
 
+@InternalSqliteMagicApi
 interface EntityRelationshipOperations {
-  val ignoreNullValues: Boolean
-
   fun <M> insert(
     adapter: EntityDefaultIdentityAdapter<M>,
     entity: M
@@ -59,27 +67,32 @@ interface EntityRelationshipOperations {
   )
 }
 
+@InternalSqliteMagicApi
 interface EntityAdapter<M> : EntityAdapterMetadata, EntityStatementBinder<M>
 
+@InternalSqliteMagicApi
 interface EntityIdentityAdapter<M> : EntityAdapter<M>, EntityIdentityStatementBinder<M> {
+  /** The stored value of the identity column [columnName], as the statement binders bind it. */
   fun identity(
     entity: M,
-    byColumn: IdentityColumn<M>
-  ): GeneratedEntityIdentity
+    columnName: String
+  ): Any
 
   fun hasIdentityValue(
     entity: M,
-    byColumn: IdentityColumn<M>
+    columnName: String
   ): Boolean
 
-  fun updateStatementSql(byColumn: IdentityColumn<M>): String
+  fun updateStatementSql(columnName: String): String
 }
 
+@InternalSqliteMagicApi
 interface EntityDefaultIdentityAdapter<M> : EntityIdentityAdapter<M> {
-  val defaultIdentityColumn: IdentityColumn<M>
+  val defaultIdentityColumnName: String
 }
 
-interface EntityGeneratedIdAdapter<M> {
+@InternalSqliteMagicApi
+interface EntityGeneratedIdAdapter<M> : EntityAdapter<M> {
   fun assignGeneratedId(
     entity: M,
     rowId: Long

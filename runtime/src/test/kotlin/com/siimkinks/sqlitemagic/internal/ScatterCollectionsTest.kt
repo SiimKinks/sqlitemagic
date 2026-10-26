@@ -6,9 +6,9 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import kotlin.random.Random
 
-class ScatterCollectionsTest {
+internal class ScatterCollectionsTest {
   @Test
-  fun primitiveMapNullableLookupPreservesAllStoredIntegers() {
+  fun `primitive map nullable lookup preserves all stored integers`() {
     val map: ObjectIntMap<String> = MutableObjectIntMap<String>().apply {
       this["zero"] = 0
       this["positive"] = 42
@@ -34,7 +34,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun orderedSetToTypedArrayPreservesOrderNullsAndRuntimeComponentType() {
+  fun `ordered set toTypedArray preserves order, nulls and runtime component type`() {
     val cases = mapOf(
       "empty" to emptyArray<String?>(),
       "ordered" to arrayOf<String?>("second", "first", "third"),
@@ -57,7 +57,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun scatterMapMatchesReferenceThroughCollisionDeletionAndGrowthTraces() {
+  fun `scatter map matches reference through collision, deletion and growth traces`() {
     traceCases.forEach { case ->
       val actual = MutableScatterMap<CollisionKey?, String?>(case.initialCapacity)
       val expected = mutableMapOf<CollisionKey?, String?>()
@@ -106,7 +106,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun primitiveMapMatchesReferenceIncludingZeroAndMissingValues() {
+  fun `primitive map matches reference including zero and missing values`() {
     traceCases.forEach { case ->
       val actual = MutableObjectIntMap<CollisionKey?>(case.initialCapacity)
       val expected = mutableMapOf<CollisionKey?, Int>()
@@ -150,7 +150,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun scatterSetMatchesReferenceThroughCollisionDeletionAndGrowthTraces() {
+  fun `scatter set matches reference through collision, deletion and growth traces`() {
     traceCases.forEach { case ->
       val actual = MutableScatterSet<CollisionKey?>(case.initialCapacity)
       val expected = mutableSetOf<CollisionKey?>()
@@ -179,7 +179,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun orderedSetMatchesInsertionOrderThroughDeletionReinsertionAndGrowthTraces() {
+  fun `ordered set matches insertion order through deletion, reinsertion and growth traces`() {
     traceCases.forEach { case ->
       val actual = MutableOrderedScatterSet<CollisionKey?>(case.initialCapacity)
       val expected = linkedSetOf<CollisionKey?>()
@@ -208,7 +208,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun orderedSetDuplicateInsertionPreservesAllNodeLinksAndInsertionOrder() {
+  fun `ordered set duplicate insertion preserves all node links and insertion order`() {
     val duplicates = mapOf(
       "first" to "first",
       "middle" to "middle",
@@ -237,7 +237,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun integralFloatHashesSpreadAcrossMetadataTags() {
+  fun `integral float hashes spread across metadata tags`() {
     val tags = (1..256)
       .map(Int::toFloat)
       .map(::hash)
@@ -249,7 +249,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun nativeTraversalVisitsEachLiveSlotOnceAndAllowsRemovingCurrentEntry() {
+  fun `native traversal visits each live slot once and allows removing current entry`() {
     mapOf(
       "empty lazy storage" to 0,
       "single live slot" to 1,
@@ -353,7 +353,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun readOnlySetViewReflectsNativeMutationsAndComparesEqualViews() {
+  fun `read-only set view reflects native mutations and compares equal views`() {
     val set = MutableScatterSet<String?>().apply { addAll(arrayOf("Aa", "BB", null)) }
     val view = set.asSet()
     val equalSet = MutableScatterSet<String?>().apply { addAll(arrayOf(null, "BB", "Aa")) }
@@ -373,7 +373,7 @@ class ScatterCollectionsTest {
   }
 
   @Test
-  fun clearRetainsBackingStorageForReuse() {
+  fun `clear retains backing storage for reuse`() {
     val map = MutableScatterMap<Int, Int>(0)
     val primitiveMap = MutableObjectIntMap<Int>(0)
     val set = MutableScatterSet<Int>(0)

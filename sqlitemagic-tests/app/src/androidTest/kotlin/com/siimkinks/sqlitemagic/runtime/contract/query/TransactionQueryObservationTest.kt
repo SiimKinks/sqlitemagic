@@ -7,12 +7,16 @@ import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog.observeMatchingValues
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 
-class TransactionQueryObservationTest : RuntimeDatabaseTest() {
+internal class TransactionQueryObservationTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun nestedSameTableCommitEmitsOnlyFinalResult() {
     val stringRows = listOf(

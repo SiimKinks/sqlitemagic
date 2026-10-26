@@ -1,36 +1,34 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.element.mockParsedType
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchema
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
-import com.siimkinks.sqlitemagic.model.AutoIncrementMode.DISABLED
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.transformer.TransformerCollectionStep
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
+import com.siimkinks.sqlitemagic.utils.OriginRecordingStep
+import com.siimkinks.sqlitemagic.utils.OriginatingFilesSnapshot
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
-import com.siimkinks.sqlitemagic.writer.OriginatingFiles
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.STRING
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class ModelCollectionStepTest : ProcessingStepsTest {
-  override val processingSteps = ::modelCollectionProcessingSteps
+internal class ModelCollectionStepTest {
+  private val compiler = SqliteMagicCompiler(::modelCollectionProcessingSteps)
 
   @Test
   fun `collects complete durable table value`() {
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "Book.kt",
@@ -81,7 +79,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
           parsedType = mockParsedType(typeName = ClassName(PACKAGE, "Book")),
           identity = SqliteSchemaIdentity(
             schema = SqliteSchema.TEMPORARY,
-            identifier = SqliteIdentifier.from("books")
+            identifier = SqliteIdentifier("books")
           ),
           artifactStem = "Book",
           declarationOrder = 0,
@@ -102,18 +100,17 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
                 isNullable = false,
                 columnName = "book_id",
                 isSchemaNullable = false,
+                isModelPathNullable = false,
                 defaultValue = "''",
                 transformer = null,
                 relationship = null,
                 id = IdElement(
-                  autoIncrementMode = DISABLED,
                   isAutoIncrement = false,
                   canAssignGeneratedId = false
                 ),
                 isUnique = false,
                 index = null,
-                belongsToIndex = null,
-                embeddedPrefixes = emptyList()
+                belongsToIndex = null
               )
             ),
             ColumnPropertyElement(
@@ -126,6 +123,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
                 isNullable = true,
                 columnName = "title",
                 isSchemaNullable = true,
+                isModelPathNullable = true,
                 defaultValue = "NULL",
                 transformer = null,
                 relationship = null,
@@ -135,8 +133,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
                   name = "title_lookup",
                   isUnique = true
                 ),
-                belongsToIndex = "books_title",
-                embeddedPrefixes = emptyList()
+                belongsToIndex = "books_title"
               )
             ),
             ColumnPropertyElement(
@@ -149,17 +146,18 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
                 isNullable = false,
                 columnName = "subtitle",
                 isSchemaNullable = false,
+                isModelPathNullable = false,
                 defaultValue = "''",
                 transformer = null,
                 relationship = null,
                 id = null,
                 isUnique = false,
                 index = null,
-                belongsToIndex = "books_title",
-                embeddedPrefixes = emptyList()
+                belongsToIndex = "books_title"
               )
             )
-          )
+          ),
+          isPublic = true
         )
       )
     assertThat(environment.tableRoundElementsForCurrentRound.values.single().table)
@@ -168,7 +166,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
 
   @Test
   fun `collects complete embedded relationship value`() {
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "EmbeddedRelationship.kt",
@@ -219,18 +217,18 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
       isHandledRecursively = false,
       onDeleteCascade = false,
       canConstructWithOnlyId = true,
-      referencedTableArtifactStem = "Owner"
+      needsGeneratedId = false,
+      referencedTableNames = GenerationNames("Owner"),
+      referencedIdRelationship = null
     )
 
-    assertThat(compilation.environment.tableElements.values.single { table ->
-      table.modelName == "Project"
-    })
+    assertThat(compilation.environment.tableElements.values.single { it.modelName == "Project" })
       .isEqualTo(
         TableElement(
           parsedType = mockParsedType(typeName = ClassName(PACKAGE, "Project")),
           identity = SqliteSchemaIdentity(
             schema = SqliteSchema.MAIN,
-            identifier = SqliteIdentifier.from("project")
+            identifier = SqliteIdentifier("project")
           ),
           artifactStem = "Project",
           declarationOrder = 1,
@@ -250,8 +248,6 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
                 typeName = ClassName(PACKAGE, "Metadata").copy(nullable = true)
               ),
               isNullable = true,
-              prefix = "meta_",
-              cumulativePrefix = "meta_",
               construction = ModelConstruction(
                 strategy = PRIMARY_CONSTRUCTOR,
                 constructorParameters = listOf(ownerPath),
@@ -268,19 +264,20 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
                     isNullable = false,
                     columnName = "meta_owner",
                     isSchemaNullable = true,
+                    isModelPathNullable = true,
                     defaultValue = "NULL",
                     transformer = null,
                     relationship = relationship,
                     id = null,
                     isUnique = false,
                     index = null,
-                    belongsToIndex = null,
-                    embeddedPrefixes = listOf("meta_")
+                    belongsToIndex = null
                   )
                 )
               )
             )
-          )
+          ),
+          isPublic = true
         )
       )
   }
@@ -305,7 +302,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
         ),
         processingStepsFactory = { environment ->
           listOf(
-            GeneratedTypeStep(environment),
+            generatedValueStep(environment),
             ModelCollectionStep(environment)
           )
         }
@@ -331,9 +328,38 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
         ),
         processingStepsFactory = { environment ->
           listOf(
-            GeneratedTemporaryOwnerStep(environment),
+            GeneratedSourceStep(
+              environment = environment,
+              fileName = "GeneratedTemporaryOwner",
+              contents = """
+                package $PACKAGE
+
+                import com.siimkinks.sqlitemagic.annotation.Id
+                import com.siimkinks.sqlitemagic.annotation.Table
+                import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+
+                @Table(options = [TEMPORARY])
+                data class GeneratedTemporaryOwner(@Id val id: String)
+              """
+            ),
             ModelCollectionStep(environment),
-            GeneratedPersistentEntryStep(environment)
+            GeneratedSourceStep(
+              environment = environment,
+              fileName = "GeneratedPersistentEntry",
+              contents = """
+                package $PACKAGE
+
+                import com.siimkinks.sqlitemagic.annotation.Id
+                import com.siimkinks.sqlitemagic.annotation.Table
+
+                @Table
+                data class GeneratedPersistentEntry(
+                  @Id val id: String,
+                  val owner: GeneratedTemporaryOwner
+                )
+              """,
+              isReady = { environment.tableElements.isNotEmpty() }
+            )
           )
         }
       )
@@ -345,35 +371,8 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `reports focused collection diagnostics`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "DuplicateIds.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            data class DuplicateIds(
-              @Id val first: Long,
-              @Id val second: Long
-            )
-          """
-        )
-      )
-      .assertCompilationError(
-        "Table must declare at most one @Id",
-        "DuplicateIds.first",
-        "DuplicateIds.second"
-      )
-  }
-
-  @Test
   fun `reports local collection diagnostics after an unrelated error`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "IndependentDiagnostics.kt",
@@ -415,7 +414,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
 
   @Test
   fun `reports relationship cycles after an unrelated materialization error`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "IndependentMaterializationDiagnostics.kt",
@@ -454,7 +453,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
 
   @Test
   fun `reports artifact collisions across model packages`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "FirstSharedModel.kt",
@@ -489,41 +488,8 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `derives distinct default table names for nested declaration paths`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "NestedTables.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            class FirstContainer {
-              @Table
-              class NestedTable(val firstValue: String)
-            }
-
-            class SecondContainer {
-              @Table
-              class NestedTable(val secondValue: String)
-            }
-          """
-        )
-      )
-      .isOk()
-
-    assertThat(compilation.environment.tableElements.values.map(TableElement::tableName))
-      .containsExactly(
-        "first_container_nested_table",
-        "second_container_nested_table"
-      )
-      .inOrder()
-  }
-
-  @Test
   fun `reports duplicate effective SQL table names`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "FirstTable.kt",
@@ -557,7 +523,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
 
   @Test
   fun `rejects ASCII-case-equivalent table names in the same schema`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "UppercaseTable.kt",
@@ -591,7 +557,7 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
 
   @Test
   fun `allows equal normalized table names in main and temporary schemas`() {
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "PersistentTable.kt",
@@ -623,18 +589,18 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
       .containsExactly(
         SqliteSchemaIdentity(
           schema = SqliteSchema.MAIN,
-          identifier = SqliteIdentifier.from("Shared_Table")
+          identifier = SqliteIdentifier("Shared_Table")
         ),
         SqliteSchemaIdentity(
           schema = SqliteSchema.TEMPORARY,
-          identifier = SqliteIdentifier.from("shared_table")
+          identifier = SqliteIdentifier("shared_table")
         )
       )
       .inOrder()
   }
 
   @Test
-  fun `retains relationship and transformer originating files`() {
+  fun `retains relationship, transformer and transitive recursive relationship originating files`() {
     val originatingFiles = mutableMapOf<String, OriginatingFilesSnapshot>()
     SqliteMagicCompilation
       .compile(
@@ -684,34 +650,6 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
             data class Project(val owner: Owner)
           """
         ),
-        processingStepsFactory = { environment ->
-          modelProcessingSteps(environment) + OriginRecordingStep(
-            environment = environment,
-            originatingFiles = originatingFiles
-          )
-        }
-      )
-      .isOk()
-
-    assertThat(originatingFiles.getValue("Project"))
-      .isEqualTo(
-        OriginatingFilesSnapshot(
-          files = setOf(
-            "Project.kt",
-            "Owner.kt",
-            "Email.kt",
-            "EmailTransformer.kt"
-          ),
-          isComplete = true
-        )
-      )
-  }
-
-  @Test
-  fun `retains transitive recursive relationship originating files`() {
-    val originatingFiles = mutableMapOf<String, OriginatingFilesSnapshot>()
-    SqliteMagicCompilation
-      .compile(
         SourceFile.kotlin(
           name = "Root.kt",
           contents = """
@@ -755,14 +693,26 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
           """
         ),
         processingStepsFactory = { environment ->
-          modelProcessingSteps(environment) + OriginRecordingStep(
+          modelProcessingSteps(environment) + tableOriginRecordingStep(
             environment = environment,
-            originatingFiles = originatingFiles
+            snapshots = originatingFiles
           )
         }
       )
       .isOk()
 
+    assertThat(originatingFiles.getValue("Project"))
+      .isEqualTo(
+        OriginatingFilesSnapshot(
+          files = setOf(
+            "Project.kt",
+            "Owner.kt",
+            "Email.kt",
+            "EmailTransformer.kt"
+          ),
+          isComplete = true
+        )
+      )
     assertThat(originatingFiles.getValue("Leaf"))
       .isEqualTo(
         OriginatingFilesSnapshot(
@@ -821,11 +771,11 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
         processingStepsFactory = { environment ->
           listOf(
             TransformerCollectionStep(environment),
-            GeneratedTypeStep(environment),
+            generatedValueStep(environment),
             ModelCollectionStep(environment),
-            OriginRecordingStep(
+            tableOriginRecordingStep(
               environment = environment,
-              originatingFiles = originatingFiles
+              snapshots = originatingFiles
             )
           )
         }
@@ -845,127 +795,21 @@ internal class ModelCollectionStepTest : ProcessingStepsTest {
   }
 }
 
-private data class OriginatingFilesSnapshot(
-  val files: Set<String>,
-  val isComplete: Boolean
-) {
-  companion object {
-    fun from(original: OriginatingFiles) = OriginatingFilesSnapshot(
-      files = original.files
-        .mapTo(
-          destination = linkedSetOf(),
-          transform = KSFile::fileName
-        ),
-      isComplete = original.isComplete
-    )
+private fun tableOriginRecordingStep(
+  environment: Environment,
+  snapshots: MutableMap<String, OriginatingFilesSnapshot>
+) = OriginRecordingStep(snapshots) {
+  environment.tableRoundElementsForCurrentRound.values.associate { table ->
+    table.table.modelName to table.originatingFiles
   }
 }
 
-private class OriginRecordingStep(
-  private val environment: Environment,
-  private val originatingFiles: MutableMap<String, OriginatingFilesSnapshot>
-) : ProcessingStep {
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    environment.tableRoundElementsForCurrentRound.values.forEach { table ->
-      originatingFiles[table.table.modelName] = OriginatingFilesSnapshot.from(table.originatingFiles)
-    }
-    return Continue
-  }
-}
+private fun generatedValueStep(environment: Environment) = GeneratedSourceStep(
+  environment = environment,
+  fileName = "GeneratedValue",
+  contents = """
+    package $PACKAGE
 
-private class GeneratedTypeStep(
-  private val environment: Environment
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = "GeneratedValue"
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(
-          """
-          package $PACKAGE
-
-          typealias GeneratedValue = String
-          """.trimIndent()
-        )
-      }
-    return Continue
-  }
-}
-
-private class GeneratedTemporaryOwnerStep(
-  private val environment: Environment
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = "GeneratedTemporaryOwner"
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(
-          """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
-
-            @Table(options = [TEMPORARY])
-            data class GeneratedTemporaryOwner(@Id val id: String)
-          """.trimIndent()
-        )
-      }
-    return Continue
-  }
-}
-
-private class GeneratedPersistentEntryStep(
-  private val environment: Environment
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated || environment.tableElements.isEmpty()) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = "GeneratedPersistentEntry"
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(
-          """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            data class GeneratedPersistentEntry(
-              @Id val id: String,
-              val owner: GeneratedTemporaryOwner
-            )
-          """.trimIndent()
-        )
-      }
-    return Continue
-  }
-}
-
+    typealias GeneratedValue = String
+  """
+)

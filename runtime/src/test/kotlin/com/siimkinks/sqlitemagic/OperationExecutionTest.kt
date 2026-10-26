@@ -6,88 +6,42 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityAdapterMetadata
 import io.reactivex.observers.TestObserver
+import io.reactivex.plugins.RxJavaPlugins
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.util.concurrent.CancellationException
 
 internal class OperationExecutionTest {
   @Test
-  fun `successful bulk operation completes`() {
-    executeBulkRxOperation(
-      contextFactory = ::context,
-      operation = { _, _ -> BulkOperationOutcome.APPLIED }
-    )
-      .test()
-      .assertResult()
-  }
+  fun `bulk outcomes complete unless the operation failed`() {
+    BulkOperationOutcome.entries.forEach { outcome ->
+      val observer = executeBulkRxOperation(
+        contextFactory = ::context,
+        operation = { _, _ -> outcome }
+      )
+        .test()
+        .withTag(outcome.name)
 
-  @Test
-  fun `unsuccessful bulk operation emits operation failure`() {
-    executeBulkRxOperation(
-      contextFactory = ::context,
-      operation = { _, _ -> BulkOperationOutcome.FAILED }
-    )
-      .test()
-      .assertFailure(OperationFailedException::class.java)
-  }
-
-  @Test
-  fun `failed bulk operation emits operation failure when conflicts are ignored`() {
-    executeBulkRxOperation(
-      contextFactory = { context(conflictAlgorithm = CONFLICT_IGNORE) },
-      operation = { _, _ -> BulkOperationOutcome.FAILED }
-    )
-      .test()
-      .assertFailure(OperationFailedException::class.java)
-  }
-
-  @Test
-  fun `empty bulk operation completes`() {
-    executeBulkRxOperation(
-      contextFactory = ::context,
-      operation = { _, _ -> BulkOperationOutcome.EMPTY }
-    )
-      .test()
-      .assertResult()
-  }
-
-  @Test
-  fun `ignored bulk operation completes`() {
-    executeBulkRxOperation(
-      contextFactory = ::context,
-      operation = { _, _ -> BulkOperationOutcome.IGNORED }
-    )
-      .test()
-      .assertResult()
+      when (outcome) {
+        BulkOperationOutcome.FAILED -> observer.assertFailure(OperationFailedException::class.java)
+        else -> observer.assertResult()
+      }
+    }
   }
 
   @Test
   fun `bulk operation checks cancellation after the final entity`() {
     val connection = newConnection()
-    val entity = TestEntity(
-      id = "id-1",
-      key = "key-1",
-      name = "name"
-    )
     var cancelled = false
-    var iteratorRequested = false
-    val entities = object : Iterable<TestEntity> {
-      override fun iterator() = object : Iterator<TestEntity> {
-        private var index = 0
-
-        override fun hasNext(): Boolean {
-          if (index == 1) {
-            cancelled = true
-          }
-          return index == 0
+    val entities = oneShotIterable(
+      Iterable {
+        iterator {
+          yield(TestEntity())
+          cancelled = true
         }
-
-        override fun next() = entity.also { index++ }
-      }.also {
-        check(!iteratorRequested) { "Iterator requested more than once" }
-        iteratorRequested = true
       }
-    }
-    val cancellation = try {
+    )
+    assertThrows(CancellationException::class.java) {
       executeBulkOperation(
         adapter = TestAdapter(),
         entities = entities,
@@ -95,12 +49,8 @@ internal class OperationExecutionTest {
         isCancelled = { cancelled },
         operation = { BulkEntityOutcome.APPLIED }
       )
-      null
-    } catch (exception: CancellationException) {
-      exception
     }
 
-    assertThat(cancellation).isNotNull()
     assertThat(connection.transactionResult(Unit))
       .isEqualTo(
         TransactionResult(
@@ -116,16 +66,10 @@ internal class OperationExecutionTest {
   fun `bulk operation rethrows entity failure when conflicts are ignored`() {
     val connection = newConnection()
     val expected = OperationFailedException("expected failure")
-    val actual = try {
+    val actual = assertThrows(OperationFailedException::class.java) {
       executeBulkOperation(
         adapter = TestAdapter(),
-        entities = listOf(
-          TestEntity(
-            id = "id-1",
-            key = "key-1",
-            name = "name"
-          )
-        ),
+        entities = listOf(TestEntity()),
         context = contextFor(
           connection = connection.connection,
           conflictAlgorithm = CONFLICT_IGNORE
@@ -133,9 +77,6 @@ internal class OperationExecutionTest {
         isCancelled = { false },
         operation = { throw expected }
       )
-      null
-    } catch (exception: OperationFailedException) {
-      exception
     }
 
     assertThat(actual).isSameInstanceAs(expected)
@@ -164,27 +105,34 @@ internal class OperationExecutionTest {
 
   @Test
   fun `cancellation exception after disposal is suppressed`() {
-    val observer = TestObserver<Void>()
+    val pluginErrors = mutableListOf<Throwable>()
+    RxJavaPlugins.setErrorHandler(pluginErrors::add)
+    try {
+      val observer = TestObserver<Void>()
+      var cancelled = false
 
-    executeBulkRxOperation(
-      contextFactory = ::context,
-      operation = { _, isCancelled ->
-        observer.dispose()
-        assertThat(isCancelled()).isTrue()
-        throw CancellationException()
-      }
-    ).subscribe(observer)
+      executeBulkRxOperation(
+        contextFactory = ::context,
+        operation = { _, isCancelled ->
+          observer.dispose()
+          cancelled = isCancelled()
+          throw CancellationException()
+        }
+      )
+        .subscribe(observer)
 
-    observer.assertEmpty()
+      observer.assertEmpty()
+      assertThat(cancelled).isTrue()
+      assertThat(pluginErrors).isEmpty()
+    } finally {
+      RxJavaPlugins.reset()
+    }
   }
 
-  private fun context(conflictAlgorithm: Int = CONFLICT_NONE) = contextFor(
-    connection = newConnection().connection,
-    conflictAlgorithm = conflictAlgorithm
-  )
+  private fun context() = contextFor(newConnection().connection)
 
   private fun contextFor(
-    connection: DbConnection,
+    connection: DbConnectionImpl,
     conflictAlgorithm: Int = CONFLICT_NONE
   ) = OperationContext(
     adapter = metadata,

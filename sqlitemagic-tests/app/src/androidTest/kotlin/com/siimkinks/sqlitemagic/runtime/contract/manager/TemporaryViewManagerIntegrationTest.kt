@@ -1,20 +1,20 @@
+@file:OptIn(InternalSqliteMagicApi::class)
+
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
-import com.siimkinks.sqlitemagic.GeneratedView
 import com.siimkinks.sqlitemagic.MainSessionValueTable.Companion.MAIN_SESSION_VALUE
 import com.siimkinks.sqlitemagic.MainSessionViewTable.Companion.MAIN_SESSION_VIEW
 import com.siimkinks.sqlitemagic.PersistentSourceSessionViewTable.Companion.PERSISTENT_SOURCE_SESSION_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SqlUtil
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.SubmoduleSessionValueTable.Companion.SUBMODULE_SESSION_VALUE
 import com.siimkinks.sqlitemagic.SubmoduleSessionViewTable.Companion.SUBMODULE_SESSION_VIEW
-import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.TemporaryDependencyOuterViewTable.Companion.TEMPORARY_DEPENDENCY_OUTER_VIEW
 import com.siimkinks.sqlitemagic.fixture.model.MainSessionValue
 import com.siimkinks.sqlitemagic.fixture.view.MainSessionView
@@ -23,18 +23,26 @@ import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.fixture.view.TemporaryDependencyOuterView
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.internal.GeneratedSchema
+import com.siimkinks.sqlitemagic.internal.GeneratedView
+import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
+import com.siimkinks.sqlitemagic.internal.SqlUtil
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleSessionValue
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleSessionView
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.PrefixFailingDatabase
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_MASTER
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_TEMP_MASTER
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
-import com.siimkinks.sqlitemagic.runtime.support.mainSchemaObjectNames
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
-import com.siimkinks.sqlitemagic.runtime.support.temporarySchemaObjectNames
+import com.siimkinks.sqlitemagic.runtime.support.readableDatabase
+import com.siimkinks.sqlitemagic.runtime.support.schemaObjectNames
 import com.siimkinks.sqlitemagic.runtime.support.withEmptyDatabase
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
 
 private const val DATABASE_NAME = "temporary-view-manager-integration.db"
@@ -43,7 +51,10 @@ private const val SCHEMA_DATABASE_NAME = "temporary-view-schema-integration.db"
 private const val FAILURE_DATABASE_NAME = "temporary-view-failure-integration.db"
 private const val LIFETIME_DATABASE_NAME = "temporary-view-lifetime-integration.db"
 
-class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
+internal class TemporaryViewManagerIntegrationTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun temporaryViewReadsPersistentViewThroughAnotherTemporaryView() =
     withNamedDatabase(databaseName = DATABASE_NAME) { application ->
@@ -52,13 +63,14 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
         databaseName = DATABASE_NAME
       ).use { connection ->
         assertThat(
-          temporarySchemaObjectNames(
-            connection = connection,
-            type = "view"
+          schemaObjectNames(
+            master = SQLITE_TEMP_MASTER,
+            type = "view",
+            database = connection.readableDatabase
           )
         ).containsAtLeast("a_temporary_dependency_outer", "z_temporary_dependency_middle")
 
-        assertSeedInserted(
+        insertedResult(
           result = QueryCompositionAuthor(
             id = 93L,
             name = "Ada"
@@ -86,27 +98,31 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
         databaseName = DATABASE_NAME
       ).use { connection ->
         assertThat(
-          temporarySchemaObjectNames(
-            connection = connection,
-            type = "view"
+          schemaObjectNames(
+            master = SQLITE_TEMP_MASTER,
+            type = "view",
+            database = connection.readableDatabase
           )
         ).containsAtLeast("main_session_view", "persistent_source_session_view", "submodule_session_view")
         assertThat(
-          mainSchemaObjectNames(
-            connection = connection,
-            type = "view"
+          schemaObjectNames(
+            master = SQLITE_MASTER,
+            type = "view",
+            database = connection.readableDatabase
           )
         ).containsNoneOf("main_session_view", "persistent_source_session_view", "submodule_session_view")
         assertThat(
-          temporarySchemaObjectNames(
-            connection = connection,
-            type = "table"
+          schemaObjectNames(
+            master = SQLITE_TEMP_MASTER,
+            type = "table",
+            database = connection.readableDatabase
           )
         ).containsAtLeast("main_session_value", "submodule_session_value")
         assertThat(
-          temporarySchemaObjectNames(
-            connection = connection,
-            type = "index"
+          schemaObjectNames(
+            master = SQLITE_TEMP_MASTER,
+            type = "index",
+            database = connection.readableDatabase
           )
         ).containsAtLeast("main_session_value_index", "submodule_session_value_index")
       }
@@ -132,21 +148,21 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
           id = 42L,
           name = "reopen persistent"
         )
-        assertSeedInserted(
+        insertedResult(
           result = main
             .insert()
             .usingConnection(connection)
             .execute(),
           modelName = "MainSessionValue"
         )
-        assertSeedInserted(
+        insertedResult(
           result = submodule
             .insert()
             .usingConnection(connection)
             .execute(),
           modelName = "SubmoduleSessionValue"
         )
-        assertSeedInserted(
+        insertedResult(
           result = persistent
             .insert()
             .usingConnection(connection)
@@ -177,34 +193,29 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
           )
         )
         assertThat(
-          Select.from(MAIN_SESSION_VIEW)
+          SELECT
+            .FROM(MAIN_SESSION_VIEW)
             .execute()
         ).isEmpty()
         assertThat(
-          Select.from(SUBMODULE_SESSION_VIEW)
+          SELECT
+            .FROM(SUBMODULE_SESSION_VIEW)
             .execute()
         ).isEmpty()
         assertThat(
-          Select.from(QUERY_COMPOSITION_AUTHOR)
+          SELECT
+            .FROM(QUERY_COMPOSITION_AUTHOR)
             .execute()
         ).isEmpty()
 
-        val version = scalar(
-          connection = connection,
-          sql = "PRAGMA user_version"
-        )
+        val version = connection.readableDatabase.version
         connection.close()
         connection = openNamedConnection(
           application = application,
           databaseName = DATABASE_NAME
         )
 
-        assertThat(
-          scalar(
-            connection = connection,
-            sql = "PRAGMA user_version"
-          )
-        ).isEqualTo(version)
+        assertThat(connection.readableDatabase.version).isEqualTo(version)
         assertThat(
           captureRows(
             table = MAIN_SESSION_VALUE,
@@ -241,9 +252,10 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
           )
         )
         assertThat(
-          temporarySchemaObjectNames(
-            connection = connection,
-            type = "index"
+          schemaObjectNames(
+            master = SQLITE_TEMP_MASTER,
+            type = "index",
+            database = connection.readableDatabase
           )
         ).containsAtLeast("main_session_value_index", "submodule_session_value_index")
       } finally {
@@ -263,21 +275,24 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
       SqliteMagicDatabase().createTemporarySchema(database)
 
       assertThat(
-        temporarySchemaObjectNames(
-          database = database,
-          type = "table"
+        schemaObjectNames(
+          master = SQLITE_TEMP_MASTER,
+          type = "table",
+          database = database
         )
       ).contains("application_session_table")
       assertThat(
-        temporarySchemaObjectNames(
-          database = database,
-          type = "view"
+        schemaObjectNames(
+          master = SQLITE_TEMP_MASTER,
+          type = "view",
+          database = database
         )
       ).contains("application_session_view")
       assertThat(
-        temporarySchemaObjectNames(
-          database = database,
-          type = "view"
+        schemaObjectNames(
+          master = SQLITE_TEMP_MASTER,
+          type = "view",
+          database = database
         )
       ).containsAtLeast("main_session_view", "persistent_source_session_view", "submodule_session_view")
     }
@@ -300,15 +315,17 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
       assertThat(actual)
         .isSameInstanceAs(expected)
       assertThat(
-        temporarySchemaObjectNames(
-          database = database,
-          type = "table"
+        schemaObjectNames(
+          master = SQLITE_TEMP_MASTER,
+          type = "table",
+          database = database
         )
       ).containsNoneOf("main_session_value", "submodule_session_value")
       assertThat(
-        temporarySchemaObjectNames(
-          database = database,
-          type = "view"
+        schemaObjectNames(
+          master = SQLITE_TEMP_MASTER,
+          type = "view",
+          database = database
         )
       ).containsNoneOf("main_session_view", "persistent_source_session_view", "submodule_session_view")
     }
@@ -316,53 +333,53 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
   @Test
   fun persistentViewOverTemporaryTableFailsBeforeDdlAndRollsBackEarlierWork() =
     withEmptyDatabase(databaseName = LIFETIME_DATABASE_NAME) { database ->
-      val definition = Select
-        .column(MAIN_SESSION_VALUE.VALUE)
-        .from(MAIN_SESSION_VALUE)
-        .compile()
+      val definition = SELECT
+        .COLUMN(MAIN_SESSION_VALUE.VALUE)
+        .FROM(MAIN_SESSION_VALUE)
+      val schema = object : GeneratedSchema {
+        override fun createSchemaTables(db: SupportSQLiteDatabase, temporary: Boolean) =
+          db.execSQL("CREATE TABLE earlier_persistent_object (value TEXT)")
 
-      database.beginTransaction()
-      try {
-        database.execSQL("CREATE TABLE earlier_persistent_object (value TEXT)")
-
-        val failure = assertThrows(IllegalArgumentException::class.java) {
-          SqlUtil.createViews(
-            db = database,
-            views = listOf(
-              GeneratedView(
-                viewName = "invalid_persistent_view",
-                temporary = false,
-                definitionProvider = {
-                  SqlUtil.viewDefinition(
-                    query = definition,
-                    viewName = "invalid_persistent_view"
-                  )
-                }
-              )
-            ),
-            temporary = false
+        override fun collectGeneratedViews(views: MutableList<GeneratedView>) {
+          views += GeneratedView(
+            viewName = "invalid_persistent_view",
+            temporary = false,
+            query = { definition },
+            columns = listOf("main_session_value.value")
           )
         }
-        assertThat(failure)
-          .hasMessageThat()
-          .contains("invalid_persistent_view")
-        assertThat(failure)
-          .hasMessageThat()
-          .contains("main_session_value")
-      } finally {
-        database.endTransaction()
+
+        override fun createSchemaIndexes(db: SupportSQLiteDatabase, temporary: Boolean) = Unit
+
+        override fun clearTables(db: SupportSQLiteDatabase, changedTables: MutableScatterSet<String>) = Unit
       }
 
+      val failure = assertThrows(IllegalArgumentException::class.java) {
+        SqlUtil.createSchema(
+          db = database,
+          schema = schema,
+          temporary = false
+        )
+      }
+      assertThat(failure)
+        .hasMessageThat()
+        .contains("invalid_persistent_view")
+      assertThat(failure)
+        .hasMessageThat()
+        .contains("main_session_value")
+
       assertThat(
-        mainSchemaObjectNames(
-          database = database,
-          type = "table"
+        schemaObjectNames(
+          master = SQLITE_MASTER,
+          type = "table",
+          database = database
         )
       ).doesNotContain("earlier_persistent_object")
       assertThat(
-        mainSchemaObjectNames(
-          database = database,
-          type = "view"
+        schemaObjectNames(
+          master = SQLITE_MASTER,
+          type = "view",
+          database = database
         )
       ).doesNotContain("invalid_persistent_view")
     }
@@ -373,7 +390,7 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
       val factory = SupportSQLiteOpenHelper.Factory { configuration ->
         FrameworkSQLiteOpenHelperFactory()
           .create(configuration)
-          .also { helper -> helper.setWriteAheadLoggingEnabled(true) }
+          .apply { setWriteAheadLoggingEnabled(true) }
       }
       var connection = openNamedConnection(
         application = application,
@@ -388,7 +405,7 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
           )
         ).isEqualTo("wal")
         connection.inTransaction {
-          assertSeedInserted(
+          insertedResult(
             result = MainSessionValue(
               id = "wal",
               value = "wal value"
@@ -442,9 +459,10 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
             )
           ).isEmpty()
           assertThat(
-            temporarySchemaObjectNames(
-              connection = connection,
-              type = "view"
+            schemaObjectNames(
+              master = SQLITE_TEMP_MASTER,
+              type = "view",
+              database = connection.readableDatabase
             )
           ).contains("main_session_view")
         }
@@ -456,11 +474,9 @@ class TemporaryViewManagerIntegrationTest : RuntimeDatabaseTest() {
   private fun scalar(
     connection: DbConnection,
     sql: String
-  ) = Select
-    .raw(sql)
-    .from(ANONYMOUS_TABLE)
-    .usingConnection(connection)
-    .execute()
+  ) = connection
+    .readableDatabase
+    .query(sql)
     .use { cursor ->
       check(cursor.moveToFirst())
       cursor.getString(0)

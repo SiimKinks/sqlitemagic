@@ -2,19 +2,18 @@ package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
-import com.siimkinks.sqlitemagic.internal.IdentityColumn
 
 internal object DeleteExecutors {
   fun <M> execute(
     adapter: EntityIdentityAdapter<M>,
     entities: Collection<M>,
-    byColumn: IdentityColumn<M>,
+    columnName: String,
     context: OperationContext
-  ): Int = context.executeInTransaction {
+  ) = context.executeInTransaction {
     val identities = entities.map { entity ->
       adapter.identity(
         entity = entity,
-        byColumn = byColumn
+        columnName = columnName
       )
     }
     if (identities.isEmpty()) {
@@ -24,12 +23,9 @@ internal object DeleteExecutors {
       append("DELETE FROM ")
       append(adapter.tableName)
       append(" WHERE ")
-      append(identities.first().columnName)
+      append(columnName)
       append(" IN (")
-      repeat(identities.size) { index ->
-        if (index > 0) append(',')
-        append('?')
-      }
+      appendPlaceholders(identities.size)
       append(')')
     }
 
@@ -41,10 +37,10 @@ internal object DeleteExecutors {
             .entityDbManager()
             .compileStatement(sql)
             .use { statement ->
-              identities.forEachIndexed { index, entityIdentity ->
-                statement.bindString(
-                  index + 1,
-                  entityIdentity.serializedValue
+              identities.forEachIndexed { index, identity ->
+                statement.bindStorageValue(
+                  position = index + 1,
+                  value = identity
                 )
               }
               executeUpdateDelete(statement)
@@ -61,7 +57,7 @@ internal object DeleteExecutors {
   fun <M> deleteTable(
     adapter: EntityAdapter<M>,
     context: OperationContext
-  ): Int = context
+  ) = context
     .executeMutation(
       adapter = adapter,
       operation = {

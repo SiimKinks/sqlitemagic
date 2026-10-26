@@ -6,8 +6,8 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
@@ -17,43 +17,42 @@ import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import io.reactivex.observers.TestObserver
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class BulkUpdateReactiveLifecycleTest(
+internal class BulkUpdateReactiveLifecycleTest(
   private val modelCase: BulkUpdateModelCase<*>
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
-  fun disposeAfterFirstEntityOrGraphWithDefaultConflictRollsBack() {
+  fun disposeAfterFirstEntityOrGraphWithDefaultConflictRollsBack() =
     assertDisposedBulkUpdate(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun disposeAfterFirstEntityOrGraphWithConflictIgnoreStopsFurtherWork() {
+  fun disposeAfterFirstEntityOrGraphWithConflictIgnoreStopsFurtherWork() =
     assertDisposedBulkUpdate(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   @Test
-  fun repeatedSubscriptionToBulkUpdateWithDefaultConflictReexecutesIterable() {
+  fun repeatedSubscriptionToBulkUpdateWithDefaultConflictReexecutesIterable() =
     assertRepeatedSubscriptions(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun repeatedSubscriptionToBulkUpdateWithConflictIgnoreReexecutesIterable() {
+  fun repeatedSubscriptionToBulkUpdateWithConflictIgnoreReexecutesIterable() =
     assertRepeatedSubscriptions(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   @Test
-  fun chainedObserveBulkUpdatesWithDefaultConflictCommitBothBatches() {
+  fun chainedObserveBulkUpdatesWithDefaultConflictCommitBothBatches() =
     assertChainedBulkUpdates(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun chainedObserveBulkUpdatesWithConflictIgnoreCommitBothBatches() {
+  fun chainedObserveBulkUpdatesWithConflictIgnoreCommitBothBatches() =
     assertChainedBulkUpdates(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   private fun assertDisposedBulkUpdate(conflictAlgorithm: Int) = when (modelCase) {
     is RecursiveBulkUpdateModelCase<*> -> assertRecursiveDisposedBulkUpdate(
@@ -387,7 +386,7 @@ class BulkUpdateReactiveLifecycleTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.bulkUpdateCases
   }
 }

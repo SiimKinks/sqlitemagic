@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 
 internal fun newQueryOperatorLifecycleEntity(sequence: Int) = SimpleMutableEntity(
   id = null,
@@ -11,15 +11,12 @@ internal fun newQueryOperatorLifecycleEntity(sequence: Int) = SimpleMutableEntit
   primitiveBoolean = true
 )
 
-internal fun insertQueryOperatorLifecycleEntity(sequence: Int) =
-  newQueryOperatorLifecycleEntity(sequence)
-    .also(::assertSuccessfulQueryOperatorLifecycleInsert)
-
-private fun assertSuccessfulQueryOperatorLifecycleInsert(value: SimpleMutableEntity) = when (
-  value
-    .insert()
-    .execute()
-) {
-  is EntityInsertResult.Inserted -> Unit
-  EntityInsertResult.Ignored -> error("Deterministic insert was ignored")
-}
+internal fun insertQueryOperatorLifecycleEntity(sequence: Int) = newQueryOperatorLifecycleEntity(sequence)
+  .also {
+    insertedResult(
+      result = it
+        .insert()
+        .execute(),
+      modelName = "SimpleMutableEntity"
+    )
+  }

@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.internal
 
 import androidx.sqlite.db.SupportSQLiteStatement
 
+@InternalSqliteMagicApi
 interface EntityStatementBinder<M> {
   fun bindToInsertStatement(
     statement: SupportSQLiteStatement,
@@ -10,11 +11,12 @@ interface EntityStatementBinder<M> {
   )
 }
 
+@InternalSqliteMagicApi
 interface EntityIdentityStatementBinder<M> : EntityStatementBinder<M> {
   fun bindToUpdateStatement(
     statement: SupportSQLiteStatement,
     entity: M,
-    byColumn: IdentityColumn<M>
+    columnName: String
   )
 
   fun bindNotNullForInsert(
@@ -26,6 +28,6 @@ interface EntityIdentityStatementBinder<M> : EntityStatementBinder<M> {
   fun bindNotNullForUpdate(
     entity: M,
     values: MutableScatterMap<String, Any>,
-    byColumn: IdentityColumn<M>
+    columnName: String
   )
 }

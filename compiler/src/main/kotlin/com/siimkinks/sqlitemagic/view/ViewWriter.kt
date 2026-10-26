@@ -1,5 +1,5 @@
 package com.siimkinks.sqlitemagic.view
 
-interface ViewWriter {
+internal interface ViewWriter {
   fun write(roundElement: ViewRoundElement)
 }

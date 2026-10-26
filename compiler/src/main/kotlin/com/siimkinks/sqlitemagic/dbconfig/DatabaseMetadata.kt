@@ -2,12 +2,12 @@ package com.siimkinks.sqlitemagic.dbconfig
 
 import com.squareup.kotlinpoet.ClassName
 
-data class DatabaseMetadata(
+internal data class DatabaseMetadata(
   val dbName: String?,
   val dbVersion: Int?,
 )
 
-data class SubmoduleDatabaseMetadata(
+internal data class SubmoduleDatabaseMetadata(
   val moduleName: String,
   val managerQualifiedName: String
 ) {

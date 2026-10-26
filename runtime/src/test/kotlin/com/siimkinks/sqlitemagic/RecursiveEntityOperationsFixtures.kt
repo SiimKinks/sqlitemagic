@@ -6,7 +6,6 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
-import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 internal const val RECURSIVE_PARENT_TABLE = "recursive_parent"
@@ -67,40 +66,6 @@ internal fun twoParentBulkGraphs() = listOf(
   )
 )
 
-private typealias RecursiveGrandchildColumn = Column<*, *, *, RecursiveGrandchild, NotNullable>
-private typealias RecursiveChildColumn = Column<*, *, *, RecursiveChild, NotNullable>
-private typealias RecursiveParentColumn = Column<*, *, *, RecursiveParent, NotNullable>
-
-private object RecursiveTestSchema {
-  val grandchildTable = testTable<RecursiveGrandchild>(name = RECURSIVE_GRANDCHILD_TABLE)
-  val grandchildId = UniqueColumn<String, String, String, RecursiveGrandchild, NotNullable>(
-    grandchildTable,
-    "id",
-    false,
-    Utils.STRING_PARSER,
-    false,
-    null
-  )
-  val childTable = testTable<RecursiveChild>(name = RECURSIVE_CHILD_TABLE)
-  val childId = UniqueColumn<String, String, String, RecursiveChild, NotNullable>(
-    childTable,
-    "id",
-    false,
-    Utils.STRING_PARSER,
-    false,
-    null
-  )
-  val parentTable = testTable<RecursiveParent>(name = RECURSIVE_PARENT_TABLE)
-  val parentId = UniqueColumn<String, String, String, RecursiveParent, NotNullable>(
-    parentTable,
-    "id",
-    false,
-    Utils.STRING_PARSER,
-    false,
-    null
-  )
-}
-
 internal enum class RecursiveOperationEvent {
   GRANDCHILD_INSERT,
   GRANDCHILD_UPDATE,
@@ -140,7 +105,7 @@ internal class RecursiveGrandchildAdapter(
   override val tablePosition = 0
   override val maxColumns = 1
   override val withoutRowId = false
-  override val defaultIdentityColumn = RecursiveTestSchema.grandchildId
+  override val defaultIdentityColumnName = "id"
 
   override fun bindToInsertStatement(
     statement: SupportSQLiteStatement,
@@ -149,18 +114,27 @@ internal class RecursiveGrandchildAdapter(
   ) {
     state.record(RecursiveOperationEvent.GRANDCHILD_INSERT)
     statement.clearBindings()
-    statement.bindString(1, entity.id)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
   }
 
   override fun bindToUpdateStatement(
     statement: SupportSQLiteStatement,
     entity: RecursiveGrandchild,
-    byColumn: RecursiveGrandchildColumn
+    columnName: String
   ) {
     state.record(RecursiveOperationEvent.GRANDCHILD_UPDATE)
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    statement.bindString(2, entity.id)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    statement.bindString(
+      index = 2,
+      value = entity.id
+    )
   }
 
   override fun bindNotNullForInsert(
@@ -169,31 +143,28 @@ internal class RecursiveGrandchildAdapter(
     generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
-    values.put("id", entity.id)
+    values["id"] = entity.id
   }
 
   override fun bindNotNullForUpdate(
     entity: RecursiveGrandchild,
     values: MutableScatterMap<String, Any>,
-    byColumn: RecursiveGrandchildColumn
+    columnName: String
   ) {
     values.clear()
   }
 
   override fun identity(
     entity: RecursiveGrandchild,
-    byColumn: RecursiveGrandchildColumn
-  ) = GeneratedEntityIdentity(
-    columnName = "id",
-    serializedValue = entity.id
-  )
+    columnName: String
+  ) = entity.id
 
   override fun hasIdentityValue(
     entity: RecursiveGrandchild,
-    byColumn: RecursiveGrandchildColumn
+    columnName: String
   ) = entity.id.isNotEmpty()
 
-  override fun updateStatementSql(byColumn: RecursiveGrandchildColumn) =
+  override fun updateStatementSql(columnName: String) =
     "UPDATE%s $RECURSIVE_GRANDCHILD_TABLE SET id=? WHERE id=?"
 }
 
@@ -208,7 +179,7 @@ internal class RecursiveChildAdapter(
   override val tablePosition = 1
   override val maxColumns = 2
   override val withoutRowId = false
-  override val defaultIdentityColumn = RecursiveTestSchema.childId
+  override val defaultIdentityColumnName = "id"
   override val triggerTableNames = arrayOf(
     RECURSIVE_CHILD_TABLE,
     RECURSIVE_GRANDCHILD_TABLE
@@ -221,21 +192,34 @@ internal class RecursiveChildAdapter(
   ) {
     state.record(RecursiveOperationEvent.CHILD_INSERT)
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    entity.grandchild
-      ?.let { statement.bindString(2, it.id) }
-      ?: statement.bindNull(2)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    when (val grandchild = entity.grandchild) {
+      null -> statement.bindNull(2)
+      else -> statement.bindString(
+        index = 2,
+        value = grandchild.id
+      )
+    }
   }
 
   override fun bindToUpdateStatement(
     statement: SupportSQLiteStatement,
     entity: RecursiveChild,
-    byColumn: RecursiveChildColumn
+    columnName: String
   ) {
     state.record(RecursiveOperationEvent.CHILD_UPDATE)
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    statement.bindString(2, entity.id)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    statement.bindString(
+      index = 2,
+      value = entity.id
+    )
   }
 
   override fun bindNotNullForInsert(
@@ -244,34 +228,31 @@ internal class RecursiveChildAdapter(
     generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
-    values.put("id", entity.id)
+    values["id"] = entity.id
     entity.grandchild?.let {
-      values.put("grandchild", it.id)
+      values["grandchild"] = it.id
     }
   }
 
   override fun bindNotNullForUpdate(
     entity: RecursiveChild,
     values: MutableScatterMap<String, Any>,
-    byColumn: RecursiveChildColumn
+    columnName: String
   ) {
     values.clear()
   }
 
   override fun identity(
     entity: RecursiveChild,
-    byColumn: RecursiveChildColumn
-  ) = GeneratedEntityIdentity(
-    columnName = "id",
-    serializedValue = entity.id
-  )
+    columnName: String
+  ) = entity.id
 
   override fun hasIdentityValue(
     entity: RecursiveChild,
-    byColumn: RecursiveChildColumn
+    columnName: String
   ) = entity.id.isNotEmpty()
 
-  override fun updateStatementSql(byColumn: RecursiveChildColumn) =
+  override fun updateStatementSql(columnName: String) =
     "UPDATE%s $RECURSIVE_CHILD_TABLE SET id=? WHERE id=?"
 
   override fun insertRelationships(
@@ -279,13 +260,14 @@ internal class RecursiveChildAdapter(
     operations: EntityRelationshipOperations
   ): Boolean {
     state.record(RecursiveOperationEvent.CHILD_INSERT_RELATIONSHIPS)
-    entity.grandchild?.let {
-      when (operations.insert(adapter = grandchildAdapter, entity = it)) {
-        EntityInsertResult.Ignored -> return false
-        is EntityInsertResult.Inserted -> Unit
+    return entity.grandchild
+      ?.let {
+        operations.insert(
+          adapter = grandchildAdapter,
+          entity = it
+        ) != EntityInsertResult.Ignored
       }
-    }
-    return true
+      ?: true
   }
 
   override fun updateRelationships(
@@ -295,7 +277,10 @@ internal class RecursiveChildAdapter(
     state.record(RecursiveOperationEvent.CHILD_UPDATE_RELATIONSHIPS)
     return entity.grandchild
       ?.let {
-        operations.update(adapter = grandchildAdapter, entity = it)
+        operations.update(
+          adapter = grandchildAdapter,
+          entity = it
+        )
       }
       ?: true
   }
@@ -305,14 +290,13 @@ internal class RecursiveChildAdapter(
     operations: EntityRelationshipOperations
   ): Boolean {
     state.record(RecursiveOperationEvent.CHILD_PERSIST_RELATIONSHIPS)
-    state.recordChildIgnoreNullValue(operations.ignoreNullValues)
+    state.recordChildIgnoreNullValue((operations as RelationshipOperations).ignoreNullValues)
     return entity.grandchild
       ?.let {
-        when (operations.persist(adapter = grandchildAdapter, entity = it)) {
-          EntityPersistResult.Ignored -> false
-          EntityPersistResult.Updated,
-          is EntityPersistResult.Inserted -> true
-        }
+        operations.persist(
+          adapter = grandchildAdapter,
+          entity = it
+        ) != EntityPersistResult.Ignored
       }
       ?: true
   }
@@ -329,7 +313,7 @@ internal class RecursiveParentAdapter(
   override val tablePosition = 2
   override val maxColumns = 2
   override val withoutRowId = false
-  override val defaultIdentityColumn = RecursiveTestSchema.parentId
+  override val defaultIdentityColumnName = "id"
   override val triggerTableNames = arrayOf(
     RECURSIVE_PARENT_TABLE,
     RECURSIVE_CHILD_TABLE,
@@ -343,21 +327,34 @@ internal class RecursiveParentAdapter(
   ) {
     state.record(RecursiveOperationEvent.PARENT_INSERT)
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    entity.child
-      ?.let { statement.bindString(2, it.id) }
-      ?: statement.bindNull(2)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    when (val child = entity.child) {
+      null -> statement.bindNull(2)
+      else -> statement.bindString(
+        index = 2,
+        value = child.id
+      )
+    }
   }
 
   override fun bindToUpdateStatement(
     statement: SupportSQLiteStatement,
     entity: RecursiveParent,
-    byColumn: RecursiveParentColumn
+    columnName: String
   ) {
     state.record(RecursiveOperationEvent.PARENT_UPDATE)
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    statement.bindString(2, entity.id)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    statement.bindString(
+      index = 2,
+      value = entity.id
+    )
   }
 
   override fun bindNotNullForInsert(
@@ -366,34 +363,31 @@ internal class RecursiveParentAdapter(
     generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
-    values.put("id", entity.id)
+    values["id"] = entity.id
     entity.child?.let {
-      values.put("child", it.id)
+      values["child"] = it.id
     }
   }
 
   override fun bindNotNullForUpdate(
     entity: RecursiveParent,
     values: MutableScatterMap<String, Any>,
-    byColumn: RecursiveParentColumn
+    columnName: String
   ) {
     values.clear()
   }
 
   override fun identity(
     entity: RecursiveParent,
-    byColumn: RecursiveParentColumn
-  ) = GeneratedEntityIdentity(
-    columnName = "id",
-    serializedValue = entity.id
-  )
+    columnName: String
+  ) = entity.id
 
   override fun hasIdentityValue(
     entity: RecursiveParent,
-    byColumn: RecursiveParentColumn
+    columnName: String
   ) = entity.id.isNotEmpty()
 
-  override fun updateStatementSql(byColumn: RecursiveParentColumn) =
+  override fun updateStatementSql(columnName: String) =
     "UPDATE%s $RECURSIVE_PARENT_TABLE SET id=? WHERE id=?"
 
   override fun insertRelationships(
@@ -403,10 +397,10 @@ internal class RecursiveParentAdapter(
     state.record(RecursiveOperationEvent.PARENT_INSERT_RELATIONSHIPS)
     return entity.child
       ?.let {
-        when (operations.insert(adapter = childAdapter, entity = it)) {
-          EntityInsertResult.Ignored -> false
-          is EntityInsertResult.Inserted -> true
-        }
+        operations.insert(
+          adapter = childAdapter,
+          entity = it
+        ) != EntityInsertResult.Ignored
       }
       ?: true
   }
@@ -418,7 +412,10 @@ internal class RecursiveParentAdapter(
     state.record(RecursiveOperationEvent.PARENT_UPDATE_RELATIONSHIPS)
     return entity.child
       ?.let {
-        operations.update(adapter = childAdapter, entity = it)
+        operations.update(
+          adapter = childAdapter,
+          entity = it
+        )
       }
       ?: true
   }
@@ -430,53 +427,26 @@ internal class RecursiveParentAdapter(
     state.record(RecursiveOperationEvent.PARENT_PERSIST_RELATIONSHIPS)
     return entity.child
       ?.let {
-        when (operations.persist(adapter = childAdapter, entity = it)) {
-          EntityPersistResult.Ignored -> false
-          EntityPersistResult.Updated,
-          is EntityPersistResult.Inserted -> true
-        }
+        operations.persist(
+          adapter = childAdapter,
+          entity = it
+        ) != EntityPersistResult.Ignored
       }
       ?: true
   }
 }
 
-internal data class RecursiveAdapters(
-  val state: RecursiveOperationState,
-  val grandchild: RecursiveGrandchildAdapter,
-  val child: RecursiveChildAdapter,
-  val parent: RecursiveParentAdapter
-)
-
-internal fun recursiveAdapters(): RecursiveAdapters {
+internal class RecursiveScenario {
   val state = RecursiveOperationState()
-  val grandchild = RecursiveGrandchildAdapter(state)
-  val child = RecursiveChildAdapter(
+  val parent = RecursiveParentAdapter(
     state = state,
-    grandchildAdapter = grandchild
-  )
-  return RecursiveAdapters(
-    state = state,
-    grandchild = grandchild,
-    child = child,
-    parent = RecursiveParentAdapter(
+    childAdapter = RecursiveChildAdapter(
       state = state,
-      childAdapter = child
+      grandchildAdapter = RecursiveGrandchildAdapter(state)
     )
   )
-}
-
-internal data class RecursiveScenario(
-  val adapters: RecursiveAdapters,
-  val recordingConnection: RecordingConnection
-) {
-  val parent get() = adapters.parent
-  val state get() = adapters.state
-  val database get() = recordingConnection.recordingDatabase
-  val connection get() = recordingConnection.connection
+  val recordingConnection = newRecursiveConnection()
+  val database = recordingConnection.recordingDatabase
+  val connection = recordingConnection.connection
   val triggers get() = recordingConnection.triggers
 }
-
-internal fun recursiveScenario() = RecursiveScenario(
-  adapters = recursiveAdapters(),
-  recordingConnection = newRecursiveConnection()
-)

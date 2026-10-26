@@ -1,13 +1,12 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
-import io.reactivex.Observable
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 
 internal object TransactionObservationCatalog {
   val simple = SimpleRole
@@ -17,7 +16,7 @@ internal object TransactionObservationCatalog {
 
   fun observeMatchingQueries() = matchingQuery().observe()
 
-  fun observeMatchingValues(): Observable<List<String?>> = matchingQuery()
+  fun observeMatchingValues() = matchingQuery()
     .observe()
     .runQuery()
 
@@ -34,7 +33,7 @@ internal object TransactionObservationCatalog {
     fun insert(sequence: Int) = insert(newValue(sequence = sequence))
 
     fun insert(value: SimpleMutableEntity) = value.also {
-      assertSeedInserted(
+      insertedResult(
         result = it
           .insert()
           .execute(),
@@ -54,7 +53,7 @@ internal object TransactionObservationCatalog {
     fun insert(sequence: Int) = insert(newValue(sequence = sequence))
 
     fun insert(value: StringIdEntity) = value.also {
-      assertSeedInserted(
+      insertedResult(
         result = it
           .insert()
           .execute(),
@@ -65,9 +64,9 @@ internal object TransactionObservationCatalog {
 
   private fun valueFor(sequence: Int) = "transaction-value-$sequence"
 
-  private fun matchingQuery() = Select
-    .column(simple.table.VALUE)
-    .from(simple.table)
-    .innerJoin(string.table.on(simple.table.VALUE.`is`(string.table.VALUE)))
-    .orderBy(simple.table.ID.asc())
+  private fun matchingQuery() = SELECT.COLUMN(simple.table.VALUE)
+    .FROM(simple.table)
+    .INNER_JOIN(string.table)
+    .ON(simple.table.VALUE IS string.table.VALUE)
+    .ORDER_BY(simple.table.ID.ASC())
 }

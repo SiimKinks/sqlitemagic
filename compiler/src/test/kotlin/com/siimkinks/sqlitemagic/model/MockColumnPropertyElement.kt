@@ -1,5 +1,3 @@
 package com.siimkinks.sqlitemagic.model
 
-fun mockColumnPropertyElement(
-  column: ColumnElement = mockColumnElement()
-) = ColumnPropertyElement(column = column)
+internal fun mockColumnPropertyElement(column: ColumnElement) = ColumnPropertyElement(column = column)

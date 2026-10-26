@@ -10,8 +10,8 @@ import com.siimkinks.sqlitemagic.fixture.model.EmbeddedValueEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
-import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
+import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation.PRESENT
+import com.siimkinks.sqlitemagic.runtime.model.ProjectionColumns
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
@@ -30,29 +30,18 @@ internal object EmbeddedModelCatalog {
   private object EmbeddedValueEntityWithOptionalValueCase :
     StandardNullOmittingPersistModelCase<EmbeddedValueEntity>,
     StandardBulkDeleteModelCase<EmbeddedValueEntity>,
-    SuccessfulModelProjectionCase<EmbeddedValueEntity>,
-    MissingRequiredProjectionCase<EmbeddedValueEntity> {
+    SuccessfulModelProjectionCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
-    override val projectionColumns = listOf(
+    override val projectionColumns: ProjectionColumns = listOf(
       EMBEDDED_VALUE_ENTITY.ID,
       EMBEDDED_VALUE_ENTITY.REQUIRED_LABEL,
       EMBEDDED_VALUE_ENTITY.REQUIRED_COORDINATES_LATITUDE,
       EMBEDDED_VALUE_ENTITY.REQUIRED_COORDINATES_LONGITUDE,
       EMBEDDED_VALUE_ENTITY.REQUIRED_TRANSFORMED_VALUE
     )
-    override val missingRequiredProjectionColumns = listOf(
-      EMBEDDED_VALUE_ENTITY.ID,
-      EMBEDDED_VALUE_ENTITY.REQUIRED_LABEL,
-      EMBEDDED_VALUE_ENTITY.REQUIRED_COORDINATES_LATITUDE,
-      EMBEDDED_VALUE_ENTITY.REQUIRED_COORDINATES_LONGITUDE,
-      EMBEDDED_VALUE_ENTITY.REQUIRED_TRANSFORMED_VALUE,
-      EMBEDDED_VALUE_ENTITY.OPTIONAL_LABEL
-    )
-    override val expectedSQLExceptionMessage =
-      """Selected columns did not contain table "embedded_value_entity" required column "optional_coordinates_latitude""""
 
     override fun newValue(sequence: Int) = EmbeddedValueEntity(
       id = null,
@@ -143,7 +132,7 @@ internal object EmbeddedModelCatalog {
     StandardBulkDeleteModelCase<EmbeddedValueEntity> {
     override val name = "EmbeddedValueEntityWithoutOptionalValue"
     override val table = EMBEDDED_VALUE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = EmbeddedValueEntity(
       id = null,

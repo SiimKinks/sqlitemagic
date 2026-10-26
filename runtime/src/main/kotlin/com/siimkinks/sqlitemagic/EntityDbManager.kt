@@ -11,7 +11,7 @@ internal class EntityDbManager(initialConnection: DbConnectionImpl) {
 
   private val dbConnection get() = checkNotNull(connection) { "DB connection closed" }
 
-  internal fun close() {
+  fun close() {
     insertStatementCache
       .getAndSet(null)
       ?.closeQuietly()
@@ -22,31 +22,30 @@ internal class EntityDbManager(initialConnection: DbConnectionImpl) {
   }
 
   @CheckResult
-  internal fun insertStatement(insertSql: String) = insertStatementCache.get()
-    ?: dbConnection
-      .compileStatement(insertSql.format(""))
-      .also(insertStatementCache::set)
+  fun insertStatement(insertSql: String) = insertStatementCache.cached(insertSql)
 
   @CheckResult
-  internal fun updateStatement(updateSql: String) = updateStatementCache.get()
-    ?: dbConnection
-      .compileStatement(updateSql.format(""))
-      .also(updateStatementCache::set)
+  fun updateStatement(updateSql: String) = updateStatementCache.cached(updateSql)
+
+  private fun AtomicReference<SupportSQLiteStatement?>.cached(sql: String) = get() ?: synchronized(this) {
+    get() ?: dbConnection
+      .compileStatement(sql.format(""))
+      .also(::set)
+  }
 
   @CheckResult
-  internal fun compileStatement(sql: String) = dbConnection.compileStatement(sql)
+  fun compileStatement(sql: String) = dbConnection.compileStatement(sql)
 
   @CheckResult
-  internal fun compileStatement(
+  fun compileStatement(
     sql: String,
     @ConflictAlgorithm conflictAlgorithm: Int
   ) = dbConnection.compileStatement(
     sql.format(ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm])
   )
+}
 
-  private fun SupportSQLiteStatement.closeQuietly() = try {
-    close()
-  } catch (_: Exception) {
-    // Each connection-owned statement gets an independent best-effort cleanup attempt.
-  }
+internal fun SupportSQLiteStatement.closeQuietly() = try {
+  close()
+} catch (_: Exception) {
 }

@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic.fixture.view
 
 import com.siimkinks.sqlitemagic.MainSessionValueTable.Companion.MAIN_SESSION_VALUE
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.annotation.ViewOption.TEMPORARY
@@ -18,13 +18,9 @@ data class MainSessionView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        MAIN_SESSION_VALUE.ID,
-        MAIN_SESSION_VALUE.VALUE
-      )
-      .from(MAIN_SESSION_VALUE)
-      .compile()
+    val query = SELECT
+      .COLUMNS(MAIN_SESSION_VALUE.ID, MAIN_SESSION_VALUE.VALUE)
+      .FROM(MAIN_SESSION_VALUE)
   }
 }
 
@@ -38,12 +34,8 @@ data class PersistentSourceSessionView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(
-        QUERY_COMPOSITION_AUTHOR.ID,
-        QUERY_COMPOSITION_AUTHOR.NAME
-      )
-      .from(QUERY_COMPOSITION_AUTHOR)
-      .compile()
+    val query = SELECT
+      .COLUMNS(QUERY_COMPOSITION_AUTHOR.ID, QUERY_COMPOSITION_AUTHOR.NAME)
+      .FROM(QUERY_COMPOSITION_AUTHOR)
   }
 }

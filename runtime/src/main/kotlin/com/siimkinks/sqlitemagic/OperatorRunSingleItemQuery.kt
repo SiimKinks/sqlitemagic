@@ -6,7 +6,6 @@ import io.reactivex.exceptions.Exceptions
 import io.reactivex.observers.DisposableObserver
 import io.reactivex.plugins.RxJavaPlugins
 
-/** A null [defaultValue] suppresses empty query results and null scalar values. */
 internal class OperatorRunSingleItemQuery<T>(
   private val defaultValue: T? = null
 ) : ObservableOperator<T & Any, Query<T>> {

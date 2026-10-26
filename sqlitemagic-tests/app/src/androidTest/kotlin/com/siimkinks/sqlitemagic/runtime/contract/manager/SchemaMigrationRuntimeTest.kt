@@ -1,40 +1,40 @@
+@file:OptIn(InternalSqliteMagicApi::class)
+
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
 import android.app.Application
-import android.content.Context
+import android.content.Context.MODE_PRIVATE
 import android.database.Cursor
 import android.database.sqlite.SQLiteException
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.ComplexObjectWithSameLeafsTable.Companion.COMPLEX_OBJECT_WITH_SAME_LEAFS
-import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.DEPENDENCY_OUTER_VIEW
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DefinitionFailureGeneratedClassesManager
-import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
+import com.siimkinks.sqlitemagic.DependencyOuterViewTable.Companion.DEPENDENCY_OUTER_VIEW
 import com.siimkinks.sqlitemagic.GeneratedDatabase
 import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
 import com.siimkinks.sqlitemagic.PersistentSubmoduleReadbackViewTable.Companion.PERSISTENT_SUBMODULE_READBACK_VIEW
-import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
 import com.siimkinks.sqlitemagic.fixture.view.DependencyOuterView
 import com.siimkinks.sqlitemagic.fixture.view.PersistentSubmoduleReadbackView
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
+import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.internal.SqlUtil
 import com.siimkinks.sqlitemagic.migration.MigrationException
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_MASTER
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_TEMP_MASTER
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.readRows
 import com.siimkinks.sqlitemagic.runtime.support.readStrings
+import com.siimkinks.sqlitemagic.runtime.support.readableDatabase
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 private const val MIGRATION_DATABASE_NAME = "schema-migration-runtime-test.db"
-private const val SQLITE_MASTER = "sqlite_master"
-private const val SQLITE_TEMP_MASTER = "sqlite_temp_master"
 private const val MIGRATION_VERSION_OFFSET = 1_000_000
 private const val INVALID_MIGRATION_INITIAL_VERSION = MIGRATION_VERSION_OFFSET
 private const val INVALID_MIGRATION_VERSION = MIGRATION_VERSION_OFFSET + 1
@@ -135,7 +135,7 @@ private val REBUILT_OLD_TABLES = setOf(
   "complex_object_with_same_leafs_"
 )
 
-class SchemaMigrationRuntimeTest {
+internal class SchemaMigrationRuntimeTest {
   @Test
   fun missingMigrationAssetsAreOptional() = withNamedDatabase(
     databaseName = MIGRATION_DATABASE_NAME
@@ -152,8 +152,8 @@ class SchemaMigrationRuntimeTest {
       assertThat(userVersion(connection = connection))
         .isEqualTo(MISSING_MIGRATION_VERSION)
       assertThat(
-        Select
-          .from(LIBRARY_BOOK)
+        SELECT
+          .FROM(LIBRARY_BOOK)
           .usingConnection(connection)
           .execute()
       ).containsExactly(
@@ -212,7 +212,7 @@ class SchemaMigrationRuntimeTest {
     application
       .openOrCreateDatabase(
         MIGRATION_DATABASE_NAME,
-        Context.MODE_PRIVATE,
+        MODE_PRIVATE,
         null
       )
       .use { database ->
@@ -259,8 +259,8 @@ class SchemaMigrationRuntimeTest {
       assertThat(userVersion(connection = connection))
         .isEqualTo(LIBRARY_MIGRATION_VERSION)
       assertThat(
-        Select
-          .from(LIBRARY_BOOK)
+        SELECT
+          .FROM(LIBRARY_BOOK)
           .usingConnection(connection)
           .execute()
       ).containsExactly(expectedBook)
@@ -347,7 +347,6 @@ class SchemaMigrationRuntimeTest {
       assertThat(
         rawRows(
           connection = connection,
-          table = SIMPLE_MUTABLE_ENTITY,
           sql = "SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity"
         )
       ).containsExactlyElementsIn(
@@ -358,7 +357,6 @@ class SchemaMigrationRuntimeTest {
       assertThat(
         rawRows(
           connection = connection,
-          table = ENTITY_WITH_RELATIONSHIP,
           sql = "SELECT id, value, related_entity, count FROM entity_with_relationship"
         )
       ).containsExactlyElementsIn(
@@ -369,7 +367,6 @@ class SchemaMigrationRuntimeTest {
       assertThat(
         rawRows(
           connection = connection,
-          table = COMPLEX_OBJECT_WITH_SAME_LEAFS,
           sql = "SELECT id, name, simple_value, entity_with_relationship, simple_value_duplicate " +
               "FROM complex_object_with_same_leafs"
         )
@@ -413,13 +410,12 @@ class SchemaMigrationRuntimeTest {
       assertThat(
         rawRows(
           connection = connection,
-          table = QUERY_COMPOSITION_AUTHOR,
           sql = "SELECT id, name FROM query_composition_author"
         )
       ).containsExactly(listOf(VIEW_AUTHOR_ID.toString(), VIEW_AUTHOR_NAME))
       assertThat(
-        Select
-          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+        SELECT
+          .FROM(QUERY_COMPOSITION_AUTHOR_VIEW)
           .usingConnection(connection)
           .execute()
       ).containsExactly(
@@ -429,8 +425,8 @@ class SchemaMigrationRuntimeTest {
         )
       )
       assertThat(
-        Select
-          .from(PERSISTENT_SUBMODULE_READBACK_VIEW)
+        SELECT
+          .FROM(PERSISTENT_SUBMODULE_READBACK_VIEW)
           .usingConnection(connection)
           .execute()
       ).containsExactly(
@@ -450,11 +446,11 @@ class SchemaMigrationRuntimeTest {
         "renamed_author_view",
         "removed_module_author_view",
         "submodule_legacy_view"
-      ).forEach { viewName ->
+      ).forEach {
         assertThat(
           viewSql(
             connection = connection,
-            viewName = viewName
+            viewName = it
           )
         ).isNull()
       }
@@ -465,12 +461,12 @@ class SchemaMigrationRuntimeTest {
         )
       ).isNull()
       assertThat(
-        Select
-          .raw("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?")
-          .from(Table.ANONYMOUS_TABLE)
-          .withArgs("retired_author_view")
-          .usingConnection(connection)
-          .execute()
+        connection
+          .readableDatabase
+          .query(
+            query = "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+            bindArgs = arrayOf("retired_author_view")
+          )
           .use(Cursor::readStrings)
       ).containsExactly(RETIRED_AUTHOR_TRIGGER_SQL)
     }
@@ -506,24 +502,23 @@ class SchemaMigrationRuntimeTest {
         )
       ).containsExactly("skip_first_view", "skip_second_view", "skip_name_now_table")
       listOf("skip_first_view", "skip_second_view", "skip_submodule_view")
-        .forEach { viewName ->
+        .forEach {
           assertThat(
             viewSql(
               connection = connection,
-              viewName = viewName
+              viewName = it
             )
           ).isNull()
         }
       assertThat(
         rawRows(
           connection = connection,
-          table = Table.ANONYMOUS_TABLE,
           sql = "SELECT value FROM skip_name_now_table"
         )
       ).containsExactly(listOf("kept table row"))
       assertThat(
-        Select
-          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+        SELECT
+          .FROM(QUERY_COMPOSITION_AUTHOR_VIEW)
           .usingConnection(connection)
           .execute()
       ).containsExactly(
@@ -564,8 +559,8 @@ class SchemaMigrationRuntimeTest {
         )
       ).contains("m_dependency_middle")
       assertThat(
-        Select
-          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+        SELECT
+          .FROM(QUERY_COMPOSITION_AUTHOR_VIEW)
           .usingConnection(connection)
           .execute()
       ).containsExactly(
@@ -575,8 +570,8 @@ class SchemaMigrationRuntimeTest {
         )
       )
       assertThat(
-        Select
-          .from(DEPENDENCY_OUTER_VIEW)
+        SELECT
+          .FROM(DEPENDENCY_OUTER_VIEW)
           .usingConnection(connection)
           .execute()
       ).containsExactly(DependencyOuterView(name = VIEW_AUTHOR_NAME))
@@ -597,7 +592,7 @@ class SchemaMigrationRuntimeTest {
       )
     )
 
-    val failure = assertThrows(IllegalStateException::class.java) {
+    val failure = assertThrows(IllegalArgumentException::class.java) {
       openMigrationConnection(
         application = application,
         database = DefinitionFailureMigrationDatabase(dbVersion = VIEW_DEFINITION_FAILURE_VERSION)
@@ -605,15 +600,12 @@ class SchemaMigrationRuntimeTest {
     }
     assertThat(failure)
       .hasMessageThat()
-      .isEqualTo(
-        "Cannot create view 'definition_failure_view': defining query uses unsupported implementation " +
-            DefinitionFailureView.query.javaClass.name
-      )
+      .isEqualTo("Cannot create view 'definition_failure_view': its definition cannot take parameter 'id'")
 
     application
       .openOrCreateDatabase(
         MIGRATION_DATABASE_NAME,
-        Context.MODE_PRIVATE,
+        MODE_PRIVATE,
         null
       )
       .use { database ->
@@ -666,7 +658,7 @@ class SchemaMigrationRuntimeTest {
     application
       .openOrCreateDatabase(
         MIGRATION_DATABASE_NAME,
-        Context.MODE_PRIVATE,
+        MODE_PRIVATE,
         null
       )
       .use { database ->
@@ -725,7 +717,7 @@ class SchemaMigrationRuntimeTest {
     application
       .openOrCreateDatabase(
         MIGRATION_DATABASE_NAME,
-        Context.MODE_PRIVATE,
+        MODE_PRIVATE,
         null
       )
       .use { database ->
@@ -787,18 +779,16 @@ class SchemaMigrationRuntimeTest {
     application: Application,
     version: Int,
     statements: List<String>
-  ) {
-    application
-      .openOrCreateDatabase(
-        MIGRATION_DATABASE_NAME,
-        Context.MODE_PRIVATE,
-        null
-      )
-      .use { database ->
-        statements.forEach(database::execSQL)
-        database.version = version
-      }
-  }
+  ) = application
+    .openOrCreateDatabase(
+      MIGRATION_DATABASE_NAME,
+      MODE_PRIVATE,
+      null
+    )
+    .use { database ->
+      statements.forEach(database::execSQL)
+      database.version = version
+    }
 
   private fun openMigrationConnection(
     application: Application,
@@ -809,57 +799,45 @@ class SchemaMigrationRuntimeTest {
     database = database
   )
 
-  private fun userVersion(connection: DbConnection) = Select
-    .raw("PRAGMA user_version")
-    .from(Table.ANONYMOUS_TABLE)
-    .usingConnection(connection)
-    .execute()
-    .use { cursor ->
-      check(cursor.moveToFirst())
-      cursor.getInt(0)
-    }
+  private fun userVersion(connection: DbConnection) = connection
+    .readableDatabase
+    .version
 
   private fun tableNames(
     connection: DbConnection,
     master: String,
     names: Set<String>
-  ) = Select
-    .raw(
-      "SELECT name FROM $master WHERE type = 'table' AND name IN " +
-          "(${names.joinToString(separator = ", ") { "?" }})"
+  ) = connection
+    .readableDatabase
+    .query(
+      query = "SELECT name FROM $master WHERE type = 'table' AND name IN " +
+          "(${names.joinToString(separator = ", ") { "?" }})",
+      bindArgs = names.toTypedArray()
     )
-    .from(Table.ANONYMOUS_TABLE)
-    .withArgs(*names.toTypedArray())
-    .usingConnection(connection)
-    .execute()
     .use(Cursor::readStrings)
     .toSet()
 
   private fun assertSchemaFragments(
     connection: DbConnection,
     expectedFragments: Map<String, Set<String>>
-  ) {
-    expectedFragments.forEach { (tableName, fragments) ->
-      val schema = tableSql(
-        connection = connection,
-        tableName = tableName
-      )
-      assertThat(schema).contains(tableName)
-      fragments.forEach { fragment ->
-        assertThat(schema).contains(fragment)
-      }
-    }
+  ) = expectedFragments.forEach { (tableName, fragments) ->
+    val schema = tableSql(
+      connection = connection,
+      tableName = tableName
+    )
+    assertThat(schema).contains(tableName)
+    fragments.forEach { assertThat(schema).contains(it) }
   }
 
   private fun tableSql(
     connection: DbConnection,
     tableName: String
-  ) = Select
-    .raw("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .from(Table.ANONYMOUS_TABLE)
-    .withArgs(tableName)
-    .usingConnection(connection)
-    .execute()
+  ) = connection
+    .readableDatabase
+    .query(
+      query = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+      bindArgs = arrayOf(tableName)
+    )
     .use { cursor ->
       check(cursor.moveToFirst())
       cursor.getString(0)
@@ -868,12 +846,12 @@ class SchemaMigrationRuntimeTest {
   private fun viewSql(
     connection: DbConnection,
     viewName: String
-  ) = Select
-    .raw("SELECT sql FROM sqlite_master WHERE type = 'view' AND name = ?")
-    .from(Table.ANONYMOUS_TABLE)
-    .withArgs(viewName)
-    .usingConnection(connection)
-    .execute()
+  ) = connection
+    .readableDatabase
+    .query(
+      query = "SELECT sql FROM sqlite_master WHERE type = 'view' AND name = ?",
+      bindArgs = arrayOf(viewName)
+    )
     .use { cursor ->
       when {
         cursor.moveToFirst() -> cursor.getString(0)
@@ -883,13 +861,10 @@ class SchemaMigrationRuntimeTest {
 
   private fun rawRows(
     connection: DbConnection,
-    table: Table<*>,
     sql: String
-  ) = Select
-    .raw(sql)
-    .from(table)
-    .usingConnection(connection)
-    .execute()
+  ) = connection
+    .readableDatabase
+    .query(sql)
     .use(Cursor::readRows)
 }
 
@@ -907,14 +882,17 @@ private class FailingMigrationDatabase(
       .use(Cursor::readStrings)
       .toSet()
     check(ROLLBACK_LEGACY_VIEW !in remainingViews)
-    throw IllegalStateException(MIGRATION_FAILURE_MESSAGE)
+    error(MIGRATION_FAILURE_MESSAGE)
   }
 }
 
 private class DefinitionFailureMigrationDatabase(
   override val dbVersion: Int
 ) : GeneratedDatabase by SqliteMagicDatabase() {
-  override fun migrateViews(db: SupportSQLiteDatabase) = DefinitionFailureGeneratedClassesManager.migrateViews(db)
+  override fun migrateViews(db: SupportSQLiteDatabase) = SqlUtil.migrateViews(
+    db = db,
+    schema = DefinitionFailureGeneratedClassesManager
+  )
 }
 
 private class DdlFailureMigrationDatabase(

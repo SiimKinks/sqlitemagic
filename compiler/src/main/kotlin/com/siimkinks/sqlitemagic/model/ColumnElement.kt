@@ -1,34 +1,31 @@
 package com.siimkinks.sqlitemagic.model
 
-import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
-import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.WriterTypes.CHAR_SEQUENCE
 import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
+import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
+import com.siimkinks.sqlitemagic.internal.RelationshipRead.ID_ONLY
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
-import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
-import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
-import com.squareup.kotlinpoet.NUMBER
-import com.squareup.kotlinpoet.TypeName
+import com.siimkinks.sqlitemagic.utils.generatedFieldName
 
-enum class AutoIncrementMode {
+internal enum class AutoIncrementMode {
   AUTOMATIC,
   ENABLED,
   DISABLED
 }
 
-data class IdElement(
-  val autoIncrementMode: AutoIncrementMode,
+internal data class IdElement(
   val isAutoIncrement: Boolean,
   val canAssignGeneratedId: Boolean
 )
 
-data class FieldIndexElement(
+internal data class FieldIndexElement(
   val name: String,
   val isUnique: Boolean
 )
 
-data class RelationshipElement(
+internal data class RelationshipElement(
   val referencedTableType: ParsedType,
   val referencedTableName: String,
   val referencedIdProperty: PropertyPath,
@@ -40,10 +37,18 @@ data class RelationshipElement(
   val isHandledRecursively: Boolean,
   val onDeleteCascade: Boolean,
   val canConstructWithOnlyId: Boolean,
-  val referencedIdRelationship: RelationshipElement? = null,
-  val referencedTableArtifactStem: String = ""
+  val needsGeneratedId: Boolean,
+  val referencedTableNames: GenerationNames,
+  val referencedIdRelationship: RelationshipElement?
 ) {
   val referencedTableTypeKey get() = referencedTableType.typeKey
+
+  val read
+    get() = when {
+      !isHandledRecursively -> ID_ONLY
+      canConstructWithOnlyId -> DEEP
+      else -> ALWAYS
+    }
   val referencedIdValueCanBeNull get() = referencedIdType.typeName.isNullable
   val serializedValueCanBeNull: Boolean
     get() = referencedIdTransformer?.serializedTypeCanBeNull == true ||
@@ -51,21 +56,20 @@ data class RelationshipElement(
   val databaseValueCanBeNull get() = referencedIdIsNullable || serializedValueCanBeNull
 }
 
-data class ColumnElement(
+internal data class ColumnElement(
   override val access: PropertyAccess,
   override val deserializedType: ParsedType,
   override val isNullable: Boolean,
   val columnName: String,
   val isSchemaNullable: Boolean,
-  val isModelPathNullable: Boolean = isSchemaNullable,
+  val isModelPathNullable: Boolean,
   val defaultValue: String,
   val transformer: TransformerElement?,
   val relationship: RelationshipElement?,
   val id: IdElement?,
   val isUnique: Boolean,
   val index: FieldIndexElement?,
-  val belongsToIndex: String?,
-  val embeddedPrefixes: List<String>
+  val belongsToIndex: String?
 ) : PropertyMetadata {
   init {
     require(transformer == null || relationship == null) {
@@ -77,7 +81,7 @@ data class ColumnElement(
   val isRelationship get() = relationship != null
   val isHandledRecursively get() = relationship?.isHandledRecursively == true
   val referencedTableTypeKey get() = relationship?.referencedTableTypeKey
-  val fieldName get() = columnName.camelCaseToSnakeCase().uppercase()
+  val fieldName get() = columnName.generatedFieldName()
 
   val sqlStorageType
     get() = checkNotNull(serializedType.sqlStorageType) {
@@ -95,51 +99,17 @@ data class ColumnElement(
     get() = transformer?.serializedTypeCanBeNull == true ||
         relationship?.serializedValueCanBeNull == true
 
-  val isEligibleEntityKey
-    get() = isUnique &&
-        !isSchemaNullable &&
+  val hasEntityKeyValue
+    get() = !isSchemaNullable &&
         !serializedValueCanBeNull &&
         sqlStorageType.affinity != BLOB
+  val isEligibleEntityKey get() = isUnique && hasEntityKeyValue
 
-  val relationshipColumnTypeSegment
-    get() = access.path.segments.joinToString(
-      separator = "_",
-      transform = String::firstCharToUpperCase
-    )
+  val needsGeneratedRelationshipId get() = relationship?.run { isHandledRecursively && needsGeneratedId } == true
 
-  val hasGeneratedColumnClass
-    get() = transformer?.let { !it.isDefaultTransformer || isUnique || isId } == true ||
-        relationship?.let { referenced ->
-          referenced.referencedIdTransformer != null ||
-              referenced.referencedIdRelationship != null ||
-              isUnique ||
-              isId
-        } == true
-
-  fun equivalentType(declaredType: TypeName) = when {
-    sqlStorageType.isNumeric -> NUMBER
-    sqlStorageType == SqlStorageType.STRING &&
-        transformer == null &&
-        (relationship == null ||
-            (relationship.referencedIdTransformer == null && relationship.referencedIdRelationship == null)) -> CHAR_SEQUENCE
-    else -> declaredType
-  }
-
-  fun needsGeneratedRelationshipId(environment: Environment): Boolean {
-    if (!isHandledRecursively) {
-      return false
+  val bindingValueCanBeNull
+    get() = when {
+      relationship != null -> isModelPathNullable
+      else -> isSchemaNullable || serializedValueCanBeNull
     }
-    val referencedTable = relationship
-      ?.referencedTableTypeKey
-      ?.let(environment.tableElements::get)
-      ?: return false
-    return referencedTable.idColumn?.id?.run {
-      isAutoIncrement && !canAssignGeneratedId
-    } == true
-  }
-
-  fun bindingValueCanBeNull() = when {
-    relationship != null -> isModelPathNullable
-    else -> isSchemaNullable || serializedValueCanBeNull
-  }
 }

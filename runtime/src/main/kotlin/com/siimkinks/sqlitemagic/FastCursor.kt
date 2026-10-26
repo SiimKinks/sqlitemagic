@@ -8,7 +8,6 @@ import android.database.Cursor.FIELD_TYPE_NULL
 import android.net.Uri
 
 /**
- * For internal use.
  * Cached movement updates only this cursor's position. All position-dependent reads must use the cached window.
  * Modified implementation from greenDAO:
  * <https://github.com/greenrobot/greenDAO/blob/master/DaoCore/src/de/greenrobot/dao/internal/FastCursor.java>
@@ -24,17 +23,18 @@ internal class FastCursor private constructor(
 
   companion object {
     fun tryCreate(cursor: Cursor) = when (cursor) {
-      is AbstractWindowedCursor -> FastCursor(cursor)
+      is AbstractWindowedCursor -> try {
+        FastCursor(cursor)
+      } catch (failure: Throwable) {
+        cursor.close()
+        throw failure
+      }
       else -> cursor
     }
   }
 
   fun syncWith(cursorPosition: Int) {
-    moveWindowIfNeeded(
-      oldPosition = this.position,
-      newPosition = cursorPosition
-    )
-    this.position = cursorPosition
+    moveToPosition(cursorPosition)
   }
 
   override fun close() {
@@ -50,75 +50,49 @@ internal class FastCursor private constructor(
   override fun move(offset: Int) = moveToPosition(position + offset)
 
   override fun moveToPosition(position: Int): Boolean {
-    if (position >= 0 && position < count) {
-      moveWindowIfNeeded(
-        oldPosition = this.position,
-        newPosition = position
-      )
-      this.position = position
-      return true
+    when {
+      position >= count -> {
+        this.position = count
+        return false
+      }
+      position < 0 -> {
+        this.position = -1
+        return false
+      }
+      position == this.position -> return true
     }
-    return false
-  }
-
-  override fun moveToFirst(): Boolean {
-    moveWindowIfNeeded(
-      oldPosition = position,
-      newPosition = 0
+    val moved = moveWindowIfNeeded(
+      oldPosition = this.position,
+      newPosition = position
     )
-    position = 0
-    return count > 0
+    this.position = when {
+      moved -> position
+      else -> -1
+    }
+    return moved
   }
 
-  override fun moveToLast(): Boolean {
-    if (count > 0) {
-      val position = count - 1
-      moveWindowIfNeeded(
-        oldPosition = this.position,
-        newPosition = position
-      )
-      this.position = position
-      return true
-    }
-    return false
-  }
+  override fun moveToFirst() = moveToPosition(0)
 
-  override fun moveToNext(): Boolean {
-    var position = this.position
-    if (position < count - 1) {
-      moveWindowIfNeeded(
-        oldPosition = position,
-        newPosition = ++position
-      )
-      this.position = position
-      return true
-    }
-    return false
-  }
+  override fun moveToLast() = moveToPosition(count - 1)
 
-  override fun moveToPrevious(): Boolean {
-    var position = this.position
-    if (position > 0) {
-      moveWindowIfNeeded(
-        oldPosition = position,
-        newPosition = --position
-      )
-      this.position = position
-      return true
-    }
-    return false
-  }
+  override fun moveToNext() = moveToPosition(position + 1)
+
+  override fun moveToPrevious() = moveToPosition(position - 1)
 
   private fun moveWindowIfNeeded(
     oldPosition: Int,
     newPosition: Int
-  ) {
+  ): Boolean {
     if (newPosition < windowStart || newPosition >= windowEnd) {
-      backingCursor.onMove(oldPosition, newPosition)
+      if (!backingCursor.onMove(oldPosition, newPosition)) {
+        return false
+      }
       window = backingCursor.window
       windowStart = window.startPosition
       windowEnd = windowStart + window.numRows
     }
+    return true
   }
 
   override fun isFirst() = position == 0 && count > 0
@@ -158,7 +132,5 @@ internal class FastCursor private constructor(
   override fun setNotificationUris(
     cr: ContentResolver,
     uris: List<Uri?>
-  ) {
-    backingCursor.setNotificationUris(cr, uris)
-  }
+  ) = backingCursor.setNotificationUris(cr, uris)
 }

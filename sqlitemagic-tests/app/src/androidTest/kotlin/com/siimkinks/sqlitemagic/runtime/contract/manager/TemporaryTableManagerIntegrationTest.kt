@@ -1,19 +1,19 @@
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.SubmoduleGeneratedClassesManager
 import com.siimkinks.sqlitemagic.runtime.model.ManagerIntegrationModelCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ManagerIntegrationModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_MASTER
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_TEMP_MASTER
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
-import com.siimkinks.sqlitemagic.runtime.support.readStrings
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.reopenDefaultConnection
+import com.siimkinks.sqlitemagic.runtime.support.schemaObjectNames
+import org.junit.Rule
 import org.junit.Test
 
 private const val SUBMODULE_NAME = "Submodule"
@@ -23,12 +23,15 @@ private data class SeededManagerModelCase<T>(
   val expected: T
 )
 
-class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
+internal class TemporaryTableManagerIntegrationTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun initialOpenCreatesTemporaryTablesOutsidePersistentSchema() {
-    assertThat(tableNames(master = "sqlite_temp_master"))
+    assertThat(tableNames(master = SQLITE_TEMP_MASTER))
       .containsExactlyElementsIn(ManagerIntegrationModelCatalog.temporaryTableNames)
-    assertThat(tableNames(master = "sqlite_master"))
+    assertThat(tableNames(master = SQLITE_MASTER))
       .isEmpty()
   }
 
@@ -65,7 +68,7 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
 
     reopenDefaultConnection()
 
-    assertThat(tableNames(master = "sqlite_temp_master"))
+    assertThat(tableNames(master = SQLITE_TEMP_MASTER))
       .containsExactlyElementsIn(ManagerIntegrationModelCatalog.temporaryTableNames)
     seededCases.forEach(::assertReopenState)
   }
@@ -83,7 +86,7 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
     val result = modelCase
       .insert(value)
       .execute()
-    assertSeedInserted(
+    insertedResult(
       result = result,
       modelName = modelCase.name
     )
@@ -93,41 +96,26 @@ class TemporaryTableManagerIntegrationTest : RuntimeDatabaseTest() {
     )
   }
 
-  private fun assertSingleRow(seededCase: SeededManagerModelCase<*>) =
-    assertSingleRowTyped(seededCase = seededCase)
+  private fun assertSingleRow(seededCase: SeededManagerModelCase<*>) = assertRowsIgnoringOrder(
+    table = seededCase.modelCase.table,
+    expected = listOf(seededCase.expected)
+  )
 
-  private fun <T> assertSingleRowTyped(seededCase: SeededManagerModelCase<T>) =
-    assertRowsIgnoringOrder(
-      table = seededCase.modelCase.table,
-      expected = listOf(seededCase.expected)
-    )
+  private fun assertEmpty(modelCase: ManagerIntegrationModelCase<*>) = assertRowsIgnoringOrder(
+    table = modelCase.table,
+    expected = emptyList()
+  )
 
-  private fun assertEmpty(modelCase: ManagerIntegrationModelCase<*>) =
-    assertEmptyTyped(modelCase = modelCase)
-
-  private fun <T> assertEmptyTyped(modelCase: ManagerIntegrationModelCase<T>) =
-    assertRowsIgnoringOrder(
-      table = modelCase.table,
-      expected = emptyList()
-    )
-
-  private fun assertReopenState(seededCase: SeededManagerModelCase<*>) =
-    assertReopenStateTyped(seededCase = seededCase)
-
-  private fun <T> assertReopenStateTyped(seededCase: SeededManagerModelCase<T>) = when {
-    seededCase.modelCase.isTemporary -> assertEmptyTyped(modelCase = seededCase.modelCase)
-    else -> assertSingleRowTyped(seededCase = seededCase)
+  private fun assertReopenState(seededCase: SeededManagerModelCase<*>) = when {
+    seededCase.modelCase.isTemporary -> assertEmpty(modelCase = seededCase.modelCase)
+    else -> assertSingleRow(seededCase = seededCase)
   }
 
-  private fun tableNames(master: String): Set<String> {
-    val tableNames = ManagerIntegrationModelCatalog.temporaryTableNames
-    val placeholders = tableNames.joinToString { "?" }
-    return Select
-      .raw("SELECT name FROM $master WHERE type = 'table' AND name IN ($placeholders)")
-      .from(SIMPLE_MUTABLE_ENTITY)
-      .withArgs(*tableNames.toTypedArray())
-      .execute()
-      .use(Cursor::readStrings)
-      .toSet()
-  }
+  private fun tableNames(master: String) = ManagerIntegrationModelCatalog.temporaryTableNames
+    .intersect(
+      schemaObjectNames(
+        master = master,
+        type = "table"
+      )
+    )
 }

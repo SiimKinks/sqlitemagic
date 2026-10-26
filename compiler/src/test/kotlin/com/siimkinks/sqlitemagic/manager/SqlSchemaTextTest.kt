@@ -4,121 +4,36 @@ import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 
 internal class SqlSchemaTextTest {
-  //region normalizeSql
-  @Test
-  fun `normalizes identifiers and whitespace while preserving literal contents`() {
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("normalizeSqlCases")
+  fun `normalizes schema SQL`(
+    label: String,
+    schema: String,
+    ownTableName: String?,
+    renames: Map<String, String>,
+    expected: String
+  ) {
     assertThat(
       normalizeSql(
-        schema = "CREATE   TABLE   current   (value TEXT DEFAULT 'current  value')",
-        ownTableName = null,
-        renames = mapOf("current" to "legacy")
+        schema = schema,
+        ownTableName = ownTableName,
+        renames = renames
       )
-    ).isEqualTo("CREATE TABLE legacy (value TEXT DEFAULT 'current  value')")
+    ).isEqualTo(expected)
   }
 
-  @Test
-  fun `applies rename chains in map iteration order`() {
-    assertThat(
-      normalizeSql(
-        schema = "CREATE TABLE current (value TEXT)",
-        ownTableName = null,
-        renames = linkedMapOf(
-          "current" to "middle",
-          "middle" to "legacy"
-        )
-      )
-    ).isEqualTo("CREATE TABLE legacy (value TEXT)")
-
-    assertThat(
-      normalizeSql(
-        schema = "CREATE TABLE current (value TEXT)",
-        ownTableName = null,
-        renames = linkedMapOf(
-          "middle" to "legacy",
-          "current" to "middle"
-        )
-      )
-    ).isEqualTo("CREATE TABLE middle (value TEXT)")
-  }
-
-  @Test
-  fun `does not replace an overlapping identifier within a larger identifier`() {
-    assertThat(
-      normalizeSql(
-        schema = "CREATE TABLE new_table (new TEXT)",
-        ownTableName = null,
-        renames = linkedMapOf(
-          "new" to "old",
-          "new_table" to "renamed"
-        )
-      )
-    ).isEqualTo("CREATE TABLE renamed (old TEXT)")
-  }
-
-  @Test
-  fun `replaces the own table before applying a matching rename`() {
-    assertThat(
-      normalizeSql(
-        schema = "CREATE TABLE current (parent TEXT REFERENCES current(id) DEFAULT 'current  value')",
-        ownTableName = "current",
-        renames = mapOf("current" to "legacy")
-      )
-    ).isEqualTo("CREATE TABLE __TABLE__ (parent TEXT REFERENCES __TABLE__(id) DEFAULT 'current  value')")
-  }
-
-  @Test
-  fun `preserves quoted identifiers while replacing matching unquoted identifiers`() {
-    assertThat(
-      normalizeSql(
-        schema = "CREATE TABLE \"current\" (value TEXT COLLATE \"current value\" DEFAULT 'current  value')",
-        ownTableName = null,
-        renames = mapOf("current" to "legacy")
-      )
-    ).isEqualTo("CREATE TABLE legacy (value TEXT COLLATE \"current value\" DEFAULT 'current  value')")
-  }
-
-  @Test
-  fun `keeps sequential replacement behavior for non-simple names`() {
-    assertThat(
-      normalizeSql(
-        schema = "CREATE TABLE current (value TEXT)",
-        ownTableName = null,
-        renames = mapOf("current" to "legacy name")
-      )
-    ).isEqualTo("CREATE TABLE legacy name (value TEXT)")
-  }
-
-  @Test
-  fun `treats dollar signs as part of unquoted identifiers`() {
-    assertThat(
-      normalizeSql(
-        schema = $$"CREATE TABLE foo$bar (value TEXT)",
-        ownTableName = null,
-        renames = mapOf("foo" to "legacy")
-      )
-    ).isEqualTo($$"CREATE TABLE foo$bar (value TEXT)")
-  }
-
-  @Test
-  fun `preserves an unclosed quoted identifier during normalization`() {
-    assertThat(
-      normalizeSql(
-        schema = "CREATE TABLE \"current",
-        ownTableName = null,
-        renames = mapOf("curren" to "legacy")
-      )
-    ).isEqualTo("CREATE TABLE \"current")
-  }
-  //endregion
-
-  //region withoutTableColumns
   @ParameterizedTest(name = "quoted parenthesis {0}")
   @ValueSource(strings = ["'", "\"", "\u0060", "["])
   fun `replaces only the outer table column list`(opening: String) {
-    val closing = if (opening == "[") "]" else opening
+    val closing = when (opening) {
+      "[" -> "]"
+      else -> opening
+    }
     val quotedParenthesis = "$opening($closing"
     val schema = "CREATE TABLE books (value TEXT DEFAULT $quotedParenthesis, CHECK (value <> 1)) WITHOUT ROWID"
 
@@ -129,7 +44,10 @@ internal class SqlSchemaTextTest {
   @ParameterizedTest(name = "quoted table name {0}")
   @ValueSource(strings = ["\"", "\u0060", "["])
   fun `ignores parentheses in a quoted table name`(opening: String) {
-    val closing = if (opening == "[") "]" else opening
+    val closing = when (opening) {
+      "[" -> "]"
+      else -> opening
+    }
     val quotedTableName = opening + "books(" + closing
     val schema = "CREATE TABLE $quotedTableName (value TEXT)"
 
@@ -148,9 +66,7 @@ internal class SqlSchemaTextTest {
         .isEqualTo(schema)
     }
   }
-  //endregion
 
-  //region rebuild predicates
   @Test
   fun `requires a value for an id column in a without rowid table`() {
     val table = TableStructure(
@@ -240,9 +156,7 @@ internal class SqlSchemaTextTest {
       ).canBeAddedWithAlterTable()
     ).isTrue()
   }
-  //endregion
 
-  //region normalizedReferencedTableNames
   @Test
   fun `extracts case-insensitive references in every supported identifier quote form`() {
     val table = TableStructure(
@@ -288,18 +202,87 @@ internal class SqlSchemaTextTest {
   @Test
   fun `ignores an unclosed quoted referenced table name`() {
     val table = TableStructure(
-      schema = "CREATE TABLE child (parent_id INTEGER REFERENCES \""
+      schema = """CREATE TABLE child (parent_id INTEGER REFERENCES """"
     )
 
     assertThat(table.normalizedReferencedTableNames()).isEmpty()
   }
-  //endregion
 
-  //region normalizedSqlIdentifier
-  @Test
-  fun `normalizes SQL identifiers to lower case`() {
-    assertThat("Books_TABLE".normalizedSqlIdentifier())
-      .isEqualTo("books_table")
+  companion object {
+    @JvmStatic
+    fun normalizeSqlCases() = listOf(
+      Arguments.of(
+        "normalizes identifiers and whitespace while preserving literal contents",
+        "CREATE   TABLE   current   (value TEXT DEFAULT 'current  value')",
+        null,
+        mapOf("current" to "legacy"),
+        "CREATE TABLE legacy (value TEXT DEFAULT 'current  value')"
+      ),
+      Arguments.of(
+        "applies a rename chain in map iteration order",
+        "CREATE TABLE current (value TEXT)",
+        null,
+        mapOf(
+          "current" to "middle",
+          "middle" to "legacy"
+        ),
+        "CREATE TABLE legacy (value TEXT)"
+      ),
+      Arguments.of(
+        "applies only the later link of a rename chain listed in reverse order",
+        "CREATE TABLE current (value TEXT)",
+        null,
+        mapOf(
+          "middle" to "legacy",
+          "current" to "middle"
+        ),
+        "CREATE TABLE middle (value TEXT)"
+      ),
+      Arguments.of(
+        "does not replace an overlapping identifier within a larger identifier",
+        "CREATE TABLE new_table (new TEXT)",
+        null,
+        mapOf(
+          "new" to "old",
+          "new_table" to "renamed"
+        ),
+        "CREATE TABLE renamed (old TEXT)"
+      ),
+      Arguments.of(
+        "replaces the own table before applying a matching rename",
+        "CREATE TABLE current (parent TEXT REFERENCES current(id) DEFAULT 'current  value')",
+        "current",
+        mapOf("current" to "legacy"),
+        "CREATE TABLE __TABLE__ (parent TEXT REFERENCES __TABLE__(id) DEFAULT 'current  value')"
+      ),
+      Arguments.of(
+        "preserves quoted identifiers while replacing matching unquoted identifiers",
+        """CREATE TABLE "current" (value TEXT COLLATE "current value" DEFAULT 'current  value')""",
+        null,
+        mapOf("current" to "legacy"),
+        """CREATE TABLE legacy (value TEXT COLLATE "current value" DEFAULT 'current  value')"""
+      ),
+      Arguments.of(
+        "keeps sequential replacement behavior for non-simple names",
+        "CREATE TABLE current (value TEXT)",
+        null,
+        mapOf("current" to "legacy name"),
+        "CREATE TABLE legacy name (value TEXT)"
+      ),
+      Arguments.of(
+        "treats dollar signs as part of unquoted identifiers",
+        $$"CREATE TABLE foo$bar (value TEXT)",
+        null,
+        mapOf("foo" to "legacy"),
+        $$"CREATE TABLE foo$bar (value TEXT)"
+      ),
+      Arguments.of(
+        "preserves an unclosed quoted identifier during normalization",
+        """CREATE TABLE "current""",
+        null,
+        mapOf("curren" to "legacy"),
+        """CREATE TABLE "current"""
+      )
+    )
   }
-  //endregion
 }

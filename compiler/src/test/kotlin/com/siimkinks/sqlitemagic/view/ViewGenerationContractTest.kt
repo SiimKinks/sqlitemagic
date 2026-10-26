@@ -1,87 +1,24 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.assertNotGeneratedSources
+import com.siimkinks.sqlitemagic.utils.functionBody
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class ViewGenerationContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
-
+internal class ViewGenerationContractTest {
   @Test
   fun `generates a read-only table and DAO surface for a scalar view`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ScalarView.kt",
-          contents = """
-            package $PACKAGE
-
-            import android.database.Cursor
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-            import com.siimkinks.sqlitemagic.internal.MutableInt
-            import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
-            import com.siimkinks.sqlitemagic.internal.MutableScatterMap
-
-            @Table
-            data class Author(
-              @Id val id: Long,
-              val name: String,
-              val rating: Int?
-            )
-
-            @View
-            data class AuthorSummary(
-              @ViewColumn("author.name") val authorName: String,
-              @ViewColumn("rating") val rating: Int?
-            ) {
-              val ignoredLabel = "ignored"
-
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<Author, SelectN> = error("compile-only")
-              }
-            }
-
-            private typealias PositionalReader = (Cursor, MutableInt) -> AuthorSummary
-            private typealias SelectedReader = (
-              Cursor,
-              MutableObjectIntMap<String>,
-              MutableScatterMap<String, String>?,
-              String
-            ) -> AuthorSummary?
-
-            private val shallowPositional: PositionalReader =
-              SqliteMagic_AuthorSummary_Dao::shallowObjectFromCursorPosition
-            private val shallowSelected: SelectedReader =
-              SqliteMagic_AuthorSummary_Dao::shallowObjectFromCursorPosition
-
-            private fun shallowWithDefaultOffset(cursor: Cursor): AuthorSummary =
-              SqliteMagic_AuthorSummary_Dao.shallowObjectFromCursorPosition(cursor = cursor)
-
-            private fun shallowWithNamedSelection(
-              cursor: Cursor,
-              columns: MutableObjectIntMap<String>
-            ): AuthorSummary? = SqliteMagic_AuthorSummary_Dao.shallowObjectFromCursorPosition(
-              cursor = cursor,
-              columns = columns,
-              tableGraphNodeNames = null,
-              nodeName = "summary"
-            )
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_AuthorSummary_Dao.kt",
@@ -93,39 +30,32 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
       )
       .withGeneratedSource("AuthorSummaryTable.kt") { generatedSource ->
         generatedSource.assertContains(
-          "class AuthorSummaryTable",
-          "Table<AuthorSummary>",
-          "AUTHOR_NAME",
-          "RATING",
-          "override fun `as`(",
-          "mapper =",
-          "GENERATED_VIEW"
+          "public class AuthorSummaryTable private constructor(",
+          """: Table<AuthorSummary>(name = "author_summary", alias = alias, """ +
+              "generatedView = SqliteMagic_AuthorSummary_Dao.GENERATED_VIEW)",
+          "val AUTHOR_NAME:",
+          "Column<AuthorSummary, String, SqlNullable, String?, String, Required, String> = Column(",
+          """name = "author.name"""",
+          "val RATING: Column<AuthorSummary, Int, SqlNullable, Int?, Int?, SqlNullable, Int?>",
+          """name = "rating"""",
+          "SqliteMagic_AuthorSummary_Dao.objectFromCursorPosition(cursor, startIndex)",
+          "override infix fun AS(alias: String): AuthorSummaryTable",
+          "public val AUTHOR_SUMMARY: AuthorSummaryTable"
         )
-        generatedSource.assertDoesNotContain(
-          "ignoredLabel",
-          "AuthorSummaryColumn",
-          "SqliteMagic_AuthorSummary_Adapter",
-          "fullObjectFromCursorPosition"
-        )
-        generatedSource
-          .substringAfter("private fun createMapper(")
-          .assertDoesNotContain("queryDeep ->")
+        generatedSource.assertDoesNotContain("ignoredLabel")
       }
       .withGeneratedSource("SqliteMagic_AuthorSummary_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "object SqliteMagic_AuthorSummary_Dao",
-          "shallowObjectFromCursorPosition",
-          "AuthorSummary(",
-          "authorName =",
-          "rating =",
-          "QUERY",
-          "GENERATED_VIEW: GeneratedView =",
-          """GeneratedView(viewName = "author_summary"""",
+        generatedSource.assertContainsUnwrapped(
+          "internal object SqliteMagic_AuthorSummary_Dao",
+          "internal val GENERATED_VIEW: GeneratedView = GeneratedView(",
+          """viewName = "author_summary"""",
           "temporary = false",
-          "definitionProvider = { SqlUtil.viewDefinition(",
-          "get() = GENERATED_VIEW.definition",
-          "Selected columns did not contain",
-          "columnIndex"
+          "query = { AuthorSummary.query }",
+          """columns = listOf("author.name", "rating")""",
+          "fun objectFromCursorPosition(cursor: Cursor, startIndex: Int): AuthorSummary",
+          """Column \"author.name\" was NULL""",
+          "cursor.getString(startIndex)",
+          "rating = if (cursor.isNull(startIndex + 1)) null else cursor.getInt(startIndex + 1)"
         )
         generatedSource.assertContainsInOrder(
           "AuthorSummary(",
@@ -133,306 +63,174 @@ internal class ViewGenerationContractTest : ProcessingStepsTest {
           "rating ="
         )
         generatedSource.assertDoesNotContain(
-          "bindToInsertStatement",
-          "bindToUpdateStatement",
-          "DeleteBuilder",
-          "InsertBuilder",
-          "newInstanceWithOnlyId",
-          "fullObjectFromCursorPosition"
+          "related",
+          "blocks ="
         )
-        generatedSource.assertContainsInOrder(
-          "fun shallowObjectFromCursorPosition(",
-          "fun shallowObjectFromCursorPosition("
-        )
-        val constructions = Regex("AuthorSummary\\(")
-          .findAll(generatedSource)
-          .count()
-        val offsetAdvancements = Regex("columnOffset\\.value \\+=")
-          .findAll(generatedSource)
-          .count()
-        val defaultOffsets = Regex("columnOffset: MutableInt = MutableInt\\(\\)")
-          .findAll(generatedSource)
-          .count()
-        val readerDeclarations = Regex("fun shallowObjectFromCursorPosition\\(")
-          .findAll(generatedSource)
-          .count()
-        assertThat(constructions).isEqualTo(2)
-        assertThat(offsetAdvancements).isEqualTo(1)
-        assertThat(defaultOffsets).isEqualTo(1)
-        assertThat(readerDeclarations).isEqualTo(2)
+        assertThat(
+          Regex("""AuthorSummary\(""")
+            .findAll(generatedSource.functionBody("objectFromCursorPosition"))
+            .count()
+        ).isEqualTo(1)
+        assertThat(
+          Regex("""fun objectFromCursorPosition\(""")
+            .findAll(generatedSource)
+            .count()
+        ).isEqualTo(1)
       }
   }
 
   @Test
   fun `reads transformed scalar leaves through the registered transformer`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "TransformedView.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
-            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
-
-            data class Email(val value: String)
-
-            object EmailTransformer {
-              @ObjectToDbValue
-              fun emailToString(value: Email): String = value.value
-
-              @DbValueToObject
-              fun stringToEmail(value: String): Email = Email(value)
-            }
-
-            @View
-            data class EmailView(
-              @ViewColumn("email") val email: Email
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<String, Select1> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources(
-        "EmailColumn.kt",
+        "EmailSqlType.kt",
         "SqliteMagic_EmailView_Dao.kt",
         "EmailViewTable.kt"
       )
       .withGeneratedSource("SqliteMagic_EmailView_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "stringToEmail",
-          "email =",
-          "shallowObjectFromCursorPosition"
+          "fun objectFromCursorPosition(",
+          "email = if (cursor.isNull(startIndex)) throw SQLException(",
+          "else EmailTransformer.stringToEmail(cursor.getString(startIndex))"
         )
-        val transformerCalls = Regex("EmailTransformer\\.stringToEmail\\(")
-          .findAll(generatedSource)
-          .count()
-        assertThat(transformerCalls).isEqualTo(2)
+        assertThat(
+          Regex("""EmailTransformer\.stringToEmail\(""")
+            .findAll(generatedSource.functionBody("objectFromCursorPosition"))
+            .count()
+        ).isEqualTo(1)
       }
   }
 
   @Test
   fun `constructs mutable views while preserving nullable defaults and ignored members`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "MutableView.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @Table
-            data class Author(
-              @Id val id: Long,
-              val name: String,
-              val rating: Int?
-            )
-
-            @View
-            class MutableAuthorSummary {
-              @ViewColumn("name")
-              var name: String = "default-name"
-
-              @ViewColumn("rating")
-              var rating: Int? = 42
-
-              @IgnoreColumn
-              var cache: String = "not mapped"
-
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<Author, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
+    GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_MutableAuthorSummary_Dao.kt")
       .withGeneratedSource("SqliteMagic_MutableAuthorSummary_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "MutableAuthorSummary().apply",
-          "this.name =",
-          "this.rating =",
-          "cursor.isNull",
-          "columnIndex"
+          "this.name = if (cursor.isNull(startIndex)) throw SQLException(",
+          "if (!cursor.isNull(startIndex + 1)) this.rating = cursor.getInt(startIndex + 1)",
+          "(related.readOrNull(cursor, 0) as Author?)?.let { this.author = it }"
         )
         generatedSource.assertDoesNotContain("this.cache =")
-      }
-  }
-
-  @Test
-  fun `keeps traversal and observation metadata at the generated query boundary`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "JoinedView.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
-
-            @Table
-            data class Author(
-              @Id val id: Long,
-              val name: String
-            )
-
-            @Table
-            data class Magazine(
-              @Id val id: Long,
-              val authorId: Long,
-              val title: String
-            )
-
-            @View
-            data class JoinedSummary(
-              @ViewColumn("author.name") val authorName: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<Magazine, SelectN> = error("compile-only")
-              }
-            }
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_JoinedSummary_Dao.kt",
-        "JoinedSummaryTable.kt"
-      )
-      .withGeneratedSource("JoinedSummaryTable.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "Table<JoinedSummary>",
-          "AUTHOR_NAME",
-          "generatedView = SqliteMagic_JoinedSummary_Dao.GENERATED_VIEW",
-          "mapper =",
-          """createMapper(columnPositions, tableGraphNodeNames, queryDeep, alias ?: "joined_summary")""",
-          "private fun createMapper(",
-          "queryDeep: Boolean",
-          "SqliteMagic_JoinedSummary_Dao::shallowObjectFromCursorPosition",
-          "SqliteMagic_JoinedSummary_Dao.shallowObjectFromCursorPosition(" +
-              "it, columnPositions, tableGraphNodeNames, viewIdentifier"
-        )
-        generatedSource.assertDoesNotContain("fullObjectFromCursorPosition")
         generatedSource
-          .substringAfter("private fun createMapper(")
-          .assertDoesNotContain("queryDeep ->")
-      }
-      .withGeneratedSource("SqliteMagic_JoinedSummary_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "shallowObjectFromCursorPosition",
-          "tableGraphNodeNames",
-          "author",
-          "query = JoinedSummary.query",
-          """viewName = "joined_summary"""",
-          "GENERATED_VIEW.definition"
-        )
-        generatedSource.assertDoesNotContain("title =", "fullObjectFromCursorPosition")
+          .functionBody("objectFromSelectedPositions")
+          .assertDoesNotContain("this.author")
       }
   }
 
-  @Test
-  fun `keeps an opaque compiled definition behind an explicit runtime boundary`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "OpaqueDefinitionView.kt",
-          contents = """
-            package $PACKAGE
+  companion object {
+    private val GENERATED by lazy {
+      SqliteMagicCompilation
+        .compile(
+          SourceFile.kotlin(
+            name = "ScalarView.kt",
+            contents = """
+              package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledCountSelect
-            import com.siimkinks.sqlitemagic.CompiledCursorSelect
-            import com.siimkinks.sqlitemagic.CompiledFirstSelect
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.ListQueryObservable
-            import com.siimkinks.sqlitemagic.Select.SelectN
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+              import android.database.Cursor
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.SqliteMagic_AuthorSummary_Dao
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.Table
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
 
-            private object OpaqueDefinition : CompiledSelect<Any, SelectN> {
-              override fun execute(): List<Any> = TODO()
-              override fun observe(): ListQueryObservable<Any> = TODO()
-              override fun takeFirst(): CompiledFirstSelect<Any, SelectN> = TODO()
-              override fun count(): CompiledCountSelect<SelectN> = TODO()
-              override fun toCursor(): CompiledCursorSelect<Any, SelectN> = TODO()
-            }
+              @Table
+              data class Author(
+                @Id val id: Long,
+                val name: String,
+                val rating: Int?
+              )
 
-            @View
-            data class OpaqueView(
-              @ViewColumn("value") val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: CompiledSelect<Any, SelectN> = OpaqueDefinition
+              @View
+              data class AuthorSummary(
+                @ViewColumn("author.name") val authorName: String,
+                @ViewColumn("rating") val rating: Int?
+              ) {
+                val ignoredLabel = "ignored"
+
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<Author, *> = error("compile-only")
+                }
               }
-            }
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_OpaqueView_Dao.kt")
-      .withGeneratedSource("SqliteMagic_OpaqueView_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "QUERY",
-          "query = OpaqueView.query",
-          """viewName = "opaque_view""""
-        )
-        generatedSource.assertDoesNotContain("CompiledSelectImpl", "CompiledSelect1Impl")
-      }
-  }
 
-  @Test
-  fun `rejects a defining query with the wrong declared type`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "WrongViewQueryType.kt",
-          contents = """
-            package $PACKAGE
+              private val positional: (Cursor, Int) -> AuthorSummary =
+                SqliteMagic_AuthorSummary_Dao::objectFromCursorPosition
+            """
+          ),
+          SourceFile.kotlin(
+            name = "TransformedView.kt",
+            contents = """
+              package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.annotation.View
-            import com.siimkinks.sqlitemagic.annotation.ViewColumn
-            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+              import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+              import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
-            @View
-            data class WrongViewQueryType(
-              @ViewColumn("value") val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val query: String = "not a compiled select"
+              data class Email(val value: String)
+
+              object EmailTransformer {
+                @ObjectToDbValue
+                fun emailToString(value: Email): String = value.value
+
+                @DbValueToObject
+                fun stringToEmail(value: String): Email = Email(value)
               }
-            }
-          """
+
+              @View
+              data class EmailView(
+                @ViewColumn("email") val email: Email
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "MutableView.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+              @View
+              class MutableAuthorSummary {
+                @ViewColumn("name")
+                var name: String = "default-name"
+
+                @ViewColumn("rating")
+                var rating: Int? = 42
+
+                @ViewColumn("author")
+                var author: Author? = Author(id = 0, name = "default-author", rating = null)
+
+                @IgnoreColumn
+                var cache: String = "not mapped"
+
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<Author, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          processingStepsFactory = ::viewProcessingSteps
         )
-      )
-      .assertCompilationError()
+        .generatedSources()
+    }
   }
 }

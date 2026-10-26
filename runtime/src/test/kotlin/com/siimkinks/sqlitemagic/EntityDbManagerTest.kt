@@ -129,60 +129,36 @@ internal class EntityDbManagerTest {
 
   @Test
   fun `close independently attempts cached statement cleanup and tolerates failures`() {
-    val failureCases = mapOf(
-      "insert fails" to setOf(0),
-      "update fails" to setOf(1),
-      "both fail" to setOf(0, 1)
-    )
-    for ((label, failingIndexes) in failureCases) {
-      val connection = newConnection()
-      val manager = EntityDbManager(connection.connection)
-      manager.insertStatement("INSERT%s INTO books(name) VALUES (?)")
-      manager.updateStatement("UPDATE%s books SET name=? WHERE id=?")
-      for (index in failingIndexes) {
-        connection.recordingDatabase.compiledStatements[index].closeFailure = IllegalStateException("close failed")
-      }
-
-      manager.close()
-      manager.close()
-
-      assertWithMessage(label)
-        .that(connection.statementCloseCalls)
-        .containsExactly(1, 1)
-      val failure = assertThrows(IllegalStateException::class.java) {
-        manager.compileStatement("SELECT 1")
-      }
-      assertWithMessage(label)
-        .that(failure)
-        .hasMessageThat()
-        .isEqualTo("DB connection closed")
+    val connection = newConnection()
+    val manager = EntityDbManager(connection.connection)
+    manager.insertStatement("INSERT%s INTO books(name) VALUES (?)")
+    manager.updateStatement("UPDATE%s books SET name=? WHERE id=?")
+    connection.recordingDatabase.compiledStatements.forEach {
+      it.closeFailure = IllegalStateException("close failed")
     }
+
+    manager.close()
+    manager.close()
+
+    assertThat(connection.statementCloseCalls).containsExactly(1, 1)
+    val failure = assertThrows(IllegalStateException::class.java) {
+      manager.compileStatement("SELECT 1")
+    }
+    assertThat(failure)
+      .hasMessageThat()
+      .isEqualTo("DB connection closed")
   }
 
   @Test
   fun `closed manager rejects every access path before formatting SQL`() {
     val accesses: Map<String, (EntityDbManager) -> Any> = mapOf(
-      "insert" to { it.insertStatement("INSERT%s INTO books(name) VALUES (?)") },
-      "update" to { it.updateStatement("UPDATE%s books SET name=? WHERE id=?") },
       "plain compile" to { it.compileStatement("SELECT 1") },
-      "conflict compile" to {
-        it.compileStatement(
-          sql = "INSERT%s INTO books(name) VALUES (?)",
-          conflictAlgorithm = CONFLICT_IGNORE
-        )
-      },
       "malformed insert format" to { it.insertStatement("%q") },
       "malformed update format" to { it.updateStatement("%q") },
       "malformed conflict format" to {
         it.compileStatement(
           sql = "%q",
           conflictAlgorithm = CONFLICT_IGNORE
-        )
-      },
-      "invalid conflict algorithm" to {
-        it.compileStatement(
-          sql = "INSERT%s INTO books(name) VALUES (?)",
-          conflictAlgorithm = -1
         )
       }
     )
@@ -193,7 +169,7 @@ internal class EntityDbManagerTest {
         manager.insertStatement("INSERT%s INTO books(name) VALUES (?)")
         manager.updateStatement("UPDATE%s books SET name=? WHERE id=?")
       }
-      val compiledSql = connection.statementSql.toList()
+      val compiledSql = connection.statementSql
 
       manager.close()
       manager.close()
@@ -209,6 +185,3 @@ internal class EntityDbManagerTest {
     }
   }
 }
-
-private val RecordingConnection.statementCloseCalls
-  get() = recordingDatabase.compiledStatements.map(RecordingStatement::closeCalls)

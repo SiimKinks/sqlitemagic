@@ -171,6 +171,7 @@ internal const val ClonedMetadataCount = GroupWidth - 1
 // We choose 6 so that the "unloaded" capacity maps to 7
 internal const val DefaultScatterCapacity = 6
 
+@InternalSqliteMagicApi
 sealed class ScatterMap<K, V> {
   // NOTE: Our arrays are marked internal to implement inlined forEach{}
   // The backing array for the metadata bytes contains
@@ -209,6 +210,9 @@ sealed class ScatterMap<K, V> {
     @Suppress("UNCHECKED_CAST")
     return if (index >= 0) values[index] as V? else null
   }
+
+  @Suppress("UNCHECKED_CAST")
+  internal fun getExisting(key: K): V = values[findKeyIndex(key)] as V
 
   /**
    * Iterates over every key/value pair stored in this map by invoking the specified [block]
@@ -350,6 +354,7 @@ sealed class ScatterMap<K, V> {
 
 }
 
+@InternalSqliteMagicApi
 class MutableScatterMap<K, V>(initialCapacity: Int = DefaultScatterCapacity) :
   ScatterMap<K, V>() {
   // Number of entries we can add before we need to grow

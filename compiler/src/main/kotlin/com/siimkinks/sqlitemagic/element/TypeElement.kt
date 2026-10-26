@@ -17,23 +17,23 @@ import com.squareup.kotlinpoet.ksp.toTypeName
  *
  * For example: `List<Email>?` becomes `kotlin.collections.List<com.example.Email>`
  */
-typealias TypeKey = String
+internal typealias TypeKey = String
 
-interface ParsedType {
+internal interface ParsedType {
   val typeKey: TypeKey
   val typeName: TypeName
   val qualifiedName: String
   val sqlStorageType: SqlStorageType?
 }
 
-data class ParsedTypeImpl(
+internal data class ParsedTypeImpl(
   override val typeKey: TypeKey,
   override val typeName: TypeName,
   override val qualifiedName: String,
   override val sqlStorageType: SqlStorageType?
 ) : ParsedType
 
-interface RoundTypeElement : ParsedType {
+internal interface RoundTypeElement : ParsedType {
   val type: KSType
   val declaration: KSClassDeclaration?
   val parsedType: ParsedType
@@ -42,17 +42,17 @@ interface RoundTypeElement : ParsedType {
 }
 
 /** A parsed type together with KSP state that is valid only for the current round. */
-data class RoundTypeElementImpl(
+internal data class RoundTypeElementImpl(
   override val type: KSType,
   override val declaration: KSClassDeclaration?,
   override val parsedType: ParsedType
 ) : RoundTypeElement, ParsedType by parsedType
 
-fun KSTypeReference.toRoundTypeElement(
+internal fun KSTypeReference.toRoundTypeElement(
   typeParameterResolver: TypeParameterResolver = TypeParameterResolver.EMPTY
 ): RoundTypeElement = resolve().toRoundTypeElement(typeParameterResolver)
 
-fun KSType.toRoundTypeElement(
+internal fun KSType.toRoundTypeElement(
   typeParameterResolver: TypeParameterResolver = TypeParameterResolver.EMPTY
 ): RoundTypeElement {
   val declaration = declaration.resolveClassDeclaration()
@@ -66,7 +66,7 @@ fun KSType.toRoundTypeElement(
   )
 }
 
-fun KSType.toParsedType(
+internal fun KSType.toParsedType(
   typeParameterResolver: TypeParameterResolver = TypeParameterResolver.EMPTY,
   typeName: TypeName = toTypeName(typeParameterResolver),
   declaration: KSClassDeclaration? = this.declaration.resolveClassDeclaration()

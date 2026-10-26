@@ -18,8 +18,6 @@ import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.Modifier.JAVA_STATIC
 import com.google.devtools.ksp.symbol.Visibility.INTERNAL
-import com.google.devtools.ksp.symbol.Visibility.JAVA_PACKAGE
-import com.google.devtools.ksp.symbol.Visibility.PRIVATE
 import com.google.devtools.ksp.symbol.Visibility.PUBLIC
 import com.google.devtools.ksp.validate
 import com.siimkinks.sqlitemagic.annotation.Embedded
@@ -27,87 +25,55 @@ import com.squareup.kotlinpoet.ksp.TypeParameterResolver
 import com.squareup.kotlinpoet.ksp.toTypeParameterResolver
 import kotlin.reflect.KCallable
 
-/** Returns the first annotation of type [T], or `null`. */
-inline fun <reified T : Annotation> KSAnnotated.findAnnotationWithType(): T? =
+internal inline fun <reified T : Annotation> KSAnnotated.findAnnotationWithType() =
   getAnnotationsByType(T::class)
     .firstOrNull()
 
-/** Returns the first annotation with [T]'s short name without resolving it. */
-inline fun <reified T : Annotation> KSAnnotated.firstUncheckedAnnotation(): KSAnnotation? {
+internal inline fun <reified T : Annotation> KSAnnotated.firstUncheckedAnnotation(): KSAnnotation? {
   val annotationShortName = checkNotNull(T::class.simpleName)
   return annotations.firstOrNull {
     it.shortName.asString() == annotationShortName
   }
 }
 
-/** Returns whether an annotation with [T]'s short name is present without resolving it. */
-inline fun <reified T : Annotation> KSAnnotated.isUncheckedAnnotationPresent(): Boolean {
+internal inline fun <reified T : Annotation> KSAnnotated.isUncheckedAnnotationPresent(): Boolean {
   val annotationShortName = checkNotNull(T::class.simpleName)
   return annotations.any {
     it.shortName.asString() == annotationShortName
   }
 }
 
-fun KSAnnotated.hasAnyAnnotationWithSimpleName(names: Set<String>): Boolean = annotations.any { annotation ->
-  annotation.shortName.asString() in names
-}
-
-fun KSAnnotation.getArgument(
+internal fun KSAnnotation.getArgument(
   property: KCallable<*>
-): KSValueArgument = arguments.first {
+) = arguments.first {
   it.name?.asString() == property.name
 }
 
-/**
- * Returns an array-valued class argument from an annotation.
- *
- * For example:
- * Java: `Class<?>[] externalTransformers() default {}`
- * Kotlin: `val externalTransformers: Array<KClass<*>> = []`
- */
-fun KSAnnotation.classArrayArgumentValue(
+internal fun KSAnnotation.classArrayArgumentValue(
   property: KCallable<*>
-): List<KSType>? =
-  arguments.arrayArgumentValue(property.name)
-    ?: defaultArguments.arrayArgumentValue(property.name)
+) = arguments.arrayArgumentValue(property.name)
+  ?: defaultArguments.arrayArgumentValue(property.name)
 
-/**
- * Returns the type list named [propertyName].
- *
- * Example: `[name = "id", types = [String]] -> [String]` for `propertyName = "types"`.
- */
-@Suppress("UNCHECKED_CAST")
 private fun List<KSValueArgument>.arrayArgumentValue(
   propertyName: String
-): List<KSType>? =
-  firstOrNull { it.name?.asString() == propertyName }
-    ?.value as? List<KSType>
+) = (firstOrNull { it.name?.asString() == propertyName }?.value as? List<*>)
+  ?.filterIsInstance<KSType>()
 
-/**
- * Returns the qualified name when available.
- *
- * Example: `User in com.example -> "com.example.User"`.
- */
-fun KSDeclaration.qualifiedNameOrSimpleName(): String =
+internal fun KSDeclaration.qualifiedNameOrSimpleName() =
   qualifiedName?.asString()
     ?: simpleName.asString()
 
-fun KSClassDeclaration.displayName() =
+internal fun KSClassDeclaration.displayName() =
   declarationPathNames()
     .joinToString(separator = ".")
 
-/**
- * Resolves a class or type alias to its class declaration.
- *
- * Example: `typealias UserId = String -> String declaration`.
- */
-fun KSDeclaration.resolveClassDeclaration(): KSClassDeclaration? = when (this) {
+internal fun KSDeclaration.resolveClassDeclaration(): KSClassDeclaration? = when (this) {
   is KSClassDeclaration -> this
   is KSTypeAlias -> type.resolve().declaration.resolveClassDeclaration()
   else -> null
 }
 
-fun KSClassDeclaration.modelConstructor(): KSFunctionDeclaration? =
+internal fun KSClassDeclaration.modelConstructor() =
   primaryConstructor ?: getConstructors().singleOrNull()
 
 /** Validates construction and mapping inputs without traversing unrelated direct helper members. */
@@ -179,9 +145,9 @@ private fun KSClassDeclaration.hasUnresolvedModelAnnotationArguments(annotations
     else -> declaration
       .directColumnAncestors()
       .filterNot { it.qualifiedName?.asString() == Any::class.qualifiedName }
-      .any { ancestor ->
+      .any {
         inspect(
-          declaration = ancestor,
+          declaration = it,
           includeClassArguments = false
         )
       }
@@ -193,36 +159,36 @@ private fun KSClassDeclaration.hasUnresolvedModelAnnotationArguments(annotations
   )
 }
 
-fun KSDeclaration.isAccessibleFromGeneratedCode() = when (getVisibility()) {
+/** Generated code lives in the root package, so it reaches only public and module-internal declarations. */
+internal fun KSDeclaration.isAccessibleFromGeneratedCode() = when (getVisibility()) {
   PUBLIC,
-  INTERNAL,
-  JAVA_PACKAGE -> true
+  INTERNAL -> true
   else -> false
 }
 
-fun KSDeclaration.declarationPath() = generateSequence(
-  seed = this as KSDeclaration?,
+internal fun KSDeclaration.declarationPath() = generateSequence(
+  seed = this,
   nextFunction = KSDeclaration::parentDeclaration
 )
 
-fun KSDeclaration.isEffectivelyAccessibleFromGeneratedCode() =
+internal fun KSDeclaration.isEffectivelyAccessibleFromGeneratedCode() =
   declarationPath().all(KSDeclaration::isAccessibleFromGeneratedCode)
 
-fun KSDeclaration.isEffectivelyPublic() =
+internal fun KSDeclaration.isEffectivelyPublic() =
   declarationPath().all { it.getVisibility() == PUBLIC }
 
-fun KSClassDeclaration.declarationPathNames() =
+internal fun KSClassDeclaration.declarationPathNames() =
   declarationPath()
     .map { it.simpleName.asString() }
     .toList()
     .asReversed()
 
-fun KSAnnotated.normalizePropertySymbol(): KSAnnotated = when (this) {
+internal fun KSAnnotated.normalizePropertySymbol() = when (this) {
   is KSBackingField -> property
   else -> this
 }
 
-fun KSDeclaration?.typeParameterResolver(): TypeParameterResolver = when (this) {
+internal fun KSDeclaration?.typeParameterResolver(): TypeParameterResolver = when (this) {
   is KSClassDeclaration -> typeParameters.toTypeParameterResolver(
     parent = parentDeclaration.typeParameterResolver()
   )
@@ -232,8 +198,7 @@ fun KSDeclaration?.typeParameterResolver(): TypeParameterResolver = when (this) 
   else -> TypeParameterResolver.EMPTY
 }
 
-fun KSClassDeclaration.getLocalAndInheritedFunctions(): Sequence<KSFunctionDeclaration> {
-  val targetPackageName = packageName.asString()
+internal fun KSClassDeclaration.getLocalAndInheritedFunctions(): Sequence<KSFunctionDeclaration> {
   val visitedTypes = mutableSetOf<String>()
 
   fun KSClassDeclaration.collectFunctions(): Sequence<KSFunctionDeclaration> = sequence {
@@ -251,44 +216,27 @@ fun KSClassDeclaration.getLocalAndInheritedFunctions(): Sequence<KSFunctionDecla
     yieldAll(
       declarations
         .filterIsInstance<KSFunctionDeclaration>()
-        .filter { function ->
-          function.isVisibleFromPackage(
-            targetPackageName = targetPackageName
-          )
-        }
+        .filter(KSFunctionDeclaration::isAccessibleFromGeneratedCode)
     )
   }
   return collectFunctions()
 }
 
 /** Returns inherited fields/properties before locally declared ones. */
-fun KSClassDeclaration.getLocalAndInheritedProperties(): List<KSPropertyDeclaration> {
-  val properties = getLocalAndInheritedColumnTypes()
+internal fun KSClassDeclaration.getLocalAndInheritedProperties(): List<KSPropertyDeclaration> = buildList {
+  getLocalAndInheritedColumnTypes()
     .flatMap { declaration ->
       declaration.declarations
         .filterIsInstance<KSPropertyDeclaration>()
         .filter { JAVA_STATIC !in it.modifiers }
-        .toList()
     }
-  val visibleProperties = mutableListOf<KSPropertyDeclaration>()
-  for (property in properties) {
-    if (property.findOverridee() != null) {
-      val propertyName = property.simpleName.asString()
-      visibleProperties.removeAll { candidate ->
-        candidate.simpleName.asString() == propertyName
+    .forEach { property ->
+      if (property.findOverridee() != null) {
+        val propertyName = property.simpleName.asString()
+        removeAll { it.simpleName.asString() == propertyName }
       }
+      add(property)
     }
-    visibleProperties.add(property)
-  }
-  return visibleProperties
-}
-
-private fun KSDeclaration.isVisibleFromPackage(
-  targetPackageName: String
-) = when (getVisibility()) {
-  PRIVATE -> false
-  JAVA_PACKAGE -> packageName.asString() == targetPackageName
-  else -> true
 }
 
 private fun KSClassDeclaration.getLocalAndInheritedColumnTypes(): List<KSClassDeclaration> {
@@ -312,14 +260,9 @@ private fun KSClassDeclaration.directColumnAncestors() = superTypes
   .map(KSTypeReference::resolve)
   .map(KSType::declaration)
   .mapNotNull(KSDeclaration::resolveClassDeclaration)
-  .filterNot { declaration ->
-    declaration.simpleName
+  .filterNot {
+    it.simpleName
       .asString()
       .startsWith(prefix = "Parcelable")
   }
-  .sortedBy { declaration ->
-    when (declaration.classKind) {
-      INTERFACE -> 0
-      else -> 1
-    }
-  }
+  .sortedBy { it.classKind != INTERFACE }

@@ -1,62 +1,68 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
+import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.IS
-import com.siimkinks.sqlitemagic.LeafIdTable.Companion.LEAF_ID
-import com.siimkinks.sqlitemagic.RelationshipIdTable.Companion.RELATIONSHIP_ID
 import com.siimkinks.sqlitemagic.RelationshipOwnerTable.Companion.RELATIONSHIP_OWNER
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.fixture.model.LeafId
 import com.siimkinks.sqlitemagic.fixture.model.RelationshipId
 import com.siimkinks.sqlitemagic.fixture.model.RelationshipOwner
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.readRows
 import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
 
-class RelationshipBackedIdRuntimeTest : RuntimeDatabaseTest() {
+internal class RelationshipBackedIdRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun insertStoresFinalStringValueInEveryRelationshipIdTable() {
-    val seeded = seedOwner()
+    val owner = seedOwner()
+    val leafValue = owner.relationshipId.id.value
 
     assertThat(
-      rawValueAndType(
-        table = LEAF_ID,
-        sql = "SELECT value, typeof(value) FROM leaf_id"
+      listOf(
+        "SELECT value, typeof(value) FROM leaf_id",
+        "SELECT id, typeof(id) FROM relationship_id",
+        "SELECT owner_id, relationship_id, typeof(relationship_id) FROM relationship_owner"
+      ).map {
+        SELECT
+          .RAW(it)
+          .toCursor()
+          .execute()
+          .use(Cursor::readRows)
+          .single()
+      }
+    ).isEqualTo(
+      listOf(
+        listOf(leafValue, "text"),
+        listOf(leafValue, "text"),
+        listOf(owner.ownerId, leafValue, "text")
       )
-    ).isEqualTo(listOf(seeded.leaf.value, "text"))
-    assertThat(
-      rawValueAndType(
-        table = RELATIONSHIP_ID,
-        sql = "SELECT id, typeof(id) FROM relationship_id"
-      )
-    ).isEqualTo(listOf(seeded.leaf.value, "text"))
-    assertThat(
-      rawValueAndType(
-        table = RELATIONSHIP_OWNER,
-        sql = "SELECT owner_id, relationship_id, typeof(relationship_id) FROM relationship_owner"
-      )
-    ).isEqualTo(listOf(seeded.owner.ownerId, seeded.leaf.value, "text"))
+    )
   }
 
   @Test
   fun typedPredicatesReconstructShallowRelationshipIdChain() {
-    val seeded = seedOwner()
+    val owner = seedOwner()
 
     assertThat(
-      Select
-        .from(RELATIONSHIP_OWNER)
-        .where(RELATIONSHIP_OWNER.OWNER_ID IS seeded.owner.ownerId)
+      SELECT
+        .FROM(RELATIONSHIP_OWNER)
+        .WHERE(RELATIONSHIP_OWNER.OWNER_ID IS owner.ownerId)
         .execute()
-    ).containsExactly(seeded.owner)
+    ).containsExactly(owner)
     assertThat(
-      Select
-        .from(RELATIONSHIP_OWNER)
-        .where(RELATIONSHIP_OWNER.RELATIONSHIP_ID IS seeded.leaf)
+      SELECT
+        .FROM(RELATIONSHIP_OWNER)
+        .WHERE(RELATIONSHIP_OWNER.RELATIONSHIP_ID IS owner.relationshipId.id)
         .execute()
-    ).containsExactly(seeded.owner)
+    ).containsExactly(owner)
   }
 
   @Test
@@ -75,61 +81,42 @@ class RelationshipBackedIdRuntimeTest : RuntimeDatabaseTest() {
 
     assertThat(exception)
       .hasMessageThat()
-      .isEqualTo("Relationship \"relationship_id\" resolved to a NULL ID")
+      .isEqualTo("""Relationship "relationship_id" resolved to a NULL ID""")
     assertThat(
-      Select
-        .from(RELATIONSHIP_OWNER)
+      SELECT
+        .FROM(RELATIONSHIP_OWNER)
         .execute()
     ).isEmpty()
   }
 
-  private fun seedOwner(): SeededValues {
+  private fun seedOwner(): RelationshipOwner {
     val leaf = LeafId(value = "leaf-id")
-    assertThat(
-      leaf
+    insertedResult(
+      result = leaf
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "LeafId"
+    )
 
     val relationship = RelationshipId(id = leaf)
-    assertThat(
-      relationship
+    insertedResult(
+      result = relationship
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "RelationshipId"
+    )
 
     val owner = RelationshipOwner(
       ownerId = "owner-id",
       relationshipId = relationship,
       value = "owner-value"
     )
-    assertThat(
-      owner
+    insertedResult(
+      result = owner
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
-    return SeededValues(
-      leaf = leaf,
-      relationship = relationship,
-      owner = owner
+        .execute(),
+      modelName = "RelationshipOwner"
     )
+    return owner
   }
-
-  private fun rawValueAndType(
-    table: com.siimkinks.sqlitemagic.Table<*>,
-    sql: String
-  ): List<String?> = Select
-    .raw(sql)
-    .from(table)
-    .execute()
-    .use { cursor ->
-      check(cursor.moveToFirst())
-      List(size = cursor.columnCount) { index -> cursor.getString(index) }
-    }
-
-  private data class SeededValues(
-    val leaf: LeafId,
-    val relationship: RelationshipId,
-    val owner: RelationshipOwner
-  )
 }

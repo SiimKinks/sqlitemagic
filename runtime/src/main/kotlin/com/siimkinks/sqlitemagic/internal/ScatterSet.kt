@@ -8,6 +8,7 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
 // This is a copy of ScatterMap, but without values
+@InternalSqliteMagicApi
 sealed class ScatterSet<E> {
   // NOTE: Our arrays are marked internal to implement inlined forEach{}
   // The backing array for the metadata bytes contains
@@ -158,6 +159,7 @@ sealed class ScatterSet<E> {
   fun asSet(): Set<E> = setWrapper ?: SetWrapper(this).also { setWrapper = it }
 }
 
+@InternalSqliteMagicApi
 open class MutableScatterSet<E>(initialCapacity: Int = DefaultScatterCapacity) :
   ScatterSet<E>() {
   // Number of elements we can add before we need to grow

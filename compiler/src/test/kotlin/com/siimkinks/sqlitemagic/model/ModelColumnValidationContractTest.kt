@@ -1,17 +1,27 @@
 package com.siimkinks.sqlitemagic.model
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
-internal class ModelColumnValidationContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
+internal class ModelColumnValidationContractTest {
+  private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
-  @Test
-  fun `rejects empty tables`() {
-    SqliteMagicCompilation
+  @ParameterizedTest(name = "{0}")
+  @CsvSource(
+    "empty table class, @Table, class EmptyTable",
+    "unpersisted constructor property, @Table(persistAll = false), data class EmptyTable(val ignored: String)"
+  )
+  fun `rejects tables without persisted columns`(
+    label: String,
+    annotation: String,
+    declaration: String
+  ) {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmptyTable.kt",
@@ -20,8 +30,8 @@ internal class ModelColumnValidationContractTest : ProcessingStepsTest {
 
             import com.siimkinks.sqlitemagic.annotation.Table
 
-            @Table
-            class EmptyTable
+            $annotation
+            $declaration
           """
         )
       )
@@ -31,31 +41,18 @@ internal class ModelColumnValidationContractTest : ProcessingStepsTest {
       )
   }
 
-  @Test
-  fun `rejects tables without persisted columns`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "EmptyTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table(persistAll = false)
-            data class EmptyTable(val ignored: String)
-          """
-        )
-      )
-      .assertCompilationError(
-        "Table must define at least one persisted column",
-        "EmptyTable"
-      )
-  }
-
-  @Test
-  fun `rejects duplicate column names`() {
-    SqliteMagicCompilation
+  @ParameterizedTest(name = "{0}")
+  @CsvSource(
+    "same column name, duplicate, duplicate, Duplicate column name 'duplicate'",
+    "same generated field name, fooBar, foo_bar, Duplicate generated column name 'FOO_BAR'"
+  )
+  fun `rejects colliding column names`(
+    label: String,
+    firstName: String,
+    secondName: String,
+    diagnostic: String
+  ) {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "DuplicateColumns.kt",
@@ -67,14 +64,14 @@ internal class ModelColumnValidationContractTest : ProcessingStepsTest {
 
             @Table
             data class DuplicateColumns(
-              @Column("duplicate") val first: String,
-              @Column("duplicate") val second: String
+              @Column("$firstName") val first: String,
+              @Column("$secondName") val second: String
             )
           """
         )
       )
       .assertCompilationError(
-        "Duplicate column name 'duplicate'",
+        diagnostic,
         "DuplicateColumns.first",
         "DuplicateColumns.second"
       )
@@ -82,7 +79,7 @@ internal class ModelColumnValidationContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects multiple ids`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "DuplicateIds.kt",
@@ -107,37 +104,32 @@ internal class ModelColumnValidationContractTest : ProcessingStepsTest {
       )
   }
 
-  @Test
-  fun `rejects a BLOB explicit ID`() {
-    SqliteMagicCompilation
+  @ParameterizedTest(name = "{0}")
+  @CsvSource(
+    "BLOB explicit ID, BlobId, ByteArray",
+    "transformed BLOB explicit ID, TransformedBlobId, BinaryId"
+  )
+  fun `rejects BLOB explicit IDs`(
+    label: String,
+    tableName: String,
+    idType: String
+  ) {
+    val transformer = when (idType) {
+      "BinaryId" -> """
+        data class BinaryId(val value: String)
+
+        @ObjectToDbValue
+        fun binaryIdToBytes(value: BinaryId): ByteArray = value.value.encodeToByteArray()
+
+        @DbValueToObject
+        fun bytesToBinaryId(value: ByteArray): BinaryId = BinaryId(value.decodeToString())
+      """
+      else -> ""
+    }
+    compiler
       .compile(
         SourceFile.kotlin(
-          name = "BlobId.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            data class BlobId(
-              @Id val id: ByteArray
-            )
-          """
-        )
-      )
-      .assertCompilationError(
-        "BLOB storage types cannot be used as explicit @Id columns",
-        "BlobId.id"
-      )
-  }
-
-  @Test
-  fun `rejects a transformed BLOB explicit ID`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "TransformedBlobId.kt",
+          name = "$tableName.kt",
           contents = """
             package $PACKAGE
 
@@ -146,30 +138,24 @@ internal class ModelColumnValidationContractTest : ProcessingStepsTest {
             import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
             import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
-            data class BinaryId(val value: String)
-
-            @ObjectToDbValue
-            fun binaryIdToBytes(value: BinaryId): ByteArray = value.value.encodeToByteArray()
-
-            @DbValueToObject
-            fun bytesToBinaryId(value: ByteArray): BinaryId = BinaryId(value.decodeToString())
+            $transformer
 
             @Table
-            data class TransformedBlobId(
-              @Id val id: BinaryId
+            data class $tableName(
+              @Id val id: $idType
             )
           """
         )
       )
       .assertCompilationError(
         "BLOB storage types cannot be used as explicit @Id columns",
-        "TransformedBlobId.id"
+        "$tableName.id"
       )
   }
 
   @Test
   fun `rejects unsupported persisted property types without a transformer`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "UnsupportedPropertyType.kt",

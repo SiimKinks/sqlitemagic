@@ -1,16 +1,20 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import io.reactivex.BackpressureStrategy
 import io.reactivex.Observable
+import org.junit.Rule
 import org.junit.Test
 
-class QueryOperatorLifecycleTest : RuntimeDatabaseTest() {
+internal class QueryOperatorLifecycleTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun listRunQueryFiltersEmptySnapshotAndCancelsAfterFirstValue() {
     val observer = observeListQuery()
@@ -117,8 +121,7 @@ class QueryOperatorLifecycleTest : RuntimeDatabaseTest() {
     insertQueryOperatorLifecycleEntity(sequence = 1)
 
     assertOneShotIgnoresLaterWrite(
-      source = Select
-        .from(SIMPLE_MUTABLE_ENTITY)
+      source = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
         .count()
         .observe()
         .runQueryOnce()
@@ -186,14 +189,12 @@ class QueryOperatorLifecycleTest : RuntimeDatabaseTest() {
     }
   }
 
-  private fun observeListQuery() = Select
-    .from(SIMPLE_MUTABLE_ENTITY)
-    .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
+  private fun observeListQuery() = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
+    .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
     .observe()
 
-  private fun observeFirstQuery() = Select
-    .from(SIMPLE_MUTABLE_ENTITY)
-    .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
+  private fun observeFirstQuery() = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
+    .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
     .takeFirst()
     .observe()
 

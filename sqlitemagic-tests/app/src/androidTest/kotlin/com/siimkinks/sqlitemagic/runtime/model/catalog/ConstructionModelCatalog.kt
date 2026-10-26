@@ -25,14 +25,14 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
+import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation.PRESENT
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardTableDeleteModelCase
+import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
 import com.siimkinks.sqlitemagic.update
 
 internal object ConstructionModelCatalog {
@@ -51,7 +51,7 @@ internal object ConstructionModelCatalog {
     StandardTableDeleteModelCase<NonDataConstructorEntity> {
     override val name = "NonDataConstructorEntity"
     override val table = NON_DATA_CONSTRUCTOR_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = NonDataConstructorEntity(value = "constructor-$sequence")
 
@@ -71,7 +71,7 @@ internal object ConstructionModelCatalog {
     StandardBulkDeleteModelCase<MutableBodyEntity> {
     override val name = "MutableBodyEntity"
     override val table = MUTABLE_BODY_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = MutableBodyEntity().apply {
       value = "mutable-body-$sequence"
@@ -106,7 +106,7 @@ internal object ConstructionModelCatalog {
     StandardBulkDeleteModelCase<InheritedMutableEntity> {
     override val name = "InheritedMutableEntity"
     override val table = INHERITED_MUTABLE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = InheritedMutableEntity().apply {
       inheritedValue = "base-$sequence"
@@ -141,7 +141,7 @@ internal object ConstructionModelCatalog {
   private object SecondaryNoArgConstructorCase : InsertModelCase<SecondaryNoArgConstructor> {
     override val name = "SecondaryNoArgConstructor"
     override val table = SECONDARY_NO_ARG_CONSTRUCTOR
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = SecondaryNoArgConstructor(initialValue = "secondary-$sequence")
 
@@ -158,7 +158,7 @@ internal object ConstructionModelCatalog {
   private object DefaultedPrimaryConstructorCase : InsertModelCase<DefaultedPrimaryConstructor> {
     override val name = "DefaultedPrimaryConstructor"
     override val table = DEFAULTED_PRIMARY_CONSTRUCTOR
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = DefaultedPrimaryConstructor(initialValue = "defaulted-$sequence")
 
@@ -175,7 +175,7 @@ internal object ConstructionModelCatalog {
   private object MutableNullableDefaultsCase : SuccessfulModelProjectionCase<MutableNullableDefaults> {
     override val name = "MutableNullableDefaults"
     override val table = MUTABLE_NULLABLE_DEFAULTS
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
     override val projectionColumns = listOf(
       MUTABLE_NULLABLE_DEFAULTS.ID,
       MUTABLE_NULLABLE_DEFAULTS.LABEL,
@@ -205,7 +205,7 @@ internal object ConstructionModelCatalog {
     SuccessfulModelProjectionCase<MutableNullableCompositeDefaults> {
     override val name = "MutableNullableCompositeDefaults"
     override val table = MUTABLE_NULLABLE_COMPOSITE_DEFAULTS
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
     override val projectionColumns = listOf(
       MUTABLE_NULLABLE_COMPOSITE_DEFAULTS.ID,
       MUTABLE_NULLABLE_COMPOSITE_DEFAULTS.LABEL,

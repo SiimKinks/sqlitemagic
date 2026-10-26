@@ -1,22 +1,28 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.delete
-import com.siimkinks.sqlitemagic.runtime.model.CountOperator
+import com.siimkinks.sqlitemagic.runtime.model.CountOperator.NOT_ZERO
+import com.siimkinks.sqlitemagic.runtime.model.CountOperator.ZERO
 import com.siimkinks.sqlitemagic.runtime.model.CountOperatorCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.CountOperatorCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import io.reactivex.BackpressureStrategy
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class QueryCountOperatorLifecycleTest(
+internal class QueryCountOperatorLifecycleTest(
   private val operatorCase: CountOperatorCase
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun countOperatorTracksPendingSnapshotsAndStopsAfterCancellation() {
     val observer = observeCount()
@@ -67,14 +73,12 @@ class QueryCountOperatorLifecycleTest(
   }
 
   private fun observeCount() = when (operatorCase.operator) {
-    CountOperator.ZERO -> Select
-      .from(SIMPLE_MUTABLE_ENTITY)
+    ZERO -> SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
       .count()
       .observe()
       .isZero()
 
-    CountOperator.NOT_ZERO -> Select
-      .from(SIMPLE_MUTABLE_ENTITY)
+    NOT_ZERO -> SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
       .count()
       .observe()
       .isNotZero()
@@ -82,7 +86,7 @@ class QueryCountOperatorLifecycleTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun operatorCases() = CountOperatorCatalog.cases
   }
 }

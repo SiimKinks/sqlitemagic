@@ -2,46 +2,30 @@ package com.siimkinks.sqlitemagic.utils
 
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeParameter
+import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.WildcardTypeName
+import com.squareup.kotlinpoet.buildCodeBlock
+import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.tag
 import com.squareup.kotlinpoet.tags.TypeAliasTag
+import com.squareup.kotlinpoet.withIndent
 
-/**
- * Returns a canonical lookup key.
- *
- * Example: `String? -> "kotlin.String"`.
- */
-fun TypeName.typeKey() = canonicalTypeName(isRoot = true).toString()
+internal fun TypeName.typeKey() = canonicalTypeName(isRoot = true).toString()
 
-/**
- * Returns this KSP type's lookup key.
- *
- * Example: `com.example.Box<T> parameter T -> "com.example.Box.T"`.
- */
-fun KSType.typeKey(typeName: TypeName) =
+internal fun KSType.typeKey(typeName: TypeName) =
   when (val declaration = declaration) {
     is KSTypeParameter -> "${declaration.parentDeclaration?.qualifiedNameOrSimpleName()}.${declaration.name.asString()}"
     else -> typeName.typeKey()
   }
 
-/**
- * Expands a tagged type alias.
- *
- * Example: `typealias UserId = String -> String`.
- */
-fun TypeName.expandedTypeAlias() =
+internal fun TypeName.expandedTypeAlias() =
   tag<TypeAliasTag>()
     ?.abbreviatedType
     ?: this
 
-/**
- * Canonicalizes aliases, type arguments, and root nullability.
- *
- * Example: `List<UserId>? -> List<String>` when `typealias UserId = String`.
- */
 private fun TypeName.canonicalTypeName(isRoot: Boolean): TypeName {
   val canonicalType = when (val expandedType = expandedTypeAlias()) {
     is ParameterizedTypeName -> expandedType.rawType
@@ -62,3 +46,24 @@ private fun TypeName.canonicalTypeName(isRoot: Boolean): TypeName {
     else -> canonicalType
   }
 }
+
+internal fun callCode(callee: CodeBlock, arguments: List<CodeBlock>) = when {
+  arguments.size <= 1 -> CodeBlock.of("%L(%L)", callee, arguments.joinToCode())
+  else -> buildCodeBlock {
+    add("%L(\n", callee)
+    withIndent {
+      arguments.forEach { add("%L,\n", it) }
+    }
+    add(")")
+  }
+}
+
+internal fun CodeBlock.Builder.endControlFlowExpression() =
+  unindent()
+    .add("}")
+
+internal fun namedArgument(name: String, format: String, vararg args: Any?) = CodeBlock.of(
+  "%N = %L",
+  name,
+  CodeBlock.of(format, *args)
+)

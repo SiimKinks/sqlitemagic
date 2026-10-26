@@ -4,19 +4,19 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.ReaderRelationshipAuthorTable.Companion.READER_RELATIONSHIP_AUTHOR
-import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION_VIEW
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.ReviewRelationshipBookViewTable.Companion.REVIEW_RELATIONSHIP_BOOK_VIEW
+import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.ViewObservationDeepTable.Companion.VIEW_OBSERVATION_DEEP
 import com.siimkinks.sqlitemagic.ViewObservationDependenciesTable.Companion.VIEW_OBSERVATION_DEPENDENCIES
 import com.siimkinks.sqlitemagic.ViewObservationOuterTable.Companion.VIEW_OBSERVATION_OUTER
 import com.siimkinks.sqlitemagic.delete
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipAuthor
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipBook
-import com.siimkinks.sqlitemagic.fixture.view.ReviewRelationshipCompositionView
+import com.siimkinks.sqlitemagic.fixture.view.ReviewRelationshipBookView
 import com.siimkinks.sqlitemagic.fixture.view.ViewObservationDeep
 import com.siimkinks.sqlitemagic.fixture.view.ViewObservationDeepest
 import com.siimkinks.sqlitemagic.fixture.view.ViewObservationDependencies
@@ -25,16 +25,21 @@ import com.siimkinks.sqlitemagic.fixture.view.ViewObservationInner
 import com.siimkinks.sqlitemagic.fixture.view.ViewObservationJoin
 import com.siimkinks.sqlitemagic.fixture.view.ViewObservationOuter
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.insertedRowId
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import com.siimkinks.sqlitemagic.update
+import org.junit.Rule
 import org.junit.Test
 
 private const val NAMED_DATABASE = "view-observation-runtime.db"
 
-class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
+internal class ViewObservationRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun relationshipViewRefreshesFromEachDefiningTableAndStopsAfterDisposal() {
     val author = ReaderRelationshipAuthor(
@@ -45,28 +50,24 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       id = 23L,
       author = author
     )
-    val inserted = book
-      .insert()
-      .execute()
-    val bookId = when (inserted) {
-      is EntityInsertResult.Inserted -> checkNotNull(inserted.rowId)
-      EntityInsertResult.Ignored -> error("Deterministic book insert was ignored")
-    }
-    val authorId = Select
-      .column(READER_RELATIONSHIP_AUTHOR.ID)
-      .from(READER_RELATIONSHIP_AUTHOR)
+    val bookId = insertedRowId(
+      result = book
+        .insert()
+        .execute(),
+      modelName = "ReaderRelationshipBook"
+    )
+    val authorId = SELECT
+      .COLUMN(READER_RELATIONSHIP_AUTHOR.ID)
+      .FROM(READER_RELATIONSHIP_AUTHOR)
       .execute()
       .single()
     val insertedBook = book.copy(
       id = bookId,
       author = author.copy(id = authorId)
     )
-    val initial = ReviewRelationshipCompositionView(
-      book = insertedBook,
-      tail = "tail"
-    )
-    val observer = Select
-      .from(REVIEW_RELATIONSHIP_COMPOSITION_VIEW)
+    val initial = ReviewRelationshipBookView(book = insertedBook)
+    val observer = SELECT
+      .FROM(REVIEW_RELATIONSHIP_BOOK_VIEW)
       .observe()
       .runQuery()
       .test()
@@ -78,10 +79,7 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
           .update()
           .execute()
       ).isTrue()
-      val refreshed = ReviewRelationshipCompositionView(
-        book = insertedBook.copy(author = changedAuthor),
-        tail = "tail"
-      )
+      val refreshed = ReviewRelationshipBookView(book = insertedBook.copy(author = changedAuthor))
       observer.assertValuesOnly(listOf(initial), listOf(refreshed))
 
       assertThat(
@@ -91,7 +89,7 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       observer.assertValuesOnly(listOf(initial), listOf(refreshed), emptyList())
 
       observer.dispose()
-      assertSeedInserted(
+      insertedResult(
         result = ReaderRelationshipBook(
           id = 24L,
           author = changedAuthor
@@ -101,8 +99,6 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
         modelName = "ReaderRelationshipBook"
       )
       observer.assertValueCount(3)
-      assertThat(observer.isDisposed)
-        .isTrue()
     } finally {
       observer.dispose()
     }
@@ -131,8 +127,8 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       id = 1L,
       name = "Ada"
     )
-    val observer = Select
-      .from(VIEW_OBSERVATION_DEPENDENCIES)
+    val observer = SELECT
+      .FROM(VIEW_OBSERVATION_DEPENDENCIES)
       .observe()
       .runQuery()
       .test()
@@ -175,8 +171,6 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
         )
       )
       observer.assertValueCount(4)
-      assertThat(observer.isDisposed)
-        .isTrue()
     } finally {
       observer.dispose()
     }
@@ -205,8 +199,8 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       id = 1L,
       name = "Ada"
     )
-    val observer = Select
-      .from(VIEW_OBSERVATION_DEEP)
+    val observer = SELECT
+      .FROM(VIEW_OBSERVATION_DEEP)
       .observe()
       .runQuery()
       .test()
@@ -232,8 +226,8 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       )
     )
     val initial = ViewObservationOuter(inner = ViewObservationInner(name = "Ada"))
-    val observer = Select
-      .from(VIEW_OBSERVATION_OUTER)
+    val observer = SELECT
+      .FROM(VIEW_OBSERVATION_OUTER)
       .observe()
       .runQuery()
       .test()
@@ -285,11 +279,11 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
           ),
           connection = named
         )
-        val defaultQuery = Select
-          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+        val defaultQuery = SELECT
+          .FROM(QUERY_COMPOSITION_AUTHOR_VIEW)
           .compile()
-        val namedQuery = Select
-          .from(QUERY_COMPOSITION_AUTHOR_VIEW)
+        val namedQuery = SELECT
+          .FROM(QUERY_COMPOSITION_AUTHOR_VIEW)
           .usingConnection(named)
           .compile()
         val defaultInitial = QueryCompositionAuthorView(
@@ -353,35 +347,35 @@ class ViewObservationRuntimeTest : RuntimeDatabaseTest() {
       }
     }
 
-  private fun insert(value: QueryCompositionAuthor, connection: DbConnection? = null) =
-    assertInserted(
-      when (connection) {
-        null -> value.insert()
-          .execute()
-        else -> value.insert()
-          .usingConnection(connection)
-          .execute()
-      }
-    )
-
-  private fun insert(value: ViewObservationJoin) = assertInserted(
-    value.insert()
-      .execute()
+  private fun insert(
+    value: QueryCompositionAuthor,
+    connection: DbConnection = SqliteMagic.getDefaultConnection()
+  ) = insertedResult(
+    result = value
+      .insert()
+      .usingConnection(connection)
+      .execute(),
+    modelName = "QueryCompositionAuthor"
   )
 
-  private fun insert(value: ViewObservationFilter) = assertInserted(
-    value.insert()
-      .execute()
+  private fun insert(value: ViewObservationJoin) = insertedResult(
+    result = value
+      .insert()
+      .execute(),
+    modelName = "ViewObservationJoin"
   )
 
-  private fun insert(value: ViewObservationDeepest) = assertInserted(
-    value.insert()
-      .execute()
+  private fun insert(value: ViewObservationFilter) = insertedResult(
+    result = value
+      .insert()
+      .execute(),
+    modelName = "ViewObservationFilter"
   )
 
-  private fun assertInserted(result: EntityInsertResult) =
-    assertSeedInserted(
-      result = result,
-      modelName = "View observation seed"
-    )
+  private fun insert(value: ViewObservationDeepest) = insertedResult(
+    result = value
+      .insert()
+      .execute(),
+    modelName = "ViewObservationDeepest"
+  )
 }

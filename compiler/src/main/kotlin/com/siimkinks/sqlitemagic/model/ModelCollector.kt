@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.model
 
-import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.Environment
@@ -10,7 +9,7 @@ import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.element.toParsedType
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
-import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.ModelKind.EMBEDDED
 import com.siimkinks.sqlitemagic.model.ModelKind.TABLE
@@ -21,6 +20,7 @@ import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.utils.displayName
 import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY as TEMPORARY_SCHEMA
 
 internal class ModelCollector(
   private val environment: Environment,
@@ -95,10 +95,10 @@ internal class ModelCollector(
     val options = tableAnnotation.options.toSet()
     val identity = SqliteSchemaIdentity(
       schema = when {
-        TEMPORARY in options -> SqliteSchema.TEMPORARY
-        else -> SqliteSchema.MAIN
+        TEMPORARY in options -> TEMPORARY_SCHEMA
+        else -> MAIN
       },
-      identifier = SqliteIdentifier.from(tableName)
+      identifier = SqliteIdentifier(tableName)
     )
     val rootPath = PropertyPath(listOf(declaration.simpleName.asString()))
     val shape = shapeCollector.collect(
@@ -107,12 +107,12 @@ internal class ModelCollector(
       rootPath = rootPath,
       modelKind = TABLE
     ) ?: return null
-    val logicalProperties = shape.properties.mapNotNull { property ->
+    val logicalProperties = shape.properties.mapNotNull {
       collectPropertySeed(
         tableName = tableName,
         tableDisplayName = declaration.displayName(),
-        property = property,
-        propertyPath = PropertyPath(listOf(property.sourceDeclaration.simpleName.asString())),
+        property = it,
+        propertyPath = PropertyPath(listOf(it.sourceDeclaration.simpleName.asString())),
         inheritedNullable = false,
         embeddedPrefixes = emptyList(),
         embeddingTypes = emptySet()
@@ -122,8 +122,9 @@ internal class ModelCollector(
       .filterIsInstance<ColumnSeed>()
       .filter { it.idAnnotation != null }
     if (idSeeds.size > 1) {
-      error(
-        message = "Table must declare at most one @Id: ${idSeeds.joinToString(transform = ColumnSeed::diagnosticPath)}",
+      reporter.error(
+        message = "Table must declare at most one @Id: " +
+            idSeeds.joinToString(transform = ColumnSeed::diagnosticPath),
         symbol = declaration
       )
     }
@@ -149,8 +150,8 @@ internal class ModelCollector(
     embeddedPrefixes: List<String>,
     embeddingTypes: Set<TypeKey>
   ): PropertySeed? {
-    val annotations = property.annotations
-    val embeddedAnnotation = annotations.embedded
+    val propertyAnnotations = property.annotations
+    val embeddedAnnotation = propertyAnnotations.embedded
     if (embeddedAnnotation != null) {
       return collectEmbeddedPropertySeed(
         tableName = tableName,
@@ -163,18 +164,19 @@ internal class ModelCollector(
         embeddedAnnotation = embeddedAnnotation
       )
     }
-    val columnAnnotation = annotations.column
+    val columnAnnotation = propertyAnnotations.column
     val transformer = environment.transformerElements[property.typeKey]
     val relationshipTypeKey = property.typeKey.takeIf { typeKey ->
       transformer == null && (
           typeKey in tableSeeds ||
               typeKey in environment.tableElements ||
-              property.declaration?.let { this.annotations.has<Table>(it) } == true
+              property.declaration?.let { annotations.has<Table>(it) } == true
           )
     }
     if (property.sqlStorageType == null && transformer == null && relationshipTypeKey == null) {
-      error(
-        message = "Persisted property type must be a supported SQLite type, transformed type, or @Table relationship: $tableDisplayName.${propertyPath.displayName}; ${property.qualifiedName}",
+      reporter.error(
+        message = "Persisted property type must be a supported SQLite type, transformed type, " +
+            "or @Table relationship: $tableDisplayName.${propertyPath.displayName}; ${property.qualifiedName}",
         symbol = property.sourceDeclaration
       )
       return null
@@ -186,7 +188,7 @@ internal class ModelCollector(
     val columnName = embeddedPrefixes.joinToString(separator = "") + rawColumnName
     val isNullable = property.canBeNull
     val isSchemaNullable = inheritedNullable || isNullable
-    val indexAnnotation = annotations.index
+    val indexAnnotation = propertyAnnotations.index
     val index = indexAnnotation?.let { annotation ->
       FieldIndexElement(
         name = annotation.value
@@ -211,13 +213,12 @@ internal class ModelCollector(
       relationshipTypeKey = relationshipTypeKey,
       isHandledRecursively = columnAnnotation?.handleRecursively ?: true,
       onDeleteCascade = columnAnnotation?.onDeleteCascade ?: false,
-      idAnnotation = annotations.id,
-      isUnique = annotations.unique != null,
+      idAnnotation = propertyAnnotations.id,
+      isUnique = propertyAnnotations.unique != null,
       index = index,
       belongsToIndex = columnAnnotation
         ?.belongsToIndex
-        ?.takeIf(String::isNotEmpty),
-      embeddedPrefixes = embeddedPrefixes
+        ?.takeIf(String::isNotEmpty)
     )
   }
 
@@ -235,44 +236,49 @@ internal class ModelCollector(
       column != null || id != null || ignoreColumn != null || index != null || unique != null
     }
     if (conflictingAnnotation) {
-      error(
-        message = "@Embedded cannot be combined with physical-column annotations: $tableDisplayName.${propertyPath.displayName}",
+      reporter.error(
+        message = "@Embedded cannot be combined with physical-column annotations: " +
+            "$tableDisplayName.${propertyPath.displayName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     if (property.sqlStorageType != null || environment.transformerElements[property.typeKey] != null) {
-      error(
-        message = "@Embedded requires a non-scalar value type: $tableDisplayName.${propertyPath.displayName}; ${property.qualifiedName}",
+      reporter.error(
+        message = "@Embedded requires a non-scalar value type: " +
+            "$tableDisplayName.${propertyPath.displayName}; ${property.qualifiedName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     val declaration = property.declaration
     if (declaration == null) {
-      error(
-        message = "Unsupported @Embedded model shape: $tableDisplayName.${propertyPath.displayName}; ${property.qualifiedName}",
+      reporter.error(
+        message = "Unsupported @Embedded model shape: " +
+            "$tableDisplayName.${propertyPath.displayName}; ${property.qualifiedName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     if (annotations.has<Table>(declaration) || property.typeKey in tableSeeds) {
-      error(
-        message = "A @Table model cannot be used as an embedded value: $tableDisplayName.${propertyPath.displayName}; ${declaration.displayName()}",
+      reporter.error(
+        message = "A @Table model cannot be used as an embedded value: " +
+            "$tableDisplayName.${propertyPath.displayName}; ${declaration.displayName()}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     if (property.typeKey in embeddingTypes) {
-      error(
+      reporter.error(
         message = "Cyclic embedded property graph: $tableDisplayName.${propertyPath.displayName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     if (!declaration.isSupportedEmbeddedDeclaration()) {
-      error(
-        message = "Unsupported @Embedded model shape: $tableDisplayName.${propertyPath.displayName}; ${declaration.displayName()}",
+      reporter.error(
+        message = "Unsupported @Embedded model shape: " +
+            "$tableDisplayName.${propertyPath.displayName}; ${declaration.displayName()}",
         symbol = property.sourceDeclaration
       )
       return null
@@ -289,7 +295,7 @@ internal class ModelCollector(
     val childSeeds = shape.properties.mapNotNull { child ->
       val childPath = propertyPath.child(child.name)
       if (child.annotations.id != null) {
-        error(
+        reporter.error(
           message = "@Id is not allowed inside an embedded value: $tableDisplayName.${childPath.displayName}",
           symbol = child.sourceDeclaration
         )
@@ -306,8 +312,9 @@ internal class ModelCollector(
       )
     }
     if (childSeeds.isEmpty() && reporter.errorCount == errorsBeforeChildren) {
-      error(
-        message = "Embedded value must define at least one persisted leaf column: $tableDisplayName.${propertyPath.displayName}; ${declaration.displayName()}",
+      reporter.error(
+        message = "Embedded value must define at least one persisted leaf column: " +
+            "$tableDisplayName.${propertyPath.displayName}; ${declaration.displayName()}",
         symbol = property.sourceDeclaration
       )
       return null
@@ -318,8 +325,6 @@ internal class ModelCollector(
         path = propertyPath,
         isMutable = property.isMutable
       ),
-      prefix = prefix,
-      cumulativePrefix = childPrefixes.joinToString(separator = ""),
       construction = shape.construction,
       properties = childSeeds
     )
@@ -330,7 +335,7 @@ internal class ModelCollector(
     for (seed in tableSeeds.values) {
       val existing = accepted.lookup(seed.artifactStem)
       if (existing != null && existing.typeKey != seed.typeKey) {
-        error(
+        reporter.error(
           message = artifactStemCollisionMessage(
             artifactStem = seed.artifactStem,
             qualifiedNames = listOf(existing.qualifiedName, seed.qualifiedName),
@@ -346,7 +351,7 @@ internal class ModelCollector(
       .filter { it.size > 1 }
       .forEach { seeds ->
         val first = seeds.first()
-        error(
+        reporter.error(
           message = artifactStemCollisionMessage(
             artifactStem = first.artifactStem,
             qualifiedNames = seeds.map(TableSeed::qualifiedName),
@@ -368,13 +373,15 @@ internal class ModelCollector(
               ?.let(environment.tableElements::get)
               ?.qualifiedName
               ?: existing.rawName
-            error(
-              message = "SQL table name '${seed.tableName}' is ambiguous: $existingQualifiedName, ${seed.qualifiedName}",
+            reporter.error(
+              message = "SQL table name '${seed.tableName}' is ambiguous: " +
+                  "$existingQualifiedName, ${seed.qualifiedName}",
               symbol = seed.classDeclaration
             )
           }
-          else -> error(
-            message = "SQL table name '${seed.tableName}' conflicts with ${existing.kind} name '${existing.rawName}': ${seed.qualifiedName}",
+          else -> reporter.error(
+            message = "SQL table name '${seed.tableName}' conflicts with ${existing.kind} name " +
+                "'${existing.rawName}': ${seed.qualifiedName}",
             symbol = seed.classDeclaration
           )
         }
@@ -386,8 +393,9 @@ internal class ModelCollector(
       .filter { it.size > 1 }
       .forEach { seeds ->
         val first = seeds.first()
-        error(
-          message = "SQL table name '${first.tableName}' is ambiguous: ${seeds.joinToString(transform = TableSeed::qualifiedName)}",
+        reporter.error(
+          message = "SQL table name '${first.tableName}' is ambiguous: " +
+              seeds.joinToString(transform = TableSeed::qualifiedName),
           symbol = first.classDeclaration
         )
       }
@@ -396,7 +404,7 @@ internal class ModelCollector(
   private fun validateRelationshipCycles(tables: List<TableElement>) {
     val finder = StrongComponentsFinder(environment.tableElements.values + tables)
     if (finder.hasStrongComponents) {
-      error(
+      reporter.error(
         message = finder.diagnostic,
         symbol = null
       )
@@ -417,20 +425,12 @@ internal class ModelCollector(
       .filter { (path, _) -> path in materializedPaths }
       .toMap()
   }
-
-  private fun error(
-    message: String,
-    symbol: KSAnnotated?
-  ) = reporter.error(
-    message = message,
-    symbol = symbol
-  )
 }
 
 private fun PropertySeed.sourceProperties(): Sequence<Pair<PropertyPath, KSPropertyDeclaration>> = when (this) {
   is ColumnSeed -> sequenceOf(roundElement.sourceDeclaration)
     .filterIsInstance<KSPropertyDeclaration>()
-    .map { sourceDeclaration -> access.path to sourceDeclaration }
+    .map { access.path to it }
   is EmbeddedSeed -> properties
     .asSequence()
     .flatMap(PropertySeed::sourceProperties)

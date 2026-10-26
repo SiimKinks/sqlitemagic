@@ -9,7 +9,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.SupportSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteStatement
-import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
@@ -25,7 +24,6 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
-import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.BulkDeleteBuilder
 import com.siimkinks.sqlitemagic.internal.BulkDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.internal.BulkInsertBuilder
@@ -46,19 +44,17 @@ import com.siimkinks.sqlitemagic.internal.PersistByColumnBuilder
 import com.siimkinks.sqlitemagic.internal.UpdateBuilder
 import com.siimkinks.sqlitemagic.internal.UpdateByColumnBuilder
 import io.reactivex.schedulers.Schedulers
-import java.util.ArrayDeque
 import java.util.Locale
 
 internal class RecordingDatabase : SupportSQLiteDatabase {
-  val compiledStatements = mutableListOf<RecordingStatement>()
-  val triggerTransactions = mutableListOf<SQLiteTransactionListener>()
+  val compiledStatements: List<RecordingStatement>
+    field = mutableListOf()
+  private val triggerTransactions = mutableListOf<SQLiteTransactionListener>()
   val insertResults = ArrayDeque<Long>()
   val updateResults = ArrayDeque<Int>()
   var successfulTransactions = 0
     private set
   var rolledBackTransactions = 0
-    private set
-  var endedTransactions = 0
     private set
   private var transactionSuccessful = false
 
@@ -66,16 +62,6 @@ internal class RecordingDatabase : SupportSQLiteDatabase {
     database = this,
     sql = sql
   ).also(compiledStatements::add)
-
-  fun nextInsertResult(): Long = when {
-    insertResults.isEmpty() -> 1L
-    else -> insertResults.removeFirst()
-  }
-
-  fun nextUpdateResult(): Int = when {
-    updateResults.isEmpty() -> 1
-    else -> updateResults.removeFirst()
-  }
 
   override fun beginTransaction() = error("Unexpected transaction method")
 
@@ -91,7 +77,6 @@ internal class RecordingDatabase : SupportSQLiteDatabase {
     beginTransactionWithListener(transactionListener)
 
   override fun endTransaction() {
-    endedTransactions++
     val listener = triggerTransactions.removeLast()
     when {
       transactionSuccessful -> {
@@ -118,17 +103,13 @@ internal class RecordingDatabase : SupportSQLiteDatabase {
 
   override fun yieldIfContendedSafely(sleepAfterYieldDelayMillis: Long) = false
 
-  override var version: Int
-    get() = 1
-    set(value) = Unit
+  override var version = 1
 
   override val maximumSize = Long.MAX_VALUE
 
   override fun setMaximumSize(numBytes: Long) = numBytes
 
-  override var pageSize: Long
-    get() = 4096L
-    set(value) = Unit
+  override var pageSize = 4096L
 
   override fun query(query: String): Cursor = error("Unexpected query")
 
@@ -203,8 +184,6 @@ internal class RecordingStatement(
   val sql: String
 ) : SupportSQLiteStatement {
   val bindings = linkedMapOf<Int, Any?>()
-  var clearBindingsCalls = 0
-    private set
   var closeCalls = 0
     private set
   var closeFailure: RuntimeException? = null
@@ -229,16 +208,13 @@ internal class RecordingStatement(
     bindings[index] = value
   }
 
-  override fun clearBindings() {
-    clearBindingsCalls++
-    bindings.clear()
-  }
+  override fun clearBindings() = bindings.clear()
 
   override fun execute() = Unit
 
-  override fun executeUpdateDelete() = database.nextUpdateResult()
+  override fun executeUpdateDelete() = database.updateResults.removeFirstOrNull() ?: 1
 
-  override fun executeInsert() = database.nextInsertResult()
+  override fun executeInsert() = database.insertResults.removeFirstOrNull() ?: 1L
 
   override fun simpleQueryForLong() = 0L
 
@@ -251,7 +227,7 @@ internal class RecordingStatement(
 }
 
 internal class RecordingOpenHelper(
-  val database: RecordingDatabase
+  database: SupportSQLiteDatabase
 ) : SupportSQLiteOpenHelper {
   override val databaseName = "test.db"
 
@@ -268,7 +244,8 @@ internal class TestGeneratedDatabase(
   private val tableCount: Int,
   private val submoduleTableCounts: Map<String, Int> = emptyMap()
 ) : GeneratedDatabase {
-  val temporarySchemaDatabases = mutableListOf<SupportSQLiteDatabase>()
+  val temporarySchemaDatabases: List<SupportSQLiteDatabase>
+    field = mutableListOf()
 
   override fun configureDatabase(db: SupportSQLiteDatabase) = Unit
 
@@ -278,8 +255,7 @@ internal class TestGeneratedDatabase(
     temporarySchemaDatabases += db
   }
 
-  override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>? =
-    null
+  override fun clearData(db: SupportSQLiteDatabase) = MutableScatterSet<String>()
 
   override fun migrateViews(db: SupportSQLiteDatabase) = Unit
 
@@ -298,27 +274,40 @@ internal class TestGeneratedDatabase(
 
   override val dbName = "test.db"
 
-  override fun <V : Any> columnForValue(input: V): Column<V, V, V, *, NotNullable> = error("Unused")
-
   override val isDebug = false
 }
 
-internal data class RecordingConnection(
-  val recordingDatabase: RecordingDatabase,
-  private val tableCount: Int = 1
-) {
-  val connection = DbConnectionImpl(
-    database = TestGeneratedDatabase(tableCount),
-    dbHelper = RecordingOpenHelper(recordingDatabase),
-    queryScheduler = Schedulers.trampoline()
-  )
-  val triggers = mutableListOf<Set<String>>()
+internal fun testDbConnection(
+  database: SupportSQLiteDatabase,
+  tableCount: Int = 1
+) = DbConnectionImpl(
+  database = TestGeneratedDatabase(tableCount),
+  dbHelper = RecordingOpenHelper(database),
+  queryScheduler = Schedulers.trampoline()
+)
 
-  init {
-    connection.triggers
-      .map(Set<String>::toSet)
-      .subscribe(triggers::add)
-  }
+internal class RecordingConnection(
+  val recordingDatabase: RecordingDatabase,
+  tableCount: Int = 1
+) {
+  val connection = testDbConnection(
+    database = recordingDatabase,
+    tableCount = tableCount
+  )
+  private val recordedTriggers = connection.recordTriggers()
+  val triggers: List<Set<String>> get() = recordedTriggers.values()
+  val statementSql
+    get() = recordingDatabase.compiledStatements.map(RecordingStatement::sql)
+  val statementBindings
+    get() = recordingDatabase.compiledStatements.map(RecordingStatement::bindings)
+  val statementCloseCalls
+    get() = recordingDatabase.compiledStatements.map(RecordingStatement::closeCalls)
+
+  fun <R> transactionResult(result: R) = TransactionResult(
+    result = result,
+    committed = recordingDatabase.successfulTransactions,
+    rolledBack = recordingDatabase.rolledBackTransactions
+  )
 }
 
 internal fun newConnection() = RecordingConnection(RecordingDatabase())
@@ -334,12 +323,6 @@ internal data class TransactionResult<R>(
   val rolledBack: Int
 )
 
-internal fun <R> RecordingConnection.transactionResult(result: R) = TransactionResult(
-  result = result,
-  committed = recordingDatabase.successfulTransactions,
-  rolledBack = recordingDatabase.rolledBackTransactions
-)
-
 internal fun <T> oneShotIterable(values: Iterable<T>) = object : Iterable<T> {
   private var iteratorRequested = false
 
@@ -349,12 +332,6 @@ internal fun <T> oneShotIterable(values: Iterable<T>) = object : Iterable<T> {
     return values.iterator()
   }
 }
-
-internal val RecordingConnection.statementSql
-  get() = recordingDatabase.compiledStatements.map(RecordingStatement::sql)
-
-internal val RecordingConnection.statementBindings
-  get() = recordingDatabase.compiledStatements.map(RecordingStatement::bindings)
 
 internal fun <M> EntityAdapter<M>.insert(entity: M): EntityInsertBuilder = InsertBuilder(
   adapter = this,
@@ -421,8 +398,7 @@ internal fun <M> EntityDefaultIdentityAdapter<M>.persist(entity: M): EntityPersi
 
 internal fun <M> EntityDefaultIdentityAdapter<M>.delete(entity: M): EntityDeleteBuilder = DeleteBuilder(
   adapter = this,
-  entity = entity,
-  byColumn = defaultIdentityColumn
+  entity = entity
 )
 
 internal fun <M> EntityDefaultIdentityAdapter<M>.bulkUpdate(
@@ -443,16 +419,5 @@ internal fun <M> EntityDefaultIdentityAdapter<M>.bulkDelete(
   entities: Collection<M>
 ): EntityBulkDeleteBuilder = BulkDeleteBuilder(
   adapter = this,
-  entities = entities,
-  byColumn = defaultIdentityColumn
+  entities = entities
 )
-
-internal fun assertSingleOperationFailure(block: () -> Unit) {
-  val exception = try {
-    block()
-    null
-  } catch (exception: OperationFailedException) {
-    exception
-  }
-  assertThat(exception).isNotNull()
-}

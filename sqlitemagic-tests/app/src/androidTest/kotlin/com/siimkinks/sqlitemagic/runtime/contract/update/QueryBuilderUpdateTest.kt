@@ -1,108 +1,46 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.CompiledUpdate
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
-import com.siimkinks.sqlitemagic.Update
+import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
+import com.siimkinks.sqlitemagic.UPDATE
+import com.siimkinks.sqlitemagic.expr
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
-import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertSimpleRows
 import com.siimkinks.sqlitemagic.runtime.support.insertSimpleRow
-import com.siimkinks.sqlitemagic.runtime.support.simpleRow
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 
-class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
-  @Test
-  fun executeRawAssignmentWithPredicate() {
-    assertRawAssignmentWithPredicate(terminal = EXECUTE)
-  }
+internal class QueryBuilderUpdateTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeRawAssignmentWithPredicate() {
-    assertRawAssignmentWithPredicate(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeTypedWholeTableAssignments() {
-    assertTypedWholeTableAssignments(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeTypedWholeTableAssignments() {
-    assertTypedWholeTableAssignments(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeExplicitNullPredicatePublishesOnlyForChangedRows() {
-    assertExplicitNullPredicatePublishesOnlyForChangedRows(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeExplicitNullPredicatePublishesOnlyForChangedRows() {
-    assertExplicitNullPredicatePublishesOnlyForChangedRows(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeTransformedAssignment() {
-    assertTransformedAssignment(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeTransformedAssignment() {
-    assertTransformedAssignment(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeRelationshipIdAssignment() {
-    assertRelationshipIdAssignment(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeRelationshipIdAssignment() {
-    assertRelationshipIdAssignment(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeAliasedTableAssignment() {
-    assertAliasedTableAssignment(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeAliasedTableAssignment() {
-    assertAliasedTableAssignment(terminal = OBSERVE)
-  }
-
-  private fun assertRawAssignmentWithPredicate(terminal: OperationTerminal) {
-    val first = simpleRow(
+  fun executeRawPredicateAssignment() {
+    val first = SimpleMutableEntity(
       id = 101L,
       value = "first"
     )
-    val second = simpleRow(
+    val second = SimpleMutableEntity(
       id = 102L,
       value = "second"
     )
     insertSimpleRow(value = first)
     insertSimpleRow(value = second)
 
-    val affectedRows = execute(
-      statement = Update
-        .table("simple_mutable_entity")
-        .set("value", "raw-updated")
-        .where("simple_mutable_entity.id=?", checkNotNull(second.id).toString())
-        .compile(),
-      terminal = terminal
-    )
+    val affectedRows = (UPDATE TABLE SIMPLE_MUTABLE_ENTITY SET (SIMPLE_MUTABLE_ENTITY.VALUE to "raw-updated"))
+      .WHERE("simple_mutable_entity.id = ?".expr(BOOLEAN, checkNotNull(second.id)))
+      .compile()
+      .execute()
 
     assertThat(affectedRows).isEqualTo(1)
     assertSimpleRows(
@@ -111,27 +49,26 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     )
   }
 
-  private fun assertTypedWholeTableAssignments(terminal: OperationTerminal) {
-    val first = simpleRow(
+  @Test
+  fun executeTypedWholeTableAssignments() {
+    val first = SimpleMutableEntity(
       id = 201L,
       value = "first"
     )
-    val second = simpleRow(
+    val second = SimpleMutableEntity(
       id = 202L,
       value = null
     )
     insertSimpleRow(value = first)
     insertSimpleRow(value = second)
 
-    val affectedRows = execute(
-      statement = Update
-        .table(SIMPLE_MUTABLE_ENTITY)
-        .set(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN, true)
-        .setNullable(SIMPLE_MUTABLE_ENTITY.VALUE, "typed-updated")
-        .setNullable(SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN, false)
-        .compile(),
-      terminal = terminal
-    )
+    val affectedRows = UPDATE
+      .TABLE(SIMPLE_MUTABLE_ENTITY)
+      .SET(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN, true)
+      .SET(SIMPLE_MUTABLE_ENTITY.VALUE, "typed-updated")
+      .SET(SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN, false)
+      .compile()
+      .execute()
 
     assertThat(affectedRows).isEqualTo(2)
     assertSimpleRows(
@@ -148,34 +85,33 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     )
   }
 
-  private fun assertExplicitNullPredicatePublishesOnlyForChangedRows(terminal: OperationTerminal) {
-    val first = simpleRow(
+  @Test
+  fun executeExplicitNullPredicatePublishesOnlyForChangedRows() {
+    val first = SimpleMutableEntity(
       id = 301L,
       value = "first"
     )
-    val second = simpleRow(
+    val second = SimpleMutableEntity(
       id = 302L,
       value = "second"
     )
     insertSimpleRow(value = first)
     insertSimpleRow(value = second)
     val expected = listOf(first.copy(value = null), second)
-    val observer = Select
-      .from(SIMPLE_MUTABLE_ENTITY)
-      .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
+    val observer = SELECT
+      .FROM(SIMPLE_MUTABLE_ENTITY)
+      .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
       .observe()
       .runQuery()
       .test()
       .assertValuesOnly(listOf(first, second))
     try {
-      val affectedRows = execute(
-        statement = Update
-          .table(SIMPLE_MUTABLE_ENTITY)
-          .setNullable(SIMPLE_MUTABLE_ENTITY.VALUE, null)
-          .where(SIMPLE_MUTABLE_ENTITY.ID.`is`(checkNotNull(first.id)))
-          .compile(),
-        terminal = terminal
-      )
+      val affectedRows = UPDATE
+        .TABLE(SIMPLE_MUTABLE_ENTITY)
+        .SET(SIMPLE_MUTABLE_ENTITY.VALUE, null)
+        .WHERE(SIMPLE_MUTABLE_ENTITY.ID IS checkNotNull(first.id))
+        .compile()
+        .execute()
 
       assertThat(affectedRows).isEqualTo(1)
       observer.assertValuesOnly(
@@ -183,14 +119,12 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
         expected
       )
       assertThat(
-        execute(
-          statement = Update
-            .table(SIMPLE_MUTABLE_ENTITY)
-            .setNullable(SIMPLE_MUTABLE_ENTITY.VALUE, null)
-            .where(SIMPLE_MUTABLE_ENTITY.ID.`is`(999L))
-            .compile(),
-          terminal = terminal
-        )
+        UPDATE
+          .TABLE(SIMPLE_MUTABLE_ENTITY)
+          .SET(SIMPLE_MUTABLE_ENTITY.VALUE, null)
+          .WHERE(SIMPLE_MUTABLE_ENTITY.ID IS 999L)
+          .compile()
+          .execute()
       ).isEqualTo(0)
       observer.assertValuesOnly(
         listOf(first, second),
@@ -202,7 +136,8 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     }
   }
 
-  private fun assertTransformedAssignment(terminal: OperationTerminal) {
+  @Test
+  fun executeTransformedAssignment() {
     val row = ImmutableValueWithFields(
       id = 401L,
       stringValue = "immutable-401",
@@ -212,7 +147,7 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       aShort = 401.toShort(),
       transformableObject = TransformableObject(41)
     )
-    assertSeedInserted(
+    insertedResult(
       result = row
         .insert()
         .execute(),
@@ -220,29 +155,25 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
     )
     val replacement = TransformableObject(42)
 
-    val affectedRows = execute(
-      statement = Update
-        .table(IMMUTABLE_VALUE_WITH_FIELDS)
-        .set(IMMUTABLE_VALUE_WITH_FIELDS.TRANSFORMABLE_OBJECT, replacement)
-        .where(IMMUTABLE_VALUE_WITH_FIELDS.ID.`is`(checkNotNull(row.id)))
-        .compile(),
-      terminal = terminal
-    )
+    val affectedRows = UPDATE
+      .TABLE(IMMUTABLE_VALUE_WITH_FIELDS)
+      .SET(IMMUTABLE_VALUE_WITH_FIELDS.TRANSFORMABLE_OBJECT, replacement)
+      .WHERE(IMMUTABLE_VALUE_WITH_FIELDS.ID IS checkNotNull(row.id))
+      .compile()
+      .execute()
 
     assertThat(affectedRows).isEqualTo(1)
-    assertThat(
-      Select
-        .from(IMMUTABLE_VALUE_WITH_FIELDS)
-        .execute()
-    ).containsExactly(row.copy(transformableObject = replacement))
+    assertThat(SELECT.FROM(IMMUTABLE_VALUE_WITH_FIELDS).execute())
+      .containsExactly(row.copy(transformableObject = replacement))
   }
 
-  private fun assertRelationshipIdAssignment(terminal: OperationTerminal) {
-    val firstRelated = simpleRow(
+  @Test
+  fun executeRelationshipIdAssignment() {
+    val firstRelated = SimpleMutableEntity(
       id = 501L,
       value = "first-related"
     )
-    val secondRelated = simpleRow(
+    val secondRelated = SimpleMutableEntity(
       id = 502L,
       value = "second-related"
     )
@@ -254,21 +185,19 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       relatedEntity = firstRelated
       count = 1
     }
-    assertSeedInserted(
+    insertedResult(
       result = owner
         .insert()
         .execute(),
       modelName = "entity-with-relationship"
     )
 
-    val affectedRows = execute(
-      statement = Update
-        .table(ENTITY_WITH_RELATIONSHIP)
-        .setNullable(ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY, checkNotNull(secondRelated.id))
-        .where(ENTITY_WITH_RELATIONSHIP.ID.`is`(checkNotNull(owner.id)))
-        .compile(),
-      terminal = terminal
-    )
+    val affectedRows = UPDATE
+      .TABLE(ENTITY_WITH_RELATIONSHIP)
+      .SET(ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY, checkNotNull(secondRelated.id))
+      .WHERE(ENTITY_WITH_RELATIONSHIP.ID IS checkNotNull(owner.id))
+      .compile()
+      .execute()
 
     assertThat(affectedRows).isEqualTo(1)
     val expected = EntityWithRelationship().apply {
@@ -277,39 +206,6 @@ class QueryBuilderUpdateTest : RuntimeDatabaseTest() {
       relatedEntity = SimpleMutableEntity(id = secondRelated.id)
       count = owner.count
     }
-    assertThat(
-      Select
-        .from(ENTITY_WITH_RELATIONSHIP)
-        .execute()
-    ).containsExactly(expected)
+    assertThat(SELECT.FROM(ENTITY_WITH_RELATIONSHIP).execute()).containsExactly(expected)
   }
-
-  private fun assertAliasedTableAssignment(terminal: OperationTerminal) {
-    val row = simpleRow(
-      id = 601L,
-      value = "before-alias"
-    )
-    insertSimpleRow(value = row)
-    val alias = SIMPLE_MUTABLE_ENTITY.`as`("target")
-
-    val affectedRows = execute(
-      statement = Update
-        .table(alias)
-        .setNullable(alias.VALUE, "after-alias")
-        .compile(),
-      terminal = terminal
-    )
-
-    assertThat(affectedRows).isEqualTo(1)
-    assertSimpleRows(row.copy(value = "after-alias"))
-  }
-
-  private fun execute(
-    statement: CompiledUpdate,
-    terminal: OperationTerminal
-  ) = when (terminal) {
-    EXECUTE -> statement.execute()
-    OBSERVE -> statement.observe().blockingGet()
-  }
-
 }

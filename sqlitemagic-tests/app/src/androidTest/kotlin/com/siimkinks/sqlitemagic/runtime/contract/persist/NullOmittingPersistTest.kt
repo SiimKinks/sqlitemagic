@@ -5,83 +5,74 @@ import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingPersistModelCase
-import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.insertedPersistResult
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class NullOmittingPersistTest(
+internal class NullOmittingPersistTest(
   private val modelCase: NullOmittingPersistModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeSingleInsertOmitsNullValues() {
-    captureSingleInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeSingleInsertOmitsNullValues() {
-    captureSingleInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeSingleInsertOmitsNullValues() = captureSingleInsert(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeSingleUpdateOmitsNullValues() {
-    captureSingleUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeSingleInsertOmitsNullValues() = captureSingleInsert(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeSingleUpdateOmitsNullValues() {
-    captureSingleUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeSingleUpdateOmitsNullValues() = captureSingleUpdate(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeBulkInsertOmitsNullValues() {
-    captureBulkInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeSingleUpdateOmitsNullValues() = captureSingleUpdate(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeBulkInsertOmitsNullValues() {
-    captureBulkInsert(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeBulkInsertOmitsNullValues() = captureBulkInsert(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeBulkUpdateOmitsNullValues() {
-    captureBulkUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observeBulkInsertOmitsNullValues() = captureBulkInsert(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeBulkUpdateOmitsNullValues() {
-    captureBulkUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeBulkUpdateOmitsNullValues() = captureBulkUpdate(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeBulkUpdateOmitsNullValues() = captureBulkUpdate(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> captureSingleInsert(
     modelCase: NullOmittingPersistModelCase<T>,
@@ -93,8 +84,10 @@ class NullOmittingPersistTest(
       value = value,
       terminal = terminal
     )
-    val inserted = result as? EntityPersistResult.Inserted
-      ?: throw AssertionError("Persist did not insert for ${modelCase.name}: $result")
+    val inserted = insertedPersistResult(
+      result = result,
+      modelName = modelCase.name
+    )
     val insertResult = EntityInsertResult.Inserted(rowId = inserted.rowId)
     modelCase.verifyAfterInsert(
       value = value,
@@ -150,10 +143,7 @@ class NullOmittingPersistTest(
     modelCase: NullOmittingPersistModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val values = List(
-      size = 3,
-      init = { index -> modelCase.partialNullValue(sequence = index + 1) }
-    )
+    val values = List(size = 3) { modelCase.partialNullValue(sequence = it + 1) }
     executeBulkPersist(
       modelCase = modelCase,
       values = values,
@@ -207,39 +197,7 @@ class NullOmittingPersistTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.nullOmittingPersistCases
   }
 }
-
-internal fun <T> executeSinglePersist(
-  modelCase: NullOmittingPersistModelCase<T>,
-  value: T,
-  terminal: OperationTerminal
-) = when (terminal) {
-  OperationTerminal.EXECUTE -> modelCase.executePersistIgnoringNullValues(value = value)
-  OperationTerminal.OBSERVE -> modelCase
-    .observePersistIgnoringNullValues(value = value)
-    .blockingGet()
-}
-
-internal fun <T> executeBulkPersist(
-  modelCase: NullOmittingPersistModelCase<T>,
-  values: List<T>,
-  terminal: OperationTerminal
-) = when (terminal) {
-  OperationTerminal.EXECUTE -> assertThat(
-    modelCase.executeBulkPersistIgnoringNullValues(values = values)
-  ).isTrue()
-  OperationTerminal.OBSERVE -> modelCase
-    .observeBulkPersistIgnoringNullValues(values = values)
-    .blockingAwait()
-}
-
-internal fun <T> nullOmittingSnapshot(
-  modelCase: NullOmittingPersistModelCase<T>,
-  parents: List<T>
-) = DatabaseSnapshot(
-  parents = parents,
-  related = modelCase.expectedRelatedValues(values = parents)
-)

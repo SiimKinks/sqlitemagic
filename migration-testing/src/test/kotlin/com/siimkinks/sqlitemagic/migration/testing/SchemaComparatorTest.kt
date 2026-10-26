@@ -4,7 +4,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
 
-class SchemaComparatorTest {
+internal class SchemaComparatorTest {
   @Test
   fun `safe schema formatting matches`() {
     val cases = listOf(

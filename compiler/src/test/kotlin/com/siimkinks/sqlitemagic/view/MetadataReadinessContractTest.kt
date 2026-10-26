@@ -1,25 +1,22 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.siimkinks.sqlitemagic.index.IndexElement
-import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
+import com.siimkinks.sqlitemagic.utils.MappingMetadata
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.mappingMetadata
+import com.siimkinks.sqlitemagic.utils.observing
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
-internal class MetadataReadinessContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
-
+internal class MetadataReadinessContractTest {
   @ParameterizedTest(name = "{0}")
   @CsvSource(
     "table persistence policy, policy",
@@ -75,8 +72,7 @@ internal class MetadataReadinessContractTest : ProcessingStepsTest {
           name = "MetadataReadiness.kt",
           contents = """
             package $PACKAGE
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Column
             import com.siimkinks.sqlitemagic.annotation.Index
             import com.siimkinks.sqlitemagic.annotation.Table
@@ -90,7 +86,7 @@ internal class MetadataReadinessContractTest : ProcessingStepsTest {
               $optionalProperty
               fun helper(value: $helperType): $helperType = value
               companion object {
-                $queryAnnotation val QUERY: CompiledSelect<String, Select1> = error("compile only")
+                $queryAnnotation val QUERY: SelectQuery<String, *> = error("compile only")
               }
             }
           """
@@ -99,69 +95,32 @@ internal class MetadataReadinessContractTest : ProcessingStepsTest {
           viewProcessingSteps(environment).map { step ->
             when {
               isView && step is ViewCollectionStep || !isView && step is ModelCollectionStep ->
-                object : ProcessingStep {
-                  override fun process(resolver: Resolver): ProcessingStepResult {
-                    val result = step.process(resolver)
-                    deferred += result is Deferred
-                    return result
-                  }
-                }
+                step.observing { deferred += it is Deferred }
               else -> step
             }
-          } + object : ProcessingStep {
-            private var generated = false
-
-            override fun process(resolver: Resolver): ProcessingStepResult {
-              if (generated) return Continue
-              generated = true
-              environment.codeGenerator
-                .createNewFile(
-                  dependencies = Dependencies(aggregating = false),
-                  packageName = PACKAGE,
-                  fileName = "LaterMetadata"
-                )
-                .bufferedWriter()
-                .use { writer ->
-                  writer.write(
-                    """
-                      package $PACKAGE
-                      class LaterType
-                      object LaterMetadata { const val PERSIST_ALL = true;
-                    """.trimIndent() +
-                        """ const val NAME = "chosen"; const val DEFAULT = "'later'" }"""
-                  )
-                }
-              return Continue
-            }
-          }
+          } + GeneratedSourceStep(
+            environment = environment,
+            fileName = "LaterMetadata",
+            contents = """
+              package $PACKAGE
+              class LaterType
+              object LaterMetadata {
+                const val PERSIST_ALL = true
+                const val NAME = "chosen"
+                const val DEFAULT = "'later'"
+              }
+            """
+          )
         }
       )
       .isOk()
       .apply {
-        val actual = when {
-          isView -> environment.viewElements.values.single().let { view ->
-            Metadata(
-              name = view.viewName,
-              columns = view.leaves.map(ViewLeafElement::selectionKey),
-              defaults = emptyList(),
-              indexes = emptyList()
-            )
-          }
-          else -> environment.tableElements.values.single().let { table ->
-            Metadata(
-              name = table.tableName,
-              columns = table.allColumns.map(ColumnElement::columnName),
-              defaults = table.allColumns.map(ColumnElement::defaultValue),
-              indexes = environment.indexElements.values.map(IndexElement::name)
-            )
-          }
-        }
         val columnNames = when (mappingSurface) {
           "column", "selection" -> listOf("chosen")
           "policy" -> listOf("value", "optional")
           else -> listOf("value")
         }
-        val expected = Metadata(
+        val expected = MappingMetadata(
           name = when (mappingSurface) {
             "table", "view" -> "chosen"
             else -> "metadata_owner"
@@ -175,25 +134,29 @@ internal class MetadataReadinessContractTest : ProcessingStepsTest {
           indexes = when (mappingSurface) {
             "index", "membership" -> listOf("chosen")
             else -> emptyList()
+          },
+          query = when {
+            isView -> "QUERY"
+            else -> null
           }
         )
-        assertThat(actual).isEqualTo(expected)
+        assertThat(environment.mappingMetadata(isView)).isEqualTo(expected)
         withGeneratedSource(
-          fileName = when {
+          when {
             isView -> "SqliteMagic_MetadataOwner_Dao.kt"
             else -> "SqliteMagic_MetadataOwner_Adapter.kt"
           }
         ) { generated ->
           when {
-            isView -> {
-              assertThat(generated).contains(""""${expected.name}"""")
-              expected.columns.forEach { name -> assertThat(generated).contains("""".$name"""") }
-            }
+            isView -> generated.assertContains(
+              """viewName = "${expected.name}"""",
+              "columns = listOf(${expected.columns.joinToString { """"$it"""" }})"
+            )
             else -> {
-              assertThat(generated).contains("CREATE TABLE IF NOT EXISTS ${expected.name}")
-              expected.columns.forEach { name -> assertThat(generated).contains("$name TEXT") }
+              generated.assertContains("CREATE TABLE IF NOT EXISTS ${expected.name}")
+              expected.columns.forEach { generated.assertContains("$it TEXT") }
               if (mappingSurface == "default") {
-                assertThat(generated).contains("DEFAULT 'later'")
+                generated.assertContains("DEFAULT 'later'")
               }
             }
           }
@@ -202,11 +165,4 @@ internal class MetadataReadinessContractTest : ProcessingStepsTest {
     assertThat(deferred.first()).isTrue()
     assertThat(deferred.drop(1)).doesNotContain(true)
   }
-
-  private data class Metadata(
-    val name: String,
-    val columns: List<String>,
-    val defaults: List<String>,
-    val indexes: List<String>
-  )
 }

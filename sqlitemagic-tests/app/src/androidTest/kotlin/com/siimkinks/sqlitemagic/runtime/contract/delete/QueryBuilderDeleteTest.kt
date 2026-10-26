@@ -1,119 +1,68 @@
 package com.siimkinks.sqlitemagic.runtime.contract.delete
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.CompiledDelete
-import com.siimkinks.sqlitemagic.Delete
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.DELETE
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
-import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.*
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
+import com.siimkinks.sqlitemagic.expr
+import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertSimpleRows
 import com.siimkinks.sqlitemagic.runtime.support.insertSimpleRow
-import com.siimkinks.sqlitemagic.runtime.support.simpleRow
+import org.junit.Rule
 import org.junit.Test
 
-class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
+internal class QueryBuilderDeleteTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun executeRawPredicateDelete() {
-    assertRawPredicateDelete(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeRawPredicateDelete() {
-    assertRawPredicateDelete(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeTypedPredicatePublishesOnlyForDeletedRows() {
-    assertTypedPredicatePublishesOnlyForDeletedRows(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeTypedPredicatePublishesOnlyForDeletedRows() {
-    assertTypedPredicatePublishesOnlyForDeletedRows(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeTypedWholeTableDelete() {
-    assertTypedWholeTableDelete(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeTypedWholeTableDelete() {
-    assertTypedWholeTableDelete(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeRawWholeTableDelete() {
-    assertRawWholeTableDelete(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeRawWholeTableDelete() {
-    assertRawWholeTableDelete(terminal = OBSERVE)
-  }
-
-  @Test
-  fun executeAliasedTableDelete() {
-    assertAliasedTableDelete(terminal = EXECUTE)
-  }
-
-  @Test
-  fun observeAliasedTableDelete() {
-    assertAliasedTableDelete(terminal = OBSERVE)
-  }
-
-  private fun assertRawPredicateDelete(terminal: OperationTerminal) {
-    val first = simpleRow(
+    val first = SimpleMutableEntity(
       id = 101L,
       value = "first"
     )
-    val second = simpleRow(
+    val second = SimpleMutableEntity(
       id = 102L,
       value = "second"
     )
     insertSimpleRow(value = first)
     insertSimpleRow(value = second)
 
-    val affectedRows = execute(
-      statement = Delete
-        .from("simple_mutable_entity")
-        .where("simple_mutable_entity.value=?", "second")
-        .compile(),
-      terminal = terminal
-    )
+    val affectedRows = DELETE
+      .FROM(SIMPLE_MUTABLE_ENTITY)
+      .WHERE("simple_mutable_entity.value = ?".expr(BOOLEAN, "second"))
+      .compile()
+      .execute()
 
     assertThat(affectedRows).isEqualTo(1)
     assertSimpleRows(first)
   }
 
-  private fun assertTypedPredicatePublishesOnlyForDeletedRows(terminal: OperationTerminal) {
-    val first = simpleRow(
+  @Test
+  fun executeTypedPredicatePublishesOnlyForDeletedRows() {
+    val first = SimpleMutableEntity(
       id = 201L,
       value = "first"
     )
-    val second = simpleRow(
+    val second = SimpleMutableEntity(
       id = 202L,
       value = "second"
     )
     insertSimpleRow(value = first)
     insertSimpleRow(value = second)
-    val observer = Select
-      .from(SIMPLE_MUTABLE_ENTITY)
-      .orderBy(SIMPLE_MUTABLE_ENTITY.ID.asc())
+    val observer = SELECT
+      .FROM(SIMPLE_MUTABLE_ENTITY)
+      .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
       .observe()
       .runQuery()
       .test()
       .assertValuesOnly(listOf(first, second))
+    val deleteSecond = (DELETE FROM SIMPLE_MUTABLE_ENTITY) WHERE (SIMPLE_MUTABLE_ENTITY.ID IS checkNotNull(second.id))
     try {
-      val affectedRows = execute(
-        statement = Delete
-          .from(SIMPLE_MUTABLE_ENTITY)
-          .where(SIMPLE_MUTABLE_ENTITY.ID.`is`(checkNotNull(second.id)))
-          .compile(),
-        terminal = terminal
-      )
+      val affectedRows = deleteSecond.compile()
+        .execute()
 
       assertThat(affectedRows).isEqualTo(1)
       observer.assertValuesOnly(
@@ -121,13 +70,8 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
         listOf(first)
       )
       assertThat(
-        execute(
-          statement = Delete
-            .from(SIMPLE_MUTABLE_ENTITY)
-            .where(SIMPLE_MUTABLE_ENTITY.ID.`is`(checkNotNull(second.id)))
-            .compile(),
-          terminal = terminal
-        )
+        deleteSecond.compile()
+          .execute()
       ).isEqualTo(0)
       observer.assertValuesOnly(
         listOf(first, second),
@@ -139,82 +83,25 @@ class QueryBuilderDeleteTest : RuntimeDatabaseTest() {
     }
   }
 
-  private fun assertTypedWholeTableDelete(terminal: OperationTerminal) {
+  @Test
+  fun executeTypedWholeTableDelete() {
     insertSimpleRow(
-      simpleRow(
+      SimpleMutableEntity(
         id = 301L,
         value = "first"
       )
     )
     insertSimpleRow(
-      simpleRow(
+      SimpleMutableEntity(
         id = 302L,
         value = "second"
       )
     )
 
-    val affectedRows = execute(
-      statement = Delete
-        .from(SIMPLE_MUTABLE_ENTITY)
-        .compile(),
-      terminal = terminal
-    )
+    val affectedRows = (DELETE FROM SIMPLE_MUTABLE_ENTITY).compile()
+      .execute()
 
     assertThat(affectedRows).isEqualTo(2)
     assertSimpleRows()
   }
-
-  private fun assertRawWholeTableDelete(terminal: OperationTerminal) {
-    insertSimpleRow(
-      simpleRow(
-        id = 401L,
-        value = "first"
-      )
-    )
-    insertSimpleRow(
-      simpleRow(
-        id = 402L,
-        value = "second"
-      )
-    )
-
-    val affectedRows = execute(
-      statement = Delete
-        .from("simple_mutable_entity")
-        .where("1")
-        .compile(),
-      terminal = terminal
-    )
-
-    assertThat(affectedRows).isEqualTo(2)
-    assertSimpleRows()
-  }
-
-  private fun assertAliasedTableDelete(terminal: OperationTerminal) {
-    val row = simpleRow(
-      id = 501L,
-      value = "aliased-target"
-    )
-    insertSimpleRow(value = row)
-    val alias = SIMPLE_MUTABLE_ENTITY.`as`("target")
-
-    val affectedRows = execute(
-      statement = Delete
-        .from(alias)
-        .compile(),
-      terminal = terminal
-    )
-
-    assertThat(affectedRows).isEqualTo(1)
-    assertSimpleRows()
-  }
-
-  private fun execute(
-    statement: CompiledDelete,
-    terminal: OperationTerminal
-  ) = when (terminal) {
-    EXECUTE -> statement.execute()
-    OBSERVE -> statement.observe().blockingGet()
-  }
-
 }

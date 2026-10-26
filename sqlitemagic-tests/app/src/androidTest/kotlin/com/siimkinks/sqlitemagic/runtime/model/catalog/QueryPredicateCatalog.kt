@@ -1,25 +1,11 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
 import com.siimkinks.sqlitemagic.AND
-import com.siimkinks.sqlitemagic.BETWEEN
-import com.siimkinks.sqlitemagic.GLOB
-import com.siimkinks.sqlitemagic.GREATER_THAN
-import com.siimkinks.sqlitemagic.IN
-import com.siimkinks.sqlitemagic.IS
-import com.siimkinks.sqlitemagic.IS_NOT
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
-import com.siimkinks.sqlitemagic.LESS_OR_EQUAL
-import com.siimkinks.sqlitemagic.LIKE
-import com.siimkinks.sqlitemagic.NOT_BETWEEN
-import com.siimkinks.sqlitemagic.NOT_GLOB
-import com.siimkinks.sqlitemagic.NOT_IN
-import com.siimkinks.sqlitemagic.NOT_LIKE
 import com.siimkinks.sqlitemagic.OR
 import com.siimkinks.sqlitemagic.runtime.model.QueryPredicateCase
 
 internal object QueryPredicateCatalog {
-  val rows = NonNullQueryFixture.nonNullRows
-
   val cases = listOf(
     QueryPredicateCase(
       name = "IS",
@@ -83,12 +69,12 @@ internal object QueryPredicateCatalog {
     ),
     QueryPredicateCase(
       name = "BETWEEN",
-      predicate = { IMMUTABLE_VALUE_WITH_FIELDS.INTEGER BETWEEN (101 AND 202) },
+      predicate = { IMMUTABLE_VALUE_WITH_FIELDS.INTEGER BETWEEN 101 AND 202 },
       expectedValues = listOf("non-null-string-1", "non-null-string-2")
     ),
     QueryPredicateCase(
       name = "NOT_BETWEEN",
-      predicate = { IMMUTABLE_VALUE_WITH_FIELDS.INTEGER NOT_BETWEEN (101 AND 202) },
+      predicate = { IMMUTABLE_VALUE_WITH_FIELDS.INTEGER NOT_BETWEEN 101 AND 202 },
       expectedValues = listOf("non-null-string-3")
     ),
     QueryPredicateCase(
@@ -108,6 +94,4 @@ internal object QueryPredicateCatalog {
       expectedValues = listOf("non-null-string-1", "non-null-string-2")
     )
   )
-
-  fun seed() = NonNullQueryFixture.seed()
 }

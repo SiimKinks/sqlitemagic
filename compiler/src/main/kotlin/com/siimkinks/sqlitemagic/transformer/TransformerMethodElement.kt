@@ -11,13 +11,13 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ksp.toClassName
 
-enum class TransformerCallableKind {
+internal enum class TransformerCallableKind {
   TOP_LEVEL,
   CLASS_MEMBER,
   UNKNOWN
 }
 
-interface TransformerMethodElement {
+internal interface TransformerMethodElement {
   val methodName: String
   val packageName: String
   val ownerClassName: ClassName?
@@ -39,7 +39,7 @@ interface TransformerMethodElement {
   }
 }
 
-data class TransformerMethodElementImpl(
+internal data class TransformerMethodElementImpl(
   override val methodName: String,
   override val packageName: String,
   override val ownerClassName: ClassName?,
@@ -47,7 +47,7 @@ data class TransformerMethodElementImpl(
 ) : TransformerMethodElement
 
 @ConsistentCopyVisibility
-data class TransformerRoundMethodElement private constructor(
+internal data class TransformerRoundMethodElement private constructor(
   val declaration: KSFunctionDeclaration,
   val transformerMethodElement: TransformerMethodElement,
   val firstParameterType: TransformerRoundTypeElement?,

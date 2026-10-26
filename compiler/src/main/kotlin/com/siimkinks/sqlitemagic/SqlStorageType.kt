@@ -19,7 +19,7 @@ import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.WildcardTypeName
 
-enum class SqlAffinity(
+internal enum class SqlAffinity(
   val defaultValue: String
 ) {
   BLOB(defaultValue = "0"),
@@ -28,23 +28,20 @@ enum class SqlAffinity(
   TEXT(defaultValue = "''")
 }
 
-enum class SqlStorageType(
-  val affinity: SqlAffinity,
-  val isNumeric: Boolean = false
+internal enum class SqlStorageType(
+  val affinity: SqlAffinity
 ) {
   BYTE_ARRAY(affinity = BLOB),
   BOXED_BYTE_ARRAY(affinity = BLOB),
   BYTE(affinity = BLOB),
-  DOUBLE(affinity = REAL, isNumeric = true),
-  FLOAT(affinity = REAL, isNumeric = true),
-  INT(affinity = INTEGER, isNumeric = true),
-  LONG(affinity = INTEGER, isNumeric = true),
-  SHORT(affinity = INTEGER, isNumeric = true),
+  DOUBLE(affinity = REAL),
+  FLOAT(affinity = REAL),
+  INT(affinity = INTEGER),
+  LONG(affinity = INTEGER),
+  SHORT(affinity = INTEGER),
   STRING(affinity = TEXT);
 
   companion object {
-    val supportedTypeNames = SIMPLE_TYPES.keys + "kotlin.Array<kotlin.Byte>"
-
     fun from(typeName: TypeName): SqlStorageType? {
       val expandedType = typeName.expandedTypeAlias()
       return when {
@@ -55,17 +52,13 @@ enum class SqlStorageType(
   }
 }
 
-private fun TypeName.isBoxedByteArray(): Boolean {
-  val parameterizedType = this as? ParameterizedTypeName ?: return false
-  if (parameterizedType.rawType != ARRAY) {
-    return false
-  }
-  val elementType = parameterizedType.typeArguments.singleOrNull() ?: return false
-  val expandedElementType = elementType
-    .wildcardBound()
-    .expandedTypeAlias()
-  return expandedElementType.classNameWithoutNullability() in BYTE_CLASS_NAMES
-}
+private fun TypeName.isBoxedByteArray() = this is ParameterizedTypeName &&
+    rawType == ARRAY &&
+    typeArguments
+      .singleOrNull()
+      ?.wildcardBound()
+      ?.expandedTypeAlias()
+      ?.classNameWithoutNullability() in BYTE_CLASS_NAMES
 
 private fun TypeName.wildcardBound() = when (this) {
   is WildcardTypeName -> inTypes.singleOrNull() ?: outTypes.single()

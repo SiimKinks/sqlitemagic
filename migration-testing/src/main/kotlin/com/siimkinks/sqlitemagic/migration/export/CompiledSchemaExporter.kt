@@ -31,7 +31,6 @@ internal object CompiledSchemaExporter {
     check(ExportRuntimeState.defaultConnection == null) {
       "Schema export requires an isolated JVM without an open database"
     }
-    val previousDatabase = ExportRuntimeState.database
     val previousLogging = ExportRuntimeState.loggingEnabled
     try {
       ExportRuntimeState.loggingEnabled = false
@@ -39,7 +38,6 @@ internal object CompiledSchemaExporter {
         .getDeclaredConstructor()
         .newInstance() as GeneratedDatabase
       require(!generated.isDebug) { "Schema export must use a selected release database, not a debug database" }
-      ExportRuntimeState.database = generated
       val recorder = SchemaRecordingDatabase()
       generated.configureDatabase(recorder.database)
       generated.createSchema(recorder.database)
@@ -48,7 +46,10 @@ internal object CompiledSchemaExporter {
         databaseId = databaseId,
         releaseVariant = releaseVariant,
         version = generated.dbVersion,
-        modules = generated.submoduleNames.orEmpty().toList() + databaseId
+        modules = generated
+          .submoduleNames
+          .orEmpty()
+          .asList() + databaseId
       )
     } catch (failure: Exception) {
       throw exportFailure(
@@ -63,7 +64,6 @@ internal object CompiledSchemaExporter {
         releaseVariant = releaseVariant
       )
     } finally {
-      ExportRuntimeState.database = previousDatabase
       ExportRuntimeState.loggingEnabled = previousLogging
     }
   }
@@ -86,21 +86,16 @@ internal object CompiledSchemaExporter {
   }
 }
 
-/** Access is confined to this isolated host exporter; runtime exposes no tooling bridge. */
 internal object ExportRuntimeState {
-  private val databaseField = SqliteMagic::class.java.getDeclaredField("database").apply { isAccessible = true }
   private val connectionField = SqliteMagic::class.java.getDeclaredField("defaultConnection")
     .apply { isAccessible = true }
 
-  private val loggingField = SqliteMagic::class.java.getDeclaredField("loggingEnabled").apply { isAccessible = true }
+  private val loggingField = SqliteMagic::class.java.getDeclaredField("loggingEnabled")
+    .apply { isAccessible = true }
 
   var loggingEnabled: Boolean
     get() = loggingField.getBoolean(null)
     set(value) = loggingField.setBoolean(null, value)
-
-  var database: GeneratedDatabase?
-    get() = databaseField.get(null) as GeneratedDatabase?
-    set(value) = databaseField.set(null, value)
 
   val defaultConnection: Any? get() = connectionField.get(null)
 }

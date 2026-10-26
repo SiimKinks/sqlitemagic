@@ -212,9 +212,7 @@ internal fun ColumnStructure.canBeAddedWithAlterTable(): Boolean {
 internal fun TableStructure.normalizedReferencedTableNames() = schema
   .normalizedReferencedTableNames()
 
-internal fun String.normalizedSqlIdentifier() = SqliteIdentifier
-  .from(this)
-  .normalizedName
+internal fun String.normalizedSqlIdentifier() = SqliteIdentifier(this).normalizedName
 
 private fun String.normalizeSqlWhitespace(): String {
   val result = StringBuilder(length)

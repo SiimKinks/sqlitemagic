@@ -1,58 +1,64 @@
 package com.siimkinks.sqlitemagic.writer
 
 import com.google.devtools.ksp.processing.CodeGenerator
-import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_DEEP_QUERY_PARTS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ADD_SHALLOW_QUERY_PARTS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_MAPPER
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_FULL_OBJECT_FROM_CURSOR_POSITION
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_MAPPER
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_CURSOR_POSITION
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_SELECTED_POSITIONS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
+import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.WriterTypes.CHECK_NOT_NULL
-import com.siimkinks.sqlitemagic.WriterTypes.COLUMN_POSITIONS_MAP
-import com.siimkinks.sqlitemagic.WriterTypes.MUTABLE_SCATTER_MAP
-import com.siimkinks.sqlitemagic.WriterTypes.QUERY_GRAPH_SCOPE
-import com.siimkinks.sqlitemagic.WriterTypes.QUERY_MAPPER
+import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
+import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_PROPERTY
+import com.siimkinks.sqlitemagic.WriterTypes.RELATED_ENTITIES
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
-import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
-import com.siimkinks.sqlitemagic.model.TableElement
+import com.siimkinks.sqlitemagic.WriterTypes.TABLE_RELATIONSHIP
+import com.siimkinks.sqlitemagic.model.PropertyMetadata
 import com.siimkinks.sqlitemagic.model.writeModelSource
-import com.siimkinks.sqlitemagic.view.ViewElement
-import com.squareup.kotlinpoet.BOOLEAN
+import com.siimkinks.sqlitemagic.utils.callCode
+import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.INT
+import com.squareup.kotlinpoet.INT_ARRAY
+import com.squareup.kotlinpoet.KModifier.INFIX
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PRIVATE
-import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.LIST
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
+import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.buildCodeBlock
 
-/** Common query-facing structure for a persisted table or a view. */
-internal class ReadTableStructureWriter private constructor(
-  private val className: ClassName,
+internal class ReadTableStructureWriter(
+  private val names: GenerationNames,
   private val modelClassName: ClassName,
-  private val structureFieldName: String,
   private val isPublic: Boolean,
   private val constructorArguments: List<CodeBlock>,
   private val columns: List<PropertySpec>,
-  private val daoClassName: ClassName,
-  private val hasFullReaderBranch: Boolean,
-  private val selectedNodeNameParameter: ParameterSpec?,
-  private val otherFunctions: List<FunSpec> = emptyList()
+  private val readsRelated: Boolean,
+  private val relationships: CodeBlock?,
+  private val partialRead: PartialRead?
 ) {
+  class PartialRead(
+    val entityProperties: CodeBlock,
+    val readsRelated: Boolean
+  )
+
+  private val className = names.tableClassName
+
   fun write(
     codeGenerator: CodeGenerator,
-    originatingFiles: OriginatingFiles
+    originatingFiles: OriginatingFiles,
+    fileProperties: List<PropertySpec> = emptyList()
   ) = FileSpec
     .builder(className)
+    .apply { fileProperties.forEach(::addProperty) }
     .addType(
       TypeSpec
         .classBuilder(className)
@@ -73,10 +79,67 @@ internal class ReadTableStructureWriter private constructor(
           }
         }
         .addProperties(columns)
+        .addProperty(
+          PropertySpec
+            .builder(
+              name = "entityFields",
+              type = LIST.parameterizedBy(COLUMN.parameterizedBy(modelClassName, STAR, STAR, STAR, STAR, STAR, STAR))
+            )
+            .addModifiers(OVERRIDE)
+            .initializer(
+              callCode(
+                callee = CodeBlock.of("listOf"),
+                arguments = columns.map { CodeBlock.of("%N", it) }
+              )
+            )
+            .build()
+        )
+        .apply {
+          if (relationships != null) {
+            addProperty(
+              companionListOverride(
+                name = "relationships",
+                type = TABLE_RELATIONSHIP,
+                companionName = RELATIONSHIPS
+              )
+            )
+          }
+          if (partialRead != null) {
+            addProperty(
+              companionListOverride(
+                name = "entityProperties",
+                type = ENTITY_PROPERTY,
+                companionName = ENTITY_PROPERTIES
+              )
+            )
+          }
+        }
+        .addFunction(
+          reader(
+            name = "readEntity",
+            position = "startIndex",
+            positionType = INT,
+            daoReader = METHOD_OBJECT_FROM_CURSOR_POSITION,
+            related = readsRelated
+          )
+        )
+        .apply {
+          if (partialRead != null) {
+            addFunction(
+              reader(
+                name = "readPartialEntity",
+                position = "positions",
+                positionType = INT_ARRAY,
+                daoReader = METHOD_OBJECT_FROM_SELECTED_POSITIONS,
+                related = partialRead.readsRelated
+              )
+            )
+          }
+        }
         .addFunction(
           FunSpec
             .builder(METHOD_AS)
-            .addModifiers(OVERRIDE)
+            .addModifiers(OVERRIDE, INFIX)
             .addParameter(name = VARIABLE_ALIAS, type = STRING)
             .returns(className)
             .addStatement("return %T(%N)", className, VARIABLE_ALIAS)
@@ -87,182 +150,110 @@ internal class ReadTableStructureWriter private constructor(
             .companionObjectBuilder()
             .addProperty(
               PropertySpec
-                .builder(name = structureFieldName, type = className)
+                .builder(name = names.structureFieldName, type = className)
                 .initializer("%T(null)", className)
                 .build()
             )
+            .apply {
+              if (relationships != null) {
+                addProperty(
+                  companionList(
+                    name = RELATIONSHIPS,
+                    type = TABLE_RELATIONSHIP,
+                    initializer = relationships
+                  )
+                )
+              }
+              if (partialRead != null) {
+                addProperty(
+                  companionList(
+                    name = ENTITY_PROPERTIES,
+                    type = ENTITY_PROPERTY,
+                    initializer = partialRead.entityProperties
+                  )
+                )
+              }
+            }
             .build()
         )
         .build()
     )
-    .addFunction(mapperFunction())
-    .addFunctions(otherFunctions)
     .writeModelSource(
       codeGenerator = codeGenerator,
       originatingFiles = originatingFiles
     )
 
-  private fun mapperFunction(): FunSpec {
-    val columnPositions = ParameterSpec
-      .builder(
-        name = "columnPositions",
-        type = COLUMN_POSITIONS_MAP.copy(nullable = true)
-      )
-      .build()
-    val tableGraphNodeNames = ParameterSpec
-      .builder(
-        name = "tableGraphNodeNames",
-        type = MUTABLE_SCATTER_MAP
-          .parameterizedBy(STRING, STRING)
-          .copy(nullable = true)
-      )
-      .build()
-    val queryDeep = ParameterSpec
-      .builder(name = "queryDeep", type = BOOLEAN)
-      .build()
-    val mapperType = QUERY_MAPPER.parameterizedBy(modelClassName)
-    val function = FunSpec
-      .builder(METHOD_CREATE_MAPPER)
-      .addModifiers(PRIVATE)
-      .addParameter(columnPositions)
-      .addParameter(tableGraphNodeNames)
-      .addParameter(queryDeep)
-      .apply {
-        selectedNodeNameParameter?.let(::addParameter)
+  /** A model with [related] reads always receives related entities, so the DAO reader takes them as non-null. */
+  private fun reader(
+    name: String,
+    position: String,
+    positionType: TypeName,
+    daoReader: String,
+    related: Boolean
+  ) = FunSpec
+    .builder(name)
+    .addModifiers(OVERRIDE)
+    .addParameter(name = "cursor", type = CURSOR)
+    .addParameter(name = position, type = positionType)
+    .addParameter(name = "related", type = RELATED_ENTITIES.copy(nullable = true))
+    .returns(modelClassName)
+    .addStatement(
+      "return %T.%N(cursor, %N%L)",
+      names.daoClassName,
+      daoReader,
+      position,
+      when {
+        related -> CodeBlock.of(", %M(related)", CHECK_NOT_NULL)
+        else -> CodeBlock.of("")
       }
-      .returns(mapperType)
-      .beginControlFlow("return when")
-    when {
-      hasFullReaderBranch -> function
-        .beginControlFlow("%N == null || %N.isEmpty() -> when", columnPositions, columnPositions)
-        .addStatement("%N -> %T(%T::%N)", queryDeep, mapperType, daoClassName, METHOD_FULL_OBJECT_FROM_CURSOR_POSITION)
-        .addStatement("else -> %T(%T::%N)", mapperType, daoClassName, METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION)
-        .endControlFlow()
-        .beginControlFlow("%N -> %T", queryDeep, mapperType)
-        .addSelectedReaderStatement(
-          readerName = METHOD_FULL_OBJECT_FROM_CURSOR_POSITION,
-          columnPositions = columnPositions,
-          tableGraphNodeNames = tableGraphNodeNames
-        )
-        .endControlFlow()
-      else -> function.addStatement(
-        "%N == null || %N.isEmpty() -> %T(%T::%N)",
-        columnPositions,
-        columnPositions,
-        mapperType,
-        daoClassName,
-        METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION
-      )
-    }
-    return function
-      .beginControlFlow("else -> %T", mapperType)
-      .addSelectedReaderStatement(
-        readerName = METHOD_SHALLOW_OBJECT_FROM_CURSOR_POSITION,
-        columnPositions = columnPositions,
-        tableGraphNodeNames = tableGraphNodeNames
-      )
-      .endControlFlow()
-      .endControlFlow()
-      .build()
-  }
-
-  private fun FunSpec.Builder.addSelectedReaderStatement(
-    readerName: String,
-    columnPositions: ParameterSpec,
-    tableGraphNodeNames: ParameterSpec
-  ): FunSpec.Builder {
-    val nodeName = selectedNodeNameParameter
-      ?.let { CodeBlock.of("%N", it) }
-      ?: CodeBlock.of("%S", "")
-    return addStatement(
-      "%M(%T.%N(it, %N, %N, %L))",
-      CHECK_NOT_NULL,
-      daoClassName,
-      readerName,
-      columnPositions,
-      tableGraphNodeNames,
-      nodeName
     )
-  }
+    .build()
 
   companion object {
-    fun from(
-      table: TableElement,
-      columns: List<PropertySpec>,
-      otherFunctions: List<FunSpec>
-    ) = ReadTableStructureWriter(
-      className = table.generationNames.tableClassName,
-      modelClassName = table.modelClassName,
-      structureFieldName = table.structureFieldName,
-      isPublic = table.isPublic,
-      constructorArguments = buildList {
-        add(CodeBlock.of("name = %S", table.tableName))
-        add(CodeBlock.of("alias = %N", VARIABLE_ALIAS))
-        add(CodeBlock.of("nrOfColumns = %L", table.allColumns.size))
-        if (table.schema == TEMPORARY) {
-          add(CodeBlock.of("temporary = true"))
-        }
-        add(CodeBlock.of("%N = ::%N", METHOD_MAPPER, METHOD_CREATE_MAPPER))
-        if (table.hasRecursiveRelationships) {
-          add(CodeBlock.of("%N = %T::%N", METHOD_ADD_DEEP_QUERY_PARTS, QUERY_GRAPH_SCOPE, METHOD_ADD_DEEP_QUERY_PARTS))
-        }
-        if (table.needsShallowQueryParts) {
-          add(
-            CodeBlock.of(
-              "%N = %T::%N",
-              METHOD_ADD_SHALLOW_QUERY_PARTS,
-              QUERY_GRAPH_SCOPE,
-              METHOD_ADD_SHALLOW_QUERY_PARTS
-            )
-          )
-        }
-      },
-      columns = columns,
-      daoClassName = table.generationNames.daoClassName,
-      hasFullReaderBranch = table.hasRecursiveRelationships,
-      selectedNodeNameParameter = null,
-      otherFunctions = otherFunctions
-    )
+    private const val RELATIONSHIPS = "RELATIONSHIPS"
+    private const val ENTITY_PROPERTIES = "ENTITY_PROPERTIES"
 
-    fun from(
-      view: ViewElement,
-      columns: List<PropertySpec>
-    ): ReadTableStructureWriter {
-      val viewIdentifier = ParameterSpec
-        .builder(name = "viewIdentifier", type = STRING)
-        .build()
-      return ReadTableStructureWriter(
-        className = view.generationNames.tableClassName,
-        modelClassName = view.modelClassName,
-        structureFieldName = view.structureFieldName,
-        isPublic = view.isPublic,
-        constructorArguments = buildList {
-          add(CodeBlock.of("name = %S", view.viewName))
-          add(CodeBlock.of("alias = %N", VARIABLE_ALIAS))
-          add(CodeBlock.of("nrOfColumns = %L", view.expandedWidth))
-          if (view.schema == TEMPORARY) {
-            add(CodeBlock.of("temporary = true"))
-          }
-          add(
-            buildCodeBlock {
-              beginControlFlow("%N = { columnPositions, tableGraphNodeNames, queryDeep ->", METHOD_MAPPER)
-              addStatement(
-                "%N(columnPositions, tableGraphNodeNames, queryDeep, %N ?: %S)",
-                METHOD_CREATE_MAPPER,
-                VARIABLE_ALIAS,
-                view.viewName
-              )
-              unindent()
-              add("}")
-            }
-          )
-          add(CodeBlock.of("generatedView = %T.%N", view.generationNames.daoClassName, FIELD_GENERATED_VIEW))
-        },
-        columns = columns,
-        daoClassName = view.generationNames.daoClassName,
-        hasFullReaderBranch = false,
-        selectedNodeNameParameter = viewIdentifier
+    private fun companionListOverride(
+      name: String,
+      type: ClassName,
+      companionName: String
+    ) = PropertySpec
+      .builder(name = name, type = LIST.parameterizedBy(type))
+      .addModifiers(OVERRIDE)
+      .getter(
+        FunSpec
+          .getterBuilder()
+          .addStatement("return %N", companionName)
+          .build()
       )
-    }
+      .build()
+
+    private fun companionList(
+      name: String,
+      type: ClassName,
+      initializer: CodeBlock
+    ) = PropertySpec
+      .builder(name = name, type = LIST.parameterizedBy(type))
+      .addModifiers(PRIVATE)
+      .initializer(initializer)
+      .build()
   }
 }
+
+internal fun <P : PropertyMetadata> entityProperties(
+  modelName: String,
+  properties: List<P>,
+  partialRequirements: Map<P, String?>
+) = callCode(
+  callee = CodeBlock.of("listOf"),
+  arguments = properties.map { property ->
+    callCode(
+      callee = CodeBlock.of("%T", ENTITY_PROPERTY),
+      arguments = listOfNotNull(
+        namedArgument("path", "%S", "$modelName.${property.access.path.displayName}"),
+        namedArgument("required", "%L", property in partialRequirements),
+        partialRequirements[property]?.let { namedArgument("within", "%S", it) }
+      )
+    )
+  }
+)

@@ -1,43 +1,44 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.TransformerRuntimeEntityTable.Companion.TRANSFORMER_RUNTIME_ENTITY
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.fixture.model.TransformerRuntimeEntity
-import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 
-class TransformerRuntimeTest : RuntimeDatabaseTest() {
+internal class TransformerRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun nullableTransformerRoundTripsThroughExecuteAndOneShotObservation() {
     val value = TransformerModelCatalog.runtimeCase
       .newValue(sequence = 1)
       .copy(nullableToken = null)
-    val expected = insertValue(value)
+    val expected = TransformerModelCatalog.insertRuntimeValue(value)
 
     assertThat(
-      Select
-        .from(TRANSFORMER_RUNTIME_ENTITY)
-        .orderBy(TRANSFORMER_RUNTIME_ENTITY.ID.asc())
+      SELECT
+        .FROM(TRANSFORMER_RUNTIME_ENTITY)
+        .ORDER_BY(TRANSFORMER_RUNTIME_ENTITY.ID.ASC())
         .execute()
     ).isEqualTo(listOf(expected))
 
     assertThat(
-      Select
-        .from(TRANSFORMER_RUNTIME_ENTITY)
-        .orderBy(TRANSFORMER_RUNTIME_ENTITY.ID.asc())
+      SELECT
+        .FROM(TRANSFORMER_RUNTIME_ENTITY)
+        .ORDER_BY(TRANSFORMER_RUNTIME_ENTITY.ID.ASC())
         .observe()
         .runQueryOnce()
         .blockingGet()
     ).isEqualTo(listOf(expected))
 
-    val nullStorage = Select
-      .raw("SELECT nullable_token FROM transformer_runtime_entity WHERE id = ?")
-      .from(TRANSFORMER_RUNTIME_ENTITY)
-      .withArgs(checkNotNull(expected.id).toString())
+    val nullStorage = SELECT
+      .RAW("SELECT nullable_token FROM transformer_runtime_entity WHERE id = ?", checkNotNull(expected.id))
+      .toCursor()
       .execute()
       .use { cursor ->
         check(cursor.moveToFirst())
@@ -51,15 +52,15 @@ class TransformerRuntimeTest : RuntimeDatabaseTest() {
   fun transformedStorageAndExternalConstantDispatchArePreserved() {
     val value = TransformerModelCatalog.runtimeCase
       .newValue(sequence = 1)
-    val expected = insertValue(value)
+    val expected = TransformerModelCatalog.insertRuntimeValue(value)
 
-    val storage = Select
-      .raw(
+    val storage = SELECT
+      .RAW(
         "SELECT nullable_token, blob_token, typeof(blob_token) " +
-            "FROM transformer_runtime_entity WHERE id = ?"
+            "FROM transformer_runtime_entity WHERE id = ?",
+        checkNotNull(expected.id)
       )
-      .from(TRANSFORMER_RUNTIME_ENTITY)
-      .withArgs(checkNotNull(expected.id).toString())
+      .toCursor()
       .execute()
       .use { cursor ->
         check(cursor.moveToFirst())
@@ -82,20 +83,11 @@ class TransformerRuntimeTest : RuntimeDatabaseTest() {
       )
 
     assertThat(
-      Select
-        .column(Select.asColumn(value.externalToken))
-        .from(TRANSFORMER_RUNTIME_ENTITY)
+      SELECT
+        .COLUMN(value.externalToken.asValue())
+        .FROM(TRANSFORMER_RUNTIME_ENTITY)
         .takeFirst()
         .execute()
     ).isEqualTo(value.externalToken)
-  }
-
-  private fun insertValue(value: TransformerRuntimeEntity) = when (
-    val result = value
-      .insert()
-      .execute()
-  ) {
-    is EntityInsertResult.Inserted -> value.copy(id = checkNotNull(result.rowId))
-    EntityInsertResult.Ignored -> error("TransformerRuntimeEntity insert was ignored")
   }
 }

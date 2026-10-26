@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
+import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -17,7 +18,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 
-class MigrationTestingTasksTest {
+internal class MigrationTestingTasksTest {
   @TempDir
   lateinit var directory: Path
 
@@ -119,7 +120,7 @@ class MigrationTestingTasksTest {
           .contains("override val currentVersion = 3")
         assertWithMessage(label)
           .that(descriptor)
-          .contains("override val migrationTaskPath = \":app:migrateReleaseDb\"")
+          .contains("""override val migrationTaskPath = ":app:migrateReleaseDb"""")
       }
   }
 
@@ -173,8 +174,8 @@ class MigrationTestingTasksTest {
         .resolve("com/siimkinks/sqlitemagic/SqliteMagicMigrationDatabase.kt")
         .readText()
       val expected = when (label) {
-        "database" -> "override val databaseId = \":other\""
-        else -> "override val releaseVariant = \"otherRelease\""
+        "database" -> """override val databaseId = ":other""""
+        else -> """override val releaseVariant = "otherRelease""""
       }
       assertWithMessage(label).that(descriptor).contains(expected)
     }
@@ -249,16 +250,20 @@ class MigrationTestingTasksTest {
     val project = ProjectBuilder.builder()
       .withProjectDir(projectDir)
       .build()
-    val task = project.tasks.create("migratePaidReleaseDb", PublishSqliteMagicRelease::class.java)
-    task.projectDirectory.set(projectDir)
-    task.databaseDirectory.set(database)
-    task.releaseVariant.set("paidRelease")
-    task.assetsBuildType.set("release")
-    task.currentStructures.from(staged)
     val merged = projectDir.resolve("build/merged-assets/paidRelease")
     check(merged.mkdirs())
     merged.resolve("2.sql").writeText("UPDATE books SET id = id + 2;\n")
-    task.assetsDirectory.set(merged)
+    val task = project.tasks
+      .register("migratePaidReleaseDb", PublishSqliteMagicRelease::class.java)
+      .get()
+      .apply {
+        projectDirectory.set(projectDir)
+        databaseDirectory.set(database)
+        releaseVariant.set("paidRelease")
+        assetsBuildType.set("release")
+        currentStructures.from(staged)
+        assetsDirectory.set(merged)
+      }
 
     task.publish()
 
@@ -277,12 +282,16 @@ class MigrationTestingTasksTest {
         schema(3).copy(releaseVariant = "otherRelease")
       )
     )
-    val task = fixture.task.project.tasks.create("migrateReleaseDb", PublishSqliteMagicRelease::class.java)
-    task.projectDirectory.set(fixture.projectDir)
-    task.databaseDirectory.set(fixture.projectDir.resolve("db"))
-    task.releaseVariant.set("release")
-    task.assetsBuildType.set("release")
-    task.compiledSchema.set(fixture.projectDir.resolve("compiled.schema.json"))
+    val task = fixture.task.project.tasks
+      .register("migrateReleaseDb", PublishSqliteMagicRelease::class.java)
+      .get()
+      .apply {
+        projectDirectory.set(fixture.projectDir)
+        databaseDirectory.set(fixture.projectDir.resolve("db"))
+        releaseVariant.set("release")
+        assetsBuildType.set("release")
+        compiledSchema.set(fixture.projectDir.resolve("compiled.schema.json"))
+      }
     val before = fixture.sourceBytes()
 
     val failure = assertThrows<IllegalStateException>(task::publish)
@@ -296,13 +305,19 @@ class MigrationTestingTasksTest {
   fun `source publication tasks do not claim compiler inputs as generated artifacts`() {
     val fixture = fixture()
     val project = fixture.task.project
-    val release = project.tasks.create("migrateReleaseDb", PublishSqliteMagicRelease::class.java)
-    release.projectDirectory.set(fixture.projectDir)
-    release.databaseDirectory.set(fixture.projectDir.resolve("db"))
-    release.releaseVariant.set("release")
-    release.assetsBuildType.set("release")
-    val structures = project.tasks.create("publishReleaseStructures", PublishSqliteMagicStructures::class.java)
-    structures.destinationDirectory.set(fixture.projectDir.resolve("db"))
+    val release = project.tasks
+      .register("migrateReleaseDb", PublishSqliteMagicRelease::class.java)
+      .get()
+      .apply {
+        projectDirectory.set(fixture.projectDir)
+        databaseDirectory.set(fixture.projectDir.resolve("db"))
+        releaseVariant.set("release")
+        assetsBuildType.set("release")
+      }
+    val structures = project.tasks
+      .register("publishReleaseStructures", PublishSqliteMagicStructures::class.java)
+      .get()
+      .apply { destinationDirectory.set(fixture.projectDir.resolve("db")) }
     assertThat(release.outputs.files.files).isEmpty()
     assertThat(structures.outputs.files.files).isEmpty()
     assertThat(fixture.task.taskDependencies.getDependencies(fixture.task)).doesNotContain(release)
@@ -341,7 +356,7 @@ class MigrationTestingTasksTest {
     }
     assertWithMessage("unavailable override").that(unavailable.message)
       .contains("disabledRelease")
-    val empty = assertThrows<org.gradle.api.GradleException> {
+    val empty = assertThrows<GradleException> {
       selectMigrationReleaseVariant(
         candidates = emptyList(),
         requested = null
@@ -392,15 +407,19 @@ class MigrationTestingTasksTest {
     val project = ProjectBuilder.builder()
       .withProjectDir(projectDir)
       .build()
-    val task = project.tasks.create("prepareMigrationTests", PrepareSqliteMagicMigrationTests::class.java)
-    task.databaseId.set(":app")
-    task.releaseVariant.set("release")
-    task.releaseDirectory.set(releases)
-    task.assetsDirectory.set(assets)
-    task.migrationTaskPath.set(":app:migrateReleaseDb")
-    task.compiledSchema.set(projectDir.resolve("compiled.schema.json"))
-    task.generatedSources.set(projectDir.resolve("build/generated-sources"))
-    task.generatedResources.set(projectDir.resolve("build/generated-resources"))
+    val task = project.tasks
+      .register("prepareMigrationTests", PrepareSqliteMagicMigrationTests::class.java)
+      .get()
+      .apply {
+        databaseId.set(":app")
+        releaseVariant.set("release")
+        releaseDirectory.set(releases)
+        assetsDirectory.set(assets)
+        migrationTaskPath.set(":app:migrateReleaseDb")
+        compiledSchema.set(projectDir.resolve("compiled.schema.json"))
+        generatedSources.set(projectDir.resolve("build/generated-sources"))
+        generatedResources.set(projectDir.resolve("build/generated-resources"))
+      }
     return TaskFixture(
       projectDir = projectDir,
       task = task
@@ -432,7 +451,7 @@ private fun schema(version: Int) = ReleaseSchemaSnapshot(
 
 private fun structureJson(vararg tables: String) = tables.joinToString(
   separator = ",",
-  prefix = "{\"tables\":{",
+  prefix = """{"tables":{""",
   postfix = "}}"
 ) { name ->
   """"$name":{"name":"$name","schema":"CREATE TABLE IF NOT EXISTS $name (id INTEGER PRIMARY KEY)","columns":[""" +

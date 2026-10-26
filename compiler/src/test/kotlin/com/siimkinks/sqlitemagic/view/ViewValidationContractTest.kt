@@ -1,26 +1,20 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.google.devtools.ksp.symbol.KSDeclaration
-import com.google.devtools.ksp.symbol.KSName
-import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
+import com.siimkinks.sqlitemagic.utils.RoundState
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.recordingRounds
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
-internal class ViewValidationContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
-
+internal class ViewValidationContractTest {
   @Test
   fun `earlier helper readiness preserves generated registry membership`() {
     SqliteMagicCompilation
@@ -30,8 +24,7 @@ internal class ViewValidationContractTest : ProcessingStepsTest {
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Database
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
@@ -46,7 +39,7 @@ internal class ViewValidationContractTest : ProcessingStepsTest {
 
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = error("compile only")
+                val QUERY: SelectQuery<String, *> = error("compile only")
               }
             }
 
@@ -54,25 +47,27 @@ internal class ViewValidationContractTest : ProcessingStepsTest {
             data class ReadyView(@ViewColumn("value") val value: String) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = error("compile only")
+                val QUERY: SelectQuery<String, *> = error("compile only")
               }
             }
           """
         ),
         processingStepsFactory = { environment ->
-          viewProcessingSteps(environment) + LaterTypeStep(
+          viewProcessingSteps(environment) + GeneratedSourceStep(
             environment = environment,
+            fileName = "LaterType",
             contents = """
               package $PACKAGE
               class LaterType
-            """.trimIndent()
+            """
           )
         }
       )
       .isOk()
-      .withGeneratedSource(fileName = "SqliteMagicDatabase.kt") { generated ->
+      .withGeneratedSource("SqliteMagicDatabase.kt") { generated ->
         assertThat(
-          generated.lineSequence()
+          generated
+            .lineSequence()
             .map(String::trim)
             .filter { it.startsWith("views.add(") }
             .toList()
@@ -143,8 +138,7 @@ internal class ViewValidationContractTest : ProcessingStepsTest {
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
@@ -158,28 +152,28 @@ internal class ViewValidationContractTest : ProcessingStepsTest {
               companion object {
                 $companionMember
                 @ViewQuery
-                val QUERY: CompiledSelect<$queryType, Select1> = error("compile only")
+                val QUERY: SelectQuery<$queryType, *> = error("compile only")
               }
             }
           """
         ),
         processingStepsFactory = { environment ->
-          val steps = viewProcessingSteps(environment)
-          steps.map { step ->
+          viewProcessingSteps(environment).map { step ->
             when (step) {
-              is ViewCollectionStep -> RecordingCollectionStep(
-                delegate = step,
-                environment = environment,
-                rounds = rounds
-              )
+              is ViewCollectionStep -> step.recordingRounds(rounds) {
+                environment.viewRoundElementsForCurrentRound
+                  .map(ViewRoundElement::view)
+                  .map(ViewElement::modelName)
+              }
               else -> step
             }
-          } + LaterTypeStep(
+          } + GeneratedSourceStep(
             environment = environment,
+            fileName = "LaterType",
             contents = """
               package $PACKAGE
               $laterType
-            """.trimIndent()
+            """
           )
         }
       )
@@ -198,58 +192,10 @@ internal class ViewValidationContractTest : ProcessingStepsTest {
     }
     assertThat(rounds.first()).isEqualTo(expectedFirstRound)
     assertThat(
-      rounds.drop(1)
+      rounds
+        .drop(1)
         .flatMap(RoundState::deferred)
     ).isEmpty()
     assertThat(rounds.flatMap(RoundState::collected)).containsExactly("ValidationView")
-  }
-
-  private data class RoundState(
-    val collected: List<String>,
-    val deferred: List<String>
-  )
-
-  private class RecordingCollectionStep(
-    private val delegate: ProcessingStep,
-    private val environment: Environment,
-    private val rounds: MutableList<RoundState>
-  ) : ProcessingStep {
-    override fun process(resolver: Resolver): ProcessingStepResult {
-      val result = delegate.process(resolver)
-      rounds += RoundState(
-        collected = environment.viewRoundElementsForCurrentRound
-          .map(ViewRoundElement::view)
-          .map(ViewElement::modelName),
-        deferred = when (result) {
-          is Deferred -> result.symbols
-            .filterIsInstance<KSDeclaration>()
-            .map(KSDeclaration::simpleName)
-            .map(KSName::asString)
-          else -> emptyList()
-        }
-      )
-      return result
-    }
-  }
-
-  private class LaterTypeStep(
-    private val environment: Environment,
-    private val contents: String
-  ) : ProcessingStep {
-    private var generated = false
-
-    override fun process(resolver: Resolver): ProcessingStepResult {
-      if (generated) return Continue
-      generated = true
-      environment.codeGenerator
-        .createNewFile(
-          dependencies = Dependencies(aggregating = false),
-          packageName = PACKAGE,
-          fileName = "LaterType"
-        )
-        .bufferedWriter()
-        .use { it.write(contents) }
-      return Continue
-    }
   }
 }

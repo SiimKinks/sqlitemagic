@@ -3,33 +3,24 @@ package com.siimkinks.sqlitemagic
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
-import com.siimkinks.sqlitemagic.internal.GeneratedEntityIdentity
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
-internal typealias TestColumn = Column<*, *, *, TestEntity, NotNullable>
-
 internal data class TestEntity(
-  var id: String,
-  var key: String,
-  var name: String?,
+  var id: String = "id-1",
+  var key: String = "key-1",
+  var name: String? = "name",
   var generatedRowId: Long? = null
 )
 
 internal object TestSchema {
-  val table = testTable<TestEntity>(name = "books", nrOfColumns = 3)
-  val id = UniqueColumn<String, String, String, TestEntity, NotNullable>(
+  val table = testTable<TestEntity>(name = "books")
+  val id = testStringKey(
     table = table,
-    name = "id",
-    valueParser = Utils.STRING_PARSER,
-    nullable = false,
-    alias = null
+    name = "id"
   )
-  val key = UniqueColumn<String, String, String, TestEntity, NotNullable>(
+  val key = testStringKey(
     table = table,
-    name = "key",
-    valueParser = Utils.STRING_PARSER,
-    nullable = false,
-    alias = null
+    name = "key"
   )
 }
 
@@ -42,9 +33,10 @@ internal class TestAdapter(
   override val insertSql = "INSERT%s INTO books (id, key, name) VALUES (?, ?, ?)"
   override val tablePosition = 0
   override val maxColumns = 3
-  override val defaultIdentityColumn = TestSchema.id
+  override val defaultIdentityColumnName = TestSchema.id.name
 
-  val bindMaps = mutableListOf<MutableScatterMap<String, Any>>()
+  val bindMaps: List<MutableScatterMap<String, Any>>
+    field = mutableListOf()
 
   override fun bindToInsertStatement(
     statement: SupportSQLiteStatement,
@@ -52,28 +44,36 @@ internal class TestAdapter(
     generatedRelationshipIds: Map<String, Long>
   ) {
     statement.clearBindings()
-    statement.bindString(1, entity.id)
-    statement.bindString(2, entity.key)
+    statement.bindString(
+      index = 1,
+      value = entity.id
+    )
+    statement.bindString(
+      index = 2,
+      value = entity.key
+    )
     when (val name = entity.name) {
       null -> statement.bindNull(3)
-      else -> statement.bindString(3, name)
+      else -> statement.bindString(
+        index = 3,
+        value = name
+      )
     }
   }
 
   override fun bindToUpdateStatement(
     statement: SupportSQLiteStatement,
     entity: TestEntity,
-    byColumn: TestColumn
+    columnName: String
   ) {
     statement.clearBindings()
-    statement.bindString(1, entity.name ?: "")
     statement.bindString(
-      2,
-      when (byColumn) {
-        TestSchema.id -> entity.id
-        TestSchema.key -> entity.key
-        else -> error("Unknown test identity column")
-      }
+      index = 1,
+      value = entity.name ?: ""
+    )
+    statement.bindString(
+      index = 2,
+      value = entity.identityValue(columnName)
     )
   }
 
@@ -84,10 +84,10 @@ internal class TestAdapter(
   ) {
     values.clear()
     if (!omitNullInsertValues) {
-      values.put("id", entity.id)
-      values.put("key", entity.key)
+      values["id"] = entity.id
+      values["key"] = entity.key
       entity.name?.let {
-        values.put("name", it)
+        values["name"] = it
       }
     }
     bindMaps += values
@@ -96,42 +96,29 @@ internal class TestAdapter(
   override fun bindNotNullForUpdate(
     entity: TestEntity,
     values: MutableScatterMap<String, Any>,
-    byColumn: TestColumn
+    columnName: String
   ) {
     values.clear()
     entity.name?.let {
-      values.put("name", it)
+      values["name"] = it
     }
   }
 
   override fun identity(
     entity: TestEntity,
-    byColumn: TestColumn
-  ) = GeneratedEntityIdentity(
-    columnName = when (byColumn) {
-      TestSchema.id -> TestSchema.id.nameForTest()
-      TestSchema.key -> TestSchema.key.nameForTest()
-      else -> error("Unknown test identity column")
-    },
-    serializedValue = when (byColumn) {
-      TestSchema.id -> entity.id
-      TestSchema.key -> entity.key
-      else -> error("Unknown test identity column")
-    }
-  )
+    columnName: String
+  ) = entity.identityValue(columnName)
 
   override fun hasIdentityValue(
     entity: TestEntity,
-    byColumn: TestColumn
-  ) = when (byColumn) {
-    TestSchema.id -> entity.id.isNotEmpty()
-    TestSchema.key -> entity.key.isNotEmpty()
-    else -> error("Unknown test identity column")
-  }
+    columnName: String
+  ) = entity
+    .identityValue(columnName)
+    .isNotEmpty()
 
-  override fun updateStatementSql(byColumn: TestColumn) = when (byColumn) {
-    TestSchema.id -> "UPDATE%s books SET name=? WHERE id=?"
-    TestSchema.key -> "UPDATE%s books SET name=? WHERE key=?"
+  override fun updateStatementSql(columnName: String) = when (columnName) {
+    "id" -> "UPDATE%s books SET name=? WHERE id=?"
+    "key" -> "UPDATE%s books SET name=? WHERE key=?"
     else -> error("Unknown test identity column")
   }
 
@@ -143,29 +130,53 @@ internal class TestAdapter(
   }
 }
 
-internal class OperationLoggingLogger : Logger {
-  val debugMessages = mutableListOf<String>()
-
-  override fun logDebug(message: String) {
-    debugMessages += message
-  }
-
-  override fun logWarning(message: String) = Unit
-
-  override fun logError(message: String) = Unit
-
-  override fun logError(message: String, throwable: Throwable) = Unit
-
-  override fun logQueryTime(
-    queryTimeInMillis: Long,
-    observedTables: Array<String>,
-    sql: String,
-    args: Array<out String?>?
-  ) = Unit
+private fun TestEntity.identityValue(columnName: String) = when (columnName) {
+  "id" -> id
+  "key" -> key
+  else -> error("Unknown test identity column")
 }
 
-internal fun TestColumn.nameForTest() = when {
-  this == TestSchema.id -> "id"
-  this == TestSchema.key -> "key"
-  else -> error("Unknown test identity column")
+internal enum class LogLevel {
+  DEBUG,
+  ERROR
+}
+
+internal data class LoggedMessage(
+  val level: LogLevel,
+  val message: String,
+  val throwable: Throwable? = null
+)
+
+internal class RecordingLogger : Logger {
+  val events: List<LoggedMessage>
+    field = mutableListOf()
+
+  override fun logDebug(message: String) {
+    events += LoggedMessage(
+      level = LogLevel.DEBUG,
+      message = message
+    )
+  }
+
+  override fun logError(message: String, throwable: Throwable) {
+    events += LoggedMessage(
+      level = LogLevel.ERROR,
+      message = message,
+      throwable = throwable
+    )
+  }
+}
+
+internal fun withLogger(loggingEnabled: Boolean, block: (RecordingLogger) -> Unit) {
+  val previousLogger = SqliteMagic.logger
+  val previousLoggingEnabled = SqliteMagic.loggingEnabled
+  val logger = RecordingLogger()
+  SqliteMagic.logger = logger
+  SqliteMagic.loggingEnabled = loggingEnabled
+  try {
+    block(logger)
+  } finally {
+    SqliteMagic.logger = previousLogger
+    SqliteMagic.loggingEnabled = previousLoggingEnabled
+  }
 }

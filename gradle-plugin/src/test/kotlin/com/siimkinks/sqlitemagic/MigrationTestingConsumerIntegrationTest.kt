@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.migration.MigrationMetadataJson
+import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Test
@@ -15,13 +16,12 @@ import java.util.Properties
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
-/** Real Android/KSP consumers use published artifacts; release publication is explicit in this isolated project. */
 internal class MigrationTestingConsumerIntegrationTest {
   @TempDir
   lateinit var temporaryDirectory: Path
 
   @Test
-  fun `real selected release exports all views and permanently tests growing retained history`() {
+  fun `real selected release permanently tests growing retained history`() {
     val repository = findRepository()
     val original = repository.resolve("sqlitemagic-tests")
     val project = temporaryDirectory.resolve("consumer").toFile()
@@ -71,8 +71,9 @@ internal class MigrationTestingConsumerIntegrationTest {
       }
       val manifest = MigrationMetadataJson.readManifest(application.resolve("db/releases/manifest.json").readText())
       val reference = manifest.schema(version)
+      val releasedStructure = application.resolve("db/releases/$version.struct").readText()
       val snapshot = MigrationMetadataJson.readStructure(
-        text = application.resolve("db/releases/$version.struct").readText(),
+        text = releasedStructure,
         manifest = manifest,
         reference = reference
       )
@@ -87,7 +88,8 @@ internal class MigrationTestingConsumerIntegrationTest {
       assertThat(exported.tableSql.toSet()).isEqualTo(snapshot.tableSql.toSet())
       assertThat(exported.tableSql.any { it.contains("migration_person") }).isTrue()
       assertThat(exported.tableSql.any { it.contains("submodule_persistent_value") }).isTrue()
-      assertThat(exported.views).hasSize(39)
+      assertThat(exported.views.map(MigrationViewSchema::name))
+        .containsExactlyElementsIn(MigrationMetadataJson.structureViewNames(releasedStructure))
       assertThat(exported.viewSql.any { it.contains("z_submodule_dependency_base") }).isTrue()
 
       if (version == 1) {
@@ -132,7 +134,7 @@ internal class MigrationTestingConsumerIntegrationTest {
         assertThat(descriptor)
           .contains("override val currentVersion = $version")
         assertThat(descriptor)
-          .contains("override val releaseVariant = \"release\"")
+          .contains("""override val releaseVariant = "release"""")
       }
     }
 
@@ -184,9 +186,9 @@ internal class MigrationTestingConsumerIntegrationTest {
       import com.google.common.truth.Truth.assertThat
       import org.junit.jupiter.api.Test
 
-      class BaselineMigrationTest {
+      internal class BaselineMigrationTest {
         @Test
-        fun validatesFromCodeSelectedBaseline() {
+        fun `validates from the code-selected baseline`() {
           SqliteMagicMigrationTestHelper(
             descriptor = SqliteMagicMigrationDatabase,
             driver = BundledSQLiteDriver()
@@ -293,9 +295,9 @@ internal class MigrationTestingConsumerIntegrationTest {
       import com.google.common.truth.Truth.assertThat
       import org.junit.jupiter.api.Test
 
-      class OrdinaryUnitTest {
+      internal class OrdinaryUnitTest {
         @Test
-        fun runsWithoutInstantiatingAMigrationHelper() {
+        fun `runs without instantiating a migration helper`() {
           assertThat(SqliteMagicMigrationDatabase.releaseVariant).isEqualTo("release")
         }
       }
@@ -423,7 +425,7 @@ sqlitemagic {
   ) {
     check(destination.mkdirs())
     source.walkTopDown()
-      .onEnter { directory -> directory.name !in setOf("build", ".gradle", ".kotlin", "db", "migration-testing") }
+      .onEnter { it.name !in setOf("build", ".gradle", ".kotlin", "db", "migration-testing") }
       .filter(File::isFile)
       .filterNot { it.name == "local.properties" }
       .forEach { file ->
@@ -445,8 +447,7 @@ sqlitemagic {
     val configuredLocations = listOf(original.resolve("local.properties"), repository.resolve("local.properties"))
       .filter(File::isFile)
       .mapNotNull { file ->
-        val properties = Properties()
-        file.inputStream().use(properties::load)
+        val properties = Properties().apply { file.inputStream().use(::load) }
         properties.getProperty("sdk.dir")?.let { value ->
           File(value).takeIf(File::isAbsolute) ?: file.parentFile.resolve(value)
         }
@@ -456,11 +457,11 @@ sqlitemagic {
         "The real consumer integration fixture requires the configured Android SDK. Set ANDROID_HOME or " +
             "ANDROID_SDK_ROOT, or sdk.dir in sqlitemagic-tests/local.properties or repository/local.properties."
       )
-    val properties = Properties()
-    properties.setProperty("sdk.dir", sdk.canonicalPath)
-    project.resolve("local.properties").outputStream().use { stream ->
-      properties.store(stream, "SDK location for the isolated consumer integration fixture")
-    }
+    val properties = Properties().apply { setProperty("sdk.dir", sdk.canonicalPath) }
+    project
+      .resolve("local.properties")
+      .outputStream()
+      .use { properties.store(it, "SDK location for the isolated consumer integration fixture") }
   }
 
   private fun configuredBuild(
@@ -479,8 +480,8 @@ sqlitemagic {
       newValue = ""
     )
     .replace(
-      oldValue = "value = if (variant.buildType == \"release\") \"2\" else \"3\"",
-      newValue = "value = if (variant.buildType == \"release\") \"$version\" else \"1038\""
+      oldValue = """value = if (variant.buildType == "release") "2" else "3"""",
+      newValue = """value = if (variant.buildType == "release") "$version" else "1038""""
     ) + """
 
 dependencies {
@@ -510,12 +511,12 @@ tasks.register("inspectMigrationConsumerRuntimeDependencies") {
 """
 
   private fun modelSource(version: Int): String {
-    val derived = when (version) {
-      1 -> ""
-      2 -> ",\n  @Column(\"name_length\") val nameLength: Int? = null"
-      else -> ",\n  @Column(\"name_length\") val nameLength: Int? = null,\n" +
-          "  @Index(\"migration_person_slug\") val slug: String? = null"
-    }
+    val derived = listOf(
+      """@Column("name_length") val nameLength: Int? = null""",
+      """@Index("migration_person_slug") val slug: String? = null"""
+    )
+      .take(version - 1)
+      .joinToString(separator = "") { ",\n  $it" }
     return """
 package com.siimkinks.sqlitemagic
 
@@ -527,27 +528,27 @@ import com.siimkinks.sqlitemagic.annotation.Table
 @Table
 data class MigrationPerson(
   @Id(autoIncrement = false) val id: Long,
-  val name: String${derived}
+  val name: String$derived
 )
 """.trimIndent() + "\n"
   }
 
-  private fun releaseHashes(application: File): Map<String, String> = listOf(
+  private fun releaseHashes(application: File) = listOf(
     application.resolve("db/releases"),
     application.resolve("src/release/assets")
   )
-    .flatMap { directory ->
-      directory.walkTopDown()
+    .flatMap {
+      it.walkTopDown()
         .filter(File::isFile)
         .toList()
     }
-    .associate { file -> file.relativeTo(application).invariantSeparatorsPath to digest(file) }
+    .associate { it.relativeTo(application).invariantSeparatorsPath to digest(it) }
 
   private fun digest(file: File) = MessageDigest.getInstance("SHA-256")
     .digest(file.readBytes())
     .joinToString(separator = "") { "%02x".format(it) }
 
-  private fun findRepository(): File = generateSequence(
+  private fun findRepository() = generateSequence(
     seed = File(System.getProperty("user.dir")),
     nextFunction = File::getParentFile
   )

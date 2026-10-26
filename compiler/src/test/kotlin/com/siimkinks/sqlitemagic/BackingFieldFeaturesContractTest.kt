@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
-import com.google.common.truth.Truth.assertWithMessage
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSBackingField
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
@@ -15,7 +14,6 @@ import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.normalizePropertySymbol
 import com.tschuchort.compiletesting.KotlinCompilation
-import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.OK
 import com.tschuchort.compiletesting.SourceFile
 import com.tschuchort.compiletesting.sourcesGeneratedBySymbolProcessor
 import com.tschuchort.compiletesting.symbolProcessorProviders
@@ -79,11 +77,7 @@ internal class BackingFieldFeaturesContractTest {
         ),
         processingStepsFactory = { listOf(probe) }
       )
-      .apply {
-        assertWithMessage(result.messages)
-          .that(result.exitCode)
-          .isEqualTo(OK)
-      }
+      .isOk()
 
     assertThat(probe.snapshots).containsExactly(
       BackingFieldSnapshot(
@@ -97,7 +91,7 @@ internal class BackingFieldFeaturesContractTest {
         fieldIsUnique = true
       )
     )
-    assertThat(compilation.result.messages).doesNotContain("has not opted in for upcoming features")
+    assertThat(compilation.messages).doesNotContain("has not opted in for upcoming features")
   }
 
   @Test

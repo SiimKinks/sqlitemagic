@@ -22,7 +22,7 @@ import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
 
-class SqliteMagicMigrationTestHelperTest {
+internal class SqliteMagicMigrationTestHelperTest {
   @Test
   fun `unpublished schema changes fail migration validation before SQLite opens`() {
     val published = MigrationMetadataJson.readSchema(history().text("compiled.json"))

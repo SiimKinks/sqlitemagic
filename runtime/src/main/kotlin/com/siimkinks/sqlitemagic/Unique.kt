@@ -3,6 +3,6 @@ package com.siimkinks.sqlitemagic
 /**
  * Metadata indicating that column is unique in table.
  *
- * @param Nullability Column nullability
+ * @param P Parent table type
  */
-interface Unique<Nullability>
+sealed interface Unique<P>

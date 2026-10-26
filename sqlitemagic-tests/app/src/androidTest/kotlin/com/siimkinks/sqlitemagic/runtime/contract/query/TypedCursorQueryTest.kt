@@ -1,40 +1,37 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class TypedCursorQueryTest(
+internal class TypedCursorQueryTest(
   private val modelCase: InsertModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeMapsExpectedModels() {
-    assertExecutedModels(modelCase = modelCase)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeRunQueryOnceMapsExpectedModels() {
-    assertObservedModels(modelCase = modelCase)
-  }
+  fun executeMapsExpectedModels() = assertExecutedModels(modelCase = modelCase)
+
+  @Test
+  fun observeRunQueryOnceMapsExpectedModels() = assertObservedModels(modelCase = modelCase)
 
   private fun <T> assertExecutedModels(modelCase: InsertModelCase<T>) {
     val expected = seedExpectedRows(
       modelCase = modelCase,
       count = 3
     )
-    val cursorSelect = Select
-      .from(modelCase.table)
+    val cursorSelect = SELECT.FROM(modelCase.table)
       .toCursor()
-    val actual = readTypedCursor(
-      cursorSelect = cursorSelect,
-      cursor = cursorSelect.execute()
-    )
+    val actual = readTypedCursor(cursorSelect = cursorSelect)
 
     assertThat(actual).containsExactlyElementsIn(expected)
   }
@@ -44,8 +41,7 @@ class TypedCursorQueryTest(
       modelCase = modelCase,
       count = 3
     )
-    val cursorSelect = Select
-      .from(modelCase.table)
+    val cursorSelect = SELECT.FROM(modelCase.table)
       .toCursor()
     val actual = readTypedCursor(
       cursorSelect = cursorSelect,
@@ -60,7 +56,7 @@ class TypedCursorQueryTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.directModelQueryCases
   }
 }

@@ -1,37 +1,36 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.CompiledObservableRawSelect
+import com.siimkinks.sqlitemagic.CompiledRawCursor
+import com.siimkinks.sqlitemagic.DeclaredTables
+import com.siimkinks.sqlitemagic.observe
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RawCursorModelCase
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class RawCursorQueryTest(
+internal class RawCursorQueryTest(
   private val modelCase: RawCursorModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeReturnsExpectedModels() {
-    assertExecutedModels(modelCase = modelCase)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun executeWithArgsReturnsMatchingModel() {
-    assertExecutedModelWithArgs(modelCase = modelCase)
-  }
+  fun executeReturnsExpectedModels() = assertExecutedModels(modelCase = modelCase)
 
   @Test
-  fun observeRunQueryOnceReturnsExpectedModels() {
-    assertObservedModels(modelCase = modelCase)
-  }
+  fun executeWithArgsReturnsMatchingModel() = assertExecutedModelWithArgs(modelCase = modelCase)
 
   @Test
-  fun observeRunQueryOnceWithArgsReturnsMatchingModel() {
-    assertObservedModelWithArgs(modelCase = modelCase)
-  }
+  fun observeRunQueryOnceReturnsExpectedModels() = assertObservedModels(modelCase = modelCase)
+
+  @Test
+  fun observeRunQueryOnceWithArgsReturnsMatchingModel() = assertObservedModelWithArgs(modelCase = modelCase)
 
   private fun <T> assertExecutedModels(modelCase: RawCursorModelCase<T>) {
     val expected = seedExpectedRows(
@@ -87,7 +86,7 @@ class RawCursorQueryTest(
 
   private fun <T> assertRawModels(
     modelCase: RawCursorModelCase<T>,
-    query: CompiledObservableRawSelect,
+    query: CompiledRawCursor<DeclaredTables>,
     expected: List<T>
   ) {
     val actual = readRawCursor(
@@ -101,7 +100,7 @@ class RawCursorQueryTest(
 
   private fun <T> assertObservedRawModels(
     modelCase: RawCursorModelCase<T>,
-    query: CompiledObservableRawSelect,
+    query: CompiledRawCursor<DeclaredTables>,
     expected: List<T>
   ) {
     val actual = readRawCursor(
@@ -118,7 +117,7 @@ class RawCursorQueryTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.rawCursorCases
   }
 }

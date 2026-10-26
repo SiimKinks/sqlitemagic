@@ -3,45 +3,45 @@ package com.siimkinks.sqlitemagic.runtime.contract.insert
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.runtime.model.BulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
+import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import io.reactivex.observers.TestObserver
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class BulkInsertReactiveLifecycleTest(
+internal class BulkInsertReactiveLifecycleTest(
   private val modelCase: BulkInsertModelCase<*>
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
-  fun disposeAfterFirstEntityOrGraphWithDefaultConflictRollsBack() {
+  fun disposeAfterFirstEntityOrGraphWithDefaultConflictRollsBack() =
     assertDisposedBulkInsert(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun disposeAfterFirstEntityOrGraphWithConflictIgnoreStopsFurtherWork() {
+  fun disposeAfterFirstEntityOrGraphWithConflictIgnoreStopsFurtherWork() =
     assertDisposedBulkInsert(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   @Test
-  fun chainedObserveBulkInsertsWithDefaultConflictCommitBothBatches() {
+  fun chainedObserveBulkInsertsWithDefaultConflictCommitBothBatches() =
     assertChainedBulkInsert(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun chainedObserveBulkInsertsWithConflictIgnoreCommitBothBatches() {
+  fun chainedObserveBulkInsertsWithConflictIgnoreCommitBothBatches() =
     assertChainedBulkInsert(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   private fun assertDisposedBulkInsert(conflictAlgorithm: Int) = when (modelCase) {
     is RecursiveBulkInsertModelCase<*> -> assertRecursiveDisposedBulkInsert(
@@ -232,16 +232,9 @@ class BulkInsertReactiveLifecycleTest(
     )
   }
 
-  private fun <T> observeRows(table: Table<T>) = Select
-    .from(table)
-    .queryDeep()
-    .observe()
-    .runQuery()
-    .test()
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.bulkInsertCases
   }
 }

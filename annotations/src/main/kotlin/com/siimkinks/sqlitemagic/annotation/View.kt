@@ -9,7 +9,7 @@ import kotlin.annotation.AnnotationTarget.CLASS
  * Supported view models are constructor-backed and mutable classes that can be constructed and
  * populated by generated code.
  *
- * Each view must declare exactly one query of type `CompiledSelect` annotated with [ViewQuery].
+ * Each view must declare exactly one query of type `SelectQuery` annotated with [ViewQuery].
  * In Kotlin, declare the query as a non-private companion-object property. `@JvmField` is not
  * required.
  *
@@ -21,7 +21,7 @@ import kotlin.annotation.AnnotationTarget.CLASS
  * ) {
  *   companion object {
  *     @ViewQuery
- *     val QUERY = (SELECT COLUMN AUTHOR.NAME FROM AUTHOR).compile()
+ *     val QUERY = SELECT COLUMN AUTHOR.NAME FROM AUTHOR
  *   }
  * }
  * ```

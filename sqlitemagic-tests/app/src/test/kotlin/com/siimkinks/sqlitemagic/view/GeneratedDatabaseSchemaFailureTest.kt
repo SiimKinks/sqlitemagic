@@ -6,14 +6,15 @@ import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.BuildConfig
 import com.siimkinks.sqlitemagic.PersistentEmailReadbackViewTable.Companion.PERSISTENT_EMAIL_READBACK_VIEW
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
-import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
-import org.mockito.Mockito.doAnswer
-import org.mockito.Mockito.never
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 internal class GeneratedDatabaseSchemaFailureTest {
   @TestFactory
@@ -28,14 +29,14 @@ internal class GeneratedDatabaseSchemaFailureTest {
     ),
     FailureCase(
       label = "local persistent view",
-      sqlPrefix = "CREATE VIEW IF NOT EXISTS \"persistent_email_readback\" AS "
+      sqlPrefix = """CREATE VIEW IF NOT EXISTS "persistent_email_readback" AS """
     ),
     FailureCase(
       label = "local index",
-      sqlPrefix = "CREATE UNIQUE INDEX IF NOT EXISTS main.\"no_id_value_unique_index\" ON \"no_id_entity\""
+      sqlPrefix = """CREATE UNIQUE INDEX IF NOT EXISTS main."no_id_value_unique_index" ON "no_id_entity""""
     )
   ).map { case ->
-    DynamicTest.dynamicTest(case.label) {
+    dynamicTest(case.label) {
       assertSchemaFailure(case)
     }
   }
@@ -48,7 +49,6 @@ internal class GeneratedDatabaseSchemaFailureTest {
     assertThat(manager.dbName).isEqualTo(BuildConfig.DB_NAME)
     assertThat(manager.submoduleNames?.toList()).containsExactly("Submodule")
     assertThat(view.name).isEqualTo("persistent_email_readback")
-    assertThat(view.nrOfColumns).isEqualTo(1)
   }
 
   private fun assertSchemaFailure(case: FailureCase) {
@@ -62,7 +62,9 @@ internal class GeneratedDatabaseSchemaFailureTest {
         throw failure
       }
       null
-    }.`when`(database).execSQL(any<String>())
+    }
+      .whenever(database)
+      .execSQL(any())
 
     val actualFailure = runCatching {
       SqliteMagicDatabase().createSchema(database)

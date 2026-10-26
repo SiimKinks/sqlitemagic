@@ -1,12 +1,9 @@
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AccountTable.Companion.ACCOUNT
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.fixture.model.Account
 import com.siimkinks.sqlitemagic.fixture.model.AccountId
 import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
@@ -15,51 +12,57 @@ import com.siimkinks.sqlitemagic.fixture.model.TemporaryWithoutRowIdEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.catalog.SchemaOptionModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_MASTER
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_TEMP_MASTER
+import com.siimkinks.sqlitemagic.runtime.support.insertedPersistResult
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.reopenDefaultConnection
+import com.siimkinks.sqlitemagic.runtime.support.schemaObjectNames
+import com.siimkinks.sqlitemagic.runtime.support.schemaObjectSql
+import org.junit.Rule
 import org.junit.Test
 
-private const val SQLITE_MASTER = "sqlite_master"
-private const val SQLITE_TEMP_MASTER = "sqlite_temp_master"
+internal class SchemaOptionRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
-class SchemaOptionRuntimeTest : RuntimeDatabaseTest() {
   @Test
   fun temporaryWithoutRowIdTableUsesTemporarySchemaAndReopensEmpty() {
     val tableName = SchemaOptionModelCatalog.temporaryWithoutRowIdTableName
     assertThat(
-      tableExists(
+      schemaObjectNames(
         master = SQLITE_TEMP_MASTER,
-        tableName = tableName
+        type = "table"
       )
-    ).isTrue()
+    ).contains(tableName)
     assertThat(
-      tableExists(
+      schemaObjectNames(
         master = SQLITE_MASTER,
-        tableName = tableName
+        type = "table"
       )
-    ).isFalse()
+    ).doesNotContain(tableName)
 
     val value = TemporaryWithoutRowIdEntity(
       id = "temporary-without-rowid-id",
       value = "temporary-without-rowid-value"
     )
-    val result = value
-      .insert()
-      .execute()
-    val inserted = result as? EntityInsertResult.Inserted
-      ?: throw AssertionError("Temporary WITHOUT ROWID insert was not inserted: $result")
-    assertThat(inserted.rowId).isNull()
     assertThat(
-      Select
-        .from(SchemaOptionModelCatalog.temporaryWithoutRowIdTable)
+      value
+        .insert()
+        .execute()
+    ).isEqualTo(EntityInsertResult.Inserted(rowId = null))
+    assertThat(
+      SELECT
+        .FROM(SchemaOptionModelCatalog.temporaryWithoutRowIdTable)
         .execute()
     ).containsExactly(value)
 
     reopenDefaultConnection()
 
     assertThat(
-      Select
-        .from(SchemaOptionModelCatalog.temporaryWithoutRowIdTable)
+      SELECT
+        .FROM(SchemaOptionModelCatalog.temporaryWithoutRowIdTable)
         .execute()
     ).isEmpty()
   }
@@ -67,25 +70,27 @@ class SchemaOptionRuntimeTest : RuntimeDatabaseTest() {
   @Test
   fun temporaryShallowRelationshipHasNoCascadeAndReopensWithoutTemporaryRow() {
     val account = Account(id = AccountId("temporary-account-id"))
-    assertThat(
-      account
+    insertedResult(
+      result = account
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "Account"
+    )
 
     val entry = TemporaryAccountEntry(
       id = "temporary-account-entry-id",
       account = account,
       value = "temporary-account-entry-value"
     )
-    assertThat(
-      entry
+    insertedResult(
+      result = entry
         .insert()
-        .execute()
-    ).isInstanceOf(EntityInsertResult.Inserted::class.java)
+        .execute(),
+      modelName = "TemporaryAccountEntry"
+    )
     assertThat(
-      Select
-        .from(SchemaOptionModelCatalog.temporaryAccountEntryTable)
+      SELECT
+        .FROM(SchemaOptionModelCatalog.temporaryAccountEntryTable)
         .execute()
     ).containsExactly(
       TemporaryAccountEntry(
@@ -95,9 +100,10 @@ class SchemaOptionRuntimeTest : RuntimeDatabaseTest() {
       )
     )
 
-    val tableSql = tableSql(
+    val tableSql = schemaObjectSql(
       master = SQLITE_TEMP_MASTER,
-      tableName = SchemaOptionModelCatalog.temporaryAccountEntryTableName
+      type = "table",
+      name = SchemaOptionModelCatalog.temporaryAccountEntryTableName
     )
     assertThat(tableSql).doesNotContain("REFERENCES")
     assertThat(tableSql).doesNotContain("ON DELETE CASCADE")
@@ -105,39 +111,41 @@ class SchemaOptionRuntimeTest : RuntimeDatabaseTest() {
     reopenDefaultConnection()
 
     assertThat(
-      Select
-        .from(SchemaOptionModelCatalog.temporaryAccountEntryTable)
+      SELECT
+        .FROM(SchemaOptionModelCatalog.temporaryAccountEntryTable)
         .execute()
     ).isEmpty()
     assertThat(
-      Select
-        .from(ACCOUNT)
+      SELECT
+        .FROM(ACCOUNT)
         .execute()
     ).containsExactly(account)
   }
 
   @Test
   fun customSchemaAndDefaultAreUsedByNullOmittingPersist() {
-    val schema = tableSql(
+    val schema = schemaObjectSql(
       master = SQLITE_MASTER,
-      tableName = SchemaOptionModelCatalog.libraryBookTableName
+      type = "table",
+      name = SchemaOptionModelCatalog.libraryBookTableName
     )
     assertThat(schema).contains("CREATE TABLE library_books")
     assertThat(schema).contains("book_key TEXT PRIMARY KEY")
     assertThat(schema).contains("title_text TEXT DEFAULT 'untitled'")
 
-    val result = LibraryBook(
-      id = "library-book-id",
-      title = null
+    insertedPersistResult(
+      result = LibraryBook(
+        id = "library-book-id",
+        title = null
+      )
+        .persist()
+        .ignoreNullValues()
+        .execute(),
+      modelName = "LibraryBook"
     )
-      .persist()
-      .ignoreNullValues()
-      .execute()
-    assertThat(result)
-      .isInstanceOf(EntityPersistResult.Inserted::class.java)
     assertThat(
-      Select
-        .from(SchemaOptionModelCatalog.libraryBookTable)
+      SELECT
+        .FROM(SchemaOptionModelCatalog.libraryBookTable)
         .execute()
     ).containsExactly(
       LibraryBook(
@@ -146,32 +154,4 @@ class SchemaOptionRuntimeTest : RuntimeDatabaseTest() {
       )
     )
   }
-
-  private fun tableExists(
-    master: String,
-    tableName: String
-  ) = Select
-    .raw("SELECT name FROM $master WHERE type = 'table' AND name = ?")
-    .from(SIMPLE_MUTABLE_ENTITY)
-    .withArgs(tableName)
-    .execute()
-    .use(Cursor::hasRow)
-
-  private fun tableSql(
-    master: String,
-    tableName: String
-  ) = Select
-    .raw("SELECT sql FROM $master WHERE type = 'table' AND name = ?")
-    .from(SIMPLE_MUTABLE_ENTITY)
-    .withArgs(tableName)
-    .execute()
-    .use(Cursor::readSingleString)
-
-}
-
-private fun Cursor.hasRow() = moveToFirst()
-
-private fun Cursor.readSingleString(): String {
-  check(moveToFirst())
-  return getString(0)
 }

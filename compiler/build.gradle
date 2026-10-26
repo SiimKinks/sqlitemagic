@@ -38,15 +38,16 @@ ksp {
   }
 }
 
-tasks.withType(KotlinCompile).configureEach {
+kotlin {
   compilerOptions {
-    optIn.add("com.google.devtools.ksp.KspExperimental")
+    optIn.add('com.google.devtools.ksp.KspExperimental')
+    optIn.add('com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi')
   }
 }
 
 tasks.named('compileTestKotlin', KotlinCompile) {
   compilerOptions {
-    optIn.add("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
+    optIn.add('org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi')
   }
 }
 

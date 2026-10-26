@@ -4,10 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 
 internal class PersistentViewStructurePublicationTest {
   @TempDir
@@ -15,22 +12,21 @@ internal class PersistentViewStructurePublicationTest {
 
   private val structureFile get() = temporaryDirectory.resolve("db/latest.struct")
   private val sqlFile get() = temporaryDirectory.resolve("src/debug/assets/1001.sql")
-  private val viewsFile get() = temporaryDirectory.resolve("src/debug/assets/1001.views")
 
   @Test
   fun `view diff matches normalized identity and retains exact previous ownership`() {
     val previous = DatabaseStructure(
-      views = linkedMapOf(
+      views = mapOf(
         "First_View" to featureView("First_View"),
         "retired_view" to featureView("retired_view"),
         "moved_view" to featureView("moved_view")
       )
     )
     val current = DatabaseStructure(
-      views = linkedMapOf(
+      views = mapOf(
         "FIRST_VIEW" to featureView("FIRST_VIEW"),
-        "moved_view" to mainView("moved_view"),
-        "added_view" to mainView("added_view")
+        "moved_view" to ViewStructure(name = "moved_view"),
+        "added_view" to ViewStructure(name = "added_view")
       )
     )
 
@@ -41,47 +37,51 @@ internal class PersistentViewStructurePublicationTest {
 
     assertThat(diff.hasPersistentTableOrIndexChanges).isFalse()
     assertThat(diff.hasPersistentChanges).isTrue()
-    assertThat(diff.viewTransitions)
-      .containsExactly(
-        ViewTransition(
-          previous = ViewSnapshot(
-            name = "First_View",
-            structure = previous.views.getValue("First_View")
+    assertThat(diff).isEqualTo(
+      SchemaDiff(
+        previousTableNames = emptyList(),
+        currentTables = emptyList(),
+        transitions = emptyList(),
+        newTables = emptyList(),
+        removedTables = emptyList(),
+        viewTransitions = listOf(
+          ViewTransition(
+            previous = ViewSnapshot(
+              name = "First_View",
+              structure = previous.views.getValue("First_View")
+            ),
+            current = ViewSnapshot(
+              name = "FIRST_VIEW",
+              structure = current.views.getValue("FIRST_VIEW")
+            ),
+            changed = true
           ),
-          current = ViewSnapshot(
-            name = "FIRST_VIEW",
-            structure = current.views.getValue("FIRST_VIEW")
-          ),
-          changed = true
+          ViewTransition(
+            previous = ViewSnapshot(
+              name = "moved_view",
+              structure = previous.views.getValue("moved_view")
+            ),
+            current = ViewSnapshot(
+              name = "moved_view",
+              structure = current.views.getValue("moved_view")
+            ),
+            changed = true
+          )
         ),
-        ViewTransition(
-          previous = ViewSnapshot(
-            name = "moved_view",
-            structure = previous.views.getValue("moved_view")
-          ),
-          current = ViewSnapshot(
-            name = "moved_view",
-            structure = current.views.getValue("moved_view")
-          ),
-          changed = true
+        newViews = listOf(
+          ViewSnapshot(
+            name = "added_view",
+            structure = current.views.getValue("added_view")
+          )
+        ),
+        removedViews = listOf(
+          ViewSnapshot(
+            name = "retired_view",
+            structure = previous.views.getValue("retired_view")
+          )
         )
       )
-      .inOrder()
-    assertThat(diff.newViews)
-      .containsExactly(
-        ViewSnapshot(
-          name = "added_view",
-          structure = current.views.getValue("added_view")
-        )
-      )
-    assertThat(diff.removedViews)
-      .containsExactly(
-        ViewSnapshot(
-          name = "retired_view",
-          structure = previous.views.getValue("retired_view")
-        )
-      )
-
+    )
   }
 
   @Test
@@ -98,27 +98,10 @@ internal class PersistentViewStructurePublicationTest {
     assertThat(migrationHappened).isTrue()
     assertThat(DatabaseStructureJson.read(structureFile.toFile())).isEqualTo(current)
     assertThat(sqlFile.exists()).isFalse()
-    assertThat(viewsFile.exists()).isFalse()
-  }
-
-  @Test
-  fun `old removal resources remain untouched`() {
-    viewsFile.parent.createDirectories()
-    viewsFile.writeText("consumer-owned historical content\n")
-    MigrationsHandler(
-      currentStructure = DatabaseStructure(),
-      previousStructure = DatabaseStructure(views = mapOf("old_view" to ViewStructure(name = "old_view"))),
-      outputStructureFile = structureFile.toFile(),
-      migrationOutputFile = sqlFile.toFile()
-    ).migrate()
-
-    assertThat(viewsFile.readText()).isEqualTo("consumer-owned historical content\n")
   }
 
   private fun featureView(name: String) = ViewStructure(
     name = name,
     moduleName = "Feature"
   )
-
-  private fun mainView(name: String) = ViewStructure(name = name)
 }

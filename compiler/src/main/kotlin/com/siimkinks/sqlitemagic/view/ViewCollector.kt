@@ -40,11 +40,13 @@ import com.siimkinks.sqlitemagic.utils.displayName
 import com.siimkinks.sqlitemagic.utils.isEffectivelyAccessibleFromGeneratedCode
 import com.siimkinks.sqlitemagic.utils.isEffectivelyPublic
 import com.siimkinks.sqlitemagic.utils.typeParameterResolver
+import com.siimkinks.sqlitemagic.view.ViewShapeSelection.EMBEDDED
+import com.siimkinks.sqlitemagic.view.ViewShapeSelection.ROOT
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY as TEMPORARY_SCHEMA
 
 internal class ViewCollector(
   private val environment: Environment,
-  private val compiledSelectType: KSType,
+  private val selectQueryType: KSType,
   private val annotations: ConsumedAnnotations
 ) {
   private val reporter = ModelCollectionReporter(environment)
@@ -99,7 +101,7 @@ internal class ViewCollector(
   ): ViewSeed? {
     val annotation = annotations.view(declaration) ?: return null
     if (annotations.has<Table>(declaration)) {
-      error(
+      reporter.error(
         message = "@Table and @View cannot be used together: ${declaration.displayName()}",
         symbol = declaration
       )
@@ -119,19 +121,19 @@ internal class ViewCollector(
     val shape = shapeCollector.collect(
       declaration = declaration,
       rootPath = rootPath,
-      selection = ViewShapeSelection.ROOT
+      selection = ROOT
     ) ?: return null
-    val properties = shape.properties.mapNotNull { property ->
+    val properties = shape.properties.mapNotNull {
       collectPropertySeed(
         viewName = declaration.displayName(),
-        property = property,
-        path = PropertyPath(listOf(property.name)),
+        property = it,
+        path = PropertyPath(listOf(it.name)),
         prefixes = emptyList(),
         embeddingTypes = emptySet()
       )
     }
     if (properties.isEmpty() && !reporter.hasErrors) {
-      error(
+      reporter.error(
         message = "@View must define at least one mapped property: ${declaration.displayName()}",
         symbol = declaration
       )
@@ -145,7 +147,7 @@ internal class ViewCollector(
           TEMPORARY in annotation.options -> TEMPORARY_SCHEMA
           else -> MAIN
         },
-        identifier = SqliteIdentifier.from(
+        identifier = SqliteIdentifier(
           annotation.value
             .takeIf(String::isNotEmpty)
             ?: declaration.defaultSqlName()
@@ -163,7 +165,7 @@ internal class ViewCollector(
   private fun collectQuery(declaration: KSClassDeclaration): ViewQueryRoundElement? {
     val queryProperties = declaration.directQueryProperties(annotations)
     if (queryProperties.size != 1) {
-      error(
+      reporter.error(
         message = "@View must declare exactly one @ViewQuery: ${declaration.displayName()}",
         symbol = declaration
       )
@@ -197,8 +199,8 @@ internal class ViewCollector(
         message = "@ViewQuery property must not be nullable: $displayName",
         symbol = query
       )
-      !compiledSelectType.isAssignableFrom(roundType.type) -> return errorQuery(
-        message = "@ViewQuery property must have a CompiledSelect type: $displayName",
+      !selectQueryType.isAssignableFrom(roundType.type) -> return errorQuery(
+        message = "@ViewQuery property must have a SelectQuery type: $displayName",
         symbol = query
       )
     }
@@ -215,25 +217,25 @@ internal class ViewCollector(
     prefixes: List<String>,
     embeddingTypes: Set<TypeKey>
   ): ViewPropertySeed? {
-    val annotations = property.annotations
+    val propertyAnnotations = property.annotations
     val tableOnlyAnnotation = when {
-      annotations.column != null -> "@Column"
-      annotations.id != null -> "@Id"
-      annotations.index != null -> "@Index"
-      annotations.unique != null -> "@Unique"
+      propertyAnnotations.column != null -> "@Column"
+      propertyAnnotations.id != null -> "@Id"
+      propertyAnnotations.index != null -> "@Index"
+      propertyAnnotations.unique != null -> "@Unique"
       else -> null
     }
     if (tableOnlyAnnotation != null) {
-      error(
+      reporter.error(
         message = "$tableOnlyAnnotation is not valid on a @View property: $viewName.${path.displayName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
-    val embedded = annotations.embedded
+    val embedded = propertyAnnotations.embedded
     if (embedded != null) {
-      if (annotations.viewColumn != null || annotations.ignoreColumn != null) {
-        error(
+      if (propertyAnnotations.viewColumn != null || propertyAnnotations.ignoreColumn != null) {
+        reporter.error(
           message = "@Embedded cannot be combined with other mapping annotations: $viewName.${path.displayName}",
           symbol = property.sourceDeclaration
         )
@@ -248,11 +250,11 @@ internal class ViewCollector(
         prefix = embedded.prefix
       )
     }
-    val baseKey = annotations.viewColumn
+    val baseKey = propertyAnnotations.viewColumn
       ?.value
       ?: property.name.camelCaseToSnakeCase()
     if (baseKey.isBlank()) {
-      error(
+      reporter.error(
         message = "@ViewColumn key must not be blank: $viewName.${path.displayName}",
         symbol = property.sourceDeclaration
       )
@@ -282,28 +284,28 @@ internal class ViewCollector(
       environment.transformerElements[property.typeKey] != null ||
       declaration == null
     ) {
-      error(
+      reporter.error(
         message = "@Embedded requires a non-scalar value type: $viewName.${path.displayName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     if (annotations.has<Table>(declaration) || annotations.has<View>(declaration)) {
-      error(
+      reporter.error(
         message = "A @Table or @View model cannot be used as an embedded value: $viewName.${path.displayName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     if (property.typeKey in embeddingTypes) {
-      error(
+      reporter.error(
         message = "Cyclic embedded property graph: $viewName.${path.displayName}",
         symbol = property.sourceDeclaration
       )
       return null
     }
     if (!declaration.isSupportedEmbeddedDeclaration()) {
-      error(
+      reporter.error(
         message = "Unsupported @Embedded model shape: $viewName.${path.displayName}; ${declaration.displayName()}",
         symbol = property.sourceDeclaration
       )
@@ -312,20 +314,20 @@ internal class ViewCollector(
     val shape = shapeCollector.collect(
       declaration = declaration,
       rootPath = path,
-      selection = ViewShapeSelection.EMBEDDED
+      selection = EMBEDDED
     ) ?: return null
     val childPrefixes = prefixes + prefix
-    val children = shape.properties.mapNotNull { child ->
+    val children = shape.properties.mapNotNull {
       collectPropertySeed(
         viewName = viewName,
-        property = child,
-        path = path.child(child.name),
+        property = it,
+        path = path.child(it.name),
         prefixes = childPrefixes,
         embeddingTypes = embeddingTypes + property.typeKey
       )
     }
     if (children.isEmpty() && !reporter.hasErrors) {
-      error(
+      reporter.error(
         message = "Embedded view value must define at least one mapped leaf: $viewName.${path.displayName}",
         symbol = property.sourceDeclaration
       )
@@ -337,8 +339,6 @@ internal class ViewCollector(
         path = path,
         isMutable = property.isMutable
       ),
-      prefix = prefix,
-      cumulativePrefix = childPrefixes.joinToString(separator = ""),
       construction = shape.construction,
       properties = children
     )
@@ -356,7 +356,7 @@ internal class ViewCollector(
             artifactStem = seed.artifactStem
           )
         )
-        previous.typeKey != seed.typeKey -> error(
+        previous.typeKey != seed.typeKey -> reporter.error(
           message = artifactStemCollisionMessage(
             artifactStem = seed.artifactStem,
             qualifiedNames = listOf(previous.qualifiedName, seed.qualifiedName),
@@ -373,15 +373,15 @@ internal class ViewCollector(
     seeds.values.forEach { seed ->
       val name = seed.rawName
       when (seed.sqliteIdentifierProblem()) {
-        LINE_BREAK -> error(
+        LINE_BREAK -> reporter.error(
           message = "View name must not contain line breaks: $name",
           symbol = seed.declaration
         )
-        NUL -> error(
+        NUL -> reporter.error(
           message = "View name must not contain NUL characters",
           symbol = seed.declaration
         )
-        RESERVED_PREFIX -> error(
+        RESERVED_PREFIX -> reporter.error(
           message = "View name '$name' is reserved",
           symbol = seed.declaration
         )
@@ -396,7 +396,7 @@ internal class ViewCollector(
                 typeKey = seed.typeKey
               )
             )
-            else -> error(
+            else -> reporter.error(
               message = "View name '$name' conflicts with ${previous.kind} name '${previous.rawName}': " +
                   seed.declaration.displayName(),
               symbol = seed.declaration
@@ -411,36 +411,23 @@ internal class ViewCollector(
     message: String,
     symbol: KSAnnotated
   ): ViewQueryRoundElement? {
-    error(
+    reporter.error(
       message = message,
       symbol = symbol
     )
     return null
   }
-
-  private fun error(
-    message: String,
-    symbol: KSAnnotated?
-  ) = reporter.error(
-    message = message,
-    symbol = symbol
-  )
 }
 
 private fun KSClassDeclaration.directQueryProperties(
   annotations: ConsumedAnnotations
-) = buildList {
-  addAll(
-    declarations
-      .filterIsInstance<KSPropertyDeclaration>()
-      .filter { annotations.has<ViewQuery>(it) }
-  )
-  addAll(
+) = declarations
+  .plus(
     declarations
       .filterIsInstance<KSClassDeclaration>()
       .filter(KSClassDeclaration::isCompanionObject)
       .flatMap(KSClassDeclaration::declarations)
-      .filterIsInstance<KSPropertyDeclaration>()
-      .filter { annotations.has<ViewQuery>(it) }
   )
-}
+  .filterIsInstance<KSPropertyDeclaration>()
+  .filter { annotations.has<ViewQuery>(it) }
+  .toList()

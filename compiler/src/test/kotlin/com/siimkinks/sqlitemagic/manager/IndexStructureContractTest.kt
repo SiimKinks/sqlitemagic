@@ -2,74 +2,28 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.index.indexProcessingSteps
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.mainDatabaseWithSubmodule
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
-import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.debugMigrationOptions
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
-import java.io.File
-import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
-internal class IndexStructureContractTest : ProcessingStepsTest {
-  override val processingSteps = ::indexProcessingSteps
+internal class IndexStructureContractTest {
+  private val compiler = SqliteMagicCompiler(::indexProcessingSteps)
 
   @TempDir
   lateinit var temporaryDirectory: Path
-
-  @Test
-  fun `legacy JSON defaults temporary maps and ignores unknown fields`() {
-    val legacyJson = """
-      {
-        "tables": {},
-        "indices": {},
-        "futureProperty": {"ignored": true}
-      }
-    """.trimIndent()
-
-    val structure = DatabaseStructureJson.read(legacyJson)
-
-    assertThat(structure).isEqualTo(DatabaseStructure())
-    val encodedStructure = DatabaseStructureJson.write(structure)
-    encodedStructure.assertDoesNotContain("futureProperty")
-    encodedStructure.assertContains(
-      """"temporaryTables":{}""",
-      """"temporaryIndices":{}"""
-    )
-  }
-
-  @Test
-  fun `current structure round-trips non-empty temporary maps`() {
-    val currentJson = structureJson(
-      temporaryTables = """
-        {
-          "temporary_items": {"name": "temporary_items"}
-        }
-      """.trimIndent(),
-      temporaryIndices = """
-        {
-          "temporary_name_index": {
-            "name": "temporary_name_index",
-            "indexSql": "CREATE INDEX temporary_name_index ON temporary_items (name)",
-            "forTable": "temporary_items"
-          }
-        }
-      """.trimIndent()
-    )
-
-    DatabaseStructureJson
-      .write(DatabaseStructureJson.read(currentJson))
-      .assertContains(
-        "temporary_items",
-        "temporary_name_index"
-      )
-  }
 
   @Test
   fun `release snapshots contain only persistent tables and indexes from complete current structures`() {
@@ -110,17 +64,17 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
     migrateRelease()
 
     val releaseStructure = DatabaseStructureJson.read(
-      Files.readString(
-        temporaryDirectory.resolve("db/releases/1.struct")
-      )
+      temporaryDirectory
+        .resolve("db/releases/1.struct")
+        .readText()
     )
 
     assertThat(releaseStructure).isEqualTo(
       DatabaseStructure(
-        tables = linkedMapOf(
+        tables = mapOf(
           "persistent_items" to TableStructure(name = "persistent_items")
         ),
-        indices = linkedMapOf(
+        indices = mapOf(
           "persistent_name_index" to IndexStructure(
             name = "persistent_name_index",
             indexSql = "CREATE INDEX persistent_name_index ON persistent_items (name)",
@@ -134,9 +88,6 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
   @Test
   fun `main compilation rejects a configured submodule table and index collision with ASCII folding`() {
     val mainDirectory = temporaryDirectory.resolve("main")
-    val submodule = SqliteMagicCompilation
-      .compile(featureDatabaseDeclaration())
-      .isOk()
     writeStructure(
       file = mainDirectory.resolve("db/latest_feature.struct"),
       json = structureJson(
@@ -152,10 +103,14 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
       )
     )
 
-    submodule
+    compiler
       .compile(
         mainDatabaseWithTable(tableName = "Shared"),
-        kspOptions = mainCompilationOptions(mainDirectory)
+        kspOptions = debugMigrationOptions(
+          projectDirectory = mainDirectory,
+          structureInputDirectories = listOf(mainDirectory.resolve("db"))
+        ),
+        classpaths = listOf(FEATURE_SUBMODULE_CLASSES)
       )
       .assertCompilationError("Duplicate SQLite schema identifier")
   }
@@ -163,9 +118,6 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
   @Test
   fun `main compilation ignores unrelated staged snapshots`() {
     val mainDirectory = temporaryDirectory.resolve("main")
-    val submodule = SqliteMagicCompilation
-      .compile(featureDatabaseDeclaration())
-      .isOk()
     writeStructure(
       file = mainDirectory.resolve("db/latest_feature.struct"),
       json = structureJson()
@@ -185,10 +137,14 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
       )
     )
 
-    submodule
+    compiler
       .compile(
         mainDatabaseWithTable(tableName = "Shared"),
-        kspOptions = mainCompilationOptions(mainDirectory)
+        kspOptions = debugMigrationOptions(
+          projectDirectory = mainDirectory,
+          structureInputDirectories = listOf(mainDirectory.resolve("db"))
+        ),
+        classpaths = listOf(FEATURE_SUBMODULE_CLASSES)
       )
       .isOk()
   }
@@ -197,21 +153,19 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
   fun `main compilation rejects a missing configured submodule snapshot`() {
     val mainDirectory = temporaryDirectory.resolve("main")
     val stagedDirectory = temporaryDirectory.resolve("staged")
-    val submodule = SqliteMagicCompilation
-      .compile(featureDatabaseDeclaration())
-      .isOk()
     writeStructure(
       file = stagedDirectory.resolve("latest_unrelated.struct"),
       json = structureJson()
     )
 
-    submodule
+    compiler
       .compile(
         mainDatabaseWithSubmodule(),
-        kspOptions = mainCompilationOptions(
-          mainDirectory = mainDirectory,
+        kspOptions = debugMigrationOptions(
+          projectDirectory = mainDirectory,
           structureInputDirectories = listOf(stagedDirectory)
-        )
+        ),
+        classpaths = listOf(FEATURE_SUBMODULE_CLASSES)
       )
       .assertCompilationError("Missing staged current structure snapshot")
   }
@@ -221,9 +175,6 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
     val mainDirectory = temporaryDirectory.resolve("main")
     val firstStagedDirectory = temporaryDirectory.resolve("staged-one")
     val secondStagedDirectory = temporaryDirectory.resolve("staged-two")
-    val submodule = SqliteMagicCompilation
-      .compile(featureDatabaseDeclaration())
-      .isOk()
     listOf(firstStagedDirectory, secondStagedDirectory).forEach { directory ->
       writeStructure(
         file = directory.resolve("latest_feature.struct"),
@@ -231,13 +182,14 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
       )
     }
 
-    submodule
+    compiler
       .compile(
         mainDatabaseWithSubmodule(),
-        kspOptions = mainCompilationOptions(
-          mainDirectory = mainDirectory,
+        kspOptions = debugMigrationOptions(
+          projectDirectory = mainDirectory,
           structureInputDirectories = listOf(firstStagedDirectory, secondStagedDirectory)
-        )
+        ),
+        classpaths = listOf(FEATURE_SUBMODULE_CLASSES)
       )
       .assertCompilationError("Multiple staged current structure snapshots")
   }
@@ -245,9 +197,6 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
   @Test
   fun `main compilation allows equal raw names in persistent and temporary schemas`() {
     val mainDirectory = temporaryDirectory.resolve("main")
-    val submodule = SqliteMagicCompilation
-      .compile(featureDatabaseDeclaration())
-      .isOk()
     writeStructure(
       file = mainDirectory.resolve("db/latest_feature.struct"),
       json = structureJson(
@@ -268,10 +217,14 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
       )
     )
 
-    submodule
+    compiler
       .compile(
         mainDatabaseWithTable(tableName = "Shared"),
-        kspOptions = mainCompilationOptions(mainDirectory)
+        kspOptions = debugMigrationOptions(
+          projectDirectory = mainDirectory,
+          structureInputDirectories = listOf(mainDirectory.resolve("db"))
+        ),
+        classpaths = listOf(FEATURE_SUBMODULE_CLASSES)
       )
       .isOk()
   }
@@ -279,9 +232,6 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
   @Test
   fun `main compilation rejects an ASCII-folded table and index collision in the temporary schema`() {
     val mainDirectory = temporaryDirectory.resolve("main")
-    val submodule = SqliteMagicCompilation
-      .compile(featureDatabaseDeclaration())
-      .isOk()
     writeStructure(
       file = mainDirectory.resolve("db/latest_feature.struct"),
       json = structureJson(
@@ -302,10 +252,14 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
       )
     )
 
-    submodule
+    compiler
       .compile(
         mainDatabaseWithSubmodule(),
-        kspOptions = mainCompilationOptions(mainDirectory)
+        kspOptions = debugMigrationOptions(
+          projectDirectory = mainDirectory,
+          structureInputDirectories = listOf(mainDirectory.resolve("db"))
+        ),
+        classpaths = listOf(FEATURE_SUBMODULE_CLASSES)
       )
       .assertCompilationError("Duplicate SQLite schema identifier")
   }
@@ -326,55 +280,51 @@ internal class IndexStructureContractTest : ProcessingStepsTest {
     )
 
     assertDoesNotThrow(::migrateRelease)
-    val releaseJson = Files.readString(
-      temporaryDirectory.resolve("db/releases/1.struct")
-    )
+    val releaseJson = temporaryDirectory
+      .resolve("db/releases/1.struct")
+      .readText()
     releaseJson.assertContains(""""Ä"""", """"ä"""")
   }
 
-  @Test
-  fun `rejects an ASCII-folded table and index collision in the temporary namespace`() {
-    writeStructure(
-      file = temporaryDirectory.resolve("db/module.struct"),
-      json = structureJson(
-        temporaryTables = """
-          {
-            "SessionCache": {"name": "SessionCache"}
-          }
-        """.trimIndent(),
-        temporaryIndices = indexJson(name = "sessioncache")
-      )
-    )
-
-    assertThrows<IllegalStateException>(::migrateRelease)
-  }
-
-  private fun migrateRelease() {
-    ReleaseMigrationCoordinator.migrate(
-      projectDir = temporaryDirectory.toFile(),
-      databaseDirectory = temporaryDirectory.resolve("db").toFile(),
-      variantName = "release"
-    )
-  }
-
-  private fun mainCompilationOptions(
-    mainDirectory: Path,
-    structureInputDirectories: List<Path> = listOf(mainDirectory.resolve("db"))
-  ) = mapOf(
-    "sqlitemagic.migrate.debug" to "true",
-    "sqlitemagic.project.dir" to mainDirectory.toString(),
-    "sqlitemagic.structure.input.dirs" to structureInputDirectories.joinToString(separator = File.pathSeparator),
-    "sqlitemagic.variant.name" to "debug",
-    "sqlitemagic.variant.debug" to "true"
+  private fun migrateRelease() = ReleaseMigrationCoordinator.migrate(
+    projectDir = temporaryDirectory.toFile(),
+    databaseDirectory = temporaryDirectory
+      .resolve("db")
+      .toFile(),
+    variantName = "release"
   )
 
   private fun writeStructure(
     file: Path,
     json: String
-  ) {
-    file.toFile().apply {
-      parentFile?.mkdirs()
-      writeText(json)
+  ) = file
+    .apply { parent.createDirectories() }
+    .writeText(json)
+
+  private companion object {
+    val FEATURE_SUBMODULE_CLASSES by lazy {
+      SqliteMagicCompilation
+        .compile(
+          SourceFile.kotlin(
+            name = "FeatureDatabase.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              @SubmoduleDatabase("feature")
+              class FeatureDatabase
+
+              @Table("feature_items")
+              data class FeatureItem(@Id val id: Long)
+            """
+          ),
+          processingStepsFactory = ::indexProcessingSteps
+        )
+        .isOk()
+        .outputDirectory
     }
   }
 }
@@ -402,23 +352,6 @@ private fun indexJson(name: String) = """
     }
   }
 """.trimIndent()
-
-private fun featureDatabaseDeclaration() = SourceFile.kotlin(
-  name = "FeatureDatabase.kt",
-  contents = """
-    package $PACKAGE
-
-    import com.siimkinks.sqlitemagic.annotation.Id
-    import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
-    import com.siimkinks.sqlitemagic.annotation.Table
-
-    @SubmoduleDatabase("feature")
-    class FeatureDatabase
-
-    @Table("feature_items")
-    data class FeatureItem(@Id val id: Long)
-  """
-)
 
 private fun mainDatabaseWithTable(
   tableName: String

@@ -16,7 +16,7 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import java.io.IOException
 
-class GenClassesManagerStep(
+internal class GenClassesManagerStep(
   private val environment: Environment
 ) : ProcessingStep {
   // Every originating file is associated with the manager, so finish() must write it. Otherwise incremental KSP fails
@@ -48,7 +48,7 @@ class GenClassesManagerStep(
   }
 
   override fun finish(): ProcessingStepResult {
-    val database = GeneratedDatabaseElement.from(environment)
+    val database = environment.generatedDatabaseElement()
     if (!database.shouldGenerate) {
       if (originatingFilePaths.isEmpty()) return Continue
       environment.logger.error(

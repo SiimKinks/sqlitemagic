@@ -1,52 +1,57 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class EmptyBulkUpdateTest(
+internal class EmptyBulkUpdateTest(
   private val modelCase: BulkUpdateModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeReturnsFalseAndLeavesDatabaseUnchanged() {
-    assertEmptyUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeCompletesAndLeavesDatabaseUnchanged() {
-    assertEmptyUpdate(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeReturnsFalseAndLeavesDatabaseUnchanged() = assertEmptyUpdate(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observeCompletesAndLeavesDatabaseUnchanged() = assertEmptyUpdate(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertEmptyUpdate(
     modelCase: BulkUpdateModelCase<T>,
     terminal: OperationTerminal
   ) {
     val seed = modelCase.newValue(sequence = 1)
-    when (modelCase.insert(value = seed).execute()) {
-      is EntityInsertResult.Inserted -> Unit
-      EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
-    }
+    insertedResult(
+      result = modelCase
+        .insert(value = seed)
+        .execute(),
+      modelName = modelCase.name
+    )
     val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         modelCase.executeBulkUpdate(values = emptyList())
       ).isFalse()
-      OperationTerminal.OBSERVE -> modelCase
+      OBSERVE -> modelCase
         .observeBulkUpdate(values = emptyList())
         .blockingAwait()
     }
@@ -58,7 +63,7 @@ class EmptyBulkUpdateTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.emptyBulkUpdateCases
   }
 }

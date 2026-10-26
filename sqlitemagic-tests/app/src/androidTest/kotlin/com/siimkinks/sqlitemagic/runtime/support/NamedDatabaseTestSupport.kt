@@ -7,23 +7,25 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.platform.app.InstrumentationRegistry
 import com.siimkinks.sqlitemagic.DbConnection
+import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.GeneratedDatabase
-import com.siimkinks.sqlitemagic.Select
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
-import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
 import com.siimkinks.sqlitemagic.TestApp
 import io.reactivex.schedulers.Schedulers
+
+internal val DbConnection.readableDatabase get() = (this as DbConnectionImpl).readableDatabase
+
+internal fun defaultWritableDatabase() = SqliteMagic
+  .defaultDbConnection
+  .writableDatabase
 
 internal fun testApplication() = InstrumentationRegistry
   .getInstrumentation()
   .targetContext
   .applicationContext as TestApp
 
-internal fun reopenDefaultConnection() {
-  val application = testApplication()
-  application.initDb(app = application)
-}
+internal fun reopenDefaultConnection() = testApplication().run { initDb(app = this) }
 
 internal fun openNamedConnection(
   application: Application,
@@ -73,9 +75,7 @@ internal fun withEmptyDatabase(
         .callback(emptyDatabaseCallback)
         .build()
     )
-    .use { helper ->
-      block(helper.writableDatabase)
-    }
+    .use { block(it.writableDatabase) }
 }
 
 internal class PrefixFailingDatabase(
@@ -83,53 +83,32 @@ internal class PrefixFailingDatabase(
   private val sqlPrefix: String,
   private val failure: RuntimeException
 ) : SupportSQLiteDatabase by delegate {
-  override fun execSQL(sql: String) {
-    if (sql.startsWith(sqlPrefix)) {
-      throw failure
-    }
-    delegate.execSQL(sql)
+  override fun execSQL(sql: String) = when {
+    sql.startsWith(sqlPrefix) -> throw failure
+    else -> delegate.execSQL(sql)
   }
 }
 
-internal fun mainSchemaObjectNames(
-  connection: DbConnection,
-  type: String
-) = Select
-  .raw("SELECT name FROM sqlite_master WHERE type = ?")
-  .from(ANONYMOUS_TABLE)
-  .withArgs(type)
-  .usingConnection(connection)
-  .execute()
-  .use(Cursor::readStrings)
+internal const val SQLITE_MASTER = "sqlite_master"
+internal const val SQLITE_TEMP_MASTER = "sqlite_temp_master"
 
-internal fun temporarySchemaObjectNames(
-  connection: DbConnection,
-  type: String
-) = Select
-  .raw("SELECT name FROM sqlite_temp_master WHERE type = ?")
-  .from(ANONYMOUS_TABLE)
-  .withArgs(type)
-  .usingConnection(connection)
-  .execute()
-  .use(Cursor::readStrings)
-
-internal fun mainSchemaObjectNames(
-  database: SupportSQLiteDatabase,
-  type: String
+internal fun schemaObjectNames(
+  master: String,
+  type: String,
+  database: SupportSQLiteDatabase = SqliteMagic.getDefaultConnection().readableDatabase
 ) = database
-  .query("SELECT name FROM sqlite_master WHERE type = ?", arrayOf(type))
+  .query("SELECT name FROM $master WHERE type = ?", arrayOf(type))
   .use(Cursor::readStrings)
 
-internal fun temporarySchemaObjectNames(
-  database: SupportSQLiteDatabase,
-  type: String
+internal fun schemaObjectSql(
+  master: String,
+  type: String,
+  name: String,
+  database: SupportSQLiteDatabase = SqliteMagic.getDefaultConnection().readableDatabase
 ) = database
-  .query("SELECT name FROM sqlite_temp_master WHERE type = ?", arrayOf(type))
+  .query("SELECT sql FROM $master WHERE type = ? AND name = ?", arrayOf(type, name))
   .use(Cursor::readStrings)
-
-internal fun mainSchemaObjectNames(database: SupportSQLiteDatabase) = database
-  .query("SELECT name FROM sqlite_master WHERE type IN ('table', 'view', 'index')")
-  .use(Cursor::readStrings)
+  .singleOrNull()
 
 internal fun Cursor.readStrings() = buildList {
   while (moveToNext()) {

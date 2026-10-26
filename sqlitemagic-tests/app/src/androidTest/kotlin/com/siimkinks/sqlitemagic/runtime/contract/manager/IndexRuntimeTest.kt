@@ -1,36 +1,44 @@
+@file:OptIn(InternalSqliteMagicApi::class)
+
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
 import android.app.Application
-import android.content.Context
+import android.content.Context.MODE_PRIVATE
 import android.database.Cursor
+import android.database.sqlite.SQLiteConstraintException
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.GeneratedDatabase
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
-import com.siimkinks.sqlitemagic.Table.Companion.ANONYMOUS_TABLE
-import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_MASTER
+import com.siimkinks.sqlitemagic.runtime.support.SQLITE_TEMP_MASTER
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
+import com.siimkinks.sqlitemagic.runtime.support.readRows
 import com.siimkinks.sqlitemagic.runtime.support.readStrings
 import com.siimkinks.sqlitemagic.runtime.support.reopenDefaultConnection
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
 
-private const val SQLITE_MASTER = "sqlite_master"
-private const val SQLITE_TEMP_MASTER = "sqlite_temp_master"
 private const val INDEX_MIGRATION_DATABASE_NAME = "index-migration-runtime-test.db"
 private const val INDEX_FAILURE_DATABASE_NAME = "index-migration-failure-runtime-test.db"
 private const val INDEX_MIGRATION_INITIAL_VERSION = 1_100_000
 private const val INDEX_MIGRATION_VERSION = 1_100_001
 private const val INDEX_FAILURE_VERSION = 1_100_002
 
-class IndexRuntimeTest : RuntimeDatabaseTest() {
+internal class IndexRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun persistentCompositeIndexExposesPhysicalColumnOrder() {
     assertThat(
@@ -51,13 +59,13 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
     ).isTrue()
 
     val existing = NoIdEntity(value = "indexed-duplicate")
-    assertSeedInserted(
+    insertedResult(
       result = existing
         .insert()
         .execute(),
       modelName = "NoIdEntity"
     )
-    assertThrows(OperationFailedException::class.java) {
+    assertThrows(SQLiteConstraintException::class.java) {
       NoIdEntity(value = existing.value)
         .insert()
         .execute()
@@ -116,11 +124,7 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
   fun indexMigrationAddsDropsChangesAndRebuildsWhilePreservingRows() = withNamedDatabase(
     databaseName = INDEX_MIGRATION_DATABASE_NAME
   ) { application ->
-    seedIndexMigrationDatabase(
-      application = application,
-      databaseName = INDEX_MIGRATION_DATABASE_NAME,
-      version = INDEX_MIGRATION_INITIAL_VERSION
-    )
+    seedIndexMigrationDatabase(application = application)
 
     openNamedConnection(
       application = application,
@@ -165,11 +169,7 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
   fun failedUniqueIndexMigrationRollsBackEarlierIndexChanges() = withNamedDatabase(
     databaseName = INDEX_FAILURE_DATABASE_NAME
   ) { application ->
-    seedIndexFailureDatabase(
-      application = application,
-      databaseName = INDEX_FAILURE_DATABASE_NAME,
-      version = INDEX_MIGRATION_VERSION
-    )
+    seedIndexFailureDatabase(application = application)
 
     val exception = assertThrows(IllegalStateException::class.java) {
       openNamedConnection(
@@ -177,10 +177,10 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
         databaseName = INDEX_FAILURE_DATABASE_NAME,
         database = IndexMigrationDatabase(dbVersion = INDEX_FAILURE_VERSION)
       ).use { connection ->
-        Select
-          .raw("SELECT 1")
-          .from(ANONYMOUS_TABLE)
+        SELECT
+          .RAW("SELECT 1")
           .usingConnection(connection)
+          .toCursor()
           .execute()
           .use { }
       }
@@ -192,7 +192,7 @@ class IndexRuntimeTest : RuntimeDatabaseTest() {
     application
       .openOrCreateDatabase(
         INDEX_FAILURE_DATABASE_NAME,
-        Context.MODE_PRIVATE,
+        MODE_PRIVATE,
         null
       )
       .use { database ->
@@ -222,21 +222,22 @@ private fun indexNames(
   master: String,
   tableName: String,
   connection: DbConnection = SqliteMagic.getDefaultConnection()
-) = Select
-  .raw("SELECT name FROM $master WHERE type = 'index' AND tbl_name = ?")
-  .from(ANONYMOUS_TABLE)
-  .withArgs(tableName)
+) = SELECT
+  .RAW(
+    "SELECT name FROM $master WHERE type = 'index' AND tbl_name = ?",
+    tableName
+  )
+  .readAs(STRING)
   .usingConnection(connection)
   .execute()
-  .use(Cursor::readStrings)
   .toSet()
 
 private fun indexColumns(
   master: String,
   indexName: String,
   connection: DbConnection = SqliteMagic.getDefaultConnection()
-) = Select
-  .raw(
+) = SELECT
+  .RAW(
     "PRAGMA ${
       when (master) {
         SQLITE_MASTER -> "main"
@@ -245,8 +246,8 @@ private fun indexColumns(
       }
     }.index_info('$indexName')"
   )
-  .from(ANONYMOUS_TABLE)
   .usingConnection(connection)
+  .toCursor()
   .execute()
   .use { cursor ->
     buildList {
@@ -260,10 +261,10 @@ private fun indexIsUnique(
   tableName: String,
   indexName: String,
   connection: DbConnection = SqliteMagic.getDefaultConnection()
-) = Select
-  .raw("PRAGMA index_list('$tableName')")
-  .from(ANONYMOUS_TABLE)
+) = SELECT
+  .RAW("PRAGMA index_list('$tableName')")
   .usingConnection(connection)
+  .toCursor()
   .execute()
   .use { cursor ->
     while (cursor.moveToNext()) {
@@ -276,80 +277,38 @@ private fun indexIsUnique(
 
 private fun rebuiltRows(
   connection: DbConnection = SqliteMagic.getDefaultConnection()
-) = Select
-  .raw("SELECT id, value, rebuilt_value FROM index_rebuild ORDER BY id")
-  .from(ANONYMOUS_TABLE)
+) = SELECT
+  .RAW("SELECT id, value, rebuilt_value FROM index_rebuild ORDER BY id")
   .usingConnection(connection)
+  .toCursor()
   .execute()
-  .use { cursor ->
-    buildList {
-      while (cursor.moveToNext()) {
-        add(
-          listOf(
-            cursor.getString(0),
-            cursor.getString(1),
-            cursor.getString(2)
-          )
-        )
-      }
-    }
+  .use(Cursor::readRows)
+
+private fun seedIndexMigrationDatabase(application: Application) = application
+  .openOrCreateDatabase(INDEX_MIGRATION_DATABASE_NAME, MODE_PRIVATE, null)
+  .use { database ->
+    listOf(
+      "CREATE TABLE index_add_drop_change (id INTEGER PRIMARY KEY, added_value TEXT, changed_value TEXT)",
+      "INSERT INTO index_add_drop_change (id, added_value, changed_value) VALUES (1, 'added', 'changed')",
+      "CREATE INDEX removed_index ON index_add_drop_change (added_value)",
+      "CREATE INDEX changed_index ON index_add_drop_change (changed_value)",
+      "CREATE TABLE index_rebuild (id INTEGER PRIMARY KEY, value TEXT, rebuilt_value TEXT)",
+      "INSERT INTO index_rebuild (id, value, rebuilt_value) VALUES (1, 'preserved', '')",
+      "CREATE INDEX unchanged_rebuild_index ON index_rebuild (value)"
+    ).forEach(database::execSQL)
+    database.version = INDEX_MIGRATION_INITIAL_VERSION
   }
 
-private fun seedIndexMigrationDatabase(
-  application: Application,
-  databaseName: String,
-  version: Int
-) {
-  application
-    .openOrCreateDatabase(databaseName, Context.MODE_PRIVATE, null)
-    .use { database ->
-      database.execSQL(
-        "CREATE TABLE index_add_drop_change " +
-            "(id INTEGER PRIMARY KEY, added_value TEXT, changed_value TEXT)"
-      )
-      database.execSQL(
-        "INSERT INTO index_add_drop_change (id, added_value, changed_value) " +
-            "VALUES (1, 'added', 'changed')"
-      )
-      database.execSQL(
-        "CREATE INDEX removed_index ON index_add_drop_change (added_value)"
-      )
-      database.execSQL(
-        "CREATE INDEX changed_index ON index_add_drop_change (changed_value)"
-      )
-      database.execSQL(
-        "CREATE TABLE index_rebuild (id INTEGER PRIMARY KEY, value TEXT, rebuilt_value TEXT)"
-      )
-      database.execSQL(
-        "INSERT INTO index_rebuild (id, value, rebuilt_value) VALUES (1, 'preserved', '')"
-      )
-      database.execSQL(
-        "CREATE INDEX unchanged_rebuild_index ON index_rebuild (value)"
-      )
-      database.version = version
-    }
-}
-
-private fun seedIndexFailureDatabase(
-  application: Application,
-  databaseName: String,
-  version: Int
-) {
-  application
-    .openOrCreateDatabase(databaseName, Context.MODE_PRIVATE, null)
-    .use { database ->
-      database.execSQL(
-        "CREATE TABLE index_migration_failure (id INTEGER PRIMARY KEY, value TEXT)"
-      )
-      database.execSQL(
-        "INSERT INTO index_migration_failure (id, value) VALUES (1, 'duplicate')"
-      )
-      database.execSQL(
-        "INSERT INTO index_migration_failure (id, value) VALUES (2, 'duplicate')"
-      )
-      database.version = version
-    }
-}
+private fun seedIndexFailureDatabase(application: Application) = application
+  .openOrCreateDatabase(INDEX_FAILURE_DATABASE_NAME, MODE_PRIVATE, null)
+  .use { database ->
+    listOf(
+      "CREATE TABLE index_migration_failure (id INTEGER PRIMARY KEY, value TEXT)",
+      "INSERT INTO index_migration_failure (id, value) VALUES (1, 'duplicate')",
+      "INSERT INTO index_migration_failure (id, value) VALUES (2, 'duplicate')"
+    ).forEach(database::execSQL)
+    database.version = INDEX_MIGRATION_VERSION
+  }
 
 private class IndexMigrationDatabase(
   override val dbVersion: Int

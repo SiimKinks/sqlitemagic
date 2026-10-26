@@ -1,9 +1,6 @@
 package com.siimkinks.sqlitemagic.internal
 
-import com.siimkinks.sqlitemagic.BulkOperationOutcome
-import com.siimkinks.sqlitemagic.Column
-import com.siimkinks.sqlitemagic.NotNullable
-import com.siimkinks.sqlitemagic.OperationConfigurationSnapshot
+import com.siimkinks.sqlitemagic.OperationContext
 import com.siimkinks.sqlitemagic.PersistExecutors
 import com.siimkinks.sqlitemagic.Unique
 import com.siimkinks.sqlitemagic.entity.EntityBulkPersistBuilder
@@ -11,136 +8,96 @@ import com.siimkinks.sqlitemagic.entity.EntityBulkPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
-import com.siimkinks.sqlitemagic.executeBulkRxOperation
 import io.reactivex.Completable
 import io.reactivex.Single
 
+@InternalSqliteMagicApi
 class PersistBuilder<M>(
   private val adapter: EntityDefaultIdentityAdapter<M>,
   private val entity: M
 ) : DefaultIdentityBuilder<EntityPersistBuilder, M>(adapter), EntityPersistBuilder {
-  override fun execute(): EntityPersistResult = execute(
-    configuration = configurationSnapshot(),
-    selection = identitySelection()
-  )
+  override fun execute() = perform(operation = persist(identityColumnName()))
 
-  override fun observe(): Single<EntityPersistResult> {
-    val configuration = configurationSnapshot()
-    val selection = identitySelection()
-    return Single.fromCallable { execute(configuration, selection) }
-  }
+  override fun observe(): Single<EntityPersistResult> = observeSingle(persist(identityColumnName()))
 
-  private fun execute(
-    configuration: OperationConfigurationSnapshot,
-    selection: IdentitySelection<M>
-  ) = PersistExecutors.execute(
+  private fun persist(columnName: String) = persist(
     adapter = adapter,
     entity = entity,
-    context = newContext(configuration),
-    byColumn = selection.column,
-    defaultIdentity = selection.usesDefault
+    columnName = columnName
   )
 }
 
+@InternalSqliteMagicApi
 class PersistByColumnBuilder<M>(
   private val adapter: EntityIdentityAdapter<M>,
   private val entity: M
 ) : OperationBuilder<EntityPersistByColumnBuilder<M>>(adapter), EntityPersistByColumnBuilder<M> {
-  override fun <D> execute(byColumn: D): EntityPersistResult
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> =
-    PersistExecutors.execute(
-      adapter = adapter,
-      entity = entity,
-      context = newContext(),
-      byColumn = byColumn,
-      defaultIdentity = false
-    )
+  override fun execute(byColumn: Unique<M>) = perform(operation = persist(byColumn))
 
-  override fun <D> observe(byColumn: D): Single<EntityPersistResult>
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> {
-    val configuration = configurationSnapshot()
-    return Single.fromCallable {
-      PersistExecutors.execute(
-        adapter = adapter,
-        entity = entity,
-        context = newContext(configuration),
-        byColumn = byColumn,
-        defaultIdentity = false
-      )
-    }
-  }
+  override fun observe(byColumn: Unique<M>): Single<EntityPersistResult> = observeSingle(persist(byColumn))
+
+  private fun persist(byColumn: Unique<M>) = persist(
+    adapter = adapter,
+    entity = entity,
+    columnName = adapter.identityColumnName(byColumn)
+  )
 }
 
+@InternalSqliteMagicApi
 class BulkPersistBuilder<M>(
   private val adapter: EntityDefaultIdentityAdapter<M>,
   private val entities: Iterable<M>
 ) : DefaultIdentityBuilder<EntityBulkPersistBuilder, M>(adapter), EntityBulkPersistBuilder {
-  override fun execute(): Boolean {
-    val selection = identitySelection()
-    return PersistExecutors.executeBulk(
-      adapter = adapter,
-      entities = entities,
-      byColumn = selection.column,
-      defaultIdentity = selection.usesDefault,
-      context = newContext(),
-      isCancelled = ::neverCancelled
-    ) == BulkOperationOutcome.APPLIED
-  }
+  override fun execute() = executeBulk(persist(identityColumnName()))
 
-  override fun observe(): Completable {
-    val configuration = configurationSnapshot()
-    val selection = identitySelection()
-    return executeBulkRxOperation(
-      contextFactory = { newContext(configuration) },
-      operation = { context, isCancelled ->
-        PersistExecutors.executeBulk(
-          adapter = adapter,
-          entities = entities,
-          byColumn = selection.column,
-          defaultIdentity = selection.usesDefault,
-          context = context,
-          isCancelled = isCancelled
-        )
-      }
-    )
-  }
+  override fun observe(): Completable = observeBulk(persist(identityColumnName()))
+
+  private fun persist(columnName: String) = bulkPersist(
+    adapter = adapter,
+    entities = entities,
+    columnName = columnName
+  )
 }
 
+@InternalSqliteMagicApi
 class BulkPersistByColumnBuilder<M>(
   private val adapter: EntityIdentityAdapter<M>,
   private val entities: Iterable<M>
-) : OperationBuilder<EntityBulkPersistByColumnBuilder<M>>(adapter),
-  EntityBulkPersistByColumnBuilder<M> {
-  override fun <D> execute(byColumn: D): Boolean
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> =
-    PersistExecutors.executeBulk(
-      adapter = adapter,
-      entities = entities,
-      byColumn = byColumn,
-      defaultIdentity = false,
-      context = newContext(),
-      isCancelled = ::neverCancelled
-    ) == BulkOperationOutcome.APPLIED
+) : OperationBuilder<EntityBulkPersistByColumnBuilder<M>>(adapter), EntityBulkPersistByColumnBuilder<M> {
+  override fun execute(byColumn: Unique<M>) = executeBulk(persist(byColumn))
 
-  override fun <D> observe(byColumn: D): Completable
-      where D : Column<*, *, *, M, NotNullable>,
-            D : Unique<NotNullable> {
-    val configuration = configurationSnapshot()
-    return executeBulkRxOperation(
-      contextFactory = { newContext(configuration) },
-      operation = { context, isCancelled ->
-        PersistExecutors.executeBulk(
-          adapter = adapter,
-          entities = entities,
-          byColumn = byColumn,
-          defaultIdentity = false,
-          context = context,
-          isCancelled = isCancelled
-        )
-      }
-    )
-  }
+  override fun observe(byColumn: Unique<M>): Completable = observeBulk(persist(byColumn))
+
+  private fun persist(byColumn: Unique<M>) = bulkPersist(
+    adapter = adapter,
+    entities = entities,
+    columnName = adapter.identityColumnName(byColumn)
+  )
+}
+
+private fun <M> persist(
+  adapter: EntityIdentityAdapter<M>,
+  entity: M,
+  columnName: String
+) = { context: OperationContext ->
+  PersistExecutors.execute(
+    adapter = adapter,
+    entity = entity,
+    context = context,
+    columnName = columnName
+  )
+}
+
+private fun <M> bulkPersist(
+  adapter: EntityIdentityAdapter<M>,
+  entities: Iterable<M>,
+  columnName: String
+) = { context: OperationContext, isCancelled: () -> Boolean ->
+  PersistExecutors.executeBulk(
+    adapter = adapter,
+    entities = entities,
+    columnName = columnName,
+    context = context,
+    isCancelled = isCancelled
+  )
 }

@@ -5,54 +5,53 @@ import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.UpdateConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class DirectSingleUpdateConflictTest(
+internal class DirectSingleUpdateConflictTest(
   private val modelCase: UpdateConflictModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeWithConflictAndDefaultAlgorithmThrowsSQLiteConstraintException() {
-    assertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeWithConflictAndDefaultAlgorithmEmitsSQLiteConstraintException() {
-    assertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithConflictAndDefaultAlgorithmThrowsSQLiteConstraintException() = assertConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithConflictIgnoreReturnsFalse() {
-    assertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE,
-      conflictAlgorithm = CONFLICT_IGNORE
-    )
-  }
+  fun observeWithConflictAndDefaultAlgorithmEmitsSQLiteConstraintException() = assertConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithConflictIgnoreCompletes() {
-    assertConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE,
-      conflictAlgorithm = CONFLICT_IGNORE
-    )
-  }
+  fun executeWithConflictIgnoreReturnsFalse() = assertConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE,
+    conflictAlgorithm = CONFLICT_IGNORE
+  )
+
+  @Test
+  fun observeWithConflictIgnoreCompletes() = assertConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE,
+    conflictAlgorithm = CONFLICT_IGNORE
+  )
 
   private fun <T> assertConflict(
     modelCase: UpdateConflictModelCase<T>,
@@ -61,13 +60,13 @@ class DirectSingleUpdateConflictTest(
   ) {
     val existing = modelCase.newValue(sequence = 1)
     val conflicting = modelCase.newValue(sequence = 2)
-    assertSeedInserted(
+    insertedResult(
       result = modelCase
         .insert(value = existing)
         .execute(),
       modelName = modelCase.name
     )
-    assertSeedInserted(
+    insertedResult(
       result = modelCase
         .insert(value = conflicting)
         .execute(),
@@ -84,11 +83,11 @@ class DirectSingleUpdateConflictTest(
       .update(value = candidate)
       .withConflictAlgorithm(conflictAlgorithm)
     when (terminal) {
-      OperationTerminal.EXECUTE -> when (conflictAlgorithm) {
+      EXECUTE -> when (conflictAlgorithm) {
         null -> assertThrows(SQLiteConstraintException::class.java, builder::execute)
         else -> assertThat(builder.execute()).isFalse()
       }
-      OperationTerminal.OBSERVE -> when (conflictAlgorithm) {
+      OBSERVE -> when (conflictAlgorithm) {
         null -> builder
           .observe()
           .test()
@@ -108,7 +107,7 @@ class DirectSingleUpdateConflictTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.updateConflictCases
   }
 }

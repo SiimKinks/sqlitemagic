@@ -1,195 +1,40 @@
 package com.siimkinks.sqlitemagic.view
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
-internal class ViewQueryContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
+internal class ViewQueryContractTest {
+  private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
 
-  @Test
-  fun `rejects a view without a defining query`() {
-    SqliteMagicCompilation
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidDefiningQueries")
+  fun `defining queries outside their contracts do not compile`(
+    viewName: String,
+    body: String,
+    diagnostic: String,
+    subject: String
+  ) {
+    compiler
       .compile(
         ViewSources.view(
-          name = "MissingQueryView",
-          body = """
-            @View
-            data class MissingQueryView(
-              @ViewColumn("value")
-              val value: String
-            )
-          """
+          name = viewName,
+          body = body
         )
       )
-      .assertCompilationError(
-        "@View must declare exactly one @ViewQuery",
-        "MissingQueryView"
-      )
+      .assertCompilationError(diagnostic, subject)
   }
 
   @Test
-  fun `rejects a view with multiple defining queries`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "MultipleQueryView",
-          body = """
-            @View
-            data class MultipleQueryView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val FIRST_QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-
-                @ViewQuery
-                val SECOND_QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "@View must declare exactly one @ViewQuery",
-        "MultipleQueryView"
-      )
-  }
-
-  @Test
-  fun `rejects a private defining query`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "PrivateQueryView",
-          body = """
-            @View
-            data class PrivateQueryView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                private val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "@ViewQuery property must be accessible to generated code",
-        "PrivateQueryView.QUERY"
-      )
-  }
-
-  @Test
-  fun `rejects a defining query in an inaccessible companion object`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "PrivateCompanionQueryView",
-          body = """
-            @View
-            data class PrivateCompanionQueryView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              private companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "@ViewQuery property must be accessible to generated code",
-        "PrivateCompanionQueryView.QUERY"
-      )
-  }
-
-  @Test
-  fun `rejects an instance defining query`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "InstanceQueryView",
-          body = """
-            @View
-            class InstanceQueryView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              @ViewQuery
-              val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "@ViewQuery must be a companion or static property",
-        "InstanceQueryView.QUERY"
-      )
-  }
-
-  @Test
-  fun `rejects an explicitly nullable defining query`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "NullableQueryView",
-          body = """
-            @View
-            data class NullableQueryView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1>? = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "@ViewQuery property must not be nullable",
-        "NullableQueryView.QUERY"
-      )
-  }
-
-  @Test
-  fun `rejects a defining query with the wrong type`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "WrongQueryTypeView",
-          body = """
-            @View
-            data class WrongQueryTypeView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: String = "not a compiled select"
-              }
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "@ViewQuery property must have a CompiledSelect type",
-        "WrongQueryTypeView.QUERY"
-      )
-  }
-
-  @Test
-  fun `accepts companion queries with and without JvmField`() {
-    SqliteMagicCompilation
+  fun `accepts companion, JvmField, Java static and inferred defining queries`() {
+    compiler
       .compile(
         ViewSources.view(
           name = "CompanionQuerySurfaces",
@@ -202,7 +47,7 @@ internal class ViewQueryContractTest : ProcessingStepsTest {
               companion object {
                 @JvmField
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
 
@@ -213,30 +58,17 @@ internal class ViewQueryContractTest : ProcessingStepsTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
+                val QUERY: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "JvmFieldQueryViewTable.kt",
-        "KotlinPropertyQueryViewTable.kt"
-      )
-  }
-
-  @Test
-  fun `accepts a directly owned Java static final query field`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         SourceFile.java(
           name = "JavaStaticQueryView.java",
           contents = """
             package $PACKAGE;
 
-            import com.siimkinks.sqlitemagic.CompiledSelect;
-            import com.siimkinks.sqlitemagic.Select.Select1;
+            import com.siimkinks.sqlitemagic.SelectQuery;
             import com.siimkinks.sqlitemagic.annotation.View;
             import com.siimkinks.sqlitemagic.annotation.ViewColumn;
             import com.siimkinks.sqlitemagic.annotation.ViewQuery;
@@ -246,110 +78,59 @@ internal class ViewQueryContractTest : ProcessingStepsTest {
               @ViewColumn("value") public String value;
 
               @ViewQuery
-              public static final CompiledSelect<String, Select1> QUERY = null;
+              public static final SelectQuery<String, ?> QUERY = null;
 
               public JavaStaticQueryView() {}
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("JavaStaticQueryViewTable.kt", "SqliteMagic_JavaStaticQueryView_Dao.kt")
-  }
-
-  @Test
-  fun `rejects mutable and lateinit companion queries`() {
-    for ((name, declaration) in listOf(
-      "MutableQueryView" to "var QUERY: CompiledSelect<String, Select1> = compileOnlySelect()",
-      "LateinitQueryView" to "lateinit var QUERY: CompiledSelect<String, Select1>"
-    )) {
-      SqliteMagicCompilation
-        .compile(
-          ViewSources.view(
-            name = name,
-            body = """
-              @View
-              data class $name(
-                @ViewColumn("value") val value: String
-              ) {
-                companion object {
-                  @ViewQuery
-                  $declaration
-                }
-              }
-            """
-          )
-        )
-        .assertCompilationError(
-          "@ViewQuery property must be immutable",
-          "$name.QUERY"
-        )
-    }
-  }
-
-  @Test
-  fun `accepts a custom view name`() {
-    SqliteMagicCompilation
-      .compile(
-        ViewSources.view(
-          name = "CustomNamedView",
-          body = """
-            @View("custom_view_name")
-            data class CustomNamedView(
-              @ViewColumn("value")
-              val value: String
-            ) {
-              companion object {
-                @ViewQuery
-                val QUERY: CompiledSelect<String, Select1> = compileOnlySelect()
-              }
-            }
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("CustomNamedViewTable.kt")
-  }
-
-  @Test
-  fun `accepts inferred explicit single and multi generic query surfaces`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         ViewSources.view(
           name = "QueryTypeVariants",
           body = """
+            import com.siimkinks.sqlitemagic.QuerySourceTable.Companion.QUERY_SOURCE
+            import com.siimkinks.sqlitemagic.SELECT
+            import com.siimkinks.sqlitemagic.annotation.Id
+
             data class QueryRow(val value: String)
 
+            fun stringQuery(): SelectQuery<String, *> = error("compile-only")
+
+            @Table
+            data class QuerySource(
+              @Id val id: Long? = null,
+              val value: String
+            )
+
             @View
-            data class InferredSingleQueryView(
+            data class InferredQueryView(
               @ViewColumn("value")
               val value: String
             ) {
               companion object {
                 @ViewQuery
-                val QUERY = compileOnlySelect<String, Select1>()
+                val QUERY = stringQuery()
               }
             }
 
             @View
-            data class ExplicitMultiQueryView(
+            data class ExplicitRowTypeQueryView(
               @ViewColumn("value")
               val value: String
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<QueryRow, SelectN> = compileOnlySelect()
+                val QUERY: SelectQuery<QueryRow, *> = error("compile-only")
               }
             }
 
             @View
-            data class DifferentRowTypeView(
+            data class QueryStageSubtypeView(
               @ViewColumn("value")
               val value: String
             ) {
               companion object {
                 @ViewQuery
-                val QUERY: CompiledSelect<QueryRow, Select1> = compileOnlySelect()
+                val QUERY = SELECT FROM QUERY_SOURCE
               }
             }
           """
@@ -357,9 +138,166 @@ internal class ViewQueryContractTest : ProcessingStepsTest {
       )
       .isOk()
       .assertGeneratedSources(
-        "InferredSingleQueryViewTable.kt",
-        "ExplicitMultiQueryViewTable.kt",
-        "DifferentRowTypeViewTable.kt"
+        "JvmFieldQueryViewTable.kt",
+        "KotlinPropertyQueryViewTable.kt",
+        "JavaStaticQueryViewTable.kt",
+        "SqliteMagic_JavaStaticQueryView_Dao.kt",
+        "InferredQueryViewTable.kt",
+        "ExplicitRowTypeQueryViewTable.kt",
+        "QueryStageSubtypeViewTable.kt"
       )
+  }
+
+  companion object {
+    @JvmStatic
+    fun invalidDefiningQueries() = listOf(
+      Arguments.of(
+        "MissingQueryView",
+        """
+          @View
+          data class MissingQueryView(
+            @ViewColumn("value")
+            val value: String
+          )
+        """,
+        "@View must declare exactly one @ViewQuery",
+        "MissingQueryView"
+      ),
+      Arguments.of(
+        "MultipleQueryView",
+        """
+          @View
+          data class MultipleQueryView(
+            @ViewColumn("value")
+            val value: String
+          ) {
+            companion object {
+              @ViewQuery
+              val FIRST_QUERY: SelectQuery<String, *> = error("compile-only")
+
+              @ViewQuery
+              val SECOND_QUERY: SelectQuery<String, *> = error("compile-only")
+            }
+          }
+        """,
+        "@View must declare exactly one @ViewQuery",
+        "MultipleQueryView"
+      ),
+      Arguments.of(
+        "PrivateQueryView",
+        """
+          @View
+          data class PrivateQueryView(
+            @ViewColumn("value")
+            val value: String
+          ) {
+            companion object {
+              @ViewQuery
+              private val QUERY: SelectQuery<String, *> = error("compile-only")
+            }
+          }
+        """,
+        "@ViewQuery property must be accessible to generated code",
+        "PrivateQueryView.QUERY"
+      ),
+      Arguments.of(
+        "PrivateCompanionQueryView",
+        """
+          @View
+          data class PrivateCompanionQueryView(
+            @ViewColumn("value")
+            val value: String
+          ) {
+            private companion object {
+              @ViewQuery
+              val QUERY: SelectQuery<String, *> = error("compile-only")
+            }
+          }
+        """,
+        "@ViewQuery property must be accessible to generated code",
+        "PrivateCompanionQueryView.QUERY"
+      ),
+      Arguments.of(
+        "InstanceQueryView",
+        """
+          @View
+          class InstanceQueryView(
+            @ViewColumn("value")
+            val value: String
+          ) {
+            @ViewQuery
+            val QUERY: SelectQuery<String, *> = error("compile-only")
+          }
+        """,
+        "@ViewQuery must be a companion or static property",
+        "InstanceQueryView.QUERY"
+      ),
+      Arguments.of(
+        "NullableQueryView",
+        """
+          @View
+          data class NullableQueryView(
+            @ViewColumn("value")
+            val value: String
+          ) {
+            companion object {
+              @ViewQuery
+              val QUERY: SelectQuery<String, *>? = error("compile-only")
+            }
+          }
+        """,
+        "@ViewQuery property must not be nullable",
+        "NullableQueryView.QUERY"
+      ),
+      Arguments.of(
+        "WrongQueryTypeView",
+        """
+          @View
+          data class WrongQueryTypeView(
+            @ViewColumn("value")
+            val value: String
+          ) {
+            companion object {
+              @ViewQuery
+              val QUERY: String = "not a select query"
+            }
+          }
+        """,
+        "@ViewQuery property must have a SelectQuery type",
+        "WrongQueryTypeView.QUERY"
+      ),
+      Arguments.of(
+        "MutableQueryView",
+        """
+          @View
+          data class MutableQueryView(
+            @ViewColumn("value") val value: String
+          ) {
+            companion object {
+              @ViewQuery
+              var QUERY: SelectQuery<String, *> = error("compile-only")
+            }
+          }
+        """,
+        "@ViewQuery property must be immutable",
+        "MutableQueryView.QUERY"
+      ),
+      Arguments.of(
+        "LateinitQueryView",
+        """
+          @View
+          data class LateinitQueryView(
+            @ViewColumn("value") val value: String
+          ) {
+            companion object {
+              @ViewQuery
+              lateinit var QUERY: SelectQuery<String, *>
+            }
+          }
+        """,
+        "@ViewQuery property must be immutable",
+        "LateinitQueryView.QUERY"
+      )
+    )
   }
 }

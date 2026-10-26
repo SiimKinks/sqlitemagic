@@ -1,8 +1,6 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
@@ -14,18 +12,16 @@ import java.util.concurrent.CancellationException
 internal class RelationshipOperations(
   private val context: OperationContext
 ) : EntityRelationshipOperations {
-  override val ignoreNullValues: Boolean
-    get() = context.ignoreNullValues
+  val ignoreNullValues get() = context.ignoreNullValues
 
   override fun <M> insert(
     adapter: EntityDefaultIdentityAdapter<M>,
     entity: M
-  ): EntityInsertResult = InsertExecutors.execute(
+  ) = InsertExecutors.execute(
     adapter = adapter,
     entity = entity,
-    context = context.childFor(
+    context = context.relationshipContext(
       adapter = adapter,
-      skipTableTriggers = true,
       ignoreNullValues = false
     )
   )
@@ -33,36 +29,33 @@ internal class RelationshipOperations(
   override fun <M> update(
     adapter: EntityDefaultIdentityAdapter<M>,
     entity: M
-  ): Boolean = UpdateExecutors.execute(
+  ) = UpdateExecutors.execute(
     adapter = adapter,
     entity = entity,
-    context = context.childFor(
+    context = context.relationshipContext(
       adapter = adapter,
-      skipTableTriggers = true,
       ignoreNullValues = false
     ),
-    byColumn = adapter.defaultIdentityColumn,
-    defaultIdentity = true
+    columnName = adapter.defaultIdentityColumnName
   )
 
   override fun <M> persist(
     adapter: EntityDefaultIdentityAdapter<M>,
     entity: M
-  ): EntityPersistResult = PersistExecutors.execute(
+  ) = PersistExecutors.execute(
     adapter = adapter,
     entity = entity,
-    context = context.childFor(
+    context = context.relationshipContext(
       adapter = adapter,
-      skipTableTriggers = true,
       ignoreNullValues = ignoreNullValues
     ),
-    byColumn = adapter.defaultIdentityColumn,
-    defaultIdentity = true
+    columnName = adapter.defaultIdentityColumnName
   )
 
-  override fun rememberGeneratedId(columnName: String, rowId: Long) {
-    context.generatedRelationshipIds[columnName] = rowId
-  }
+  override fun rememberGeneratedId(columnName: String, rowId: Long) = context.rememberGeneratedId(
+    columnName = columnName,
+    rowId = rowId
+  )
 }
 
 internal enum class BulkOperationOutcome {
@@ -131,7 +124,6 @@ internal fun <M> executeBulkOperation(
         if (applied) {
           context.sendTableTriggers(adapter)
         }
-        // Empty batches must not roll back an enclosing transaction.
         applied || outcome == BulkOperationOutcome.EMPTY
       }
     }

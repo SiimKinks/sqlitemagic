@@ -10,7 +10,7 @@ import com.siimkinks.sqlitemagic.model.mockPropertyPath
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.squareup.kotlinpoet.ClassName
 
-fun mockViewEmbeddedPropertyElement(
+internal fun mockViewEmbeddedPropertyElement(
   access: PropertyAccess = mockPropertyAccess(
     path = mockPropertyPath("details")
   ),
@@ -18,8 +18,6 @@ fun mockViewEmbeddedPropertyElement(
     typeName = ClassName(PACKAGE, "Details")
   ),
   isNullable: Boolean = false,
-  prefix: String = "details_",
-  cumulativePrefix: String = prefix,
   construction: ModelConstruction = mockModelConstruction(
     constructorParameters = listOf(mockPropertyPath("details", "value"))
   ),
@@ -36,8 +34,6 @@ fun mockViewEmbeddedPropertyElement(
   access = access,
   deserializedType = deserializedType,
   isNullable = isNullable,
-  prefix = prefix,
-  cumulativePrefix = cumulativePrefix,
   construction = construction,
   properties = properties
 )

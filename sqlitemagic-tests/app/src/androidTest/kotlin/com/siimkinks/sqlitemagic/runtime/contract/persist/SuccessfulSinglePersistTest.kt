@@ -3,74 +3,66 @@ package com.siimkinks.sqlitemagic.runtime.contract.persist
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.PersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.insertedPersistResult
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class SuccessfulSinglePersistTest(
+internal class SuccessfulSinglePersistTest(
   private val modelCase: PersistModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executePersistsMissingRowAndReadsBack() {
-    captureMissingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observePersistsMissingRowAndReadsBack() {
-    captureMissingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executePersistsMissingRowAndReadsBack() = captureMissingRow(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executePersistsExistingRowAndReadsBack() {
-    captureExistingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun observePersistsMissingRowAndReadsBack() = captureMissingRow(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observePersistsExistingRowAndReadsBack() {
-    captureExistingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executePersistsExistingRowAndReadsBack() = captureExistingRow(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
+
+  @Test
+  fun observePersistsExistingRowAndReadsBack() = captureExistingRow(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> captureMissingRow(
     modelCase: PersistModelCase<T>,
     terminal: OperationTerminal
   ) {
     val value = modelCase.newValue(sequence = 1)
-    val result = when (terminal) {
-      OperationTerminal.EXECUTE -> modelCase.executePersist(value = value)
-      OperationTerminal.OBSERVE -> modelCase
-        .observePersist(value = value)
-        .blockingGet()
-    }
-    val inserted = when (result) {
-      is EntityPersistResult.Inserted -> result
-      EntityPersistResult.Updated -> throw AssertionError("Persist unexpectedly updated for ${modelCase.name}")
-      EntityPersistResult.Ignored -> throw AssertionError("Persist was ignored for ${modelCase.name}")
-    }
-    when (modelCase.rowIdExpectation) {
-      InsertRowIdExpectation.PRESENT -> assertThat(inserted.rowId)
-        .isNotNull()
-      InsertRowIdExpectation.ABSENT -> assertThat(inserted.rowId)
-        .isNull()
-    }
+    val result = terminal.select(
+      execute = { modelCase.executePersist(value = value) },
+      observe = { modelCase.observePersist(value = value) }
+    )
+    val inserted = insertedPersistResult(
+      result = result,
+      modelName = modelCase.name
+    )
+    modelCase.rowIdExpectation.assertRowId(inserted.rowId)
     val insertResult = EntityInsertResult.Inserted(rowId = inserted.rowId)
     modelCase.verifyAfterInsert(
       value = value,
@@ -90,24 +82,21 @@ class SuccessfulSinglePersistTest(
     terminal: OperationTerminal
   ) {
     val insertedValue = modelCase.newValue(sequence = 1)
-    val insertedResult = modelCase
-      .insert(value = insertedValue)
-      .execute()
-    when (insertedResult) {
-      is EntityInsertResult.Inserted -> Unit
-      EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for ${modelCase.name}")
-    }
+    insertedResult(
+      result = modelCase
+        .insert(value = insertedValue)
+        .execute(),
+      modelName = modelCase.name
+    )
     val persistedValue = captureRows(table = modelCase.table).single()
     val updatedValue = modelCase.updatedValue(
       value = persistedValue,
       sequence = 2
     )
-    val result = when (terminal) {
-      OperationTerminal.EXECUTE -> modelCase.executePersist(value = updatedValue)
-      OperationTerminal.OBSERVE -> modelCase
-        .observePersist(value = updatedValue)
-        .blockingGet()
-    }
+    val result = terminal.select(
+      execute = { modelCase.executePersist(value = updatedValue) },
+      observe = { modelCase.observePersist(value = updatedValue) }
+    )
     assertThat(result)
       .isEqualTo(EntityPersistResult.Updated)
     val actual = captureRows(table = modelCase.table)
@@ -117,7 +106,7 @@ class SuccessfulSinglePersistTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.persistCases
   }
 }

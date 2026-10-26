@@ -6,8 +6,8 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.BulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
 import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
@@ -16,43 +16,42 @@ import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import io.reactivex.observers.TestObserver
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class BulkPersistReactiveLifecycleTest(
+internal class BulkPersistReactiveLifecycleTest(
   private val modelCase: BulkPersistModelCase<*>
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
-  fun disposeAfterFirstEntityOrGraphWithDefaultConflictRollsBack() {
+  fun disposeAfterFirstEntityOrGraphWithDefaultConflictRollsBack() =
     assertDisposedBulkPersist(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun disposeAfterFirstEntityOrGraphWithConflictIgnoreStopsFurtherWork() {
+  fun disposeAfterFirstEntityOrGraphWithConflictIgnoreStopsFurtherWork() =
     assertDisposedBulkPersist(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   @Test
-  fun repeatedSubscriptionToBulkPersistWithDefaultConflictReexecutesIterable() {
+  fun repeatedSubscriptionToBulkPersistWithDefaultConflictReexecutesIterable() =
     assertRepeatedSubscriptions(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun repeatedSubscriptionToBulkPersistWithConflictIgnoreReexecutesIterable() {
+  fun repeatedSubscriptionToBulkPersistWithConflictIgnoreReexecutesIterable() =
     assertRepeatedSubscriptions(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   @Test
-  fun chainedObserveBulkPersistsWithDefaultConflictCommitsBothBatches() {
+  fun chainedObserveBulkPersistsWithDefaultConflictCommitsBothBatches() =
     assertChainedBulkPersists(conflictAlgorithm = CONFLICT_NONE)
-  }
 
   @Test
-  fun chainedObserveBulkPersistsWithConflictIgnoreCommitsBothBatches() {
+  fun chainedObserveBulkPersistsWithConflictIgnoreCommitsBothBatches() =
     assertChainedBulkPersists(conflictAlgorithm = CONFLICT_IGNORE)
-  }
 
   private fun assertDisposedBulkPersist(conflictAlgorithm: Int) = when (modelCase) {
     is RecursiveBulkPersistModelCase<*> -> assertRecursiveDisposedBulkPersist(
@@ -475,7 +474,7 @@ class BulkPersistReactiveLifecycleTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.bulkPersistCases
   }
 }

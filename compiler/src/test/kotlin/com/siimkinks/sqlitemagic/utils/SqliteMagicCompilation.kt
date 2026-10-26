@@ -13,34 +13,22 @@ import com.tschuchort.compiletesting.symbolProcessorProviders
 import com.tschuchort.compiletesting.useKsp2
 import java.io.File
 
-private const val TEST_JVM_TARGET_PROPERTY = "sqlitemagic.test.jvmTarget"
-
-interface ProcessingStepsTest {
-  val processingSteps: (Environment) -> List<ProcessingStep>
-
-  fun SqliteMagicCompilation.compile(
+internal class SqliteMagicCompiler(
+  private val processingSteps: (Environment) -> List<ProcessingStep>
+) {
+  fun compile(
     vararg sources: SourceFile,
     kspOptions: Map<String, String> = emptyMap(),
     classpaths: List<File> = emptyList()
-  ): ProcessorCompilationResult = SqliteMagicCompilation.compile(
+  ) = SqliteMagicCompilation.compile(
     *sources,
     kspOptions = kspOptions,
     classpaths = classpaths,
     processingStepsFactory = processingSteps
   )
-
-  fun ProcessorCompilationResult.compile(
-    vararg sources: SourceFile,
-    kspOptions: Map<String, String> = emptyMap()
-  ): ProcessorCompilationResult = SqliteMagicCompilation.compile(
-    *sources,
-    kspOptions = kspOptions,
-    classpaths = listOf(result.outputDirectory),
-    processingStepsFactory = processingSteps
-  )
 }
 
-object SqliteMagicCompilation {
+internal object SqliteMagicCompilation {
   fun compile(
     vararg sources: SourceFile,
     kspOptions: Map<String, String> = emptyMap(),
@@ -49,27 +37,25 @@ object SqliteMagicCompilation {
   ): ProcessorCompilationResult {
     val provider = RecordingSqliteMagicSymbolProcessorProvider(processingStepsFactory)
     val result = KotlinCompilation()
+      .withTestSetup(
+        sources = sources,
+        classpaths = classpaths
+      )
       .apply {
         useKsp2()
-        jvmTarget = requireNotNull(System.getProperty(TEST_JVM_TARGET_PROPERTY)) {
-          "Run compiler tests via Gradle to supply $TEST_JVM_TARGET_PROPERTY"
-        }
-        this.sources = sources.toList()
-        inheritClassPath = true
-        this.classpaths = classpaths
         symbolProcessorProviders = mutableListOf(provider)
         kspProcessorOptions = kspOptions.toMutableMap()
       }
       .compile()
     return ProcessorCompilationResult(
       result = result,
-      processor = provider.processor
+      environment = provider.processor.environment
     )
   }
 }
 
 private class RecordingSqliteMagicSymbolProcessorProvider(
-  private val processingStepsFactory: ((Environment) -> List<ProcessingStep>)? = null
+  private val processingStepsFactory: ((Environment) -> List<ProcessingStep>)?
 ) : SymbolProcessorProvider {
   lateinit var processor: SqliteMagicSymbolProcessor
 

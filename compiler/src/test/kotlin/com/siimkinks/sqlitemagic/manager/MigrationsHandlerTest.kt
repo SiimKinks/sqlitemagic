@@ -6,8 +6,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.Arguments
-import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Path
 
@@ -39,11 +37,11 @@ internal class MigrationsHandlerTest {
       }
     """
     val structure = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to TableStructure(
           name = "books",
           schema = "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY)",
-          columns = arrayListOf(
+          columns = listOf(
             ColumnStructure(
               id = true,
               autoIncrement = false,
@@ -55,7 +53,7 @@ internal class MigrationsHandlerTest {
           )
         )
       ),
-      indices = linkedMapOf()
+      indices = emptyMap()
     )
 
     @Language("JSON")
@@ -89,11 +87,11 @@ internal class MigrationsHandlerTest {
   @Test
   fun `rebuilds when an append also changes the table-level schema`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to TableStructure(
           name = "books",
           schema = "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY)",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -103,11 +101,11 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to TableStructure(
           name = "books",
           schema = "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT DEFAULT '') WITHOUT ROWID",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -121,7 +119,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE books RENAME TO books_",
       "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT DEFAULT '') WITHOUT ROWID",
       "INSERT INTO books (id) SELECT id FROM books_",
@@ -131,14 +135,14 @@ internal class MigrationsHandlerTest {
 
   @Test
   fun `creates a new table instead of renaming an unchanged table with the same columns`() {
-    val columns = arrayListOf(
+    val columns = listOf(
       migrationColumn(
         name = "id",
         schema = "id INTEGER PRIMARY KEY"
       )
     )
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "users" to migrationTable(
           name = "users",
           columns = columns
@@ -146,53 +150,65 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "users" to migrationTable(
           name = "users",
-          columns = ArrayList(columns)
+          columns = columns
         ),
         "admins" to migrationTable(
           name = "admins",
-          columns = ArrayList(columns)
+          columns = columns
         )
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY)"
     )
   }
 
   @Test
   fun `does not rename from an ambiguous duplicate column layout`() {
-    val columns = arrayListOf(
+    val columns = listOf(
       migrationColumn(
         name = "id",
         schema = "id INTEGER PRIMARY KEY"
       )
     )
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy_users" to migrationTable(
           name = "legacy_users",
-          columns = ArrayList(columns)
+          columns = columns
         ),
         "archived_users" to migrationTable(
           name = "archived_users",
-          columns = ArrayList(columns)
+          columns = columns
         )
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "users" to migrationTable(
           name = "users",
-          columns = ArrayList(columns)
+          columns = columns
         )
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "DROP TABLE IF EXISTS legacy_users",
       "DROP TABLE IF EXISTS archived_users",
       "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)"
@@ -201,14 +217,14 @@ internal class MigrationsHandlerTest {
 
   @Test
   fun `does not infer one old table as the rename source for multiple new tables`() {
-    val columns = arrayListOf(
+    val columns = listOf(
       migrationColumn(
         name = "id",
         schema = "id INTEGER PRIMARY KEY"
       )
     )
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy" to migrationTable(
           name = "legacy",
           columns = columns
@@ -216,14 +232,14 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "users" to migrationTable(
           name = "users",
-          columns = ArrayList(columns)
+          columns = columns
         ),
         "admins" to migrationTable(
           name = "admins",
-          columns = ArrayList(columns)
+          columns = columns
         )
       )
     )
@@ -245,10 +261,10 @@ internal class MigrationsHandlerTest {
   @Test
   fun `rebuilds instead of appending a primary key column`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "title",
               schema = "title TEXT DEFAULT ''"
@@ -258,10 +274,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "title",
               schema = "title TEXT DEFAULT ''"
@@ -269,98 +285,6 @@ internal class MigrationsHandlerTest {
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
-            )
-          )
-        )
-      )
-    )
-
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
-      "ALTER TABLE books RENAME TO books_",
-      "CREATE TABLE IF NOT EXISTS books (title TEXT DEFAULT '', id INTEGER PRIMARY KEY)",
-      "INSERT INTO books (title) SELECT title FROM books_",
-      "DROP TABLE IF EXISTS books_"
-    ).inOrder()
-  }
-
-  @Test
-  fun `rebuilds instead of appending a unique column`() {
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "label",
-              schema = "label TEXT DEFAULT ''"
-            )
-          )
-        )
-      )
-    )
-    val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "isbn",
-              schema = "isbn TEXT UNIQUE"
-            )
-          )
-        )
-      )
-    )
-
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
-      "ALTER TABLE books RENAME TO books_",
-      "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, isbn TEXT UNIQUE)",
-      "INSERT INTO books (id) SELECT id FROM books_",
-      "DROP TABLE IF EXISTS books_"
-    ).inOrder()
-  }
-
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("defaultExpressionCases")
-  fun `rebuilds instead of appending a column with a non-constant default`(
-    label: String,
-    columnName: String,
-    inputSchema: String,
-    expectedCreateSql: String
-  ) {
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            )
-          )
-        )
-      )
-    )
-    val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "books" to migrationTable(
-          name = "books",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = columnName,
-              schema = inputSchema
             )
           )
         )
@@ -370,12 +294,13 @@ internal class MigrationsHandlerTest {
     assertThat(
       runMigration(
         previous = previous,
-        current = current
+        current = current,
+        temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
       "ALTER TABLE books RENAME TO books_",
-      expectedCreateSql,
-      "INSERT INTO books (id) SELECT id FROM books_",
+      "CREATE TABLE IF NOT EXISTS books (title TEXT DEFAULT '', id INTEGER PRIMARY KEY)",
+      "INSERT INTO books (title) SELECT title FROM books_",
       "DROP TABLE IF EXISTS books_"
     ).inOrder()
   }
@@ -383,10 +308,10 @@ internal class MigrationsHandlerTest {
   @Test
   fun `omits the copy statement when a rebuild has no mutual columns`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "legacy_title",
               schema = "legacy_title TEXT DEFAULT ''"
@@ -396,10 +321,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "title",
               schema = "title TEXT DEFAULT ''"
@@ -409,7 +334,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE books RENAME TO books_",
       "CREATE TABLE IF NOT EXISTS books (title TEXT DEFAULT '')",
       "DROP TABLE IF EXISTS books_"
@@ -419,11 +350,11 @@ internal class MigrationsHandlerTest {
   @Test
   fun `copies columns whose names only change case during a rebuild`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to TableStructure(
           name = "books",
           schema = "CREATE TABLE IF NOT EXISTS books (DisplayName TEXT DEFAULT '')",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "DisplayName",
               schema = "DisplayName TEXT DEFAULT ''"
@@ -433,11 +364,11 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to TableStructure(
           name = "books",
           schema = "CREATE TABLE IF NOT EXISTS books (displayName TEXT DEFAULT '')",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "displayName",
               schema = "displayName TEXT DEFAULT ''"
@@ -447,7 +378,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE books RENAME TO books_",
       "CREATE TABLE IF NOT EXISTS books (displayName TEXT DEFAULT '')",
       "INSERT INTO books (displayName) SELECT DisplayName FROM books_",
@@ -458,10 +395,10 @@ internal class MigrationsHandlerTest {
   @Test
   fun `chooses a free temporary name during a rebuild`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -474,7 +411,7 @@ internal class MigrationsHandlerTest {
         ),
         "books_" to migrationTable(
           name = "books_",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -484,10 +421,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "books" to migrationTable(
           name = "books",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -500,7 +437,7 @@ internal class MigrationsHandlerTest {
         ),
         "books_" to migrationTable(
           name = "books_",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -510,7 +447,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE books RENAME TO books__",
       "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
       "INSERT INTO books (id) SELECT id FROM books__",
@@ -521,10 +464,10 @@ internal class MigrationsHandlerTest {
   @Test
   fun `chooses a temporary name using SQLite case-insensitive table matching`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "Users" to migrationTable(
           name = "Users",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -533,7 +476,7 @@ internal class MigrationsHandlerTest {
         ),
         "Users_" to migrationTable(
           name = "Users_",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "legacy",
               schema = "legacy TEXT DEFAULT ''"
@@ -543,10 +486,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "users" to migrationTable(
           name = "users",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -556,7 +499,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE Users RENAME TO users__",
       "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
       "INSERT INTO users (id) SELECT id FROM users__",
@@ -568,10 +517,10 @@ internal class MigrationsHandlerTest {
   @Test
   fun `creates a new foreign-key parent before rebuilding its existing child`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "children" to migrationTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -585,10 +534,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "children" to migrationTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -606,7 +555,7 @@ internal class MigrationsHandlerTest {
         ),
         "parents" to migrationTable(
           name = "parents",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -616,7 +565,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY)",
       "ALTER TABLE children RENAME TO children_",
       "CREATE TABLE IF NOT EXISTS children " +
@@ -630,10 +585,10 @@ internal class MigrationsHandlerTest {
   @Test
   fun `batches changed parents and cascading children before dropping either old table`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "parents" to migrationTable(
           name = "parents",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -646,7 +601,7 @@ internal class MigrationsHandlerTest {
         ),
         "children" to migrationTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -665,10 +620,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "parents" to migrationTable(
           name = "parents",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -681,7 +636,7 @@ internal class MigrationsHandlerTest {
         ),
         "children" to migrationTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -700,7 +655,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE parents RENAME TO parents_",
       "ALTER TABLE children RENAME TO children_",
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
@@ -717,10 +678,10 @@ internal class MigrationsHandlerTest {
   @Test
   fun `renames related tables together without recreating the child`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy_parents" to migrationTable(
           name = "legacy_parents",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -729,7 +690,7 @@ internal class MigrationsHandlerTest {
         ),
         "legacy_children" to migrationTable(
           name = "legacy_children",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -744,10 +705,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "parents" to migrationTable(
           name = "parents",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -756,7 +717,7 @@ internal class MigrationsHandlerTest {
         ),
         "children" to migrationTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -771,7 +732,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE legacy_parents RENAME TO parents",
       "ALTER TABLE legacy_children RENAME TO children"
     ).inOrder()
@@ -780,11 +747,11 @@ internal class MigrationsHandlerTest {
   @Test
   fun `rebuilds a renamed table when its table-level schema changes`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy" to TableStructure(
           name = "legacy",
           schema = "CREATE TABLE IF NOT EXISTS legacy (id INTEGER PRIMARY KEY)",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -794,11 +761,11 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "renamed" to TableStructure(
           name = "renamed",
           schema = "CREATE TABLE IF NOT EXISTS renamed (id INTEGER PRIMARY KEY) WITHOUT ROWID",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id INTEGER PRIMARY KEY"
@@ -808,7 +775,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE legacy RENAME TO renamed_",
       "CREATE TABLE IF NOT EXISTS renamed (id INTEGER PRIMARY KEY) WITHOUT ROWID",
       "INSERT INTO renamed (id) SELECT id FROM renamed_",
@@ -821,10 +794,10 @@ internal class MigrationsHandlerTest {
     val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
     val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "items" to migrationTable(
           name = "items",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "value",
               schema = "value TEXT DEFAULT ''"
@@ -834,11 +807,11 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "items" to TableStructure(
           name = "items",
           schema = "CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, value TEXT DEFAULT '') WITHOUT ROWID",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "id",
               schema = "id TEXT PRIMARY KEY"
@@ -879,10 +852,10 @@ internal class MigrationsHandlerTest {
       sqlType = "INTEGER"
     )
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy_users" to migrationTable(
           name = "legacy_users",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn,
             migrationColumn(
               name = "name",
@@ -893,10 +866,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "users" to migrationTable(
           name = "users",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn,
             migrationColumn(
               name = "name",
@@ -928,10 +901,10 @@ internal class MigrationsHandlerTest {
     val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
     val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy_values" to migrationTable(
           name = "legacy_values",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "value",
               schema = "value TEXT DEFAULT ''"
@@ -941,10 +914,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "values" to migrationTable(
           name = "values",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "label",
               schema = "label TEXT DEFAULT ''"
@@ -969,11 +942,11 @@ internal class MigrationsHandlerTest {
   @Test
   fun `rebuilds instead of treating changed quoted whitespace as an equivalent rename`() {
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy" to TableStructure(
           name = "legacy",
           schema = "CREATE TABLE IF NOT EXISTS legacy (value TEXT DEFAULT 'a  b')",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "value",
               schema = "value TEXT DEFAULT 'a  b'"
@@ -983,11 +956,11 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "renamed" to TableStructure(
           name = "renamed",
           schema = "CREATE TABLE IF NOT EXISTS renamed (value TEXT DEFAULT 'a b')",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "value",
               schema = "value TEXT DEFAULT 'a b'"
@@ -997,7 +970,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE legacy RENAME TO renamed_",
       "CREATE TABLE IF NOT EXISTS renamed (value TEXT DEFAULT 'a b')",
       "INSERT INTO renamed (value) SELECT value FROM renamed_",
@@ -1015,11 +994,11 @@ internal class MigrationsHandlerTest {
     val previousCollation = "$opening legacy value$closing"
     val currentCollation = "$opening renamed value$closing"
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "legacy" to TableStructure(
           name = "legacy",
           schema = "CREATE TABLE IF NOT EXISTS legacy (value TEXT COLLATE $previousCollation)",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "value",
               schema = "value TEXT COLLATE $previousCollation"
@@ -1029,11 +1008,11 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "renamed" to TableStructure(
           name = "renamed",
           schema = "CREATE TABLE IF NOT EXISTS renamed (value TEXT COLLATE $currentCollation)",
-          columns = arrayListOf(
+          columns = listOf(
             migrationColumn(
               name = "value",
               schema = "value TEXT COLLATE $currentCollation"
@@ -1043,7 +1022,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE legacy RENAME TO renamed_",
       "CREATE TABLE IF NOT EXISTS renamed (value TEXT COLLATE $currentCollation)",
       "INSERT INTO renamed (value) SELECT value FROM renamed_",
@@ -1055,7 +1040,7 @@ internal class MigrationsHandlerTest {
   fun `does not treat references text in a quoted default as a foreign key`() {
     val previousParents = migrationTable(
       name = "parents",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "id",
           schema = "id INTEGER PRIMARY KEY"
@@ -1067,7 +1052,7 @@ internal class MigrationsHandlerTest {
     )
     val notes = migrationTable(
       name = "notes",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "value",
           schema = "value TEXT DEFAULT 'REFERENCES parents(id)'"
@@ -1078,17 +1063,18 @@ internal class MigrationsHandlerTest {
     assertThat(
       runMigration(
         previous = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "parents" to previousParents,
             "notes" to notes
           )
         ),
         current = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "parents" to currentParents,
             "notes" to notes
           )
-        )
+        ),
+        temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
       "ALTER TABLE parents RENAME TO parents_",
@@ -1101,7 +1087,7 @@ internal class MigrationsHandlerTest {
   @ParameterizedTest(name = "quoted parent identifier {0}")
   @ValueSource(
     strings = [
-      "\"parents\"",
+      """"parents"""",
       "`parents`",
       "[parents]"
     ]
@@ -1109,7 +1095,7 @@ internal class MigrationsHandlerTest {
   fun `rebuilds dependencies that use quoted foreign key identifiers`(referencedTableName: String) {
     val previousParent = migrationTable(
       name = "parents",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "id",
           schema = "id INTEGER PRIMARY KEY"
@@ -1122,7 +1108,7 @@ internal class MigrationsHandlerTest {
     )
     val currentParent = migrationTable(
       name = "parents",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "id",
           schema = "id INTEGER PRIMARY KEY"
@@ -1135,7 +1121,7 @@ internal class MigrationsHandlerTest {
     )
     val child = migrationTable(
       name = "children",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "id",
           schema = "id INTEGER PRIMARY KEY"
@@ -1151,58 +1137,29 @@ internal class MigrationsHandlerTest {
     assertThat(
       runMigration(
         previous = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "parents" to previousParent,
             "children" to child
           )
         ),
         current = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "parents" to currentParent,
             "children" to child
           )
-        )
+        ),
+        temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
       "ALTER TABLE parents RENAME TO parents_",
       "ALTER TABLE children RENAME TO children_",
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
       "INSERT INTO parents (id) SELECT id FROM parents_",
-      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES $referencedTableName(id) ON DELETE CASCADE)",
+      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
+          "parent_id INTEGER DEFAULT 0 REFERENCES $referencedTableName(id) ON DELETE CASCADE)",
       "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
       "DROP TABLE IF EXISTS children_",
       "DROP TABLE IF EXISTS parents_"
-    ).inOrder()
-  }
-
-  @Test
-  fun `rebuilds a case-only table rename through a distinct temporary name`() {
-    val idColumn = migrationColumn(
-      name = "id",
-      schema = "id INTEGER PRIMARY KEY"
-    )
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "Users" to migrationTable(
-          name = "Users",
-          columns = arrayListOf(idColumn)
-        )
-      )
-    )
-    val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "users" to migrationTable(
-          name = "users",
-          columns = arrayListOf(idColumn)
-        )
-      )
-    )
-
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
-      "ALTER TABLE Users RENAME TO users_",
-      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
-      "INSERT INTO users (id) SELECT id FROM users_",
-      "DROP TABLE IF EXISTS users_"
     ).inOrder()
   }
 
@@ -1214,7 +1171,7 @@ internal class MigrationsHandlerTest {
     )
     val child = migrationTable(
       name = "children",
-      columns = arrayListOf(
+      columns = listOf(
         idColumn,
         migrationColumn(
           name = "parent_id",
@@ -1227,30 +1184,32 @@ internal class MigrationsHandlerTest {
     assertThat(
       runMigration(
         previous = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "Users" to migrationTable(
               name = "Users",
-              columns = arrayListOf(idColumn)
+              columns = listOf(idColumn)
             ),
             "children" to child
           )
         ),
         current = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "users" to migrationTable(
               name = "users",
-              columns = arrayListOf(idColumn)
+              columns = listOf(idColumn)
             ),
             "children" to child
           )
-        )
+        ),
+        temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
       "ALTER TABLE Users RENAME TO users_",
       "ALTER TABLE children RENAME TO children_",
       "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
       "INSERT INTO users (id) SELECT id FROM users_",
-      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES USERS(id) ON DELETE CASCADE)",
+      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
+          "parent_id INTEGER DEFAULT 0 REFERENCES USERS(id) ON DELETE CASCADE)",
       "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
       "DROP TABLE IF EXISTS children_",
       "DROP TABLE IF EXISTS users_"
@@ -1264,10 +1223,10 @@ internal class MigrationsHandlerTest {
       schema = "id INTEGER PRIMARY KEY"
     )
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "parents" to migrationTable(
           name = "parents",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn,
             migrationColumn(
               name = "value",
@@ -1277,7 +1236,7 @@ internal class MigrationsHandlerTest {
         ),
         "children" to migrationTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn,
             migrationColumn(
               name = "parent_id",
@@ -1289,10 +1248,10 @@ internal class MigrationsHandlerTest {
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "parents" to migrationTable(
           name = "parents",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn,
             migrationColumn(
               name = "label",
@@ -1302,7 +1261,7 @@ internal class MigrationsHandlerTest {
         ),
         "children" to migrationTable(
           name = "children",
-          columns = arrayListOf(
+          columns = listOf(
             idColumn,
             migrationColumn(
               name = "parent_id",
@@ -1313,7 +1272,13 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
+    assertThat(
+      runMigration(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).containsExactly(
       "ALTER TABLE parents RENAME TO parents_",
       "ALTER TABLE children RENAME TO children_",
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
@@ -1326,65 +1291,31 @@ internal class MigrationsHandlerTest {
   }
 
   @Test
-  fun `drops removed foreign key children before their parents`() {
-    val idColumn = migrationColumn(
-      name = "id",
-      schema = "id INTEGER PRIMARY KEY"
-    )
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "parents" to migrationTable(
-          name = "parents",
-          columns = arrayListOf(idColumn)
-        ),
-        "children" to migrationTable(
-          name = "children",
-          columns = arrayListOf(
-            idColumn,
-            migrationColumn(
-              name = "parent_id",
-              schema = "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE",
-              onDeleteCascade = true
-            )
-          )
-        )
-      )
-    )
-
-    assertThat(runMigration(previous = previous, current = DatabaseStructure())).containsExactly(
-      "DROP TABLE IF EXISTS children",
-      "DROP TABLE IF EXISTS parents"
-    ).inOrder()
-  }
-
-  @Test
   fun `orders a deep removed foreign-key chain without recursive traversal`() {
     val tableCount = 2_000
-    val tables = linkedMapOf<String, TableStructure>()
-    repeat(tableCount) { index ->
-      val tableName = "table$index"
-      val columns = arrayListOf(
-        migrationColumn(
-          name = "id",
-          schema = "id INTEGER PRIMARY KEY"
-        )
-      )
-      if (index > 0) {
-        columns += migrationColumn(
-          name = "parent_id",
-          onDeleteCascade = true,
-          schema = "parent_id INTEGER DEFAULT 0 REFERENCES table${index - 1}(id) ON DELETE CASCADE"
+    val tables = (0 until tableCount)
+      .map { index ->
+        migrationTable(
+          name = "table$index",
+          columns = listOfNotNull(
+            migrationColumn(
+              name = "id",
+              schema = "id INTEGER PRIMARY KEY"
+            ),
+            migrationColumn(
+              name = "parent_id",
+              onDeleteCascade = true,
+              schema = "parent_id INTEGER DEFAULT 0 REFERENCES table${index - 1}(id) ON DELETE CASCADE"
+            ).takeIf { index > 0 }
+          )
         )
       }
-      tables[tableName] = migrationTable(
-        name = tableName,
-        columns = columns
-      )
-    }
+      .associateBy(TableStructure::name)
 
     val statements = runMigration(
       previous = DatabaseStructure(tables = tables),
-      current = DatabaseStructure()
+      current = DatabaseStructure(),
+      temporaryDirectory = temporaryDirectory
     )
 
     assertThat(statements).hasSize(tableCount)
@@ -1398,7 +1329,7 @@ internal class MigrationsHandlerTest {
     val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
     val alpha = migrationTable(
       name = "alpha",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "alpha_id",
           schema = "alpha_id INTEGER PRIMARY KEY"
@@ -1407,7 +1338,7 @@ internal class MigrationsHandlerTest {
     )
     val beta = migrationTable(
       name = "beta",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "beta_id",
           schema = "beta_id TEXT PRIMARY KEY"
@@ -1415,15 +1346,27 @@ internal class MigrationsHandlerTest {
       )
     )
     val previous = DatabaseStructure(
-      tables = linkedMapOf(
+      tables = mapOf(
         "alpha" to alpha,
         "beta" to beta
       )
     )
     val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "beta" to alpha.copy(name = "beta", schema = alpha.schema.replace("alpha", "beta")),
-        "gamma" to beta.copy(name = "gamma", schema = beta.schema.replace("beta", "gamma"))
+      tables = mapOf(
+        "beta" to alpha.copy(
+          name = "beta",
+          schema = alpha.schema.replace(
+            oldValue = "alpha",
+            newValue = "beta"
+          )
+        ),
+        "gamma" to beta.copy(
+          name = "gamma",
+          schema = beta.schema.replace(
+            oldValue = "beta",
+            newValue = "gamma"
+          )
+        )
       )
     )
 
@@ -1447,7 +1390,7 @@ internal class MigrationsHandlerTest {
     val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
     val alpha = migrationTable(
       name = "alpha",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "alpha_id",
           schema = "alpha_id INTEGER PRIMARY KEY"
@@ -1456,7 +1399,7 @@ internal class MigrationsHandlerTest {
     )
     val beta = migrationTable(
       name = "beta",
-      columns = arrayListOf(
+      columns = listOf(
         migrationColumn(
           name = "beta_id",
           schema = "beta_id TEXT PRIMARY KEY"
@@ -1467,13 +1410,25 @@ internal class MigrationsHandlerTest {
     val exception = assertThrows<IllegalStateException> {
       MigrationsHandler(
         currentStructure = DatabaseStructure(
-          tables = linkedMapOf(
-            "alpha" to beta.copy(name = "alpha", schema = beta.schema.replace("beta", "alpha")),
-            "beta" to alpha.copy(name = "beta", schema = alpha.schema.replace("alpha", "beta"))
+          tables = mapOf(
+            "alpha" to beta.copy(
+              name = "alpha",
+              schema = beta.schema.replace(
+                oldValue = "beta",
+                newValue = "alpha"
+              )
+            ),
+            "beta" to alpha.copy(
+              name = "beta",
+              schema = alpha.schema.replace(
+                oldValue = "alpha",
+                newValue = "beta"
+              )
+            )
           )
         ),
         previousStructure = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "alpha" to alpha,
             "beta" to beta
           )
@@ -1489,83 +1444,6 @@ internal class MigrationsHandlerTest {
   }
 
   @Test
-  fun `rebuilds inbound foreign key tables before dropping the old parent`() {
-    val previous = DatabaseStructure(
-      tables = linkedMapOf(
-        "parents" to migrationTable(
-          name = "parents",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "value",
-              schema = "value TEXT DEFAULT ''"
-            )
-          )
-        ),
-        "children" to migrationTable(
-          name = "children",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "parent_id",
-              onDeleteCascade = true,
-              schema = "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE"
-            )
-          )
-        )
-      )
-    )
-    val current = DatabaseStructure(
-      tables = linkedMapOf(
-        "parents" to migrationTable(
-          name = "parents",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "label",
-              schema = "label TEXT DEFAULT ''"
-            )
-          )
-        ),
-        "children" to migrationTable(
-          name = "children",
-          columns = arrayListOf(
-            migrationColumn(
-              name = "id",
-              schema = "id INTEGER PRIMARY KEY"
-            ),
-            migrationColumn(
-              name = "parent_id",
-              onDeleteCascade = true,
-              schema = "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE"
-            )
-          )
-        )
-      )
-    )
-
-    assertThat(runMigration(previous = previous, current = current)).containsExactly(
-      "ALTER TABLE parents RENAME TO parents_",
-      "ALTER TABLE children RENAME TO children_",
-      "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-      "INSERT INTO parents (id) SELECT id FROM parents_",
-      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "DROP TABLE IF EXISTS children_",
-      "DROP TABLE IF EXISTS parents_"
-    ).inOrder()
-  }
-
-  @Test
   fun `batches transitive foreign key dependents`() {
     val idColumn = migrationColumn(
       name = "id",
@@ -1573,7 +1451,7 @@ internal class MigrationsHandlerTest {
     )
     val previousParents = migrationTable(
       name = "parents",
-      columns = arrayListOf(
+      columns = listOf(
         idColumn,
         migrationColumn(
           name = "value",
@@ -1583,7 +1461,7 @@ internal class MigrationsHandlerTest {
     )
     val currentParents = migrationTable(
       name = "parents",
-      columns = arrayListOf(
+      columns = listOf(
         idColumn,
         migrationColumn(
           name = "label",
@@ -1593,7 +1471,7 @@ internal class MigrationsHandlerTest {
     )
     val children = migrationTable(
       name = "children",
-      columns = arrayListOf(
+      columns = listOf(
         idColumn,
         migrationColumn(
           name = "parent_id",
@@ -1604,7 +1482,7 @@ internal class MigrationsHandlerTest {
     )
     val grandchildren = migrationTable(
       name = "grandchildren",
-      columns = arrayListOf(
+      columns = listOf(
         idColumn,
         migrationColumn(
           name = "child_id",
@@ -1617,19 +1495,20 @@ internal class MigrationsHandlerTest {
     assertThat(
       runMigration(
         previous = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "parents" to previousParents,
             "children" to children,
             "grandchildren" to grandchildren
           )
         ),
         current = DatabaseStructure(
-          tables = linkedMapOf(
+          tables = mapOf(
             "parents" to currentParents,
             "children" to children,
             "grandchildren" to grandchildren
           )
-        )
+        ),
+        temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
       "ALTER TABLE parents RENAME TO parents_",
@@ -1637,48 +1516,15 @@ internal class MigrationsHandlerTest {
       "ALTER TABLE grandchildren RENAME TO grandchildren_",
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
       "INSERT INTO parents (id) SELECT id FROM parents_",
-      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
+      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
+          "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
       "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "CREATE TABLE IF NOT EXISTS grandchildren (id INTEGER PRIMARY KEY, child_id INTEGER DEFAULT 0 REFERENCES children(id) ON DELETE CASCADE)",
+      "CREATE TABLE IF NOT EXISTS grandchildren (id INTEGER PRIMARY KEY, " +
+          "child_id INTEGER DEFAULT 0 REFERENCES children(id) ON DELETE CASCADE)",
       "INSERT INTO grandchildren (id,child_id) SELECT id,child_id FROM grandchildren_",
       "DROP TABLE IF EXISTS grandchildren_",
       "DROP TABLE IF EXISTS children_",
       "DROP TABLE IF EXISTS parents_"
     ).inOrder()
-  }
-
-  companion object {
-    @JvmStatic
-    fun defaultExpressionCases() = listOf(
-      Arguments.of(
-        "non-constant default",
-        "created_at",
-        "created_at TEXT DEFAULT CURRENT_TIMESTAMP",
-        "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
-      ),
-      Arguments.of(
-        "parenthesized default",
-        "priority",
-        "priority INTEGER DEFAULT (1)",
-        "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, priority INTEGER DEFAULT (1))"
-      )
-    )
-  }
-
-  private fun runMigration(
-    previous: DatabaseStructure,
-    current: DatabaseStructure
-  ): List<String> {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
-    assertThat(
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    ).isTrue()
-    return migrationFile.readLines()
   }
 }

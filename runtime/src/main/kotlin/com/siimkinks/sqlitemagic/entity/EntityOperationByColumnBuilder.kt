@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic.entity
 
 import androidx.annotation.CheckResult
-import com.siimkinks.sqlitemagic.NotNullable
 import com.siimkinks.sqlitemagic.Unique
 
 interface EntityOperationByColumnBuilder<R> {
@@ -9,11 +8,10 @@ interface EntityOperationByColumnBuilder<R> {
    * Configure this operation to be executed by the provided column.
    * Executed operation will be performed using `WHERE column=?` clause.
    *
-   * @param column Column by which to execute the operation. This must be one of annotation
-   * processor generated column objects that correspond to a column in a database table
-   * @param C Not nullable unique column
+   * @param column Generated non-null unique column of the table for this operation
    * @return Operation builder
+   * @throws IllegalArgumentException if [column] is not a column of the table for this operation
    */
   @CheckResult
-  fun <C : Unique<NotNullable>> byColumn(column: C): R
+  fun byColumn(column: Unique<*>): R
 }

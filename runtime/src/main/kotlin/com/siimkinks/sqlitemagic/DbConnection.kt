@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic
 
+import android.database.sqlite.SQLiteDatabase
 import androidx.annotation.CheckResult
 import androidx.annotation.WorkerThread
 import java.io.Closeable
@@ -42,7 +43,7 @@ interface DbConnection : Closeable {
    * ```
    *
    * @return New transaction object
-   * @see android.database.sqlite.SQLiteDatabase.beginTransaction
+   * @see SQLiteDatabase.beginTransaction
    */
   @CheckResult
   fun newTransaction(): Transaction

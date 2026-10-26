@@ -1,48 +1,34 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
+import com.siimkinks.sqlitemagic.internal.GeneratedView
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 
-/** Resolves a batch before schema DDL starts. */
 internal class GeneratedViewResolver(views: Collection<GeneratedView>) {
   private val viewsByKey = views.associateBy { it.identity.normalizedKey }
 
-  fun resolve(temporary: Boolean): List<ResolvedView> {
-    val nodes = viewsByKey.values
-      .filter { it.temporary == temporary }
-      .associateBy(
-        keySelector = { it.identity.normalizedKey },
-        valueTransform = { view ->
-          ResolvedView(
-            view = view,
-            definition = view.definition
-          )
-        }
-      )
-    nodes.values.forEach { node ->
-      SqlUtil.validateViewDefinition(
-        definition = node.definition,
-        viewName = node.view.viewName,
-        temporary = node.view.temporary,
-        requireCompleteSources = true
-      )
+  fun resolve(temporary: Boolean): List<GeneratedView> {
+    val nodes = viewsByKey.filterValues { it.temporary == temporary }
+    if (!temporary) {
+      nodes.values.forEach(::requirePersistentSources)
     }
-    val ordered = ArrayList<ResolvedView>(nodes.size)
+    val ordered = ArrayList<GeneratedView>(nodes.size)
     val completed = MutableScatterSet<SqliteSchemaKey>(initialCapacity = nodes.size)
     val path = ArrayList<SqliteSchemaKey>()
     val activeIndexByKey = MutableObjectIntMap<SqliteSchemaKey>()
 
-    fun visit(node: ResolvedView) {
-      val key = node.view.identity.normalizedKey
+    fun visit(node: GeneratedView) {
+      val key = node.identity.normalizedKey
       if (key in completed) return
       activeIndexByKey
         .getOrNull(key)
         ?.let { cycleStart ->
-          val cycle = (path.subList(cycleStart, path.size) + key)
+          val cycle = (path.subList(fromIndex = cycleStart, toIndex = path.size) + key)
             .joinToString(separator = " -> ") { cycleKey ->
-              val view = nodes.getValue(cycleKey).view
+              val view = nodes.getValue(cycleKey)
               "${view.identity.schema.qualifier}.${view.viewName}"
             }
           error("Generated view dependency cycle: $cycle")
@@ -52,8 +38,8 @@ internal class GeneratedViewResolver(views: Collection<GeneratedView>) {
       for (source in node.definition.queryDependencies.directSources) {
         if (source.kind != VIEW) continue
         val sourceKey = source.identity.normalizedKey
-        requireNotNull(viewsByKey[sourceKey]) {
-          "Generated view '${node.view.viewName}' references unregistered generated view " +
+        require(sourceKey in viewsByKey) {
+          "Generated view '${node.viewName}' references unregistered generated view " +
               "'${source.schema.qualifier}.${source.name}'"
         }
         nodes[sourceKey]?.let(::visit)
@@ -68,8 +54,14 @@ internal class GeneratedViewResolver(views: Collection<GeneratedView>) {
     return ordered
   }
 
-  internal class ResolvedView(
-    val view: GeneratedView,
-    val definition: ViewDefinition
-  )
+  private fun requirePersistentSources(node: GeneratedView) {
+    node.definition.queryDependencies.directSources
+      .firstOrNull { it.schema == TEMPORARY }
+      ?.let { source ->
+        throw IllegalArgumentException(
+          "Cannot create persistent view '${node.viewName}': defining query references temporary " +
+              "${source.kind.name.lowercase()} '${source.name}'"
+        )
+      }
+  }
 }

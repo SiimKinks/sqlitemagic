@@ -1,31 +1,36 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query.view
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.runtime.model.ViewObservationCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ViewIntegrationCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import com.siimkinks.sqlitemagic.runtime.support.assertSeedInserted
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class ViewObservationContractTest(
+internal class ViewObservationContractTest(
   private val observationCase: ViewObservationCase<*>
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun observesInsertAndUpdateThenStopsAfterDisposal() = assertObservation(observationCase)
 
   private fun <T> assertObservation(observationCase: ViewObservationCase<T>) {
-    val observer = Select
-      .from(observationCase.table)
+    val observer = SELECT
+      .FROM(observationCase.table)
       .observe()
       .runQuery()
       .test()
     try {
       observer.assertValuesOnly(emptyList())
-      assertSeedInserted(
+      insertedResult(
         result = observationCase.insertSource(),
         modelName = observationCase.name
       )
@@ -39,7 +44,7 @@ class ViewObservationContractTest(
       )
 
       observer.dispose()
-      assertSeedInserted(
+      insertedResult(
         result = observationCase.insertAfterDisposal(),
         modelName = observationCase.name
       )
@@ -48,7 +53,6 @@ class ViewObservationContractTest(
         observationCase.insertedExpected,
         observationCase.updatedExpected
       )
-      assertThat(observer.isDisposed).isTrue()
     } finally {
       observer.dispose()
     }
@@ -56,7 +60,7 @@ class ViewObservationContractTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun observationCases() = ViewIntegrationCatalog.observationCases
   }
 }

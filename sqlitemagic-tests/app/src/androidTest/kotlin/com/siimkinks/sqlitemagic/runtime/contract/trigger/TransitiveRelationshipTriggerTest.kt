@@ -7,24 +7,30 @@ import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import io.reactivex.disposables.Disposable
 import io.reactivex.observers.TestObserver
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class TransitiveRelationshipTriggerTest(
+internal class TransitiveRelationshipTriggerTest(
   private val modelCase: TransitiveRelationshipModelCase<*>
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
-  fun recursiveInsertRefreshesEveryDistinctTableOnce() {
-    assertRecursiveInsert(
-      modelCase = modelCase
-    )
-  }
+  fun recursiveInsertRefreshesEveryDistinctTableOnce() = assertRecursiveInsert(
+    modelCase = modelCase
+  )
 
   private fun <T> assertRecursiveInsert(
     modelCase: TransitiveRelationshipModelCase<T>
@@ -55,10 +61,10 @@ class TransitiveRelationshipTriggerTest(
         before = expected.map { it.copy(rows = emptyList<Any?>()) },
         after = expected
       )
-      expected.forEach { expectedRows ->
+      expected.forEach {
         assertRowsIgnoringOrder(
-          table = expectedRows.table,
-          expected = expectedRows.rows
+          table = it.table,
+          expected = it.rows
         )
       }
     } finally {
@@ -67,18 +73,15 @@ class TransitiveRelationshipTriggerTest(
   }
 
   @Test
-  fun recursiveUpdateWithConflictIgnoreAndMissingImmutableLeafReturnsFalseWithoutRefresh() {
+  fun recursiveUpdateWithConflictIgnoreAndMissingImmutableLeafReturnsFalseWithoutRefresh() =
     assertMissingImmutableLeafUpdate(
       modelCase = modelCase
     )
-  }
 
   @Test
-  fun recursiveInsertInRolledBackTransactionDoesNotRefreshOrPersistRows() {
-    assertRolledBackRecursiveInsert(
-      modelCase = modelCase
-    )
-  }
+  fun recursiveInsertInRolledBackTransactionDoesNotRefreshOrPersistRows() = assertRolledBackRecursiveInsert(
+    modelCase = modelCase
+  )
 
   private fun <T> assertMissingImmutableLeafUpdate(
     modelCase: TransitiveRelationshipModelCase<T>
@@ -154,10 +157,10 @@ class TransitiveRelationshipTriggerTest(
         observers = observers,
         expected = expected
       )
-      expected.forEach { expectedRows ->
+      expected.forEach {
         assertRowsIgnoringOrder(
-          table = expectedRows.table,
-          expected = expectedRows.rows
+          table = it.table,
+          expected = it.rows
         )
       }
     } finally {
@@ -185,10 +188,10 @@ class TransitiveRelationshipTriggerTest(
     )
     assertThat(expectedRows.map(TransitiveRelationshipTableRows::table).toSet())
       .hasSize(expectedRows.size)
-    return expectedRows.map { expected ->
+    return expectedRows.map {
       ObservedRows(
-        table = expected.table,
-        observer = observeRows(table = expected.table)
+        table = it.table,
+        observer = observeRows(table = it.table)
       )
     }
   }
@@ -197,21 +200,20 @@ class TransitiveRelationshipTriggerTest(
     observers: List<ObservedRows>,
     before: List<TransitiveRelationshipTableRows>,
     after: List<TransitiveRelationshipTableRows>
-  ) {
-    observers.zip(before.zip(after)).forEach { (observed, expected) ->
+  ) = observers.zip(before.zip(after))
+    .forEach { (observed, expected) ->
       val (beforeRows, afterRows) = expected
       assertThat(observed.observer.values()).hasSize(2)
       assertThat(observed.observer.values()[0]).containsExactlyElementsIn(beforeRows.rows)
       assertThat(observed.observer.values()[1]).containsExactlyElementsIn(afterRows.rows)
       observed.observer.assertNoErrors()
     }
-  }
 
   private fun assertNoRefresh(
     observers: List<ObservedRows>,
     expected: List<TransitiveRelationshipTableRows>
-  ) {
-    observers.zip(expected).forEach { (observed, expectedRows) ->
+  ) = observers.zip(expected)
+    .forEach { (observed, expectedRows) ->
       assertThat(observed.observer.values()).hasSize(1)
       assertThat(observed.observer.values().single()).containsExactlyElementsIn(expectedRows.rows)
       observed.observer.assertNoErrors()
@@ -220,18 +222,15 @@ class TransitiveRelationshipTriggerTest(
         expected = expectedRows.rows
       )
     }
-  }
 
   private data class ObservedRows(
     val table: Table<*>,
     val observer: TestObserver<out List<*>>
-  ) {
-    fun dispose() = observer.dispose()
-  }
+  ) : Disposable by observer
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.transitiveRelationshipCases
   }
 }

@@ -9,25 +9,19 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
-import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.testTable
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
+import com.siimkinks.sqlitemagic.utils.hasMessage
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-class SqliteMagicSymbolProcessorLifecycleTest : ProcessingStepsTest {
-  override val processingSteps: (Environment) -> List<ProcessingStep>
-    get() = { emptyList() }
-
-  @Test
-  fun `compiles sources annotated with supported annotations`() {
-    SqliteMagicCompilation
-      .compile(testTable())
-      .isOk()
-  }
+internal class SqliteMagicSymbolProcessorLifecycleTest {
+  private val compiler = SqliteMagicCompiler { emptyList() }
 
   @Test
   fun `emits debug message when debug option is enabled`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         testTable(),
         kspOptions = mapOf(OPTION_DEBUG to "true")
@@ -81,9 +75,28 @@ class SqliteMagicSymbolProcessorLifecycleTest : ProcessingStepsTest {
     assertThat(recordingStep.finishCount).isEqualTo(0)
   }
 
+  private fun testTable() = SourceFile.kotlin(
+    name = "TestTable.kt",
+    contents = """
+      package test
+
+      import com.siimkinks.sqlitemagic.annotation.Column
+      import com.siimkinks.sqlitemagic.annotation.Id
+      import com.siimkinks.sqlitemagic.annotation.Table
+
+      @Table
+      class TestTable {
+        @Id
+        @Column
+        val id: Long = 0L
+      }
+    """
+  )
+
   private class DeferringOnceStep : ProcessingStep {
     var callCount = 0
-    var deferred = false
+      private set
+    private var deferred = false
 
     override fun process(resolver: Resolver): ProcessingStepResult {
       callCount++
@@ -103,7 +116,9 @@ class SqliteMagicSymbolProcessorLifecycleTest : ProcessingStepsTest {
 
   private class RecordingStep : ProcessingStep {
     var callCount = 0
+      private set
     var finishCount = 0
+      private set
 
     override fun process(resolver: Resolver): ProcessingStepResult {
       callCount++

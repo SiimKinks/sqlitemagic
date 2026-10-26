@@ -1,67 +1,52 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import com.siimkinks.sqlitemagic.EntityOperation.UPDATE
-import com.siimkinks.sqlitemagic.exception.OperationFailedException
+import com.siimkinks.sqlitemagic.BulkEntityOutcome.APPLIED
+import com.siimkinks.sqlitemagic.BulkEntityOutcome.FAILED
+import com.siimkinks.sqlitemagic.BulkEntityOutcome.IGNORED
+import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
-import com.siimkinks.sqlitemagic.internal.IdentityColumn
+import com.siimkinks.sqlitemagic.internal.recursiveOrNull
 
 internal object UpdateExecutors {
   fun <M> executeIgnoringNullValues(
     adapter: EntityIdentityAdapter<M>,
     entity: M,
     context: OperationContext,
-    byColumn: IdentityColumn<M>,
-    publishTriggers: Boolean = true,
-    logOperation: Boolean = true
+    columnName: String,
+    standalone: Boolean = true
   ): Boolean {
     val updated = context.executeMutation(
       adapter = adapter,
       operation = {
-        if (logOperation) {
+        if (standalone) {
           context.logUpdate(entity = entity)
         }
         adapter.bindNotNullForUpdate(
           entity = entity,
           values = context.bindValues,
-          byColumn = byColumn
+          columnName = columnName
         )
         val identity = adapter.identity(
           entity = entity,
-          byColumn = byColumn
+          columnName = columnName
         )
-        val identityColumn = identity.columnName
-        val updated = when {
-          context.bindValues.isEmpty() -> context
-            .entityDbManager()
-            .compileStatement(
-              "UPDATE${context.conflictValue()} ${adapter.tableName} SET $identityColumn=$identityColumn WHERE $identityColumn=?"
-            )
-            .use { statement ->
-              statement.bindString(1, identity.serializedValue)
-              executeUpdateDelete(statement)
-            }
-          else -> context
-            .variableArgsOperationHelper
-            .compileUpdateStatement(
-              tableName = adapter.tableName,
-              maxColumns = adapter.maxColumns,
-              values = context.bindValues,
-              resolutionColumn = identityColumn,
-              resolutionValue = identity.serializedValue,
-              manager = context.entityDbManager()
-            )
-            .use(::executeUpdateDelete)
-        }
-        if (logOperation) {
-          context.logUpdateRowsAffected(rowsAffected = updated)
+        val updated = context
+          .compileUpdateStatement(
+            tableName = adapter.tableName,
+            resolutionColumn = columnName,
+            resolutionValue = identity
+          )
+          .use(::executeUpdateDelete)
+        if (standalone) {
+          logUpdateRowsAffected(rowsAffected = updated)
         }
         updated
       }
     )
     val successful = updated > 0
-    if (publishTriggers && successful) {
+    if (standalone && successful) {
       context.sendTableTriggers(adapter)
     }
     return successful
@@ -71,119 +56,111 @@ internal object UpdateExecutors {
     adapter: EntityIdentityAdapter<M>,
     entity: M,
     context: OperationContext,
-    byColumn: IdentityColumn<M>,
-    defaultIdentity: Boolean,
-    publishTriggers: Boolean = true,
-    logOperation: Boolean = true
+    columnName: String,
+    standalone: Boolean = true
   ): Boolean {
     val rowsAffected = context.executeMutation(
       adapter = adapter,
       operation = {
-        if (logOperation) {
+        if (standalone) {
           context.logUpdate(entity = entity)
         }
-        val operationByColumns = when {
-          defaultIdentity -> emptyList()
-          else -> listOf(byColumn)
-        }
-        val rowsAffected = context
-          .operationHelper(
-            operation = UPDATE,
-            operationByColumns = operationByColumns
+        val rowsAffected = context.withUpdateStatement(
+          sql = adapter.updateStatementSql(columnName),
+          default = adapter is EntityDefaultIdentityAdapter<*> && columnName == adapter.defaultIdentityColumnName
+        ) { statement ->
+          adapter.bindToUpdateStatement(
+            statement = statement,
+            entity = entity,
+            columnName = columnName
           )
-          .use { helper ->
-            val statement = helper.updateStatement(
-              tableName = adapter.tableName,
-              sql = adapter.updateStatementSql(byColumn),
-              manager = context.entityDbManager()
-            )
-            synchronized(statement) {
-              adapter.bindToUpdateStatement(
-                statement = statement,
-                entity = entity,
-                byColumn = byColumn
-              )
-              executeUpdateDelete(statement)
-            }
-          }
-        if (logOperation) {
-          context.logUpdateRowsAffected(rowsAffected = rowsAffected)
+          executeUpdateDelete(statement)
+        }
+        if (standalone) {
+          logUpdateRowsAffected(rowsAffected = rowsAffected)
         }
         rowsAffected
       }
     )
     val updated = rowsAffected > 0
-    if (publishTriggers && updated) {
+    if (standalone && updated) {
       context.sendTableTriggers(adapter)
     }
     return updated
   }
 
-  @Suppress("UNCHECKED_CAST")
   fun <M> execute(
     adapter: EntityIdentityAdapter<M>,
     entity: M,
     context: OperationContext,
-    byColumn: IdentityColumn<M>,
-    defaultIdentity: Boolean
-  ): Boolean {
-    val recursiveAdapter = adapter as? EntityRecursiveAdapter<M>
-    val isRecursive = recursiveAdapter != null
-    val operation = {
-      val operationContext = when {
-        isRecursive -> context.childWithoutTableTriggers()
-        else -> context
-      }
-      val parentUpdated = when {
-        context.ignoreNullValues -> executeIgnoringNullValues(
-          adapter = adapter,
-          entity = entity,
-          context = operationContext,
-          byColumn = byColumn,
-          publishTriggers = !isRecursive
-        )
-        else -> executeEntity(
-          adapter = adapter,
-          entity = entity,
-          context = operationContext,
-          byColumn = byColumn,
-          defaultIdentity = defaultIdentity
-        )
-      }
-      when {
-        !isRecursive -> parentUpdated
-        !parentUpdated -> false
-        else -> recursiveAdapter
-          .updateRelationships(
-            entity = entity,
-            operations = RelationshipOperations(context)
-          )
-          .also { relationshipsUpdated ->
-            if (relationshipsUpdated || context.conflictAlgorithm == CONFLICT_IGNORE) {
-              context.sendTableTriggers(adapter)
-            }
-          }
+    columnName: String
+  ): Boolean = when (val recursiveAdapter = adapter.recursiveOrNull()) {
+    null -> updateEntity(
+      adapter = adapter,
+      entity = entity,
+      context = context,
+      columnName = columnName
+    )
+    else -> context.executeInTransaction {
+      updateRecursively(
+        adapter = adapter,
+        recursiveAdapter = recursiveAdapter,
+        entity = entity,
+        context = context,
+        columnName = columnName
+      )
+    }
+  }
+
+  private fun <M> updateRecursively(
+    adapter: EntityIdentityAdapter<M>,
+    recursiveAdapter: EntityRecursiveAdapter<M>,
+    entity: M,
+    context: OperationContext,
+    columnName: String
+  ) = updateEntity(
+    adapter = adapter,
+    entity = entity,
+    context = context.childWithoutTableTriggers(),
+    columnName = columnName
+  ) && recursiveAdapter
+    .updateRelationships(
+      entity = entity,
+      operations = RelationshipOperations(context)
+    )
+    .also { relationshipsUpdated ->
+      if (relationshipsUpdated || context.conflictAlgorithm == CONFLICT_IGNORE) {
+        context.sendTableTriggers(adapter)
       }
     }
-    return try {
-      when {
-        isRecursive -> context.executeInTransaction(operation)
-        else -> operation()
-      }
-    } catch (exception: OperationFailedException) {
-      context.logError(exception = exception, message = "Operation failed")
-      throw exception
-    }
+
+  private fun <M> updateEntity(
+    adapter: EntityIdentityAdapter<M>,
+    entity: M,
+    context: OperationContext,
+    columnName: String
+  ) = when {
+    context.ignoreNullValues -> executeIgnoringNullValues(
+      adapter = adapter,
+      entity = entity,
+      context = context,
+      columnName = columnName
+    )
+    else -> executeEntity(
+      adapter = adapter,
+      entity = entity,
+      context = context,
+      columnName = columnName
+    )
   }
 
   fun <M> executeBulk(
     adapter: EntityIdentityAdapter<M>,
     entities: Iterable<M>,
-    byColumn: IdentityColumn<M>,
-    defaultIdentity: Boolean,
+    columnName: String,
     context: OperationContext,
     isCancelled: () -> Boolean
-  ): BulkOperationOutcome = executeBulkOperation(
+  ) = executeBulkOperation(
     adapter = adapter,
     entities = entities,
     context = context,
@@ -193,17 +170,13 @@ internal object UpdateExecutors {
         adapter = adapter,
         entity = entity,
         context = context.childWithoutTableTriggers(),
-        byColumn = byColumn,
-        defaultIdentity = defaultIdentity
+        columnName = columnName
       )
       when {
-        entityUpdated -> BulkEntityOutcome.APPLIED
-        context.conflictAlgorithm == CONFLICT_IGNORE -> BulkEntityOutcome.IGNORED
-        else -> BulkEntityOutcome.FAILED
+        entityUpdated -> APPLIED
+        context.conflictAlgorithm == CONFLICT_IGNORE -> IGNORED
+        else -> FAILED
       }
     }
   )
 }
-
-private fun OperationContext.conflictValue() =
-  ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm]

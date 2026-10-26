@@ -11,21 +11,21 @@ import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.WildcardTypeName
 import com.squareup.kotlinpoet.ksp.TypeParameterResolver
 
-interface TransformerTypeElement : ParsedType {
+internal interface TransformerTypeElement : ParsedType {
   val transformerName: String
 }
 
-data class TransformerTypeElementImpl(
+internal data class TransformerTypeElementImpl(
   val parsedType: ParsedType,
   override val transformerName: String
 ) : TransformerTypeElement, ParsedType by parsedType
 
-data class TransformerRoundTypeElement(
+internal data class TransformerRoundTypeElement(
   val roundTypeElement: RoundTypeElement,
   val transformerTypeElement: TransformerTypeElement
 ) : RoundTypeElement by roundTypeElement
 
-fun KSTypeReference.toTransformerRoundTypeElement(
+internal fun KSTypeReference.toTransformerRoundTypeElement(
   typeParameterResolver: TypeParameterResolver = TypeParameterResolver.EMPTY
 ): TransformerRoundTypeElement {
   val roundTypeElement = toRoundTypeElement(typeParameterResolver)

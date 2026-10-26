@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.fixture.submodule
 
-import com.siimkinks.sqlitemagic.AS
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SubmodulePersistentValueTable.Companion.SUBMODULE_PERSISTENT_VALUE
 import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
@@ -13,9 +12,8 @@ data class SubmoduleDependencyBaseView(
 ) {
   companion object {
     @ViewQuery
-    val query = Select
-      .columns(SUBMODULE_PERSISTENT_VALUE.VALUE AS "value")
-      .from(SUBMODULE_PERSISTENT_VALUE)
-      .compile()
+    val query = SELECT
+      .COLUMN(SUBMODULE_PERSISTENT_VALUE.VALUE AS "value")
+      .FROM(SUBMODULE_PERSISTENT_VALUE)
   }
 }

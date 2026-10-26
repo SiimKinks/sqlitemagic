@@ -2,41 +2,29 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.element.mockParsedType
-import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.squareup.kotlinpoet.STRING
 
-fun mockColumnElement(
-  access: PropertyAccess = mockPropertyAccess(),
+internal fun mockColumnElement(
   deserializedType: ParsedType = mockParsedType(typeName = STRING),
   columnName: String = "value",
-  transformer: TransformerElement? = null,
   relationship: RelationshipElement? = null,
   isNullable: Boolean = false,
-  isSchemaNullable: Boolean = isNullable,
-  defaultValue: String = checkNotNull(
-    when {
-      relationship != null -> relationship.referencedIdSerializedType
-      transformer != null -> transformer.serializedType
-      else -> deserializedType
-    }.sqlStorageType
-  ).affinity.defaultValue,
   id: IdElement? = null,
-  isUnique: Boolean = false,
-  index: FieldIndexElement? = null,
-  belongsToIndex: String? = null,
-  embeddedPrefixes: List<String> = emptyList()
+  isUnique: Boolean = false
 ) = ColumnElement(
-  access = access,
+  access = mockPropertyAccess(),
   deserializedType = deserializedType,
   isNullable = isNullable,
   columnName = columnName,
-  isSchemaNullable = isSchemaNullable,
-  defaultValue = defaultValue,
-  transformer = transformer,
+  isSchemaNullable = isNullable,
+  isModelPathNullable = isNullable,
+  defaultValue = checkNotNull((relationship?.referencedIdSerializedType ?: deserializedType).sqlStorageType)
+    .affinity
+    .defaultValue,
+  transformer = null,
   relationship = relationship,
   id = id,
   isUnique = isUnique,
-  index = index,
-  belongsToIndex = belongsToIndex,
-  embeddedPrefixes = embeddedPrefixes
+  index = null,
+  belongsToIndex = null
 )

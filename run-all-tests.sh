@@ -100,6 +100,8 @@ else
   run_options+=(--build-cache)
 fi
 
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
+
 root_tasks=()
 nested_tasks=()
 sample_tasks=()
@@ -130,6 +132,10 @@ if [ "$select_android" -eq 1 ]; then
   nested_tasks+=(connectedAndroidTest)
 fi
 
+if [ "$select_sample_android" -eq 1 ] && [ ! -d "$repo_root/sqlitemagic-sample/app/src/androidTest" ]; then
+  printf 'The sample has no connected tests; skipping sample-android.\n'
+  select_sample_android=0
+fi
 if [ "$select_sample" -eq 1 ]; then
   sample_tasks=(":app:testDebugUnitTest" ":app:assembleDebug" ":app:lintDebug")
 fi
@@ -137,7 +143,6 @@ if [ "$select_sample_android" -eq 1 ]; then
   sample_tasks+=(":app:connectedDebugAndroidTest")
 fi
 
-repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
 if [ "$clean_results" -eq 1 ]; then
   printf 'Removing saved run logs and generated test results/reports.\n'
   rm -rf -- "$repo_root/build/all-tests" || exit 1

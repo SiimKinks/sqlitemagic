@@ -1,23 +1,31 @@
 package com.siimkinks.sqlitemagic.transformer
 
-import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Const.DEFAULT_TRANSFORMERS
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
-import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
-import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 
-data class TransformerElement(
+private val SELECTOR_WORD_BOUNDARY = Regex("([a-z])([A-Z])")
+
+internal data class TransformerElement(
   val deserializedType: TransformerTypeElement,
   val serializedType: TransformerTypeElement,
   val objectToDbValueMethod: TransformerMethodElement,
   val dbValueToObjectMethod: TransformerMethodElement,
-  val serializedTypeCanBeNull: Boolean
+  val encoderInputNullable: Boolean,
+  val serializedTypeCanBeNull: Boolean,
+  val decoderResultNullable: Boolean,
+  val decoderInputNullable: Boolean
 ) {
   val typeKey get() = deserializedType.typeKey
   val transformerName get() = deserializedType.transformerName
+  val sqlTypeSelectorName = transformerName
+    .replace(
+      regex = SELECTOR_WORD_BOUNDARY,
+      replacement = "$1_$2"
+    )
+    .uppercase()
   val isDefaultTransformer
     get() = objectToDbValueMethod.ownerQualifiedName in DEFAULT_TRANSFORMERS ||
         dbValueToObjectMethod.ownerQualifiedName in DEFAULT_TRANSFORMERS
@@ -27,17 +35,9 @@ data class TransformerElement(
 
   fun deserializedValueGetter(valueGetter: CodeBlock) =
     dbValueToObjectMethod.callWithArgument(valueGetter)
-
-  fun generatedColumnClassName(unique: Boolean = false) = ClassName(
-    PACKAGE_ROOT,
-    when {
-      unique -> "Unique${transformerName}${COLUMN.simpleName}"
-      else -> "${transformerName}${COLUMN.simpleName}"
-    }
-  )
 }
 
-class TransformerRoundElement private constructor(
+internal class TransformerRoundElement(
   additionalOriginatingFiles: Set<KSFile>
 ) {
   val originatingFiles: Set<KSFile>
@@ -76,47 +76,38 @@ class TransformerRoundElement private constructor(
     }
   }
 
-  fun toTransformerElement() = TransformerElement(
-    deserializedType = checkNotNull(deserializedType).transformerTypeElement,
-    serializedType = checkNotNull(serializedType).transformerTypeElement,
-    objectToDbValueMethod = checkNotNull(objectToDbValueMethod).transformerMethodElement,
-    dbValueToObjectMethod = checkNotNull(dbValueToObjectMethod).transformerMethodElement,
-    serializedTypeCanBeNull = checkNotNull(serializedType).canBeNull
-  )
-
-  fun missingMethodsErrorInfo(): String {
-    check(isMissingMethods) {
-      "Transformer has no missing methods"
-    }
-    val missingMethod = when {
-      objectToDbValueMethod == null -> "object-to-database-value"
-      else -> "database-value-to-object"
-    }
-    return "For [${deserializedType?.typeKey}] there is missing valid $missingMethod method"
+  fun toTransformerElement(): TransformerElement {
+    val deserializedType = checkNotNull(deserializedType)
+    val serializedType = checkNotNull(serializedType)
+    val objectToDbValueMethod = checkNotNull(objectToDbValueMethod)
+    val dbValueToObjectMethod = checkNotNull(dbValueToObjectMethod)
+    return TransformerElement(
+      deserializedType = deserializedType.transformerTypeElement,
+      serializedType = serializedType.transformerTypeElement,
+      objectToDbValueMethod = objectToDbValueMethod.transformerMethodElement,
+      dbValueToObjectMethod = dbValueToObjectMethod.transformerMethodElement,
+      encoderInputNullable = checkNotNull(objectToDbValueMethod.firstParameterType).canBeNull,
+      serializedTypeCanBeNull = serializedType.canBeNull,
+      decoderResultNullable = checkNotNull(dbValueToObjectMethod.returnType).canBeNull,
+      decoderInputNullable = checkNotNull(dbValueToObjectMethod.firstParameterType).canBeNull
+    )
   }
 
-  companion object {
-    fun fromObjectToDbValue(
-      method: TransformerRoundMethodElement,
-      additionalOriginatingFiles: Set<KSFile>
-    ) = TransformerRoundElement(additionalOriginatingFiles).also {
-      it.addObjectToDbValueMethod(method)
+  val missingMethodsErrorInfo: String
+    get() {
+      check(isMissingMethods) {
+        "Transformer has no missing methods"
+      }
+      val missingMethod = when {
+        objectToDbValueMethod == null -> "object-to-database-value"
+        else -> "database-value-to-object"
+      }
+      return "For [${deserializedType?.typeKey}] there is missing valid $missingMethod method"
     }
-
-    fun fromDbValueToObject(
-      method: TransformerRoundMethodElement,
-      additionalOriginatingFiles: Set<KSFile>
-    ) = TransformerRoundElement(additionalOriginatingFiles).also {
-      it.addDbValueToObjectMethod(method)
-    }
-  }
 }
 
-internal fun Resolver.hasGeneratedTransformerColumn(
-  transformer: TransformerElement,
-  unique: Boolean
-) = getClassDeclarationByName(
-  transformer
-    .generatedColumnClassName(unique = unique)
-    .canonicalName
-) != null
+internal fun Resolver.hasGeneratedTransformerDescriptor(transformer: TransformerElement) =
+  getPropertyDeclarationByName(
+    name = getKSNameFromString("$PACKAGE_ROOT.${transformer.sqlTypeSelectorName}"),
+    includeTopLevel = true
+  ) != null

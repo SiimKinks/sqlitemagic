@@ -7,12 +7,12 @@ import org.intellij.lang.annotations.Language
 object TransformerCollectionSources {
   const val FIXTURE_PACKAGE = "$PACKAGE.transformers"
 
-  fun emailValueType() = SourceFile.kotlin(
-    name = "Email.kt",
+  fun emailValueType(className: String = "Email") = SourceFile.kotlin(
+    name = "$className.kt",
     contents = """
       package $FIXTURE_PACKAGE
 
-      data class Email(val value: String)
+      data class $className(val value: String)
       """
   )
 

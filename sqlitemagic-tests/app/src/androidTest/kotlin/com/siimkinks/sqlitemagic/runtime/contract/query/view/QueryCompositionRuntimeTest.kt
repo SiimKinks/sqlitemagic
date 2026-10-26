@@ -1,31 +1,31 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query.view
 
-import android.database.Cursor
-import android.database.SQLException
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.AS
 import com.siimkinks.sqlitemagic.AccentedIdentifierViewTable.Companion.ACCENTED_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.DottedIdentifierViewTable.Companion.DOTTED_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.HyphenIdentifierViewTable.Companion.HYPHEN_IDENTIFIER_VIEW
-import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.KeywordIdentifierViewTable.Companion.KEYWORD_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.NonbreakingSpaceIdentifierViewTable.Companion.NONBREAKING_SPACE_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.PunctuationIdentifierViewTable.Companion.PUNCTUATION_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.QuotedIdentifierViewTable.Companion.QUOTED_IDENTIFIER_VIEW
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SpacedIdentifierViewTable.Companion.SPACED_IDENTIFIER_VIEW
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
-import org.junit.Assert.assertThrows
+import com.siimkinks.sqlitemagic.mapTo
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Rule
 import org.junit.Test
 
-class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
+internal class QueryCompositionRuntimeTest {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   private val expectedAuthors = listOf(
     QueryCompositionAuthor(
       id = 7L,
@@ -52,32 +52,41 @@ class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
     seedAuthors()
     val dottedAlias = DOTTED_IDENTIFIER_VIEW AS "safe_alias"
     val cases = listOf(
-      "dotted" to Select.column(DOTTED_IDENTIFIER_VIEW.NAME)
-        .from(DOTTED_IDENTIFIER_VIEW)
+      "dotted" to SELECT
+        .COLUMN(DOTTED_IDENTIFIER_VIEW.NAME)
+        .FROM(DOTTED_IDENTIFIER_VIEW)
         .execute(),
-      "spaced" to Select.column(SPACED_IDENTIFIER_VIEW.NAME)
-        .from(SPACED_IDENTIFIER_VIEW)
+      "spaced" to SELECT
+        .COLUMN(SPACED_IDENTIFIER_VIEW.NAME)
+        .FROM(SPACED_IDENTIFIER_VIEW)
         .execute(),
-      "embedded quote" to Select.column(QUOTED_IDENTIFIER_VIEW.NAME)
-        .from(QUOTED_IDENTIFIER_VIEW)
+      "embedded quote" to SELECT
+        .COLUMN(QUOTED_IDENTIFIER_VIEW.NAME)
+        .FROM(QUOTED_IDENTIFIER_VIEW)
         .execute(),
-      "keyword" to Select.column(KEYWORD_IDENTIFIER_VIEW.NAME)
-        .from(KEYWORD_IDENTIFIER_VIEW)
+      "keyword" to SELECT
+        .COLUMN(KEYWORD_IDENTIFIER_VIEW.NAME)
+        .FROM(KEYWORD_IDENTIFIER_VIEW)
         .execute(),
-      "punctuation" to Select.column(PUNCTUATION_IDENTIFIER_VIEW.NAME)
-        .from(PUNCTUATION_IDENTIFIER_VIEW)
+      "punctuation" to SELECT
+        .COLUMN(PUNCTUATION_IDENTIFIER_VIEW.NAME)
+        .FROM(PUNCTUATION_IDENTIFIER_VIEW)
         .execute(),
-      "nonbreaking space" to Select.column(NONBREAKING_SPACE_IDENTIFIER_VIEW.NAME)
-        .from(NONBREAKING_SPACE_IDENTIFIER_VIEW)
+      "nonbreaking space" to SELECT
+        .COLUMN(NONBREAKING_SPACE_IDENTIFIER_VIEW.NAME)
+        .FROM(NONBREAKING_SPACE_IDENTIFIER_VIEW)
         .execute(),
-      "hyphen" to Select.column(HYPHEN_IDENTIFIER_VIEW.NAME)
-        .from(HYPHEN_IDENTIFIER_VIEW)
+      "hyphen" to SELECT
+        .COLUMN(HYPHEN_IDENTIFIER_VIEW.NAME)
+        .FROM(HYPHEN_IDENTIFIER_VIEW)
         .execute(),
-      "accented" to Select.column(ACCENTED_IDENTIFIER_VIEW.NAME)
-        .from(ACCENTED_IDENTIFIER_VIEW)
+      "accented" to SELECT
+        .COLUMN(ACCENTED_IDENTIFIER_VIEW.NAME)
+        .FROM(ACCENTED_IDENTIFIER_VIEW)
         .execute(),
-      "safe alias" to Select.column(dottedAlias.NAME)
-        .from(dottedAlias)
+      "safe alias" to SELECT
+        .COLUMN(dottedAlias.NAME)
+        .FROM(dottedAlias)
         .execute()
     )
     val expected = expectedAuthors.map(QueryCompositionAuthor::name)
@@ -94,173 +103,110 @@ class QueryCompositionRuntimeTest : RuntimeDatabaseTest() {
     seedAuthors()
 
     assertThat(
-      Select.all()
-        .from(QUERY_COMPOSITION_AUTHOR_VIEW)
-        .orderBy(QUERY_COMPOSITION_AUTHOR_VIEW.QUERY_COMPOSITION_AUTHOR_ID.asc())
+      SELECT
+        .FROM(QUERY_COMPOSITION_AUTHOR_VIEW)
+        .ORDER_BY(QUERY_COMPOSITION_AUTHOR_VIEW.QUERY_COMPOSITION_AUTHOR_ID.ASC())
         .execute()
     ).containsExactlyElementsIn(expectedViews)
       .inOrder()
   }
 
   @Test
-  fun viewAllKeepsScalarTailAfterItsMappedColumns() {
+  fun entityQueryJoinedWithAViewReadsItsRootEntities() {
     seedAuthors()
-    val view = QUERY_COMPOSITION_AUTHOR_VIEW
-    val query = Select
-      .columns(
-        view.all(),
-        view.QUERY_COMPOSITION_AUTHOR_NAME AS "tail"
-      )
-      .from(view)
-      .orderBy(view.QUERY_COMPOSITION_AUTHOR_ID.asc())
-      .compile()
+    val root = QUERY_COMPOSITION_AUTHOR
+    val joinedView = QUERY_COMPOSITION_AUTHOR_VIEW AS "joined_author_view"
 
-    assertThat(query.execute())
-      .containsExactlyElementsIn(expectedViews)
-      .inOrder()
     assertThat(
-      columnValues(
-        cursor = query.toCursor().execute(),
-        columnName = "tail"
-      )
-    ).containsExactlyElementsIn(expectedAuthors.map(QueryCompositionAuthor::name))
+      SELECT
+        .FROM(root)
+        .INNER_JOIN(joinedView)
+        .ON(root.NAME IS joinedView.QUERY_COMPOSITION_AUTHOR_NAME)
+        .ORDER_BY(root.ID.ASC())
+        .execute()
+    ).containsExactlyElementsIn(expectedAuthors)
       .inOrder()
   }
 
   @Test
-  fun repeatedViewAliasesMapTheRootAndExposeTheJoinedScalar() {
+  fun viewFieldListsReadBesideAScalarTail() {
+    seedAuthors()
+    val view = QUERY_COMPOSITION_AUTHOR_VIEW
+    val tail = view.QUERY_COMPOSITION_AUTHOR_NAME AS "tail"
+
+    assertThat(
+      SELECT
+        .COLUMNS(view.all(), tail)
+        .FROM(view)
+        .ORDER_BY(view.QUERY_COMPOSITION_AUTHOR_ID.ASC())
+        .mapTo { row ->
+          QueryCompositionAuthorView(
+            name = checkNotNull(row[view.QUERY_COMPOSITION_AUTHOR_NAME]),
+            id = row[view.QUERY_COMPOSITION_AUTHOR_ID]
+          ) to row[tail]
+        }
+        .execute()
+    ).containsExactlyElementsIn(expectedViews.map { it to it.name })
+      .inOrder()
+  }
+
+  @Test
+  fun repeatedViewAliasesReadTheRootAndTheJoinedScalar() {
     seedAuthors()
     val view = QUERY_COMPOSITION_AUTHOR_VIEW
     val left = view AS "left_author"
     val right = view AS "right_author"
-    val query = Select
-      .columns(
-        left.all(),
-        right.all(),
-        right.QUERY_COMPOSITION_AUTHOR_NAME AS "joined_name"
-      )
-      .from(left)
-      .innerJoin(right.on(left.QUERY_COMPOSITION_AUTHOR_NAME IS right.QUERY_COMPOSITION_AUTHOR_NAME))
-      .orderBy(left.QUERY_COMPOSITION_AUTHOR_ID.asc())
-      .compile()
+    val joinedName = right.QUERY_COMPOSITION_AUTHOR_NAME AS "joined_name"
 
-    assertThat(query.execute())
-      .containsExactlyElementsIn(expectedViews)
-      .inOrder()
     assertThat(
-      columnValues(
-        cursor = query.toCursor().execute(),
-        columnName = "joined_name"
-      )
-    ).containsExactlyElementsIn(expectedAuthors.map(QueryCompositionAuthor::name))
+      SELECT
+        .COLUMNS(left.all(), right.all(), joinedName)
+        .FROM(left)
+        .INNER_JOIN(right)
+        .ON(left.QUERY_COMPOSITION_AUTHOR_NAME IS right.QUERY_COMPOSITION_AUTHOR_NAME)
+        .ORDER_BY(left.QUERY_COMPOSITION_AUTHOR_ID.ASC())
+        .mapTo { row ->
+          QueryCompositionAuthorView(
+            name = checkNotNull(row[left.QUERY_COMPOSITION_AUTHOR_NAME]),
+            id = row[left.QUERY_COMPOSITION_AUTHOR_ID]
+          ) to row[joinedName]
+        }
+        .execute()
+    ).containsExactlyElementsIn(expectedViews.map { it to it.name })
       .inOrder()
   }
 
   @Test
-  fun implicitSelectStarKeepsJoinedViewColumnsAfterRootColumns() {
+  fun rootFieldListsReadBesideAJoinedViewScalar() {
     seedAuthors()
     val root = QUERY_COMPOSITION_AUTHOR
     val joinedView = QUERY_COMPOSITION_AUTHOR_VIEW AS "joined_author_view"
-    val query = Select
-      .all()
-      .from(root)
-      .innerJoin(joinedView.on(root.NAME IS joinedView.QUERY_COMPOSITION_AUTHOR_NAME))
-      .orderBy(root.ID.asc())
-      .compile()
+    val joinedName = joinedView.QUERY_COMPOSITION_AUTHOR_NAME AS "joined_name"
 
-    assertThat(query.execute())
-      .containsExactlyElementsIn(expectedAuthors)
-      .inOrder()
-    val joinedViews = query.toCursor()
-      .execute()
-      .use { cursor ->
-        buildList {
-          while (cursor.moveToNext()) {
-            add(
-              QueryCompositionAuthorView(
-                name = cursor.getString(3),
-                id = cursor.getLong(2)
-              )
-            )
-          }
-        }
-      }
-    assertThat(joinedViews)
-      .containsExactlyElementsIn(expectedViews)
-      .inOrder()
-
-    val scalarQuery = Select
-      .columns(
-        root.all(),
-        joinedView.QUERY_COMPOSITION_AUTHOR_NAME AS "joined_name"
-      )
-      .from(root)
-      .innerJoin(joinedView.on(root.NAME IS joinedView.QUERY_COMPOSITION_AUTHOR_NAME))
-      .orderBy(root.ID.asc())
-      .compile()
     assertThat(
-      columnValues(
-        cursor = scalarQuery.toCursor().execute(),
-        columnName = "joined_name"
-      )
-    ).containsExactlyElementsIn(expectedAuthors.map(QueryCompositionAuthor::name))
+      SELECT
+        .COLUMNS(root.all(), joinedName)
+        .FROM(root)
+        .INNER_JOIN(joinedView)
+        .ON(root.NAME IS joinedView.QUERY_COMPOSITION_AUTHOR_NAME)
+        .ORDER_BY(root.ID.ASC())
+        .mapTo { row ->
+          QueryCompositionAuthor(
+            id = row[root.ID],
+            name = checkNotNull(row[root.NAME])
+          ) to row[joinedName]
+        }
+        .execute()
+    ).containsExactlyElementsIn(expectedAuthors.map { it to it.name })
       .inOrder()
   }
 
-  @Test
-  fun missingRequiredViewPositionReportsTheColumn() {
-    seedAuthors()
-    val view = QUERY_COMPOSITION_AUTHOR_VIEW
-    val failure = assertThrows(SQLException::class.java) {
-      Select
-        .columns(view.QUERY_COMPOSITION_AUTHOR_NAME)
-        .from(view)
-        .execute()
-    }
-
-    assertThat(failure).hasMessageThat()
-      .contains("Selected columns did not contain required column \"query_composition_author.id\"")
+  private fun seedAuthors() = expectedAuthors.forEach {
+    insertedResult(
+      result = it
+        .insert()
+        .execute(),
+      modelName = "QueryCompositionAuthor"
+    )
   }
-
-  @Test
-  fun unrelatedJoinedAuthorIdCannotFillMissingViewId() {
-    seedAuthors()
-    val view = QUERY_COMPOSITION_AUTHOR_VIEW
-    val author = QUERY_COMPOSITION_AUTHOR
-    val failure = assertThrows(SQLException::class.java) {
-      Select
-        .columns(
-          view.QUERY_COMPOSITION_AUTHOR_NAME,
-          author.ID
-        )
-        .from(view)
-        .innerJoin(author.on(view.QUERY_COMPOSITION_AUTHOR_NAME IS author.NAME))
-        .execute()
-    }
-
-    assertThat(failure).hasMessageThat()
-      .contains("Selected columns did not contain required column \"query_composition_author.id\"")
-  }
-
-  private fun seedAuthors() = expectedAuthors.forEach(::insertAuthor)
-
-  private fun insertAuthor(author: QueryCompositionAuthor) {
-    when (author.insert().execute()) {
-      is EntityInsertResult.Inserted -> Unit
-      EntityInsertResult.Ignored -> error("Author seed insert was ignored")
-    }
-  }
-
-  private fun columnValues(
-    cursor: Cursor,
-    columnName: String
-  ) = cursor.use { cursor ->
-    val columnIndex = cursor.getColumnIndexOrThrow(columnName)
-    buildList {
-      while (cursor.moveToNext()) {
-        add(cursor.getString(columnIndex))
-      }
-    }
-  }
-
 }

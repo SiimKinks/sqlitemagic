@@ -1,28 +1,11 @@
 package com.siimkinks.sqlitemagic.runtime.contract.trigger
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
-import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import io.reactivex.observers.TestObserver
-
-internal fun <T> observeRows(table: Table<T>) = Select
-  .from(table)
-  .queryDeep()
-  .observe()
-  .runQuery()
-  .test()
-
-internal fun insertedResult(
-  result: EntityInsertResult,
-  modelName: String
-) = when (result) {
-  is EntityInsertResult.Inserted -> result
-  EntityInsertResult.Ignored -> throw AssertionError("Insert was ignored for $modelName")
-}
 
 internal fun <T, R> assertOneQueryInvalidation(
   modelCase: RuntimeModelCase<T>,
@@ -87,7 +70,5 @@ internal fun assertNoRefresh(
 private fun <T> assertObservedRows(
   observer: TestObserver<List<T>>,
   expected: List<T>
-) {
-  assertThat(observer.values().last())
-    .containsExactlyElementsIn(expected)
-}
+) = assertThat(observer.values().last())
+  .containsExactlyElementsIn(expected)

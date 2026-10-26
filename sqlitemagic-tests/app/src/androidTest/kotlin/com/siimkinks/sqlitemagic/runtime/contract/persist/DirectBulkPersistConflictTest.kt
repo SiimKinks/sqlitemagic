@@ -1,111 +1,118 @@
 package com.siimkinks.sqlitemagic.runtime.contract.persist
 
+import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class DirectBulkPersistConflictTest(
+internal class DirectBulkPersistConflictTest(
   private val modelCase: PersistConflictModelCase<*>
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
-  fun executeWithInsertFallbackConflictAndDefaultAlgorithmReturnsFalseAndRestoresSnapshot() {
+  fun executeWithInsertFallbackConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRestoresSnapshot() =
     assertInsertConflict(
       modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
+      terminal = EXECUTE
     )
-  }
 
   @Test
-  fun observeWithInsertFallbackConflictAndDefaultAlgorithmEmitsOperationFailedExceptionAndRestoresSnapshot() {
+  fun observeWithInsertFallbackConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRestoresSnapshot() =
     assertInsertConflict(
       modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
+      terminal = OBSERVE
     )
-  }
 
   @Test
-  fun executeWithUpdatePathConflictAndDefaultAlgorithmReturnsFalseAndRestoresSnapshot() {
+  fun executeWithUpdatePathConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRestoresSnapshot() =
     assertUpdateConflict(
       modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
+      terminal = EXECUTE
     )
-  }
 
   @Test
-  fun observeWithUpdatePathConflictAndDefaultAlgorithmEmitsOperationFailedExceptionAndRestoresSnapshot() {
+  fun observeWithUpdatePathConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRestoresSnapshot() =
     assertUpdateConflict(
       modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
+      terminal = OBSERVE
     )
-  }
 
   @Test
-  fun executeWithMixedConflictsAndConflictIgnoreReturnsTrueAndCommitsSuccessfulOperations() {
-    assertMixedConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun executeWithMixedConflictsAndConflictIgnoreReturnsTrueAndCommitsSuccessfulOperations() = assertMixedConflict(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun observeWithMixedConflictsAndConflictIgnoreCompletesAndCommitsSuccessfulOperations() {
-    assertMixedConflict(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun observeWithMixedConflictsAndConflictIgnoreCompletesAndCommitsSuccessfulOperations() = assertMixedConflict(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun executeWithAllConflictsAndConflictIgnoreReturnsFalseAndLeavesSeedUnchanged() {
-    assertAllConflicts(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+  fun executeWithAllConflictsAndConflictIgnoreReturnsFalseAndLeavesSeedUnchanged() = assertAllConflicts(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun observeWithAllConflictsAndConflictIgnoreCompletesAndLeavesSeedUnchanged() {
-    assertAllConflicts(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun observeWithAllConflictsAndConflictIgnoreCompletesAndLeavesSeedUnchanged() = assertAllConflicts(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   private fun <T> assertInsertConflict(
     modelCase: PersistConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = insertConflictScenario(modelCase = modelCase)
+    val before = seedRows(
+      modelCase = modelCase,
+      count = 1
+    )
+    val values = listOf(
+      modelCase.newValue(sequence = 2),
+      modelCase.valueWithInsertConflict(
+        existing = before.single(),
+        sequence = 3
+      ),
+      modelCase.newValue(sequence = 4)
+    )
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
         bulkPersist(
           modelCase = modelCase,
-          values = scenario.values
+          values = values
         ).execute()
-      ).isFalse()
-      OperationTerminal.OBSERVE -> bulkPersist(
+      }
+      OBSERVE -> bulkPersist(
         modelCase = modelCase,
-        values = scenario.values
+        values = values
       )
         .observe()
         .test()
-        .assertFailure(OperationFailedException::class.java)
+        .assertFailure(SQLiteConstraintException::class.java)
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
-      expected = scenario.before
+      expected = before
     )
   }
 
@@ -113,26 +120,42 @@ class DirectBulkPersistConflictTest(
     modelCase: PersistConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = updateConflictScenario(modelCase = modelCase)
+    val before = seedRows(
+      modelCase = modelCase,
+      count = 2
+    )
+    val values = listOf(
+      modelCase.valueWithUpdateConflict(
+        existing = before[0],
+        conflicting = before[0],
+        sequence = 3
+      ),
+      modelCase.valueWithUpdateConflict(
+        existing = before[1],
+        conflicting = before[0],
+        sequence = 4
+      ),
+      modelCase.newValue(sequence = 5)
+    )
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
         bulkPersist(
           modelCase = modelCase,
-          values = scenario.values
+          values = values
         ).execute()
-      ).isFalse()
-      OperationTerminal.OBSERVE -> bulkPersist(
+      }
+      OBSERVE -> bulkPersist(
         modelCase = modelCase,
-        values = scenario.values
+        values = values
       )
         .observe()
         .test()
-        .assertFailure(OperationFailedException::class.java)
+        .assertFailure(SQLiteConstraintException::class.java)
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
-      expected = scenario.before
+      expected = before
     )
   }
 
@@ -140,19 +163,41 @@ class DirectBulkPersistConflictTest(
     modelCase: PersistConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = mixedConflictScenario(modelCase = modelCase)
+    val before = seedRows(
+      modelCase = modelCase,
+      count = 2
+    )
+    val successfulUpdate = modelCase.valueWithUpdateConflict(
+      existing = before[0],
+      conflicting = before[0],
+      sequence = 3
+    )
+    val successfulInsert = modelCase.newValue(sequence = 6)
+    val values = listOf(
+      successfulUpdate,
+      modelCase.valueWithInsertConflict(
+        existing = before[1],
+        sequence = 4
+      ),
+      modelCase.valueWithUpdateConflict(
+        existing = before[1],
+        conflicting = before[0],
+        sequence = 5
+      ),
+      successfulInsert
+    )
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         bulkPersist(
           modelCase = modelCase,
-          values = scenario.values,
+          values = values,
           conflictAlgorithm = CONFLICT_IGNORE
         ).execute()
       ).isTrue()
-      OperationTerminal.OBSERVE -> bulkPersist(
+      OBSERVE -> bulkPersist(
         modelCase = modelCase,
-        values = scenario.values,
+        values = values,
         conflictAlgorithm = CONFLICT_IGNORE
       )
         .observe()
@@ -161,7 +206,11 @@ class DirectBulkPersistConflictTest(
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
-      expected = scenario.expected
+      expected = listOf(
+        successfulUpdate,
+        before[1],
+        successfulInsert
+      )
     )
   }
 
@@ -169,19 +218,33 @@ class DirectBulkPersistConflictTest(
     modelCase: PersistConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = allConflictsScenario(modelCase = modelCase)
+    val before = seedRows(
+      modelCase = modelCase,
+      count = 2
+    )
+    val values = listOf(
+      modelCase.valueWithInsertConflict(
+        existing = before[0],
+        sequence = 3
+      ),
+      modelCase.valueWithUpdateConflict(
+        existing = before[1],
+        conflicting = before[0],
+        sequence = 4
+      )
+    )
 
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
+      EXECUTE -> assertThat(
         bulkPersist(
           modelCase = modelCase,
-          values = scenario.values,
+          values = values,
           conflictAlgorithm = CONFLICT_IGNORE
         ).execute()
       ).isFalse()
-      OperationTerminal.OBSERVE -> bulkPersist(
+      OBSERVE -> bulkPersist(
         modelCase = modelCase,
-        values = scenario.values,
+        values = values,
         conflictAlgorithm = CONFLICT_IGNORE
       )
         .observe()
@@ -190,7 +253,7 @@ class DirectBulkPersistConflictTest(
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
-      expected = scenario.before
+      expected = before
     )
   }
 
@@ -202,122 +265,9 @@ class DirectBulkPersistConflictTest(
     .bulkPersist(values = values)
     .withConflictAlgorithm(conflictAlgorithm)
 
-  private fun <T> insertConflictScenario(
-    modelCase: PersistConflictModelCase<T>
-  ): DirectBulkPersistScenario<T> {
-    val before = seedRows(
-      modelCase = modelCase,
-      count = 1
-    )
-    return DirectBulkPersistScenario(
-      before = before,
-      values = listOf(
-        modelCase.newValue(sequence = 2),
-        modelCase.valueWithInsertConflict(
-          existing = before.single(),
-          sequence = 3
-        ),
-        modelCase.newValue(sequence = 4)
-      ),
-      expected = before
-    )
-  }
-
-  private fun <T> updateConflictScenario(
-    modelCase: PersistConflictModelCase<T>
-  ): DirectBulkPersistScenario<T> {
-    val before = seedRows(
-      modelCase = modelCase,
-      count = 2
-    )
-    return DirectBulkPersistScenario(
-      before = before,
-      values = listOf(
-        modelCase.valueWithUpdateConflict(
-          existing = before[0],
-          conflicting = before[0],
-          sequence = 3
-        ),
-        modelCase.valueWithUpdateConflict(
-          existing = before[1],
-          conflicting = before[0],
-          sequence = 4
-        ),
-        modelCase.newValue(sequence = 5)
-      ),
-      expected = before
-    )
-  }
-
-  private fun <T> mixedConflictScenario(
-    modelCase: PersistConflictModelCase<T>
-  ): DirectBulkPersistScenario<T> {
-    val before = seedRows(
-      modelCase = modelCase,
-      count = 2
-    )
-    val successfulUpdate = modelCase.valueWithUpdateConflict(
-      existing = before[0],
-      conflicting = before[0],
-      sequence = 3
-    )
-    val successfulInsert = modelCase.newValue(sequence = 6)
-    return DirectBulkPersistScenario(
-      before = before,
-      values = listOf(
-        successfulUpdate,
-        modelCase.valueWithInsertConflict(
-          existing = before[1],
-          sequence = 4
-        ),
-        modelCase.valueWithUpdateConflict(
-          existing = before[1],
-          conflicting = before[0],
-          sequence = 5
-        ),
-        successfulInsert
-      ),
-      expected = listOf(
-        successfulUpdate,
-        before[1],
-        successfulInsert
-      )
-    )
-  }
-
-  private fun <T> allConflictsScenario(
-    modelCase: PersistConflictModelCase<T>
-  ): DirectBulkPersistScenario<T> {
-    val before = seedRows(
-      modelCase = modelCase,
-      count = 2
-    )
-    return DirectBulkPersistScenario(
-      before = before,
-      values = listOf(
-        modelCase.valueWithInsertConflict(
-          existing = before[0],
-          sequence = 3
-        ),
-        modelCase.valueWithUpdateConflict(
-          existing = before[1],
-          conflicting = before[0],
-          sequence = 4
-        )
-      ),
-      expected = before
-    )
-  }
-
-  private data class DirectBulkPersistScenario<T>(
-    val before: List<T>,
-    val values: List<T>,
-    val expected: List<T>
-  )
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.persistConflictCases
   }
 }

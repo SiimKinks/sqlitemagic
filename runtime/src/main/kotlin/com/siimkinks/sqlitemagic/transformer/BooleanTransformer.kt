@@ -13,5 +13,5 @@ object BooleanTransformer {
   }
 
   @DbValueToObject
-  fun dbValueToObject(dbObject: Int?) = dbObject?.equals(1)
+  fun dbValueToObject(dbObject: Int?) = dbObject?.let { it != 0 }
 }

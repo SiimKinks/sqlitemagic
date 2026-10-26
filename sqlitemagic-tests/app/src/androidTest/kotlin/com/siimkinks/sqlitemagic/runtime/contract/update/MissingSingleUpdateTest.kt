@@ -3,55 +3,54 @@ package com.siimkinks.sqlitemagic.runtime.contract.update
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqliteMagic
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UpdateModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
+import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.seed
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
-class MissingSingleUpdateTest(
+internal class MissingSingleUpdateTest(
   private val modelCase: UpdateModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeWithMissingRowAndDefaultAlgorithmReturnsFalse() {
-    assertMissingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE
-    )
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeWithMissingRowAndDefaultAlgorithmEmitsOperationFailedException() {
-    assertMissingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE
-    )
-  }
+  fun executeWithMissingRowAndDefaultAlgorithmReturnsFalse() = assertMissingRow(
+    modelCase = modelCase,
+    terminal = EXECUTE
+  )
 
   @Test
-  fun executeWithMissingRowAndConflictIgnoreReturnsFalse() {
-    assertMissingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.EXECUTE,
-      conflictAlgorithm = CONFLICT_IGNORE
-    )
-  }
+  fun observeWithMissingRowAndDefaultAlgorithmEmitsOperationFailedException() = assertMissingRow(
+    modelCase = modelCase,
+    terminal = OBSERVE
+  )
 
   @Test
-  fun observeWithMissingRowAndConflictIgnoreCompletes() {
-    assertMissingRow(
-      modelCase = modelCase,
-      terminal = OperationTerminal.OBSERVE,
-      conflictAlgorithm = CONFLICT_IGNORE
-    )
-  }
+  fun executeWithMissingRowAndConflictIgnoreReturnsFalse() = assertMissingRow(
+    modelCase = modelCase,
+    terminal = EXECUTE,
+    conflictAlgorithm = CONFLICT_IGNORE
+  )
+
+  @Test
+  fun observeWithMissingRowAndConflictIgnoreCompletes() = assertMissingRow(
+    modelCase = modelCase,
+    terminal = OBSERVE,
+    conflictAlgorithm = CONFLICT_IGNORE
+  )
 
   private fun <T> assertMissingRow(
     modelCase: UpdateModelCase<T>,
@@ -60,38 +59,30 @@ class MissingSingleUpdateTest(
   ) {
     val value = missingValue(modelCase)
     when (terminal) {
-      OperationTerminal.EXECUTE -> assertThat(
-        when (conflictAlgorithm) {
-          null -> modelCase.executeUpdate(value = value)
-          else -> modelCase.executeUpdate(
-            value = value,
-            conflictAlgorithm = conflictAlgorithm
-          )
-        }
+      EXECUTE -> assertThat(
+        modelCase.executeUpdate(
+          value = value,
+          conflictAlgorithm = conflictAlgorithm
+        )
       ).isFalse()
-      OperationTerminal.OBSERVE -> when (conflictAlgorithm) {
-        null -> modelCase
-          .observeUpdate(value = value)
-          .test()
-          .assertFailure(OperationFailedException::class.java)
-        else -> modelCase
+      OBSERVE -> {
+        val observer = modelCase
           .observeUpdate(
             value = value,
             conflictAlgorithm = conflictAlgorithm
           )
           .test()
-          .assertComplete()
+        when (conflictAlgorithm) {
+          null -> observer.assertFailure(OperationFailedException::class.java)
+          else -> observer.assertComplete()
+        }
       }
     }
     assertEmptyState(modelCase = modelCase)
   }
 
   private fun <T> missingValue(modelCase: UpdateModelCase<T>): T {
-    val seed = modelCase.newValue(sequence = 1)
-    when (modelCase.insert(value = seed).execute()) {
-      is EntityInsertResult.Inserted -> Unit
-      EntityInsertResult.Ignored -> throw AssertionError("Seed insert was ignored for ${modelCase.name}")
-    }
+    modelCase.seed()
     val persisted = captureRows(table = modelCase.table)
       .single()
     SqliteMagic
@@ -102,15 +93,14 @@ class MissingSingleUpdateTest(
 
   private fun <T> assertEmptyState(modelCase: UpdateModelCase<T>) {
     assertThat(captureRows(table = modelCase.table)).isEmpty()
-    when (modelCase) {
-      is RecursiveBulkUpdateModelCase<*> -> assertThat(captureRows(table = modelCase.relatedTable)).isEmpty()
-      else -> Unit
+    if (modelCase is RecursiveBulkUpdateModelCase<*>) {
+      assertThat(captureRows(table = modelCase.relatedTable)).isEmpty()
     }
   }
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.updateCases
   }
 }

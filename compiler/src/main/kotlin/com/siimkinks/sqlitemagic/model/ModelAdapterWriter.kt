@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_DEFAULT_IDENTITY_COLUMN
+import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_DEFAULT_IDENTITY_COLUMN_NAME
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_INSERT_SQL
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_MAX_COLUMNS
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_MODULE_NAME
@@ -11,7 +11,6 @@ import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TRIGGER_TABLE_NAMES
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_WITHOUT_ROW_ID
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_ASSIGN_GENERATED_ID
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_BY_COLUMN
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_HAS_IDENTITY_VALUE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_IDENTITY
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_INSERT
@@ -22,6 +21,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_REMEMBER_GENERATED_ID
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE_RELATIONSHIPS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE_STATEMENT_SQL
+import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_IDENTITY_COLUMN_NAME
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_OPERATIONS
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_ADAPTER
@@ -32,11 +32,13 @@ import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_INSERT_RESULT
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_PERSIST_RESULT
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_RECURSIVE_ADAPTER
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_RELATIONSHIP_OPERATIONS
-import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_ENTITY_IDENTITY
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
-import com.siimkinks.sqlitemagic.WriterTypes.UNCHECKED_CAST
-import com.siimkinks.sqlitemagic.annotation.TableOption
+import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
+import com.siimkinks.sqlitemagic.utils.callCode
+import com.siimkinks.sqlitemagic.utils.namedArgument
+import com.squareup.kotlinpoet.ANY
 import com.squareup.kotlinpoet.BOOLEAN
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -50,7 +52,6 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.joinToCode
 
 internal class ModelAdapterWriter(
   private val environment: Environment
@@ -85,14 +86,18 @@ internal class ModelAdapterWriter(
         metadataProperty(
           name = FIELD_TABLE_POSITION,
           type = INT,
-          initializer = table.tablePositionInitializer()
+          initializer = CodeBlock.of(
+            "%T.%N",
+            environment.getGenClassesManagerClassName(),
+            table.tablePositionPropertyName
+          )
         )
       )
       .addProperty(
         metadataProperty(
           name = FIELD_WITHOUT_ROW_ID,
           type = BOOLEAN,
-          initializer = CodeBlock.of("%L", TableOption.WITHOUT_ROWID in table.options)
+          initializer = CodeBlock.of("%L", WITHOUT_ROWID in table.options)
         )
       )
       .addProperty(
@@ -119,34 +124,22 @@ internal class ModelAdapterWriter(
             addProperty(defaultIdentityColumn(table))
           }
         }
-        table.generatedIdAssignmentColumn?.let { idColumn ->
+        table.generatedIdAssignmentColumn?.let {
           addFunction(
             assignGeneratedId(
               table = table,
-              idColumn = idColumn
+              idColumn = it
             )
           )
         }
         if (table.hasRecursiveRelationships) {
-          addFunction(
-            relationshipOperation(
-              table = table,
-              functionName = METHOD_INSERT_RELATIONSHIPS,
-              resultType = ENTITY_INSERT_RESULT
-            )
-          )
-          addFunction(
-            relationshipOperation(
-              table = table,
-              functionName = METHOD_UPDATE_RELATIONSHIPS
-            )
-          )
-          addFunction(
-            relationshipOperation(
-              table = table,
-              functionName = METHOD_PERSIST_RELATIONSHIPS,
-              resultType = ENTITY_PERSIST_RESULT
-            )
+          addFunctions(
+            RelationshipOperation.entries.map {
+              relationshipOperation(
+                table = table,
+                operation = it
+              )
+            }
           )
         }
       }
@@ -185,12 +178,7 @@ internal class ModelAdapterWriter(
   private fun moduleName() = PropertySpec
     .builder(name = FIELD_MODULE_NAME, type = STRING.copy(nullable = true))
     .addModifiers(OVERRIDE)
-    .apply {
-      when (val moduleName = environment.submoduleName) {
-        null -> initializer("null")
-        else -> initializer("%S", moduleName)
-      }
-    }
+    .initializer("%S", environment.submoduleName)
     .build()
 
   private fun triggerTableNames(table: TableElement): PropertySpec {
@@ -211,183 +199,156 @@ internal class ModelAdapterWriter(
       .builder(name = FIELD_TRIGGER_TABLE_NAMES, type = STRING_ARRAY)
       .addModifiers(OVERRIDE)
       .initializer(
-        "arrayOf(%L)",
-        tableNames.joinToCode { CodeBlock.of("%S", it) }
+        callCode(
+          callee = CodeBlock.of("arrayOf"),
+          arguments = tableNames.map { CodeBlock.of("%S", it) }
+        )
       )
       .build()
   }
 
   private fun relationshipOperation(
     table: TableElement,
-    functionName: String,
-    resultType: TypeName? = null
-  ): FunSpec {
-    val operationName = when (functionName) {
-      METHOD_INSERT_RELATIONSHIPS -> METHOD_INSERT
-      METHOD_UPDATE_RELATIONSHIPS -> METHOD_UPDATE
-      METHOD_PERSIST_RELATIONSHIPS -> METHOD_PERSIST
-      else -> error("Unsupported relationship operation: $functionName")
-    }
-    val function = FunSpec
-      .builder(functionName)
-      .addModifiers(OVERRIDE)
-      .addParameter(name = "entity", type = table.modelClassName)
-      .addParameter(name = VARIABLE_OPERATIONS, type = ENTITY_RELATIONSHIP_OPERATIONS)
-      .returns(BOOLEAN)
-      .addStatement("var successful = true")
-    table.recursiveRelationshipColumns.forEach { column ->
-      val referencedTable = checkNotNull(
-        environment.tableElements[column.relationship?.referencedTableTypeKey]
-      )
-      val access = table.readExpression(column)
-      if (column.isModelPathNullable) {
-        function.beginControlFlow("%L?.let", access)
-      }
-      val relationshipEntity = when {
-        column.isModelPathNullable -> CodeBlock.of("it")
-        else -> access
-      }
-      val operation = CodeBlock.of(
-        "%N.%N(adapter = %T, entity = %L)",
-        VARIABLE_OPERATIONS,
-        operationName,
-        referencedTable.generationNames.adapterClassName,
-        relationshipEntity
-      )
-      when (functionName) {
-        METHOD_UPDATE_RELATIONSHIPS -> function
-          .beginControlFlow("if (!%L)", operation)
-          .addStatement("successful = false")
-          .endControlFlow()
-        METHOD_INSERT_RELATIONSHIPS,
-        METHOD_PERSIST_RELATIONSHIPS -> {
-          val relationshipResultType = checkNotNull(resultType)
-          when {
-            !column.needsGeneratedRelationshipId(environment) -> function
-              .beginControlFlow("if (%L is %T.Ignored)", operation, relationshipResultType)
+    operation: RelationshipOperation
+  ) = FunSpec
+    .builder(operation.functionName)
+    .addModifiers(OVERRIDE)
+    .addParameter(name = "entity", type = table.modelClassName)
+    .addParameter(name = VARIABLE_OPERATIONS, type = ENTITY_RELATIONSHIP_OPERATIONS)
+    .returns(BOOLEAN)
+    .addStatement("var successful = true")
+    .apply {
+      table.recursiveRelationshipColumns.forEach { column ->
+        val access = table.readExpression(column)
+        if (column.isModelPathNullable) {
+          beginControlFlow("%L?.let", access)
+        }
+        val relationshipEntity = when {
+          column.isModelPathNullable -> CodeBlock.of("it")
+          else -> access
+        }
+        val operationCall = CodeBlock.of(
+          "%N.%N(adapter = %T, entity = %L)",
+          VARIABLE_OPERATIONS,
+          operation.operationName,
+          checkNotNull(column.relationship).referencedTableNames.adapterClassName,
+          relationshipEntity
+        )
+        when (val resultType = operation.resultType) {
+          null -> beginControlFlow("if (!%L)", operationCall)
+            .addStatement("successful = false")
+            .endControlFlow()
+          else -> when {
+            !column.needsGeneratedRelationshipId -> beginControlFlow(
+              "if (%L is %T.Ignored)",
+              operationCall,
+              resultType
+            )
               .addStatement("successful = false")
               .endControlFlow()
-            else -> function
-              .beginControlFlow("when (val result = %L)", operation)
-              .addStatement("is %T.Ignored -> successful = false", relationshipResultType)
+            else -> beginControlFlow("when (val result = %L)", operationCall)
+              .addStatement("is %T.Ignored -> successful = false", resultType)
               .apply {
-                if (functionName == METHOD_PERSIST_RELATIONSHIPS) {
-                  addStatement("is %T.Updated -> Unit", relationshipResultType)
+                if (operation == RelationshipOperation.PERSIST) {
+                  addStatement("is %T.Updated -> Unit", resultType)
                 }
               }
-              .beginControlFlow("is %T.Inserted ->", relationshipResultType)
+              .beginControlFlow("is %T.Inserted ->", resultType)
+              .beginControlFlow("result.rowId?.let")
               .addStatement(
-                "result.rowId?.let { %N.%N(columnName = %S, rowId = it) }",
-                VARIABLE_OPERATIONS,
-                METHOD_REMEMBER_GENERATED_ID,
-                column.columnName
+                "%L",
+                callCode(
+                  callee = CodeBlock.of("%N.%N", VARIABLE_OPERATIONS, METHOD_REMEMBER_GENERATED_ID),
+                  arguments = listOf(
+                    namedArgument("columnName", "%S", column.columnName),
+                    namedArgument("rowId", "it")
+                  )
+                )
               )
+              .endControlFlow()
               .endControlFlow()
               .endControlFlow()
           }
         }
-      }
-      if (column.isModelPathNullable) {
-        function.endControlFlow()
+        if (column.isModelPathNullable) {
+          endControlFlow()
+        }
       }
     }
-    return function
-      .addStatement("return successful")
-      .build()
-  }
+    .addStatement("return successful")
+    .build()
 
   private fun identity(table: TableElement) = FunSpec
     .builder(METHOD_IDENTITY)
     .addModifiers(OVERRIDE)
     .addParameter(name = "entity", type = table.modelClassName)
-    .addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
-    .returns(GENERATED_ENTITY_IDENTITY)
-    .apply {
-      table.identityColumns.forEach { column ->
-        beginControlFlow(
-          "if (byColumn == %T.%N.%N)",
-          table.generationNames.tableClassName,
-          table.structureFieldName,
-          column.fieldName
+    .addParameter(name = VARIABLE_IDENTITY_COLUMN_NAME, type = STRING)
+    .returns(ANY)
+    .addIdentityDispatch(table = table) { column ->
+      when {
+        column.identityValueCanBeNull -> CodeBlock.of(
+          "requireNotNull(%L) { %S }",
+          table.serializedReadExpression(column),
+          "Entity identity value cannot be null: ${column.columnName}"
         )
-          .addIdentityResult(
-            table = table,
-            column = column
-          )
-          .endControlFlow()
+        else -> table.serializedReadExpression(column)
       }
     }
-    .addStatement("throw %T(%S)", IllegalArgumentException::class, "Column does not identify an entity property")
     .build()
-
-  private fun FunSpec.Builder.addIdentityResult(
-    table: TableElement,
-    column: ColumnElement
-  ) = addStatement(
-    "return %T(columnName = %S, serializedValue = %L)",
-    GENERATED_ENTITY_IDENTITY,
-    column.columnName,
-    identityValue(table, column)
-  )
 
   private fun hasIdentityValue(table: TableElement) = FunSpec
     .builder(METHOD_HAS_IDENTITY_VALUE)
     .addModifiers(OVERRIDE)
     .addParameter(name = "entity", type = table.modelClassName)
-    .addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
+    .addParameter(name = VARIABLE_IDENTITY_COLUMN_NAME, type = STRING)
     .returns(BOOLEAN)
-    .apply {
-      table.identityColumns.forEach { column ->
-        beginControlFlow(
-          "if (byColumn == %T.%N.%N)",
-          table.generationNames.tableClassName,
-          table.structureFieldName,
-          column.fieldName
+    .addIdentityDispatch(table = table) { column ->
+      when {
+        column.identityValueCanBeNull -> CodeBlock.of(
+          "%L != null",
+          table.serializedReadExpression(column)
         )
-        when {
-          column.isSchemaNullable || column.serializedValueCanBeNull -> addStatement(
-            "return %L != null",
-            table.serializedReadExpression(column)
-          )
-          else -> addStatement("return true")
-        }
-        endControlFlow()
+        else -> CodeBlock.of("true")
       }
     }
-    .addStatement("throw %T(%S)", IllegalArgumentException::class, "Column does not identify an entity property")
     .build()
 
   private fun updateStatementSql(table: TableElement) = FunSpec
     .builder(METHOD_UPDATE_STATEMENT_SQL)
     .addModifiers(OVERRIDE)
-    .addParameter(name = METHOD_BY_COLUMN, type = table.byColumnType)
+    .addParameter(name = VARIABLE_IDENTITY_COLUMN_NAME, type = STRING)
     .returns(STRING)
-    .apply {
-      table.identityColumns.forEach { identityColumn ->
-        beginControlFlow(
-          "if (byColumn == %T.%N.%N)",
-          table.generationNames.tableClassName,
-          table.structureFieldName,
-          identityColumn.fieldName
-        )
-          .addStatement("return %S", table.updateSql(identityColumn))
-          .endControlFlow()
-      }
-    }
-    .addStatement("throw %T(%S)", IllegalArgumentException::class, "Column does not identify an entity property")
+    .addIdentityDispatch(table = table) { CodeBlock.of("%S", table.updateSql(it)) }
     .build()
 
+  private fun FunSpec.Builder.addIdentityDispatch(
+    table: TableElement,
+    value: (ColumnElement) -> CodeBlock
+  ): FunSpec.Builder {
+    val values = table.identityColumns.map(value)
+    return when {
+      values.distinct().size == 1 -> addStatement("return %L", values.first())
+      else -> beginControlFlow("return when (%N)", VARIABLE_IDENTITY_COLUMN_NAME)
+        .apply {
+          values.forEachIndexed { index, columnValue ->
+            addStatement(
+              "%L -> %L",
+              identityBranch(
+                columns = table.identityColumns,
+                index = index
+              ),
+              columnValue
+            )
+          }
+        }
+        .endControlFlow()
+    }
+  }
+
   private fun defaultIdentityColumn(table: TableElement) = PropertySpec
-    .builder(name = FIELD_DEFAULT_IDENTITY_COLUMN, type = table.byColumnType)
-    .addAnnotation(UNCHECKED_CAST)
+    .builder(name = FIELD_DEFAULT_IDENTITY_COLUMN_NAME, type = STRING)
     .addModifiers(OVERRIDE)
-    .initializer(
-      "%T.%N.%N as %T",
-      table.generationNames.tableClassName,
-      table.structureFieldName,
-      checkNotNull(table.idColumn).fieldName,
-      table.byColumnType
-    )
+    .initializer("%S", checkNotNull(table.idColumn).columnName)
     .build()
 
   private fun assignGeneratedId(
@@ -405,18 +366,6 @@ internal class ModelAdapterWriter(
     )
     .build()
 
-  private fun identityValue(
-    table: TableElement,
-    column: ColumnElement
-  ) = CodeBlock.of(
-    when (column.sqlStorageType) {
-      SqlStorageType.STRING -> "requireNotNull(%L) { %S }"
-      else -> "requireNotNull(%L) { %S }.toString()"
-    },
-    table.serializedReadExpression(column),
-    "Entity identity value cannot be null: ${column.columnName}"
-  )
-
   private fun generatedIdValue(idColumn: ColumnElement): CodeBlock {
     val serializedValue = when (idColumn.sqlStorageType) {
       SqlStorageType.INT -> CodeBlock.of("rowId.toInt()")
@@ -428,10 +377,46 @@ internal class ModelAdapterWriter(
       ?.deserializedValueGetter(serializedValue)
       ?: serializedValue
   }
+}
 
-  private fun TableElement.tablePositionInitializer() = CodeBlock.of(
-    "%T.%N",
-    environment.getGenClassesManagerClassName(),
-    tablePositionPropertyName
+private enum class RelationshipOperation(
+  val functionName: String,
+  val operationName: String,
+  val resultType: ClassName?
+) {
+  INSERT(
+    functionName = METHOD_INSERT_RELATIONSHIPS,
+    operationName = METHOD_INSERT,
+    resultType = ENTITY_INSERT_RESULT
+  ),
+  UPDATE(
+    functionName = METHOD_UPDATE_RELATIONSHIPS,
+    operationName = METHOD_UPDATE,
+    resultType = null
+  ),
+  PERSIST(
+    functionName = METHOD_PERSIST_RELATIONSHIPS,
+    operationName = METHOD_PERSIST,
+    resultType = ENTITY_PERSIST_RESULT
   )
+}
+
+private val ColumnElement.identityValueCanBeNull get() = isSchemaNullable || serializedValueCanBeNull
+
+private fun TableElement.insertSql() = when {
+  columnsForInsert.isEmpty() -> "INSERT%s INTO $tableName DEFAULT VALUES"
+  else -> {
+    val names = columnsForInsert.joinToString(separator = ", ", transform = ColumnElement::columnName)
+    val values = columnsForInsert.joinToString(separator = ", ") { "?" }
+    "INSERT%s INTO $tableName ($names) VALUES ($values)"
+  }
+}
+
+private fun TableElement.updateSql(identityColumn: ColumnElement): String {
+  val columns = allColumns.filterNot { it === identityColumn || it.isId }
+  val setters = when {
+    columns.isEmpty() -> "${identityColumn.columnName}=${identityColumn.columnName}"
+    else -> columns.joinToString(separator = ", ") { "${it.columnName}=?" }
+  }
+  return "UPDATE%s $tableName SET $setters WHERE ${identityColumn.columnName}=?"
 }

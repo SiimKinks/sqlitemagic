@@ -2,37 +2,47 @@ package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import android.annotation.SuppressLint
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Select
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @SuppressLint("CheckResult")
 @RunWith(Parameterized::class)
-class FullModelFirstQueryTest(
+internal class FullModelFirstQueryTest(
   private val modelCase: InsertModelCase<*>
-) : RuntimeDatabaseTest() {
-  @Test
-  fun executeReturnsFirstExpectedModel() {
-    assertFirstExecute(modelCase = modelCase)
-  }
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun observeRunQueryOnceReturnsFirstExpectedModel() {
-    assertFirstObserved(modelCase = modelCase)
-  }
+  fun executeReturnsFirstExpectedModel() = assertFirstExecute(modelCase = modelCase)
+
+  @Test
+  fun observeRunQueryOnceReturnsFirstExpectedModel() = assertFirstObserved(modelCase = modelCase)
 
   @Test
   fun executeReturnsNullForEmptyTable() {
-    assertEmptyFirstExecute(modelCase = modelCase)
+    assertThat(
+      SELECT.FROM(modelCase.table)
+        .takeFirst()
+        .execute()
+    ).isNull()
   }
 
   @Test
   fun observeRunQueryOnceReturnsNoValueForEmptyTable() {
-    assertEmptyFirstObserved(modelCase = modelCase)
+    SELECT.FROM(modelCase.table)
+      .takeFirst()
+      .observe()
+      .runQueryOnce()
+      .test()
+      .assertResult()
   }
 
   private fun <T> assertFirstExecute(modelCase: InsertModelCase<T>) {
@@ -42,8 +52,7 @@ class FullModelFirstQueryTest(
     ).single()
 
     assertThat(
-      Select
-        .from(modelCase.table)
+      SELECT.FROM(modelCase.table)
         .takeFirst()
         .execute()
     ).isEqualTo(expected)
@@ -54,8 +63,7 @@ class FullModelFirstQueryTest(
       modelCase = modelCase,
       count = 1
     ).single()
-    Select
-      .from(modelCase.table)
+    SELECT.FROM(modelCase.table)
       .takeFirst()
       .observe()
       .runQueryOnce()
@@ -63,28 +71,9 @@ class FullModelFirstQueryTest(
       .assertResult(expected)
   }
 
-  private fun <T> assertEmptyFirstExecute(modelCase: InsertModelCase<T>) {
-    assertThat(
-      Select
-        .from(modelCase.table)
-        .takeFirst()
-        .execute()
-    ).isNull()
-  }
-
-  private fun <T> assertEmptyFirstObserved(modelCase: InsertModelCase<T>) {
-    Select
-      .from(modelCase.table)
-      .takeFirst()
-      .observe()
-      .runQueryOnce()
-      .test()
-      .assertResult()
-  }
-
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun modelCases() = ModelCatalog.directModelQueryCases
   }
 }

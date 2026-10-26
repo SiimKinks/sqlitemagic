@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.model
 
-fun mockPropertyPath(
+internal fun mockPropertyPath(
   vararg segments: String
 ) = PropertyPath(
   segments = segments

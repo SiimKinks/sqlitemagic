@@ -1,20 +1,27 @@
 package com.siimkinks.sqlitemagic.model
 
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 
-internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
+internal class ModelConstructionShapeContractTest {
+  private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
   @Test
-  fun `generates constructor-backed Kotlin table model`() {
-    SqliteMagicCompilation
+  fun `generates constructor-backed Kotlin table models in constructor order`() {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "ConstructorBackedModel.kt",
@@ -38,24 +45,7 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
               val notPersisted: String = ""
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_Book_Dao.kt",
-        "SqliteMagic_Book_Adapter.kt",
-        "BookTable.kt",
-        "_Book.kt"
-      )
-      .withGeneratedSource("SqliteMagic_Book_Adapter.kt") { generatedSource ->
-        generatedSource.assertDoesNotContain("not_persisted")
-      }
-  }
-
-  @Test
-  fun `generates constructor-backed non-data Kotlin model without a zero-argument constructor`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         SourceFile.kotlin(
           name = "MissingNoArgConstructor.kt",
           contents = """
@@ -66,20 +56,73 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
             @Table
             class MissingNoArgConstructor(var value: String)
           """
+        ),
+        SourceFile.kotlin(
+          name = "OrderedConstructorModel.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class OrderedConstructorModel(
+              val firstValue: String,
+              val secondValue: Long,
+              val thirdValue: Double
+            )
+          """
+        ),
+        SourceFile.kotlin(
+          name = "DualConstructionStrategy.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class DualConstructionStrategy(var value: String = "")
+          """
         )
       )
       .isOk()
+      .assertGeneratedSources(
+        "SqliteMagic_Book_Dao.kt",
+        "SqliteMagic_Book_Adapter.kt",
+        "BookTable.kt",
+        "_Book.kt"
+      )
       .assertGeneratedSources(
         "SqliteMagic_MissingNoArgConstructor_Dao.kt",
         "SqliteMagic_MissingNoArgConstructor_Adapter.kt",
         "MissingNoArgConstructorTable.kt",
         "_MissingNoArgConstructor.kt"
       )
+      .withGeneratedSource("SqliteMagic_Book_Adapter.kt") {
+        it.assertDoesNotContain("not_persisted")
+      }
+      .withGeneratedSource("SqliteMagic_OrderedConstructorModel_Adapter.kt") {
+        it.assertContainsInOrder(
+          "first_value",
+          "second_value",
+          "third_value"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_OrderedConstructorModel_Dao.kt") {
+        it.assertContainsInOrder(
+          "firstValue",
+          "secondValue",
+          "thirdValue"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_DualConstructionStrategy_Dao.kt") { generatedSource ->
+        generatedSource.assertContains("DualConstructionStrategy(")
+        generatedSource.assertDoesNotContain(".value =")
+      }
   }
 
   @Test
-  fun `generates mutable Kotlin table model`() {
-    SqliteMagicCompilation
+  fun `generates mutable Kotlin table models`() {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "MutableModel.kt",
@@ -103,6 +146,34 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
               var transientLabel: String = ""
             }
           """
+        ),
+        SourceFile.kotlin(
+          name = "SecondaryNoArgConstructor.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class SecondaryNoArgConstructor(initialValue: String) {
+              var value: String = initialValue
+
+              constructor() : this("")
+            }
+          """
+        ),
+        SourceFile.kotlin(
+          name = "DefaultedPrimaryConstructor.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table
+            class DefaultedPrimaryConstructor(initialValue: String = "") {
+              var value: String = initialValue
+            }
+          """
         )
       )
       .isOk()
@@ -112,22 +183,30 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
         "MutableAuthorTable.kt",
         "_MutableAuthor.kt"
       )
+      .assertGeneratedSources(
+        "SqliteMagic_SecondaryNoArgConstructor_Dao.kt",
+        "SqliteMagic_SecondaryNoArgConstructor_Adapter.kt"
+      )
+      .assertGeneratedSources(
+        "SqliteMagic_DefaultedPrimaryConstructor_Dao.kt",
+        "SqliteMagic_DefaultedPrimaryConstructor_Adapter.kt"
+      )
       .withGeneratedSource("SqliteMagic_MutableAuthor_Adapter.kt") { generatedSource ->
         generatedSource.assertContains("created_by")
         generatedSource.assertDoesNotContain("transient_label")
       }
-      .withGeneratedSource("SqliteMagic_MutableAuthor_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
+      .withGeneratedSource("SqliteMagic_MutableAuthor_Dao.kt") {
+        it.assertContainsUnwrapped(
           "MutableAuthor().apply { this.id = id }",
-          "MutableAuthor().apply {",
-          "this.displayName ="
+          "MutableAuthor().apply { this.createdBy = cursor.getString(startIndex) " +
+              "this.id = cursor.getLong(startIndex + 1) this.displayName = cursor.getString(startIndex + 2) }"
         )
       }
   }
 
   @Test
-  fun `preserves mutable nullable property defaults when database values are null`() {
-    SqliteMagicCompilation
+  fun `preserves nullable mutable property, embedded and relationship defaults when values are null`() {
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "MutableNullableDefaults.kt",
@@ -145,30 +224,7 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
               var count: Int? = 42
             }
           """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_MutableNullableDefaults_Dao.kt")
-      .withGeneratedSource("SqliteMagic_MutableNullableDefaults_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "if (!(cursor.isNull(thisTableOffset + 1)))",
-          "this.label = cursor.getString(thisTableOffset + 1)",
-          "if (!(cursor.isNull(thisTableOffset + 2)))",
-          "this.count = cursor.getInt(thisTableOffset + 2)"
-        )
-        generatedSource.assertContains(
-          "if (!((columnIndex1 < 0 || cursor.isNull(columnIndex1))))",
-          "this.label = cursor.getString(columnIndex1)",
-          "if (!((columnIndex2 < 0 || cursor.isNull(columnIndex2))))",
-          "this.count = cursor.getInt(columnIndex2)"
-        )
-      }
-  }
-
-  @Test
-  fun `preserves nullable mutable embedded and relationship defaults when values are null`() {
-    SqliteMagicCompilation
-      .compile(
+        ),
         SourceFile.kotlin(
           name = "MutableNullableCompositeDefaults.kt",
           contents = """
@@ -201,537 +257,263 @@ internal class ModelConstructionShapeContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-      .assertGeneratedSources("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt")
-      .withGeneratedSource("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "if (!(column1IsNull && column2IsNull)) this.details =",
-          "if (!((columnIndex1 < 0 && columnIndex2 < 0) || (columnIndex1IsNull && columnIndex2IsNull))) this.details =",
+      .assertGeneratedSources(
+        "SqliteMagic_MutableNullableDefaults_Dao.kt",
+        "SqliteMagic_MutableNullableCompositeDefaults_Dao.kt"
+      )
+      .withGeneratedSource("SqliteMagic_MutableNullableDefaults_Dao.kt") {
+        it.assertContains(
+          "if (!cursor.isNull(startIndex + 1)) this.label = cursor.getString(startIndex + 1)",
+          "if (!cursor.isNull(startIndex + 2)) this.count = cursor.getInt(startIndex + 2)"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt") {
+        it.assertContains(
+          "if (!column1IsNull || !column2IsNull) this.details =",
           "this.label =",
           "this.count =",
-          "this.owner =",
-          "if (cursor.isNull(thisTableOffset + 3)) columnOffset.value += 1 else this.owner ="
+          "if (!cursor.isNull(startIndex + 3)) this.owner = (related.read(cursor, 0) as MutableNullableOwner?) ?: " +
+              "SqliteMagic_MutableNullableOwner_Dao.newInstanceWithOnlyId(cursor.getLong(startIndex + 3))"
         )
       }
   }
 
-  @Test
-  fun `rejects constructor-backed models with an inaccessible primary constructor`() {
-    SqliteMagicCompilation
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidModelShapes")
+  fun `rejects models outside the construction contract`(
+    label: String,
+    modelName: String,
+    body: String,
+    diagnostic: String,
+    subject: String
+  ) {
+    compiler
       .compile(
         SourceFile.kotlin(
-          name = "InaccessiblePrimaryConstructor.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class InaccessiblePrimaryConstructor private constructor(val value: String)
-          """
-        )
-      )
-      .assertCompilationError(
-        "Constructor-backed @Table models require an accessible primary constructor",
-        "InaccessiblePrimaryConstructor"
-      )
-  }
-
-  @Test
-  fun `rejects constructor-backed models with a required non-persisted parameter`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "NonPersistedConstructorParameter.kt",
+          name = "$modelName.kt",
           contents = """
             package $PACKAGE
 
             import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table(persistAll = false)
-            class NonPersistedConstructorParameter(
-              @Column val value: String,
-              ignored: String
-            )
-          """
-        )
-      )
-      .assertCompilationError(
-        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
-        "NonPersistedConstructorParameter.ignored"
-      )
-  }
-
-  @Test
-  fun `rejects constructor-backed models with a defaulted non-persisted parameter`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "DefaultedNonPersistedConstructorParameter.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table(persistAll = false)
-            class DefaultedNonPersistedConstructorParameter(
-              @Column val value: String,
-              ignored: String = ""
-            )
-          """
-        )
-      )
-      .assertCompilationError(
-        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
-        "DefaultedNonPersistedConstructorParameter.ignored"
-      )
-  }
-
-  @Test
-  fun `rejects constructor-backed models with a persisted body property`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "PersistedBodyProperty.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class PersistedBodyProperty(val constructorValue: String) {
-              val bodyValue: String = ""
-            }
-          """
-        )
-      )
-      .assertCompilationError(
-        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
-        "PersistedBodyProperty.bodyValue"
-      )
-  }
-
-  @Test
-  fun `rejects constructor-backed models with an unselected constructor property`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "UnselectedConstructorProperty.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table(persistAll = false)
-            class UnselectedConstructorProperty(
-              @Column val persisted: String,
-              val unselected: String
-            )
-          """
-        )
-      )
-      .assertCompilationError(
-        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
-        "UnselectedConstructorProperty.unselected"
-      )
-  }
-
-  @Test
-  fun `rejects constructor-backed models with an ignored constructor property`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "IgnoredConstructorProperty.kt",
-          contents = """
-            package $PACKAGE
-
+            import com.siimkinks.sqlitemagic.annotation.Id
             import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
             import com.siimkinks.sqlitemagic.annotation.Table
 
-            @Table
-            class IgnoredConstructorProperty(
-              val persisted: String,
-              @IgnoreColumn val ignored: String
-            )
+            $body
           """
         )
       )
-      .assertCompilationError(
+      .assertCompilationError(diagnostic, subject)
+  }
+
+  companion object {
+    @JvmStatic
+    fun invalidModelShapes() = listOf(
+      Arguments.of(
+        "rejects constructor-backed models with an inaccessible primary constructor",
+        "InaccessiblePrimaryConstructor",
+        """
+          @Table
+          class InaccessiblePrimaryConstructor private constructor(val value: String)
+        """,
+        "Constructor-backed @Table models require an accessible primary constructor",
+        "InaccessiblePrimaryConstructor"
+      ),
+      Arguments.of(
+        "rejects constructor-backed models with a required non-persisted parameter",
+        "NonPersistedConstructorParameter",
+        """
+          @Table(persistAll = false)
+          class NonPersistedConstructorParameter(
+            @Column val value: String,
+            ignored: String
+          )
+        """,
+        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
+        "NonPersistedConstructorParameter.ignored"
+      ),
+      Arguments.of(
+        "rejects constructor-backed models with a defaulted non-persisted parameter",
+        "DefaultedNonPersistedConstructorParameter",
+        """
+          @Table(persistAll = false)
+          class DefaultedNonPersistedConstructorParameter(
+            @Column val value: String,
+            ignored: String = ""
+          )
+        """,
+        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
+        "DefaultedNonPersistedConstructorParameter.ignored"
+      ),
+      Arguments.of(
+        "rejects constructor-backed models with a persisted body property",
+        "PersistedBodyProperty",
+        """
+          @Table
+          class PersistedBodyProperty(val constructorValue: String) {
+            val bodyValue: String = ""
+          }
+        """,
+        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
+        "PersistedBodyProperty.bodyValue"
+      ),
+      Arguments.of(
+        "rejects constructor-backed models with an unselected constructor property",
+        "UnselectedConstructorProperty",
+        """
+          @Table(persistAll = false)
+          class UnselectedConstructorProperty(
+            @Column val persisted: String,
+            val unselected: String
+          )
+        """,
+        "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
+        "UnselectedConstructorProperty.unselected"
+      ),
+      Arguments.of(
+        "rejects constructor-backed models with an ignored constructor property",
+        "IgnoredConstructorProperty",
+        """
+          @Table
+          class IgnoredConstructorProperty(
+            val persisted: String,
+            @IgnoreColumn val ignored: String
+          )
+        """,
         "Constructor-backed @Table properties must correspond exactly to primary-constructor parameters",
         "IgnoredConstructorProperty.ignored"
-      )
-  }
+      ),
+      Arguments.of(
+        "does not infer constructor backing from a secondary constructor",
+        "SecondaryConstructorImmutable",
+        """
+          @Table
+          class SecondaryConstructorImmutable {
+            val value: String
 
-  @Test
-  fun `does not infer constructor backing from a secondary constructor`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "SecondaryConstructorImmutable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class SecondaryConstructorImmutable {
-              val value: String
-
-              constructor(value: String) {
-                this.value = value
-              }
+            constructor(value: String) {
+              this.value = value
             }
-          """
-        )
-      )
-      .assertCompilationError(
+          }
+        """,
         "Unsupported @Table model shape",
         "SecondaryConstructorImmutable"
-      )
-  }
-
-  @Test
-  fun `preserves constructor property order in schema and reconstruction`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "OrderedConstructorModel.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class OrderedConstructorModel(
-              val firstValue: String,
-              val secondValue: Long,
-              val thirdValue: Double
-            )
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_OrderedConstructorModel_Dao.kt",
-        "SqliteMagic_OrderedConstructorModel_Adapter.kt"
-      )
-      .withGeneratedSource("SqliteMagic_OrderedConstructorModel_Adapter.kt") { generatedSource ->
-        generatedSource.assertContainsInOrder(
-          "first_value",
-          "second_value",
-          "third_value"
-        )
-      }
-      .withGeneratedSource("SqliteMagic_OrderedConstructorModel_Dao.kt") { generatedSource ->
-        generatedSource.assertContainsInOrder(
-          "firstValue",
-          "secondValue",
-          "thirdValue"
-        )
-      }
-  }
-
-  @Test
-  fun `generates mutable model with a secondary zero-argument constructor`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "SecondaryNoArgConstructor.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class SecondaryNoArgConstructor(initialValue: String) {
-              var value: String = initialValue
-
-              constructor() : this("")
-            }
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_SecondaryNoArgConstructor_Dao.kt",
-        "SqliteMagic_SecondaryNoArgConstructor_Adapter.kt"
-      )
-  }
-
-  @Test
-  fun `generates mutable model whose primary constructor parameters have defaults`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "DefaultedPrimaryConstructor.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class DefaultedPrimaryConstructor(initialValue: String = "") {
-              var value: String = initialValue
-            }
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources(
-        "SqliteMagic_DefaultedPrimaryConstructor_Dao.kt",
-        "SqliteMagic_DefaultedPrimaryConstructor_Adapter.kt"
-      )
-  }
-
-  @Test
-  fun `prefers constructor backing when a model also has a zero-argument path`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "DualConstructionStrategy.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class DualConstructionStrategy(var value: String = "")
-          """
-        )
-      )
-      .isOk()
-      .assertGeneratedSources("SqliteMagic_DualConstructionStrategy_Dao.kt")
-      .withGeneratedSource("SqliteMagic_DualConstructionStrategy_Dao.kt") { generatedSource ->
-        generatedSource.assertContains("DualConstructionStrategy(")
-        generatedSource.assertDoesNotContain(".value =")
-      }
-  }
-
-  @Test
-  fun `rejects mutable properties with an inaccessible setter`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "PrivateSetter.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class PrivateSetter {
-              var value: String = ""
-                private set
-            }
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "rejects mutable properties with an inaccessible setter",
+        "PrivateSetter",
+        """
+          @Table
+          class PrivateSetter {
+            var value: String = ""
+              private set
+          }
+        """,
         "Mutable @Table properties must be readable and writable",
         "PrivateSetter.value"
-      )
-  }
-
-  @Test
-  fun `rejects mutable properties with a protected setter`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ProtectedSetter.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class ProtectedSetter {
-              var value: String = ""
-                protected set
-            }
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "rejects mutable properties with a protected setter",
+        "ProtectedSetter",
+        """
+          @Table
+          class ProtectedSetter {
+            var value: String = ""
+              protected set
+          }
+        """,
         "Mutable @Table properties must be readable and writable",
         "ProtectedSetter.value"
-      )
-  }
-
-  @Test
-  fun `rejects constructor-backed properties that cannot be read`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "PrivateConstructorProperty.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class PrivateConstructorProperty(private val value: String)
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "rejects constructor-backed properties that cannot be read",
+        "PrivateConstructorProperty",
+        """
+          @Table
+          class PrivateConstructorProperty(private val value: String)
+        """,
         "Constructor-backed @Table properties must be readable",
         "PrivateConstructorProperty.value"
-      )
-  }
-
-  @Test
-  fun `rejects arbitrary immutable table models`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ArbitraryImmutable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class ArbitraryImmutable(id: Long) {
-              @Id
-              val persistedId: Long = id
-            }
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "rejects arbitrary immutable table models",
+        "ArbitraryImmutable",
+        """
+          @Table
+          class ArbitraryImmutable(id: Long) {
+            @Id
+            val persistedId: Long = id
+          }
+        """,
         "Unsupported @Table model shape",
         "ArbitraryImmutable"
-      )
-  }
-
-  @Test
-  fun `does not infer constructor properties from same-named callables`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "CallableLookalike.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class CallableLookalike(value: String) {
-              fun value(): String = value
-            }
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "does not infer constructor properties from same-named callables",
+        "CallableLookalike",
+        """
+          @Table
+          class CallableLookalike(value: String) {
+            fun value(): String = value
+          }
+        """,
         "Table must define at least one persisted column",
         "CallableLookalike"
-      )
-  }
-
-  @Test
-  fun `rejects mutable properties that cannot be written`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "ReadOnlyMutable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class ReadOnlyMutable {
-              @Id
-              val id: Long = 0
-            }
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "rejects mutable properties that cannot be written",
+        "ReadOnlyMutable",
+        """
+          @Table
+          class ReadOnlyMutable {
+            @Id
+            val id: Long = 0
+          }
+        """,
         "Mutable @Table properties must be readable and writable",
         "ReadOnlyMutable.id"
-      )
-  }
-
-  @Test
-  fun `rejects mutable models without a zero-argument constructor`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "MutableWithoutNoArgConstructor.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class MutableWithoutNoArgConstructor(initialValue: String) {
-              var value: String = initialValue
-            }
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "rejects mutable models without a zero-argument constructor",
+        "MutableWithoutNoArgConstructor",
+        """
+          @Table
+          class MutableWithoutNoArgConstructor(initialValue: String) {
+            var value: String = initialValue
+          }
+        """,
         "Mutable @Table models require an accessible zero-argument constructor",
         "MutableWithoutNoArgConstructor"
-      )
-  }
-
-  @Test
-  fun `rejects mutable models with an inaccessible zero-argument constructor`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "InaccessibleNoArgConstructor.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table
-            class InaccessibleNoArgConstructor private constructor() {
-              var value: String = ""
-            }
-          """
-        )
-      )
-      .assertCompilationError(
+      ),
+      Arguments.of(
+        "rejects mutable models with an inaccessible zero-argument constructor",
+        "InaccessibleNoArgConstructor",
+        """
+          @Table
+          class InaccessibleNoArgConstructor private constructor() {
+            var value: String = ""
+          }
+        """,
         "Mutable @Table models require an accessible zero-argument constructor",
         "InaccessibleNoArgConstructor"
-      )
-  }
+      ),
+      Arguments.of(
+        "rejects inherited persisted properties on constructor-backed models",
+        "InheritedConstructorModel",
+        """
+          open class Audited {
+            val createdAt: String = ""
+          }
 
-  @Test
-  fun `rejects inherited persisted properties on constructor-backed models`() {
-    SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "InheritedConstructorModel.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            open class Audited {
-              val createdAt: String = ""
-            }
-
-            @Table
-            data class InheritedConstructorModel(
-              @Id
-              val id: Long
-            ) : Audited()
-          """
-        )
-      )
-      .assertCompilationError(
+          @Table
+          data class InheritedConstructorModel(
+            @Id
+            val id: Long
+          ) : Audited()
+        """,
         "Constructor-backed @Table models cannot persist inherited properties",
         "InheritedConstructorModel.createdAt"
       )
+    )
   }
 }

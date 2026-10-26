@@ -1,19 +1,18 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
-import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
-import com.tschuchort.compiletesting.JvmCompilationResult
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class ModelUpdateBindingContractTest : ProcessingStepsTest {
-  override val processingSteps = ::modelProcessingSteps
+internal class ModelUpdateBindingContractTest {
+  private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
   @Test
   fun `generated multi-key binders preserve ordered evaluation and typed binding`() {
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "UpdateBindingRuntime.kt",
@@ -22,10 +21,11 @@ internal class ModelUpdateBindingContractTest : ProcessingStepsTest {
 
             import androidx.sqlite.db.SupportSQLiteStatement
             import com.siimkinks.sqlitemagic.BindingNoIdTable
-            import com.siimkinks.sqlitemagic.BindingRecordTable
             import com.siimkinks.sqlitemagic.BindingOneUniqueTable
-            import com.siimkinks.sqlitemagic.Column as SqlColumn
-            import com.siimkinks.sqlitemagic.NotNullable
+            import com.siimkinks.sqlitemagic.BindingRecordTable
+            import com.siimkinks.sqlitemagic.SqliteMagic_BindingNoId_Dao
+            import com.siimkinks.sqlitemagic.SqliteMagic_BindingOneUnique_Dao
+            import com.siimkinks.sqlitemagic.SqliteMagic_BindingRecord_Dao
             import com.siimkinks.sqlitemagic.annotation.Column
             import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.Id
@@ -187,39 +187,34 @@ internal class ModelUpdateBindingContractTest : ProcessingStepsTest {
                     "oneUniqueId" -> SqliteMagic_BindingOneUnique_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingOneUnique(),
-                      byColumn = BindingOneUniqueTable.BINDING_ONE_UNIQUE.ID
+                      columnName = "id"
                     )
                     "oneUniqueKey" -> SqliteMagic_BindingOneUnique_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingOneUnique(),
-                      byColumn = BindingOneUniqueTable.BINDING_ONE_UNIQUE.KEY
+                      columnName = "key"
                     )
                     "noIdFirst" -> SqliteMagic_BindingNoId_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingNoId(),
-                      byColumn = BindingNoIdTable.BINDING_NO_ID.FIRST
+                      columnName = "first"
                     )
                     "noIdSecond" -> SqliteMagic_BindingNoId_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingNoId(),
-                      byColumn = BindingNoIdTable.BINDING_NO_ID.SECOND
+                      columnName = "second"
                     )
                     else -> {
-                      // The binder selector uses NotNullable even when the selected ID value may be null.
-                      @Suppress("UNCHECKED_CAST")
                       val selectedColumn = when (label.substringBefore(':')) {
-                        "id" -> BindingRecordTable.BINDING_RECORD.ID
-                        "idAlias" -> BindingRecordTable.BINDING_RECORD.ID.`as`("aliased_id")
-                        "keyAlias" -> BindingRecordTable.BINDING_RECORD.KEY.`as`("aliased_key")
-                        "tokenAlias" -> BindingRecordTable.BINDING_RECORD.TOKEN.`as`("aliased_token")
-                        "key" -> BindingRecordTable.BINDING_RECORD.KEY
-                        "token" -> BindingRecordTable.BINDING_RECORD.TOKEN
-                        else -> BindingRecordTable.BINDING_RECORD.COUNT
-                      } as SqlColumn<*, *, *, BindingRecord, NotNullable>
+                        "id", "idAlias" -> "id"
+                        "key", "keyAlias" -> "key"
+                        "token", "tokenAlias" -> "token"
+                        else -> "count"
+                      }
                       SqliteMagic_BindingRecord_Dao.bindToUpdateStatement(
                         statement = statement,
                         entity = entity,
-                        byColumn = selectedColumn
+                        columnName = selectedColumn
                       )
                     }
                   }
@@ -233,8 +228,7 @@ internal class ModelUpdateBindingContractTest : ProcessingStepsTest {
         )
       )
       .isOk()
-    val driver = (compilation.result as JvmCompilationResult)
-      .classLoader
+    val driver = compilation
       .loadClass("$PACKAGE.UpdateBindingDriver")
       .getMethod("run", String::class.java)
 
@@ -321,59 +315,22 @@ internal class ModelUpdateBindingContractTest : ProcessingStepsTest {
       selected = "token"
     )
     val cases = listOf(
-      BindingCase(
-        label = "id",
-        expected = bindingTrace(columns + id)
-      ),
-      BindingCase(
-        label = "id:nullId",
-        expected = bindingTrace(
-          columns + id.copy(
-            method = "bindNull",
-            value = null
-          )
+      "id" to bindingTrace(columns + id),
+      "id:nullId" to bindingTrace(
+        columns + id.copy(
+          method = "bindNull",
+          value = null
         )
       ),
-      BindingCase(
-        label = "idAlias",
-        expected = bindingTrace(columns + id)
-      ),
-      BindingCase(
-        label = "keyAlias",
-        expected = bindingTrace(byKey)
-      ),
-      BindingCase(
-        label = "tokenAlias",
-        expected = bindingTrace(byToken)
-      ),
-      BindingCase(
-        label = "key",
-        expected = bindingTrace(byKey)
-      ),
-      BindingCase(
-        label = "token",
-        expected = bindingTrace(byToken)
-      ),
-      BindingCase(
-        label = "unknown",
-        expected = listOf("clear", "throw:IllegalArgumentException:Column does not identify an entity property")
-      ),
-      BindingCase(
-        label = "oneUniqueId",
-        expected = listOf("clear", "bindString:1:only", "bindLong:2:31", "bindLong:3:13")
-      ),
-      BindingCase(
-        label = "oneUniqueKey",
-        expected = listOf("clear", "bindLong:1:31", "bindString:2:only")
-      ),
-      BindingCase(
-        label = "noIdFirst",
-        expected = listOf("clear", "bindLong:1:7", "bindLong:2:29", "bindNull:3", "bindString:4:first")
-      ),
-      BindingCase(
-        label = "noIdSecond",
-        expected = listOf("clear", "bindString:1:first", "bindLong:2:7", "bindNull:3", "bindLong:4:29")
-      )
+      "idAlias" to bindingTrace(columns + id),
+      "keyAlias" to bindingTrace(byKey),
+      "tokenAlias" to bindingTrace(byToken),
+      "key" to bindingTrace(byKey),
+      "token" to bindingTrace(byToken),
+      "oneUniqueId" to listOf("clear", "bindString:1:only", "bindLong:2:31", "bindLong:3:13"),
+      "oneUniqueKey" to listOf("clear", "bindLong:1:31", "bindString:2:only"),
+      "noIdFirst" to listOf("clear", "bindLong:1:7", "bindLong:2:29", "bindNull:3", "bindString:4:first"),
+      "noIdSecond" to listOf("clear", "bindString:1:first", "bindLong:2:7", "bindNull:3", "bindLong:4:29")
     ) + listOf("id", "key", "token").flatMap { selected ->
       val ordered = when (selected) {
         "id" -> columns + id
@@ -383,21 +340,12 @@ internal class ModelUpdateBindingContractTest : ProcessingStepsTest {
         )
       }
       listOf(
-        BindingCase(
-          label = "$selected:nulls",
-          expected = bindingTrace(ordered.map(::nullOptionalColumn))
-        ),
-        BindingCase(
-          label = "$selected:leafNull",
-          expected = bindingTrace(ordered.map(::nullEmbeddedLeaf))
-        ),
-        BindingCase(
-          label = "$selected:badRelationship",
-          expected = bindingTrace(ordered.takeWhile { it.name != "target" }) + listOf(
-            "get:target",
-            "get:targetId",
-            "throw:OperationFailedException:Relationship \"target\" resolved to a NULL ID"
-          )
+        "$selected:nulls" to bindingTrace(ordered.map(::nullOptionalColumn)),
+        "$selected:leafNull" to bindingTrace(ordered.map(::nullEmbeddedLeaf)),
+        "$selected:badRelationship" to bindingTrace(ordered.takeWhile { it.name != "target" }) + listOf(
+          "get:target",
+          "get:targetId",
+          """throw:OperationFailedException:Relationship "target" resolved to a NULL ID"""
         )
       )
     }
@@ -442,10 +390,5 @@ internal class ModelUpdateBindingContractTest : ProcessingStepsTest {
     val reads: List<String>,
     val method: String,
     val value: String?
-  )
-
-  private data class BindingCase(
-    val label: String,
-    val expected: List<String>
   )
 }

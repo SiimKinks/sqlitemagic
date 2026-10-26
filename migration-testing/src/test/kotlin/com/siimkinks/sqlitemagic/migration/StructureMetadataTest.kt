@@ -4,7 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class StructureMetadataTest {
+internal class StructureMetadataTest {
   @Test
   fun `legacy structures infer cascade configuration and retain no view SQL`() {
     val cases = mapOf("omitted default" to "{}", "cascade" to "{\"onDeleteCascade\":true}")

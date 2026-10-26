@@ -17,7 +17,6 @@ import com.siimkinks.sqlitemagic.UniqueRelatedEntityTable.Companion.UNIQUE_RELAT
 import com.siimkinks.sqlitemagic.UniqueRelatedEntitys
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.fixture.model.Account
 import com.siimkinks.sqlitemagic.fixture.model.AccountId
 import com.siimkinks.sqlitemagic.fixture.model.Article
@@ -33,9 +32,9 @@ import com.siimkinks.sqlitemagic.fixture.model.UniqueRelatedEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
-import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
-import com.siimkinks.sqlitemagic.runtime.model.MissingRequiredProjectionCase
+import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation.PRESENT
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingPersistConflictModelCase
+import com.siimkinks.sqlitemagic.runtime.model.ProjectionColumns
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveNullOmittingPersistModelCase
@@ -54,14 +53,6 @@ import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
 import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
 import com.siimkinks.sqlitemagic.update
-import kotlin.collections.Collection
-import kotlin.collections.Iterable
-import kotlin.collections.List
-import kotlin.collections.copy
-import kotlin.collections.listOf
-import kotlin.collections.listOfNotNull
-import kotlin.collections.map
-import kotlin.collections.single
 
 internal object RelationshipModelCatalog {
   val cases: List<RuntimeModelCase<*>> = listOf(
@@ -94,7 +85,7 @@ internal object RelationshipModelCatalog {
     StandardBulkDeleteModelCase<UniqueRelatedEntity> {
     override val name = "UniqueRelatedEntity"
     override val table = UNIQUE_RELATED_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = UniqueRelatedEntity(
       id = null,
@@ -119,7 +110,7 @@ internal object RelationshipModelCatalog {
       result: EntityInsertResult.Inserted
     ) = value
 
-    override fun persist(value: UniqueRelatedEntity): EntityPersistBuilder = value.persist()
+    override fun persist(value: UniqueRelatedEntity) = value.persist()
 
     override fun bulkPersist(values: Iterable<UniqueRelatedEntity>) = UniqueRelatedEntitys.persist(values)
 
@@ -175,9 +166,9 @@ internal object RelationshipModelCatalog {
     override val name = "EntityWithRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
-    override val projectionColumns = listOf(
+    override val projectionColumns: ProjectionColumns = listOf(
       ENTITY_WITH_RELATIONSHIP.ID,
       ENTITY_WITH_RELATIONSHIP.VALUE
     )
@@ -244,13 +235,13 @@ internal object RelationshipModelCatalog {
       it.value = value.value
     }
 
-    override fun expectedAfterShallowQuery(deepExpected: EntityWithRelationship) = EntityWithRelationship().also {
-      it.id = deepExpected.id
-      it.value = deepExpected.value
-      it.relatedEntity = deepExpected.relatedEntity?.let { related ->
+    override fun expectedAfterShallowQuery(deepExpected: EntityWithRelationship) = EntityWithRelationship().apply {
+      id = deepExpected.id
+      value = deepExpected.value
+      relatedEntity = deepExpected.relatedEntity?.let { related ->
         SimpleMutableEntity(id = related.id)
       }
-      it.count = deepExpected.count
+      count = deepExpected.count
     }
 
     override fun updatedValue(value: EntityWithRelationship, sequence: Int) = value.apply {
@@ -300,7 +291,7 @@ internal object RelationshipModelCatalog {
     override val name = "EntityWithNullRelationship"
     override val table = ENTITY_WITH_RELATIONSHIP
     override val relatedTable = SIMPLE_MUTABLE_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = EntityWithRelationship().apply {
       value = "relationship-null-$sequence"
@@ -323,18 +314,18 @@ internal object RelationshipModelCatalog {
       deleteTable = EntityWithRelationships::deleteTable
     )
 
-    override fun relatedValues(value: EntityWithRelationship): List<*> = listOfNotNull(value.relatedEntity)
+    override fun relatedValues(value: EntityWithRelationship) = listOfNotNull(value.relatedEntity)
 
     override fun expectedAfterInsert(
       value: EntityWithRelationship,
       result: EntityInsertResult.Inserted
     ) = value.copyWithGeneratedId(result = result)
 
-    override fun expectedAfterShallowQuery(deepExpected: EntityWithRelationship) = EntityWithRelationship().also {
-      it.id = deepExpected.id
-      it.value = deepExpected.value
-      it.relatedEntity = null
-      it.count = deepExpected.count
+    override fun expectedAfterShallowQuery(deepExpected: EntityWithRelationship) = EntityWithRelationship().apply {
+      id = deepExpected.id
+      value = deepExpected.value
+      relatedEntity = null
+      count = deepExpected.count
     }
 
     override fun updatedValue(value: EntityWithRelationship, sequence: Int) = value.apply {
@@ -347,20 +338,12 @@ internal object RelationshipModelCatalog {
 
   private object EntityWithStringIdRelationshipCase :
     RelationshipQueryModelCase<EntityWithStringIdRelationship>,
-    MissingRequiredProjectionCase<EntityWithStringIdRelationship>,
     RecursiveBulkPersistModelCase<EntityWithStringIdRelationship>,
     StandardBulkDeleteModelCase<EntityWithStringIdRelationship> {
     override val name = "EntityWithStringIdRelationship"
     override val table = ENTITY_WITH_STRING_ID_RELATIONSHIP
     override val relatedTable = STRING_ID_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
-
-    override val missingRequiredProjectionColumns = listOf(
-      ENTITY_WITH_STRING_ID_RELATIONSHIP.ID,
-      ENTITY_WITH_STRING_ID_RELATIONSHIP.VALUE
-    )
-    override val expectedSQLExceptionMessage =
-      "Column related_entity is not nullable and was not part of selected columns"
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = EntityWithStringIdRelationship(
       id = null,
@@ -386,7 +369,7 @@ internal object RelationshipModelCatalog {
       deleteTable = EntityWithStringIdRelationships::deleteTable
     )
 
-    override fun relatedValues(value: EntityWithStringIdRelationship): List<*> = listOf(value.relatedEntity)
+    override fun relatedValues(value: EntityWithStringIdRelationship) = listOf(value.relatedEntity)
 
     override fun expectedAfterInsert(
       value: EntityWithStringIdRelationship,
@@ -425,7 +408,7 @@ internal object RelationshipModelCatalog {
     override val name = "EntityWithUniqueRelationships"
     override val table = ENTITY_WITH_UNIQUE_RELATIONSHIPS
     override val relatedTable = UNIQUE_RELATED_ENTITY
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = EntityWithUniqueRelationships(
       id = null,
@@ -469,7 +452,7 @@ internal object RelationshipModelCatalog {
 
     override fun expectedAfterShallowQuery(deepExpected: EntityWithUniqueRelationships) = deepExpected
 
-    override fun relatedValues(value: EntityWithUniqueRelationships): List<*> = listOf(
+    override fun relatedValues(value: EntityWithUniqueRelationships) = listOf(
       value.firstRelatedEntity,
       value.secondRelatedEntity
     )
@@ -598,7 +581,7 @@ internal object RelationshipModelCatalog {
     override val name = "ComplexObjectWithSameLeafs"
     override val table = COMPLEX_OBJECT_WITH_SAME_LEAFS
     override val relatedTable = IMMUTABLE_VALUE_WITH_FIELDS
-    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+    override val rowIdExpectation = PRESENT
 
     override fun newValue(sequence: Int) = ComplexObjectWithSameLeafs(
       id = Long.MIN_VALUE,
@@ -662,12 +645,12 @@ internal object RelationshipModelCatalog {
     }
 
     override fun expectedAfterShallowQuery(deepExpected: ComplexObjectWithSameLeafs) = deepExpected.copy(
-      entityWithRelationship = EntityWithRelationship().also {
-        it.id = deepExpected.entityWithRelationship.id
+      entityWithRelationship = EntityWithRelationship().apply {
+        id = deepExpected.entityWithRelationship.id
       }
     )
 
-    override fun relatedValues(value: ComplexObjectWithSameLeafs): List<*> = listOf(
+    override fun relatedValues(value: ComplexObjectWithSameLeafs) = listOf(
       value.simpleValue,
       value.simpleValueDuplicate
     )

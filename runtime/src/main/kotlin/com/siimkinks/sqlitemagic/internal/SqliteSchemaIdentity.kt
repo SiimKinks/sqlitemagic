@@ -1,48 +1,45 @@
 package com.siimkinks.sqlitemagic.internal
 
+@InternalSqliteMagicApi
 enum class SqliteSchema(val qualifier: String) {
   MAIN("main"),
   TEMPORARY("temp")
 }
 
+@InternalSqliteMagicApi
 interface SqliteIdentifierProvider {
   val rawName: String
   val normalizedName: String
 }
 
-@ConsistentCopyVisibility
-data class SqliteIdentifier private constructor(
-  override val rawName: String,
-  override val normalizedName: String
-) : SqliteIdentifierProvider {
-  companion object {
-    fun from(rawName: String) = SqliteIdentifier(
-      rawName = rawName,
-      normalizedName = buildString(capacity = rawName.length) {
-        for (character in rawName) {
-          append(
-            when (character) {
-              in 'A'..'Z' -> character + ('a' - 'A')
-              else -> character
-            }
-          )
+@InternalSqliteMagicApi
+data class SqliteIdentifier(override val rawName: String) : SqliteIdentifierProvider {
+  override val normalizedName = buildString(capacity = rawName.length) {
+    for (character in rawName) {
+      append(
+        when (character) {
+          in 'A'..'Z' -> character + ('a' - 'A')
+          else -> character
         }
-      }
-    )
+      )
+    }
   }
 }
 
+@InternalSqliteMagicApi
 data class SqliteSchemaKey(
   val schema: SqliteSchema,
   val normalizedName: String
 )
 
+@InternalSqliteMagicApi
 interface SqliteSchemaProvider : SqliteIdentifierProvider {
   val schema: SqliteSchema
   val identifier: SqliteIdentifier
   val normalizedKey: SqliteSchemaKey
 }
 
+@InternalSqliteMagicApi
 data class SqliteSchemaIdentity(
   override val schema: SqliteSchema,
   override val identifier: SqliteIdentifier
@@ -58,7 +55,7 @@ data class SqliteSchemaIdentity(
       rawName: String
     ) = SqliteSchemaIdentity(
       schema = schema,
-      identifier = SqliteIdentifier.from(rawName)
+      identifier = SqliteIdentifier(rawName)
     )
   }
 }

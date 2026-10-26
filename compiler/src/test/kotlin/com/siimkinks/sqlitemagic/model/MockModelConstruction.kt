@@ -2,12 +2,10 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
 
-fun mockModelConstruction(
-  strategy: ModelConstructionStrategy = PRIMARY_CONSTRUCTOR,
-  constructorParameters: List<PropertyPath> = listOf(mockPropertyPath()),
-  defaultableParameters: Set<PropertyPath> = emptySet()
+internal fun mockModelConstruction(
+  constructorParameters: List<PropertyPath> = listOf(mockPropertyPath())
 ) = ModelConstruction(
-  strategy = strategy,
+  strategy = PRIMARY_CONSTRUCTOR,
   constructorParameters = constructorParameters,
-  defaultableParameters = defaultableParameters
+  defaultableParameters = emptySet()
 )

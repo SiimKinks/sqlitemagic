@@ -1,25 +1,18 @@
 package com.siimkinks.sqlitemagic.view
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.google.devtools.ksp.symbol.KSDeclaration
-import com.google.devtools.ksp.symbol.KSName
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.deferredNames
+import com.siimkinks.sqlitemagic.utils.isOk
+import com.siimkinks.sqlitemagic.utils.observing
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
-internal class NestedReadinessContractTest : ProcessingStepsTest {
-  override val processingSteps = ::viewProcessingSteps
-
+internal class NestedReadinessContractTest {
   @ParameterizedTest(name = "{0}")
   @CsvSource(
     "table inherited leaf, Table, inherited",
@@ -55,8 +48,7 @@ internal class NestedReadinessContractTest : ProcessingStepsTest {
           name = "NestedReadiness.kt",
           contents = """
             package $PACKAGE
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Embedded
             import com.siimkinks.sqlitemagic.annotation.Table
             import com.siimkinks.sqlitemagic.annotation.View
@@ -72,7 +64,7 @@ internal class NestedReadinessContractTest : ProcessingStepsTest {
               $member
               fun helper(value: LaterType): LaterType = value
               companion object {
-                $queryAnnotation val QUERY: CompiledSelect<String, Select1> = error("compile only")
+                $queryAnnotation val QUERY: SelectQuery<String, *> = error("compile only")
               }
             }
           """
@@ -81,46 +73,19 @@ internal class NestedReadinessContractTest : ProcessingStepsTest {
           viewProcessingSteps(environment).map { step ->
             when {
               annotation == "Table" && step is ModelCollectionStep ||
-                  annotation == "View" && step is ViewCollectionStep -> object : ProcessingStep {
-                override fun process(resolver: Resolver): ProcessingStepResult {
-                  val result = step.process(resolver)
-                  deferredRounds += when (result) {
-                    is Deferred -> result.symbols
-                      .filterIsInstance<KSDeclaration>()
-                      .map(KSDeclaration::simpleName)
-                      .map(KSName::asString)
-                    else -> emptyList()
-                  }
-                  return result
-                }
-              }
+                  annotation == "View" && step is ViewCollectionStep ->
+                step.observing { deferredRounds += it.deferredNames() }
               else -> step
             }
-          } + object : ProcessingStep {
-            private var generated = false
-
-            override fun process(resolver: Resolver): ProcessingStepResult {
-              if (generated) return Continue
-              generated = true
-              environment.codeGenerator
-                .createNewFile(
-                  dependencies = Dependencies(aggregating = false),
-                  packageName = PACKAGE,
-                  fileName = "LaterType"
-                )
-                .bufferedWriter()
-                .use { writer ->
-                  writer.write(
-                    """
-                      package $PACKAGE
-                      @com.siimkinks.sqlitemagic.annotation.Table
-                    """.trimIndent() +
-                        " data class LaterType(@com.siimkinks.sqlitemagic.annotation.Id val id: String)"
-                  )
-                }
-              return Continue
-            }
-          }
+          } + GeneratedSourceStep(
+            environment = environment,
+            fileName = "LaterType",
+            contents = """
+              package $PACKAGE
+              @com.siimkinks.sqlitemagic.annotation.Table
+              data class LaterType(@com.siimkinks.sqlitemagic.annotation.Id val id: String)
+            """
+          )
         }
       )
       .isOk()

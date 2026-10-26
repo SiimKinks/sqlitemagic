@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_DELETE_TABLE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_INSERT
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_PERSIST
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_UPDATE
+import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
 import com.siimkinks.sqlitemagic.WriterTypes.BULK_DELETE_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.BULK_DELETE_BY_COLUMN_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.BULK_INSERT_BUILDER
@@ -36,8 +37,8 @@ import com.siimkinks.sqlitemagic.WriterTypes.PERSIST_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.PERSIST_BY_COLUMN_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.UPDATE_BUILDER
 import com.siimkinks.sqlitemagic.WriterTypes.UPDATE_BY_COLUMN_BUILDER
-import com.siimkinks.sqlitemagic.model.ModelExtensionsWriter.BulkOperationFunction.BULK_DELETE
-import com.siimkinks.sqlitemagic.model.ModelExtensionsWriter.OperationFunction.DELETE
+import com.siimkinks.sqlitemagic.utils.callCode
+import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.squareup.kotlinpoet.COLLECTION
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
@@ -45,64 +46,60 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.ITERABLE
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.KModifier.INTERNAL
+import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
-import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.joinToCode
+import com.squareup.kotlinpoet.buildCodeBlock
 
 internal class ModelExtensionsWriter(
   private val environment: Environment
 ) : ModelWriter {
-  val publicExtensions = environment.options.publicExtensions
+  private val publicExtensions = environment.options.publicExtensions
 
   override fun write(tableRoundElement: TableRoundElement) = with(tableRoundElement) {
     val visibility = when {
-      publicExtensions && table.isPublic -> KModifier.PUBLIC
-      else -> KModifier.INTERNAL
+      publicExtensions && table.isPublic -> PUBLIC
+      else -> INTERNAL
     }
     val supportsIdentityOperations = table.supportsIdentityOperations
     val generationNames = table.generationNames
 
     FileSpec
       .builder(
-        packageName = generationNames.adapterClassName.packageName,
+        packageName = PACKAGE_ROOT,
         fileName = generationNames.extensionsFileName
       )
-      .also { file ->
+      .addFunctions(
         OperationFunction
           .entries
           .filter { !it.isIdentityOperation || supportsIdentityOperations }
-          .forEach { operation ->
-            file.addFunction(
-              entityOperationExtension(
-                table = table,
-                operation = operation,
-                visibility = visibility
-              )
+          .map { operation ->
+            entityOperationExtension(
+              table = table,
+              operation = operation,
+              visibility = visibility
             )
           }
-
-        file.addType(
-          TypeSpec
-            .objectBuilder(generationNames.bulkOperationsObjectName)
-            .addModifiers(visibility)
-            .also { bulkOperationsObject ->
-              BulkOperationFunction
-                .entries
-                .filter { !it.isIdentityOperation || supportsIdentityOperations }
-                .forEach { operation ->
-                  bulkOperationsObject.addFunction(
-                    bulkOperationExtension(
-                      table = table,
-                      operation = operation,
-                      visibility = visibility
-                    )
-                  )
-                }
-            }
-            .build()
-        )
-      }
+      )
+      .addType(
+        TypeSpec
+          .objectBuilder(generationNames.bulkOperationsObjectName)
+          .addModifiers(visibility)
+          .addFunctions(
+            BulkOperationFunction
+              .entries
+              .filter { !it.isIdentityOperation || supportsIdentityOperations }
+              .map { operation ->
+                bulkOperationExtension(
+                  table = table,
+                  operation = operation,
+                  visibility = visibility
+                )
+              }
+          )
+          .build()
+      )
       .writeModelSource(
         codeGenerator = environment.codeGenerator,
         originatingFiles = originatingFiles
@@ -113,84 +110,102 @@ internal class ModelExtensionsWriter(
     table: TableElement,
     operation: OperationFunction,
     visibility: KModifier
-  ): FunSpec = FunSpec
+  ) = FunSpec
     .builder(operation.funName)
     .receiver(table.modelClassName)
     .addModifiers(visibility)
     .returns(operation.returnType(table))
-    .addCode(operationBuilderCall(table, operation))
+    .addCode(
+      operationBuilderCall(
+        table = table,
+        operation = operation
+      )
+    )
     .build()
 
   private fun bulkOperationExtension(
     table: TableElement,
     operation: BulkOperationFunction,
     visibility: KModifier
-  ): FunSpec = FunSpec
+  ) = FunSpec
     .builder(operation.funName)
     .addModifiers(visibility)
     .returns(operation.returnType(table))
-    .also { function ->
-      when {
-        operation.parameterType != null -> function
-          .addParameter(
-            name = "o",
-            type = operation.parameterType.parameterizedBy(table.modelClassName)
-          )
-          .addCode(bulkOperationBuilderCall(table, operation))
-        else -> function.addCode(bulkOperationBuilderCall(table, operation))
+    .apply {
+      operation.parameterType?.let {
+        addParameter(
+          name = "o",
+          type = it.parameterizedBy(table.modelClassName)
+        )
       }
     }
+    .addCode(
+      bulkOperationBuilderCall(
+        table = table,
+        operation = operation
+      )
+    )
     .build()
 
   private fun operationBuilderCall(
     table: TableElement,
     operation: OperationFunction
-  ): CodeBlock {
-    val adapterClassName = table.generationNames.adapterClassName
-    val arguments = listOfNotNull(
-      CodeBlock.of("adapter = %T", adapterClassName),
-      CodeBlock.of("entity = this"),
-      when {
-        operation == DELETE && !table.requiresByColumnTerminal -> CodeBlock.of(
-          "byColumn = %T.defaultIdentityColumn",
-          adapterClassName
-        )
-        else -> null
-      }
+  ) = builderCall(
+    builderType = operation.builderType(table),
+    arguments = listOf(
+      namedArgument("adapter", "%T", table.generationNames.adapterClassName),
+      namedArgument("entity", "this")
     )
-    return CodeBlock
-      .builder()
-      .addStatement("return %T(%L)", operation.builderType(table), arguments.joinToCode())
-      .build()
-  }
+  )
 
   private fun bulkOperationBuilderCall(
     table: TableElement,
     operation: BulkOperationFunction
-  ): CodeBlock {
-    val adapterClassName = table.generationNames.adapterClassName
-    val arguments = listOf(CodeBlock.of("adapter = %T", adapterClassName)) + when {
-      operation.parameterType == null -> emptyList()
-      operation == BULK_DELETE && !table.requiresByColumnTerminal -> listOf(
-        CodeBlock.of("entities = o"),
-        CodeBlock.of("byColumn = %T.defaultIdentityColumn", adapterClassName)
+  ) = builderCall(
+    builderType = operation.builderType(table),
+    arguments = listOfNotNull(
+      namedArgument("adapter", "%T", table.generationNames.adapterClassName),
+      operation.parameterType?.let { namedArgument("entities", "o") }
+    )
+  )
+
+  private fun builderCall(
+    builderType: ClassName,
+    arguments: List<CodeBlock>
+  ) = buildCodeBlock {
+    addStatement(
+      "return %L",
+      callCode(
+        callee = CodeBlock.of("%T", builderType),
+        arguments = arguments
       )
-      else -> listOf(CodeBlock.of("entities = o"))
-    }
-    return CodeBlock
-      .builder()
-      .addStatement("return %T(%L)", operation.builderType(table), arguments.joinToCode())
-      .build()
+    )
+  }
+
+  private interface OperationTypes {
+    val returnType: ClassName
+    val builderType: ClassName
+    val byColumnReturnType: ClassName?
+    val byColumnBuilderType: ClassName?
+
+    fun returnType(table: TableElement) = byColumnReturnType
+      ?.takeIf { table.requiresByColumnTerminal }
+      ?.parameterizedBy(table.modelClassName)
+      ?: returnType
+
+    fun builderType(table: TableElement) = byColumnBuilderType
+      ?.takeIf { table.requiresByColumnTerminal }
+      ?: builderType
   }
 
   private enum class OperationFunction(
     val isIdentityOperation: Boolean = true,
     val funName: String,
-    val returnType: ClassName,
-    val builderType: ClassName,
-    val byColumnReturnType: ClassName? = null,
-    val byColumnBuilderType: ClassName? = null
-  ) {
+    override val returnType: ClassName,
+    override val builderType: ClassName,
+    override val byColumnReturnType: ClassName? = null,
+    override val byColumnBuilderType: ClassName? = null
+  ) : OperationTypes {
     INSERT(
       isIdentityOperation = false,
       funName = METHOD_INSERT,
@@ -217,29 +232,18 @@ internal class ModelExtensionsWriter(
       builderType = DELETE_BUILDER,
       byColumnReturnType = ENTITY_DELETE_BY_COLUMN_BUILDER,
       byColumnBuilderType = DELETE_BY_COLUMN_BUILDER
-    );
-
-    fun returnType(table: TableElement): TypeName = when {
-      table.requiresByColumnTerminal && byColumnReturnType != null -> byColumnReturnType
-        .parameterizedBy(table.modelClassName)
-      else -> returnType
-    }
-
-    fun builderType(table: TableElement) = when {
-      table.requiresByColumnTerminal && byColumnBuilderType != null -> byColumnBuilderType
-      else -> builderType
-    }
+    )
   }
 
   private enum class BulkOperationFunction(
     val isIdentityOperation: Boolean = true,
     val funName: String,
     val parameterType: ClassName?,
-    val returnType: ClassName,
-    val builderType: ClassName,
-    val byColumnReturnType: ClassName? = null,
-    val byColumnBuilderType: ClassName? = null
-  ) {
+    override val returnType: ClassName,
+    override val builderType: ClassName,
+    override val byColumnReturnType: ClassName? = null,
+    override val byColumnBuilderType: ClassName? = null
+  ) : OperationTypes {
     BULK_INSERT(
       isIdentityOperation = false,
       funName = METHOD_INSERT,
@@ -277,17 +281,6 @@ internal class ModelExtensionsWriter(
       parameterType = null,
       returnType = ENTITY_DELETE_TABLE_BUILDER,
       builderType = DELETE_TABLE_BUILDER
-    );
-
-    fun returnType(table: TableElement): TypeName = when {
-      table.requiresByColumnTerminal && byColumnReturnType != null -> byColumnReturnType
-        .parameterizedBy(table.modelClassName)
-      else -> returnType
-    }
-
-    fun builderType(table: TableElement) = when {
-      table.requiresByColumnTerminal && byColumnBuilderType != null -> byColumnBuilderType
-      else -> builderType
-    }
+    )
   }
 }

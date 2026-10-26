@@ -1,23 +1,19 @@
 package com.siimkinks.sqlitemagic.index
 
-import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.Resolver
-import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.processing.ProcessingStep
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
-import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
-  override val processingSteps = ::indexProcessingSteps
+internal class IndexDiagnosticsContractTest {
+  private val compiler = SqliteMagicCompiler(::indexProcessingSteps)
 
   @Test
   fun `rejects dangling composite membership`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         invalidIndexSource(
           indexDeclaration = ""
@@ -57,7 +53,23 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
           """
         ),
         processingStepsFactory = { environment ->
-          listOf(GeneratedDeferredValueStep(environment)) + indexProcessingSteps(environment)
+          listOf(
+            GeneratedSourceStep(
+              environment = environment,
+              fileName = "GeneratedDeferredValue",
+              contents = """
+                package $PACKAGE
+
+                import com.siimkinks.sqlitemagic.annotation.Id
+                import com.siimkinks.sqlitemagic.annotation.Table
+
+                @Table("generated_deferred_values")
+                data class GeneratedDeferredValue(
+                  @Id(autoIncrement = false) val value: String
+                )
+              """
+            )
+          ) + indexProcessingSteps(environment)
         }
       )
       .assertCompilationError(
@@ -67,7 +79,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects a named composite with no members`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "EmptyComposite.kt",
@@ -93,7 +105,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an index on a property excluded by persistAll`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "ExcludedIndex.kt",
@@ -119,7 +131,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an index on an ignored property`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "IgnoredIndex.kt",
@@ -148,7 +160,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects duplicate index names`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "InvalidIndexNames.kt",
@@ -173,7 +185,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects reserved index names`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "ReservedIndexName.kt",
@@ -197,7 +209,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an index name colliding with its table`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "TableIndexNameCollision.kt",
@@ -221,7 +233,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects unsafe index names`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "UnsafeIndexName.kt",
@@ -245,7 +257,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects class index annotations outside table contexts`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "OrphanIndexes.kt",
@@ -267,15 +279,14 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an index applied to a view class`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "IndexedView.kt",
           contents = """
             package $PACKAGE
 
-            import com.siimkinks.sqlitemagic.CompiledSelect
-            import com.siimkinks.sqlitemagic.Select.Select1
+            import com.siimkinks.sqlitemagic.SelectQuery
             import com.siimkinks.sqlitemagic.annotation.Index
             import com.siimkinks.sqlitemagic.annotation.View
             import com.siimkinks.sqlitemagic.annotation.ViewColumn
@@ -288,7 +299,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
               companion object {
                 @ViewQuery
-                val query: CompiledSelect<String, Select1> = error("compile-only")
+                val query: SelectQuery<String, *> = error("compile-only")
               }
             }
           """
@@ -302,7 +313,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects property index annotations outside table contexts`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "OrphanPropertyIndex.kt",
@@ -326,7 +337,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an index on a companion property`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "CompanionIndex.kt",
@@ -355,7 +366,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an index on a top-level property`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "TopLevelIndex.kt",
@@ -376,7 +387,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects an index on a static table field`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.java(
           name = "StaticIndex.java",
@@ -403,7 +414,7 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
 
   @Test
   fun `rejects a composite membership on a non-table declaration`() {
-    SqliteMagicCompilation
+    compiler
       .compile(
         SourceFile.kotlin(
           name = "OrphanMembership.kt",
@@ -422,39 +433,5 @@ internal class IndexDiagnosticsContractTest : ProcessingStepsTest {
       .assertCompilationError(
         "belongsToIndex 'orphan_lookup' is only valid on a persisted property of a @Table"
       )
-  }
-}
-
-private class GeneratedDeferredValueStep(
-  private val environment: Environment
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = "GeneratedDeferredValue"
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(
-          """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table("generated_deferred_values")
-            data class GeneratedDeferredValue(
-              @Id(autoIncrement = false) val value: String
-            )
-          """
-        )
-      }
-    return Continue
   }
 }

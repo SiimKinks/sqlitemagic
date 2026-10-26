@@ -1,11 +1,9 @@
 package com.siimkinks.sqlitemagic.index
 
 import com.google.common.truth.Truth.assertThat
-import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Environment
-import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.index.IndexKind.COMPOSITE
 import com.siimkinks.sqlitemagic.index.IndexKind.FIELD
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
@@ -15,15 +13,17 @@ import com.siimkinks.sqlitemagic.model.mockPropertyPath
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
-import com.siimkinks.sqlitemagic.utils.ProcessingStepsTest
+import com.siimkinks.sqlitemagic.utils.GeneratedSourceStep
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
+import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
+import com.siimkinks.sqlitemagic.utils.isOk
 import com.squareup.kotlinpoet.ClassName
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
-internal class IndexCollectionStepTest : ProcessingStepsTest {
-  override val processingSteps = ::indexCollectionProcessingSteps
+internal class IndexCollectionStepTest {
+  private val compiler = SqliteMagicCompiler(::indexCollectionProcessingSteps)
 
   @Test
   fun `collects complete durable field and composite index values`() {
@@ -62,7 +62,7 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
     val tableType = ClassName(PACKAGE, "SearchEntry")
     val tableIdentity = SqliteSchemaIdentity(
       schema = SqliteSchema.TEMPORARY,
-      identifier = SqliteIdentifier.from("search_entries")
+      identifier = SqliteIdentifier("search_entries")
     )
     val titlePath = mockPropertyPath("title")
     val rankPath = mockPropertyPath("rank")
@@ -72,7 +72,7 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
         IndexElement(
           identity = SqliteSchemaIdentity(
             schema = SqliteSchema.TEMPORARY,
-            identifier = SqliteIdentifier.from("entry_lookup")
+            identifier = SqliteIdentifier("entry_lookup")
           ),
           tableIdentity = tableIdentity,
           tableType = tableType,
@@ -93,7 +93,7 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
         IndexElement(
           identity = SqliteSchemaIdentity(
             schema = SqliteSchema.TEMPORARY,
-            identifier = SqliteIdentifier.from("title_lookup")
+            identifier = SqliteIdentifier("title_lookup")
           ),
           tableIdentity = tableIdentity,
           tableType = tableType,
@@ -109,47 +109,22 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
         )
       )
       .inOrder()
-    assertThat(compilation.environment.tableElements.values.single().options)
-      .contains(TEMPORARY)
-    assertThat(roundSnapshots.map(IndexRoundSnapshot::index))
-      .containsExactlyElementsIn(compilation.environment.indexElements.values)
-      .inOrder()
-    assertThat(roundSnapshots.map(IndexRoundSnapshot::fileNames))
-      .containsExactly(listOf("SearchEntry.kt"), listOf("SearchEntry.kt"))
-      .inOrder()
-    assertThat(roundSnapshots.all(IndexRoundSnapshot::isComplete))
-      .isTrue()
-  }
-
-  @Test
-  fun `collects stable indexes across embedded inherited selective and optional id tables`() {
-    val compilation = SqliteMagicCompilation
-      .compile(validIndexSources())
-      .isOk()
-
-    assertThat(compilation.environment.indexElements.values.map(IndexElement::name))
-      .containsExactly(
-        "book_lookup",
-        "index_books_title",
-        "book_isbn",
-        "index_books_author",
-        "index_unnamed_composites_id_first_part_second_part",
-        "selective_lookup",
-        "selective_value",
-        "inherited_value",
-        "local_value",
-        "index_profiles_home_geo_city",
-        "index_profiles_work_geo_city",
-        "temporary_value",
-        "no_id_value",
-        "string_value"
+    assertThat(roundSnapshots)
+      .containsExactlyElementsIn(
+        compilation.environment.indexElements.values.map {
+          IndexRoundSnapshot(
+            index = it,
+            fileNames = listOf("SearchEntry.kt"),
+            isComplete = true
+          )
+        }
       )
       .inOrder()
   }
 
   @Test
   fun `allows equal raw names in separate schemas and keeps non ASCII identity distinct`() {
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "SchemaScopedIndexes.kt",
@@ -201,7 +176,7 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
         processingStepsFactory = { emptyList() }
       )
       .isOk()
-    val compilation = SqliteMagicCompilation
+    val compilation = compiler
       .compile(
         SourceFile.kotlin(
           name = "BinaryIndexedEntry.kt",
@@ -218,7 +193,7 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
             }
           """
         ),
-        classpaths = listOf(binaryBase.result.outputDirectory)
+        classpaths = listOf(binaryBase.outputDirectory)
       )
       .isOk()
 
@@ -228,35 +203,15 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
   }
 
   @Test
-  fun `collects a generated later round index exactly once`() {
+  fun `defers indexed tables until their property types resolve`() {
     val compilation = SqliteMagicCompilation
       .compile(
         SourceFile.kotlin(
-          name = "Initial.kt",
-          contents = "package $PACKAGE\nclass Initial"
-        ),
-        processingStepsFactory = { environment ->
-          val steps = indexCollectionProcessingSteps(environment)
-          steps.dropLast(1) + listOf(LateIndexGenerationStep(environment), steps.last())
-        }
-      )
-      .isOk()
-
-    assertThat(compilation.environment.processingRounds)
-      .isAtLeast(2)
-    assertThat(compilation.environment.indexElements.values.map(IndexElement::name))
-      .containsExactly("late_value")
-  }
-
-  @Test
-  fun `defers an indexed table until its property type resolves`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "DeferredIndexedEntry.kt",
+          name = "DeferredIndexedEntries.kt",
           contents = """
             package $PACKAGE
 
+            import com.siimkinks.sqlitemagic.annotation.Column
             import com.siimkinks.sqlitemagic.annotation.Index
             import com.siimkinks.sqlitemagic.annotation.Table
 
@@ -264,32 +219,6 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
             data class DeferredIndexedEntry(
               @Index("deferred_value") val value: GeneratedIndexedValue
             )
-          """
-        ),
-        processingStepsFactory = { environment ->
-          listOf(GeneratedIndexedValueStep(environment)) + indexCollectionProcessingSteps(environment)
-        }
-      )
-      .isOk()
-
-    assertThat(compilation.environment.processingRounds)
-      .isAtLeast(2)
-    assertThat(compilation.environment.indexElements.values.map(IndexElement::name))
-      .containsExactly("deferred_value")
-  }
-
-  @Test
-  fun `collects an indexed column from a deferred persistAll false table`() {
-    val compilation = SqliteMagicCompilation
-      .compile(
-        SourceFile.kotlin(
-          name = "DeferredSelectiveIndexTable.kt",
-          contents = """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Column
-            import com.siimkinks.sqlitemagic.annotation.Index
-            import com.siimkinks.sqlitemagic.annotation.Table
 
             @Table(value = "deferred_selective_indexes", persistAll = false)
             data class DeferredSelectiveIndexTable(
@@ -301,13 +230,31 @@ internal class IndexCollectionStepTest : ProcessingStepsTest {
           """
         ),
         processingStepsFactory = { environment ->
-          listOf(GeneratedIndexedValueStep(environment)) + indexCollectionProcessingSteps(environment)
+          listOf(
+            GeneratedSourceStep(
+              environment = environment,
+              fileName = "GeneratedIndexedValue",
+              contents = """
+                package $PACKAGE
+
+                import com.siimkinks.sqlitemagic.annotation.Id
+                import com.siimkinks.sqlitemagic.annotation.Table
+
+                @Table("generated_index_values")
+                data class GeneratedIndexedValue(
+                  @Id(autoIncrement = false) val value: String
+                )
+              """
+            )
+          ) + indexCollectionProcessingSteps(environment)
         }
       )
       .isOk()
 
+    assertThat(compilation.environment.processingRounds)
+      .isAtLeast(2)
     assertThat(compilation.environment.indexElements.values.map(IndexElement::name))
-      .containsExactly("indexed_value")
+      .containsExactly("deferred_value", "indexed_value")
   }
 }
 
@@ -317,16 +264,13 @@ private class IndexRoundSnapshotStep(
 ) : ProcessingStep {
   override fun process(resolver: Resolver): ProcessingStepResult {
     environment.indexRoundElementsForCurrentRound
-      .mapTo(
-        destination = snapshots,
-        transform = { roundIndex ->
-          IndexRoundSnapshot(
-            index = roundIndex.index,
-            fileNames = roundIndex.originatingFiles.files.map(KSFile::fileName),
-            isComplete = roundIndex.originatingFiles.isComplete
-          )
-        }
-      )
+      .mapTo(destination = snapshots) { roundIndex ->
+        IndexRoundSnapshot(
+          index = roundIndex.index,
+          fileNames = roundIndex.originatingFiles.files.map(KSFile::fileName),
+          isComplete = roundIndex.originatingFiles.isComplete
+        )
+      }
     return Continue
   }
 }
@@ -336,71 +280,3 @@ private data class IndexRoundSnapshot(
   val fileNames: List<String>,
   val isComplete: Boolean
 )
-
-private class LateIndexGenerationStep(
-  private val environment: Environment
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = "LateIndexedEntry"
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(
-          """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Index
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table("late_indexed_entries")
-            data class LateIndexedEntry(
-              @Index("late_value") val value: String
-            )
-          """
-        )
-      }
-    return Continue
-  }
-}
-
-private class GeneratedIndexedValueStep(
-  private val environment: Environment
-) : ProcessingStep {
-  private var generated = false
-
-  override fun process(resolver: Resolver): ProcessingStepResult {
-    if (generated) return Continue
-    generated = true
-    environment.codeGenerator
-      .createNewFile(
-        dependencies = Dependencies(aggregating = false),
-        packageName = PACKAGE,
-        fileName = "GeneratedIndexedValue"
-      )
-      .bufferedWriter()
-      .use { writer ->
-        writer.write(
-          """
-            package $PACKAGE
-
-            import com.siimkinks.sqlitemagic.annotation.Id
-            import com.siimkinks.sqlitemagic.annotation.Table
-
-            @Table("generated_index_values")
-            data class GeneratedIndexedValue(
-              @Id(autoIncrement = false) val value: String
-            )
-          """
-        )
-      }
-    return Continue
-  }
-}

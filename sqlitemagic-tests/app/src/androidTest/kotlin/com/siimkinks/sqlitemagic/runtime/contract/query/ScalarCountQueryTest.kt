@@ -4,16 +4,21 @@ import android.annotation.SuppressLint
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.CountQueryCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ScalarColumnCatalog
-import com.siimkinks.sqlitemagic.runtime.support.RuntimeDatabaseTest
+import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @SuppressLint("CheckResult")
 @RunWith(Parameterized::class)
-class ScalarCountQueryTest(
+internal class ScalarCountQueryTest(
   private val countQueryCase: CountQueryCase
-) : RuntimeDatabaseTest() {
+) {
+  @get:Rule
+  val clearDatabase = ClearDatabaseRule()
+
   @Test
   fun executeReturnsExpectedCount() {
     countQueryCase.seed()
@@ -34,7 +39,7 @@ class ScalarCountQueryTest(
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun countQueryCases() = ScalarColumnCatalog.countCases
   }
 }
