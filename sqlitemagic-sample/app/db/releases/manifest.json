@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "databaseId": ":app",
   "releaseVariant": "release",
-  "currentVersion": 3,
+  "currentVersion": 4,
   "modules": [
     ":app"
   ],
@@ -36,6 +36,16 @@
       "modules": [
         ":app"
       ]
+    },
+    {
+      "version": 4,
+      "name": "schemas/4.struct",
+      "configuration": {
+        "foreignKeysEnabled": true
+      },
+      "modules": [
+        ":app"
+      ]
     }
   ],
   "steps": [
@@ -55,6 +65,10 @@
     },
     {
       "toVersion": 3,
+      "sqlResources": []
+    },
+    {
+      "toVersion": 4,
       "sqlResources": []
     }
   ]

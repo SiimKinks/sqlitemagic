@@ -41,8 +41,7 @@ internal class DatabaseMigrationTest {
       helper
         .runMigrationsAndValidate(
           name = "todos",
-          fromVersion = 1,
-          toVersion = 3
+          fromVersion = 1
         )
         .use { database ->
           assertEquals(
@@ -82,6 +81,48 @@ internal class DatabaseMigrationTest {
               rows = emptyList()
             ),
             database.query("SELECT id,title,list,completed FROM todo_item")
+          )
+        }
+    }
+  }
+
+  @Test
+  fun `upgrade rebuilds the summary view that pre-rewrite releases created`() {
+    migrationHelper.use { helper ->
+      helper
+        .createDatabase(
+          name = "todos",
+          version = 3
+        )
+        .use { database ->
+          database.execute(
+            sql = """
+              CREATE VIEW todo_list_summary AS SELECT todo_list.*, (SELECT count(*) FROM todo_item
+              WHERE todo_item.completed = 0 AND todo_item.list = todo_list.id) AS items_count
+              FROM todo_list ORDER BY todo_list.name
+            """.trimIndent()
+          )
+          database.execute(
+            sql = "INSERT INTO todo_list(id,name) VALUES (?,?)",
+            bindArgs = listOf(7L, "O'Brien's list")
+          )
+          database.execute(
+            sql = "INSERT INTO todo_item(id,title,list) VALUES (?,?,?)",
+            bindArgs = listOf(11L, "Buy 'quoted' milk", 7L)
+          )
+        }
+      helper
+        .runMigrationsAndValidate(
+          name = "todos",
+          fromVersion = 3
+        )
+        .use { database ->
+          assertEquals(
+            MigrationTestResult(
+              columns = listOf("todo_list.id", "todo_list.name", "items_count"),
+              rows = listOf(listOf(7L, "O'Brien's list", 1L))
+            ),
+            database.query("""SELECT "todo_list.id","todo_list.name",items_count FROM todo_list_summary""")
           )
         }
     }
