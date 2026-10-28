@@ -4,6 +4,7 @@ import com.google.devtools.ksp.getConstructors
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSValueParameter
+import com.siimkinks.sqlitemagic.element.RoundTypeElement
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERTIES
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
 import com.siimkinks.sqlitemagic.model.ModelKind.EMBEDDED
@@ -15,13 +16,13 @@ import com.siimkinks.sqlitemagic.utils.isAccessibleFromGeneratedCode
 internal class ModelConstructionCollector(
   private val reporter: ModelCollectionReporter
 ) {
-  fun collect(
+  fun <P> collect(
     declaration: KSClassDeclaration,
-    properties: List<RoundPropertyShape>,
+    properties: List<P>,
     rootPath: PropertyPath,
     modelKind: ModelKind,
     primaryConstructor: KSFunctionDeclaration?
-  ): ModelConstruction? {
+  ): ModelConstruction? where P : RoundPropertyShape, P : RoundTypeElement {
     fun propertyPath(name: String) = when (modelKind) {
       TABLE,
       VIEW -> PropertyPath(listOf(name))
@@ -75,6 +76,10 @@ internal class ModelConstructionCollector(
         defaultableParameters = primaryConstructor.parameters
           .filter(KSValueParameter::hasDefault)
           .mapNotNull { it.name?.asString() }
+          .mapTo(linkedSetOf(), ::propertyPath),
+        nullableParameters = constructorProperties
+          .filter(RoundTypeElement::canBeNull)
+          .map(RoundPropertyShape::name)
           .mapTo(linkedSetOf(), ::propertyPath)
       )
     }
@@ -108,7 +113,8 @@ internal class ModelConstructionCollector(
       return ModelConstruction(
         strategy = MUTABLE_PROPERTIES,
         constructorParameters = emptyList(),
-        defaultableParameters = emptySet()
+        defaultableParameters = emptySet(),
+        nullableParameters = emptySet()
       )
     }
     if (hasZeroArgumentConstructor && inaccessibleProperty != null) {

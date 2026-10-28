@@ -488,7 +488,7 @@ internal class ModelIdentityRelationshipContractTest {
         )
         generatedSource.assertDoesNotContain(
           "Required recursive relationship",
-          "newInstanceWithOnlyId("
+          "SqliteMagic_NullableRecursiveRelationshipTarget_Dao.newInstanceWithOnlyId("
         )
       }
       .withGeneratedSource("NullableRecursiveRelationshipOwnerTable.kt") {
@@ -679,12 +679,13 @@ internal class ModelIdentityRelationshipContractTest {
   }
 
   @Test
-  fun `generates ID-only reconstruction only when constructor defaults permit it`() {
+  fun `generates ID-only reconstruction when other constructor parameters have defaults or are nullable`() {
     GENERATED
       .isOk()
       .assertGeneratedSources(
         "SqliteMagic_IdOnlyConstructible_Dao.kt",
-        "SqliteMagic_IdOnlyInconstructible_Dao.kt"
+        "SqliteMagic_IdOnlyInconstructible_Dao.kt",
+        "SqliteMagic_IdOnlyNullable_Dao.kt"
       )
       .withGeneratedSource("SqliteMagic_IdOnlyConstructible_Dao.kt") {
         it.assertContains(
@@ -694,6 +695,47 @@ internal class ModelIdentityRelationshipContractTest {
       }
       .withGeneratedSource("SqliteMagic_IdOnlyInconstructible_Dao.kt") {
         it.assertDoesNotContain("newInstanceWithOnlyId")
+      }
+      .withGeneratedSource("SqliteMagic_IdOnlyNullable_Dao.kt") {
+        it.assertContainsUnwrapped(
+          "fun newInstanceWithOnlyId(id: String): IdOnlyNullable",
+          "IdOnlyNullable(note = null, id = id, leaf = null)"
+        )
+      }
+  }
+
+  @Test
+  fun `reads a recursive target that its ID builds with nulls from the ID unless the read joins it`() {
+    GENERATED
+      .isOk()
+      .assertGeneratedSources(
+        "IdOnlyNullableOwnerTable.kt",
+        "SqliteMagic_IdOnlyNullableOwner_Dao.kt"
+      )
+      .withGeneratedSource("IdOnlyNullableOwnerTable.kt") {
+        it.assertContains("read = RelationshipRead.DEEP")
+      }
+      .withGeneratedSource("SqliteMagic_IdOnlyNullableOwner_Dao.kt") {
+        it.assertContainsUnwrapped(
+          "(related.read(cursor, 0) as IdOnlyNullable?) ?: " +
+              "SqliteMagic_IdOnlyNullable_Dao.newInstanceWithOnlyId(cursor.getString(startIndex + 1))"
+        )
+      }
+  }
+
+  @Test
+  fun `allows shallow relationships to targets that their ID builds with nulls`() {
+    GENERATED
+      .isOk()
+      .assertGeneratedSources(
+        "IdOnlyNullableReferenceTable.kt",
+        "SqliteMagic_IdOnlyNullableReference_Dao.kt"
+      )
+      .withGeneratedSource("IdOnlyNullableReferenceTable.kt") {
+        it.assertContains("read = RelationshipRead.ID_ONLY")
+      }
+      .withGeneratedSource("SqliteMagic_IdOnlyNullableReference_Dao.kt") {
+        it.assertContains("SqliteMagic_IdOnlyNullable_Dao.newInstanceWithOnlyId(")
       }
   }
 
@@ -1645,6 +1687,7 @@ internal class ModelIdentityRelationshipContractTest {
             contents = """
               package $PACKAGE
 
+              import com.siimkinks.sqlitemagic.annotation.Column
               import com.siimkinks.sqlitemagic.annotation.Id
               import com.siimkinks.sqlitemagic.annotation.Table
 
@@ -1658,6 +1701,27 @@ internal class ModelIdentityRelationshipContractTest {
               data class IdOnlyInconstructible(
                 @Id val id: String,
                 val requiredValue: String
+              )
+
+              @Table
+              data class IdOnlyNullable(
+                val note: String?,
+                @Id val id: String,
+                val label: String = "",
+                val fallback: String? = "fallback",
+                val leaf: ShallowLeaf?
+              )
+
+              @Table
+              data class IdOnlyNullableOwner(
+                @Id val id: String,
+                @Column(handleRecursively = true) val target: IdOnlyNullable
+              )
+
+              @Table
+              data class IdOnlyNullableReference(
+                @Id val id: String,
+                @Column(handleRecursively = false) val target: IdOnlyNullable
               )
             """
           ),

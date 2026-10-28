@@ -11,7 +11,8 @@ internal enum class ModelConstructionStrategy {
 internal data class ModelConstruction(
   val strategy: ModelConstructionStrategy,
   val constructorParameters: List<PropertyPath>,
-  val defaultableParameters: Set<PropertyPath>
+  val defaultableParameters: Set<PropertyPath>,
+  val nullableParameters: Set<PropertyPath>
 ) {
   fun constructorParameterIndex(property: PropertyPath) = constructorParameters
     .indexOf(property)
@@ -20,7 +21,7 @@ internal data class ModelConstruction(
   fun canConstructWithOnly(property: PropertyPath) = when (strategy) {
     MUTABLE_PROPERTIES -> true
     PRIMARY_CONSTRUCTOR -> constructorParameters.all { parameter ->
-      parameter == property || parameter in defaultableParameters
+      parameter == property || parameter in defaultableParameters || parameter in nullableParameters
     }
   }
 }

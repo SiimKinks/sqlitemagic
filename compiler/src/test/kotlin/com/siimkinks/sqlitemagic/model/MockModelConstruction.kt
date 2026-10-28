@@ -7,5 +7,6 @@ internal fun mockModelConstruction(
 ) = ModelConstruction(
   strategy = PRIMARY_CONSTRUCTOR,
   constructorParameters = constructorParameters,
-  defaultableParameters = emptySet()
+  defaultableParameters = emptySet(),
+  nullableParameters = emptySet()
 )

@@ -134,8 +134,8 @@ object SqliteMagic {
     /**
      * Initialize library.
      *
-     * This will create and open the default DB connection; creates tables on the first
-     * initialization; runs any upgrade scripts if needed.
+     * This will create the default DB connection. The database is opened on first access, which
+     * creates tables on the first initialization and runs any upgrade scripts if needed.
      *
      * Call this once during application creation, before accessing the database. The default
      * connection remains open and unchanged for the application lifetime and must not be closed
@@ -149,10 +149,10 @@ object SqliteMagic {
     /**
      * Open a new database connection.
      *
-     * This will create a new database if needed; creates tables on the first
-     * initialization; runs any upgrade scripts if needed.
+     * The database is opened on first access, which creates a new database if needed, creates
+     * tables on the first initialization and runs any upgrade scripts if needed.
      *
-     * @return Opened database connection
+     * @return New database connection
      */
     @CheckResult
     fun openNewConnection(): DbConnection = openConnection()

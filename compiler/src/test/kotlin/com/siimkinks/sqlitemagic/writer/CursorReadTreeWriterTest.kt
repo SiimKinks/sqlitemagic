@@ -54,7 +54,8 @@ internal class CursorReadTreeWriterTest {
     val constructor = ModelConstruction(
       strategy = PRIMARY_CONSTRUCTOR,
       constructorParameters = listOf(firstPath, secondPath),
-      defaultableParameters = emptySet()
+      defaultableParameters = emptySet(),
+      nullableParameters = emptySet()
     )
     val mutable = constructor.copy(strategy = MUTABLE_PROPERTIES)
     val cases = listOf(

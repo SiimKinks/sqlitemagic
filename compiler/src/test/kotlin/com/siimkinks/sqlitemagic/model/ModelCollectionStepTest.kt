@@ -87,7 +87,8 @@ internal class ModelCollectionStepTest {
           construction = ModelConstruction(
             strategy = PRIMARY_CONSTRUCTOR,
             constructorParameters = listOf(idPath, titlePath, subtitlePath),
-            defaultableParameters = emptySet()
+            defaultableParameters = emptySet(),
+            nullableParameters = setOf(titlePath)
           ),
           properties = listOf(
             ColumnPropertyElement(
@@ -237,7 +238,8 @@ internal class ModelCollectionStepTest {
           construction = ModelConstruction(
             strategy = PRIMARY_CONSTRUCTOR,
             constructorParameters = listOf(metadataPath),
-            defaultableParameters = emptySet()
+            defaultableParameters = emptySet(),
+            nullableParameters = setOf(metadataPath)
           ),
           properties = listOf(
             EmbeddedPropertyElement(
@@ -252,7 +254,8 @@ internal class ModelCollectionStepTest {
               construction = ModelConstruction(
                 strategy = PRIMARY_CONSTRUCTOR,
                 constructorParameters = listOf(ownerPath),
-                defaultableParameters = emptySet()
+                defaultableParameters = emptySet(),
+                nullableParameters = emptySet()
               ),
               properties = listOf(
                 ColumnPropertyElement(

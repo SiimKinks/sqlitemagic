@@ -14,6 +14,8 @@ import com.siimkinks.sqlitemagic.WriterTypes.OPERATION_FAILED_EXCEPTION
 import com.siimkinks.sqlitemagic.WriterTypes.SUPPORT_SQLITE_STATEMENT
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERTIES
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
+import com.siimkinks.sqlitemagic.utils.callCode
+import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -84,10 +86,17 @@ private class TableDaoWriter(
   private fun idOnlyConstructor(idColumn: ColumnElement): FunSpec {
     val idType = idColumn.deserializedType.typeName.copy(nullable = idColumn.isNullable)
     val construction = when (table.construction.strategy) {
-      PRIMARY_CONSTRUCTOR -> CodeBlock.of(
-        "%T(%N = id)",
-        table.modelClassName,
-        idColumn.access.path.propertyName
+      PRIMARY_CONSTRUCTOR -> callCode(
+        callee = CodeBlock.of("%T", table.modelClassName),
+        arguments = table.construction
+          .constructorParameters
+          .mapNotNull { parameter ->
+            when (parameter) {
+              idColumn.access.path -> namedArgument(parameter.propertyName, "id")
+              in table.construction.defaultableParameters -> null
+              else -> namedArgument(parameter.propertyName, "null")
+            }
+          }
       )
       MUTABLE_PROPERTIES -> CodeBlock.of(
         "%T().apply { this.%N = id }",

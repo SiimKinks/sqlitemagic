@@ -380,6 +380,7 @@ internal class NotNullMigrationTest {
       schema = "name TEXT NOT NULL DEFAULT ''",
       default = "''"
     )
+
     fun table(
       name: String,
       nameColumn: ColumnStructure

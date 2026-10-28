@@ -142,7 +142,8 @@ internal class ViewCollectionStepTest {
         mockPropertyPath("details", "postalCode"),
         mockPropertyPath("details", "cityName")
       ),
-      defaultableParameters = emptySet()
+      defaultableParameters = emptySet(),
+      nullableParameters = emptySet()
     )
     val expected = mockViewElement(
       parsedType = mockParsedType(typeName = authorSummaryType),
@@ -163,7 +164,11 @@ internal class ViewCollectionStepTest {
           mockPropertyPath("summary"),
           mockPropertyPath("ignored")
         ),
-        defaultableParameters = setOf(mockPropertyPath("ignored"))
+        defaultableParameters = setOf(mockPropertyPath("ignored")),
+        nullableParameters = setOf(
+          mockPropertyPath("email"),
+          mockPropertyPath("summary")
+        )
       ),
       queryPropertyName = "DEFINITION",
       properties = listOf(
