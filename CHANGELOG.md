@@ -1,6 +1,61 @@
 Change Log
 ==========
 
+Version 2.1.0 _(unreleased)_
+---------------------------------
+
+SqliteMagic 2.1 rewrites the query DSL. The [migration guide](.agents/skills/sqlitemagic-dsl-migration/SKILL.md) maps
+legacy queries to the new DSL and lists the changes that compile but behave differently.
+
+* Breaking: Rewrite the query DSL as SQL-first Kotlin, where queries follow SQL clause order and type their columns,
+  results and nullability
+* Breaking: Columns of non-null properties are `NOT NULL`. The next generated migration rebuilds the affected tables,
+  replacing stored NULLs with the column default or deleting their rows where the column has no default
+* Breaking: Entity insert and persist throw SQLite's exceptions instead of `OperationFailedException`, and a conflicting
+  bulk insert or persist throws instead of returning `false`
+* Breaking: Without `queryDeep()`, a related object whose other constructor parameters are nullable is built from its
+  ID, with `null` for those parameters, instead of being queried in full. Such objects can also be referenced with
+  `handleRecursively = false`
+* New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to own
+  classes
+* New: Generated migrations warn when they drop tables, columns or rows
+
+Version 2.0.0 _(2026-10-28)_
+---------------------------------
+
+SqliteMagic 2 moves code generation from the Java annotation processor and bytecode transform to KSP and supports
+Kotlin natively: models can be Kotlin data classes, and the generated code and query DSL are Kotlin. It also adds
+embedded values, table and view options, transformed IDs and JVM migration tests.
+
+* Breaking: Generate code with a KSP processor instead of the Java annotation processor and bytecode transform. Apply
+  the `com.google.devtools.ksp` plugin next to the SqliteMagic plugin, which adds the processor
+* Breaking: Generated code and the query DSL are Kotlin. Java models are still supported when they, their persisted
+  members and their external transformer functions are public
+* Breaking: Remove AutoValue support, the IntelliJ plugin and the `sqlitemagic-kotlin` artifact, whose extensions are
+  part of the main artifact
+* Breaking: Remove the `generateMagicMethods`, `useKotlin`, `debugBytecodeProcessor`, `generateLogging` and
+  `autoValueAnnotation` plugin options and the `useAccessMethods` property of `@Table` and `@Column`
+* Breaking: Raise the minimum Android API from 16 to 24
+* Breaking: Artifacts are built with Kotlin 2.4, so consuming modules need a Kotlin compiler that reads its metadata
+* Breaking: Pass the generated database to the setup builder with `.database(SqliteMagicDatabase())`
+* Breaking: Generated files, including DAOs, are in the `com.siimkinks.sqlitemagic` package
+* Breaking: Single-entity `insert()` returns `EntityInsertResult` and `persist()` returns `EntityPersistResult` instead
+  of the row ID
+* Breaking: Disallow BLOB IDs
+* New: IDs can use any other supported type, including transformed types
+* New: Embedded values with `@Embedded`
+* New: Temporary and `WITHOUT ROWID` tables and temporary views with `TableOption` and `ViewOption`
+* New: JVM migration tests for application modules with `SqliteMagicMigrationTestHelper`
+* New: `generateSqliteMagicMigrationManifest` task adopts release history recorded by 0.x for migration tests, and
+  `cleanSqliteMagicMetadata` task removes regenerable metadata and KSP caches while keeping release history and
+  migration scripts
+* Add: Support for Android Gradle plugin 9
+* Fix: A failing migration script statement fails and rolls back the upgrade, naming the script and line, instead of
+  being ignored
+* Fix: Empty bulk operations no longer roll back an enclosing transaction
+* Fix: Rx query operators stop after delivering an error
+* Fix: Query results read correct rows after the cursor window refills
+
 Version 0.25.1 _(2020-04-12)_
 ---------------------------------
 
