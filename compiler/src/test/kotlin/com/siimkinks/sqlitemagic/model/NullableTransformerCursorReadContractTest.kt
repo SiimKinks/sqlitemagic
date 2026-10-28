@@ -92,12 +92,6 @@ internal class NullableTransformerCursorReadContractTest {
         expected = listOf("value", "RequiredDecoded(requiredValue=DecodedValue(value=accepted))")
       ),
       ReadCase(
-        label = "required null database input becomes sentinel",
-        target = "required",
-        input = null,
-        expected = listOf("value", "RequiredDecoded(requiredValue=DecodedValue(value=sentinel))")
-      ),
-      ReadCase(
         label = "required null decoded output explains transformer and property",
         target = "required",
         input = "reject",
@@ -136,17 +130,6 @@ internal class NullableTransformerCursorReadContractTest {
         target = "boolean",
         input = 0L,
         expected = listOf("value", "RequiredBoolean(requiredBoolean=false)")
-      ),
-      ReadCase(
-        label = "default Boolean null output explains transformer and property",
-        target = "boolean",
-        input = null,
-        expected = listOf(
-          "error",
-          "IllegalStateException",
-          "Transformer com.siimkinks.sqlitemagic.transformer.BooleanTransformer.dbValueToObject " +
-              "returned null for required property requiredBoolean"
-        )
       )
     ).forEach { case ->
       assertWithMessage(case.label)

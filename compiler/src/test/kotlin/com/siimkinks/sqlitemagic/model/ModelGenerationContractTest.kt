@@ -71,11 +71,11 @@ internal class ModelGenerationContractTest {
       .withGeneratedSource("SqliteMagic_LibraryBook_Adapter.kt") {
         it.assertContains(
           "CREATE TABLE IF NOT EXISTS library_books (",
-          "book_key TEXT PRIMARY KEY",
-          "title_text TEXT DEFAULT 'untitled'",
-          "rating REAL DEFAULT 0.0",
-          "subtitle TEXT DEFAULT NULL",
-          "cover BLOB DEFAULT 0",
+          "book_key TEXT NOT NULL PRIMARY KEY, ",
+          "title_text TEXT NOT NULL DEFAULT 'untitled', ",
+          "rating REAL NOT NULL DEFAULT 0.0, ",
+          "subtitle TEXT DEFAULT NULL, ",
+          "cover BLOB NOT NULL DEFAULT X'')",
           "override val moduleName: String? = null",
           """override val tableName: String = "library_books"""",
           "override val insertSql: String =",
@@ -92,11 +92,11 @@ internal class ModelGenerationContractTest {
         it
           .assertContainsUnwrapped(
             "val LIBRARY_BOOK: LibraryBookTable",
-            "val BOOK_KEY: UniqueColumn<LibraryBook, String, SqlNullable, String?, String, Required, String>",
-            "val TITLE_TEXT: Column<LibraryBook, String, SqlNullable, String?, String, Required, String>",
-            "val RATING: Column<LibraryBook, Double, SqlNullable, Double, Double, Required, Double>",
+            "val BOOK_KEY: UniqueColumn<LibraryBook, String, Required, String, String, Required, String>",
+            "val TITLE_TEXT: Column<LibraryBook, String, Required, String, String, Required, String>",
+            "val RATING: Column<LibraryBook, Double, Required, Double, Double, Required, Double>",
             "val SUBTITLE: Column<LibraryBook, String, SqlNullable, String?, String?, SqlNullable, String?>",
-            "val COVER: Column<LibraryBook, ByteArray, SqlNullable, ByteArray?, ByteArray, Required, ByteArray>"
+            "val COVER: Column<LibraryBook, ByteArray, Required, ByteArray, ByteArray, Required, ByteArray>"
           )
           .assertContains(
             "class LibraryBookTable",
@@ -339,7 +339,7 @@ internal class ModelGenerationContractTest {
           "cursor.getBlob",
           "toTypedArray()",
           "cursor.getFloat",
-          "enabled = checkNotNull(BooleanTransformer.dbValueToObject",
+          "enabled = checkNotNull(BooleanTransformer.dbValueToObject(cursor.getInt(startIndex + 10)))",
           "uniqueEnabled = checkNotNull(BooleanTransformer.dbValueToObject",
           "Transformer com.siimkinks.sqlitemagic.transformer.BooleanTransformer.dbValueToObject " +
               "returned null for required property enabled",
@@ -353,12 +353,15 @@ internal class ModelGenerationContractTest {
       .withGeneratedSource("StorageMatrixTable.kt") {
         it
           .assertContainsUnwrapped(
-            "val ENABLED: Column<StorageMatrix, Boolean, SqlNullable, Boolean, Boolean, Required, Boolean>",
+            "val ENABLED: Column<StorageMatrix, Boolean, Required, Boolean, Boolean, Required, Boolean>",
             "val NULLABLE_ENABLED: Column<StorageMatrix, Boolean, SqlNullable, Boolean?, Boolean?, SqlNullable, " +
                 "Boolean?>",
-            "val UNIQUE_ENABLED: Column<StorageMatrix, Boolean, SqlNullable, Boolean, Boolean, Required, Boolean>",
-            "val TEXT: Column<StorageMatrix, String, SqlNullable, String?, String, Required, String>",
-            "val NULLABLE_TEXT: Column<StorageMatrix, String, SqlNullable, String?, String?, SqlNullable, String?>"
+            "val UNIQUE_ENABLED: Column<StorageMatrix, Boolean, Required, Boolean, Boolean, Required, Boolean>",
+            "val TEXT: Column<StorageMatrix, String, Required, String, String, Required, String>",
+            "val NULLABLE_TEXT: Column<StorageMatrix, String, SqlNullable, String?, String?, SqlNullable, String?>",
+            "selectedRead = { cursor, index -> cursor.getBlob(index).toTypedArray() }",
+            "selectedRead = { cursor, index -> cursor.getInt(index) != 0 }",
+            "selectedRead = { cursor, index -> (if (cursor.isNull(index)) null else cursor.getInt(index) != 0) }"
           )
           .assertContains(
             "parameterEncoding = SqlType.BOOLEAN.",

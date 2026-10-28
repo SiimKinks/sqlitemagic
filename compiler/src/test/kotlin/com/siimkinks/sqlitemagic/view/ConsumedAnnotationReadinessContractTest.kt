@@ -144,6 +144,7 @@ internal class ConsumedAnnotationReadinessContractTest {
       columns = columnKeys,
       defaults = when {
         isView -> emptyList()
+        surface in setOf("class_index", "field_index") -> List(columnKeys.size) { null }
         else -> columnKeys.map { "''" }
       },
       indexes = when (surface) {
@@ -325,7 +326,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               columns = listOf("id"),
               id = IdElement(
                 isAutoIncrement = true,
-                canAssignGeneratedId = true
+                canAssignGeneratedId = true,
+                isNotNullKey = true
               )
             ),
             "EnabledIdTable" to DefaultMetadata(
@@ -334,7 +336,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               columns = listOf("id"),
               id = IdElement(
                 isAutoIncrement = true,
-                canAssignGeneratedId = true
+                canAssignGeneratedId = true,
+                isNotNullKey = true
               )
             ),
             "DisabledIdTable" to DefaultMetadata(
@@ -343,7 +346,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               columns = listOf("id"),
               id = IdElement(
                 isAutoIncrement = false,
-                canAssignGeneratedId = true
+                canAssignGeneratedId = true,
+                isNotNullKey = true
               )
             ),
             "TableOptions" to DefaultMetadata(
@@ -352,7 +356,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               columns = listOf("id"),
               id = IdElement(
                 isAutoIncrement = false,
-                canAssignGeneratedId = true
+                canAssignGeneratedId = true,
+                isNotNullKey = true
               )
             ),
             "ViewDefaults" to DefaultMetadata(

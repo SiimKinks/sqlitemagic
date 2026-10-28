@@ -401,7 +401,7 @@ private enum class RelationshipOperation(
   )
 }
 
-private val ColumnElement.identityValueCanBeNull get() = isSchemaNullable || serializedValueCanBeNull
+private val ColumnElement.identityValueCanBeNull get() = isValueNullable || serializedValueCanBeNull
 
 private fun TableElement.insertSql() = when {
   columnsForInsert.isEmpty() -> "INSERT%s INTO $tableName DEFAULT VALUES"

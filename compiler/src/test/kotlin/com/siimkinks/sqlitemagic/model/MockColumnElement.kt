@@ -16,10 +16,9 @@ internal fun mockColumnElement(
   deserializedType = deserializedType,
   isNullable = isNullable,
   columnName = columnName,
-  isSchemaNullable = isNullable,
+  isValueNullable = isNullable,
   isModelPathNullable = isNullable,
   defaultValue = checkNotNull((relationship?.referencedIdSerializedType ?: deserializedType).sqlStorageType)
-    .affinity
     .defaultValue,
   transformer = null,
   relationship = relationship,

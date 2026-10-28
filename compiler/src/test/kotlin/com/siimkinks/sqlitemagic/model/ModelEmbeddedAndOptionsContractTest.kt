@@ -47,8 +47,8 @@ internal class ModelEmbeddedAndOptionsContractTest {
           "shipping_geo_lat REAL DEFAULT NULL",
           "shipping_geo_longitude REAL DEFAULT NULL",
           "shipping_note TEXT DEFAULT NULL",
-          "billing_lat REAL DEFAULT 0.0",
-          "billing_longitude REAL DEFAULT 0.0"
+          "billing_lat REAL NOT NULL DEFAULT 0.0",
+          "billing_longitude REAL NOT NULL DEFAULT 0.0"
         )
         generatedSource.assertDoesNotContain(
           " shipping ",
@@ -62,8 +62,8 @@ internal class ModelEmbeddedAndOptionsContractTest {
             "val SHIPPING_GEO_LAT: Column<Shipment, Double, SqlNullable, Double?, Double?, SqlNullable, Double?>",
             "val SHIPPING_GEO_LONGITUDE: Column<Shipment, Double, SqlNullable, Double?, Double?, SqlNullable, Double?>",
             "val SHIPPING_NOTE: Column<Shipment, String, SqlNullable, String?, String?, SqlNullable, String?>",
-            "val BILLING_LAT: Column<Shipment, Double, SqlNullable, Double, Double, Required, Double>",
-            "val BILLING_LONGITUDE: Column<Shipment, Double, SqlNullable, Double, Double, Required, Double>"
+            "val BILLING_LAT: Column<Shipment, Double, Required, Double, Double, Required, Double>",
+            "val BILLING_LONGITUDE: Column<Shipment, Double, Required, Double, Double, Required, Double>"
           )
           .assertContains(": Table<Shipment>(")
         generatedSource
@@ -258,7 +258,7 @@ internal class ModelEmbeddedAndOptionsContractTest {
       )
       .withGeneratedSource("SqliteMagic_RequiredEmbeddedKey_Adapter.kt") {
         it.assertContains(
-          "external_value TEXT UNIQUE",
+          "external_value TEXT NOT NULL UNIQUE",
           "EntityIdentityAdapter<RequiredEmbeddedKey>",
           "override fun updateStatementSql"
         )

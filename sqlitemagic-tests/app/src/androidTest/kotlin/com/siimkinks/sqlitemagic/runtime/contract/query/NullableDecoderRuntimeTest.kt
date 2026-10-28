@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
+import android.database.sqlite.SQLiteConstraintException
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.TransformerRuntimeEntityTable.Companion.TRANSFORMER_RUNTIME_ENTITY
@@ -56,22 +57,27 @@ internal class NullableDecoderRuntimeTest {
   }
 
   @Test
-  fun actualSqlNullInputCanDecodeIntoRequiredSentinelWhileNullablePropertyStaysNull() {
+  fun requiredDecodedColumnRejectsSqlNullWhileNullablePropertyStaysNull() {
     val inserted = TransformerModelCatalog.insertRuntimeValue(
       TransformerModelCatalog.runtimeCase
         .newValue(sequence = 1)
         .copy(nullableToken = null)
     )
-    val expected = inserted.copy(ownedToken = OwnedToken("sentinel"))
-    defaultWritableDatabase().execSQL(
-      sql = "UPDATE transformer_runtime_entity SET owned_token = NULL WHERE id = ?",
-      bindArgs = arrayOf(checkNotNull(inserted.id))
-    )
+    val failure = assertThrows(SQLiteConstraintException::class.java) {
+      defaultWritableDatabase().execSQL(
+        sql = "UPDATE transformer_runtime_entity SET owned_token = NULL WHERE id = ?",
+        bindArgs = arrayOf(checkNotNull(inserted.id))
+      )
+    }
 
+    assertWithMessage("update")
+      .that(failure)
+      .hasMessageThat()
+      .contains("NOT NULL constraint failed: transformer_runtime_entity.owned_token")
     ReadTerminal.entries.forEach { terminal ->
       assertWithMessage(terminal.name)
         .that(readRows(terminal))
-        .isEqualTo(listOf(expected))
+        .isEqualTo(listOf(inserted))
     }
   }
 

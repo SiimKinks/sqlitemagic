@@ -217,7 +217,8 @@ abstract class PublishSqliteMagicRelease : DefaultTask() {
       currentStructureFiles = currentStructures.files.sortedBy(File::getName),
       compiledRelease = captured,
       evidenceAssetsDirectory = assetsDirectory.orNull?.asFile
-        ?: projectDirectory.get().asFile.resolve("src/${assetsBuildType.get()}/assets")
+        ?: projectDirectory.get().asFile.resolve("src/${assetsBuildType.get()}/assets"),
+      warn = logger::warn
     )
   }
 }

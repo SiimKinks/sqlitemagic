@@ -17,7 +17,8 @@ internal enum class AutoIncrementMode {
 
 internal data class IdElement(
   val isAutoIncrement: Boolean,
-  val canAssignGeneratedId: Boolean
+  val canAssignGeneratedId: Boolean,
+  val isNotNullKey: Boolean
 )
 
 internal data class FieldIndexElement(
@@ -61,9 +62,9 @@ internal data class ColumnElement(
   override val deserializedType: ParsedType,
   override val isNullable: Boolean,
   val columnName: String,
-  val isSchemaNullable: Boolean,
+  val isValueNullable: Boolean,
   val isModelPathNullable: Boolean,
-  val defaultValue: String,
+  val defaultValue: String?,
   val transformer: TransformerElement?,
   val relationship: RelationshipElement?,
   val id: IdElement?,
@@ -78,6 +79,10 @@ internal data class ColumnElement(
   }
 
   val isId get() = id != null
+  val isNotNullKey get() = id?.isNotNullKey == true
+  val isSqlNullable get() = isModelPathNullable && !isNotNullKey
+  val declaresNotNull get() = !isModelPathNullable && !isNotNullKey
+  val schemaDefaultValue get() = defaultValue.takeUnless { isId || isUnique }
   val isRelationship get() = relationship != null
   val isHandledRecursively get() = relationship?.isHandledRecursively == true
   val referencedTableTypeKey get() = relationship?.referencedTableTypeKey
@@ -100,7 +105,7 @@ internal data class ColumnElement(
         relationship?.serializedValueCanBeNull == true
 
   val hasEntityKeyValue
-    get() = !isSchemaNullable &&
+    get() = !isValueNullable &&
         !serializedValueCanBeNull &&
         sqlStorageType.affinity != BLOB
   val isEligibleEntityKey get() = isUnique && hasEntityKeyValue
@@ -110,6 +115,6 @@ internal data class ColumnElement(
   val bindingValueCanBeNull
     get() = when {
       relationship != null -> isModelPathNullable
-      else -> isSchemaNullable || serializedValueCanBeNull
+      else -> isValueNullable || serializedValueCanBeNull
     }
 }

@@ -46,6 +46,8 @@ internal data class IndexElement(
   val tableTypeKey get() = tableType.typeKey()
 }
 
+internal fun String.compositeIndexIncludes(belongsToIndex: String?) = belongsToIndex == ifEmpty { null }
+
 internal data class IndexRoundElement(
   val index: IndexElement,
   val originatingFiles: OriginatingFiles

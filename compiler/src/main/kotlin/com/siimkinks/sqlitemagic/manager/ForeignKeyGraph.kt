@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.manager
 
-import java.util.ArrayDeque
-
 internal class ForeignKeyGraph(
   private val tableNames: Iterable<String>,
   private val referencesByTableName: Map<String, Set<String>>
@@ -51,6 +49,18 @@ internal class ForeignKeyGraph(
     return when {
       hasDependents -> result
       else -> emptySet()
+    }
+  }
+
+  fun transitiveDependents(tableName: String) = buildSet {
+    val pendingReferences = ArrayDeque<String>()
+    pendingReferences.addLast(tableName.normalizedSqlIdentifier())
+    while (pendingReferences.isNotEmpty()) {
+      for (dependentName in dependentsByReferencedName[pendingReferences.removeFirst()].orEmpty()) {
+        if (dependentName != tableName && add(dependentName)) {
+          pendingReferences.addLast(dependentName.normalizedSqlIdentifier())
+        }
+      }
     }
   }
 

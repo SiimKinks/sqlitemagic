@@ -16,8 +16,12 @@ internal data class ColumnStructure(
   val name: String = "",
   val onDeleteCascade: Boolean = false,
   val sqlType: String = "",
-  val schema: String = ""
+  val schema: String = "",
+  val notNull: Boolean = false,
+  val notNullDefault: String? = null
 ) {
+  val requiresValue get() = notNull && notNullDefault == null
+
   companion object {
     fun from(column: ColumnElement) = with(column) {
       ColumnStructure(
@@ -26,7 +30,9 @@ internal data class ColumnStructure(
         name = columnName,
         onDeleteCascade = relationship?.onDeleteCascade == true,
         sqlType = sqlStorageType.affinity.name,
-        schema = schemaSql()
+        schema = schemaSql(),
+        notNull = declaresNotNull,
+        notNullDefault = schemaDefaultValue?.takeIf { declaresNotNull && !it.equals("NULL", ignoreCase = true) }
       )
     }
   }
@@ -38,6 +44,8 @@ internal data class TableStructure(
   val schema: String = "",
   val columns: List<ColumnStructure> = emptyList()
 ) {
+  val hasCascadeDelete get() = columns.any(ColumnStructure::onDeleteCascade)
+
   companion object {
     fun from(table: TableElement) = with(table) {
       val columns = allColumns.map(transform = ColumnStructure::from)
@@ -82,6 +90,10 @@ internal data class DatabaseStructure(
   val views: Map<String, ViewStructure> = emptyMap(),
   val temporaryViews: Map<String, ViewStructure> = emptyMap()
 ) {
+  val enforcesForeignKeys
+    get() = tables.values.any(TableStructure::hasCascadeDelete) ||
+        temporaryTables.values.any(TableStructure::hasCascadeDelete)
+
   companion object {
     internal fun from(
       orderedTables: CreationOrderedTables,

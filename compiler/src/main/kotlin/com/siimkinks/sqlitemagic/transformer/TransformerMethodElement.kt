@@ -24,6 +24,7 @@ internal interface TransformerMethodElement {
   val callableKind: TransformerCallableKind
 
   val ownerQualifiedName get() = ownerClassName?.canonicalName
+  val qualifiedName get() = "${ownerQualifiedName ?: packageName}.$methodName"
   val memberName get() = MemberName(packageName = packageName, simpleName = methodName)
 
   fun callableReference() = when (callableKind) {

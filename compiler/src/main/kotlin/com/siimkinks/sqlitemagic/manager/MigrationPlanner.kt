@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
+import java.util.Locale
+
 internal enum class TableMigrationOperation {
   APPEND_COLUMNS,
   REBUILD
@@ -182,7 +184,45 @@ internal data class TableChange(
   val from: TableSnapshot,
   val to: TableSnapshot,
   val operation: TableMigrationOperation
-)
+) {
+  private val currentColumnsByName = to.structure.columns.associateBy(ColumnStructure::lookupName)
+  private val previousColumnNames = from.structure.columns.mapTo(
+    destination = hashSetOf(),
+    transform = ColumnStructure::lookupName
+  )
+  val copiedColumns = from.structure.columns.mapNotNull { previous ->
+    currentColumnsByName[previous.lookupName]?.let { current ->
+      ColumnCopy(
+        previous = previous,
+        current = current,
+        gainsNotNull = current.isNotNullIn(to.structure) && !previous.isNotNullIn(from.structure)
+      )
+    }
+  }
+  val droppedColumns = from.structure.columns.filterNot { it.lookupName in currentColumnsByName }
+  val columnsWithoutValue = to.structure.columns.filter { column ->
+    column.lookupName !in previousColumnNames && column.requiresValueDuringRebuild(table = to.structure)
+  }
+  val copiesRows get() = copiedColumns.isNotEmpty() && columnsWithoutValue.isEmpty()
+  val nullRowColumns = copiedColumns
+    .filter(ColumnCopy::deletesNullRows)
+    .map(ColumnCopy::previous)
+}
+
+internal data class ColumnCopy(
+  val previous: ColumnStructure,
+  val current: ColumnStructure,
+  private val gainsNotNull: Boolean
+) {
+  val deletesNullRows get() = gainsNotNull && current.notNullDefault == null
+  val sourceValue
+    get() = when {
+      gainsNotNull && current.notNullDefault != null -> "IFNULL(${previous.name}, ${current.notNullDefault})"
+      else -> previous.name
+    }
+}
+
+private val ColumnStructure.lookupName get() = name.lowercase(Locale.ROOT)
 
 internal data class TableMigrationPlan(
   val prerequisiteNewTables: List<TableSnapshot>,

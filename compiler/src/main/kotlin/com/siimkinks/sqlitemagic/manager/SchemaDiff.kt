@@ -50,7 +50,8 @@ internal data class SchemaDiff(
   val removedIndices: List<IndexSnapshot> = emptyList(),
   val viewTransitions: List<ViewTransition> = emptyList(),
   val newViews: List<ViewSnapshot> = emptyList(),
-  val removedViews: List<ViewSnapshot> = emptyList()
+  val removedViews: List<ViewSnapshot> = emptyList(),
+  val renameCandidates: Map<String, List<String>> = emptyMap()
 ) {
   val renamedTables = transitions
     .asSequence()
@@ -186,7 +187,8 @@ internal object SchemaDiffer {
       removedIndices = removedIndices,
       viewTransitions = viewTransitions,
       newViews = newViews,
-      removedViews = removedViews
+      removedViews = removedViews,
+      renameCandidates = renameDetection.renameCandidates
     )
   }
 
@@ -209,7 +211,8 @@ private data class RenameDetection(
   val renamedTables: LinkedHashMap<String, String>,
   val changedTableNames: LinkedHashSet<String>,
   val newTableNames: LinkedHashSet<String>,
-  val removedTableNames: LinkedHashSet<String>
+  val removedTableNames: LinkedHashSet<String>,
+  val renameCandidates: Map<String, List<String>>
 )
 
 private class RenameDetector(
@@ -258,19 +261,19 @@ private class RenameDetector(
     val remainingRemovedTableNames = removedTableNames.filterTo(linkedSetOf()) {
       it !in renamedSourceNames
     }
-    validateOccupiedRenameCandidates(
-      removedTableNames = remainingRemovedTableNames,
-      changedTableNames = changedTableNames
-    )
-    validateChangedRenameCandidates(
-      removedTableNames = remainingRemovedTableNames,
-      newTableNames = newTableNames
-    )
+    val unrenamedChangedTableNames = changedTableNames - renamedTables.keys
     return RenameDetection(
       renamedTables = renamedTables,
       changedTableNames = changedTableNames,
       newTableNames = newTableNames,
-      removedTableNames = remainingRemovedTableNames
+      removedTableNames = remainingRemovedTableNames,
+      renameCandidates = remainingRemovedTableNames.associateWith { removedTableName ->
+        renameCandidates(
+          previousTable = from.tables.getValue(removedTableName),
+          newTableNames = newTableNames,
+          changedTableNames = unrenamedChangedTableNames
+        )
+      }
     )
   }
 
@@ -325,130 +328,43 @@ private class RenameDetector(
     return result
   }
 
-  private fun validateOccupiedRenameCandidates(
-    removedTableNames: Set<String>,
+  private fun renameCandidates(
+    previousTable: TableStructure,
+    newTableNames: Set<String>,
     changedTableNames: Set<String>
-  ) {
-    val candidateSourceNames = from.tables.keys
-      .asSequence()
-      .filter { sourceTableName ->
-        sourceTableName in removedTableNames || sourceTableName in changedTableNames
-      }
-    val candidates = changedTableNames.flatMap { changedTableName ->
-      val currentTable = to.tables.getValue(changedTableName)
-      candidateSourceNames.mapNotNull { sourceTableName ->
-        when {
-          sourceTableName == changedTableName -> null
-          columnsHaveSameShape(
-            from = from.tables.getValue(sourceTableName),
-            to = currentTable
-          ) -> sourceTableName to changedTableName
-          else -> null
-        }
+  ) = to.tables
+    .filter { (tableName, table) ->
+      when (tableName) {
+        in newTableNames -> columnsHaveSameShape(
+          from = previousTable,
+          to = table
+        ) || couldBeChangedRename(
+          from = previousTable,
+          to = table
+        )
+        in changedTableNames -> columnsHaveSameShape(
+          from = previousTable,
+          to = table
+        )
+        else -> false
       }
     }
-    if (candidates.isEmpty()) return
-
-    val candidateNames = candidates.joinToString(
-      transform = { (sourceTableName, changedTableName) ->
-        "$sourceTableName -> $changedTableName"
-      }
-    )
-    error(
-      "Cannot automatically infer table rename(s) through an occupied table name: $candidateNames; " +
-          "keep each destination name unoccupied for one migration or provide an explicit migration"
-    )
-  }
-
-  private fun validateChangedRenameCandidates(
-    removedTableNames: Set<String>,
-    newTableNames: Set<String>
-  ) {
-    val previousTables = removedTableNames.asSequence().map { tableName ->
-      tableName to from.tables.getValue(tableName)
-    }
-    val currentTables = newTableNames.asSequence().map { tableName ->
-      tableName to to.tables.getValue(tableName)
-    }
-    val equivalentCandidates = previousTables
-      .flatMap { (removedTableName, previousTable) ->
-        currentTables.mapNotNull { (newTableName, currentTable) ->
-          when {
-            columnsHaveSameShape(
-              from = previousTable,
-              to = currentTable
-            ) -> removedTableName to newTableName
-            else -> null
-          }
-        }
-      }
-    val ambiguousSources = equivalentCandidates
-      .groupBy { (removedTableName, _) -> removedTableName }
-      .values
-      .asSequence()
-      .filter { it.size > 1 }
-      .flatten()
-      .toList()
-    if (ambiguousSources.isNotEmpty()) {
-      val candidateNames = ambiguousSources.joinToString(
-        transform = { (removedTableName, newTableName) -> "$removedTableName -> $newTableName" }
-      )
-      error(
-        "Cannot automatically infer changed table rename(s): $candidateNames; " +
-            "keep the table name stable for one migration or provide an explicit migration"
-      )
-    }
-    val candidates = currentTables
-      .flatMap { (newTableName, currentTable) ->
-        val toId = currentTable.columns.firstOrNull(ColumnStructure::id)
-        val toColumns = when (toId) {
-          null -> currentTable.columns.associateBy(ColumnStructure::name)
-          else -> emptyMap()
-        }
-        previousTables.mapNotNull { (removedTableName, previousTable) ->
-          when {
-            couldBeChangedRename(
-              from = previousTable,
-              to = currentTable,
-              toId = toId,
-              toColumns = toColumns
-            ) -> removedTableName to newTableName
-            else -> null
-          }
-        }
-      }
-      .toList()
-    val changedCandidates = candidates.filterNot { (removedTableName, newTableName) ->
-      columnsEquivalent(
-        from = from.tables.getValue(removedTableName),
-        to = to.tables.getValue(newTableName),
-        renames = emptyMap()
-      )
-    }
-    if (candidates.size == 1 || changedCandidates.isNotEmpty()) {
-      val candidateNames = (changedCandidates.ifEmpty { candidates }).joinToString(
-        transform = { (removedTableName, newTableName) -> "$removedTableName -> $newTableName" }
-      )
-      error(
-        "Cannot automatically infer changed table rename(s): $candidateNames; " +
-            "keep the table name stable for one migration or provide an explicit migration"
-      )
-    }
-  }
+    .keys
+    .toList()
 
   private fun couldBeChangedRename(
     from: TableStructure,
-    to: TableStructure,
-    toId: ColumnStructure?,
-    toColumns: Map<String, ColumnStructure>
+    to: TableStructure
   ): Boolean {
     val fromId = from.columns.firstOrNull(ColumnStructure::id)
+    val toId = to.columns.firstOrNull(ColumnStructure::id)
     if (fromId != null || toId != null) {
       return fromId != null && toId != null &&
           fromId.name == toId.name &&
           fromId.sqlType == toId.sqlType &&
           fromId.autoIncrement == toId.autoIncrement
     }
+    val toColumns = to.columns.associateBy(ColumnStructure::name)
     return from.columns.any { fromColumn ->
       fromColumn.sqlType.isNotEmpty() &&
           toColumns[fromColumn.name]?.sqlType == fromColumn.sqlType

@@ -561,15 +561,21 @@ internal class IndexMigrationContractTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      """DROP INDEX IF EXISTS main."books_id"""",
-      "DROP TABLE IF EXISTS books"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          """DROP INDEX IF EXISTS main."books_id"""",
+          "DROP TABLE IF EXISTS books"
+        ),
+        warnings = listOf("Migration drops table books with its rows. Edit the migration SQL to keep them.")
+      )
+    )
   }
 
   @Test

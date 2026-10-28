@@ -127,7 +127,8 @@ internal class DebugMigrationCoordinator(
         outputStructureFile = structureFile,
         migrationOutputFile = migrationFile,
         pendingMigrationStatements = pendingMigrationStatements,
-        externalTransaction = transaction
+        externalTransaction = transaction,
+        warn = logger::warn
       ).migrate()
       val outcome = when (val submoduleName = database.submoduleName) {
         null -> when {

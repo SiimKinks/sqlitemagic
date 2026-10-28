@@ -4,6 +4,7 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.annotation.Embedded
+import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.element.TypeKey
@@ -135,6 +136,10 @@ internal class ModelCollector(
       artifactStem = declaration.generatedArtifactStem(),
       declarationOrder = declarationOrder,
       options = options,
+      uniqueCompositeIndexName = annotations
+        .index(declaration)
+        ?.takeIf(Index::unique)
+        ?.value,
       construction = shape.construction,
       propertySeeds = logicalProperties,
       isPublic = declaration.isEffectivelyPublic()
@@ -187,7 +192,6 @@ internal class ModelCollector(
       ?: property.name.camelCaseToSnakeCase()
     val columnName = embeddedPrefixes.joinToString(separator = "") + rawColumnName
     val isNullable = property.canBeNull
-    val isSchemaNullable = inheritedNullable || isNullable
     val indexAnnotation = propertyAnnotations.index
     val index = indexAnnotation?.let { annotation ->
       FieldIndexElement(
@@ -205,7 +209,7 @@ internal class ModelCollector(
         isMutable = property.isMutable
       ),
       columnName = columnName,
-      isSchemaNullable = isSchemaNullable,
+      isModelPathNullable = inheritedNullable || isNullable,
       explicitDefaultValue = columnAnnotation
         ?.defaultValue
         ?.takeIf(String::isNotEmpty),

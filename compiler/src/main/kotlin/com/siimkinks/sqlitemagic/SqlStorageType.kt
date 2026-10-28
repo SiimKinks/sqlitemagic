@@ -19,27 +19,26 @@ import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.WildcardTypeName
 
-internal enum class SqlAffinity(
-  val defaultValue: String
-) {
-  BLOB(defaultValue = "0"),
-  INTEGER(defaultValue = "0"),
-  REAL(defaultValue = "0.0"),
-  TEXT(defaultValue = "''")
+internal enum class SqlAffinity {
+  BLOB,
+  INTEGER,
+  REAL,
+  TEXT
 }
 
 internal enum class SqlStorageType(
-  val affinity: SqlAffinity
+  val affinity: SqlAffinity,
+  val defaultValue: String
 ) {
-  BYTE_ARRAY(affinity = BLOB),
-  BOXED_BYTE_ARRAY(affinity = BLOB),
-  BYTE(affinity = BLOB),
-  DOUBLE(affinity = REAL),
-  FLOAT(affinity = REAL),
-  INT(affinity = INTEGER),
-  LONG(affinity = INTEGER),
-  SHORT(affinity = INTEGER),
-  STRING(affinity = TEXT);
+  BYTE_ARRAY(BLOB, "X''"),
+  BOXED_BYTE_ARRAY(BLOB, "X''"),
+  BYTE(BLOB, "X'00'"),
+  DOUBLE(REAL, "0.0"),
+  FLOAT(REAL, "0.0"),
+  INT(INTEGER, "0"),
+  LONG(INTEGER, "0"),
+  SHORT(INTEGER, "0"),
+  STRING(TEXT, "''");
 
   companion object {
     fun from(typeName: TypeName): SqlStorageType? {

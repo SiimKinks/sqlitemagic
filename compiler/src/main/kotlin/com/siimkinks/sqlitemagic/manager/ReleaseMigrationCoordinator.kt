@@ -12,7 +12,8 @@ object ReleaseMigrationCoordinator {
     variantName: String,
     currentStructureFiles: List<File>? = null,
     compiledRelease: ReleaseSchemaSnapshot? = null,
-    evidenceAssetsDirectory: File = projectDir.resolve("src/$variantName/assets")
+    evidenceAssetsDirectory: File = projectDir.resolve("src/$variantName/assets"),
+    warn: (String) -> Unit = {}
   ) {
     val releaseAssetsDirectory = projectDir.resolve("src/$variantName/assets")
     val releaseStructuresDirectory = databaseDirectory.resolve("releases")
@@ -50,7 +51,7 @@ object ReleaseMigrationCoordinator {
       currentStructureFiles = currentStructureFiles
     )
     validateCurrentStructures(currentStructures)
-    val currentStructure = aggregatePersistentStructures(currentStructures)
+    val currentStructure = aggregateStructures(currentStructures)
     compiledRelease?.let { compiled ->
       check(
         currentStructure.tables.values.map(TableStructure::schema).toSet() == compiled.tableSql.toSet() &&
@@ -101,7 +102,8 @@ object ReleaseMigrationCoordinator {
           ?.reader()
           ?.readLines()
           .orEmpty(),
-        externalTransaction = transaction
+        externalTransaction = transaction,
+        warn = warn
       ).migrate()
       if (destinationPendingSql != null && !mainSqlFile.isFile) transaction.writeTextIfChanged(
         file = mainSqlFile,
@@ -175,21 +177,30 @@ object ReleaseMigrationCoordinator {
     }
   }
 
-  private fun aggregatePersistentStructures(
+  private fun aggregateStructures(
     structures: Iterable<Pair<String, DatabaseStructure>>
   ): DatabaseStructure {
     val tables = linkedMapOf<String, TableStructure>()
     val indices = linkedMapOf<String, IndexStructure>()
+    val temporaryTables = linkedMapOf<String, TableStructure>()
+    val temporaryIndices = linkedMapOf<String, IndexStructure>()
     val views = linkedMapOf<String, ViewStructure>()
+    val temporaryViews = linkedMapOf<String, ViewStructure>()
     structures.forEach { (_, structure) ->
       tables.putAll(structure.tables)
       indices.putAll(structure.indices)
+      temporaryTables.putAll(structure.temporaryTables)
+      temporaryIndices.putAll(structure.temporaryIndices)
       views.putAll(structure.views)
+      temporaryViews.putAll(structure.temporaryViews)
     }
     return DatabaseStructure(
       tables = tables,
       indices = indices,
-      views = views
+      temporaryTables = temporaryTables,
+      temporaryIndices = temporaryIndices,
+      views = views,
+      temporaryViews = temporaryViews
     )
   }
 

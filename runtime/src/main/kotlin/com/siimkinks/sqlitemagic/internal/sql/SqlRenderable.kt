@@ -331,7 +331,7 @@ internal class SqlRenderingContext(
     if (scope.kind != ROOT) {
       return
     }
-    definition.outputs += field.outputAlias!!.lowercase()
+    definition.outputs += checkNotNull(field.outputAlias).lowercase()
     val table = (field.node as ExpressionNode.Field).table
     val sourceName = definition.sourceNames[scope.positions[table]]
     definition.occurrences[sourceName.lowercase()]?.let { definition.occurrences[field.key.lowercase()] = it }

@@ -16,7 +16,7 @@ android {
     targetSdk = 37
     versionCode = 1
     versionName = "1.0"
-    buildConfigField("int", "DB_VERSION", "4")
+    buildConfigField("int", "DB_VERSION", "5")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
   sourceSets.named("debug") {

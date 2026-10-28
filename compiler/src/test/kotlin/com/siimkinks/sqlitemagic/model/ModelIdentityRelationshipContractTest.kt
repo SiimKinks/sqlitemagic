@@ -74,7 +74,7 @@ internal class ModelIdentityRelationshipContractTest {
       )
       .withGeneratedSource("UniqueRelationshipOwnerTable.kt") {
         it.assertContainsUnwrapped(
-          "val TARGET: UniqueColumn<UniqueRelationshipOwner, String, SqlNullable, String?, String, Required, String>",
+          "val TARGET: UniqueColumn<UniqueRelationshipOwner, String, Required, String, String, Required, String>",
           "parameterEncoding = SqlType.STRING."
         )
       }
@@ -157,8 +157,8 @@ internal class ModelIdentityRelationshipContractTest {
       )
       .withGeneratedSource("SqliteMagic_SluggedNote_Adapter.kt") {
         it.assertContains(
-          "slug TEXT UNIQUE",
-          "external_key TEXT UNIQUE",
+          "slug TEXT NOT NULL UNIQUE",
+          "external_key TEXT NOT NULL UNIQUE",
           "EntityIdentityAdapter<SluggedNote>",
           "EntityIdentityStatementBinder<SluggedNote> by SqliteMagic_SluggedNote_Dao",
           "override fun identity(entity: SluggedNote, columnName: String): " +
@@ -202,7 +202,7 @@ internal class ModelIdentityRelationshipContractTest {
         it.assertContains("INTEGER PRIMARY KEY AUTOINCREMENT")
       }
       .withGeneratedSource("SqliteMagic_AutomaticString_Adapter.kt") { generatedSource ->
-        generatedSource.assertContains("TEXT PRIMARY KEY")
+        generatedSource.assertContains("TEXT NOT NULL PRIMARY KEY")
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
       }
       .withGeneratedSource("SqliteMagic_AutomaticTransformed_Adapter.kt") {
@@ -304,10 +304,10 @@ internal class ModelIdentityRelationshipContractTest {
       }
       .withGeneratedSource("ArticleTable.kt") {
         it.assertContainsUnwrapped(
-          "val AUTHOR: Column<Article, String, SqlNullable, String?, String, Required, String>",
-          "val ACCOUNT: Column<Article, AccountId, SqlNullable, AccountId?, AccountId, Required, AccountId>",
+          "val AUTHOR: Column<Article, String, Required, String, String, Required, String>",
+          "val ACCOUNT: Column<Article, AccountId, Required, AccountId, AccountId, Required, AccountId>",
           "parameterEncoding = SqlType.ACCOUNT_ID.",
-          "val PUBLISHER: Column<Article, Long, SqlNullable, Long, Long, Required, Long>"
+          "val PUBLISHER: Column<Article, Long, Required, Long, Long, Required, Long>"
         )
       }
   }
@@ -318,7 +318,7 @@ internal class ModelIdentityRelationshipContractTest {
       .isOk()
       .withGeneratedSource("OptionalIdOwnerTable.kt") {
         it.assertContainsUnwrapped(
-          "val ACCOUNT: Column<OptionalIdOwner, OptionalAccountId, SqlNullable, OptionalAccountId, " +
+          "val ACCOUNT: Column<OptionalIdOwner, OptionalAccountId, Required, OptionalAccountId, " +
               "OptionalAccountId, SqlNullable, OptionalAccountId?>",
           "parameterEncoding = SqlType.OPTIONAL_ACCOUNT_ID."
         )
@@ -343,7 +343,7 @@ internal class ModelIdentityRelationshipContractTest {
       }
       .withGeneratedSource("RelationshipOwnerTable.kt") {
         it.assertContainsUnwrapped(
-          "val RELATIONSHIP_ID: Column<RelationshipOwner, LeafId?, SqlNullable, LeafId?, LeafId?, SqlNullable, " +
+          "val RELATIONSHIP_ID: Column<RelationshipOwner, LeafId?, Required, LeafId, LeafId, SqlNullable, " +
               "LeafId?>",
           "value?.let { it.`value` }",
           "dbValue?.let { SqliteMagic_LeafId_Dao.newInstanceWithOnlyId(it) }"
@@ -351,7 +351,7 @@ internal class ModelIdentityRelationshipContractTest {
       }
       .withGeneratedSource("RelationshipIdTable.kt") {
         it.assertContainsUnwrapped(
-          "val ID: UniqueColumn<RelationshipId, String, SqlNullable, String?, String, Required, String>"
+          "val ID: UniqueColumn<RelationshipId, String, Required, String, String, Required, String>"
         )
       }
   }
@@ -367,15 +367,15 @@ internal class ModelIdentityRelationshipContractTest {
       )
       .withGeneratedSource("NullableRelationshipOwnerTable.kt") {
         it.assertContainsUnwrapped(
-          "val RELATIONSHIP_ID: Column<NullableRelationshipOwner, NullableLeafId?, SqlNullable, NullableLeafId?, " +
-              "NullableLeafId?, SqlNullable, NullableLeafId?>",
+          "val RELATIONSHIP_ID: Column<NullableRelationshipOwner, NullableLeafId?, Required, NullableLeafId, " +
+              "NullableLeafId, SqlNullable, NullableLeafId?>",
           "value?.let { it.`value` }",
           "dbValue?.let { SqliteMagic_NullableLeafId_Dao.newInstanceWithOnlyId(it) }"
         )
       }
       .withGeneratedSource("NullableRelationshipIdTable.kt") {
         it.assertContainsUnwrapped(
-          "val ID: Column<NullableRelationshipId, String, SqlNullable, String?, String, Required, String>"
+          "val ID: Column<NullableRelationshipId, String, Required, String, String, Required, String>"
         )
       }
       .withGeneratedSource("SqliteMagic_NullableRelationshipOwner_Dao.kt") { generatedSource ->
@@ -415,7 +415,7 @@ internal class ModelIdentityRelationshipContractTest {
       .isOk()
       .withGeneratedSource("RequiredAccountOwnerTable.kt") {
         it.assertContainsUnwrapped(
-          "val ACCOUNT: Column<RequiredAccountOwner, RequiredAccountId, SqlNullable, RequiredAccountId?, " +
+          "val ACCOUNT: Column<RequiredAccountOwner, RequiredAccountId, Required, RequiredAccountId, " +
               "RequiredAccountId, Required, RequiredAccountId>",
           "parameterEncoding = SqlType.REQUIRED_ACCOUNT_ID."
         )
@@ -442,7 +442,7 @@ internal class ModelIdentityRelationshipContractTest {
         "SqliteMagic_NonNullTargetOwner_Dao.kt"
       )
       .withGeneratedSource("SqliteMagic_NonNullTargetOwner_Adapter.kt") {
-        it.assertContains("target TEXT DEFAULT NULL")
+        it.assertContains("target TEXT NOT NULL)")
       }
       .withGeneratedSource("SqliteMagic_NonNullTargetOwner_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
@@ -530,7 +530,7 @@ internal class ModelIdentityRelationshipContractTest {
       .assertGeneratedSources("SqliteMagic_ShallowChild_Adapter.kt")
       .withGeneratedSource("SqliteMagic_ShallowChild_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "parent TEXT DEFAULT ''",
+          "parent TEXT NOT NULL)",
           "EntityDefaultIdentityAdapter<ShallowChild>",
           "EntityIdentityStatementBinder<ShallowChild> by SqliteMagic_ShallowChild_Dao",
           "override fun identity("
@@ -623,7 +623,7 @@ internal class ModelIdentityRelationshipContractTest {
       )
       .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Adapter.kt") {
         it.assertContains(
-          "child INTEGER DEFAULT NULL",
+          "child INTEGER NOT NULL)",
           "EntityRecursiveAdapter<ImmutableGeneratedParent",
           "adapter = SqliteMagic_ImmutableGeneratedChild_Adapter",
           "when (val result = operations.insert(",
@@ -657,7 +657,7 @@ internal class ModelIdentityRelationshipContractTest {
       }
       .withGeneratedSource("NaturalKeyTable.kt") {
         it.assertContainsUnwrapped(
-          "val ID: UniqueColumn<NaturalKey, String, Required, String?, String, Required, String>",
+          "val ID: UniqueColumn<NaturalKey, String, Required, String, String, Required, String>",
           "val OPTIONAL_VALUE: Column<NaturalKey, String, SqlNullable, String?, String?, SqlNullable, String?>"
         )
       }
@@ -727,7 +727,7 @@ internal class ModelIdentityRelationshipContractTest {
       .withGeneratedSource("TeamMemberTable.kt") {
         it
           .assertContainsUnwrapped(
-            "val TEAM: Column<TeamMember, String, SqlNullable, String?, String, Required, String>"
+            "val TEAM: Column<TeamMember, String, Required, String, String, Required, String>"
           )
           .assertContains(
             """columnName = "team"""",
@@ -904,7 +904,7 @@ internal class ModelIdentityRelationshipContractTest {
       )
       .withGeneratedSource("SqliteMagic_LeafEntity_Adapter.kt") {
         it.assertContains(
-          "branch TEXT DEFAULT '' REFERENCES branch_entity(id) ON DELETE CASCADE",
+          "branch TEXT NOT NULL REFERENCES branch_entity(id) ON DELETE CASCADE",
           "override val triggerTableNames"
         )
       }
@@ -985,10 +985,10 @@ internal class ModelIdentityRelationshipContractTest {
       )
       .withGeneratedSource("SqliteMagic_NullableRelationshipIdModes_Adapter.kt") {
         it.assertContains(
-          ", mutable_target INTEGER DEFAULT NULL",
-          ", immutable_target INTEGER DEFAULT NULL",
-          ", string_target TEXT DEFAULT NULL",
-          ", integer_target INTEGER DEFAULT NULL"
+          ", mutable_target INTEGER NOT NULL",
+          ", immutable_target INTEGER NOT NULL",
+          ", string_target TEXT NOT NULL",
+          ", integer_target INTEGER NOT NULL"
         )
       }
       .withGeneratedSource("SqliteMagic_NullableRelationshipIdModes_Dao.kt") {
@@ -1012,7 +1012,7 @@ internal class ModelIdentityRelationshipContractTest {
         "SqliteMagic_NullableSerializedRelationshipOwner_Dao.kt"
       )
       .withGeneratedSource("SqliteMagic_NullableSerializedRelationshipOwner_Adapter.kt") {
-        it.assertContains("target TEXT DEFAULT NULL")
+        it.assertContains("target TEXT NOT NULL)")
       }
       .withGeneratedSource("SqliteMagic_NullableSerializedRelationshipOwner_Dao.kt") {
         it.assertContains(

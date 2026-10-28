@@ -9,7 +9,8 @@ internal class MigrationsHandler(
   private val migrationOutputFile: File,
   private val persistentStructureOnly: Boolean = false,
   private val pendingMigrationStatements: List<String> = emptyList(),
-  private val externalTransaction: FileSnapshotTransaction? = null
+  private val externalTransaction: FileSnapshotTransaction? = null,
+  private val warn: (String) -> Unit = {}
 ) {
   fun migrate(): Boolean {
     val diff = previousStructure?.let {
@@ -19,13 +20,9 @@ internal class MigrationsHandler(
       )
     }
     val migrationHappened = diff?.hasPersistentChanges == true
-    val plannedMigrationStatements = when {
-      diff?.hasPersistentTableOrIndexChanges == true -> MigrationSqlRenderer.render(
-        diff = diff,
-        plan = MigrationPlanner.plan(diff)
-      )
-      else -> emptyList()
-    }
+    val plannedMigration = diff
+      ?.takeIf(SchemaDiff::hasPersistentTableOrIndexChanges)
+      ?.let(::planMigration)
     MigrationArtifactsPublisher(
       structureFile = outputStructureFile,
       migrationFile = migrationOutputFile,
@@ -33,8 +30,29 @@ internal class MigrationsHandler(
       externalTransaction = externalTransaction
     ).publish(
       structure = currentStructure,
-      migrationStatements = pendingMigrationStatements + plannedMigrationStatements
+      migrationStatements = pendingMigrationStatements + plannedMigration?.statements.orEmpty()
     )
+    plannedMigration?.warnings?.forEach(warn)
     return migrationHappened
   }
+
+  private fun planMigration(diff: SchemaDiff): PlannedMigration {
+    val plan = MigrationPlanner.plan(diff)
+    return PlannedMigration(
+      statements = MigrationSqlRenderer.render(
+        diff = diff,
+        plan = plan
+      ),
+      warnings = migrationWarnings(
+        diff = diff,
+        plan = plan,
+        enforcesForeignKeys = currentStructure.enforcesForeignKeys
+      )
+    )
+  }
 }
+
+private class PlannedMigration(
+  val statements: List<String>,
+  val warnings: List<String>
+)

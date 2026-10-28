@@ -43,8 +43,8 @@ androidComponents {
             "DB_VERSION" to BuildConfigField(
                 type = "int",
                 value = when {
-                  variant.buildType == "release" -> "6"
-                  else -> "7"
+                  variant.buildType == "release" -> "8"
+                  else -> "9"
                 },
                 comment = null
             ),

@@ -6,12 +6,12 @@ import android.database.Cursor.FIELD_TYPE_FLOAT
 import android.database.Cursor.FIELD_TYPE_INTEGER
 import android.database.Cursor.FIELD_TYPE_NULL
 import android.database.Cursor.FIELD_TYPE_STRING
+import android.database.sqlite.SQLiteConstraintException
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.LIST_PARAMETERIZED_TOKEN
 import com.siimkinks.sqlitemagic.NULL
 import com.siimkinks.sqlitemagic.OWNED_TOKEN
-import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.Row2
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
@@ -35,6 +35,7 @@ import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.defaultWritableDatabase
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 
@@ -86,16 +87,13 @@ internal class ScalarSelectRuntimeTest {
   }
 
   @Test
-  fun generatedFieldsKeepAuthoritativeDirectReadersForPhysicalNulls() {
+  fun generatedFieldsReadPhysicalNullsOnlyFromNullableColumns() {
     val database = defaultWritableDatabase()
     database.execSQL(
-      "INSERT INTO scalar_storage_entity(long_value,nullable_long,byte_array,boxed_byte_array) " +
-          "VALUES (NULL,NULL,NULL,NULL)"
+      "INSERT INTO scalar_storage_entity(long_value,nullable_long,nullable_byte_array,nullable_boxed_byte_array) " +
+          "VALUES (7,NULL,NULL,NULL)"
     )
-    database.execSQL("INSERT INTO query_composition_author(id,name) VALUES (1,NULL)")
-    database.execSQL("INSERT INTO simple_mutable_entity(primitive_boolean,boxed_boolean) VALUES (NULL,NULL)")
-    val requiredBoolean = SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN)
-      .FROM(SIMPLE_MUTABLE_ENTITY)
+    database.execSQL("INSERT INTO simple_mutable_entity(primitive_boolean,boxed_boolean) VALUES (2,NULL)")
 
     assertThat(
       listOf(
@@ -103,29 +101,34 @@ internal class ScalarSelectRuntimeTest {
           .FROM(SCALAR_STORAGE_ENTITY),
         SELECT.COLUMN(SCALAR_STORAGE_ENTITY.NULLABLE_LONG)
           .FROM(SCALAR_STORAGE_ENTITY),
-        SELECT.COLUMN(SCALAR_STORAGE_ENTITY.BYTE_ARRAY)
+        SELECT.COLUMN(SCALAR_STORAGE_ENTITY.NULLABLE_BYTE_ARRAY)
           .FROM(SCALAR_STORAGE_ENTITY),
-        SELECT.COLUMN(SCALAR_STORAGE_ENTITY.BOXED_BYTE_ARRAY)
+        SELECT.COLUMN(SCALAR_STORAGE_ENTITY.NULLABLE_BOXED_BYTE_ARRAY)
           .FROM(SCALAR_STORAGE_ENTITY),
-        SELECT.COLUMN(QUERY_COMPOSITION_AUTHOR.NAME)
-          .FROM(QUERY_COMPOSITION_AUTHOR),
-        requiredBoolean,
+        SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN)
+          .FROM(SIMPLE_MUTABLE_ENTITY),
         SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.BOXED_BOOLEAN)
           .FROM(SIMPLE_MUTABLE_ENTITY)
       ).map(SelectQuery<*, *>::execute)
     ).isEqualTo(
       listOf(
-        listOf(0L),
+        listOf(7L),
         listOf(null),
         listOf(null),
         listOf(null),
-        listOf(null),
-        listOf(false),
+        listOf(true),
         listOf(null)
       )
     )
-    database.execSQL("UPDATE simple_mutable_entity SET primitive_boolean=2")
-    assertThat(requiredBoolean.execute()).isEqualTo(listOf(true))
+    listOf("long_value", "byte_array", "boxed_byte_array").forEach { column ->
+      val failure = assertThrows(SQLiteConstraintException::class.java) {
+        database.execSQL("UPDATE scalar_storage_entity SET $column=NULL")
+      }
+      assertWithMessage(column)
+        .that(failure)
+        .hasMessageThat()
+        .contains("NOT NULL constraint failed: scalar_storage_entity.$column")
+    }
   }
 
   @Test
@@ -205,7 +208,7 @@ internal class ScalarSelectRuntimeTest {
   }
 
   @Test
-  fun generatedCustomFieldsKeepDirectNullAndDecoderNullPolicies() {
+  fun generatedCustomFieldsReadDecoderNullsByPropertyNullability() {
     val modelCase = TransformerModelCatalog.runtimeCase
     insertedResult(
       result = modelCase.insert(modelCase.newValue(1))
@@ -213,6 +216,8 @@ internal class ScalarSelectRuntimeTest {
       modelName = modelCase.name
     )
     val owned = SELECT.COLUMN(TRANSFORMER_RUNTIME_ENTITY.OWNED_TOKEN)
+      .FROM(TRANSFORMER_RUNTIME_ENTITY)
+    val nullable = SELECT.COLUMN(TRANSFORMER_RUNTIME_ENTITY.NULLABLE_TOKEN)
       .FROM(TRANSFORMER_RUNTIME_ENTITY)
     assertThat(owned.execute()).isEqualTo(listOf(OwnedToken("owned-1")))
     assertThat(
@@ -225,33 +230,23 @@ internal class ScalarSelectRuntimeTest {
         .execute()
     ).isEqualTo(listOf(modelCase.newValue(1).externalToken))
     val database = defaultWritableDatabase()
-    database.execSQL("UPDATE transformer_runtime_entity SET owned_token=NULL, nullable_token=NULL, external_token=NULL")
-    assertThat(owned.execute()).isEqualTo(listOf(OwnedToken("sentinel")))
-    assertThat(
-      owned.readAs(STRING)
-        .execute()
-    ).isEqualTo(listOf(null))
-    assertThat(
-      SELECT.COLUMN(TRANSFORMER_RUNTIME_ENTITY.NULLABLE_TOKEN)
-        .FROM(TRANSFORMER_RUNTIME_ENTITY)
-        .execute()
-    ).isEqualTo(listOf(null))
-    assertThat(
-      SELECT.COLUMN(TRANSFORMER_RUNTIME_ENTITY.EXTERNAL_TOKEN)
-        .FROM(TRANSFORMER_RUNTIME_ENTITY)
-        .execute()
-    ).isEqualTo(listOf(null))
+    database.execSQL("UPDATE transformer_runtime_entity SET nullable_token=NULL")
+    assertThat(nullable.execute()).isEqualTo(listOf(null))
     database.execSQL("UPDATE transformer_runtime_entity SET owned_token='reject', nullable_token='reject'")
-    assertThat(owned.execute()).isEqualTo(listOf(null))
+    val failure = assertThrows(IllegalStateException::class.java) {
+      owned.execute()
+    }
+    assertThat(failure)
+      .hasMessageThat()
+      .isEqualTo(
+        "Transformer com.siimkinks.sqlitemagic.fixture.model.TransformerRuntimeOwner.dbToOwnedToken " +
+            "returned null for required property ownedToken"
+      )
     assertThat(
       owned.readAs(STRING)
         .execute()
     ).isEqualTo(listOf("reject"))
-    assertThat(
-      SELECT.COLUMN(TRANSFORMER_RUNTIME_ENTITY.NULLABLE_TOKEN)
-        .FROM(TRANSFORMER_RUNTIME_ENTITY)
-        .execute()
-    ).isEqualTo(listOf(null))
+    assertThat(nullable.execute()).isEqualTo(listOf(null))
   }
 
   @Test

@@ -151,6 +151,7 @@ internal class ViewDaoWriter(
           position = scalarPositions.getValue(property),
           storageType = property.sqlStorageType,
           transformer = property.transformer,
+          isSqlNullable = true,
           requiresPresentValue = property.transformer?.decoderInputNullable != true,
           missingMessage = """Selected columns did not contain view "$viewName" required column """ +
               """"${property.selectionKey}"""",

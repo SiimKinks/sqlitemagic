@@ -5,6 +5,7 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.index.compositeIndexIncludes
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
@@ -18,7 +19,7 @@ internal data class ColumnSeed(
   val diagnosticPath: String,
   val access: PropertyAccess,
   val columnName: String,
-  val isSchemaNullable: Boolean,
+  val isModelPathNullable: Boolean,
   val explicitDefaultValue: String?,
   val transformer: TransformerElement?,
   val relationshipTypeKey: TypeKey?,
@@ -44,6 +45,7 @@ internal data class TableSeed(
   val artifactStem: String,
   val declarationOrder: Int,
   val options: Set<TableOption>,
+  val uniqueCompositeIndexName: String?,
   val construction: ModelConstruction,
   val propertySeeds: List<PropertySeed>,
   val isPublic: Boolean
@@ -52,4 +54,7 @@ internal data class TableSeed(
   val idSeed = propertySeeds
     .filterIsInstance<ColumnSeed>()
     .singleOrNull { it.idAnnotation != null }
+
+  fun isInUniqueIndex(column: ColumnSeed) = column.index?.isUnique == true ||
+      uniqueCompositeIndexName?.compositeIndexIncludes(column.belongsToIndex) == true
 }

@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.manager
 import com.google.common.truth.Truth.assertThat
 import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -68,7 +67,9 @@ internal class MigrationsHandlerTest {
             "name":"id",
             "onDeleteCascade":false,
             "sqlType":"INTEGER",
-            "schema":"id INTEGER PRIMARY KEY"
+            "schema":"id INTEGER PRIMARY KEY",
+            "notNull":false,
+            "notNullDefault":null
           }]
         }
       },"indices":{},"temporaryTables":{},"temporaryIndices":{},"views":{},"temporaryViews":{}}
@@ -203,16 +204,27 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "DROP TABLE IF EXISTS legacy_users",
-      "DROP TABLE IF EXISTS archived_users",
-      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DROP TABLE IF EXISTS legacy_users",
+          "DROP TABLE IF EXISTS archived_users",
+          "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)"
+        ),
+        warnings = listOf(
+          "Migration drops table legacy_users with its rows; if it was renamed to users, edit the migration SQL to " +
+              "keep them.",
+          "Migration drops table archived_users with its rows; if it was renamed to users, edit the migration SQL " +
+              "to keep them."
+        )
+      )
+    )
   }
 
   @Test
@@ -243,19 +255,27 @@ internal class MigrationsHandlerTest {
         )
       )
     )
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
 
-    assertThrows<IllegalStateException> {
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-    assertThat(migrationFile.exists()).isFalse()
-    assertThat(structureFile.exists()).isFalse()
+    assertThat(
+      runMigrationResult(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DROP TABLE IF EXISTS legacy",
+          "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
+          "CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY)"
+        ),
+        warnings = listOf(
+          "Migration drops table legacy with its rows; if it was renamed to users or admins, edit the migration SQL " +
+              "to keep them."
+        )
+      )
+    )
   }
 
   @Test
@@ -306,7 +326,7 @@ internal class MigrationsHandlerTest {
   }
 
   @Test
-  fun `omits the copy statement when a rebuild has no mutual columns`() {
+  fun `deletes all rows instead of copying when a rebuild has no mutual columns`() {
     val previous = DatabaseStructure(
       tables = mapOf(
         "books" to migrationTable(
@@ -335,16 +355,26 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "ALTER TABLE books RENAME TO books_",
-      "CREATE TABLE IF NOT EXISTS books (title TEXT DEFAULT '')",
-      "DROP TABLE IF EXISTS books_"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DELETE FROM books",
+          "ALTER TABLE books RENAME TO books_",
+          "CREATE TABLE IF NOT EXISTS books (title TEXT DEFAULT '')",
+          "DROP TABLE IF EXISTS books_"
+        ),
+        warnings = listOf(
+          "Migration deletes all rows of books because none of its column(s) remain: legacy_title. Edit the " +
+              "migration SQL to keep them."
+        )
+      )
+    )
   }
 
   @Test
@@ -448,17 +478,25 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "ALTER TABLE books RENAME TO books__",
-      "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-      "INSERT INTO books (id) SELECT id FROM books__",
-      "DROP TABLE IF EXISTS books__"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "ALTER TABLE books RENAME TO books__",
+          "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
+          "INSERT INTO books (id) SELECT id FROM books__",
+          "DROP TABLE IF EXISTS books__"
+        ),
+        warnings = listOf(
+          "Migration drops column(s) of books with their data: title. Edit the migration SQL to keep it."
+        )
+      )
+    )
   }
 
   @Test
@@ -500,18 +538,24 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "ALTER TABLE Users RENAME TO users__",
-      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
-      "INSERT INTO users (id) SELECT id FROM users__",
-      "DROP TABLE IF EXISTS users__",
-      "DROP TABLE IF EXISTS Users_"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "ALTER TABLE Users RENAME TO users__",
+          "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
+          "INSERT INTO users (id) SELECT id FROM users__",
+          "DROP TABLE IF EXISTS users__",
+          "DROP TABLE IF EXISTS Users_"
+        ),
+        warnings = listOf("Migration drops table Users_ with its rows. Edit the migration SQL to keep them.")
+      )
+    )
   }
 
   @Test
@@ -656,23 +700,32 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "ALTER TABLE parents RENAME TO parents_",
-      "ALTER TABLE children RENAME TO children_",
-      "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-      "INSERT INTO parents (id) SELECT id FROM parents_",
-      "CREATE TABLE IF NOT EXISTS children " +
-          "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE, " +
-          "label TEXT DEFAULT '')",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "DROP TABLE IF EXISTS children_",
-      "DROP TABLE IF EXISTS parents_"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "ALTER TABLE parents RENAME TO parents_",
+          "ALTER TABLE children RENAME TO children_",
+          "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
+          "INSERT INTO parents (id) SELECT id FROM parents_",
+          "CREATE TABLE IF NOT EXISTS children " +
+              "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE, " +
+              "label TEXT DEFAULT '')",
+          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
+          "DROP TABLE IF EXISTS children_",
+          "DROP TABLE IF EXISTS parents_"
+        ),
+        warnings = listOf(
+          "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it.",
+          "Migration drops column(s) of children with their data: value. Edit the migration SQL to keep it."
+        )
+      )
+    )
   }
 
   @Test
@@ -790,9 +843,7 @@ internal class MigrationsHandlerTest {
   }
 
   @Test
-  fun `does not emit a migration that adds an implicit without-rowid primary key`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
+  fun `recreates a table without its rows when it gains a without-rowid primary key`() {
     val previous = DatabaseStructure(
       tables = mapOf(
         "items" to migrationTable(
@@ -828,22 +879,92 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThrows<IllegalStateException> {
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-    assertThat(migrationFile.exists()).isFalse()
-    assertThat(structureFile.exists()).isFalse()
+    assertThat(
+      runMigrationResult(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DELETE FROM items",
+          "ALTER TABLE items RENAME TO items_",
+          "CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, value TEXT DEFAULT '') WITHOUT ROWID",
+          "DROP TABLE IF EXISTS items_"
+        ),
+        warnings = listOf(
+          "Migration deletes all rows of items because existing rows have no value for its new column(s): id. Edit " +
+              "the migration SQL to keep them."
+        )
+      )
+    )
   }
 
   @Test
-  fun `refuses to infer a table rename when the columns also change`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
+  fun `drops a removed table and creates an unrelated new table with the same kind of key`() {
+    val idColumn = ColumnStructure(
+      id = true,
+      autoIncrement = true,
+      name = "id",
+      sqlType = "INTEGER",
+      schema = "id INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+
+    assertThat(
+      runMigrationResult(
+        previous = DatabaseStructure(
+          tables = mapOf(
+            "notes" to migrationTable(
+              name = "notes",
+              columns = listOf(
+                idColumn,
+                migrationColumn(
+                  name = "text",
+                  schema = "text TEXT NOT NULL DEFAULT ''"
+                )
+              )
+            )
+          )
+        ),
+        current = DatabaseStructure(
+          tables = mapOf(
+            "tags" to migrationTable(
+              name = "tags",
+              columns = listOf(
+                idColumn,
+                migrationColumn(
+                  name = "name",
+                  schema = "name TEXT NOT NULL DEFAULT ''"
+                ),
+                migrationColumn(
+                  name = "color",
+                  schema = "color INTEGER NOT NULL DEFAULT 0"
+                )
+              )
+            )
+          )
+        ),
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DROP TABLE IF EXISTS notes",
+          "CREATE TABLE IF NOT EXISTS tags " +
+              "(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL DEFAULT '', color INTEGER NOT NULL DEFAULT 0)"
+        ),
+        warnings = listOf(
+          "Migration drops table notes with its rows; if it was renamed to tags, edit the migration SQL to keep them."
+        )
+      )
+    )
+  }
+
+  @Test
+  fun `drops and creates instead of inferring a rename when the columns also change`() {
     val idColumn = migrationColumn(
       name = "id",
       schema = "id INTEGER PRIMARY KEY"
@@ -884,22 +1005,29 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThrows<IllegalStateException> {
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-    assertThat(migrationFile.exists()).isFalse()
-    assertThat(structureFile.exists()).isFalse()
+    assertThat(
+      runMigrationResult(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DROP TABLE IF EXISTS legacy_users",
+          "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT DEFAULT '', email TEXT DEFAULT '')"
+        ),
+        warnings = listOf(
+          "Migration drops table legacy_users with its rows; if it was renamed to users, edit the migration SQL to " +
+              "keep them."
+        )
+      )
+    )
   }
 
   @Test
-  fun `refuses to infer a table rename when an idless column is renamed`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
+  fun `drops and creates instead of inferring a rename when an idless column is renamed`() {
     val previous = DatabaseStructure(
       tables = mapOf(
         "legacy_values" to migrationTable(
@@ -927,16 +1055,25 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    assertThrows<IllegalStateException> {
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-    assertThat(migrationFile.exists()).isFalse()
-    assertThat(structureFile.exists()).isFalse()
+    assertThat(
+      runMigrationResult(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DROP TABLE IF EXISTS legacy_values",
+          "CREATE TABLE IF NOT EXISTS values (label TEXT DEFAULT '')"
+        ),
+        warnings = listOf(
+          "Migration drops table legacy_values with its rows; if it was renamed to values, edit the migration SQL " +
+              "to keep them."
+        )
+      )
+    )
   }
 
   @Test
@@ -1135,7 +1272,7 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = DatabaseStructure(
           tables = mapOf(
             "parents" to previousParent,
@@ -1150,17 +1287,25 @@ internal class MigrationsHandlerTest {
         ),
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "ALTER TABLE parents RENAME TO parents_",
-      "ALTER TABLE children RENAME TO children_",
-      "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-      "INSERT INTO parents (id) SELECT id FROM parents_",
-      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
-          "parent_id INTEGER DEFAULT 0 REFERENCES $referencedTableName(id) ON DELETE CASCADE)",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "DROP TABLE IF EXISTS children_",
-      "DROP TABLE IF EXISTS parents_"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "ALTER TABLE parents RENAME TO parents_",
+          "ALTER TABLE children RENAME TO children_",
+          "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
+          "INSERT INTO parents (id) SELECT id FROM parents_",
+          "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
+              "parent_id INTEGER DEFAULT 0 REFERENCES $referencedTableName(id) ON DELETE CASCADE)",
+          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
+          "DROP TABLE IF EXISTS children_",
+          "DROP TABLE IF EXISTS parents_"
+        ),
+        warnings = listOf(
+          "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it."
+        )
+      )
+    )
   }
 
   @Test
@@ -1273,21 +1418,29 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "ALTER TABLE parents RENAME TO parents_",
-      "ALTER TABLE children RENAME TO children_",
-      "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-      "INSERT INTO parents (id) SELECT id FROM parents_",
-      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0)",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "DROP TABLE IF EXISTS children_",
-      "DROP TABLE IF EXISTS parents_"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "ALTER TABLE parents RENAME TO parents_",
+          "ALTER TABLE children RENAME TO children_",
+          "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
+          "INSERT INTO parents (id) SELECT id FROM parents_",
+          "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0)",
+          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
+          "DROP TABLE IF EXISTS children_",
+          "DROP TABLE IF EXISTS parents_"
+        ),
+        warnings = listOf(
+          "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it."
+        )
+      )
+    )
   }
 
   @Test
@@ -1312,21 +1465,27 @@ internal class MigrationsHandlerTest {
       }
       .associateBy(TableStructure::name)
 
-    val statements = runMigration(
-      previous = DatabaseStructure(tables = tables),
-      current = DatabaseStructure(),
-      temporaryDirectory = temporaryDirectory
-    )
+    val droppedTableNames = (tableCount - 1 downTo 0).map { "table$it" }
 
-    assertThat(statements).hasSize(tableCount)
-    assertThat(statements.first()).isEqualTo("DROP TABLE IF EXISTS table${tableCount - 1}")
-    assertThat(statements.last()).isEqualTo("DROP TABLE IF EXISTS table0")
+    assertThat(
+      runMigrationResult(
+        previous = DatabaseStructure(tables = tables),
+        current = DatabaseStructure(),
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = droppedTableNames.map { "DROP TABLE IF EXISTS $it" },
+        warnings = droppedTableNames.map { tableName ->
+          "Migration drops table $tableName with its rows. Edit the migration SQL to keep them."
+        }
+      )
+    )
   }
 
   @Test
-  fun `rejects a possible rename chain through an occupied table name`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
+  fun `does not infer a rename chain through an occupied table name`() {
     val alpha = migrationTable(
       name = "alpha",
       columns = listOf(
@@ -1353,41 +1512,45 @@ internal class MigrationsHandlerTest {
     )
     val current = DatabaseStructure(
       tables = mapOf(
-        "beta" to alpha.copy(
+        "beta" to migrationTable(
           name = "beta",
-          schema = alpha.schema.replace(
-            oldValue = "alpha",
-            newValue = "beta"
-          )
+          columns = alpha.columns
         ),
-        "gamma" to beta.copy(
+        "gamma" to migrationTable(
           name = "gamma",
-          schema = beta.schema.replace(
-            oldValue = "beta",
-            newValue = "gamma"
-          )
+          columns = beta.columns
         )
       )
     )
 
-    val exception = assertThrows<IllegalStateException> {
-      MigrationsHandler(
-        currentStructure = current,
-        previousStructure = previous,
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-
-    assertThat(exception).hasMessageThat().contains("occupied table name")
-    assertThat(structureFile.exists()).isFalse()
-    assertThat(migrationFile.exists()).isFalse()
+    assertThat(
+      runMigrationResult(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DELETE FROM beta",
+          "ALTER TABLE beta RENAME TO beta_",
+          "CREATE TABLE IF NOT EXISTS beta (alpha_id INTEGER PRIMARY KEY)",
+          "DROP TABLE IF EXISTS beta_",
+          "DROP TABLE IF EXISTS alpha",
+          "CREATE TABLE IF NOT EXISTS gamma (beta_id TEXT PRIMARY KEY)"
+        ),
+        warnings = listOf(
+          "Migration deletes all rows of beta because none of its column(s) remain: beta_id. Edit the migration " +
+              "SQL to keep them.",
+          "Migration drops table alpha with its rows; if it was renamed to beta, edit the migration SQL to keep them."
+        )
+      )
+    )
   }
 
   @Test
-  fun `rejects a possible swap between occupied table names`() {
-    val structureFile = temporaryDirectory.resolve("db/latest.struct").toFile()
-    val migrationFile = temporaryDirectory.resolve("src/debug/assets/1001.sql").toFile()
+  fun `rebuilds both tables in place instead of inferring a swap between their names`() {
     val alpha = migrationTable(
       name = "alpha",
       columns = listOf(
@@ -1407,40 +1570,49 @@ internal class MigrationsHandlerTest {
       )
     )
 
-    val exception = assertThrows<IllegalStateException> {
-      MigrationsHandler(
-        currentStructure = DatabaseStructure(
+    assertThat(
+      runMigrationResult(
+        current = DatabaseStructure(
           tables = mapOf(
-            "alpha" to beta.copy(
+            "alpha" to migrationTable(
               name = "alpha",
-              schema = beta.schema.replace(
-                oldValue = "beta",
-                newValue = "alpha"
-              )
+              columns = beta.columns
             ),
-            "beta" to alpha.copy(
+            "beta" to migrationTable(
               name = "beta",
-              schema = alpha.schema.replace(
-                oldValue = "alpha",
-                newValue = "beta"
-              )
+              columns = alpha.columns
             )
           )
         ),
-        previousStructure = DatabaseStructure(
+        previous = DatabaseStructure(
           tables = mapOf(
             "alpha" to alpha,
             "beta" to beta
           )
         ),
-        outputStructureFile = structureFile,
-        migrationOutputFile = migrationFile
-      ).migrate()
-    }
-
-    assertThat(exception).hasMessageThat().contains("occupied table name")
-    assertThat(structureFile.exists()).isFalse()
-    assertThat(migrationFile.exists()).isFalse()
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "DELETE FROM alpha",
+          "ALTER TABLE alpha RENAME TO alpha_",
+          "CREATE TABLE IF NOT EXISTS alpha (beta_id TEXT PRIMARY KEY)",
+          "DROP TABLE IF EXISTS alpha_",
+          "DELETE FROM beta",
+          "ALTER TABLE beta RENAME TO beta_",
+          "CREATE TABLE IF NOT EXISTS beta (alpha_id INTEGER PRIMARY KEY)",
+          "DROP TABLE IF EXISTS beta_"
+        ),
+        warnings = listOf(
+          "Migration deletes all rows of alpha because none of its column(s) remain: alpha_id. Edit the migration " +
+              "SQL to keep them.",
+          "Migration deletes all rows of beta because none of its column(s) remain: beta_id. Edit the migration " +
+              "SQL to keep them."
+        )
+      )
+    )
   }
 
   @Test
@@ -1493,7 +1665,7 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = DatabaseStructure(
           tables = mapOf(
             "parents" to previousParents,
@@ -1510,21 +1682,29 @@ internal class MigrationsHandlerTest {
         ),
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "ALTER TABLE parents RENAME TO parents_",
-      "ALTER TABLE children RENAME TO children_",
-      "ALTER TABLE grandchildren RENAME TO grandchildren_",
-      "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-      "INSERT INTO parents (id) SELECT id FROM parents_",
-      "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
-          "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "CREATE TABLE IF NOT EXISTS grandchildren (id INTEGER PRIMARY KEY, " +
-          "child_id INTEGER DEFAULT 0 REFERENCES children(id) ON DELETE CASCADE)",
-      "INSERT INTO grandchildren (id,child_id) SELECT id,child_id FROM grandchildren_",
-      "DROP TABLE IF EXISTS grandchildren_",
-      "DROP TABLE IF EXISTS children_",
-      "DROP TABLE IF EXISTS parents_"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "ALTER TABLE parents RENAME TO parents_",
+          "ALTER TABLE children RENAME TO children_",
+          "ALTER TABLE grandchildren RENAME TO grandchildren_",
+          "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
+          "INSERT INTO parents (id) SELECT id FROM parents_",
+          "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
+              "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
+          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
+          "CREATE TABLE IF NOT EXISTS grandchildren (id INTEGER PRIMARY KEY, " +
+              "child_id INTEGER DEFAULT 0 REFERENCES children(id) ON DELETE CASCADE)",
+          "INSERT INTO grandchildren (id,child_id) SELECT id,child_id FROM grandchildren_",
+          "DROP TABLE IF EXISTS grandchildren_",
+          "DROP TABLE IF EXISTS children_",
+          "DROP TABLE IF EXISTS parents_"
+        ),
+        warnings = listOf(
+          "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it."
+        )
+      )
+    )
   }
 }

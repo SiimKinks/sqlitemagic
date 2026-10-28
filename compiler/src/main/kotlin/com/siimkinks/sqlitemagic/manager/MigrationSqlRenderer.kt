@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
-import java.util.Locale
+import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.APPEND_COLUMNS
+import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.REBUILD
 
 internal object MigrationSqlRenderer {
   fun render(
@@ -24,16 +25,12 @@ internal object MigrationSqlRenderer {
     plan.simpleRenames.forEach { rename ->
       migrationStatements += "ALTER TABLE ${rename.previousName} RENAME TO ${rename.currentName}"
     }
-    plan.directRebuilds.forEach { rebuild ->
-      migrateTable(
-        from = rebuild.from.structure,
-        to = rebuild.to.structure,
-        sourceTableName = rebuild.from.name,
+    plan.directRebuilds.forEach { change ->
+      change.migrate(
         temporaryTableName = temporaryTableName(
-          tableName = rebuild.to.structure.name,
+          tableName = change.to.structure.name,
           usedNames = usedTemporaryNames
         ),
-        operation = rebuild.operation,
         migrationStatements = migrationStatements
       )
     }
@@ -55,37 +52,26 @@ internal object MigrationSqlRenderer {
     return migrationStatements
   }
 
-  private fun migrateTable(
-    from: TableStructure,
-    to: TableStructure,
-    sourceTableName: String,
+  private fun TableChange.migrate(
     temporaryTableName: String,
-    operation: TableMigrationOperation,
     migrationStatements: MutableList<String>
   ) {
-    if (operation == TableMigrationOperation.APPEND_COLUMNS) {
-      to.columns
+    when (operation) {
+      APPEND_COLUMNS -> to.structure.columns
         .asSequence()
-        .drop(from.columns.size)
+        .drop(from.structure.columns.size)
         .forEach { column ->
-          migrationStatements += "ALTER TABLE ${to.name} ADD COLUMN ${column.schema}"
+          migrationStatements += "ALTER TABLE ${to.structure.name} ADD COLUMN ${column.schema}"
         }
-      return
+      REBUILD -> {
+        rebuild(
+          temporaryTableName = temporaryTableName,
+          renameStatements = migrationStatements,
+          creationStatements = migrationStatements
+        )
+        migrationStatements += "DROP TABLE IF EXISTS $temporaryTableName"
+      }
     }
-
-    validateRebuildColumns(
-      from = from,
-      to = to
-    )
-    migrationStatements += "ALTER TABLE $sourceTableName RENAME TO $temporaryTableName"
-    migrationStatements += to.schema
-    addMutualColumnCopy(
-      from = from,
-      to = to,
-      temporaryTableName = temporaryTableName,
-      migrationStatements = migrationStatements
-    )
-    migrationStatements += "DROP TABLE IF EXISTS $temporaryTableName"
   }
 
   private fun migrateDependentTables(
@@ -94,30 +80,22 @@ internal object MigrationSqlRenderer {
     migrationStatements: MutableList<String>
   ) {
     if (rebuilds.isEmpty()) return
-    val tables = rebuilds.map { rebuild ->
+    val tables = rebuilds.map { change ->
       RebuildTable(
-        from = rebuild.from,
-        to = rebuild.to,
+        change = change,
         temporaryName = temporaryTableName(
-          tableName = rebuild.to.structure.name,
+          tableName = change.to.structure.name,
           usedNames = usedNames
         )
       )
     }
 
     val tableCreationStatements = arrayListOf<String>()
-    tables.forEach { table ->
-      validateRebuildColumns(
-        from = table.from.structure,
-        to = table.to.structure
-      )
-      migrationStatements += "ALTER TABLE ${table.from.name} RENAME TO ${table.temporaryName}"
-      tableCreationStatements += table.to.structure.schema
-      addMutualColumnCopy(
-        from = table.from.structure,
-        to = table.to.structure,
-        temporaryTableName = table.temporaryName,
-        migrationStatements = tableCreationStatements
+    tables.forEach { (change, temporaryName) ->
+      change.rebuild(
+        temporaryTableName = temporaryName,
+        renameStatements = migrationStatements,
+        creationStatements = tableCreationStatements
       )
     }
     migrationStatements += tableCreationStatements
@@ -128,31 +106,33 @@ internal object MigrationSqlRenderer {
       }
   }
 
-  private fun addMutualColumnCopy(
-    from: TableStructure,
-    to: TableStructure,
+  private fun TableChange.rebuild(
     temporaryTableName: String,
-    migrationStatements: MutableList<String>
+    renameStatements: MutableList<String>,
+    creationStatements: MutableList<String>
   ) {
-    val currentColumnsByName = to.columns.associateBy { column ->
-      column.name.lowercase(Locale.ROOT)
-    }
-    val mutualColumns = from.columns.mapNotNull { previousColumn ->
-      currentColumnsByName[previousColumn.name.lowercase(Locale.ROOT)]?.let { currentColumn ->
-        previousColumn.name to currentColumn.name
-      }
-    }
-    if (mutualColumns.isNotEmpty()) {
-      val sourceColumnNames = mutualColumns.joinToString(
+    rowDeletion()?.let(renameStatements::add)
+    renameStatements += "ALTER TABLE ${from.name} RENAME TO $temporaryTableName"
+    creationStatements += to.structure.schema
+    rowCopy(temporaryTableName)?.let(creationStatements::add)
+  }
+
+  private fun TableChange.rowDeletion() = when {
+    !copiesRows -> "DELETE FROM ${from.name}"
+    nullRowColumns.isNotEmpty() -> "DELETE FROM ${from.name} WHERE " +
+        nullRowColumns.joinToString(separator = " OR ") { "${it.name} IS NULL" }
+    else -> null
+  }
+
+  private fun TableChange.rowCopy(temporaryTableName: String) = when {
+    !copiesRows -> null
+    else -> {
+      val destinationColumnNames = copiedColumns.joinToString(separator = ",") { it.current.name }
+      val sourceValues = copiedColumns.joinToString(
         separator = ",",
-        transform = Pair<String, String>::first
+        transform = ColumnCopy::sourceValue
       )
-      val destinationColumnNames = mutualColumns.joinToString(
-        separator = ",",
-        transform = Pair<String, String>::second
-      )
-      migrationStatements += "INSERT INTO ${to.name} ($destinationColumnNames) " +
-          "SELECT $sourceColumnNames FROM $temporaryTableName"
+      "INSERT INTO ${to.structure.name} ($destinationColumnNames) SELECT $sourceValues FROM $temporaryTableName"
     }
   }
 
@@ -164,25 +144,6 @@ internal object MigrationSqlRenderer {
     .map(TableSnapshot::structure)
     .map(TableStructure::schema)
     .forEach(migrationStatements::add)
-
-  private fun validateRebuildColumns(
-    from: TableStructure,
-    to: TableStructure
-  ) {
-    val previousColumnNames = from.columns.mapTo(
-      destination = hashSetOf(),
-      transform = { it.name.lowercase(Locale.ROOT) }
-    )
-    to.columns
-      .asSequence()
-      .filterNot { it.name.lowercase(Locale.ROOT) in previousColumnNames }
-      .firstOrNull { it.requiresValueDuringRebuild(table = to) }
-      ?.let { column ->
-        error(
-          "Cannot automatically migrate ${from.name}: new column ${column.name} is required but has no usable default"
-        )
-      }
-  }
 
   private fun temporaryTableName(
     tableName: String,
@@ -198,7 +159,6 @@ internal object MigrationSqlRenderer {
 }
 
 private data class RebuildTable(
-  val from: TableSnapshot,
-  val to: TableSnapshot,
+  val change: TableChange,
   val temporaryName: String
 )

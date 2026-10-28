@@ -58,10 +58,10 @@ internal class IndexCodeGenerationContractTest {
       .withGeneratedSource("SqliteMagic_Book_Adapter.kt") {
         it.assertContainsInOrder(
           "id INTEGER PRIMARY KEY",
-          "title TEXT DEFAULT ''",
-          "isbn TEXT DEFAULT ''",
-          "author TEXT DEFAULT ''",
-          "edition INTEGER DEFAULT 0"
+          "title TEXT NOT NULL DEFAULT ''",
+          "isbn TEXT NOT NULL,",
+          "author TEXT NOT NULL,",
+          "edition INTEGER NOT NULL)"
         )
       }
       .withGeneratedSource("SqliteMagicDatabase.kt") {
@@ -103,17 +103,17 @@ internal class IndexCodeGenerationContractTest {
       }
       .withGeneratedSource("SqliteMagic_Profile_Adapter.kt") {
         it.assertContainsInOrder(
-          "id TEXT PRIMARY KEY",
-          "home_geo_city TEXT DEFAULT ''",
-          "home_geo_country TEXT DEFAULT ''",
-          "work_geo_city TEXT DEFAULT ''",
-          "work_geo_country TEXT DEFAULT ''"
+          "id TEXT NOT NULL PRIMARY KEY",
+          "home_geo_city TEXT NOT NULL DEFAULT ''",
+          "home_geo_country TEXT NOT NULL DEFAULT ''",
+          "work_geo_city TEXT NOT NULL DEFAULT ''",
+          "work_geo_country TEXT NOT NULL DEFAULT ''"
         )
       }
       .withGeneratedSource("SqliteMagic_InheritedEntry_Adapter.kt") {
         it.assertContainsInOrder(
-          "inherited_value TEXT DEFAULT ''",
-          "local_value INTEGER DEFAULT 0"
+          "inherited_value TEXT NOT NULL DEFAULT ''",
+          "local_value INTEGER NOT NULL DEFAULT 0"
         )
       }
       .withGeneratedSource("SqliteMagic_SelectiveEntry_Adapter.kt") {
@@ -123,11 +123,11 @@ internal class IndexCodeGenerationContractTest {
       }
       .withGeneratedSource("SqliteMagic_NoIdEntry_Adapter.kt") {
         it
-          .assertContains("CREATE TABLE IF NOT EXISTS no_id_entries (value TEXT DEFAULT '')")
+          .assertContains("CREATE TABLE IF NOT EXISTS no_id_entries (value TEXT NOT NULL DEFAULT '')")
           .assertDoesNotContain("PRIMARY KEY")
       }
       .withGeneratedSource("SqliteMagic_StringIdEntry_Adapter.kt") {
-        it.assertContains("id TEXT PRIMARY KEY")
+        it.assertContains("id TEXT NOT NULL PRIMARY KEY")
       }
     assertThat(compilation.generatedSource("SqliteMagicDatabase.kt"))
       .isEqualTo(repeated.generatedSource("SqliteMagicDatabase.kt"))

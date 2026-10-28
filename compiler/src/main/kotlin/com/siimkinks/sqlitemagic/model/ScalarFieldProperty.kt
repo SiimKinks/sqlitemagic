@@ -12,25 +12,27 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 
-/** A value without SQL nullness proof, such as a view column, is not [sqlRequired]. */
 internal fun scalarFieldProperty(
   ownerType: ClassName,
   fieldClass: ClassName,
   fieldName: String,
   columnName: String,
+  propertyName: String,
   deserializedType: TypeName,
   sqlStorageType: SqlStorageType,
   transformer: TransformerElement?,
-  isSchemaNullable: Boolean,
+  isSqlNullable: Boolean,
   isModelPathNullable: Boolean,
-  sqlRequired: Boolean
+  checksRequiredNull: Boolean
 ): PropertySpec {
   val read = ScalarFieldRead(
     deserializedType = deserializedType,
     sqlStorageType = sqlStorageType,
     transformer = transformer,
-    isSchemaNullable = isSchemaNullable,
-    sqlRequired = sqlRequired
+    isSqlNullable = isSqlNullable,
+    checksRequiredNull = checksRequiredNull,
+    columnName = columnName,
+    propertyName = propertyName
   )
   val encoding = parameterEncodingPolicy(
     inputNullable = isModelPathNullable,

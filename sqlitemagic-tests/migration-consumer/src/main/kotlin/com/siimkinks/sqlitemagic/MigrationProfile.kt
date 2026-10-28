@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
+import com.siimkinks.sqlitemagic.annotation.Unique
 import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
 import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
 
@@ -30,5 +31,7 @@ data class MigrationProfile(
   val email: MigrationEmail,
   @Column(defaultValue = "0.0")
   val rating: Double,
-  val avatar: ByteArray?
+  val avatar: ByteArray?,
+  @Unique
+  val handle: String
 )

@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.writer
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_CURSOR_POSITION
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_SELECTED_POSITIONS
 import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.WriterTypes.CHECK_NOT_NULL
 import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
 import com.siimkinks.sqlitemagic.WriterTypes.RELATED_ENTITIES
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
@@ -50,6 +49,7 @@ internal sealed interface CursorReadNode : PropertyMetadata {
     val position: CursorPosition,
     val storageType: SqlStorageType,
     val transformer: TransformerElement?,
+    val isSqlNullable: Boolean,
     val requiresPresentValue: Boolean,
     val missingMessage: String,
     val nullMessage: String
@@ -67,6 +67,7 @@ internal sealed interface CursorReadNode : PropertyMetadata {
     override val source: CursorReadProperty,
     val position: CursorPosition,
     val read: CodeBlock,
+    val isSqlNullable: Boolean,
     val nullMessage: String
   ) : CursorReadNode, PropertyMetadata by source
 
@@ -258,7 +259,7 @@ private fun scalarValue(
     index = node.position.code
   )
   val input = when {
-    node.decoderInputNullable && !node.isNullable && !required -> CodeBlock.of(
+    node.decoderInputNullable && node.isSqlNullable && !node.isNullable && !required -> CodeBlock.of(
       "if (%L) null else %L",
       node.position.presentNullCheck().condition,
       databaseValue
@@ -267,16 +268,11 @@ private fun scalarValue(
   }
   val transformedValue = node.transformer?.deserializedValueGetter(input) ?: databaseValue
   val value = when {
-    !node.isNullable && node.transformer?.deserializedType?.typeName?.isNullable == true -> {
-      val decoder = node.transformer.dbValueToObjectMethod
-      val callableName = "${decoder.ownerQualifiedName ?: decoder.packageName}.${decoder.methodName}"
-      CodeBlock.of(
-        "%M(%L) { %S }",
-        CHECK_NOT_NULL,
-        transformedValue,
-        "Transformer $callableName returned null for required property ${node.access.path.displayName}"
+    !node.isNullable && node.transformer?.deserializedType?.typeName?.isNullable == true ->
+      node.transformer.requiredDeserializedValue(
+        value = transformedValue,
+        propertyName = node.access.path.displayName
       )
-    }
     else -> transformedValue
   }
   return when {
@@ -311,14 +307,14 @@ private fun relationshipValue(
   node: CursorReadNode.PersistedRelationship,
   guarded: Boolean
 ): CodeBlock = when {
-  !node.isNullable -> CodeBlock.of(
+  !node.isNullable && node.isSqlNullable -> CodeBlock.of(
     "if (%L) throw %T(%S) else %L",
     node.position.presentNullCheck().condition,
     SQL_EXCEPTION,
     node.nullMessage,
     node.read
   )
-  guarded -> node.read
+  !node.isNullable || guarded -> node.read
   else -> CodeBlock.of("if (%L) null else %L", node.position.nullCheck().condition, node.read)
 }
 

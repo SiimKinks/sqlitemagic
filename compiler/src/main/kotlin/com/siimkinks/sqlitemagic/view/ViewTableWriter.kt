@@ -55,18 +55,20 @@ internal class ViewTableWriter(
     when (property) {
       is ViewScalarPropertyElement -> {
         val nullable = enclosingNullable || property.isNullable
+        val decodesNull = property.transformer?.run { !isDefaultTransformer && decoderInputNullable } == true
         listOf(
           scalarFieldProperty(
             ownerType = view.modelClassName,
             fieldClass = COLUMN,
             fieldName = property.generatedFieldName,
             columnName = property.selectionKey,
+            propertyName = property.access.path.displayName,
             deserializedType = property.deserializedType.typeName,
             sqlStorageType = property.sqlStorageType,
             transformer = property.transformer,
-            isSchemaNullable = nullable,
+            isSqlNullable = nullable || decodesNull,
             isModelPathNullable = nullable,
-            sqlRequired = false
+            checksRequiredNull = true
           )
         )
       }

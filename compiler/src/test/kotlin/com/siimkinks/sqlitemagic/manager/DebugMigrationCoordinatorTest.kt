@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSNode
 import com.siimkinks.sqlitemagic.CompilerOptions
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.index.mockSqliteIdentifier
@@ -195,19 +196,18 @@ internal class DebugMigrationCoordinatorTest {
     val compilation = compiler
       .compile(
         SourceFile.kotlin(
-          name = "FeatureWithoutRowIdDatabase.kt",
+          name = "FeatureDatabase.kt",
           contents = """
             package $PACKAGE
 
             import com.siimkinks.sqlitemagic.annotation.Id
             import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
             import com.siimkinks.sqlitemagic.annotation.Table
-            import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 
             @SubmoduleDatabase("feature")
             class FeatureDatabase
 
-            @Table(value = "feature_items", options = [WITHOUT_ROWID])
+            @Table("feature_items")
             data class FeatureItem(
               @Id val id: String,
               val name: String
@@ -225,11 +225,12 @@ internal class DebugMigrationCoordinatorTest {
     val currentStructure = DatabaseStructure.from(orderedTables)
     val currentTable = currentStructure.tables.getValue("feature_items")
     val previousTable = currentTable.copy(
-      schema = "CREATE TABLE IF NOT EXISTS feature_items (name TEXT DEFAULT '')",
-      columns = listOf(currentTable.columns.single { it.name == "name" })
+      name = "legacy_feature_items",
+      schema = "CREATE TABLE IF NOT EXISTS legacy_feature_items (id TEXT NOT NULL PRIMARY KEY)",
+      columns = listOf(currentTable.columns.single(ColumnStructure::id))
     )
     val previousStructure = DatabaseStructure(
-      tables = mapOf("feature_items" to previousTable)
+      tables = mapOf("legacy_feature_items" to previousTable)
     )
     DatabaseStructureJson.write(
       file = submoduleDirectory
@@ -237,6 +238,12 @@ internal class DebugMigrationCoordinatorTest {
         .toFile(),
       structure = previousStructure
     )
+
+    submoduleDirectory
+      .resolve("src/debug/assets")
+      .toFile()
+      .apply { parentFile.mkdirs() }
+      .writeText("")
 
     val outcome = DebugMigrationCoordinator(
       configuration = DebugMigrationConfiguration.from(compilation.environment.options),
@@ -408,6 +415,61 @@ internal class DebugMigrationCoordinatorTest {
     assertThat(mainVersion.readText()).isEqualTo("1007")
     assertThat(localVersion.readText()).isEqualTo("1003")
     assertThat(marker.isFile).isTrue()
+  }
+
+  @Test
+  fun `reports migration warnings through the KSP logger`() {
+    val database = debugMainDatabase
+    val currentStructure = DatabaseStructure.from(
+      orderedTables = CreationOrderedTables.from(database.tables),
+      indexes = database.indices,
+      views = database.views
+    )
+    DatabaseStructureJson.write(
+      file = temporaryDirectory
+        .resolve("db/latest.struct")
+        .toFile(),
+      structure = DatabaseStructure(
+        tables = mapOf(
+          "legacy_items" to migrationTable(
+            name = "legacy_items",
+            columns = listOf(
+              currentStructure.tables
+                .getValue("debug_items")
+                .columns
+                .single(ColumnStructure::id)
+            )
+          )
+        )
+      )
+    )
+    val warnings = mutableListOf<String>()
+
+    DebugMigrationCoordinator(
+      configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory),
+      logger = object : KSPLogger {
+        override fun logging(message: String, symbol: KSNode?) = Unit
+
+        override fun info(message: String, symbol: KSNode?) = Unit
+
+        override fun warn(message: String, symbol: KSNode?) {
+          warnings += message
+        }
+
+        override fun error(message: String, symbol: KSNode?) = Unit
+
+        override fun exception(e: Throwable) = Unit
+      }
+    )
+      .handle(
+        database = database,
+        currentStructure = currentStructure
+      )
+
+    assertThat(warnings).containsExactly(
+      "Migration drops table legacy_items with its rows; if it was renamed to debug_items, edit the migration SQL " +
+          "to keep them."
+    )
   }
 
   @Test

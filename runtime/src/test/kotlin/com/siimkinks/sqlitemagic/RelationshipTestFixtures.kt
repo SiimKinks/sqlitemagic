@@ -187,7 +187,7 @@ internal class BookTable(alias: String? = null) : Table<Book>(
   override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Book(
     id = ID.selectRead(cursor, startIndex),
     title = TITLE.selectRead(cursor, startIndex + 1),
-    author = related!!.read(cursor, 0) as Author
+    author = checkNotNull(related).read(cursor, 0) as Author
   )
 
   override val entityProperties = listOf(
@@ -208,7 +208,7 @@ internal class BookTable(alias: String? = null) : Table<Book>(
   override fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = Book(
     id = cursor.getLong(positions[0]),
     title = cursor.getString(positions[1]),
-    author = related!!.readSelected(cursor, 0) as Author
+    author = checkNotNull(related).readSelected(cursor, 0) as Author
   )
 
   override infix fun AS(alias: String) = BookTable(alias)
@@ -263,7 +263,7 @@ internal class SeriesTable(alias: String? = null) : Table<Series>(
   override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Series(
     id = ID.selectRead(cursor, startIndex),
     name = NAME.selectRead(cursor, startIndex + 1),
-    firstBook = related!!.read(cursor, 0) as Book,
+    firstBook = checkNotNull(related).read(cursor, 0) as Book,
     lastBook = when {
       cursor.isNull(startIndex + 3) -> null
       else -> related.read(cursor, 1) as Book

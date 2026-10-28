@@ -8,7 +8,7 @@ import com.siimkinks.sqlitemagic.view.ViewLeafElement
 internal data class MappingMetadata(
   val name: String,
   val columns: List<String>,
-  val defaults: List<String>,
+  val defaults: List<String?>,
   val indexes: List<String>,
   val query: String?
 )

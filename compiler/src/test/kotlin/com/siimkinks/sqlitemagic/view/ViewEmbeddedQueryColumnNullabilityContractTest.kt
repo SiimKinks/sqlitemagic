@@ -76,9 +76,9 @@ internal class ViewEmbeddedQueryColumnNullabilityContractTest {
                 viewTable.INNER_OPTIONAL_INNER_TEXT
               val innerNumber: Column<NullabilityView, Int, SqlNullable, Int?, Int?, SqlNullable, Int?> =
                 viewTable.INNER_OPTIONAL_INNER_NUMBER
-              val requiredText: Column<NullabilityView, String, SqlNullable, String?, String, Required, String> =
+              val requiredText: Column<NullabilityView, String, Required, String, String, Required, String> =
                 viewTable.REQUIRED_INNER_TEXT
-              val requiredNumber: Column<NullabilityView, Int, SqlNullable, Int, Int, Required, Int> =
+              val requiredNumber: Column<NullabilityView, Int, Required, Int, Int, Required, Int> =
                 viewTable.REQUIRED_INNER_NUMBER
             }
           """
@@ -92,7 +92,8 @@ internal class ViewEmbeddedQueryColumnNullabilityContractTest {
       .withGeneratedSource("EmbeddedQueryColumnNullabilityViewTable.kt") {
         it.assertContains(
           "selectedRead = { cursor, index -> (if (cursor.isNull(index)) null else cursor.getInt(index)) }",
-          "selectedRead = { cursor, index -> cursor.getInt(index) }",
+          """selectedRead = { cursor, index -> (if (cursor.isNull(index)) throw SQLException(""" +
+              """"Column \"required_inner_number\" was NULL") else cursor.getInt(index)) }""",
           "parameterEncoding = SqlType.INT.nullBypassParameterEncoding()",
           "parameterEncoding = SqlType.INT.parameterEncoding()"
         )

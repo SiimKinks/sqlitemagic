@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSFile
 import com.siimkinks.sqlitemagic.Const.DEFAULT_TRANSFORMERS
 import com.siimkinks.sqlitemagic.GeneratedNames.PACKAGE_ROOT
+import com.siimkinks.sqlitemagic.WriterTypes.CHECK_NOT_NULL
 import com.squareup.kotlinpoet.CodeBlock
 
 private val SELECTOR_WORD_BOUNDARY = Regex("([a-z])([A-Z])")
@@ -35,6 +36,16 @@ internal data class TransformerElement(
 
   fun deserializedValueGetter(valueGetter: CodeBlock) =
     dbValueToObjectMethod.callWithArgument(valueGetter)
+
+  fun requiredDeserializedValue(
+    value: CodeBlock,
+    propertyName: String
+  ) = CodeBlock.of(
+    "%M(%L) { %S }",
+    CHECK_NOT_NULL,
+    value,
+    "Transformer ${dbValueToObjectMethod.qualifiedName} returned null for required property $propertyName"
+  )
 }
 
 internal class TransformerRoundElement(

@@ -47,7 +47,7 @@ internal class GeneratedViewCompositionTest {
       .mapTo { row ->
         ReviewStarAuthorView(
           id = row[left.QUERY_COMPOSITION_AUTHOR_ID],
-          name = checkNotNull(row[left.QUERY_COMPOSITION_AUTHOR_NAME])
+          name = row[left.QUERY_COMPOSITION_AUTHOR_NAME]
         )
       }
     val computed = SELECT

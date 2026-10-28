@@ -8,12 +8,16 @@ import kotlin.annotation.AnnotationTarget.FIELD
  *
  * @property value Column name. Defaults to the persisted declaration name with camel case replaced by `_`.
  *
- * @property defaultValue Column default value. When not defined, defaults to the SQL type default:
- * - TEXT — `""`
+ * @property defaultValue Column default value as SQL. A column is `NOT NULL` when its property and every enclosing
+ *     [Embedded] property are non-null. When not defined, nullable columns default to `NULL` and `NOT NULL` columns
+ *     default to the SQL type default:
+ * - TEXT — `''`
  * - INTEGER — `0`
  * - REAL — `0.0`
- * - BLOB — `0`
- * - Nullable columns default to `NULL`.
+ * - BLOB — `X''`, or `X'00'` for `Byte`
+ *
+ *     A non-null relationship, a [Unique] column and a column of a unique index have no implicit default, so
+ *     adding one to an existing table deletes the table's rows in the generated migration.
  *
  * @property handleRecursively Whether a related model should be persisted and retrieved
  *     recursively. In either mode, the referenced type's [Id]-annotated property is stored and used

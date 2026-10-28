@@ -162,20 +162,21 @@ internal class TableSeedResolver(
       }
       IdElement(
         isAutoIncrement = !withoutRowId && compatible && mode != DISABLED,
-        canAssignGeneratedId = seed.access.isMutable
+        canAssignGeneratedId = seed.access.isMutable,
+        isNotNullKey = withoutRowId || storageType.affinity == INTEGER
       )
     }
-    val isSchemaNullable = seed.isSchemaNullable || relationship?.referencedIdIsNullable == true
     return ColumnElement(
       access = seed.access,
       deserializedType = seed.roundElement.parsedType,
       isNullable = seed.roundElement.canBeNull,
       columnName = seed.columnName,
-      isSchemaNullable = isSchemaNullable,
-      isModelPathNullable = seed.isSchemaNullable,
+      isValueNullable = seed.isModelPathNullable || relationship?.referencedIdIsNullable == true,
+      isModelPathNullable = seed.isModelPathNullable,
       defaultValue = seed.explicitDefaultValue ?: when {
-        isSchemaNullable -> "NULL"
-        else -> storageType.affinity.defaultValue
+        seed.isModelPathNullable -> "NULL"
+        relationship != null || tableSeed.isInUniqueIndex(seed) -> null
+        else -> storageType.defaultValue
       },
       transformer = seed.transformer,
       relationship = relationship,
@@ -298,7 +299,7 @@ internal class TableSeedResolver(
       referencedIdType = targetId.deserializedType,
       referencedIdSerializedType = targetId.serializedType,
       referencedIdTransformer = targetId.transformer,
-      referencedIdIsNullable = targetId.isSchemaNullable || targetId.serializedValueCanBeNull,
+      referencedIdIsNullable = targetId.isValueNullable || targetId.serializedValueCanBeNull,
       isHandledRecursively = source.isHandledRecursively,
       onDeleteCascade = source.isHandledRecursively && source.onDeleteCascade,
       canConstructWithOnlyId = canConstructWithOnlyId,
@@ -370,7 +371,7 @@ internal class TableSeedResolver(
       }
     if (WITHOUT_ROWID in table.options) {
       val id = table.idColumn
-      if (id == null || id.isSchemaNullable) {
+      if (id == null || id.isValueNullable) {
         val idDescription = id?.let(::describe) ?: modelName
         reporter.error(
           message = "WITHOUT_ROWID requires an explicit non-null @Id: $idDescription",

@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
-import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.ENCODING_TYPE
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE_READ_TYPE
@@ -12,11 +11,12 @@ import com.siimkinks.sqlitemagic.WriterTypes.SQL_NULLABLE
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_STORAGE
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE_RELATIONSHIP
 import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_COLUMN
-import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
+import com.siimkinks.sqlitemagic.WriterTypes.nullnessType
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter
+import com.siimkinks.sqlitemagic.writer.databaseCursorGetter
 import com.siimkinks.sqlitemagic.writer.entityProperties
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.KModifier.PRIVATE
@@ -111,12 +111,13 @@ internal class ModelTableWriter(
     fieldClass = column.fieldClass,
     fieldName = column.fieldName,
     columnName = column.columnName,
+    propertyName = column.access.path.displayName,
     deserializedType = value.deserializedType.typeName,
     sqlStorageType = value.sqlStorageType,
     transformer = value.transformer,
-    isSchemaNullable = value.isSchemaNullable,
+    isSqlNullable = column.isSqlNullable,
     isModelPathNullable = value.isModelPathNullable,
-    sqlRequired = value.isId && (value.sqlStorageType.affinity == INTEGER || WITHOUT_ROWID in table.options)
+    checksRequiredNull = false
   )
 
   /** A relationship whose referenced ID is itself a relationship has the ID-only referenced model as its value. */
@@ -126,15 +127,29 @@ internal class ModelTableWriter(
     relationship: RelationshipElement
   ): PropertySpec {
     val idType = relationship.nullableIdType
+    val nullness = nullnessType(nullable = column.isSqlNullable)
+    val requiredRead = when {
+      column.isSqlNullable -> null
+      else -> namedArgument(
+        "selectedRead",
+        "{ cursor, index -> %L }",
+        relationship.deserializedDeclaredIdValue(
+          databaseCursorGetter(
+            storageType = column.sqlStorageType,
+            index = CodeBlock.of("index")
+          )
+        )
+      )
+    }
     return PropertySpec
       .builder(
         name = column.fieldName,
         type = column.fieldClass.parameterizedBy(
           table.modelClassName,
           idType,
-          SQL_NULLABLE,
-          idType,
-          idType,
+          nullness,
+          idType.copy(nullable = column.isSqlNullable),
+          idType.copy(nullable = column.isModelPathNullable),
           SQL_NULLABLE,
           idType
         )
@@ -142,16 +157,17 @@ internal class ModelTableWriter(
       .initializer(
         callCode(
           callee = CodeBlock.of("%T", column.fieldClass),
-          arguments = listOf(
+          arguments = listOfNotNull(
             namedArgument("table", "this"),
             namedArgument("name", "%S", column.columnName),
-            namedArgument("nullness", "%T", SQL_NULLABLE),
+            namedArgument("nullness", "%T", nullness),
             namedArgument(
               "parameterEncoding",
               "%N.%M()",
               column.relationshipBackedIdTypeName,
               PARAMETER_ENCODING_FACTORY
-            )
+            ),
+            requiredRead
           )
         )
       )

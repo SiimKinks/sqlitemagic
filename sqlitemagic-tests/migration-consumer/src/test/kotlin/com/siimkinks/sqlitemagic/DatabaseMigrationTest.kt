@@ -182,7 +182,7 @@ internal class DatabaseMigrationTest {
         .runMigrationsAndValidate(
           name = "accounts",
           fromVersion = 4,
-          toVersion = 6
+          toVersion = 8
         )
         .use { database ->
           val expectedEntries = MigrationTestResult(
@@ -423,6 +423,131 @@ internal class DatabaseMigrationTest {
               MigrationTestResult(
                 columns = listOf("id", "label", "country"),
                 rows = listOf(listOf("eu", "Europe", "global"))
+              )
+            )
+        }
+    }
+  }
+
+  @Test
+  fun `version seven fills NULLs of non-null properties with their defaults and deletes rows without one`() {
+    migrationHelper().use { helper ->
+      helper
+        .createDatabase(
+          name = "not-null-defaults",
+          version = 6
+        )
+        .use { database ->
+          database.execute(
+            sql = "INSERT INTO migration_person(id,name,name_length,slug) VALUES (?,?,?,?)",
+            bindArgs = listOf(1L, null, null, null)
+          )
+          listOf(
+            listOf("alpha", "Personal"),
+            listOf("beta", null)
+          ).forEach { account ->
+            database.execute(
+              sql = "INSERT INTO migration_account(id,label) VALUES (?,?)",
+              bindArgs = account
+            )
+          }
+          listOf(
+            listOf(1L, "alpha", "first", null, null, null),
+            listOf(2L, "alpha", null, null, 1.5, "posted"),
+            listOf(3L, "alpha", null, null, 2.5, "posted"),
+            listOf(4L, "beta", "other", null, 3.5, "posted")
+          ).forEach { entry ->
+            database.execute(
+              sql = "INSERT INTO migration_entry(id,account,reference,person,amount,status) VALUES (?,?,?,?,?,?)",
+              bindArgs = entry
+            )
+          }
+          listOf(
+            listOf("theme", null),
+            listOf(null, "orphan")
+          ).forEach { setting ->
+            database.execute(
+              sql = "INSERT INTO migration_setting(key,value) VALUES (?,?)",
+              bindArgs = setting
+            )
+          }
+        }
+      helper
+        .runMigrationsAndValidate(
+          name = "not-null-defaults",
+          fromVersion = 6,
+          toVersion = 7
+        )
+        .use { database ->
+          assertThat(database.query("SELECT id,name,name_length,slug FROM migration_person"))
+            .isEqualTo(
+              MigrationTestResult(
+                columns = listOf("id", "name", "name_length", "slug"),
+                rows = listOf(listOf(1L, "", null, null))
+              )
+            )
+          assertThat(database.query("SELECT id,label FROM migration_account"))
+            .isEqualTo(
+              MigrationTestResult(
+                columns = listOf("id", "label"),
+                rows = listOf(listOf("alpha", "Personal"))
+              )
+            )
+          assertThat(database.query("SELECT id,account,reference,person,amount,status FROM migration_entry"))
+            .isEqualTo(
+              MigrationTestResult(
+                columns = listOf("id", "account", "reference", "person", "amount", "status"),
+                rows = listOf(listOf(1L, "alpha", "first", null, 0.0, "posted"))
+              )
+            )
+          assertThat(database.query("SELECT key,value FROM migration_setting"))
+            .isEqualTo(
+              MigrationTestResult(
+                columns = listOf("key", "value"),
+                rows = listOf(listOf("theme", ""))
+              )
+            )
+        }
+    }
+  }
+
+  @Test
+  fun `version eight recreates profiles without their rows for a new required unique handle`() {
+    migrationHelper().use { helper ->
+      helper
+        .createDatabase(
+          name = "required-handle",
+          version = 7
+        )
+        .use { database ->
+          database.execute(
+            sql = "INSERT INTO migration_profile(id,email,rating) VALUES (?,?,?)",
+            bindArgs = listOf(1L, "ada@example.com", 4.5)
+          )
+          database.execute(
+            sql = "INSERT INTO migration_person(id,name) VALUES (?,?)",
+            bindArgs = listOf(1L, "ADA")
+          )
+        }
+      helper
+        .runMigrationsAndValidate(
+          name = "required-handle",
+          fromVersion = 7,
+          toVersion = 8
+        )
+        .use { database ->
+          assertThat(database.query("SELECT id,handle FROM migration_profile"))
+            .isEqualTo(
+              MigrationTestResult(
+                columns = listOf("id", "handle"),
+                rows = emptyList()
+              )
+            )
+          assertThat(database.query("SELECT id,name FROM migration_person"))
+            .isEqualTo(
+              MigrationTestResult(
+                columns = listOf("id", "name"),
+                rows = listOf(listOf(1L, "ADA"))
               )
             )
         }

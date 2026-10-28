@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
 
 private val unsupportedAppendConstraintPattern = Regex(
@@ -198,11 +199,17 @@ internal fun String.withoutTableColumns(): String {
   return this
 }
 
-internal fun ColumnStructure.requiresValueDuringRebuild(table: TableStructure) =
-  id && withoutRowIdPattern.containsMatchIn(table.schema.withoutQuotedSqlSegments())
+internal fun ColumnStructure.requiresValueDuringRebuild(table: TableStructure) = requiresValue ||
+    (id && table.isWithoutRowId)
+
+internal fun ColumnStructure.isNotNullIn(table: TableStructure) = notNull ||
+    (id && (sqlType == INTEGER.name || table.isWithoutRowId))
+
+private val TableStructure.isWithoutRowId
+  get() = withoutRowIdPattern.containsMatchIn(schema.withoutQuotedSqlSegments())
 
 internal fun ColumnStructure.canBeAddedWithAlterTable(): Boolean {
-  if (id || autoIncrement || onDeleteCascade) return false
+  if (id || autoIncrement || onDeleteCascade || requiresValue) return false
   val schemaWithoutQuotedSegments = schema.withoutQuotedSqlSegments()
   if (unsupportedAppendConstraintPattern.containsMatchIn(schemaWithoutQuotedSegments)) return false
   if (nonConstantDefaultPattern.containsMatchIn(schemaWithoutQuotedSegments)) return false

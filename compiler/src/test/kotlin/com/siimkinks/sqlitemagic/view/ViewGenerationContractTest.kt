@@ -34,8 +34,10 @@ internal class ViewGenerationContractTest {
           """: Table<AuthorSummary>(name = "author_summary", alias = alias, """ +
               "generatedView = SqliteMagic_AuthorSummary_Dao.GENERATED_VIEW)",
           "val AUTHOR_NAME:",
-          "Column<AuthorSummary, String, SqlNullable, String?, String, Required, String> = Column(",
+          "Column<AuthorSummary, String, Required, String, String, Required, String>",
           """name = "author.name"""",
+          """selectedRead = { cursor, index -> (if (cursor.isNull(index)) throw """ +
+              """SQLException("Column \"author.name\" was NULL") else cursor.getString(index)) }""",
           "val RATING: Column<AuthorSummary, Int, SqlNullable, Int?, Int?, SqlNullable, Int?>",
           """name = "rating"""",
           "SqliteMagic_AuthorSummary_Dao.objectFromCursorPosition(cursor, startIndex)",

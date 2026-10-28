@@ -27,7 +27,7 @@ fun <R, N : SqlNullability, T, M> SelectQuery<T, ScalarSelection<R, N, T>>.mapTo
  *
  * Example:
  * ```
- * data class AuthorName(val id: Long, val name: String?)
+ * data class AuthorName(val id: Long, val name: String)
  *
  * SELECT
  *     .COLUMNS(AUTHOR.ID, AUTHOR.NAME)

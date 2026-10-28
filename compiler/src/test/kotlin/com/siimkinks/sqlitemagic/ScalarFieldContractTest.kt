@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.model.modelProcessingSteps
 import com.siimkinks.sqlitemagic.utils.PlainKotlinCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.assertCompilationError
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
@@ -99,15 +100,18 @@ internal class ScalarFieldContractTest {
               val optionalExact = optional.exact()
               val tokenExact = token.exact()
               val sentinelExact = sentinel.exact()
+              val sentinelRequiredExact = sentinelRequired.exact()
               val decodedExact = decoded.exact()
               val optionalBooleanExact = optionalBoolean.exact()
 
               val idType: Exact<SqlExpression<Long, Required, Long>> = idExact
-              val requiredType: Exact<SqlExpression<String, SqlNullable, String?>> = requiredExact
+              val requiredType: Exact<SqlExpression<String, Required, String>> = requiredExact
               val optionalType: Exact<SqlExpression<String, SqlNullable, String?>> = optionalExact
-              val tokenType: Exact<SqlExpression<FieldToken, SqlNullable, FieldToken?>> = tokenExact
+              val tokenType: Exact<SqlExpression<FieldToken, Required, FieldToken>> = tokenExact
               val sentinelType: Exact<SqlExpression<SentinelToken, SqlNullable, SentinelToken>> = sentinelExact
-              val decodedType: Exact<SqlExpression<DecodedToken?, SqlNullable, DecodedToken?>> = decodedExact
+              val sentinelRequiredType: Exact<SqlExpression<SentinelToken, Required, SentinelToken>> =
+                  sentinelRequiredExact
+              val decodedType: Exact<SqlExpression<DecodedToken?, Required, DecodedToken>> = decodedExact
               val booleanType: Exact<SqlExpression<Boolean, SqlNullable, Boolean?>> = optionalBooleanExact
 
               val idParameter = id.asParameter("id")
@@ -187,7 +191,7 @@ internal class ScalarFieldContractTest {
               val tokenMembershipType: Exact<SqlExpression<Boolean, SqlNullable, Boolean?>> = tokenMembershipExact
               val decodedRangeType: Exact<SqlExpression<Boolean, SqlNullable, Boolean?>> = decodedRangeExact
               val sentinelPatternType: Exact<SqlExpression<Boolean, SqlNullable, Boolean?>> = sentinelPatternExact
-              val filteredType: Exact<CompiledSelect<FieldToken?>> = filtered.exact()
+              val filteredType: Exact<CompiledSelect<FieldToken>> = filtered.exact()
 
               val fluent = SELECT.COLUMN(required)
                   .FROM(SCALAR_FIELD_RECORD)
@@ -237,21 +241,21 @@ internal class ScalarFieldContractTest {
               val orderedIdPlanExact = orderedIdPlan.exact()
               val orderedDecodedPlanExact = orderedDecodedPlan.exact()
 
-              val fluentType: Exact<CompiledSelect<String?>> = fluentExact
+              val fluentType: Exact<CompiledSelect<String>> = fluentExact
               val infixType: Exact<CompiledSelect<String?>> = infixExact
               val aliasedType: Exact<CompiledSelect<Long>> = aliasedExact
               val sentinelPlanType: Exact<CompiledSelect<SentinelToken>> = sentinelPlanExact
-              val decodedPlanType: Exact<CompiledSelect<DecodedToken?>> = decodedPlanExact
+              val decodedPlanType: Exact<CompiledSelect<DecodedToken>> = decodedPlanExact
               val booleanPlanType: Exact<CompiledSelect<Boolean?>> = booleanPlanExact
-              val firstType: Exact<CompiledFirst<String?>> = firstExact
+              val firstType: Exact<CompiledFirst<String>> = firstExact
               val countType: CompiledCount = count
-              val cursorType: Exact<CompiledCursor<String?>> = cursorExact
+              val cursorType: Exact<CompiledCursor<String>> = cursorExact
               val orderedIdType: Exact<SelectOrderStage<Long, ScalarSelection<Long, Required, Long>>> = orderedIdExact
               val orderedDecodedType:
-                  Exact<SelectOrderStage<DecodedToken?, ScalarSelection<DecodedToken?, SqlNullable, DecodedToken?>>> =
+                  Exact<SelectOrderStage<DecodedToken, ScalarSelection<DecodedToken?, Required, DecodedToken>>> =
                   orderedDecodedExact
               val orderedIdPlanType: Exact<CompiledSelect<Long>> = orderedIdPlanExact
-              val orderedDecodedPlanType: Exact<CompiledSelect<DecodedToken?>> = orderedDecodedPlanExact
+              val orderedDecodedPlanType: Exact<CompiledSelect<DecodedToken>> = orderedDecodedPlanExact
 
               val groupedId = SELECT.COLUMN(id)
                   .FROM(SCALAR_FIELD_RECORD)
@@ -268,17 +272,17 @@ internal class ScalarFieldContractTest {
               val groupedIdType: Exact<SelectGroupStage<Long, ScalarSelection<Long, Required, Long>>> = groupedIdExact
               val havingIdType: Exact<SelectHavingStage<Long, ScalarSelection<Long, Required, Long>>> = havingIdExact
               val groupedDecodedType:
-                  Exact<SelectGroupStage<DecodedToken?, ScalarSelection<DecodedToken?, SqlNullable, DecodedToken?>>> =
+                  Exact<SelectGroupStage<DecodedToken, ScalarSelection<DecodedToken?, Required, DecodedToken>>> =
                   groupedDecodedExact
               val havingDecodedType:
-                  Exact<SelectHavingStage<DecodedToken?, ScalarSelection<DecodedToken?, SqlNullable, DecodedToken?>>> =
+                  Exact<SelectHavingStage<DecodedToken, ScalarSelection<DecodedToken?, Required, DecodedToken>>> =
                   havingDecodedExact
               val groupedIdPlan = groupedId.compile()
               val havingDecodedCursor = havingDecoded.toCursor()
               val groupedIdPlanExact = groupedIdPlan.exact()
               val havingDecodedCursorExact = havingDecodedCursor.exact()
               val groupedIdPlanType: Exact<CompiledSelect<Long>> = groupedIdPlanExact
-              val havingDecodedCursorType: Exact<CompiledCursor<DecodedToken?>> = havingDecodedCursorExact
+              val havingDecodedCursorType: Exact<CompiledCursor<DecodedToken>> = havingDecodedCursorExact
 
               val distinctId = SELECT DISTINCT id
               val distinctSentinel = SELECT.DISTINCT(sentinel)
@@ -293,10 +297,10 @@ internal class ScalarFieldContractTest {
                   Exact<SelectFromStage<SentinelToken, ScalarSelection<SentinelToken, SqlNullable, SentinelToken>>> =
                   distinctSentinelExact
               val distinctDecodedType:
-                  Exact<SelectFromStage<DecodedToken?, ScalarSelection<DecodedToken?, SqlNullable, DecodedToken?>>> =
+                  Exact<SelectFromStage<DecodedToken, ScalarSelection<DecodedToken?, Required, DecodedToken>>> =
                   distinctDecodedExact
               val distinctDecodedPlan = distinctDecoded.compile()
-              val distinctDecodedPlanType: Exact<CompiledSelect<DecodedToken?>> = distinctDecodedPlan.exact()
+              val distinctDecodedPlanType: Exact<CompiledSelect<DecodedToken>> = distinctDecodedPlan.exact()
 
               val generatedRow = SELECT.COLUMNS(id, optionalDecoded)
                   .FROM(SCALAR_FIELD_RECORD)
@@ -310,6 +314,30 @@ internal class ScalarFieldContractTest {
         classpaths = listOf(GENERATED.outputDirectory)
       )
       .isOk()
+  }
+
+  @Test
+  fun `declares NOT NULL for columns of non-null properties whatever their encoders return`() {
+    GENERATED.adapterSource.assertContainsUnwrapped(
+      "CREATE TABLE IF NOT EXISTS scalar_field_records (id INTEGER PRIMARY KEY, " +
+          "required_text TEXT NOT NULL DEFAULT '', required_blob BLOB NOT NULL DEFAULT X'', " +
+          "optional_text TEXT DEFAULT NULL, token TEXT NOT NULL DEFAULT '', sentinel TEXT DEFAULT NULL, " +
+          "sentinel_required TEXT NOT NULL DEFAULT '', decoded TEXT NOT NULL DEFAULT '', " +
+          "optional_decoded TEXT DEFAULT NULL, optional_boolean INTEGER DEFAULT NULL)"
+    )
+  }
+
+  @Test
+  fun `generated fields read required columns as their property types`() {
+    GENERATED.tableSource.assertContainsUnwrapped(
+      "selectedRead = { cursor, index -> cursor.getString(index) }",
+      "selectedRead = { cursor, index -> cursor.getBlob(index) }",
+      "selectedRead = { cursor, index -> SentinelTokenTransformer.fromDb(cursor.getString(index)) }",
+      "selectedRead = { cursor, index -> checkNotNull(DecodedTokenTransformer.fromDb(cursor.getString(index))) { " +
+          """"Transformer fixtures.scalarfield.DecodedTokenTransformer.fromDb returned null for required property """ +
+          """decoded" } }""",
+      "selectedRead = { cursor, index -> cursor.getString(index)?.let(DecodedTokenTransformer::fromDb) }"
+    )
   }
 
   @ParameterizedTest(name = "{0}")
@@ -469,7 +497,9 @@ internal class ScalarFieldContractTest {
             adapterDriverResult = loadClass("fixtures.scalarfield.ScalarFieldAdapterDriver")
               .getMethod("verify")
               .invoke(null),
-            outputDirectory = outputDirectory
+            outputDirectory = outputDirectory,
+            tableSource = generatedSource("ScalarFieldRecordTable.kt"),
+            adapterSource = generatedSource("SqliteMagic_ScalarFieldRecord_Adapter.kt")
           )
         }
     }
@@ -495,5 +525,7 @@ internal class ScalarFieldContractTest {
 
 private class GeneratedScalarFields(
   val adapterDriverResult: Any?,
-  val outputDirectory: File
+  val outputDirectory: File,
+  val tableSource: String,
+  val adapterSource: String
 )

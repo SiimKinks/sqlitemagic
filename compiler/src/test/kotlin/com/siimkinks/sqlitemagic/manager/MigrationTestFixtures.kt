@@ -16,11 +16,15 @@ internal fun migrationTable(
 internal fun migrationColumn(
   name: String,
   schema: String,
-  onDeleteCascade: Boolean = false
+  onDeleteCascade: Boolean = false,
+  notNull: Boolean = false,
+  notNullDefault: String? = null
 ) = ColumnStructure(
   name = name,
   onDeleteCascade = onDeleteCascade,
-  schema = schema
+  schema = schema,
+  notNull = notNull,
+  notNullDefault = notNullDefault
 )
 
 internal fun databaseStructure(vararg tableNames: String) = DatabaseStructure(
@@ -42,7 +46,8 @@ private fun tableStructure(name: String) = TableStructure(
 
 internal data class MigrationRun(
   val migrationHappened: Boolean,
-  val statements: List<String>
+  val statements: List<String>,
+  val warnings: List<String> = emptyList()
 )
 
 internal fun runMigration(
@@ -54,7 +59,10 @@ internal fun runMigration(
   current = current,
   temporaryDirectory = temporaryDirectory
 )
-  .also { assertThat(it.migrationHappened).isTrue() }
+  .also {
+    assertThat(it.migrationHappened).isTrue()
+    assertThat(it.warnings).isEmpty()
+  }
   .statements
 
 internal fun runMigrationResult(
@@ -65,19 +73,22 @@ internal fun runMigrationResult(
   val migrationFile = temporaryDirectory
     .resolve("src/debug/assets/1001.sql")
     .toFile()
+  val warnings = mutableListOf<String>()
   val migrationHappened = MigrationsHandler(
     currentStructure = current,
     previousStructure = previous,
     outputStructureFile = temporaryDirectory
       .resolve("db/latest.struct")
       .toFile(),
-    migrationOutputFile = migrationFile
+    migrationOutputFile = migrationFile,
+    warn = warnings::add
   ).migrate()
   return MigrationRun(
     migrationHappened = migrationHappened,
     statements = migrationFile
       .takeIf(File::isFile)
       ?.readLines()
-      .orEmpty()
+      .orEmpty(),
+    warnings = warnings
   )
 }

@@ -141,7 +141,7 @@ internal class QueryCompositionRuntimeTest {
         .ORDER_BY(view.QUERY_COMPOSITION_AUTHOR_ID.ASC())
         .mapTo { row ->
           QueryCompositionAuthorView(
-            name = checkNotNull(row[view.QUERY_COMPOSITION_AUTHOR_NAME]),
+            name = row[view.QUERY_COMPOSITION_AUTHOR_NAME],
             id = row[view.QUERY_COMPOSITION_AUTHOR_ID]
           ) to row[tail]
         }
@@ -167,7 +167,7 @@ internal class QueryCompositionRuntimeTest {
         .ORDER_BY(left.QUERY_COMPOSITION_AUTHOR_ID.ASC())
         .mapTo { row ->
           QueryCompositionAuthorView(
-            name = checkNotNull(row[left.QUERY_COMPOSITION_AUTHOR_NAME]),
+            name = row[left.QUERY_COMPOSITION_AUTHOR_NAME],
             id = row[left.QUERY_COMPOSITION_AUTHOR_ID]
           ) to row[joinedName]
         }
@@ -193,7 +193,7 @@ internal class QueryCompositionRuntimeTest {
         .mapTo { row ->
           QueryCompositionAuthor(
             id = row[root.ID],
-            name = checkNotNull(row[root.NAME])
+            name = row[root.NAME]
           ) to row[joinedName]
         }
         .execute()

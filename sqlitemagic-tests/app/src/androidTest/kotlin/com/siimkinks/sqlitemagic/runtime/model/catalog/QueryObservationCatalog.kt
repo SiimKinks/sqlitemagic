@@ -118,7 +118,7 @@ internal object QueryObservationCatalog {
     )
   }
 
-  private fun newSimpleScalarSubqueryScenario(): QueryObservationScenario<Long?> {
+  private fun newSimpleScalarSubqueryScenario(): QueryObservationScenario<Long> {
     val target = StringIdEntity(
       id = "simple-subquery-target",
       value = "simple-subquery-match"
@@ -168,7 +168,7 @@ internal object QueryObservationCatalog {
     )
   }
 
-  private fun newComplexSubqueryInSimpleOuterScenario(): QueryObservationScenario<String?> {
+  private fun newComplexSubqueryInSimpleOuterScenario(): QueryObservationScenario<String> {
     val related = newSimple(value = "complex-subquery-match")
     val parent = newRelationship(
       value = "complex-subquery-match",

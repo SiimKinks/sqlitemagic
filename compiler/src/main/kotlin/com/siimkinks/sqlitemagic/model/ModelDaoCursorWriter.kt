@@ -107,6 +107,7 @@ private fun TableElement.persistedNode(
       position = position,
       relationshipIndex = relationshipColumns.indexOf(column)
     ),
+    isSqlNullable = column.isSqlNullable,
     nullMessage = column.relationshipNullMessage
   )
 }
@@ -138,6 +139,7 @@ private fun TableElement.scalarNode(
   position = position,
   storageType = column.sqlStorageType,
   transformer = column.transformer,
+  isSqlNullable = column.isSqlNullable,
   requiresPresentValue = column.isModelPathNullable,
   missingMessage = """Selected columns did not contain table "$tableName" required column "${column.columnName}"""",
   nullMessage = """Column "${column.columnName}" was NULL"""

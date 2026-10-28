@@ -129,7 +129,7 @@ internal class BackingFieldFeaturesContractTest {
     result.sourcesGeneratedBySymbolProcessor
       .single { it.name == "SqliteMagic_ProductionBackingFields_Adapter.kt" }
       .let(File::readText)
-      .assertContains("id TEXT PRIMARY KEY", "display_name TEXT")
+      .assertContains("id TEXT NOT NULL PRIMARY KEY", "display_name TEXT NOT NULL")
     result.sourcesGeneratedBySymbolProcessor
       .single { it.name == "SqliteMagicDatabase.kt" }
       .let(File::readText)

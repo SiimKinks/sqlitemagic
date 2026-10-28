@@ -21,6 +21,7 @@ neither the code nor its tests show which result is intended.
 - [Compounds type by the left arm](#compounds-type-by-the-left-arm)
 - [View columns have qualified names](#view-columns-have-qualified-names)
 - [Entity operations throw SQLite's exceptions](#entity-operations-throw-sqlites-exceptions)
+- [The schema follows Kotlin nullability](#the-schema-follows-kotlin-nullability)
 - [Smaller behavior changes](#smaller-behavior-changes)
 
 ## Queries are immutable
@@ -211,6 +212,29 @@ returned `false`. Now single and bulk insert, persist, update and delete throw S
 - Find: `catch (… OperationFailedException …)`, `onError` handlers matching it, and uses of a bulk insert/persist
   `Boolean` result.
 - Do: catch `SQLException` (or the specific constraint exception); treat a bulk conflict as an exception, not `false`.
+
+## The schema follows Kotlin nullability
+
+Legacy created every column without `NOT NULL`, so a NULL written by raw SQL or another writer could sit in a column
+of a non-null property, where generated readers read `0`/`false` or failed. Columns of non-null properties are now
+`NOT NULL` (a relationship by its own property; values inside a nullable embedded value stay nullable), whatever their
+`@ObjectToDbValue` function returns, and the next generated migration rebuilds each affected table once. The rebuild
+fills an existing NULL with the column's default (`''`, `0`, `0.0`, `false`, an empty blob or `@Column(defaultValue)`),
+so a NULL that an encoder stored for a real value reads back as the decoded default. A required relationship, a unique
+column and a column of a unique index have no default, so the migration first deletes the rows that hold NULL there
+(`DELETE FROM … WHERE … IS NULL`, cascading to `ON DELETE CASCADE` dependents). A new non-null column without a
+default has no value for existing rows, so its migration deletes the table's rows (`DELETE FROM`) and recreates the
+table empty. Afterwards SQLite rejects a NULL written to such a column, including one an encoder returns for a non-null
+property. Selected values keep the property's type, as legacy typed them.
+
+- Find: raw SQL or other writers that store NULL in columns of non-null properties, `@ObjectToDbValue` functions that
+  can return null for a non-null value, and `DELETE FROM` statements in the generated migration SQL (the build warns
+  "Migration deletes …" for each).
+- Do: declare the property nullable where NULL is meant, or have the encoder return a non-null value; where stored
+  NULLs need another value than the default or their rows must survive, replace those values in the release's
+  migration SQL before the rebuild statements; where a `DELETE FROM` would discard data that must survive, give the
+  new column a default, make it nullable or replace those statements; advance the database version and run
+  `migrate<Variant>Db`.
 
 ## Smaller behavior changes
 

@@ -169,9 +169,9 @@ internal class ModelUpdateBindingContractTest {
                 ) { _, method, arguments ->
                   when (method.name) {
                     "clearBindings" -> BindingTrace.events.add("clear")
-                    "bindNull" -> BindingTrace.events.add("bindNull:" + arguments!![0])
+                    "bindNull" -> BindingTrace.events.add("bindNull:" + checkNotNull(arguments)[0])
                     "bindLong", "bindDouble", "bindString", "bindBlob" -> {
-                      val value = arguments!![1]
+                      val value = checkNotNull(arguments)[1]
                       val text = when (value) {
                         is ByteArray -> value.joinToString(",")
                         else -> value.toString()

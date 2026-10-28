@@ -65,6 +65,48 @@ internal class ReleaseMigrationCoordinatorTest {
   }
 
   @Test
+  fun `reports migration warnings while publishing a release`() {
+    writeStructure(
+      file = databaseDirectory.resolve("module.struct"),
+      structure = DatabaseStructure(
+        tables = mapOf(
+          "authors" to migrationTable(
+            name = "authors",
+            columns = listOf(
+              ColumnStructure(
+                id = true,
+                name = "id",
+                sqlType = "INTEGER",
+                schema = "id INTEGER PRIMARY KEY"
+              ),
+              migrationColumn(
+                name = "name",
+                schema = "name TEXT DEFAULT ''"
+              )
+            )
+          )
+        )
+      )
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("releases/3.struct"),
+      structure = databaseStructure("books")
+    )
+    val warnings = mutableListOf<String>()
+
+    ReleaseMigrationCoordinator.migrate(
+      projectDir = temporaryDirectory.toFile(),
+      databaseDirectory = databaseDirectory.toFile(),
+      variantName = "release",
+      warn = warnings::add
+    )
+
+    assertThat(warnings).containsExactly(
+      "Migration drops table books with its rows; if it was renamed to authors, edit the migration SQL to keep them."
+    )
+  }
+
+  @Test
   fun `publishes the next snapshot and preserves pending data SQL when schema is unchanged`() {
     val current = databaseStructure("books")
     writeStructure(

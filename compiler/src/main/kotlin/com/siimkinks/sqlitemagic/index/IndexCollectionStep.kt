@@ -218,10 +218,7 @@ internal class IndexCollectionStep(
 
     val compositeColumns = compositeMetadata?.let { metadata ->
       table.allColumns.filter { column ->
-        when {
-          metadata.name.isEmpty() -> column.belongsToIndex == null
-          else -> column.belongsToIndex == metadata.name
-        }
+        metadata.name.compositeIndexIncludes(column.belongsToIndex)
       }
     }
     if (compositeMetadata != null && compositeColumns != null) {

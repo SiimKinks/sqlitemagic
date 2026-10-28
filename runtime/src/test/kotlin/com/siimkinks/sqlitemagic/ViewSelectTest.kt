@@ -30,7 +30,7 @@ private class SeriesEndingTable(alias: String? = null) : Table<SeriesEnding>(
 ) {
   override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = SeriesEnding(
     name = cursor.getString(startIndex),
-    lastBook = related!!.readOrNull(cursor, 0) as Book?
+    lastBook = checkNotNull(related).readOrNull(cursor, 0) as Book?
   )
 
   override infix fun AS(alias: String) = SeriesEndingTable(alias)
@@ -57,7 +57,7 @@ private class SummaryCardTable(alias: String? = null) : Table<SummaryCard>(
   generatedView = SUMMARY_CARD_VIEW
 ) {
   override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = SummaryCard(
-    summary = related!!.read(cursor, 0) as AuthorSummary
+    summary = checkNotNull(related).read(cursor, 0) as AuthorSummary
   )
 
   override infix fun AS(alias: String) = SummaryCardTable(alias)
@@ -98,7 +98,7 @@ private class BookCardTable(
 
   override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = BookCard(
     title = cursor.getString(startIndex),
-    book = related!!.read(cursor, 0) as Book
+    book = checkNotNull(related).read(cursor, 0) as Book
   )
 
   override infix fun AS(alias: String) = BookCardTable(

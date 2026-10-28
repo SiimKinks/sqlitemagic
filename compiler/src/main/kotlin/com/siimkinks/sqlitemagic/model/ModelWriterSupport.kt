@@ -46,6 +46,9 @@ internal fun ColumnElement.schemaSql() = buildString {
   append(columnName)
   append(' ')
   append(sqlStorageType.affinity.name)
+  if (declaresNotNull) {
+    append(" NOT NULL")
+  }
   when {
     isId -> {
       append(" PRIMARY KEY")
@@ -54,8 +57,8 @@ internal fun ColumnElement.schemaSql() = buildString {
       }
     }
     isUnique -> append(" UNIQUE")
-    else -> append(" DEFAULT $defaultValue")
   }
+  schemaDefaultValue?.let { append(" DEFAULT $it") }
   relationship
     ?.takeIf(RelationshipElement::onDeleteCascade)
     ?.let { append(" REFERENCES ${it.referencedTableName}(${it.referencedIdColumnName}) ON DELETE CASCADE") }
@@ -115,7 +118,7 @@ internal fun TableElement.serializedReadExpression(
     ),
     valueCanBeNull = column.isModelPathNullable || column.relationship.referencedIdValueCanBeNull
   )
-  column.transformer != null && column.isSchemaNullable -> CodeBlock.of(
+  column.transformer != null && column.isValueNullable -> CodeBlock.of(
     "%L?.let(%L)",
     propertyReadExpression,
     column.transformer.objectToDbValueMethod.callableReference()

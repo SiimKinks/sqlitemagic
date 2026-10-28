@@ -9,7 +9,7 @@ import androidx.annotation.CheckResult
  * ```
  * SELECT
  *     .RAW("SELECT id, name FROM author")
- *     .readAs(SqlType.LONG, SqlType.STRING.nullable)
+ *     .readAs(SqlType.LONG, SqlType.STRING)
  *     .mapTo(::AuthorName)
  * ```
  *
