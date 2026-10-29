@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import org.junit.Rule
@@ -54,8 +55,11 @@ internal class SuccessfulSingleUpdateTest(
       EXECUTE -> modelCase.executeUpdate(value = updatedValue)
       OBSERVE -> {
         modelCase
-          .observeUpdate(value = updatedValue)
-          .blockingAwait()
+          .observeUpdate(
+            adapter = RxJava2Adapter,
+            value = updatedValue
+          )
+          .await()
         true
       }
     }

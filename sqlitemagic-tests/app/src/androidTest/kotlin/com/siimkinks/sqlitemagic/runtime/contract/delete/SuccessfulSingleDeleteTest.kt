@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
@@ -52,7 +53,12 @@ internal class SuccessfulSingleDeleteTest(
     )
     val deletedCount = terminal.select(
       execute = { modelCase.executeDelete(value = deletedValue) },
-      observe = { modelCase.observeDelete(value = deletedValue) }
+      observe = {
+        modelCase.observeDelete(
+          adapter = RxJava2Adapter,
+          value = deletedValue
+        )
+      }
     )
     assertThat(deletedCount).isEqualTo(1)
     assertDatabaseSnapshotIgnoringOrder(

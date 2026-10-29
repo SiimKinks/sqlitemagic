@@ -8,9 +8,10 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveOperation
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
-import io.reactivex.Single
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,7 +78,12 @@ internal class ReferencedRelationshipDeleteTest(
       terminal = terminal,
       expectedCount = 1,
       execute = { modelCase.executeRelatedDelete(value = child) },
-      observe = { modelCase.observeRelatedDelete(value = child) }
+      observe = {
+        modelCase.observeRelatedDelete(
+          adapter = RxJava2Adapter,
+          value = child
+        )
+      }
     )
   }
 
@@ -97,7 +103,12 @@ internal class ReferencedRelationshipDeleteTest(
       terminal = terminal,
       expectedCount = children.size,
       execute = { modelCase.executeRelatedBulkDelete(values = children) },
-      observe = { modelCase.observeRelatedBulkDelete(values = children) }
+      observe = {
+        modelCase.observeRelatedBulkDelete(
+          adapter = RxJava2Adapter,
+          values = children
+        )
+      }
     )
   }
 
@@ -118,7 +129,7 @@ internal class ReferencedRelationshipDeleteTest(
       terminal = terminal,
       expectedCount = expectedCount,
       execute = modelCase::executeRelatedTableDelete,
-      observe = modelCase::observeRelatedTableDelete
+      observe = { modelCase.observeRelatedTableDelete(RxJava2Adapter) }
     )
   }
 
@@ -127,7 +138,7 @@ internal class ReferencedRelationshipDeleteTest(
     terminal: OperationTerminal,
     expectedCount: Int,
     execute: () -> Int,
-    observe: () -> Single<Int>
+    observe: () -> ReactiveOperation<Int>
   ) {
     val deletedCount = terminal.select(
       execute = execute,

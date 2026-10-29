@@ -38,8 +38,8 @@ import com.siimkinks.sqlitemagic.runtime.model.StandardDeleteBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardTableDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
-import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 
 internal object IdentityModelCatalog {
@@ -298,17 +298,25 @@ internal object IdentityModelCatalog {
       .delete()
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
-    override fun observeDelete(value: NoIdUniqueEntity) = value
-      .delete()
-      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+    override fun observeDelete(
+      adapter: ReactiveAdapter,
+      value: NoIdUniqueEntity
+    ) = adapter.observe(
+      builder = value.delete(),
+      byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE
+    )
 
     override fun executeBulkDelete(values: Collection<NoIdUniqueEntity>) = NoIdUniqueEntitys
       .delete(o = values)
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
-    override fun observeBulkDelete(values: Collection<NoIdUniqueEntity>) = NoIdUniqueEntitys
-      .delete(o = values)
-      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+    override fun observeBulkDelete(
+      adapter: ReactiveAdapter,
+      values: Collection<NoIdUniqueEntity>
+    ) = adapter.observe(
+      builder = NoIdUniqueEntitys.delete(o = values),
+      byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE
+    )
 
     override fun deleteTable() = NoIdUniqueEntitys.deleteTable()
 
@@ -328,12 +336,15 @@ internal object IdentityModelCatalog {
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
     override fun observeUpdate(
+      adapter: ReactiveAdapter,
       value: NoIdUniqueEntity,
       conflictAlgorithm: Int?
-    ) = value
-      .update()
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+    ) = adapter.observe(
+      builder = value
+        .update()
+        .withConflictAlgorithm(conflictAlgorithm),
+      byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE
+    )
 
     override fun executeBulkUpdate(
       values: Iterable<NoIdUniqueEntity>,
@@ -344,12 +355,15 @@ internal object IdentityModelCatalog {
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
     override fun observeBulkUpdate(
+      adapter: ReactiveAdapter,
       values: Iterable<NoIdUniqueEntity>,
       conflictAlgorithm: Int?
-    ) = NoIdUniqueEntitys
-      .update(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+    ) = adapter.observe(
+      builder = NoIdUniqueEntitys
+        .update(values)
+        .withConflictAlgorithm(conflictAlgorithm),
+      byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE
+    )
 
     override fun executeBulkPersist(
       values: Iterable<NoIdUniqueEntity>,
@@ -360,20 +374,27 @@ internal object IdentityModelCatalog {
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
     override fun observeBulkPersist(
+      adapter: ReactiveAdapter,
       values: Iterable<NoIdUniqueEntity>,
       conflictAlgorithm: Int?
-    ) = NoIdUniqueEntitys
-      .persist(values)
-      .withConflictAlgorithm(conflictAlgorithm)
-      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+    ) = adapter.observe(
+      builder = NoIdUniqueEntitys
+        .persist(values)
+        .withConflictAlgorithm(conflictAlgorithm),
+      byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE
+    )
 
     override fun executePersist(value: NoIdUniqueEntity) = value
       .persist()
       .execute(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
 
-    override fun observePersist(value: NoIdUniqueEntity) = value
-      .persist()
-      .observe(byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE)
+    override fun observePersist(
+      adapter: ReactiveAdapter,
+      value: NoIdUniqueEntity
+    ) = adapter.observe(
+      builder = value.persist(),
+      byColumn = NO_ID_UNIQUE_ENTITY.UNIQUE_VALUE
+    )
 
     override fun conflictingValue(existing: NoIdUniqueEntity, sequence: Int) = existing.copy(
       value = "no-id-unique-conflicting-value-$sequence"

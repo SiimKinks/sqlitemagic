@@ -9,8 +9,9 @@ import com.siimkinks.sqlitemagic.runtime.model.CountOperator.ZERO
 import com.siimkinks.sqlitemagic.runtime.model.CountOperatorCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.CountOperatorCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
-import com.siimkinks.sqlitemagic.rxjava2.observe
-import io.reactivex.BackpressureStrategy
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.record
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,7 +20,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class QueryCountOperatorLifecycleTest(
-  private val operatorCase: CountOperatorCase
+  private val operatorCase: CountOperatorCase,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -27,8 +29,7 @@ internal class QueryCountOperatorLifecycleTest(
   @Test
   fun countOperatorTracksPendingSnapshotsAndStopsAfterCancellation() {
     val observer = observeCount()
-      .toFlowable(BackpressureStrategy.LATEST)
-      .test(0L)
+      .record(initialDemand = 0)
       .assertEmpty()
 
     try {
@@ -61,7 +62,7 @@ internal class QueryCountOperatorLifecycleTest(
         operatorCase.emptyValue
       )
 
-      observer.cancel()
+      observer.dispose()
       insertQueryOperatorLifecycleEntity(sequence = 2)
       observer.assertValuesOnly(
         operatorCase.emptyValue,
@@ -69,25 +70,27 @@ internal class QueryCountOperatorLifecycleTest(
         operatorCase.emptyValue
       )
     } finally {
-      observer.cancel()
+      observer.dispose()
     }
   }
 
   private fun observeCount() = when (operatorCase.operator) {
-    ZERO -> SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
-      .count()
-      .observe()
-      .isZero()
+    ZERO -> adapter.isZero(
+      SELECT
+        .FROM(SIMPLE_MUTABLE_ENTITY)
+        .count()
+    )
 
-    NOT_ZERO -> SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
-      .count()
-      .observe()
-      .isNotZero()
+    NOT_ZERO -> adapter.isNotZero(
+      SELECT
+        .FROM(SIMPLE_MUTABLE_ENTITY)
+        .count()
+    )
   }
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun operatorCases() = CountOperatorCatalog.cases
+    @Parameters(name = "{0} {1}")
+    fun operatorCases() = withReactiveAdapters(CountOperatorCatalog.cases)
   }
 }

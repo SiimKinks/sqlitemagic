@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.runtime.model
 
-import io.reactivex.Completable
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveCompletion
 
 interface BulkUpdateModelCase<T> : UpdateModelCase<T> {
   fun executeBulkUpdate(
@@ -9,7 +10,8 @@ interface BulkUpdateModelCase<T> : UpdateModelCase<T> {
   ): Boolean
 
   fun observeBulkUpdate(
+    adapter: ReactiveAdapter,
     values: Iterable<T>,
     conflictAlgorithm: Int? = null
-  ): Completable
+  ): ReactiveCompletion
 }

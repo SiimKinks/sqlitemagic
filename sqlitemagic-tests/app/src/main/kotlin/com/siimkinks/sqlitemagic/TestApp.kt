@@ -7,7 +7,9 @@ import com.siimkinks.sqlitemagic.annotation.Database
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.ExternalTransformer
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleDatabaseConfig
 import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
+import com.siimkinks.sqlitemagic.rxjava3.scheduleRxQueriesOn
 import io.reactivex.schedulers.Schedulers
+import io.reactivex.rxjava3.schedulers.Schedulers as RxJava3Schedulers
 
 @Database(
   name = DB_NAME,
@@ -32,6 +34,7 @@ class TestApp : Application() {
       .database(SqliteMagicDatabase())
       .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
       .scheduleRxQueriesOn(Schedulers.trampoline())
+      .scheduleRxQueriesOn(RxJava3Schedulers.trampoline())
       .openDefaultConnection()
   }
 }

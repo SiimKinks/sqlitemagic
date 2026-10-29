@@ -1,0 +1,28 @@
+plugins {
+  id 'java-library'
+  alias(libs.plugins.kotlin.jvm)
+}
+
+apply from: '../buildsystem/maven-push.gradle'
+apply from: '../buildsystem/sqlite-support.gradle'
+apply from: '../buildsystem/reactive-adapter.gradle'
+
+def generateRxJava3Sources = tasks.register('generateRxJava3Sources', Sync) {
+  from(rootProject.file('rxjava2/src/main/kotlin/com/siimkinks/sqlitemagic/rxjava2')) {
+    into 'com/siimkinks/sqlitemagic/rxjava3'
+  }
+  into(layout.buildDirectory.dir('generated/source/rxjava3/main/kotlin'))
+  filter { String line ->
+    line
+      .replace('com.siimkinks.sqlitemagic.rxjava2', 'com.siimkinks.sqlitemagic.rxjava3')
+      .replaceAll(/io\.reactivex\.([a-z]+)\./, 'io.reactivex.rxjava3.$1.')
+      .replaceAll(/io\.reactivex\.([A-Z])/, 'io.reactivex.rxjava3.core.$1')
+      .replace('RxJava 2', 'RxJava 3')
+  }
+}
+
+kotlin.sourceSets.main.kotlin.srcDir(generateRxJava3Sources)
+
+dependencies {
+  implementation libs.rx.java3
+}

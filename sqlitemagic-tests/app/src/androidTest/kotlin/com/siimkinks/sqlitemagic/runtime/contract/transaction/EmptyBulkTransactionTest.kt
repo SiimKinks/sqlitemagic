@@ -11,10 +11,11 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.runtime.support.reactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,7 +27,8 @@ internal class EmptyBulkTransactionTest(
   private val modelCase: BulkPersistModelCase<*>,
   private val operation: Operation,
   private val terminal: OperationTerminal,
-  private val conflictAlgorithm: Int
+  private val conflictAlgorithm: Int,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -72,9 +74,9 @@ internal class EmptyBulkTransactionTest(
           .conflictAlgorithm(conflictAlgorithm)
         when (terminal) {
           EXECUTE -> assertThat(builder.execute()).isFalse()
-          OBSERVE -> builder
-            .observe()
-            .blockingAwait()
+          OBSERVE -> adapter
+            .observe(builder)
+            .await()
         }
       }
       Operation.UPDATE -> when (terminal) {
@@ -86,10 +88,11 @@ internal class EmptyBulkTransactionTest(
         ).isFalse()
         OBSERVE -> modelCase
           .observeBulkUpdate(
+            adapter = adapter,
             values = emptyList(),
             conflictAlgorithm = conflictAlgorithm
           )
-          .blockingAwait()
+          .await()
       }
       Operation.PERSIST -> when (terminal) {
         EXECUTE -> assertThat(
@@ -100,16 +103,22 @@ internal class EmptyBulkTransactionTest(
         ).isFalse()
         OBSERVE -> modelCase
           .observeBulkPersist(
+            adapter = adapter,
             values = emptyList(),
             conflictAlgorithm = conflictAlgorithm
           )
-          .blockingAwait()
+          .await()
       }
       Operation.DELETE -> {
         check(modelCase is BulkDeleteModelCase<*>)
         val deletedCount = terminal.select(
           execute = { modelCase.executeBulkDelete(values = emptyList()) },
-          observe = { modelCase.observeBulkDelete(values = emptyList()) }
+          observe = {
+            modelCase.observeBulkDelete(
+              adapter = adapter,
+              values = emptyList()
+            )
+          }
         )
         assertThat(deletedCount).isEqualTo(0)
       }
@@ -118,7 +127,7 @@ internal class EmptyBulkTransactionTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}: {1}, {2}, conflict={3}")
+    @Parameters(name = "{0}: {1}, {2}, conflict={3}, {4}")
     fun cases() = ModelCatalog.emptyBulkPersistCases.flatMap { modelCase ->
       Operation.entries.flatMap { operation ->
         OperationTerminal.entries.flatMap { terminal ->
@@ -126,8 +135,8 @@ internal class EmptyBulkTransactionTest(
             Operation.DELETE -> listOf(CONFLICT_NONE)
             else -> listOf(CONFLICT_NONE, CONFLICT_IGNORE)
           }
-          conflicts.map { conflict ->
-            arrayOf(modelCase, operation, terminal, conflict)
+          conflicts.flatMap { conflict ->
+            reactiveAdapters.map { adapter -> arrayOf(modelCase, operation, terminal, conflict, adapter) }
           }
         }
       }

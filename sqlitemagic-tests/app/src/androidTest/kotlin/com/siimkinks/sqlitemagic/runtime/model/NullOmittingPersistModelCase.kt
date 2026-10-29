@@ -2,9 +2,9 @@ package com.siimkinks.sqlitemagic.runtime.model
 
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
-import com.siimkinks.sqlitemagic.rxjava2.observe
-import io.reactivex.Completable
-import io.reactivex.Single
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveCompletion
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveOperation
 
 interface NullOmittingPersistConflictModelCase<T> : PersistConflictModelCase<T> {
   fun withNullOmittingValues(value: T): T
@@ -52,11 +52,17 @@ interface NullOmittingPersistModelCase<T> : BulkPersistModelCase<T> {
 
   fun executePersistIgnoringNullValues(value: T): EntityPersistResult
 
-  fun observePersistIgnoringNullValues(value: T): Single<EntityPersistResult>
+  fun observePersistIgnoringNullValues(
+    adapter: ReactiveAdapter,
+    value: T
+  ): ReactiveOperation<EntityPersistResult>
 
   fun executeBulkPersistIgnoringNullValues(values: Iterable<T>): Boolean
 
-  fun observeBulkPersistIgnoringNullValues(values: Iterable<T>): Completable
+  fun observeBulkPersistIgnoringNullValues(
+    adapter: ReactiveAdapter,
+    values: Iterable<T>
+  ): ReactiveCompletion
 }
 
 interface StandardNullOmittingPersistModelCase<T> :
@@ -66,17 +72,25 @@ interface StandardNullOmittingPersistModelCase<T> :
     .ignoreNullValues()
     .execute()
 
-  override fun observePersistIgnoringNullValues(value: T) = persist(value = value)
-    .ignoreNullValues()
-    .observe()
+  override fun observePersistIgnoringNullValues(
+    adapter: ReactiveAdapter,
+    value: T
+  ) = adapter.observe(
+    persist(value = value)
+      .ignoreNullValues()
+  )
 
   override fun executeBulkPersistIgnoringNullValues(values: Iterable<T>) = bulkPersist(values = values)
     .ignoreNullValues()
     .execute()
 
-  override fun observeBulkPersistIgnoringNullValues(values: Iterable<T>) = bulkPersist(values = values)
-    .ignoreNullValues()
-    .observe()
+  override fun observeBulkPersistIgnoringNullValues(
+    adapter: ReactiveAdapter,
+    values: Iterable<T>
+  ) = adapter.observe(
+    bulkPersist(values = values)
+      .ignoreNullValues()
+  )
 }
 
 interface NullOmittingAllNullPersistModelCase<T> : NullOmittingPersistModelCase<T> {

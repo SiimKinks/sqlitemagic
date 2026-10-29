@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.runtime.support
 
-import io.reactivex.observers.TestObserver
-
 internal class SuccessiveTraversalIterable<T>(
   private val traversalBatches: List<List<T>>
 ) : Iterable<T> {
@@ -19,7 +17,7 @@ internal class SuccessiveTraversalIterable<T>(
 
 internal fun <T> disposeAfterFirst(
   values: List<T>,
-  observer: TestObserver<Void>
+  recording: Recording<*>
 ) = object : AbstractList<T>() {
   override val size get() = values.size
 
@@ -30,7 +28,7 @@ internal fun <T> disposeAfterFirst(
 
     override fun hasNext(): Boolean {
       if (index == 1) {
-        observer.dispose()
+        recording.dispose()
       }
       return index < values.size
     }

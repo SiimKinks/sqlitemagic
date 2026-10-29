@@ -3,17 +3,22 @@ package com.siimkinks.sqlitemagic.runtime.contract.trigger
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.Recording
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
-import io.reactivex.observers.TestObserver
 
 internal fun <T, R> assertOneQueryInvalidation(
+  adapter: ReactiveAdapter,
   modelCase: RuntimeModelCase<T>,
   before: DatabaseSnapshot<T>,
   operation: () -> R,
   expected: (R) -> DatabaseSnapshot<T>
 ) {
-  val observer = observeRows(table = modelCase.table)
+  val observer = observeRows(
+    adapter = adapter,
+    table = modelCase.table
+  )
   try {
     assertObservedRows(
       observer = observer,
@@ -22,7 +27,7 @@ internal fun <T, R> assertOneQueryInvalidation(
     val result = operation()
     val after = expected(result)
     observer.assertNoErrors()
-    assertThat(observer.values()).hasSize(2)
+    assertThat(observer.values).hasSize(2)
     assertObservedRows(
       observer = observer,
       expected = after.parents
@@ -37,11 +42,15 @@ internal fun <T, R> assertOneQueryInvalidation(
 }
 
 internal fun <T> assertNoQueryInvalidation(
+  adapter: ReactiveAdapter,
   modelCase: RuntimeModelCase<T>,
   expected: DatabaseSnapshot<T>,
   operation: () -> Unit
 ) {
-  val observer = observeRows(table = modelCase.table)
+  val observer = observeRows(
+    adapter = adapter,
+    table = modelCase.table
+  )
   try {
     assertObservedRows(
       observer = observer,
@@ -49,7 +58,7 @@ internal fun <T> assertNoQueryInvalidation(
     )
     operation()
     observer.assertNoErrors()
-    assertThat(observer.values()).hasSize(1)
+    assertThat(observer.values).hasSize(1)
     assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
       expected = expected
@@ -60,15 +69,15 @@ internal fun <T> assertNoQueryInvalidation(
 }
 
 internal fun assertNoRefresh(
-  observer: TestObserver<out List<*>>,
+  observer: Recording<out List<*>>,
   expected: List<*>
 ) {
-  assertThat(observer.values()).hasSize(1)
-  assertThat(observer.values().single()).containsExactlyElementsIn(expected)
+  assertThat(observer.values).hasSize(1)
+  assertThat(observer.values.single()).containsExactlyElementsIn(expected)
 }
 
 private fun <T> assertObservedRows(
-  observer: TestObserver<List<T>>,
+  observer: Recording<List<T>>,
   expected: List<T>
-) = assertThat(observer.values().last())
+) = assertThat(observer.values.last())
   .containsExactlyElementsIn(expected)

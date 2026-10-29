@@ -26,18 +26,26 @@ import com.siimkinks.sqlitemagic.fixture.view.ViewObservationJoin
 import com.siimkinks.sqlitemagic.fixture.view.ViewObservationOuter
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.insertedRowId
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
+import com.siimkinks.sqlitemagic.runtime.support.reactiveAdapters
+import com.siimkinks.sqlitemagic.runtime.support.record
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
-import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 private const val NAMED_DATABASE = "view-observation-runtime.db"
 
-internal class ViewObservationRuntimeTest {
+@RunWith(Parameterized::class)
+internal class ViewObservationRuntimeTest(
+  private val adapter: ReactiveAdapter
+) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
 
@@ -67,11 +75,9 @@ internal class ViewObservationRuntimeTest {
       author = author.copy(id = authorId)
     )
     val initial = ReviewRelationshipBookView(book = insertedBook)
-    val observer = SELECT
-      .FROM(REVIEW_RELATIONSHIP_BOOK_VIEW)
-      .observe()
-      .runQuery()
-      .test()
+    val observer = adapter
+      .runQuery(SELECT.FROM(REVIEW_RELATIONSHIP_BOOK_VIEW))
+      .record()
       .assertValuesOnly(listOf(initial))
     try {
       val changedAuthor = insertedBook.author.copy(name = "Grace")
@@ -128,11 +134,9 @@ internal class ViewObservationRuntimeTest {
       id = 1L,
       name = "Ada"
     )
-    val observer = SELECT
-      .FROM(VIEW_OBSERVATION_DEPENDENCIES)
-      .observe()
-      .runQuery()
-      .test()
+    val observer = adapter
+      .runQuery(SELECT.FROM(VIEW_OBSERVATION_DEPENDENCIES))
+      .record()
       .assertValuesOnly(listOf(row))
     try {
       insert(
@@ -200,11 +204,9 @@ internal class ViewObservationRuntimeTest {
       id = 1L,
       name = "Ada"
     )
-    val observer = SELECT
-      .FROM(VIEW_OBSERVATION_DEEP)
-      .observe()
-      .runQuery()
-      .test()
+    val observer = adapter
+      .runQuery(SELECT.FROM(VIEW_OBSERVATION_DEEP))
+      .record()
       .assertValuesOnly(listOf(initial))
     try {
       assertThat(
@@ -227,11 +229,9 @@ internal class ViewObservationRuntimeTest {
       )
     )
     val initial = ViewObservationOuter(inner = ViewObservationInner(name = "Ada"))
-    val observer = SELECT
-      .FROM(VIEW_OBSERVATION_OUTER)
-      .observe()
-      .runQuery()
-      .test()
+    val observer = adapter
+      .runQuery(SELECT.FROM(VIEW_OBSERVATION_OUTER))
+      .record()
       .assertValuesOnly(listOf(initial))
     try {
       insert(
@@ -300,15 +300,13 @@ internal class ViewObservationRuntimeTest {
         assertThat(namedQuery.execute())
           .containsExactly(namedInitial)
 
-        val defaultObserver = defaultQuery
-          .observe()
-          .runQuery()
-          .test()
+        val defaultObserver = adapter
+          .runQuery(defaultQuery)
+          .record()
           .assertValuesOnly(listOf(defaultInitial))
-        val namedObserver = namedQuery
-          .observe()
-          .runQuery()
-          .test()
+        val namedObserver = adapter
+          .runQuery(namedQuery)
+          .record()
           .assertValuesOnly(listOf(namedInitial))
         try {
           assertThat(
@@ -379,4 +377,10 @@ internal class ViewObservationRuntimeTest {
       .execute(),
     modelName = "ViewObservationDeepest"
   )
+
+  companion object {
+    @JvmStatic
+    @Parameters(name = "{0}")
+    fun adapters() = reactiveAdapters
+  }
 }

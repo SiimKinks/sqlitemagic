@@ -15,7 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.ImeAction
 import com.siimkinks.sqlitemagic.delete
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.rxjava3.observe
 import com.siimkinks.sqlitemagic.sample.data.TodoItem
 import com.siimkinks.sqlitemagic.sample.data.TodoList
 

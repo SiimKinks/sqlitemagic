@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.insertedPersistResult
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
@@ -56,7 +57,12 @@ internal class SuccessfulSinglePersistTest(
     val value = modelCase.newValue(sequence = 1)
     val result = terminal.select(
       execute = { modelCase.executePersist(value = value) },
-      observe = { modelCase.observePersist(value = value) }
+      observe = {
+        modelCase.observePersist(
+          adapter = RxJava2Adapter,
+          value = value
+        )
+      }
     )
     val inserted = insertedPersistResult(
       result = result,
@@ -95,7 +101,12 @@ internal class SuccessfulSinglePersistTest(
     )
     val result = terminal.select(
       execute = { modelCase.executePersist(value = updatedValue) },
-      observe = { modelCase.observePersist(value = updatedValue) }
+      observe = {
+        modelCase.observePersist(
+          adapter = RxJava2Adapter,
+          value = updatedValue
+        )
+      }
     )
     assertThat(result)
       .isEqualTo(EntityPersistResult.Updated)

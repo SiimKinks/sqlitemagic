@@ -6,7 +6,7 @@ import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.insert
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.rxjava3.observe
 
 @Table
 data class TodoList(

@@ -13,6 +13,7 @@ usage() {
   printf '  compiler                  Compiler JVM tests\n'
   printf '  runtime                   Runtime JVM tests\n'
   printf '  rxjava2                   RxJava 2 adapter JVM tests\n'
+  printf '  rxjava3                   RxJava 3 adapter JVM tests\n'
   printf '  gradle-plugin             Gradle plugin unit and consumer integration tests\n'
   printf '  gradle-plugin-unit        Gradle plugin unit and task-cache tests, without publication\n'
   printf '  gradle-plugin-integration Gradle plugin consumer integration tests, with publication\n'
@@ -41,6 +42,7 @@ select_all=0
 select_compiler=0
 select_runtime=0
 select_rxjava2=0
+select_rxjava3=0
 select_plugin_unit=0
 select_plugin_integration=0
 select_consumer=0
@@ -72,6 +74,7 @@ while [ "$#" -gt 0 ]; do
     compiler) select_compiler=1 ;;
     runtime) select_runtime=1 ;;
     rxjava2) select_rxjava2=1 ;;
+    rxjava3) select_rxjava3=1 ;;
     gradle-plugin)
       select_plugin_unit=1
       select_plugin_integration=1
@@ -91,9 +94,9 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ "$fresh_run" -eq 1 ] && [ "$clean_results" -eq 0 ] \
-    && [ "$((select_all + select_compiler + select_runtime + select_rxjava2 + select_plugin_unit \
-        + select_plugin_integration + select_consumer + select_android + select_sample \
-        + select_sample_android))" -eq 0 ]; then
+    && [ "$((select_all + select_compiler + select_runtime + select_rxjava2 + select_rxjava3 \
+        + select_plugin_unit + select_plugin_integration + select_consumer + select_android \
+        + select_sample + select_sample_android))" -eq 0 ]; then
   select_all=1
 fi
 
@@ -125,6 +128,9 @@ else
   if [ "$select_rxjava2" -eq 1 ]; then
     root_tasks+=(":rxjava2:test")
   fi
+  if [ "$select_rxjava3" -eq 1 ]; then
+    root_tasks+=(":rxjava3:test")
+  fi
   if [ "$select_plugin_unit" -eq 1 ]; then
     root_tasks+=(":gradle-plugin:test")
   fi
@@ -153,7 +159,7 @@ fi
 if [ "$clean_results" -eq 1 ]; then
   printf 'Removing saved run logs and generated test results/reports.\n'
   rm -rf -- "$repo_root/build/all-tests" || exit 1
-  for module in annotations compiler migration-testing runtime rxjava2 gradle-plugin \
+  for module in annotations compiler migration-testing runtime rxjava2 rxjava3 gradle-plugin \
       sqlitemagic-tests/app sqlitemagic-tests/submodule sqlitemagic-tests/migration-consumer \
       sqlitemagic-tests/migration-consumer-feature sqlitemagic-sample/app; do
     rm -rf -- \

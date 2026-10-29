@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.sample.ui
 
-import io.reactivex.Completable
+import io.reactivex.rxjava3.core.Completable
 
 internal fun interface OnWrite {
   fun write(operation: Completable, onSuccess: () -> Unit)

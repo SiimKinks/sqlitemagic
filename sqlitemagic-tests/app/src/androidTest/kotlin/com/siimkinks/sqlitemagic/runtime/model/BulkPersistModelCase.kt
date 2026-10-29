@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.runtime.model
 
-import io.reactivex.Completable
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveCompletion
 
 interface BulkPersistModelCase<T> : PersistModelCase<T>, BulkUpdateModelCase<T>, BulkInsertModelCase<T> {
   fun executeBulkPersist(
@@ -9,9 +10,10 @@ interface BulkPersistModelCase<T> : PersistModelCase<T>, BulkUpdateModelCase<T>,
   ): Boolean
 
   fun observeBulkPersist(
+    adapter: ReactiveAdapter,
     values: Iterable<T>,
     conflictAlgorithm: Int? = null
-  ): Completable
+  ): ReactiveCompletion
 }
 
 interface RepresentativeEmptyBulkModelCase<T> : BulkPersistModelCase<T>

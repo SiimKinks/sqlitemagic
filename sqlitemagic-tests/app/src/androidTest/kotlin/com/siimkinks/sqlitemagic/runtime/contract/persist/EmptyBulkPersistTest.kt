@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
@@ -52,8 +53,11 @@ internal class EmptyBulkPersistTest(
         modelCase.executeBulkPersist(values = emptyList())
       ).isFalse()
       OBSERVE -> modelCase
-        .observeBulkPersist(values = emptyList())
-        .blockingAwait()
+        .observeBulkPersist(
+          adapter = RxJava2Adapter,
+          values = emptyList()
+        )
+        .await()
     }
 
     assertDatabaseSnapshotIgnoringOrder(

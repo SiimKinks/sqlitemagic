@@ -72,6 +72,7 @@ behind most edits:
 - RxJava APIs come from the `com.siimkinks.sqlitemagic:sqlitemagic-rxjava2` artifact, at the plugin's version. Add it
   where code observes, and import `observe`, `run`, `scheduleRxQueriesOn` and the observable types from
   `com.siimkinks.sqlitemagic.rxjava2`. Modules that declared RxJava only because runtime signatures used it can drop it.
+  A project on RxJava 3 uses `sqlitemagic-rxjava3` and `com.siimkinks.sqlitemagic.rxjava3`, which have the same API.
 
 Do not recreate legacy names with local extension functions, wrappers or typealiases to shrink the diff. They keep
 legacy semantics alive in the caller's head while the engine behaves differently, and they hide the sites the

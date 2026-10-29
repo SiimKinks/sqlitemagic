@@ -1,21 +1,28 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
-import io.reactivex.BackpressureStrategy
-import io.reactivex.observers.TestObserver
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.Recording
+import com.siimkinks.sqlitemagic.runtime.support.reactiveAdapters
+import com.siimkinks.sqlitemagic.runtime.support.record
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicReference
 
-internal class TransactionQuerySubscriptionTest {
+@RunWith(Parameterized::class)
+internal class TransactionQuerySubscriptionTest(
+  private val adapter: ReactiveAdapter
+) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
 
@@ -24,8 +31,8 @@ internal class TransactionQuerySubscriptionTest {
     val transaction = SqliteMagic.newTransaction()
     try {
       TransactionObservationCatalog
-        .observeMatchingValues()
-        .test()
+        .observeMatchingValues(adapter)
+        .record()
         .assertFailure(::isTransactionSubscriptionError)
         .dispose()
     } finally {
@@ -38,14 +45,13 @@ internal class TransactionQuerySubscriptionTest {
     val transaction = SqliteMagic.newTransaction()
     try {
       TransactionObservationCatalog
-        .observeMatchingValues()
-        .toFlowable(BackpressureStrategy.LATEST)
-        .test(0L)
+        .observeMatchingValues(adapter)
+        .record(initialDemand = 0)
         .assertFailure(::isTransactionSubscriptionError)
         .apply {
           request(1L)
           assertFailure(::isTransactionSubscriptionError)
-          cancel()
+          dispose()
         }
     } finally {
       transaction.end()
@@ -61,7 +67,7 @@ internal class TransactionQuerySubscriptionTest {
     val rawQueryEmitted = CountDownLatch(1)
     val queryFinished = CountDownLatch(1)
     val workerError = AtomicReference<Throwable?>()
-    val observer = TestObserver<List<String?>>()
+    val observer = Recording<List<String?>>()
     var ownerTransactionOpen = true
     try {
       val transactionSimple = TransactionObservationCatalog.simple.insert(sequence = 2)
@@ -72,9 +78,9 @@ internal class TransactionQuerySubscriptionTest {
       executor.execute {
         try {
           TransactionObservationCatalog
-            .observeMatchingQueries()
-            .doOnNext { rawQueryEmitted.countDown() }
-            .map(Query<List<String?>>::runBlocking)
+            .observeMatchingQueries(adapter)
+            .onEach { rawQueryEmitted.countDown() }
+            .map { checkNotNull(it.runBlocking()) }
             .subscribe(observer)
         } catch (error: Throwable) {
           workerError.set(error)
@@ -118,8 +124,12 @@ internal class TransactionQuerySubscriptionTest {
   private fun isTransactionSubscriptionError(error: Throwable) =
     error is IllegalStateException && error.message == TRANSACTION_SUBSCRIPTION_ERROR
 
-  private companion object {
-    const val TRANSACTION_SUBSCRIPTION_ERROR = "Cannot subscribe to observable query in a transaction."
-    const val TIMEOUT_SECONDS = 5L
+  companion object {
+    private const val TRANSACTION_SUBSCRIPTION_ERROR = "Cannot subscribe to observable query in a transaction."
+    private const val TIMEOUT_SECONDS = 5L
+
+    @JvmStatic
+    @Parameters(name = "{0}")
+    fun adapters() = reactiveAdapters
   }
 }

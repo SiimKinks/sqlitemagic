@@ -8,15 +8,18 @@ import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkUpdateModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.Recording
 import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
+import com.siimkinks.sqlitemagic.runtime.support.record
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
-import io.reactivex.observers.TestObserver
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +28,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class BulkUpdateReactiveLifecycleTest(
-  private val modelCase: BulkUpdateModelCase<*>
+  private val modelCase: BulkUpdateModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -79,13 +83,14 @@ internal class BulkUpdateReactiveLifecycleTest(
       values = captureRows(table = modelCase.table),
       firstSequence = 3
     )
-    val operationObserver = TestObserver<Void>()
+    val operationObserver = Recording<Unit>()
 
     modelCase
       .observeBulkUpdate(
+        adapter = adapter,
         values = disposeAfterFirst(
           values = updatedValues,
-          observer = operationObserver
+          recording = operationObserver
         ),
         conflictAlgorithm = conflictAlgorithm
       )
@@ -112,13 +117,14 @@ internal class BulkUpdateReactiveLifecycleTest(
       values = captureRows(table = modelCase.table),
       firstSequence = 3
     )
-    val operationObserver = TestObserver<Void>()
+    val operationObserver = Recording<Unit>()
 
     modelCase
       .observeBulkUpdate(
+        adapter = adapter,
         values = disposeAfterFirst(
           values = updatedValues,
-          observer = operationObserver
+          recording = operationObserver
         ),
         conflictAlgorithm = conflictAlgorithm
       )
@@ -183,12 +189,13 @@ internal class BulkUpdateReactiveLifecycleTest(
       traversalBatches = listOf(firstValues, secondValues)
     )
     val operation = modelCase.observeBulkUpdate(
+      adapter = adapter,
       values = values,
       conflictAlgorithm = conflictAlgorithm
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(1)
     assertRowsIgnoringOrder(
@@ -197,7 +204,7 @@ internal class BulkUpdateReactiveLifecycleTest(
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(2)
     assertRowsIgnoringOrder(
@@ -228,12 +235,13 @@ internal class BulkUpdateReactiveLifecycleTest(
       traversalBatches = listOf(firstValues, secondValues)
     )
     val operation = modelCase.observeBulkUpdate(
+      adapter = adapter,
       values = values,
       conflictAlgorithm = conflictAlgorithm
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(1)
     val firstExpectedValues = firstValues.map(modelCase::expectedAfterUpdate)
@@ -249,7 +257,7 @@ internal class BulkUpdateReactiveLifecycleTest(
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(2)
     val secondExpectedValues = secondValues.map(modelCase::expectedAfterUpdate)
@@ -303,16 +311,18 @@ internal class BulkUpdateReactiveLifecycleTest(
 
     modelCase
       .observeBulkUpdate(
+        adapter = adapter,
         values = firstValues,
         conflictAlgorithm = conflictAlgorithm
       )
       .andThen(
         modelCase.observeBulkUpdate(
+          adapter = adapter,
           values = secondValues,
           conflictAlgorithm = conflictAlgorithm
         )
       )
-      .test()
+      .record()
       .assertResult()
 
     assertRowsIgnoringOrder(
@@ -348,16 +358,18 @@ internal class BulkUpdateReactiveLifecycleTest(
 
     modelCase
       .observeBulkUpdate(
+        adapter = adapter,
         values = firstValues,
         conflictAlgorithm = conflictAlgorithm
       )
       .andThen(
         modelCase.observeBulkUpdate(
+          adapter = adapter,
           values = secondValues,
           conflictAlgorithm = conflictAlgorithm
         )
       )
-      .test()
+      .record()
       .assertResult()
 
     val expectedValues = (firstValues + secondValues).map(modelCase::expectedAfterUpdate)
@@ -386,7 +398,7 @@ internal class BulkUpdateReactiveLifecycleTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.bulkUpdateCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.bulkUpdateCases)
   }
 }

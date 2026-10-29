@@ -8,14 +8,17 @@ import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkPersistModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.Recording
 import com.siimkinks.sqlitemagic.runtime.support.SuccessiveTraversalIterable
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
+import com.siimkinks.sqlitemagic.runtime.support.record
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
-import io.reactivex.observers.TestObserver
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,7 +27,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class BulkPersistReactiveLifecycleTest(
-  private val modelCase: BulkPersistModelCase<*>
+  private val modelCase: BulkPersistModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -81,13 +85,14 @@ internal class BulkPersistReactiveLifecycleTest(
       updatedValue,
       modelCase.newValue(sequence = 3)
     )
-    val operationObserver = TestObserver<Void>()
+    val operationObserver = Recording<Unit>()
 
     modelCase
       .observeBulkPersist(
+        adapter = adapter,
         values = disposeAfterFirst(
           values = values,
-          observer = operationObserver
+          recording = operationObserver
         ),
         conflictAlgorithm = conflictAlgorithm
       )
@@ -117,13 +122,14 @@ internal class BulkPersistReactiveLifecycleTest(
       updatedValue,
       modelCase.newValue(sequence = 3)
     )
-    val operationObserver = TestObserver<Void>()
+    val operationObserver = Recording<Unit>()
 
     modelCase
       .observeBulkPersist(
+        adapter = adapter,
         values = disposeAfterFirst(
           values = values,
-          observer = operationObserver
+          recording = operationObserver
         ),
         conflictAlgorithm = conflictAlgorithm
       )
@@ -187,12 +193,13 @@ internal class BulkPersistReactiveLifecycleTest(
       traversalBatches = listOf(firstValues, secondValues)
     )
     val operation = modelCase.observeBulkPersist(
+      adapter = adapter,
       values = values,
       conflictAlgorithm = conflictAlgorithm
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(1)
     val firstActual = captureRows(table = modelCase.table)
@@ -208,7 +215,7 @@ internal class BulkPersistReactiveLifecycleTest(
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(2)
     val secondActual = captureRows(table = modelCase.table)
@@ -248,12 +255,13 @@ internal class BulkPersistReactiveLifecycleTest(
       traversalBatches = listOf(firstValues, secondValues)
     )
     val operation = modelCase.observeBulkPersist(
+      adapter = adapter,
       values = values,
       conflictAlgorithm = conflictAlgorithm
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(1)
     val firstActual = captureRows(table = modelCase.table)
@@ -277,7 +285,7 @@ internal class BulkPersistReactiveLifecycleTest(
     )
 
     operation
-      .test()
+      .record()
       .assertResult()
     assertThat(values.traversalCount).isEqualTo(2)
     val secondActual = captureRows(table = modelCase.table)
@@ -335,16 +343,18 @@ internal class BulkPersistReactiveLifecycleTest(
 
     modelCase
       .observeBulkPersist(
+        adapter = adapter,
         values = firstValues,
         conflictAlgorithm = conflictAlgorithm
       )
       .andThen(
         modelCase.observeBulkPersist(
+          adapter = adapter,
           values = secondValues,
           conflictAlgorithm = conflictAlgorithm
         )
       )
-      .test()
+      .record()
       .assertResult()
 
     val actual = captureRows(table = modelCase.table)
@@ -383,16 +393,18 @@ internal class BulkPersistReactiveLifecycleTest(
 
     modelCase
       .observeBulkPersist(
+        adapter = adapter,
         values = firstValues,
         conflictAlgorithm = conflictAlgorithm
       )
       .andThen(
         modelCase.observeBulkPersist(
+          adapter = adapter,
           values = secondValues,
           conflictAlgorithm = conflictAlgorithm
         )
       )
-      .test()
+      .record()
       .assertResult()
 
     val actual = captureRows(table = modelCase.table)
@@ -474,7 +486,7 @@ internal class BulkPersistReactiveLifecycleTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.bulkPersistCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.bulkPersistCases)
   }
 }

@@ -9,6 +9,8 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.Recording
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
@@ -16,8 +18,7 @@ import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
-import com.siimkinks.sqlitemagic.rxjava2.observe
-import io.reactivex.observers.TestObserver
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,7 +27,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class RecursiveTriggerInvalidationTest(
-  private val modelCase: RecursiveTriggerModelCase<*>
+  private val modelCase: RecursiveTriggerModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -84,8 +86,14 @@ internal class RecursiveTriggerInvalidationTest(
     terminal: OperationTerminal
   ) {
     val value = modelCase.newValue(sequence = 1)
-    val parentObserver = observeRows(table = modelCase.table)
-    val relatedObserver = observeRows(table = modelCase.relatedTable)
+    val parentObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val relatedObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.relatedTable
+    )
     try {
       val inserted = insertedResult(
         result = runSingleInsert(
@@ -143,8 +151,14 @@ internal class RecursiveTriggerInvalidationTest(
       parents = listOf(modelCase.expectedAfterUpdate(value = value)),
       related = modelCase.relatedValues(value)
     )
-    val parentObserver = observeRows(table = modelCase.table)
-    val relatedObserver = observeRows(table = modelCase.relatedTable)
+    val parentObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val relatedObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.relatedTable
+    )
 
     try {
       assertThat(
@@ -193,8 +207,14 @@ internal class RecursiveTriggerInvalidationTest(
       parents = listOf(modelCase.expectedAfterUpdate(value = value)),
       related = modelCase.relatedValues(value)
     )
-    val parentObserver = observeRows(table = modelCase.table)
-    val relatedObserver = observeRows(table = modelCase.relatedTable)
+    val parentObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val relatedObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.relatedTable
+    )
 
     try {
       assertThat(
@@ -233,8 +253,14 @@ internal class RecursiveTriggerInvalidationTest(
       modelCase.newValue(sequence = 1),
       modelCase.newValue(sequence = 2)
     )
-    val parentObserver = observeRows(table = modelCase.table)
-    val relatedObserver = observeRows(table = modelCase.relatedTable)
+    val parentObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val relatedObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.relatedTable
+    )
 
     try {
       assertThat(
@@ -287,9 +313,7 @@ internal class RecursiveTriggerInvalidationTest(
         .execute()
     },
     observe = {
-      modelCase
-        .insert(value = value)
-        .observe()
+      adapter.observe(modelCase.insert(value = value))
     }
   )
 
@@ -302,10 +326,9 @@ internal class RecursiveTriggerInvalidationTest(
       .update(value = value)
       .execute()
     OBSERVE -> {
-      modelCase
-        .update(value = value)
-        .observe()
-        .blockingAwait()
+      adapter
+        .observe(modelCase.update(value = value))
+        .await()
       true
     }
   }
@@ -321,9 +344,7 @@ internal class RecursiveTriggerInvalidationTest(
         .execute()
     },
     observe = {
-      modelCase
-        .persist(value = value)
-        .observe()
+      adapter.observe(modelCase.persist(value = value))
     }
   )
 
@@ -336,27 +357,26 @@ internal class RecursiveTriggerInvalidationTest(
       .bulkInsert(values = values)
       .execute()
     OBSERVE -> {
-      modelCase
-        .bulkInsert(values = values)
-        .observe()
-        .blockingAwait()
+      adapter
+        .observe(modelCase.bulkInsert(values = values))
+        .await()
       true
     }
   }
 
   private fun assertOneRefresh(
-    observer: TestObserver<out List<*>>,
+    observer: Recording<out List<*>>,
     before: List<*>,
     after: List<*>
   ) {
-    assertThat(observer.values()).hasSize(2)
-    assertThat(observer.values()[0]).containsExactlyElementsIn(before)
-    assertThat(observer.values()[1]).containsExactlyElementsIn(after)
+    assertThat(observer.values).hasSize(2)
+    assertThat(observer.values[0]).containsExactlyElementsIn(before)
+    assertThat(observer.values[1]).containsExactlyElementsIn(after)
   }
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.recursiveTriggerCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.recursiveTriggerCases)
   }
 }

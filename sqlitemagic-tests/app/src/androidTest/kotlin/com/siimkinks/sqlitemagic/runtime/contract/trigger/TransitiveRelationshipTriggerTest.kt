@@ -8,12 +8,13 @@ import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.Recording
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
-import io.reactivex.disposables.Disposable
-import io.reactivex.observers.TestObserver
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,7 +23,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class TransitiveRelationshipTriggerTest(
-  private val modelCase: TransitiveRelationshipModelCase<*>
+  private val modelCase: TransitiveRelationshipModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -191,7 +193,10 @@ internal class TransitiveRelationshipTriggerTest(
     return expectedRows.map {
       ObservedRows(
         table = it.table,
-        observer = observeRows(table = it.table)
+        observer = observeRows(
+          adapter = adapter,
+          table = it.table
+        )
       )
     }
   }
@@ -203,9 +208,9 @@ internal class TransitiveRelationshipTriggerTest(
   ) = observers.zip(before.zip(after))
     .forEach { (observed, expected) ->
       val (beforeRows, afterRows) = expected
-      assertThat(observed.observer.values()).hasSize(2)
-      assertThat(observed.observer.values()[0]).containsExactlyElementsIn(beforeRows.rows)
-      assertThat(observed.observer.values()[1]).containsExactlyElementsIn(afterRows.rows)
+      assertThat(observed.observer.values).hasSize(2)
+      assertThat(observed.observer.values[0]).containsExactlyElementsIn(beforeRows.rows)
+      assertThat(observed.observer.values[1]).containsExactlyElementsIn(afterRows.rows)
       observed.observer.assertNoErrors()
     }
 
@@ -214,8 +219,8 @@ internal class TransitiveRelationshipTriggerTest(
     expected: List<TransitiveRelationshipTableRows>
   ) = observers.zip(expected)
     .forEach { (observed, expectedRows) ->
-      assertThat(observed.observer.values()).hasSize(1)
-      assertThat(observed.observer.values().single()).containsExactlyElementsIn(expectedRows.rows)
+      assertThat(observed.observer.values).hasSize(1)
+      assertThat(observed.observer.values.single()).containsExactlyElementsIn(expectedRows.rows)
       observed.observer.assertNoErrors()
       assertRowsIgnoringOrder(
         table = observed.table,
@@ -225,12 +230,14 @@ internal class TransitiveRelationshipTriggerTest(
 
   private data class ObservedRows(
     val table: Table<*>,
-    val observer: TestObserver<out List<*>>
-  ) : Disposable by observer
+    val observer: Recording<out List<*>>
+  ) {
+    fun dispose() = observer.dispose()
+  }
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.transitiveRelationshipCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.transitiveRelationshipCases)
   }
 }

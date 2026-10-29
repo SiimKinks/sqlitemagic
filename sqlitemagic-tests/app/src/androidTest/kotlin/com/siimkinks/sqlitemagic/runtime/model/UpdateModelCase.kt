@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.runtime.model
 
-import io.reactivex.Completable
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveCompletion
 
 interface UpdateModelCase<T> : InsertModelCase<T> {
   fun updatedValue(value: T, sequence: Int): T
@@ -11,9 +12,10 @@ interface UpdateModelCase<T> : InsertModelCase<T> {
   ): Boolean
 
   fun observeUpdate(
+    adapter: ReactiveAdapter,
     value: T,
     conflictAlgorithm: Int? = null
-  ): Completable
+  ): ReactiveCompletion
 
   fun expectedAfterUpdate(value: T): T = value
 }

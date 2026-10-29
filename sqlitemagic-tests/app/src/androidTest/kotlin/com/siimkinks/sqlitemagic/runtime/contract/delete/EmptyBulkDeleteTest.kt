@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
@@ -46,7 +47,12 @@ internal class EmptyBulkDeleteTest(
     val expected = captureDatabaseSnapshot(modelCase = modelCase)
     val deletedCount = terminal.select(
       execute = { modelCase.executeBulkDelete(values = emptyList()) },
-      observe = { modelCase.observeBulkDelete(values = emptyList()) }
+      observe = {
+        modelCase.observeBulkDelete(
+          adapter = RxJava2Adapter,
+          values = emptyList()
+        )
+      }
     )
     assertThat(deletedCount).isEqualTo(0)
     assertDatabaseSnapshotIgnoringOrder(

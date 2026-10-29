@@ -5,8 +5,8 @@ ksp = "2.3.12"
 sqlitemagic = "2.1.0-SNAPSHOT"
 compose-bom = "2026.09.00"
 activity = "1.13.0"
-rx-java2 = "2.2.21"
-rx-android2 = "2.1.1"
+rx-java3 = "3.1.12"
+rx-android3 = "3.0.2"
 sqlite = "2.7.1"
 sqlite-bundled = "2.6.2"
 junit = "6.1.3"
@@ -19,11 +19,11 @@ compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
-compose-runtime-rxjava2 = { module = "androidx.compose.runtime:runtime-rxjava2" }
+compose-runtime-rxjava3 = { module = "androidx.compose.runtime:runtime-rxjava3" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
-rx-java2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rx-java2" }
-rx-android2 = { module = "io.reactivex.rxjava2:rxandroid", version.ref = "rx-android2" }
-sqlitemagic-rxjava2 = { module = "com.siimkinks.sqlitemagic:sqlitemagic-rxjava2", version.ref = "sqlitemagic" }
+rx-java3 = { module = "io.reactivex.rxjava3:rxjava", version.ref = "rx-java3" }
+rx-android3 = { module = "io.reactivex.rxjava3:rxandroid", version.ref = "rx-android3" }
+sqlitemagic-rxjava3 = { module = "com.siimkinks.sqlitemagic:sqlitemagic-rxjava3", version.ref = "sqlitemagic" }
 sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "sqlite" }
 sqlite-bundled-jvm = { module = "androidx.sqlite:sqlite-bundled-jvm", version.ref = "sqlite-bundled" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }

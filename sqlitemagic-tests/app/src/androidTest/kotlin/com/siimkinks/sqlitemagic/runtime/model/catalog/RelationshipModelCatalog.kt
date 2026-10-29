@@ -52,7 +52,7 @@ import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
 import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.update
 
 internal object RelationshipModelCatalog {
@@ -206,25 +206,27 @@ internal object RelationshipModelCatalog {
       .delete()
       .execute()
 
-    override fun observeRelatedDelete(value: SimpleMutableEntity) = value
-      .delete()
-      .observe()
+    override fun observeRelatedDelete(
+      adapter: ReactiveAdapter,
+      value: SimpleMutableEntity
+    ) = adapter.observe(value.delete())
 
     override fun executeRelatedBulkDelete(values: Collection<SimpleMutableEntity>) = SimpleMutableEntitys
       .delete(o = values)
       .execute()
 
-    override fun observeRelatedBulkDelete(values: Collection<SimpleMutableEntity>) = SimpleMutableEntitys
-      .delete(o = values)
-      .observe()
+    override fun observeRelatedBulkDelete(
+      adapter: ReactiveAdapter,
+      values: Collection<SimpleMutableEntity>
+    ) = adapter.observe(SimpleMutableEntitys.delete(o = values))
 
     override fun executeRelatedTableDelete() = SimpleMutableEntitys
       .deleteTable()
       .execute()
 
-    override fun observeRelatedTableDelete() = SimpleMutableEntitys
-      .deleteTable()
-      .observe()
+    override fun observeRelatedTableDelete(adapter: ReactiveAdapter) = adapter.observe(
+      SimpleMutableEntitys.deleteTable()
+    )
 
     override fun expectedAfterInsert(
       value: EntityWithRelationship,

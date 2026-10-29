@@ -83,7 +83,9 @@ dependencies {
   implementation(project(":submodule"))
   implementation(libs.android.sqlite.framework)
   implementation(libs.rx.java2)
+  implementation(libs.rx.java3)
   implementation(libs.sqlitemagic.rxjava2)
+  implementation(libs.sqlitemagic.rxjava3)
 
   testImplementation(platform(libs.junit.bom))
   testImplementation(libs.junit.jupiter)

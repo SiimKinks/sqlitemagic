@@ -8,7 +8,8 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 * SQL-first [Kotlin](https://kotlinlang.org/) DSL – queries read like SQL while the compiler checks clause order,
   column types and nullability
 * Minimal setup needed
-* RxJava support with reactive stream semantics on queries and operations, through the `sqlitemagic-rxjava2` adapter
+* RxJava support with reactive stream semantics on queries and operations, through the `sqlitemagic-rxjava3` and
+  `sqlitemagic-rxjava2` adapters
 * Built for Kotlin – data classes, generated extension functions and typed result rows
 * Full support for complex columns – related objects and embedded values
 * Support for SQLite views defined with the same DSL
@@ -71,8 +72,8 @@ plugins {
 
 dependencies {
   implementation("androidx.sqlite:sqlite-framework:<sqlite version>")
-  // optional: the RxJava 2 observe() APIs; use the same version as the plugin
-  implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava2:<latest version>")
+  // optional: the RxJava 3 observe() APIs (sqlitemagic-rxjava2 for RxJava 2); use the same version as the plugin
+  implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava3:<latest version>")
 }
 ```
 
@@ -121,14 +122,16 @@ initialization, but it must happen before a database is accessed. Initialization
 connection. The database is opened on first access, which creates the schema or runs migration scripts as needed - no
 other hidden runtime performance costs.
 
-#### Observe With RxJava 2:
+#### Observe With RxJava:
 
-The reactive APIs come from the `sqlitemagic-rxjava2` adapter, whose version must be the same as the plugin version.
-Import `observe` (and `run` for one-shot queries) from `com.siimkinks.sqlitemagic.rxjava2`. Observed queries emit on
+The reactive APIs come from the `sqlitemagic-rxjava3` adapter for RxJava 3 or the `sqlitemagic-rxjava2` adapter for
+RxJava 2, whose version must be the same as the plugin version. Both adapters have the same API. Import `observe` (and
+`run` for one-shot queries) from `com.siimkinks.sqlitemagic.rxjava3` or `com.siimkinks.sqlitemagic.rxjava2`; the
+examples use RxJava 3. A file that uses both adapters imports one of them with an alias. Observed queries emit on
 `Schedulers.io()` unless the connection is configured with another scheduler:
 
 ```kotlin
-import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
+import com.siimkinks.sqlitemagic.rxjava3.scheduleRxQueriesOn
 
 SqliteMagic.builder(this)
   .database(SqliteMagicDatabase())
@@ -235,7 +238,7 @@ val bulkSuccess: Boolean = Authors
 ```kotlin
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.rxjava3.observe
 ...
 
 val author = Author(
@@ -327,7 +330,7 @@ val nrOfDeletedRows: Int = (
 
 ```kotlin
 import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.rxjava3.observe
 ...
 
 val update: Single<Int> = (
@@ -388,8 +391,8 @@ val authors: List<Author> = (
 
 ```kotlin
 import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
-import com.siimkinks.sqlitemagic.rxjava2.ListQueryObservable
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.rxjava3.ListQueryObservable
+import com.siimkinks.sqlitemagic.rxjava3.observe
 ...
 
 // ListQueryObservable is an Observable of Query
@@ -449,8 +452,8 @@ val books: List<Book> = (
 ```kotlin
 import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
 import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
-import com.siimkinks.sqlitemagic.rxjava2.ListQueryObservable
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.rxjava3.ListQueryObservable
+import com.siimkinks.sqlitemagic.rxjava3.observe
 ...
 
 // the resulting Book objects also contain

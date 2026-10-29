@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 
 internal fun <T> executeSinglePersist(
   modelCase: NullOmittingPersistModelCase<T>,
@@ -13,7 +14,12 @@ internal fun <T> executeSinglePersist(
   terminal: OperationTerminal
 ) = terminal.select(
   execute = { modelCase.executePersistIgnoringNullValues(value = value) },
-  observe = { modelCase.observePersistIgnoringNullValues(value = value) }
+  observe = {
+    modelCase.observePersistIgnoringNullValues(
+      adapter = RxJava2Adapter,
+      value = value
+    )
+  }
 )
 
 internal fun <T> executeBulkPersist(
@@ -25,8 +31,11 @@ internal fun <T> executeBulkPersist(
     modelCase.executeBulkPersistIgnoringNullValues(values = values)
   ).isTrue()
   OBSERVE -> modelCase
-    .observeBulkPersistIgnoringNullValues(values = values)
-    .blockingAwait()
+    .observeBulkPersistIgnoringNullValues(
+      adapter = RxJava2Adapter,
+      values = values
+    )
+    .await()
 }
 
 internal fun <T> nullOmittingSnapshot(

@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
@@ -17,7 +18,7 @@ import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.seed
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,7 +27,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class DirectSuppressedTriggerInvalidationTest(
-  private val modelCase: TriggerConflictModelCase<*>
+  private val modelCase: TriggerConflictModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -86,7 +88,10 @@ internal class DirectSuppressedTriggerInvalidationTest(
     val existing = modelCase.seed()
     val persisted = captureRows(table = modelCase.table).single()
     val before = captureDatabaseSnapshot(modelCase = modelCase)
-    val observer = observeRows(table = modelCase.table)
+    val observer = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
     try {
       val candidate = modelCase.valueWithInsertConflict(
         existing = persisted,
@@ -123,7 +128,10 @@ internal class DirectSuppressedTriggerInvalidationTest(
       firstSequence = 1
     )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
-    val observer = observeRows(table = modelCase.table)
+    val observer = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
     try {
       val candidate = modelCase.valueWithUpdateConflict(
         existing = persisted[0],
@@ -156,7 +164,10 @@ internal class DirectSuppressedTriggerInvalidationTest(
     val existing = modelCase.seed()
     val persisted = captureRows(table = modelCase.table).single()
     val before = captureDatabaseSnapshot(modelCase = modelCase)
-    val observer = observeRows(table = modelCase.table)
+    val observer = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
     try {
       val candidate = modelCase.valueWithInsertConflict(
         existing = persisted,
@@ -193,7 +204,10 @@ internal class DirectSuppressedTriggerInvalidationTest(
       firstSequence = 1
     )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
-    val observer = observeRows(table = modelCase.table)
+    val observer = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
     try {
       val candidate = modelCase.valueWithUpdateConflict(
         existing = persisted[0],
@@ -233,10 +247,12 @@ internal class DirectSuppressedTriggerInvalidationTest(
         .execute()
     },
     observe = {
-      modelCase
-        .insert(value = value)
-        .withConflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
+      adapter
+        .observe(
+          modelCase
+            .insert(value = value)
+            .withConflictAlgorithm(CONFLICT_IGNORE)
+        )
     }
   )
 
@@ -252,11 +268,13 @@ internal class DirectSuppressedTriggerInvalidationTest(
           .withConflictAlgorithm(CONFLICT_IGNORE)
           .execute()
       ).isFalse()
-      OBSERVE -> modelCase
-        .update(value = value)
-        .withConflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .blockingAwait()
+      OBSERVE -> adapter
+        .observe(
+          modelCase
+            .update(value = value)
+            .withConflictAlgorithm(CONFLICT_IGNORE)
+        )
+        .await()
     }
   }
 
@@ -272,16 +290,18 @@ internal class DirectSuppressedTriggerInvalidationTest(
         .execute()
     },
     observe = {
-      modelCase
-        .persist(value = value)
-        .withConflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
+      adapter
+        .observe(
+          modelCase
+            .persist(value = value)
+            .withConflictAlgorithm(CONFLICT_IGNORE)
+        )
     }
   )
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.triggerConflictCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.triggerConflictCases)
   }
 }

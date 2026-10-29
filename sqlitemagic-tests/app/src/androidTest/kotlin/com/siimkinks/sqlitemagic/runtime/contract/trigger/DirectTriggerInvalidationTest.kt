@@ -10,11 +10,12 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.insertedPersistResult
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,7 +24,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class DirectTriggerInvalidationTest(
-  private val modelCase: TriggerModelCase<*>
+  private val modelCase: TriggerModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -107,6 +109,7 @@ internal class DirectTriggerInvalidationTest(
     val value = modelCase.newValue(sequence = 1)
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
@@ -117,9 +120,7 @@ internal class DirectTriggerInvalidationTest(
               .execute()
           },
           observe = {
-            modelCase
-              .insert(value = value)
-              .observe()
+            adapter.observe(modelCase.insert(value = value))
           }
         )
       },
@@ -160,6 +161,7 @@ internal class DirectTriggerInvalidationTest(
     )
     val expectedValue = modelCase.expectedAfterUpdate(value = updatedValue)
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
@@ -167,8 +169,11 @@ internal class DirectTriggerInvalidationTest(
           EXECUTE -> modelCase.executeUpdate(value = updatedValue)
           OBSERVE -> {
             modelCase
-              .observeUpdate(value = updatedValue)
-              .blockingAwait()
+              .observeUpdate(
+                adapter = adapter,
+                value = updatedValue
+              )
+              .await()
             true
           }
         }
@@ -187,12 +192,18 @@ internal class DirectTriggerInvalidationTest(
     val value = modelCase.newValue(sequence = 1)
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
         terminal.select(
           execute = { modelCase.executePersist(value = value) },
-          observe = { modelCase.observePersist(value = value) }
+          observe = {
+            modelCase.observePersist(
+              adapter = adapter,
+              value = value
+            )
+          }
         )
       },
       expected = { result ->
@@ -232,12 +243,18 @@ internal class DirectTriggerInvalidationTest(
     )
     val expectedValue = modelCase.expectedAfterUpdate(value = updatedValue)
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
         terminal.select(
           execute = { modelCase.executePersist(value = updatedValue) },
-          observe = { modelCase.observePersist(value = updatedValue) }
+          observe = {
+            modelCase.observePersist(
+              adapter = adapter,
+              value = updatedValue
+            )
+          }
         )
       },
       expected = { result ->
@@ -260,12 +277,18 @@ internal class DirectTriggerInvalidationTest(
       parents = before.parents.drop(1)
     )
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
         terminal.select(
           execute = { modelCase.executeDelete(value = before.parents.first()) },
-          observe = { modelCase.observeDelete(value = before.parents.first()) }
+          observe = {
+            modelCase.observeDelete(
+              adapter = adapter,
+              value = before.parents.first()
+            )
+          }
         )
       },
       expected = { result ->
@@ -286,12 +309,13 @@ internal class DirectTriggerInvalidationTest(
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val expected = DatabaseSnapshot<T>(parents = emptyList())
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
         terminal.select(
           execute = modelCase::executeTableDelete,
-          observe = modelCase::observeTableDelete
+          observe = { modelCase.observeTableDelete(adapter) }
         )
       },
       expected = { result ->
@@ -303,7 +327,7 @@ internal class DirectTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.triggerCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.triggerCases)
   }
 }

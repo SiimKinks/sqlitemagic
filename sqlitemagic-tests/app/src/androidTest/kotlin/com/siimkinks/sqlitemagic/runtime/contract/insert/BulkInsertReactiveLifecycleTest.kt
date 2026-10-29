@@ -8,13 +8,15 @@ import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveBulkInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.Recording
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
-import com.siimkinks.sqlitemagic.rxjava2.observe
-import io.reactivex.observers.TestObserver
+import com.siimkinks.sqlitemagic.runtime.support.record
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,7 +25,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class BulkInsertReactiveLifecycleTest(
-  private val modelCase: BulkInsertModelCase<*>
+  private val modelCase: BulkInsertModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -64,22 +67,27 @@ internal class BulkInsertReactiveLifecycleTest(
       modelCase.newValue(sequence = 2)
     )
     val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
-    val queryObserver = observeRows(modelCase.table)
-    val operationObserver = TestObserver<Void>()
+    val queryObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val operationObserver = Recording<Unit>()
 
-    modelCase
-      .bulkInsert(
-        values = disposeAfterFirst(
-          values = values,
-          observer = operationObserver
-        )
+    adapter
+      .observe(
+        modelCase
+          .bulkInsert(
+            values = disposeAfterFirst(
+              values = values,
+              recording = operationObserver
+            )
+          )
+          .conflictAlgorithm(conflictAlgorithm)
       )
-      .conflictAlgorithm(conflictAlgorithm)
-      .observe()
       .subscribe(operationObserver)
 
     operationObserver.assertEmpty()
-    queryObserver.assertValue(emptyList())
+    queryObserver.assertValuesOnly(emptyList())
     assertDatabaseSnapshotIgnoringOrder(
       modelCase = modelCase,
       expected = snapshotBefore
@@ -95,25 +103,30 @@ internal class BulkInsertReactiveLifecycleTest(
       modelCase.newValue(sequence = 1),
       modelCase.newValue(sequence = 2)
     )
-    val queryObserver = observeRows(modelCase.table)
-    val operationObserver = TestObserver<Void>()
+    val queryObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val operationObserver = Recording<Unit>()
     val snapshotBefore = captureDatabaseSnapshot(modelCase = modelCase)
 
-    modelCase
-      .bulkInsert(
-        values = disposeAfterFirst(
-          values = values,
-          observer = operationObserver
-        )
+    adapter
+      .observe(
+        modelCase
+          .bulkInsert(
+            values = disposeAfterFirst(
+              values = values,
+              recording = operationObserver
+            )
+          )
+          .conflictAlgorithm(conflictAlgorithm)
       )
-      .conflictAlgorithm(conflictAlgorithm)
-      .observe()
       .subscribe(operationObserver)
 
     operationObserver.assertEmpty()
     when (conflictAlgorithm) {
       CONFLICT_NONE -> {
-        queryObserver.assertValue(emptyList())
+        queryObserver.assertValuesOnly(emptyList())
         assertDatabaseSnapshotIgnoringOrder(
           modelCase = modelCase,
           expected = snapshotBefore
@@ -132,9 +145,9 @@ internal class BulkInsertReactiveLifecycleTest(
             related = modelCase.relatedValues(values.first())
           )
         )
-        assertThat(queryObserver.values()).hasSize(2)
-        assertThat(queryObserver.values().first()).isEmpty()
-        val observedParents = queryObserver.values()[1]
+        assertThat(queryObserver.values).hasSize(2)
+        assertThat(queryObserver.values.first()).isEmpty()
+        val observedParents = queryObserver.values[1]
         assertThat(observedParents)
           .containsExactlyElementsIn(
             modelCase.expectedAfterBulkInsert(
@@ -171,17 +184,21 @@ internal class BulkInsertReactiveLifecycleTest(
       modelCase.newValue(sequence = 3),
       modelCase.newValue(sequence = 4)
     )
-    modelCase
-      .bulkInsert(values = firstBatch)
-      .conflictAlgorithm(conflictAlgorithm)
-      .observe()
-      .andThen(
+    adapter
+      .observe(
         modelCase
-          .bulkInsert(values = secondBatch)
+          .bulkInsert(values = firstBatch)
           .conflictAlgorithm(conflictAlgorithm)
-          .observe()
       )
-      .test()
+      .andThen(
+        adapter
+          .observe(
+            modelCase
+              .bulkInsert(values = secondBatch)
+              .conflictAlgorithm(conflictAlgorithm)
+          )
+      )
+      .record()
       .assertResult()
 
     val actual = captureRows(table = modelCase.table)
@@ -206,17 +223,21 @@ internal class BulkInsertReactiveLifecycleTest(
       modelCase.newValue(sequence = 3),
       modelCase.newValue(sequence = 4)
     )
-    modelCase
-      .bulkInsert(values = firstBatch)
-      .conflictAlgorithm(conflictAlgorithm)
-      .observe()
-      .andThen(
+    adapter
+      .observe(
         modelCase
-          .bulkInsert(values = secondBatch)
+          .bulkInsert(values = firstBatch)
           .conflictAlgorithm(conflictAlgorithm)
-          .observe()
       )
-      .test()
+      .andThen(
+        adapter
+          .observe(
+            modelCase
+              .bulkInsert(values = secondBatch)
+              .conflictAlgorithm(conflictAlgorithm)
+          )
+      )
+      .record()
       .assertResult()
 
     val allValues = firstBatch + secondBatch
@@ -235,7 +256,7 @@ internal class BulkInsertReactiveLifecycleTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.bulkInsertCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.bulkInsertCases)
   }
 }

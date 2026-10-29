@@ -6,9 +6,11 @@ import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.TriggerModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,7 +19,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class TransactionTriggerInvalidationTest(
-  private val modelCase: TriggerModelCase<*>
+  private val modelCase: TriggerModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -41,6 +44,7 @@ internal class TransactionTriggerInvalidationTest(
     )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
@@ -76,6 +80,7 @@ internal class TransactionTriggerInvalidationTest(
   ) {
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     assertNoQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       expected = before,
       operation = {
@@ -100,7 +105,7 @@ internal class TransactionTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.triggerCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.triggerCases)
   }
 }

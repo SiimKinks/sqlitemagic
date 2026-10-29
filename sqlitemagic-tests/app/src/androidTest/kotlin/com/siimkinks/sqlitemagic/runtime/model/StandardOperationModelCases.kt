@@ -6,8 +6,8 @@ import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
-import com.siimkinks.sqlitemagic.rxjava2.observe
 
 data class StandardOperationBuilders<T>(
   val insert: (T) -> EntityInsertBuilder,
@@ -29,11 +29,13 @@ interface StandardUpdateModelCase<T> : UpdateModelCase<T> {
     .execute()
 
   override fun observeUpdate(
+    adapter: ReactiveAdapter,
     value: T,
     conflictAlgorithm: Int?
-  ) = update(value)
-    .withConflictAlgorithm(conflictAlgorithm)
-    .observe()
+  ) = adapter.observe(
+    update(value)
+      .withConflictAlgorithm(conflictAlgorithm)
+  )
 }
 
 interface StandardBulkUpdateModelCase<T> : BulkUpdateModelCase<T>, StandardUpdateModelCase<T> {
@@ -47,11 +49,13 @@ interface StandardBulkUpdateModelCase<T> : BulkUpdateModelCase<T>, StandardUpdat
     .execute()
 
   override fun observeBulkUpdate(
+    adapter: ReactiveAdapter,
     values: Iterable<T>,
     conflictAlgorithm: Int?
-  ) = bulkUpdate(values)
-    .withConflictAlgorithm(conflictAlgorithm)
-    .observe()
+  ) = adapter.observe(
+    bulkUpdate(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+  )
 }
 
 interface StandardPersistModelCase<T> : PersistModelCase<T>, StandardUpdateModelCase<T> {
@@ -60,8 +64,10 @@ interface StandardPersistModelCase<T> : PersistModelCase<T>, StandardUpdateModel
   override fun executePersist(value: T) = persist(value)
     .execute()
 
-  override fun observePersist(value: T) = persist(value)
-    .observe()
+  override fun observePersist(
+    adapter: ReactiveAdapter,
+    value: T
+  ) = adapter.observe(persist(value))
 }
 
 interface StandardBulkPersistModelCase<T> :
@@ -90,9 +96,11 @@ interface StandardBulkPersistModelCase<T> :
     .execute()
 
   override fun observeBulkPersist(
+    adapter: ReactiveAdapter,
     values: Iterable<T>,
     conflictAlgorithm: Int?
-  ) = bulkPersist(values)
-    .withConflictAlgorithm(conflictAlgorithm)
-    .observe()
+  ) = adapter.observe(
+    bulkPersist(values)
+      .withConflictAlgorithm(conflictAlgorithm)
+  )
 }

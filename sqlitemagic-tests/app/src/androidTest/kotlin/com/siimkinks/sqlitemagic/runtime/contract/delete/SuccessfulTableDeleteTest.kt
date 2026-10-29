@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
@@ -51,7 +52,7 @@ internal class SuccessfulTableDeleteTest(
     )
     val deletedCount = terminal.select(
       execute = { modelCase.executeTableDelete() },
-      observe = { modelCase.observeTableDelete() }
+      observe = { modelCase.observeTableDelete(RxJava2Adapter) }
     )
     assertThat(deletedCount).isEqualTo(3)
     assertDatabaseSnapshotIgnoringOrder(

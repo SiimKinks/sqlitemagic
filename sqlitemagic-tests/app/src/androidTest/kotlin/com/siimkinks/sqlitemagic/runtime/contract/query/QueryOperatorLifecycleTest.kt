@@ -6,24 +6,30 @@ import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTAB
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
-import com.siimkinks.sqlitemagic.rxjava2.observe
-import io.reactivex.BackpressureStrategy
-import io.reactivex.Observable
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveStream
+import com.siimkinks.sqlitemagic.runtime.support.reactiveAdapters
+import com.siimkinks.sqlitemagic.runtime.support.record
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
-internal class QueryOperatorLifecycleTest {
+@RunWith(Parameterized::class)
+internal class QueryOperatorLifecycleTest(
+  private val adapter: ReactiveAdapter
+) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
 
   @Test
   fun listRunQueryFiltersEmptySnapshotAndCancelsAfterFirstValue() {
-    val observer = observeListQuery()
-      .runQuery()
+    val observer = adapter
+      .runQuery(listQuery())
       .filter(List<SimpleMutableEntity>::isNotEmpty)
       .take(1)
-      .toFlowable(BackpressureStrategy.LATEST)
-      .test(0L)
+      .record(initialDemand = 0)
       .assertEmpty()
 
     try {
@@ -36,16 +42,15 @@ internal class QueryOperatorLifecycleTest {
       insertQueryOperatorLifecycleEntity(sequence = 2)
       observer.assertResult(listOf(expected))
     } finally {
-      observer.cancel()
+      observer.dispose()
     }
   }
 
   @Test
   fun singleItemRunQueryRequestsAfterEmptyAndIgnoresAfterDisposal() {
-    val observer = observeFirstQuery()
-      .runQuery()
-      .toFlowable(BackpressureStrategy.LATEST)
-      .test(0L)
+    val observer = adapter
+      .runQuery(firstQuery())
+      .record(initialDemand = 0)
       .assertEmpty()
 
     try {
@@ -63,11 +68,11 @@ internal class QueryOperatorLifecycleTest {
       observer.request(1)
       observer.assertValuesOnly(expected)
 
-      observer.cancel()
+      observer.dispose()
       insertQueryOperatorLifecycleEntity(sequence = 2)
       observer.assertValuesOnly(expected)
     } finally {
-      observer.cancel()
+      observer.dispose()
     }
   }
 
@@ -76,9 +81,7 @@ internal class QueryOperatorLifecycleTest {
     val expected = listOf(insertQueryOperatorLifecycleEntity(sequence = 1))
 
     assertOneShotIgnoresLaterWrite(
-      source = observeListQuery()
-        .runQueryOnce()
-        .toObservable(),
+      source = adapter.runQueryOnce(listQuery()),
       expected = expected,
       laterWrite = ::insertSecondEntity
     )
@@ -89,9 +92,7 @@ internal class QueryOperatorLifecycleTest {
     val expected = insertQueryOperatorLifecycleEntity(sequence = 1)
 
     assertOneShotIgnoresLaterWrite(
-      source = observeFirstQuery()
-        .runQueryOnce()
-        .toObservable(),
+      source = adapter.runQueryOnce(firstQuery()),
       expected = expected,
       laterWrite = ::insertSecondEntity
     )
@@ -99,11 +100,9 @@ internal class QueryOperatorLifecycleTest {
 
   @Test
   fun oneShotFirstEmptyIgnoresWritesAfterCompletion() {
-    val observer = observeFirstQuery()
-      .runQueryOnce()
-      .toObservable()
-      .toFlowable(BackpressureStrategy.LATEST)
-      .test(0L)
+    val observer = adapter
+      .runQueryOnce(firstQuery())
+      .record(initialDemand = 0)
       .assertResult()
 
     try {
@@ -113,7 +112,7 @@ internal class QueryOperatorLifecycleTest {
       insertQueryOperatorLifecycleEntity(sequence = 1)
       observer.assertResult()
     } finally {
-      observer.cancel()
+      observer.dispose()
     }
   }
 
@@ -122,11 +121,11 @@ internal class QueryOperatorLifecycleTest {
     insertQueryOperatorLifecycleEntity(sequence = 1)
 
     assertOneShotIgnoresLaterWrite(
-      source = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
-        .count()
-        .observe()
-        .runQueryOnce()
-        .toObservable(),
+      source = adapter.runQueryOnce(
+        SELECT
+          .FROM(SIMPLE_MUTABLE_ENTITY)
+          .count()
+      ),
       expected = 1L,
       laterWrite = ::insertSecondEntity
     )
@@ -135,10 +134,12 @@ internal class QueryOperatorLifecycleTest {
   @Test
   fun runQueryOrDefaultTracksEmptyAndNonEmptySnapshotsAndStopsAfterDisposal() {
     val defaultValue = newQueryOperatorLifecycleEntity(sequence = 0)
-    val observer = observeFirstQuery()
-      .runQueryOrDefault(defaultValue)
-      .toFlowable(BackpressureStrategy.LATEST)
-      .test(0L)
+    val observer = adapter
+      .runQueryOrDefault(
+        query = firstQuery(),
+        defaultValue = defaultValue
+      )
+      .record(initialDemand = 0)
       .assertEmpty()
 
     try {
@@ -161,22 +162,23 @@ internal class QueryOperatorLifecycleTest {
       observer.request(1)
       observer.assertValuesOnly(defaultValue, expected, defaultValue)
 
-      observer.cancel()
+      observer.dispose()
       insertQueryOperatorLifecycleEntity(sequence = 2)
       observer.assertValuesOnly(defaultValue, expected, defaultValue)
     } finally {
-      observer.cancel()
+      observer.dispose()
     }
   }
 
   @Test
   fun runQueryOnceOrDefaultCompletesWithDefaultAndIgnoresLaterWrites() {
     val defaultValue = newQueryOperatorLifecycleEntity(sequence = 0)
-    val observer = observeFirstQuery()
-      .runQueryOnceOrDefault(defaultValue)
-      .toObservable()
-      .toFlowable(BackpressureStrategy.LATEST)
-      .test(0L)
+    val observer = adapter
+      .runQueryOnceOrDefault(
+        query = firstQuery(),
+        defaultValue = defaultValue
+      )
+      .record(initialDemand = 0)
       .assertEmpty()
 
     try {
@@ -186,27 +188,23 @@ internal class QueryOperatorLifecycleTest {
       insertQueryOperatorLifecycleEntity(sequence = 1)
       observer.assertResult(defaultValue)
     } finally {
-      observer.cancel()
+      observer.dispose()
     }
   }
 
-  private fun observeListQuery() = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
+  private fun listQuery() = SELECT
+    .FROM(SIMPLE_MUTABLE_ENTITY)
     .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
-    .observe()
 
-  private fun observeFirstQuery() = SELECT.FROM(SIMPLE_MUTABLE_ENTITY)
-    .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
-    .takeFirst()
-    .observe()
+  private fun firstQuery() = listQuery().takeFirst()
 
-  private fun <T> assertOneShotIgnoresLaterWrite(
-    source: Observable<T>,
+  private fun <T : Any> assertOneShotIgnoresLaterWrite(
+    source: ReactiveStream<T>,
     expected: T,
     laterWrite: () -> Unit
   ) {
     val observer = source
-      .toFlowable(BackpressureStrategy.LATEST)
-      .test(0L)
+      .record(initialDemand = 0)
       .assertEmpty()
 
     try {
@@ -216,11 +214,17 @@ internal class QueryOperatorLifecycleTest {
       laterWrite()
       observer.assertResult(expected)
     } finally {
-      observer.cancel()
+      observer.dispose()
     }
   }
 
   private fun insertSecondEntity() {
     insertQueryOperatorLifecycleEntity(sequence = 2)
+  }
+
+  companion object {
+    @JvmStatic
+    @Parameters(name = "{0}")
+    fun adapters() = reactiveAdapters
   }
 }

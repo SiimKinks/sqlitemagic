@@ -7,10 +7,12 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,7 +21,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class ZeroRowDeleteTriggerInvalidationTest(
-  private val modelCase: TriggerModelCase<*>
+  private val modelCase: TriggerModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -46,11 +49,19 @@ internal class ZeroRowDeleteTriggerInvalidationTest(
     )
     assertThat(modelCase.executeDelete(value = seeded.first())).isEqualTo(1)
     val before = captureDatabaseSnapshot(modelCase = modelCase)
-    val observer = observeRows(table = modelCase.table)
+    val observer = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
     try {
       val deletedCount = terminal.select(
         execute = { modelCase.executeDelete(value = seeded.first()) },
-        observe = { modelCase.observeDelete(value = seeded.first()) }
+        observe = {
+          modelCase.observeDelete(
+            adapter = adapter,
+            value = seeded.first()
+          )
+        }
       )
 
       assertThat(deletedCount).isEqualTo(0)
@@ -69,7 +80,7 @@ internal class ZeroRowDeleteTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.triggerCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.triggerCases)
   }
 }

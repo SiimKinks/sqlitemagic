@@ -8,10 +8,11 @@ import com.siimkinks.sqlitemagic.runtime.support.DatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,7 +21,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class BulkTriggerInvalidationTest(
-  private val modelCase: TriggerModelCase<*>
+  private val modelCase: TriggerModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -83,6 +85,7 @@ internal class BulkTriggerInvalidationTest(
     )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
@@ -91,10 +94,9 @@ internal class BulkTriggerInvalidationTest(
             .bulkInsert(values = values)
             .execute()
           OBSERVE -> {
-            modelCase
-              .bulkInsert(values = values)
-              .observe()
-              .blockingAwait()
+            adapter
+              .observe(modelCase.bulkInsert(values = values))
+              .await()
             true
           }
         }
@@ -129,6 +131,7 @@ internal class BulkTriggerInvalidationTest(
     }
     val expectedValues = updatedValues.map(modelCase::expectedAfterUpdate)
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
@@ -136,8 +139,11 @@ internal class BulkTriggerInvalidationTest(
           EXECUTE -> modelCase.executeBulkUpdate(values = updatedValues)
           OBSERVE -> {
             modelCase
-              .observeBulkUpdate(values = updatedValues)
-              .blockingAwait()
+              .observeBulkUpdate(
+                adapter = adapter,
+                values = updatedValues
+              )
+              .await()
             true
           }
         }
@@ -167,6 +173,7 @@ internal class BulkTriggerInvalidationTest(
     val insertedValue = modelCase.newValue(sequence = 5)
     val values = updatedValues + insertedValue
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
@@ -174,8 +181,11 @@ internal class BulkTriggerInvalidationTest(
           EXECUTE -> modelCase.executeBulkPersist(values = values)
           OBSERVE -> {
             modelCase
-              .observeBulkPersist(values = values)
-              .blockingAwait()
+              .observeBulkPersist(
+                adapter = adapter,
+                values = values
+              )
+              .await()
             true
           }
         }
@@ -206,12 +216,18 @@ internal class BulkTriggerInvalidationTest(
     val values = before.parents
     val expected = DatabaseSnapshot<T>(parents = emptyList())
     assertOneQueryInvalidation(
+      adapter = adapter,
       modelCase = modelCase,
       before = before,
       operation = {
         terminal.select(
           execute = { modelCase.executeBulkDelete(values = values) },
-          observe = { modelCase.observeBulkDelete(values = values) }
+          observe = {
+            modelCase.observeBulkDelete(
+              adapter = adapter,
+              values = values
+            )
+          }
         )
       },
       expected = { result ->
@@ -223,7 +239,7 @@ internal class BulkTriggerInvalidationTest(
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.triggerCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.triggerCases)
   }
 }

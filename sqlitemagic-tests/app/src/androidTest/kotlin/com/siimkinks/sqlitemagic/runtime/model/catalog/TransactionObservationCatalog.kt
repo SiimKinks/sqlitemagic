@@ -6,8 +6,8 @@ import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.insert
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
-import com.siimkinks.sqlitemagic.rxjava2.observe
 
 internal object TransactionObservationCatalog {
   val simple = SimpleRole
@@ -15,11 +15,9 @@ internal object TransactionObservationCatalog {
 
   fun matchingValues() = matchingQuery().execute()
 
-  fun observeMatchingQueries() = matchingQuery().observe()
+  fun observeMatchingQueries(adapter: ReactiveAdapter) = adapter.observe(matchingQuery())
 
-  fun observeMatchingValues() = matchingQuery()
-    .observe()
-    .runQuery()
+  fun observeMatchingValues(adapter: ReactiveAdapter) = adapter.runQuery(matchingQuery())
 
   object SimpleRole {
     val table = SIMPLE_MUTABLE_ENTITY

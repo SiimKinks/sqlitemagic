@@ -31,6 +31,8 @@ legacy queries to the new DSL and lists the changes that compile but behave diff
 * New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to own
   classes
 * New: Generated migrations warn when they drop tables, columns or rows
+* New: The `sqlitemagic-rxjava3` artifact provides the RxJava support for RxJava 3, with the same API as
+  `sqlitemagic-rxjava2` in `com.siimkinks.sqlitemagic.rxjava3`
 * New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
   without publishing the release or raising the database version
 * Fix: Writes from several threads at once no longer leave observed queries without further updates or make disposing

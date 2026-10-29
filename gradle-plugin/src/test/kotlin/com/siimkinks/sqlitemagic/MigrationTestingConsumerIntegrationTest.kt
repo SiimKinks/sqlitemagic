@@ -270,6 +270,7 @@ internal class MigrationTestingConsumerIntegrationTest {
       .substringBefore("CONSUMER_RUNTIME_END")
     assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic:")
     assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic-rxjava2:")
+    assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic-rxjava3:")
     assertThat(dependencyNames).doesNotContain("migration-core")
     assertThat(dependencyNames).doesNotContain("migration-tooling")
     assertThat(dependencyNames).doesNotContain("migration-testing")

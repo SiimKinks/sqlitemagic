@@ -10,12 +10,13 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
-import com.siimkinks.sqlitemagic.rxjava2.observe
+import com.siimkinks.sqlitemagic.runtime.support.withReactiveAdapters
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,7 +25,8 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class RecursiveSuppressedTriggerInvalidationTest(
-  private val modelCase: RecursiveTriggerConflictModelCase<*>
+  private val modelCase: RecursiveTriggerConflictModelCase<*>,
+  private val adapter: ReactiveAdapter
 ) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
@@ -96,8 +98,14 @@ internal class RecursiveSuppressedTriggerInvalidationTest(
       firstSequence = 1
     )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
-    val parentObserver = observeRows(table = modelCase.table)
-    val relatedObserver = observeRows(table = modelCase.relatedTable)
+    val parentObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val relatedObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.relatedTable
+    )
     try {
       val candidate = modelCase.valueWithUpdateConflict(
         existing = persisted[0],
@@ -140,8 +148,14 @@ internal class RecursiveSuppressedTriggerInvalidationTest(
       firstSequence = 1
     )
     val before = captureDatabaseSnapshot(modelCase = modelCase)
-    val parentObserver = observeRows(table = modelCase.table)
-    val relatedObserver = observeRows(table = modelCase.relatedTable)
+    val parentObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.table
+    )
+    val relatedObserver = observeRows(
+      adapter = adapter,
+      table = modelCase.relatedTable
+    )
     try {
       val candidate = modelCase.valueWithUpdateConflict(
         existing = persisted[0],
@@ -187,11 +201,13 @@ internal class RecursiveSuppressedTriggerInvalidationTest(
           .withConflictAlgorithm(CONFLICT_IGNORE)
           .execute()
       ).isFalse()
-      OBSERVE -> modelCase
-        .update(value = value)
-        .withConflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
-        .blockingAwait()
+      OBSERVE -> adapter
+        .observe(
+          modelCase
+            .update(value = value)
+            .withConflictAlgorithm(CONFLICT_IGNORE)
+        )
+        .await()
     }
   }
 
@@ -207,16 +223,18 @@ internal class RecursiveSuppressedTriggerInvalidationTest(
         .execute()
     },
     observe = {
-      modelCase
-        .persist(value = value)
-        .withConflictAlgorithm(CONFLICT_IGNORE)
-        .observe()
+      adapter
+        .observe(
+          modelCase
+            .persist(value = value)
+            .withConflictAlgorithm(CONFLICT_IGNORE)
+        )
     }
   )
 
   companion object {
     @JvmStatic
-    @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.recursiveTriggerConflictCases
+    @Parameters(name = "{0} {1}")
+    fun modelCases() = withReactiveAdapters(ModelCatalog.recursiveTriggerConflictCases)
   }
 }

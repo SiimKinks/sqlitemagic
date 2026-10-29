@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
@@ -56,8 +57,11 @@ internal class SuccessfulBulkUpdateTest(
         modelCase.executeBulkUpdate(values = updatedValues)
       ).isTrue()
       OBSERVE -> modelCase
-        .observeBulkUpdate(values = updatedValues)
-        .blockingAwait()
+        .observeBulkUpdate(
+          adapter = RxJava2Adapter,
+          values = updatedValues
+        )
+        .await()
     }
     val actual = captureRows(table = modelCase.table)
     assertThat(actual).hasSize(persistedValues.size)

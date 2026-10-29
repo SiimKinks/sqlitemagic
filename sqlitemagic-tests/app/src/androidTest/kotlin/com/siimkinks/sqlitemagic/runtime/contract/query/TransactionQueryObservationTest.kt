@@ -8,12 +8,21 @@ import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransactionObservationCatalog.observeMatchingValues
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.ReactiveAdapter
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.reactiveAdapters
+import com.siimkinks.sqlitemagic.runtime.support.record
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class TransactionQueryObservationTest {
+@RunWith(Parameterized::class)
+internal class TransactionQueryObservationTest(
+  private val adapter: ReactiveAdapter
+) {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
 
@@ -23,8 +32,8 @@ internal class TransactionQueryObservationTest {
       TransactionObservationCatalog.string.insert(sequence = 1),
       TransactionObservationCatalog.string.insert(sequence = 2)
     )
-    val observer = observeMatchingValues()
-      .test()
+    val observer = observeMatchingValues(adapter)
+      .record()
       .assertValuesOnly(emptyList())
     try {
       val simpleRows = mutableListOf<SimpleMutableEntity>()
@@ -73,8 +82,8 @@ internal class TransactionQueryObservationTest {
   fun nestedMultiTableCommitEmitsOnlyFinalResult() {
     val initialSimple = TransactionObservationCatalog.simple.insert(sequence = 1)
     val initialString = TransactionObservationCatalog.string.insert(sequence = 1)
-    val observer = observeMatchingValues()
-      .test()
+    val observer = observeMatchingValues(adapter)
+      .record()
       .assertValuesOnly(listOf(initialSimple.value))
     try {
       val simpleRows = mutableListOf(initialSimple)
@@ -118,8 +127,8 @@ internal class TransactionQueryObservationTest {
   fun multiTableRollbackEmitsNothingAndRestoresExactTables() {
     val initialSimple = TransactionObservationCatalog.simple.insert(sequence = 1)
     val initialString = TransactionObservationCatalog.string.insert(sequence = 1)
-    val observer = observeMatchingValues()
-      .test()
+    val observer = observeMatchingValues(adapter)
+      .record()
       .assertValuesOnly(listOf(initialSimple.value))
     try {
       val transaction = SqliteMagic.newTransaction()
@@ -157,8 +166,8 @@ internal class TransactionQueryObservationTest {
   fun nestedInnerRollbackDefeatsOuterSuccessfulCommit() {
     val initialSimple = TransactionObservationCatalog.simple.insert(sequence = 1)
     val initialString = TransactionObservationCatalog.string.insert(sequence = 1)
-    val observer = observeMatchingValues()
-      .test()
+    val observer = observeMatchingValues(adapter)
+      .record()
       .assertValuesOnly(listOf(initialSimple.value))
     try {
       inTransaction {
@@ -191,8 +200,8 @@ internal class TransactionQueryObservationTest {
   fun emptySuccessfulTransactionEmitsNothing() {
     val initialSimple = TransactionObservationCatalog.simple.insert(sequence = 1)
     val initialString = TransactionObservationCatalog.string.insert(sequence = 1)
-    val observer = observeMatchingValues()
-      .test()
+    val observer = observeMatchingValues(adapter)
+      .record()
       .assertValuesOnly(listOf(initialSimple.value))
     try {
       inTransaction {
@@ -214,8 +223,8 @@ internal class TransactionQueryObservationTest {
     val callbackCount = AtomicInteger()
     val simpleRows = mutableListOf<SimpleMutableEntity>()
     val stringRows = mutableListOf<StringIdEntity>()
-    val observer = observeMatchingValues()
-      .doAfterNext {
+    val observer = observeMatchingValues(adapter)
+      .onEach {
         if (callbackCount.incrementAndGet() == 2) {
           inTransaction {
             simpleRows += TransactionObservationCatalog.simple.insert(sequence = 2)
@@ -223,7 +232,7 @@ internal class TransactionQueryObservationTest {
           }
         }
       }
-      .test()
+      .record()
       .assertValuesOnly(emptyList())
     try {
       inTransaction {
@@ -258,5 +267,11 @@ internal class TransactionQueryObservationTest {
       table = TransactionObservationCatalog.string.table,
       expected = expectedStringRows
     )
+  }
+
+  companion object {
+    @JvmStatic
+    @Parameters(name = "{0}")
+    fun adapters() = reactiveAdapters
   }
 }

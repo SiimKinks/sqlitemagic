@@ -11,7 +11,9 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.RxJava2Adapter
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.record
 import com.siimkinks.sqlitemagic.runtime.support.seed
 import org.junit.Rule
 import org.junit.Test
@@ -68,12 +70,13 @@ internal class MissingSingleUpdateTest(
       OBSERVE -> {
         val observer = modelCase
           .observeUpdate(
+            adapter = RxJava2Adapter,
             value = value,
             conflictAlgorithm = conflictAlgorithm
           )
-          .test()
+          .record()
         when (conflictAlgorithm) {
-          null -> observer.assertFailure(OperationFailedException::class.java)
+          null -> observer.assertFailure(OperationFailedException::class::isInstance)
           else -> observer.assertComplete()
         }
       }

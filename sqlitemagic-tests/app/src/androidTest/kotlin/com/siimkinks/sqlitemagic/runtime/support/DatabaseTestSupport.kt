@@ -15,7 +15,6 @@ import com.siimkinks.sqlitemagic.queryDeep
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
-import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Assert.assertThrows
 
 internal data class DatabaseSnapshot<T>(
@@ -77,11 +76,16 @@ internal fun <T> captureRows(
   .usingConnection(connection)
   .execute()
 
-internal fun <T> observeRows(table: Table<T>) = SELECT.FROM(table)
-  .queryDeep()
-  .observe()
-  .runQuery()
-  .test()
+internal fun <T> observeRows(
+  adapter: ReactiveAdapter,
+  table: Table<T>
+) = adapter
+  .runQuery(
+    SELECT
+      .FROM(table)
+      .queryDeep()
+  )
+  .record()
 
 internal fun <T> captureDatabaseSnapshot(
   modelCase: RuntimeModelCase<T>
