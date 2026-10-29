@@ -605,6 +605,8 @@ private val UNREAD_ROWS = ExecutionReader<Nothing> { error("A raw query without 
  * the immediate notification sent on subscribe also uses this scheduler. As such, calling
  * [Observable.subscribeOn] on the returned observable has no effect.
  *
+ * Changes made while a notification is being processed are combined into one further notification.
+ *
  * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
  * will the operation occur.
  */

@@ -43,6 +43,7 @@ import com.siimkinks.sqlitemagic.internal.PersistBuilder
 import com.siimkinks.sqlitemagic.internal.PersistByColumnBuilder
 import com.siimkinks.sqlitemagic.internal.UpdateBuilder
 import com.siimkinks.sqlitemagic.internal.UpdateByColumnBuilder
+import io.reactivex.Scheduler
 import io.reactivex.schedulers.Schedulers
 import java.util.Locale
 
@@ -279,11 +280,12 @@ internal class TestGeneratedDatabase(
 
 internal fun testDbConnection(
   database: SupportSQLiteDatabase,
-  tableCount: Int = 1
+  tableCount: Int = 1,
+  queryScheduler: Scheduler = Schedulers.trampoline()
 ) = DbConnectionImpl(
   database = TestGeneratedDatabase(tableCount),
   dbHelper = RecordingOpenHelper(database),
-  queryScheduler = Schedulers.trampoline()
+  queryScheduler = queryScheduler
 )
 
 internal class RecordingConnection(
@@ -295,7 +297,7 @@ internal class RecordingConnection(
     tableCount = tableCount
   )
   private val recordedTriggers = connection.recordTriggers()
-  val triggers: List<Set<String>> get() = recordedTriggers.values()
+  val triggers get() = recordedTriggers.triggers
   val statementSql
     get() = recordingDatabase.compiledStatements.map(RecordingStatement::sql)
   val statementBindings

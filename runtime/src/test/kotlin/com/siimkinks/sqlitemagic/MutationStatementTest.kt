@@ -33,7 +33,7 @@ internal class MutationStatementTest {
     database: BundledSqliteDatabase = personDatabase()
   ) = database.use {
     val connection = database.dbConnection()
-    val triggers = connection.recordTriggers()
+    val recorder = connection.recordTriggers()
     val affected = runCatching {
       query
         .usingConnection(connection)
@@ -42,7 +42,7 @@ internal class MutationStatementTest {
     Outcome(
       affected = affected.getOrNull(),
       rows = connection.persons(),
-      triggers = triggers.values()
+      triggers = recorder.triggers
     )
   }
 

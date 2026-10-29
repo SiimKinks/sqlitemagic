@@ -19,11 +19,19 @@ legacy queries to the new DSL and lists the changes that compile but behave diff
 * Breaking: With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version,
   as it does with migration testing, instead of one above the latest release, and fails when that version is already
   released
+* Breaking: Observed queries combine the changes made while a notification is being processed into one further
+  notification, so a burst of writes no longer queues one query run per write. A write made during an emission emits
+  after that emission returns
+* Breaking: Observing a query on a closed connection completes without emitting instead of running the query, so its
+  `Single` results, such as `runQueryOnce()` and `observe()` of a raw SELECT without declared tables, fail with
+  `NoSuchElementException`
 * New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to own
   classes
 * New: Generated migrations warn when they drop tables, columns or rows
 * New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
   without publishing the release or raising the database version
+* Fix: Writes from several threads at once no longer leave observed queries without further updates or make disposing
+  them hang, and a write made right after subscribing is no longer missed
 
 Version 2.0.0 _(2026-10-28)_
 ---------------------------------

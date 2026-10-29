@@ -8,10 +8,7 @@ import com.siimkinks.sqlitemagic.internal.LogUtil.logInfo
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.ScatterSet
-import io.reactivex.Observable
 import io.reactivex.Scheduler
-import io.reactivex.functions.Consumer
-import io.reactivex.subjects.PublishSubject
 import java.util.concurrent.TimeUnit
 
 /**
@@ -25,8 +22,7 @@ internal class DbConnectionImpl(
 ) : DbConnection {
   private val transactions = ThreadLocal<SqliteTransaction?>()
 
-  val triggers: Observable<Set<String>>
-    field = PublishSubject.create()
+  val tableObservers = TableObservers()
 
   private val transactionHandle = object : Transaction {
     override fun markSuccessful() {
@@ -54,12 +50,6 @@ internal class DbConnectionImpl(
     override fun close() = end()
   }
 
-  val ensureNotInTransaction = Consumer<Any> {
-    check(!hasActiveTransaction) {
-      "Cannot subscribe to observable query in a transaction."
-    }
-  }
-
   private val submoduleEntityDbManagers = database
     .submoduleNames
     ?.let { submoduleNames ->
@@ -81,10 +71,9 @@ internal class DbConnectionImpl(
   )
 
   override fun close() {
-    if (triggers.hasComplete()) {
+    if (!tableObservers.close()) {
       return
     }
-    triggers.onComplete()
     closeEntityDbManagers(entityDbManagers)
     submoduleEntityDbManagers?.forEachValue(::closeEntityDbManagers)
     dbHelper.close()
@@ -119,6 +108,12 @@ internal class DbConnectionImpl(
   val writableDatabase get() = dbHelper.writableDatabase
 
   val hasActiveTransaction get() = transactions.get() != null
+
+  val isClosed get() = tableObservers.isClosed
+
+  fun ensureNotInTransaction() = check(!hasActiveTransaction) {
+    "Cannot subscribe to observable query in a transaction."
+  }
 
   @CheckResult
   fun getEntityDbManager(
@@ -166,7 +161,7 @@ internal class DbConnectionImpl(
 
   private fun publishTableTriggers(tables: Set<String>) {
     logDebug { "TRIGGER $tables" }
-    triggers.onNext(tables)
+    tableObservers.publish(tables)
   }
 
   private class SqliteTransaction(

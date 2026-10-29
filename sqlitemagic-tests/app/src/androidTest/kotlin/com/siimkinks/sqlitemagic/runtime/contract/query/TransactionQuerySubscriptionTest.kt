@@ -90,7 +90,10 @@ internal class TransactionQuerySubscriptionTest {
 
       assertThat(queryFinished.await(TIMEOUT_SECONDS, SECONDS)).isTrue()
       assertThat(workerError.get()).isNull()
-      observer.assertValuesOnly(listOf(initialSimple.value, transactionSimple.value))
+      observer.assertValuesOnly(
+        listOf(initialSimple.value, transactionSimple.value),
+        listOf(initialSimple.value, transactionSimple.value)
+      )
 
       val nextSimple = TransactionObservationCatalog.simple.newValue(sequence = 3)
       inTransaction {
@@ -98,6 +101,7 @@ internal class TransactionQuerySubscriptionTest {
         TransactionObservationCatalog.string.insert(sequence = 3)
       }
       observer.assertValuesOnly(
+        listOf(initialSimple.value, transactionSimple.value),
         listOf(initialSimple.value, transactionSimple.value),
         listOf(initialSimple.value, transactionSimple.value, nextSimple.value)
       )

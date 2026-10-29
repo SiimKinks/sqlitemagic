@@ -124,6 +124,8 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
    * the immediate notification sent on subscribe also uses this scheduler. As such, calling
    * [Observable.subscribeOn] on the returned observable has no effect.
    *
+   * Changes made while a notification is being processed are combined into one further notification.
+   *
    * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
    * `skip(1)` on the returned observable.
    *

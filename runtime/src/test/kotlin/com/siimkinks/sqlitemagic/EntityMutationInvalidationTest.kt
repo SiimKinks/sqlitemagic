@@ -10,8 +10,6 @@ import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
-import io.reactivex.Observer
-import io.reactivex.disposables.Disposable
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.doReturn
@@ -201,12 +199,14 @@ internal class EntityMutationInvalidationTest {
     val fixture = MutationFailureFixture()
     val mutationFailure = IllegalStateException("mutation failed")
     val deliveryFailure = IllegalArgumentException("delivery failed")
-    fixture.connection.triggers.subscribe(object : Observer<Set<String>> {
-      override fun onSubscribe(disposable: Disposable) = Unit
-      override fun onNext(tables: Set<String>) = throw deliveryFailure
-      override fun onError(error: Throwable) = Unit
-      override fun onComplete() = Unit
-    })
+    fixture.connection.tableObservers.add(
+      tables = null,
+      observer = object : TableChangeObserver {
+        override fun onTablesChanged(tables: Set<String>) = throw deliveryFailure
+
+        override fun onClosed() = Unit
+      }
+    )
     val context = mutationContext(fixture)
     val actual = assertThrows(IllegalStateException::class.java) {
       context.executeMutation(
@@ -339,7 +339,7 @@ private class MutationFailureFixture(
   }
   val connection = testDbConnection(database)
   private val recordedTriggers = connection.recordTriggers()
-  val triggers: List<Set<String>> get() = recordedTriggers.values()
+  val triggers get() = recordedTriggers.triggers
   private val entity = TestEntity(
     id = "id",
     key = "key",

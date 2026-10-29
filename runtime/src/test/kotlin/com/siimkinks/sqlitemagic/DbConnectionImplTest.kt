@@ -55,7 +55,6 @@ internal class DbConnectionImplTest {
       manager.updateStatement("UPDATE%s books SET name=?")
     }
     val observer = fixture.connection.recordTriggers()
-      .assertEmpty()
 
     mockStatic(Log::class.java)
       .use {
@@ -64,7 +63,8 @@ internal class DbConnectionImplTest {
       }
     fixture.connection.sendTableTrigger("books")
 
-    observer.assertResult()
+    assertThat(observer.triggers).isEmpty()
+    assertThat(observer.closeCalls).isEqualTo(1)
     verify(fixture.helper, times(1)).close()
     statements.forEach { verify(it, times(1)).close() }
     for (manager in managers) {
@@ -150,17 +150,20 @@ internal class DbConnectionImplTest {
       }
       val fixture = ConnectionFixture(generated)
       val observer = fixture.connection.recordTriggers()
-        .assertEmpty()
 
       fixture.connection.clearData()
 
       assertWithMessage(label)
         .that(databases)
         .containsExactly(fixture.db)
-      when {
-        clearedTables.isEmpty() -> observer.assertEmpty()
-        else -> observer.assertValuesOnly(setOf("books", "authors"))
-      }
+      assertWithMessage(label)
+        .that(observer.triggers)
+        .isEqualTo(
+          when {
+            clearedTables.isEmpty() -> emptyList()
+            else -> listOf(setOf("books", "authors"))
+          }
+        )
     }
   }
 
@@ -168,30 +171,39 @@ internal class DbConnectionImplTest {
   fun `multiple table triggers outside transactions publish distinct names immediately`() {
     val fixture = ConnectionFixture()
     val observer = fixture.connection.recordTriggers()
-      .assertEmpty()
 
     fixture.connection.sendTableTriggers(arrayOf("books", "authors", "books"))
 
-    observer.assertValuesOnly(setOf("books", "authors"))
+    assertThat(observer.triggers).containsExactly(setOf("books", "authors"))
   }
 
   @Test
   fun `published transaction table storage remains an independent snapshot`() {
     val fixture = ConnectionFixture()
-    val observer = fixture.connection.triggers.test()
+    val published = mutableListOf<Set<String>>()
+    fixture.connection.tableObservers.add(
+      tables = null,
+      observer = object : TableChangeObserver {
+        override fun onTablesChanged(tables: Set<String>) {
+          published += tables
+        }
+
+        override fun onClosed() = Unit
+      }
+    )
     val first = fixture.connection.newTransaction()
     fixture.connection.sendTableTrigger("books")
     fixture.listeners.last().onCommit()
     first.end()
-    val published = observer.values().single()
+    val firstPublished = published.single()
 
     val second = fixture.connection.newTransaction()
     fixture.connection.sendTableTriggers(arrayOf("authors", "books"))
     fixture.listeners.last().onCommit()
     second.end()
 
-    assertThat(published).containsExactly("books")
-    assertThat(observer.values().last()).containsExactly("authors", "books")
+    assertThat(firstPublished).containsExactly("books")
+    assertThat(published.last()).containsExactly("authors", "books")
   }
 
   @Test
@@ -253,11 +265,11 @@ internal class DbConnectionImplTest {
   @Test
   fun `subscription guard observes only transactions on the subscribing thread`() {
     val fixture = ConnectionFixture()
-    fixture.connection.ensureNotInTransaction.accept(Unit)
+    fixture.connection.ensureNotInTransaction()
     val transaction = fixture.connection.newTransaction()
 
     val failure = assertThrows(IllegalStateException::class.java) {
-      fixture.connection.ensureNotInTransaction.accept(Unit)
+      fixture.connection.ensureNotInTransaction()
     }
     assertThat(failure)
       .hasMessageThat()
@@ -266,7 +278,7 @@ internal class DbConnectionImplTest {
     try {
       val otherThreadActive = executor
         .submit<Boolean> {
-          fixture.connection.ensureNotInTransaction.accept(Unit)
+          fixture.connection.ensureNotInTransaction()
           fixture.connection.hasActiveTransaction
         }
         .get(5L, SECONDS)
@@ -275,20 +287,25 @@ internal class DbConnectionImplTest {
       executor.shutdownNow()
     }
     transaction.end()
-    fixture.connection.ensureNotInTransaction.accept(Unit)
+    fixture.connection.ensureNotInTransaction()
   }
 
   @Test
   fun `committed notifications follow database end and restore transaction state first`() {
     val fixture = ConnectionFixture()
     val events = mutableListOf<String>()
-    fixture.connection.triggers
-      .map(Set<String>::toSet)
-      .subscribe { tables ->
-        assertThat(fixture.connection.hasActiveTransaction).isFalse()
-        assertThat(tables).containsExactly("books", "authors")
-        events += "notify"
+    fixture.connection.tableObservers.add(
+      tables = null,
+      observer = object : TableChangeObserver {
+        override fun onTablesChanged(tables: Set<String>) {
+          assertThat(fixture.connection.hasActiveTransaction).isFalse()
+          assertThat(tables).containsExactly("books", "authors")
+          events += "notify"
+        }
+
+        override fun onClosed() = Unit
       }
+    )
     val transaction = fixture.connection.newTransaction()
     fixture.connection.sendTableTrigger("books")
     fixture.connection.sendTableTriggers(arrayOf("authors", "books"))
@@ -327,7 +344,9 @@ internal class DbConnectionImplTest {
       assertWithMessage(label)
         .that(fixture.connection.hasActiveTransaction)
         .isTrue()
-      observer.assertEmpty()
+      assertWithMessage(label)
+        .that(observer.triggers)
+        .isEmpty()
       if (committed) {
         fixture.listeners
           .first()
@@ -335,10 +354,14 @@ internal class DbConnectionImplTest {
       }
       outer.end()
 
-      when {
-        committed -> observer.assertValuesOnly(setOf("books", "authors"))
-        else -> observer.assertEmpty()
-      }
+      assertWithMessage(label)
+        .that(observer.triggers)
+        .isEqualTo(
+          when {
+            committed -> listOf(setOf("books", "authors"))
+            else -> emptyList()
+          }
+        )
       assertWithMessage(label)
         .that(fixture.connection.hasActiveTransaction)
         .isFalse()

@@ -1,3 +1,5 @@
+@file:Suppress("TestFunctionName")
+
 package com.siimkinks.sqlitemagic
 
 import android.database.Cursor
@@ -13,7 +15,6 @@ import com.siimkinks.sqlitemagic.internal.nullableReadType
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import com.siimkinks.sqlitemagic.internal.requiredReadType
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
-import io.reactivex.functions.Consumer
 import io.reactivex.schedulers.Schedulers
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -708,7 +709,6 @@ internal class ScalarSelectTest {
     val cursor = mock<Cursor>()
     whenever(connection.readableDatabase).thenReturn(database)
     whenever(connection.queryScheduler).thenReturn(Schedulers.trampoline())
-    whenever(connection.ensureNotInTransaction).thenReturn(Consumer { })
     whenever(database.query(any<SupportSQLiteQuery>())).thenReturn(cursor)
     whenever(cursor.count).thenReturn(1)
     whenever(cursor.moveToNext()).thenReturn(true, false, true, false)

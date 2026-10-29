@@ -418,7 +418,7 @@ internal class RawQueryTest {
 
     fun outcome(statement: RawMutationQuery) = petDatabase().use { database ->
       val connection = database.dbConnection()
-      val triggers = connection.recordTriggers()
+      val recorder = connection.recordTriggers()
       val compiled = statement
         .usingConnection(connection)
         .compile()
@@ -427,7 +427,7 @@ internal class RawQueryTest {
         arguments = compiled.arguments,
         affected = compiled.execute(),
         rows = connection.persons(),
-        triggers = triggers.values()
+        triggers = recorder.triggers
       )
     }
 

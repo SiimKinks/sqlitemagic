@@ -22,9 +22,27 @@ internal fun DbConnection.persons() = SELECT.FROM(PERSON)
   .usingConnection(this)
   .execute()
 
-internal fun DbConnectionImpl.recordTriggers() = triggers
-  .map(Set<String>::toSet)
-  .test()
+internal class TriggerRecorder : TableChangeObserver {
+  val triggers: List<Set<String>>
+    field = mutableListOf()
+  var closeCalls = 0
+    private set
+
+  override fun onTablesChanged(tables: Set<String>) {
+    triggers += tables.toSet()
+  }
+
+  override fun onClosed() {
+    closeCalls++
+  }
+}
+
+internal fun DbConnectionImpl.recordTriggers() = TriggerRecorder().also { recorder ->
+  tableObservers.add(
+    tables = null,
+    observer = recorder
+  )
+}
 
 internal data class PlanSnapshot(
   val sql: String,

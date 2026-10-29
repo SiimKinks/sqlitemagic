@@ -243,6 +243,8 @@ property. Selected values keep the property's type, as legacy typed them.
 | Every non-zero stored Boolean reads `true` (legacy generated readers read only 1 as `true`) | none for data the library wrote; store 0 for false |
 | A required scalar read of SQL NULL throws `android.database.SQLException`; legacy scalar reads returned `0`, `0.0` or `null` | select or read nullable where NULL is possible |
 | A failed UPDATE/DELETE that reached SQLite notifies its table, so observers re-run | none |
+| Observed queries combine changes made during an emission into one further emission; a write inside an emission emits after that emission returns | don't count emissions as writes; each emission reads the current data |
+| Observing a query on a closed connection completes without emitting; its `Single` results (`runQueryOnce()`, `runQueryOnceOrDefault()`, `observe()` of a raw SELECT without declared tables) fail with `NoSuchElementException` | observe only open connections |
 | `count()` skips joins that only an entity read needs; its observer re-runs only for tables that can change the count | none |
 | Values inside view definitions render as SQL literals; legacy failed view creation with bound arguments | drop `asColumn` workarounds |
 | `Float`/`Double` NaN is rejected with `IllegalArgumentException` when encoded | handle NaN before building SQL values |

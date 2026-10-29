@@ -1,3 +1,5 @@
+@file:Suppress("TestFunctionName")
+
 package com.siimkinks.sqlitemagic
 
 import android.database.Cursor

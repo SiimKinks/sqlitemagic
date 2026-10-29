@@ -119,6 +119,8 @@ class CompiledRawReadCursor<T, O : RawTables> internal constructor(
  * the immediate notification sent on subscribe also uses this scheduler. As such, calling
  * [Observable.subscribeOn] on the returned observable has no effect.
  *
+ * Changes made while a notification is being processed are combined into one further notification.
+ *
  * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
  * will the operation occur.
  */
@@ -155,6 +157,8 @@ fun <T> CompiledRawSelect<T, UndeclaredTables>.observe() = plan
  * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
  * the immediate notification sent on subscribe also uses this scheduler. As such, calling
  * [Observable.subscribeOn] on the returned observable has no effect.
+ *
+ * Changes made while a notification is being processed are combined into one further notification.
  *
  * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
  * will the operation occur.
@@ -193,6 +197,8 @@ fun <T> CompiledRawFirst<T, UndeclaredTables>.observe() = plan
  * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
  * the immediate notification sent on subscribe also uses this scheduler. As such, calling
  * [Observable.subscribeOn] on the returned observable has no effect.
+ *
+ * Changes made while a notification is being processed are combined into one further notification.
  *
  * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
  * will the operation occur.

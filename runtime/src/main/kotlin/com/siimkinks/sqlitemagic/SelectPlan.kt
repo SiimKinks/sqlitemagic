@@ -8,8 +8,7 @@ import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
 import com.siimkinks.sqlitemagic.internal.sql.bindNativeValues
 import io.reactivex.Observable
 import io.reactivex.Scheduler
-import io.reactivex.functions.Function
-import io.reactivex.functions.Predicate
+import io.reactivex.plugins.RxJavaPlugins
 
 /**
  * Compiled SQL SELECT statement.
@@ -57,37 +56,13 @@ sealed class SelectPlan<T>(
 
   internal fun notifications(): Observable<Query<T>> {
     boundArguments()
-    return Observable.defer {
-      val execution = PlanExecution(this)
-      val connection = execution.resolveConnection()
-      val observedTables = prepared.dependencies.observedTables
-      when {
-        observedTables.isEmpty() -> Observable.just<Query<T>>(execution)
-        else -> connection.triggers
-          .filter(tableFilter(observedTables))
-          .map(execution)
-          .startWith(execution)
-      }
-        .observeOn(connection.queryScheduler)
-        .doOnSubscribe(connection.ensureNotInTransaction)
-    }
-  }
-}
-
-private fun tableFilter(observedTables: Array<String>) = when {
-  observedTables.size > 1 -> Predicate<Set<String>> { triggers ->
-    observedTables.any(triggers::contains)
-  }
-  else -> observedTables[0].let { table ->
-    Predicate<Set<String>> { triggers ->
-      table in triggers
-    }
+    return RxJavaPlugins.onAssembly(QueryNotifications(this))
   }
 }
 
 private class PlanExecution<T>(
   private val plan: SelectPlan<T>
-) : Query<T>(plan.prepared.connection), Function<Set<String>, Query<T>> {
+) : Query<T>(plan.prepared.connection) {
   override fun rawQuery(dbConnection: DbConnectionImpl) = plan.openCursor(dbConnection)
 
   override fun map(cursor: Cursor, isDisposed: () -> Boolean) = plan.mapRows(
@@ -96,8 +71,6 @@ private class PlanExecution<T>(
   )
 
   override fun discardResult(result: T) = plan.discard(result)
-
-  override fun apply(ignored: Set<String>): Query<T> = this
 }
 
 /**
@@ -163,6 +136,8 @@ class CompiledSelect<T> internal constructor(
    * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
    * the immediate notification sent on subscribe also uses this scheduler. As such, calling
    * [Observable.subscribeOn] on the returned observable has no effect.
+   *
+   * Changes made while a notification is being processed are combined into one further notification.
    *
    * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
    * `skip(1)` on the returned observable.
@@ -240,6 +215,8 @@ class CompiledFirst<T> internal constructor(
    * the immediate notification sent on subscribe also uses this scheduler. As such, calling
    * [Observable.subscribeOn] on the returned observable has no effect.
    *
+   * Changes made while a notification is being processed are combined into one further notification.
+   *
    * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
    * `skip(1)` on the returned observable.
    *
@@ -308,6 +285,8 @@ class CompiledCount internal constructor(
    * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
    * the immediate notification sent on subscribe also uses this scheduler. As such, calling
    * [Observable.subscribeOn] on the returned observable has no effect.
+   *
+   * Changes made while a notification is being processed are combined into one further notification.
    *
    * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
    * `skip(1)` on the returned observable.
@@ -381,6 +360,8 @@ class CompiledCursor<T> internal constructor(
    * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
    * the immediate notification sent on subscribe also uses this scheduler. As such, calling
    * [Observable.subscribeOn] on the returned observable has no effect.
+   *
+   * Changes made while a notification is being processed are combined into one further notification.
    *
    * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
    * `skip(1)` on the returned observable.
