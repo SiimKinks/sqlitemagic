@@ -116,6 +116,7 @@ internal class MutationContractTest {
       import com.siimkinks.sqlitemagic.UPDATE
       import com.siimkinks.sqlitemagic.UpdateSetStage
       import com.siimkinks.sqlitemagic.UpdateTableStage
+      import com.siimkinks.sqlitemagic.rxjava2.observe
       import io.reactivex.Single
     """
   )

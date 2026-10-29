@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
 import com.siimkinks.sqlitemagic.internal.sql.bindNativeValues
-import io.reactivex.Single
 
 /**
  * Compiled SQL UPDATE or DELETE statement.
@@ -45,14 +44,6 @@ class CompiledMutation internal constructor(
           affected
         }
     }
-
-  /**
-   * Create a [Single] that when subscribed to executes this compiled statement against a database and emits nr of
-   * updated or deleted records to downstream only once.
-   *
-   * @return Deferred [Single] that when subscribed to executes the statement and emits its result to downstream
-   */
-  fun observe(): Single<Int> = Single.fromCallable(::execute)
 }
 
 internal inline fun <T> notifyingOnFailure(notify: () -> Unit, block: () -> T): T = try {

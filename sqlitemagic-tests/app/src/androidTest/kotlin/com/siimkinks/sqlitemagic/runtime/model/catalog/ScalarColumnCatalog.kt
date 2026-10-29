@@ -20,6 +20,7 @@ import com.siimkinks.sqlitemagic.runtime.model.CountQueryCase
 import com.siimkinks.sqlitemagic.runtime.model.ScalarColumnCase
 import com.siimkinks.sqlitemagic.runtime.model.identity
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.rxjava2.observe
 
 internal object ScalarColumnCatalog {
   private val nonNullRows = NonNullQueryFixture.nonNullRows

@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test

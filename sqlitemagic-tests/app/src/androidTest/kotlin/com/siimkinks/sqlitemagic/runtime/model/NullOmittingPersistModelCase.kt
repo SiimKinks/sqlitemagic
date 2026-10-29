@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.runtime.model
 
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.Completable
 import io.reactivex.Single
 

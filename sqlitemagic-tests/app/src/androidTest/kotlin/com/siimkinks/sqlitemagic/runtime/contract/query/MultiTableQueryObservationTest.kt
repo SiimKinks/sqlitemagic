@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.runtime.model.catalog.NonNullQueryFixture
 import com.siimkinks.sqlitemagic.runtime.model.catalog.QueryObservationCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.QueryObservationCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.observers.TestObserver
 import org.junit.Rule
 import org.junit.Test

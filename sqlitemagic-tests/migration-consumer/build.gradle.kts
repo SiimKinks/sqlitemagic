@@ -39,21 +39,21 @@ android {
 androidComponents {
   onVariants { variant ->
     variant.buildConfigFields?.putAll(
-        mapOf(
-            "DB_VERSION" to BuildConfigField(
-                type = "int",
-                value = when {
-                  variant.buildType == "release" -> "8"
-                  else -> "9"
-                },
-                comment = null
-            ),
-            "DB_NAME" to BuildConfigField(
-                type = "String",
-                value = """"migration-consumer.db"""",
-                comment = null
-            )
+      mapOf(
+        "DB_VERSION" to BuildConfigField(
+          type = "int",
+          value = when {
+            variant.buildType == "release" -> "8"
+            else -> "9"
+          },
+          comment = null
+        ),
+        "DB_NAME" to BuildConfigField(
+          type = "String",
+          value = """"migration-consumer.db"""",
+          comment = null
         )
+      )
     )
   }
 }
@@ -61,7 +61,6 @@ androidComponents {
 dependencies {
   implementation(project(":migration-consumer-feature"))
   implementation(libs.android.sqlite.framework)
-  implementation(libs.rx.java2)
 
   testImplementation(libs.android.sqlite.bundled.jvm)
   testImplementation(platform(libs.junit.bom))

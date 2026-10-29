@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.runtime.model.NullOmittingPersistConflictModelC
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.rxjava2.observe
 
 internal fun <T> assertIgnoredPersist(
   modelCase: NullOmittingPersistConflictModelCase<T>,

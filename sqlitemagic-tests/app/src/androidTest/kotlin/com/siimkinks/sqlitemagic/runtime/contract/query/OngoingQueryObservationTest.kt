@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import com.siimkinks.sqlitemagic.expr
 import com.siimkinks.sqlitemagic.runtime.model.catalog.NonNullQueryFixture
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 

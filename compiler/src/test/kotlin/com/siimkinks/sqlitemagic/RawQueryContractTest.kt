@@ -26,21 +26,21 @@ internal class RawQueryContractTest {
           import com.siimkinks.sqlitemagic.DELETE
           import com.siimkinks.sqlitemagic.DbConnection
           import com.siimkinks.sqlitemagic.DeclaredTables
-          import com.siimkinks.sqlitemagic.ListQueryObservable
           import com.siimkinks.sqlitemagic.RawColumnQuery
           import com.siimkinks.sqlitemagic.RawMutationQuery
           import com.siimkinks.sqlitemagic.RawSelect
           import com.siimkinks.sqlitemagic.RawSelectQuery
           import com.siimkinks.sqlitemagic.Row2
           import com.siimkinks.sqlitemagic.SELECT
-          import com.siimkinks.sqlitemagic.SingleItemQueryObservable
           import com.siimkinks.sqlitemagic.SqlNullable
           import com.siimkinks.sqlitemagic.SqlType
           import com.siimkinks.sqlitemagic.Table
           import com.siimkinks.sqlitemagic.UPDATE
           import com.siimkinks.sqlitemagic.UndeclaredTables
           import com.siimkinks.sqlitemagic.mapTo
-          import com.siimkinks.sqlitemagic.observe
+          import com.siimkinks.sqlitemagic.rxjava2.ListQueryObservable
+          import com.siimkinks.sqlitemagic.rxjava2.SingleItemQueryObservable
+          import com.siimkinks.sqlitemagic.rxjava2.observe
           import io.reactivex.Maybe
           import io.reactivex.Single
           import typewitness.Exact

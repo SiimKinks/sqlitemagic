@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.compileMutation
-import io.reactivex.Single
 
 /**
  * Raw SQL UPDATE or DELETE statement.
@@ -72,13 +71,4 @@ class RawMutationQuery internal constructor(
    * @return Number of updated or deleted rows
    */
   fun execute(): Int = compile().execute()
-
-  /**
-   * Compile this statement and create a [Single] that when subscribed to executes this statement against a database
-   * and emits nr of updated or deleted records to downstream only once.
-   *
-   * @return Deferred [Single] that when subscribed to executes the statement and emits its result to downstream
-   */
-  @CheckResult
-  fun observe(): Single<Int> = compile().observe()
 }

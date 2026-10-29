@@ -2,11 +2,11 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
+import com.siimkinks.sqlitemagic.internal.DeferredCompletion
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
-import io.reactivex.Completable
 import java.util.concurrent.CancellationException
 
 internal class RelationshipOperations(
@@ -131,19 +131,16 @@ internal fun <M> executeBulkOperation(
   return outcome
 }
 
-internal fun executeBulkRxOperation(
-  contextFactory: () -> OperationContext,
-  operation: (context: OperationContext, isCancelled: () -> Boolean) -> BulkOperationOutcome
-) = Completable.create { emitter ->
-  try {
-    val context = contextFactory()
-    when (operation(context, emitter::isDisposed)) {
-      BulkOperationOutcome.FAILED -> emitter.tryOnError(
-        OperationFailedException("Bulk operation failed")
-      )
-      else -> emitter.onComplete()
+internal fun deferredBulk(perform: (isCancelled: () -> Boolean) -> BulkOperationOutcome) = DeferredCompletion(
+  operation = { isCancelled -> perform(isCancelled) == BulkOperationOutcome.APPLIED },
+  completion = { isCancelled ->
+    try {
+      when (perform(isCancelled)) {
+        BulkOperationOutcome.FAILED -> OperationFailedException("Bulk operation failed")
+        else -> null
+      }
+    } catch (exception: CancellationException) {
+      exception
     }
-  } catch (exception: CancellationException) {
-    emitter.tryOnError(exception)
   }
-}
+)

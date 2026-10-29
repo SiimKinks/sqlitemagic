@@ -15,6 +15,7 @@ import com.siimkinks.sqlitemagic.queryDeep
 import com.siimkinks.sqlitemagic.runtime.model.InsertModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Assert.assertThrows
 
 internal data class DatabaseSnapshot<T>(

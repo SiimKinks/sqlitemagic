@@ -6,9 +6,12 @@ import kotlin.annotation.AnnotationTarget.CONSTRUCTOR
 import kotlin.annotation.AnnotationTarget.FUNCTION
 import kotlin.annotation.AnnotationTarget.PROPERTY
 
-/** Marks the runtime API that is used only by SqliteMagic generated code. It may change in any release. */
+/**
+ * Marks the runtime API that is used only by SqliteMagic generated code and reactive adapters. It may change in any
+ * release.
+ */
 @RequiresOptIn(
-  message = "This is SqliteMagic API for generated code; it may change in any release.",
+  message = "This is SqliteMagic API for generated code and reactive adapters; it may change in any release.",
   level = RequiresOptIn.Level.ERROR
 )
 @Retention(BINARY)

@@ -9,7 +9,6 @@ import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
-import io.reactivex.Completable
 
 @InternalSqliteMagicApi
 class UpdateBuilder<M>(
@@ -18,7 +17,7 @@ class UpdateBuilder<M>(
 ) : DefaultIdentityBuilder<EntityUpdateBuilder, M>(adapter), EntityUpdateBuilder {
   override fun execute() = perform(operation = update(identityColumnName()))
 
-  override fun observe() = observeUpdate(
+  internal fun deferred() = deferUpdate(
     entity = entity,
     update = update(identityColumnName())
   )
@@ -37,7 +36,7 @@ class UpdateByColumnBuilder<M>(
 ) : OperationBuilder<EntityUpdateByColumnBuilder<M>>(adapter), EntityUpdateByColumnBuilder<M> {
   override fun execute(byColumn: Unique<M>) = perform(operation = update(byColumn))
 
-  override fun observe(byColumn: Unique<M>) = observeUpdate(
+  internal fun deferred(byColumn: Unique<M>) = deferUpdate(
     entity = entity,
     update = update(byColumn)
   )
@@ -56,7 +55,7 @@ class BulkUpdateBuilder<M>(
 ) : DefaultIdentityBuilder<EntityBulkUpdateBuilder, M>(adapter), EntityBulkUpdateBuilder {
   override fun execute() = executeBulk(update(identityColumnName()))
 
-  override fun observe() = observeBulk(update(identityColumnName()))
+  internal fun deferred() = deferBulk(update(identityColumnName()))
 
   private fun update(columnName: String) = bulkUpdate(
     adapter = adapter,
@@ -72,7 +71,7 @@ class BulkUpdateByColumnBuilder<M>(
 ) : OperationBuilder<EntityBulkUpdateByColumnBuilder<M>>(adapter), EntityBulkUpdateByColumnBuilder<M> {
   override fun execute(byColumn: Unique<M>) = executeBulk(update(byColumn))
 
-  override fun observe(byColumn: Unique<M>) = observeBulk(update(byColumn))
+  internal fun deferred(byColumn: Unique<M>) = deferBulk(update(byColumn))
 
   private fun update(byColumn: Unique<M>) = bulkUpdate(
     adapter = adapter,
@@ -108,15 +107,21 @@ private fun <M> bulkUpdate(
   )
 }
 
-private fun OperationBuilder<*>.observeUpdate(entity: Any?, update: (OperationContext) -> Boolean) =
+private fun OperationBuilder<*>.deferUpdate(entity: Any?, update: (OperationContext) -> Boolean) =
   configurationSnapshot().let { configuration ->
-    Completable.fromAction {
-      val updated = perform(
+    val execute = { _: () -> Boolean ->
+      perform(
         operation = update,
         configuration = configuration
       )
-      if (!updated && configuration.conflictAlgorithm != CONFLICT_IGNORE) {
-        throw OperationFailedException("Failed to update $entity")
-      }
     }
+    DeferredCompletion(
+      operation = execute,
+      completion = { isCancelled ->
+        when {
+          execute(isCancelled) || configuration.conflictAlgorithm == CONFLICT_IGNORE -> null
+          else -> OperationFailedException("Failed to update $entity")
+        }
+      }
+    )
   }

@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.defaultWritableDatabase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 import org.junit.After
 import org.junit.Assert.assertThrows

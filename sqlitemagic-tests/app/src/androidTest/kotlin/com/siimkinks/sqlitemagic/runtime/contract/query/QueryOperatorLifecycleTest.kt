@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTAB
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.BackpressureStrategy
 import io.reactivex.Observable
 import org.junit.Rule

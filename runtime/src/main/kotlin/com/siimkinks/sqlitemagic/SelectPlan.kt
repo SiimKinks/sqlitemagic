@@ -3,12 +3,10 @@ package com.siimkinks.sqlitemagic
 import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteProgram
 import androidx.sqlite.db.SupportSQLiteQuery
+import com.siimkinks.sqlitemagic.internal.QueryObservation
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
 import com.siimkinks.sqlitemagic.internal.sql.bindNativeValues
-import io.reactivex.Observable
-import io.reactivex.Scheduler
-import io.reactivex.plugins.RxJavaPlugins
 
 /**
  * Compiled SQL SELECT statement.
@@ -54,9 +52,9 @@ sealed class SelectPlan<T>(
     )
   )
 
-  internal fun notifications(): Observable<Query<T>> {
+  internal fun observation(): QueryObservation<T> {
     boundArguments()
-    return RxJavaPlugins.onAssembly(QueryNotifications(this))
+    return QueryObservation(this)
   }
 }
 
@@ -125,32 +123,6 @@ class CompiledSelect<T> internal constructor(
    */
   fun execute(): List<T> = executePlan()
 
-  /**
-   * Create an observable which will notify subscribers with a [Query] for execution.
-   *
-   * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
-   * the data of the queried tables changes through the SqliteMagic provided operations. Unsubscribe when you no
-   * longer want updates to a query.
-   *
-   * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
-   * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
-   * the immediate notification sent on subscribe also uses this scheduler. As such, calling
-   * [Observable.subscribeOn] on the returned observable has no effect.
-   *
-   * Changes made while a notification is being processed are combined into one further notification.
-   *
-   * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
-   * `skip(1)` on the returned observable.
-   *
-   * One might want to explore the returned type methods for convenience query related operators.
-   *
-   * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
-   * will the operation occur.
-   *
-   * @throws IllegalArgumentException if the query has parameters without bound values
-   */
-  fun observe() = ListQueryObservable(notifications())
-
   override fun mapRows(cursor: Cursor, isDisposed: () -> Boolean): List<T> = cursor.use { rows ->
     val read = reader.open()
     buildList(rows.count) {
@@ -203,32 +175,6 @@ class CompiledFirst<T> internal constructor(
    */
   fun execute(): T? = executePlan()
 
-  /**
-   * Create an observable which will notify subscribers with a [Query] for execution.
-   *
-   * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
-   * the data of the queried tables changes through the SqliteMagic provided operations. Unsubscribe when you no
-   * longer want updates to a query.
-   *
-   * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
-   * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
-   * the immediate notification sent on subscribe also uses this scheduler. As such, calling
-   * [Observable.subscribeOn] on the returned observable has no effect.
-   *
-   * Changes made while a notification is being processed are combined into one further notification.
-   *
-   * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
-   * `skip(1)` on the returned observable.
-   *
-   * One might want to explore the returned type methods for convenience query related operators.
-   *
-   * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
-   * will the operation occur.
-   *
-   * @throws IllegalArgumentException if the query has parameters without bound values
-   */
-  fun observe() = SingleItemQueryObservable(notifications())
-
   override fun mapRows(cursor: Cursor, isDisposed: () -> Boolean): T? = cursor.use { rows ->
     when {
       rows.moveToNext() -> reader.open()(rows, 0)
@@ -273,32 +219,6 @@ class CompiledCount internal constructor(
    * @throws IllegalArgumentException if the query has parameters without bound values
    */
   fun execute(): Long = executePlan()
-
-  /**
-   * Create an observable which will notify subscribers with a [Query] for execution.
-   *
-   * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
-   * the data of the queried tables changes through the SqliteMagic provided operations. Unsubscribe when you no
-   * longer want updates to a query.
-   *
-   * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
-   * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
-   * the immediate notification sent on subscribe also uses this scheduler. As such, calling
-   * [Observable.subscribeOn] on the returned observable has no effect.
-   *
-   * Changes made while a notification is being processed are combined into one further notification.
-   *
-   * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
-   * `skip(1)` on the returned observable.
-   *
-   * One might want to explore the returned type methods for convenience query related operators.
-   *
-   * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
-   * will the operation occur.
-   *
-   * @throws IllegalArgumentException if the query has parameters without bound values
-   */
-  fun observe() = CountQueryObservable(notifications())
 
   override fun mapRows(cursor: Cursor, isDisposed: () -> Boolean): Long = cursor.use { rows ->
     rows.moveToNext()
@@ -347,33 +267,6 @@ class CompiledCursor<T> internal constructor(
    * @throws IllegalArgumentException if the query has parameters without bound values
    */
   fun execute(): Cursor = executePlan()
-
-  /**
-   * Create an observable which will notify subscribers with a [Query] for execution. Subscribers are responsible for
-   * **always** closing [Cursor] instance returned from the [Query].
-   *
-   * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
-   * the data of the queried tables changes through the SqliteMagic provided operations. Unsubscribe when you no
-   * longer want updates to a query.
-   *
-   * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
-   * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
-   * the immediate notification sent on subscribe also uses this scheduler. As such, calling
-   * [Observable.subscribeOn] on the returned observable has no effect.
-   *
-   * Changes made while a notification is being processed are combined into one further notification.
-   *
-   * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
-   * `skip(1)` on the returned observable.
-   *
-   * One might want to explore the returned type methods for convenience query related operators.
-   *
-   * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
-   * will the operation occur.
-   *
-   * @throws IllegalArgumentException if the query has parameters without bound values
-   */
-  fun observe() = SingleItemQueryObservable(notifications())
 
   /**
    * Read the row at the current cursor position.

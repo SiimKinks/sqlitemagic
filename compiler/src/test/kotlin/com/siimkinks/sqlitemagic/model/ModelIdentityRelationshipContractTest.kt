@@ -114,6 +114,7 @@ internal class ModelIdentityRelationshipContractTest {
 
             import com.siimkinks.sqlitemagic.delete
             import com.siimkinks.sqlitemagic.persist
+            import com.siimkinks.sqlitemagic.rxjava2.observe
             import com.siimkinks.sqlitemagic.update
 
             fun updateExecute(note: SluggedNote) = note.update().execute()
@@ -1163,6 +1164,7 @@ internal class ModelIdentityRelationshipContractTest {
               import com.siimkinks.sqlitemagic.SluggedNoteTable
               import com.siimkinks.sqlitemagic.delete
               import com.siimkinks.sqlitemagic.persist
+              import com.siimkinks.sqlitemagic.rxjava2.observe
               import com.siimkinks.sqlitemagic.update
 
               private val slugColumn = SluggedNoteTable.SLUGGED_NOTE.SLUG

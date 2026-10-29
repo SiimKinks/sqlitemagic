@@ -30,6 +30,7 @@ import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.insertedRowId
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 import org.junit.Rule
 import org.junit.Test

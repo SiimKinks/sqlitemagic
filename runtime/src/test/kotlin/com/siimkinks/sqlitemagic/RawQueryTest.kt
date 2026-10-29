@@ -178,7 +178,14 @@ internal class RawQueryTest {
         wide::execute,
         wide.takeFirst()::execute,
         narrow.takeFirst()::execute,
-        { wide.observe().blockingGet() }
+        {
+          wide
+            .compile()
+            .plan
+            .observation()
+            .query
+            .runBlocking()
+        }
       ).map { execution ->
         assertThrows(IllegalStateException::class.java) { execution() }.message
       }
@@ -230,90 +237,6 @@ internal class RawQueryTest {
             )
           )
         }
-      }
-    }
-  }
-
-  @Test
-  fun `declared queries stream while undeclared ones run once`() {
-    personDatabase().use { database ->
-      val connection = database.dbConnection()
-      val names = SELECT
-        .RAW("SELECT name FROM person WHERE age < 18 ORDER BY id")
-        .readAs(PERSON.NAME)
-        .usingConnection(connection)
-      val streamed = names
-        .observes(PERSON)
-        .observe()
-        .runQuery()
-        .test()
-      val firstStreamed = names
-        .observes(PERSON)
-        .takeFirst()
-        .observe()
-        .runQuery()
-        .test()
-      val once = names
-        .observe()
-        .test()
-      val emptyFirst = SELECT
-        .RAW("SELECT name FROM person WHERE id < 0")
-        .readAs(STRING)
-        .usingConnection(connection)
-        .takeFirst()
-        .observe()
-        .test()
-      val cursors = SELECT
-        .RAW("PRAGMA table_info('person')")
-        .usingConnection(connection)
-        .toCursor()
-        .observe()
-        .test()
-      UPDATE
-        .RAW("UPDATE person SET name = ? WHERE id = ?", "Kid", 3L)
-        .notifies(PERSON)
-        .usingConnection(connection)
-        .execute()
-
-      assertThat(streamed.values()).isEqualTo(listOf(listOf(null, "Linus"), listOf("Kid", "Linus")))
-      streamed.assertNotComplete()
-      assertThat(firstStreamed.values()).isEqualTo(listOf("Kid"))
-      assertThat(once.values()).isEqualTo(listOf(listOf(null, "Linus")))
-      once.assertComplete()
-      emptyFirst
-        .assertNoValues()
-        .assertComplete()
-      cursors
-        .assertComplete()
-        .values()
-        .single()
-        .use { cursor ->
-          assertThat(cursor.isClosed).isFalse()
-          assertThat(cursor.count).isEqualTo(6)
-        }
-      streamed.dispose()
-      firstStreamed.dispose()
-    }
-  }
-
-  @Test
-  fun `undeclared observation rejects subscription in a transaction`() {
-    personDatabase().use { database ->
-      val connection = database.dbConnection()
-      val transaction = connection.newTransaction()
-      val observer = try {
-        SELECT
-          .RAW("SELECT 1")
-          .readAs(LONG)
-          .usingConnection(connection)
-          .observe()
-          .test()
-      } finally {
-        transaction.end()
-      }
-
-      observer.assertError {
-        it is IllegalStateException && it.message == "Cannot subscribe to observable query in a transaction."
       }
     }
   }

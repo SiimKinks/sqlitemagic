@@ -5,28 +5,26 @@ import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityAdapterMetadata
-import io.reactivex.observers.TestObserver
-import io.reactivex.plugins.RxJavaPlugins
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.util.concurrent.CancellationException
 
 internal class OperationExecutionTest {
   @Test
-  fun `bulk outcomes complete unless the operation failed`() {
-    BulkOperationOutcome.entries.forEach { outcome ->
-      val observer = executeBulkRxOperation(
-        contextFactory = ::context,
-        operation = { _, _ -> outcome }
-      )
-        .test()
-        .withTag(outcome.name)
-
-      when (outcome) {
-        BulkOperationOutcome.FAILED -> observer.assertFailure(OperationFailedException::class.java)
-        else -> observer.assertResult()
-      }
+  fun `deferred bulk outcomes execute as applied only and complete unless the operation failed`() {
+    val results = BulkOperationOutcome.entries.associateWith { outcome ->
+      val operation = deferredBulk { outcome }
+      operation.execute(isCancelled = { false }) to operation.complete(isCancelled = { false })?.toString()
     }
+
+    assertThat(results).isEqualTo(
+      mapOf(
+        BulkOperationOutcome.APPLIED to (true to null),
+        BulkOperationOutcome.EMPTY to (false to null),
+        BulkOperationOutcome.IGNORED to (false to null),
+        BulkOperationOutcome.FAILED to (false to "${OperationFailedException::class.java.name}: Bulk operation failed")
+      )
+    )
   }
 
   @Test
@@ -90,46 +88,6 @@ internal class OperationExecutionTest {
       )
     assertThat(connection.triggers).isEmpty()
   }
-
-  @Test
-  fun `cancellation exception without disposal is emitted`() {
-    val cancellation = CancellationException("not caused by disposal")
-
-    executeBulkRxOperation(
-      contextFactory = ::context,
-      operation = { _, _ -> throw cancellation }
-    )
-      .test()
-      .assertFailure(cancellation::equals)
-  }
-
-  @Test
-  fun `cancellation exception after disposal is suppressed`() {
-    val pluginErrors = mutableListOf<Throwable>()
-    RxJavaPlugins.setErrorHandler(pluginErrors::add)
-    try {
-      val observer = TestObserver<Void>()
-      var cancelled = false
-
-      executeBulkRxOperation(
-        contextFactory = ::context,
-        operation = { _, isCancelled ->
-          observer.dispose()
-          cancelled = isCancelled()
-          throw CancellationException()
-        }
-      )
-        .subscribe(observer)
-
-      observer.assertEmpty()
-      assertThat(cancelled).isTrue()
-      assertThat(pluginErrors).isEmpty()
-    } finally {
-      RxJavaPlugins.reset()
-    }
-  }
-
-  private fun context() = contextFor(newConnection().connection)
 
   private fun contextFor(
     connection: DbConnectionImpl,

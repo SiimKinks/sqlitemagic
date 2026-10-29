@@ -56,6 +56,7 @@ dependencies {
   implementation(libs.rx.android2)
   implementation(libs.compose.runtime.rxjava2)
   implementation(libs.sqlite.framework)
+  implementation(libs.sqlitemagic.rxjava2)
 
   debugImplementation(libs.compose.ui.tooling)
   androidTestImplementation(libs.android.test.runner)

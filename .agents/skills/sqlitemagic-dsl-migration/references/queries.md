@@ -38,7 +38,7 @@ User code still imports from `com.siimkinks.sqlitemagic`.
   `INTERSECT`, `EXCEPT`; `CONCAT`; top-level SQL functions (`COUNT`, `SUM`, `TOTAL`, `AVG`, `MIN`, `MAX`, `GROUP_CONCAT`,
   `LOWER`, `UPPER`, `LENGTH`, `ABS`, `SUBSTRING`, `TRIM`, `REPLACE`, `FORMAT`, `IFNULL`, `COALESCE`, `NULLIF`,
   `CAST`, `EXISTS`, `NOT_EXISTS`); and the extensions `queryDeep`, `mapTo`, `readAs`, `asScalar`, `asValue`,
-  `asLiteral`, `expr` and raw `observe`.
+  `asLiteral` and `expr`; every `observe()` comes from `com.siimkinks.sqlitemagic.rxjava2`.
 - Legacy `Select.Companion.count`, `Select.Companion.asColumn` and similar companion imports go away with the calls.
 
 The sample app's view ([Views](statements-and-types.md#views)) changed its imports like this; `IS` and `ORDER_BY`
@@ -82,7 +82,8 @@ query.execute()
 - Final configuration after the last clause: `queryDeep()`, `readAs(…)`, `mapTo(…)`, `usingConnection(…)`. No
   clause follows them. Put `mapTo` after `readAs`: a later `readAs` replaces the whole reader, dropping an earlier
   mapping. `usingConnection` goes before or after the others.
-- Terminals: `execute()`, `takeFirst()`, `count()`, `toCursor()`, `compile()`, `observe()`.
+- Terminals: `execute()`, `takeFirst()`, `count()`, `toCursor()`, `compile()`, and `observe()` from the
+  `sqlitemagic-rxjava2` adapter.
 - `LIMIT`/`OFFSET` take `Int` or `Long`.
 
 ## Entity queries

@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.inTransaction
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.queryDeep
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.Completable
 
 @Table

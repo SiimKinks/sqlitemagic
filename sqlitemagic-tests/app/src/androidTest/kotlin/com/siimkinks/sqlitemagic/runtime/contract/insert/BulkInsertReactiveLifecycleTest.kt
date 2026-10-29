@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.disposeAfterFirst
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.observers.TestObserver
 import org.junit.Rule
 import org.junit.Test

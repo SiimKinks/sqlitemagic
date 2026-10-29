@@ -7,10 +7,10 @@ import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DeclaredTables
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
-import com.siimkinks.sqlitemagic.observe
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.readStrings
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.After
 import org.junit.Before
 import org.junit.Test

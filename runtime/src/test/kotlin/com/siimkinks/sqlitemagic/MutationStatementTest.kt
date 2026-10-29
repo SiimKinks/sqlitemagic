@@ -398,25 +398,6 @@ internal class MutationStatementTest {
   }
 
   @Test
-  fun `observe is cold and executes on every subscription`() {
-    personDatabase().use { database ->
-      val connection = database.dbConnection()
-      val birthday = (UPDATE TABLE PERSON SET (PERSON.AGE to PERSON.AGE + 1) WHERE (PERSON.ID IS 1L))
-        .usingConnection(connection)
-        .observe()
-
-      assertThat(connection.persons()).isEqualTo(people)
-      birthday
-        .test()
-        .assertResult(1)
-      birthday
-        .test()
-        .assertResult(1)
-      assertThat(connection.persons()).isEqualTo(listOf(ada.copy(age = 38), grace, unnamed, linus))
-    }
-  }
-
-  @Test
   fun `stages branch into independent statements`() {
     val renamed = UPDATE TABLE PERSON SET (PERSON.NAME to "X")
 

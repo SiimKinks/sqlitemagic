@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertDatabaseSnapshotIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -111,6 +111,7 @@ internal class SqlParameterContractTest {
     val cases = listOf(
       "missing" to { plan.bind() },
       "missing at execution" to plan::execute,
+      "missing at observation" to plan::observation,
       "unexpected" to { plan.bind(impostor TO true) },
       "duplicate" to { plan.bind(parameter TO true, parameter TO false) }
     )
@@ -123,6 +124,7 @@ internal class SqlParameterContractTest {
       listOf(
         "missing" to "Missing parameter 'x'",
         "missing at execution" to "Missing parameter 'x'",
+        "missing at observation" to "Missing parameter 'x'",
         "unexpected" to "Unexpected parameter 'x'",
         "duplicate" to "Duplicate parameter 'x'"
       )

@@ -246,6 +246,7 @@ property. Selected values keep the property's type, as legacy typed them.
 | Observed queries combine changes made during an emission into one further emission; a write inside an emission emits after that emission returns | don't count emissions as writes; each emission reads the current data |
 | Observing a query on a closed connection completes without emitting; its `Single` results (`runQueryOnce()`, `runQueryOnceOrDefault()`, `observe()` of a raw SELECT without declared tables) fail with `NoSuchElementException` | observe only open connections |
 | `count()` skips joins that only an entity read needs; its observer re-runs only for tables that can change the count | none |
+| Without `scheduleRxQueriesOn`, observed queries look up `Schedulers.io()` when subscribed, so an `RxJavaPlugins` io handler set after setup applies | none |
 | Values inside view definitions render as SQL literals; legacy failed view creation with bound arguments | drop `asColumn` workarounds |
 | `Float`/`Double` NaN is rejected with `IllegalArgumentException` when encoded | handle NaN before building SQL values |
 | `FastCursor.moveToNext()` past the last row moves to `position == count` | backward traversal after a failed forward move starts at the last row |

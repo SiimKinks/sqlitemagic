@@ -1,0 +1,69 @@
+public class com/siimkinks/sqlitemagic/rxjava2/CountQueryObservable : com/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable {
+	public final fun isNotZero ()Lio/reactivex/Observable;
+	public final fun isZero ()Lio/reactivex/Observable;
+}
+
+public final class com/siimkinks/sqlitemagic/rxjava2/EntityOperationsKt {
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityBulkDeleteBuilder;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityBulkDeleteByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityBulkInsertBuilder;)Lio/reactivex/Completable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityBulkPersistBuilder;)Lio/reactivex/Completable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityBulkPersistByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityBulkUpdateBuilder;)Lio/reactivex/Completable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityBulkUpdateByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityDeleteBuilder;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityDeleteByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityDeleteTableBuilder;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityInsertBuilder;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityPersistBuilder;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityPersistByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateBuilder;)Lio/reactivex/Completable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
+}
+
+public class com/siimkinks/sqlitemagic/rxjava2/ListQueryObservable : io/reactivex/Observable {
+	public fun <init> (Lio/reactivex/Observable;)V
+	public final fun runQuery ()Lio/reactivex/Observable;
+	public final fun runQueryOnce ()Lio/reactivex/Single;
+	protected fun subscribeActual (Lio/reactivex/Observer;)V
+}
+
+public final class com/siimkinks/sqlitemagic/rxjava2/MutationObservablesKt {
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledMutation;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/MutationQuery;)Lio/reactivex/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/RawMutationQuery;)Lio/reactivex/Single;
+}
+
+public final class com/siimkinks/sqlitemagic/rxjava2/QueryMaybeKt {
+	public static final fun run (Lcom/siimkinks/sqlitemagic/Query;)Lio/reactivex/Maybe;
+}
+
+public final class com/siimkinks/sqlitemagic/rxjava2/QueryObservablesKt {
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledCount;)Lcom/siimkinks/sqlitemagic/rxjava2/CountQueryObservable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledCursor;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledFirst;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledSelect;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
+	public static final fun observeDeclaredRawCursor (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
+	public static final fun observeDeclaredRawFirst (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
+	public static final fun observeDeclaredRawQuery (Lcom/siimkinks/sqlitemagic/RawSelectQuery;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
+	public static final fun observeDeclaredRawRows (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
+	public static final fun observeUndeclaredRawCursor (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lio/reactivex/Single;
+	public static final fun observeUndeclaredRawFirst (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lio/reactivex/Maybe;
+	public static final fun observeUndeclaredRawQuery (Lcom/siimkinks/sqlitemagic/RawSelectQuery;)Lio/reactivex/Single;
+	public static final fun observeUndeclaredRawRows (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lio/reactivex/Single;
+}
+
+public final class com/siimkinks/sqlitemagic/rxjava2/QuerySchedulerKt {
+	public static final fun scheduleRxQueriesOn (Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;Lio/reactivex/Scheduler;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
+}
+
+public class com/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable : io/reactivex/Observable {
+	public fun <init> (Lio/reactivex/Observable;)V
+	public final fun runQuery ()Lio/reactivex/Observable;
+	public final fun runQueryOnce ()Lio/reactivex/Maybe;
+	public final fun runQueryOnceOrDefault (Ljava/lang/Object;)Lio/reactivex/Single;
+	public final fun runQueryOrDefault (Ljava/lang/Object;)Lio/reactivex/Observable;
+	protected fun subscribeActual (Lio/reactivex/Observer;)V
+}
+

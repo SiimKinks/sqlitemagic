@@ -17,6 +17,7 @@ import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.assertSimpleRows
 import com.siimkinks.sqlitemagic.runtime.support.insertSimpleRow
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 

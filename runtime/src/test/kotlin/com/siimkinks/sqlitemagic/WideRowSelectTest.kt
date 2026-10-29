@@ -128,9 +128,10 @@ internal class WideRowSelectTest {
         listOf(
           connected.execute(),
           connected
-            .observe()
-            .runQueryOnce()
-            .blockingGet()
+            .compile()
+            .observation()
+            .query
+            .runBlocking()
         )
       ).isEqualTo(listOf(expected, expected))
     }

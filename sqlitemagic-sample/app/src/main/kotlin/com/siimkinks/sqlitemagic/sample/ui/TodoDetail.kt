@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.siimkinks.sqlitemagic.delete
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.sample.data.TodoItem
 import com.siimkinks.sqlitemagic.sample.data.TodoList
 import io.reactivex.android.schedulers.AndroidSchedulers

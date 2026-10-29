@@ -98,7 +98,6 @@ public final class com/siimkinks/sqlitemagic/CompiledCount : com/siimkinks/sqlit
 	public final fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/CompiledCount;
 	public final fun execute ()J
 	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
-	public final fun observe ()Lcom/siimkinks/sqlitemagic/CountQueryObservable;
 }
 
 public final class com/siimkinks/sqlitemagic/CompiledCursor : com/siimkinks/sqlitemagic/SelectPlan {
@@ -107,19 +106,16 @@ public final class com/siimkinks/sqlitemagic/CompiledCursor : com/siimkinks/sqli
 	public final fun execute ()Landroid/database/Cursor;
 	public final fun getFromCurrentPosition (Landroid/database/Cursor;)Ljava/lang/Object;
 	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
-	public final fun observe ()Lcom/siimkinks/sqlitemagic/SingleItemQueryObservable;
 }
 
 public final class com/siimkinks/sqlitemagic/CompiledFirst : com/siimkinks/sqlitemagic/SelectPlan {
 	public final fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/CompiledFirst;
 	public final fun execute ()Ljava/lang/Object;
-	public final fun observe ()Lcom/siimkinks/sqlitemagic/SingleItemQueryObservable;
 }
 
 public final class com/siimkinks/sqlitemagic/CompiledMutation {
 	public final fun execute ()I
 	public final fun getSql ()Ljava/lang/String;
-	public final fun observe ()Lio/reactivex/Single;
 }
 
 public class com/siimkinks/sqlitemagic/CompiledRawCursor {
@@ -145,7 +141,6 @@ public final class com/siimkinks/sqlitemagic/CompiledSelect : com/siimkinks/sqli
 	public final fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/CompiledSelect;
 	public final fun execute ()Ljava/util/List;
 	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
-	public final fun observe ()Lcom/siimkinks/sqlitemagic/ListQueryObservable;
 }
 
 public final class com/siimkinks/sqlitemagic/CompoundsKt {
@@ -195,11 +190,6 @@ public final class com/siimkinks/sqlitemagic/ConflictAlgorithm$Companion {
 	public final fun getCONFLICT_VALUES ()[Ljava/lang/String;
 }
 
-public class com/siimkinks/sqlitemagic/CountQueryObservable : com/siimkinks/sqlitemagic/SingleItemQueryObservable {
-	public final fun isNotZero ()Lio/reactivex/Observable;
-	public final fun isZero ()Lio/reactivex/Observable;
-}
-
 public final class com/siimkinks/sqlitemagic/Cte : com/siimkinks/sqlitemagic/QueryOutputSource {
 	public final fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Cte;
 	public synthetic fun getOccurrence$com_siimkinks_sqlitemagic_runtime ()Lcom/siimkinks/sqlitemagic/QueryOutputTable;
@@ -236,7 +226,6 @@ public final class com/siimkinks/sqlitemagic/DeleteFromStage : com/siimkinks/sql
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
-	public fun observe ()Lio/reactivex/Single;
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
@@ -388,13 +377,6 @@ public final class com/siimkinks/sqlitemagic/LimitClause$DefaultImpls {
 	public static fun LIMIT (Lcom/siimkinks/sqlitemagic/LimitClause;J)Lcom/siimkinks/sqlitemagic/SelectLimitStage;
 }
 
-public class com/siimkinks/sqlitemagic/ListQueryObservable : io/reactivex/Observable {
-	public fun <init> (Lio/reactivex/Observable;)V
-	public final fun runQuery ()Lio/reactivex/Observable;
-	public final fun runQueryOnce ()Lio/reactivex/Single;
-	protected fun subscribeActual (Lio/reactivex/Observer;)V
-}
-
 public abstract interface class com/siimkinks/sqlitemagic/Logger {
 	public abstract fun logDebug (Ljava/lang/String;)V
 	public abstract fun logError (Ljava/lang/String;Ljava/lang/Throwable;)V
@@ -404,13 +386,11 @@ public abstract interface class com/siimkinks/sqlitemagic/MutationQuery {
 	public abstract fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public abstract fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
-	public fun observe ()Lio/reactivex/Single;
 	public abstract fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
 public final class com/siimkinks/sqlitemagic/MutationQuery$DefaultImpls {
 	public static fun execute (Lcom/siimkinks/sqlitemagic/MutationQuery;)I
-	public static fun observe (Lcom/siimkinks/sqlitemagic/MutationQuery;)Lio/reactivex/Single;
 }
 
 public final class com/siimkinks/sqlitemagic/MutationsKt {
@@ -494,7 +474,6 @@ public final class com/siimkinks/sqlitemagic/QueriesKt {
 }
 
 public abstract class com/siimkinks/sqlitemagic/Query {
-	public final fun run ()Lio/reactivex/Maybe;
 	public final fun runBlocking ()Ljava/lang/Object;
 }
 
@@ -526,7 +505,6 @@ public final class com/siimkinks/sqlitemagic/RawMutationQuery {
 	public final fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public final fun execute ()I
 	public final fun notifies (Lcom/siimkinks/sqlitemagic/Table;[Lcom/siimkinks/sqlitemagic/Table;)Lcom/siimkinks/sqlitemagic/RawMutationQuery;
-	public final fun observe ()Lio/reactivex/Single;
 	public final fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/RawMutationQuery;
 }
 
@@ -556,15 +534,6 @@ public final class com/siimkinks/sqlitemagic/RawSelectMappingKt {
 	public static final fun mapTo (Lcom/siimkinks/sqlitemagic/RawSelectQuery;Lkotlin/jvm/functions/Function9;)Lcom/siimkinks/sqlitemagic/RawSelectQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/RawSelectPlanKt {
-	public static final fun observeDeclaredRawCursor (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lcom/siimkinks/sqlitemagic/SingleItemQueryObservable;
-	public static final fun observeDeclaredRawFirst (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lcom/siimkinks/sqlitemagic/SingleItemQueryObservable;
-	public static final fun observeDeclaredRawRows (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lcom/siimkinks/sqlitemagic/ListQueryObservable;
-	public static final fun observeUndeclaredRawCursor (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lio/reactivex/Single;
-	public static final fun observeUndeclaredRawFirst (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lio/reactivex/Maybe;
-	public static final fun observeUndeclaredRawRows (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lio/reactivex/Single;
-}
-
 public class com/siimkinks/sqlitemagic/RawSelectQuery {
 	public final fun compile ()Lcom/siimkinks/sqlitemagic/CompiledRawSelect;
 	public final fun execute ()Ljava/util/List;
@@ -572,11 +541,6 @@ public class com/siimkinks/sqlitemagic/RawSelectQuery {
 	public final fun takeFirst ()Lcom/siimkinks/sqlitemagic/CompiledRawFirst;
 	public final fun toCursor ()Lcom/siimkinks/sqlitemagic/CompiledRawReadCursor;
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/RawSelectQuery;
-}
-
-public final class com/siimkinks/sqlitemagic/RawSelectQueryKt {
-	public static final fun observeDeclaredRawQuery (Lcom/siimkinks/sqlitemagic/RawSelectQuery;)Lcom/siimkinks/sqlitemagic/ListQueryObservable;
-	public static final fun observeUndeclaredRawQuery (Lcom/siimkinks/sqlitemagic/RawSelectQuery;)Lio/reactivex/Single;
 }
 
 public final class com/siimkinks/sqlitemagic/RawSqlExpression : com/siimkinks/sqlitemagic/SqlExpression {
@@ -965,7 +929,6 @@ public class com/siimkinks/sqlitemagic/SelectQuery : com/siimkinks/sqlitemagic/Q
 	public final fun execute ()Ljava/util/List;
 	public final fun getHandle ()Lcom/siimkinks/sqlitemagic/QueryHandle;
 	public synthetic fun getOccurrence$com_siimkinks_sqlitemagic_runtime ()Lcom/siimkinks/sqlitemagic/QueryOutputTable;
-	public final fun observe ()Lcom/siimkinks/sqlitemagic/ListQueryObservable;
 	public final fun takeFirst ()Lcom/siimkinks/sqlitemagic/CompiledFirst;
 	public final fun toCursor ()Lcom/siimkinks/sqlitemagic/CompiledCursor;
 	public final fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/SelectQuery;
@@ -1001,15 +964,6 @@ public final class com/siimkinks/sqlitemagic/SimpleCaseBranches : com/siimkinks/
 }
 
 public final class com/siimkinks/sqlitemagic/SimpleCaseWhen {
-}
-
-public class com/siimkinks/sqlitemagic/SingleItemQueryObservable : io/reactivex/Observable {
-	public fun <init> (Lio/reactivex/Observable;)V
-	public final fun runQuery ()Lio/reactivex/Observable;
-	public final fun runQueryOnce ()Lio/reactivex/Maybe;
-	public final fun runQueryOnceOrDefault (Ljava/lang/Object;)Lio/reactivex/Single;
-	public final fun runQueryOrDefault (Ljava/lang/Object;)Lio/reactivex/Observable;
-	protected fun subscribeActual (Lio/reactivex/Observer;)V
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/Source {
@@ -1143,7 +1097,6 @@ public final class com/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder {
 	public final fun name (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 	public final fun openDefaultConnection ()V
 	public final fun openNewConnection ()Lcom/siimkinks/sqlitemagic/DbConnection;
-	public final fun scheduleRxQueriesOn (Lio/reactivex/Scheduler;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 	public final fun sqliteFactory (Landroidx/sqlite/db/SupportSQLiteOpenHelper$Factory;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 }
 
@@ -1251,7 +1204,6 @@ public final class com/siimkinks/sqlitemagic/UpdateSetStage : com/siimkinks/sqli
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
-	public fun observe ()Lio/reactivex/Single;
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
@@ -1317,57 +1269,46 @@ public abstract interface class com/siimkinks/sqlitemagic/entity/ConnectionProvi
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityBulkDeleteBuilder : com/siimkinks/sqlitemagic/entity/ConnectionProvidedOperation {
 	public abstract fun execute ()I
-	public abstract fun observe ()Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityBulkDeleteByColumnBuilder : com/siimkinks/sqlitemagic/entity/ConnectionProvidedOperation {
 	public abstract fun execute (Lcom/siimkinks/sqlitemagic/Unique;)I
-	public abstract fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityBulkInsertBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationBuilder {
 	public abstract fun execute ()Z
-	public abstract fun observe ()Lio/reactivex/Completable;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityBulkPersistBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationByColumnBuilder, com/siimkinks/sqlitemagic/entity/EntityPersistOperationBuilder {
 	public abstract fun execute ()Z
-	public abstract fun observe ()Lio/reactivex/Completable;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityBulkPersistByColumnBuilder : com/siimkinks/sqlitemagic/entity/EntityPersistOperationBuilder {
 	public abstract fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
-	public abstract fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityBulkUpdateBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationBuilder, com/siimkinks/sqlitemagic/entity/EntityOperationByColumnBuilder {
 	public abstract fun execute ()Z
-	public abstract fun observe ()Lio/reactivex/Completable;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityBulkUpdateByColumnBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationBuilder {
 	public abstract fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
-	public abstract fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityDeleteBuilder : com/siimkinks/sqlitemagic/entity/ConnectionProvidedOperation {
 	public abstract fun execute ()I
-	public abstract fun observe ()Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityDeleteByColumnBuilder : com/siimkinks/sqlitemagic/entity/ConnectionProvidedOperation {
 	public abstract fun execute (Lcom/siimkinks/sqlitemagic/Unique;)I
-	public abstract fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityDeleteTableBuilder : com/siimkinks/sqlitemagic/entity/ConnectionProvidedOperation {
 	public abstract fun execute ()I
-	public abstract fun observe ()Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityInsertBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationBuilder {
 	public abstract fun execute ()Lcom/siimkinks/sqlitemagic/entity/EntityInsertResult;
-	public abstract fun observe ()Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityInsertResult {
@@ -1401,12 +1342,10 @@ public abstract interface class com/siimkinks/sqlitemagic/entity/EntityOperation
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityPersistBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationByColumnBuilder, com/siimkinks/sqlitemagic/entity/EntityPersistOperationBuilder {
 	public abstract fun execute ()Lcom/siimkinks/sqlitemagic/entity/EntityPersistResult;
-	public abstract fun observe ()Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityPersistByColumnBuilder : com/siimkinks/sqlitemagic/entity/EntityPersistOperationBuilder {
 	public abstract fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/entity/EntityPersistResult;
-	public abstract fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityPersistOperationBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationBuilder {
@@ -1443,12 +1382,10 @@ public final class com/siimkinks/sqlitemagic/entity/EntityPersistResult$Updated 
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityUpdateBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationBuilder, com/siimkinks/sqlitemagic/entity/EntityOperationByColumnBuilder {
 	public abstract fun execute ()Z
-	public abstract fun observe ()Lio/reactivex/Completable;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/entity/EntityUpdateByColumnBuilder : com/siimkinks/sqlitemagic/entity/EntityOperationBuilder {
 	public abstract fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
-	public abstract fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
 }
 
 public final class com/siimkinks/sqlitemagic/exception/OperationFailedException : java/lang/RuntimeException {
@@ -1456,46 +1393,43 @@ public final class com/siimkinks/sqlitemagic/exception/OperationFailedException 
 	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
 }
 
+public final class com/siimkinks/sqlitemagic/internal/AdapterSettingKey {
+	public fun <init> ()V
+}
+
 public final class com/siimkinks/sqlitemagic/internal/BulkDeleteBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityBulkDeleteBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityDefaultIdentityAdapter;Ljava/util/Collection;)V
 	public fun execute ()I
-	public fun observe ()Lio/reactivex/Single;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/BulkDeleteByColumnBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityBulkDeleteByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityIdentityAdapter;Ljava/util/Collection;)V
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)I
-	public fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/BulkInsertBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityBulkInsertBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityAdapter;Ljava/lang/Iterable;)V
 	public fun execute ()Z
-	public fun observe ()Lio/reactivex/Completable;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/BulkPersistBuilder : com/siimkinks/sqlitemagic/internal/DefaultIdentityBuilder, com/siimkinks/sqlitemagic/entity/EntityBulkPersistBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityDefaultIdentityAdapter;Ljava/lang/Iterable;)V
 	public fun execute ()Z
-	public fun observe ()Lio/reactivex/Completable;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/BulkPersistByColumnBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityBulkPersistByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityIdentityAdapter;Ljava/lang/Iterable;)V
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
-	public fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/BulkUpdateBuilder : com/siimkinks/sqlitemagic/internal/DefaultIdentityBuilder, com/siimkinks/sqlitemagic/entity/EntityBulkUpdateBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityDefaultIdentityAdapter;Ljava/lang/Iterable;)V
 	public fun execute ()Z
-	public fun observe ()Lio/reactivex/Completable;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/BulkUpdateByColumnBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityBulkUpdateByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityIdentityAdapter;Ljava/lang/Iterable;)V
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
-	public fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
 }
 
 public abstract class com/siimkinks/sqlitemagic/internal/DefaultIdentityBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityOperationByColumnBuilder {
@@ -1503,22 +1437,27 @@ public abstract class com/siimkinks/sqlitemagic/internal/DefaultIdentityBuilder 
 	public fun byColumn (Lcom/siimkinks/sqlitemagic/Unique;)Ljava/lang/Object;
 }
 
+public final class com/siimkinks/sqlitemagic/internal/DeferredCompletion : com/siimkinks/sqlitemagic/internal/DeferredOperation {
+	public final fun complete (Lkotlin/jvm/functions/Function0;)Ljava/lang/Exception;
+}
+
+public class com/siimkinks/sqlitemagic/internal/DeferredOperation {
+	public final fun execute (Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+}
+
 public final class com/siimkinks/sqlitemagic/internal/DeleteBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityDeleteBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityDefaultIdentityAdapter;Ljava/lang/Object;)V
 	public fun execute ()I
-	public fun observe ()Lio/reactivex/Single;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/DeleteByColumnBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityDeleteByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityIdentityAdapter;Ljava/lang/Object;)V
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)I
-	public fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/DeleteTableBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityDeleteTableBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityAdapter;)V
 	public fun execute ()I
-	public fun observe ()Lio/reactivex/Single;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/internal/EntityAdapter : com/siimkinks/sqlitemagic/internal/EntityAdapterMetadata, com/siimkinks/sqlitemagic/internal/EntityStatementBinder {
@@ -1599,7 +1538,6 @@ public final class com/siimkinks/sqlitemagic/internal/GeneratedView {
 public final class com/siimkinks/sqlitemagic/internal/InsertBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityInsertBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityAdapter;Ljava/lang/Object;)V
 	public fun execute ()Lcom/siimkinks/sqlitemagic/entity/EntityInsertResult;
-	public fun observe ()Lio/reactivex/Single;
 }
 
 public abstract interface annotation class com/siimkinks/sqlitemagic/internal/InternalSqliteMagicApi : java/lang/annotation/Annotation {
@@ -1642,13 +1580,47 @@ public final class com/siimkinks/sqlitemagic/internal/ParameterEncoding {
 public final class com/siimkinks/sqlitemagic/internal/PersistBuilder : com/siimkinks/sqlitemagic/internal/DefaultIdentityBuilder, com/siimkinks/sqlitemagic/entity/EntityPersistBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityDefaultIdentityAdapter;Ljava/lang/Object;)V
 	public fun execute ()Lcom/siimkinks/sqlitemagic/entity/EntityPersistResult;
-	public fun observe ()Lio/reactivex/Single;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/PersistByColumnBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityPersistByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityIdentityAdapter;Ljava/lang/Object;)V
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/entity/EntityPersistResult;
-	public fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Single;
+}
+
+public final class com/siimkinks/sqlitemagic/internal/QueryObservation {
+	public final fun connection ()Lcom/siimkinks/sqlitemagic/DbConnection;
+	public final fun getObservesChanges ()Z
+	public final fun getQuery ()Lcom/siimkinks/sqlitemagic/Query;
+	public final fun register (Lcom/siimkinks/sqlitemagic/DbConnection;Lcom/siimkinks/sqlitemagic/internal/TableChangeObserver;)Ljava/lang/AutoCloseable;
+}
+
+public final class com/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport {
+	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport;
+	public final fun adapterSetting (Lcom/siimkinks/sqlitemagic/DbConnection;Lcom/siimkinks/sqlitemagic/internal/AdapterSettingKey;)Ljava/lang/Object;
+	public final fun adapterSetting (Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;Lcom/siimkinks/sqlitemagic/internal/AdapterSettingKey;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityBulkDeleteBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityBulkDeleteByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityBulkInsertBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityBulkPersistBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityBulkPersistByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityBulkUpdateBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityBulkUpdateByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityDeleteBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityDeleteByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityDeleteTableBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityInsertBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityPersistBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityPersistByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun discardResult (Lcom/siimkinks/sqlitemagic/Query;Ljava/lang/Object;)V
+	public final fun map (Lcom/siimkinks/sqlitemagic/Query;Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+	public static synthetic fun map$default (Lcom/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport;Lcom/siimkinks/sqlitemagic/Query;Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun observation (Lcom/siimkinks/sqlitemagic/SelectPlan;)Lcom/siimkinks/sqlitemagic/internal/QueryObservation;
+	public final fun openCursor (Lcom/siimkinks/sqlitemagic/Query;)Landroid/database/Cursor;
+	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lcom/siimkinks/sqlitemagic/CompiledCursor;
+	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lcom/siimkinks/sqlitemagic/CompiledFirst;
+	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lcom/siimkinks/sqlitemagic/CompiledSelect;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/RelatedEntities {
@@ -1798,6 +1770,11 @@ public abstract interface class com/siimkinks/sqlitemagic/internal/SqliteSchemaP
 public final class com/siimkinks/sqlitemagic/internal/Storage {
 }
 
+public abstract interface class com/siimkinks/sqlitemagic/internal/TableChangeObserver {
+	public abstract fun onClosed ()V
+	public abstract fun onTablesChanged (Ljava/util/Set;)V
+}
+
 public final class com/siimkinks/sqlitemagic/internal/TableRelationship {
 	public fun <init> (Ljava/lang/String;Lkotlin/jvm/functions/Function0;Ljava/lang/String;ZLcom/siimkinks/sqlitemagic/internal/RelationshipRead;)V
 }
@@ -1805,13 +1782,11 @@ public final class com/siimkinks/sqlitemagic/internal/TableRelationship {
 public final class com/siimkinks/sqlitemagic/internal/UpdateBuilder : com/siimkinks/sqlitemagic/internal/DefaultIdentityBuilder, com/siimkinks/sqlitemagic/entity/EntityUpdateBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityDefaultIdentityAdapter;Ljava/lang/Object;)V
 	public fun execute ()Z
-	public fun observe ()Lio/reactivex/Completable;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/UpdateByColumnBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityUpdateByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityIdentityAdapter;Ljava/lang/Object;)V
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
-	public fun observe (Lcom/siimkinks/sqlitemagic/Unique;)Lio/reactivex/Completable;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/ViewBlock {

@@ -39,6 +39,7 @@ import com.siimkinks.sqlitemagic.runtime.model.StandardOperationBuilders
 import com.siimkinks.sqlitemagic.runtime.model.StandardTableDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 
 internal object IdentityModelCatalog {

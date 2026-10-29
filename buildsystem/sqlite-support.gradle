@@ -81,3 +81,7 @@ dependencies {
   compileOnly files(sqliteSupport)
   testImplementation files(sqliteSupport)
 }
+
+plugins.withId('java-test-fixtures') {
+  dependencies.add('testFixturesImplementation', files(sqliteSupport))
+}

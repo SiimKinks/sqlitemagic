@@ -27,6 +27,7 @@ import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.readableDatabase
 import com.siimkinks.sqlitemagic.runtime.support.schemaObjectNames
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 import org.junit.Rule
 import org.junit.Test

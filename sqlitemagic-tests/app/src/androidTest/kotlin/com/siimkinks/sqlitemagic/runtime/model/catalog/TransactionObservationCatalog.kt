@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.rxjava2.observe
 
 internal object TransactionObservationCatalog {
   val simple = SimpleRole

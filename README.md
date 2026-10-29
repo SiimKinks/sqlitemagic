@@ -8,7 +8,7 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 * SQL-first [Kotlin](https://kotlinlang.org/) DSL – queries read like SQL while the compiler checks clause order,
   column types and nullability
 * Minimal setup needed
-* Built in RxJava support with reactive stream semantics on queries and operations
+* RxJava support with reactive stream semantics on queries and operations, through the `sqlitemagic-rxjava2` adapter
 * Built for Kotlin – data classes, generated extension functions and typed result rows
 * Full support for complex columns – related objects and embedded values
 * Support for SQLite views defined with the same DSL
@@ -71,8 +71,8 @@ plugins {
 
 dependencies {
   implementation("androidx.sqlite:sqlite-framework:<sqlite version>")
-  // needed for the reactive observe() APIs
-  implementation("io.reactivex.rxjava2:rxjava:<rxjava version>")
+  // optional: the RxJava 2 observe() APIs; use the same version as the plugin
+  implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava2:<latest version>")
 }
 ```
 
@@ -120,6 +120,24 @@ class App : Application() {
 initialization, but it must happen before a database is accessed. Initialization only configures the default
 connection. The database is opened on first access, which creates the schema or runs migration scripts as needed - no
 other hidden runtime performance costs.
+
+#### Observe With RxJava 2:
+
+The reactive APIs come from the `sqlitemagic-rxjava2` adapter, whose version must be the same as the plugin version.
+Import `observe` (and `run` for one-shot queries) from `com.siimkinks.sqlitemagic.rxjava2`. Observed queries emit on
+`Schedulers.io()` unless the connection is configured with another scheduler:
+
+```kotlin
+import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
+
+SqliteMagic.builder(this)
+  .database(SqliteMagicDatabase())
+  .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+  .scheduleRxQueriesOn(Schedulers.computation())
+  .openDefaultConnection()
+```
+
+Changes made while an observed query's notification is being processed are combined into one further notification.
 
 #### Define Database:
 
@@ -217,6 +235,7 @@ val bulkSuccess: Boolean = Authors
 ```kotlin
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
+import com.siimkinks.sqlitemagic.rxjava2.observe
 ...
 
 val author = Author(
@@ -308,6 +327,7 @@ val nrOfDeletedRows: Int = (
 
 ```kotlin
 import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
+import com.siimkinks.sqlitemagic.rxjava2.observe
 ...
 
 val update: Single<Int> = (
@@ -368,6 +388,8 @@ val authors: List<Author> = (
 
 ```kotlin
 import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
+import com.siimkinks.sqlitemagic.rxjava2.ListQueryObservable
+import com.siimkinks.sqlitemagic.rxjava2.observe
 ...
 
 // ListQueryObservable is an Observable of Query
@@ -427,6 +449,8 @@ val books: List<Book> = (
 ```kotlin
 import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
 import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
+import com.siimkinks.sqlitemagic.rxjava2.ListQueryObservable
+import com.siimkinks.sqlitemagic.rxjava2.observe
 ...
 
 // the resulting Book objects also contain

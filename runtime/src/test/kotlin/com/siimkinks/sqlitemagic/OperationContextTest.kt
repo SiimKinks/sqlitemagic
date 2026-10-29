@@ -8,8 +8,8 @@ import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityAdapterMetadata
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.identity
-import io.reactivex.schedulers.Schedulers
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -120,7 +120,7 @@ internal class OperationContextTest {
     val connection = DbConnectionImpl(
       database = generatedDatabase,
       dbHelper = RecordingOpenHelper(database),
-      queryScheduler = Schedulers.trampoline()
+      adapterSettings = MutableScatterMap(initialCapacity = 0)
     )
     val mainContext = context(
       connection = connection,

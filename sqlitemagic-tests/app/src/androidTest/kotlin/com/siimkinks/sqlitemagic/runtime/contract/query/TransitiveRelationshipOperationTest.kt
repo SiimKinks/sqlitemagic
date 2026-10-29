@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

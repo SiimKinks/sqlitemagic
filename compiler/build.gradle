@@ -24,6 +24,7 @@ dependencies {
 
   ksp libs.auto.service.ksp
 
+  testImplementation project(':rxjava2')
   testImplementation platform(libs.junit.bom)
   testImplementation libs.junit.jupiter
   testImplementation libs.truth

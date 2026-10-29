@@ -3,10 +3,10 @@ package com.siimkinks.sqlitemagic.runtime.contract.query
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.CompiledRawCursor
 import com.siimkinks.sqlitemagic.DeclaredTables
-import com.siimkinks.sqlitemagic.observe
 import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.RawCursorModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

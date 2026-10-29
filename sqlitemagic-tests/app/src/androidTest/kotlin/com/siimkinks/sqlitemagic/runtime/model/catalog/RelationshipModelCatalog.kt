@@ -52,6 +52,7 @@ import com.siimkinks.sqlitemagic.runtime.model.SuccessfulModelProjectionCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipModelCase
 import com.siimkinks.sqlitemagic.runtime.model.TransitiveRelationshipTableRows
 import com.siimkinks.sqlitemagic.runtime.model.TriggerConflictModelCase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 
 internal object RelationshipModelCatalog {

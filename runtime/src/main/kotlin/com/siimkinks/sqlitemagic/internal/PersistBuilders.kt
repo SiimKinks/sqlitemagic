@@ -7,9 +7,6 @@ import com.siimkinks.sqlitemagic.entity.EntityBulkPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistByColumnBuilder
-import com.siimkinks.sqlitemagic.entity.EntityPersistResult
-import io.reactivex.Completable
-import io.reactivex.Single
 
 @InternalSqliteMagicApi
 class PersistBuilder<M>(
@@ -18,7 +15,7 @@ class PersistBuilder<M>(
 ) : DefaultIdentityBuilder<EntityPersistBuilder, M>(adapter), EntityPersistBuilder {
   override fun execute() = perform(operation = persist(identityColumnName()))
 
-  override fun observe(): Single<EntityPersistResult> = observeSingle(persist(identityColumnName()))
+  internal fun deferred() = defer(persist(identityColumnName()))
 
   private fun persist(columnName: String) = persist(
     adapter = adapter,
@@ -34,7 +31,7 @@ class PersistByColumnBuilder<M>(
 ) : OperationBuilder<EntityPersistByColumnBuilder<M>>(adapter), EntityPersistByColumnBuilder<M> {
   override fun execute(byColumn: Unique<M>) = perform(operation = persist(byColumn))
 
-  override fun observe(byColumn: Unique<M>): Single<EntityPersistResult> = observeSingle(persist(byColumn))
+  internal fun deferred(byColumn: Unique<M>) = defer(persist(byColumn))
 
   private fun persist(byColumn: Unique<M>) = persist(
     adapter = adapter,
@@ -50,7 +47,7 @@ class BulkPersistBuilder<M>(
 ) : DefaultIdentityBuilder<EntityBulkPersistBuilder, M>(adapter), EntityBulkPersistBuilder {
   override fun execute() = executeBulk(persist(identityColumnName()))
 
-  override fun observe(): Completable = observeBulk(persist(identityColumnName()))
+  internal fun deferred() = deferBulk(persist(identityColumnName()))
 
   private fun persist(columnName: String) = bulkPersist(
     adapter = adapter,
@@ -66,7 +63,7 @@ class BulkPersistByColumnBuilder<M>(
 ) : OperationBuilder<EntityBulkPersistByColumnBuilder<M>>(adapter), EntityBulkPersistByColumnBuilder<M> {
   override fun execute(byColumn: Unique<M>) = executeBulk(persist(byColumn))
 
-  override fun observe(byColumn: Unique<M>): Completable = observeBulk(persist(byColumn))
+  internal fun deferred(byColumn: Unique<M>) = deferBulk(persist(byColumn))
 
   private fun persist(byColumn: Unique<M>) = bulkPersist(
     adapter = adapter,

@@ -12,6 +12,7 @@ import com.siimkinks.sqlitemagic.GeneratedDatabase
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.TestApp
+import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
 import io.reactivex.schedulers.Schedulers
 
 internal val DbConnection.readableDatabase get() = (this as DbConnectionImpl).readableDatabase

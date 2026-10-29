@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.fixture.model.OwnedToken
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.defaultWritableDatabase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test

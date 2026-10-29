@@ -8,10 +8,11 @@ import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.OperationConfigurationSnapshot
 import com.siimkinks.sqlitemagic.OperationContext
 import com.siimkinks.sqlitemagic.Unique
+import com.siimkinks.sqlitemagic.deferredBulk
 import com.siimkinks.sqlitemagic.entity.EntityOperationByColumnBuilder
-import com.siimkinks.sqlitemagic.executeBulkRxOperation
+import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.LogUtil.loggingFailure
-import io.reactivex.Single
+import java.util.concurrent.CancellationException
 
 private const val OPERATION_FAILED = "Operation failed"
 
@@ -47,8 +48,8 @@ abstract class OperationBuilder<R>(
     loggingFailure(message = OPERATION_FAILED) { operation(context) }
   }
 
-  internal fun <T> observeSingle(operation: (OperationContext) -> T) = configurationSnapshot().let { configuration ->
-    Single.fromCallable {
+  internal fun <T> defer(operation: (OperationContext) -> T) = configurationSnapshot().let { configuration ->
+    DeferredOperation {
       perform(
         operation = operation,
         configuration = configuration
@@ -59,14 +60,14 @@ abstract class OperationBuilder<R>(
   internal fun executeBulk(operation: (OperationContext, () -> Boolean) -> BulkOperationOutcome) =
     perform(operation = { operation(it, ::neverCancelled) }) == APPLIED
 
-  internal fun observeBulk(operation: (OperationContext, () -> Boolean) -> BulkOperationOutcome) =
+  internal fun deferBulk(operation: (OperationContext, () -> Boolean) -> BulkOperationOutcome) =
     configurationSnapshot().let { configuration ->
-      executeBulkRxOperation(
-        contextFactory = { newContext(configuration) },
-        operation = { context, isCancelled ->
-          loggingFailure(message = OPERATION_FAILED) { operation(context, isCancelled) }
-        }
-      )
+      deferredBulk { isCancelled ->
+        perform(
+          operation = { operation(it, isCancelled) },
+          configuration = configuration
+        )
+      }
     }
 
   @Suppress("UNCHECKED_CAST")
@@ -86,3 +87,44 @@ abstract class DefaultIdentityBuilder<R, M>(
 }
 
 private fun neverCancelled() = false
+
+/**
+ * Entity operation configured by a builder for a reactive adapter. It runs when [execute] is called, with the builder
+ * configuration from the time it was created.
+ *
+ * @param T Result type
+ */
+@InternalSqliteMagicApi
+open class DeferredOperation<T> internal constructor(
+  private val operation: (isCancelled: () -> Boolean) -> T
+) {
+  /**
+   * Run the operation.
+   *
+   * @param isCancelled Whether the result is no longer needed. Bulk inserts, updates and persists check it before each
+   *     entity and after the last one and throw [CancellationException] once it is `true`; other operations ignore it
+   * @return What the `execute` method of the builder returns
+   */
+  fun execute(isCancelled: () -> Boolean) = operation(isCancelled)
+}
+
+/**
+ * Entity operation whose reactive terminal only completes or fails: an update, or a bulk insert, update or persist.
+ */
+@InternalSqliteMagicApi
+class DeferredCompletion internal constructor(
+  operation: (isCancelled: () -> Boolean) -> Boolean,
+  private val completion: (isCancelled: () -> Boolean) -> Exception?
+) : DeferredOperation<Boolean>(operation) {
+  /**
+   * Run the operation for a terminal that only completes or fails.
+   *
+   * Failures other than the returned ones, such as SQLite errors, are thrown.
+   *
+   * @param isCancelled Whether the result is no longer needed, as in [execute]
+   * @return `null` if the operation completed; otherwise the failure to report: [OperationFailedException] when an
+   *     update changed no row without ignoring conflicts or a bulk operation failed, and [CancellationException] when
+   *     [isCancelled] stopped a bulk operation
+   */
+  fun complete(isCancelled: () -> Boolean) = completion(isCancelled)
+}

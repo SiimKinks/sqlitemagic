@@ -2,11 +2,6 @@ package com.siimkinks.sqlitemagic
 
 import android.database.Cursor
 import android.database.SQLException
-import androidx.annotation.CheckResult
-import io.reactivex.Maybe
-import io.reactivex.Observable
-import io.reactivex.Scheduler
-import io.reactivex.Single
 
 /**
  * Compiled raw SQL query.
@@ -16,7 +11,9 @@ import io.reactivex.Single
  * @param T Row type
  * @param O Whether the query defines the tables it reads -- either [DeclaredTables] or [UndeclaredTables]
  */
-class CompiledRawSelect<T, O : RawTables> internal constructor(internal val plan: CompiledSelect<T>) {
+class CompiledRawSelect<T, O : RawTables> internal constructor(
+  internal val plan: CompiledSelect<T>
+) {
   /**
    * SQL of this statement.
    */
@@ -43,7 +40,9 @@ class CompiledRawSelect<T, O : RawTables> internal constructor(internal val plan
  * @param T Row type
  * @param O Whether the query defines the tables it reads -- either [DeclaredTables] or [UndeclaredTables]
  */
-class CompiledRawFirst<T, O : RawTables> internal constructor(internal val plan: CompiledFirst<T>) {
+class CompiledRawFirst<T, O : RawTables> internal constructor(
+  internal val plan: CompiledFirst<T>
+) {
   /**
    * SQL of this statement.
    */
@@ -68,7 +67,9 @@ class CompiledRawFirst<T, O : RawTables> internal constructor(internal val plan:
  *
  * @param O Whether the query defines the tables it reads -- either [DeclaredTables] or [UndeclaredTables]
  */
-open class CompiledRawCursor<O : RawTables> internal constructor(internal val plan: CompiledCursor<*>) {
+open class CompiledRawCursor<O : RawTables> internal constructor(
+  internal val plan: CompiledCursor<*>
+) {
   /**
    * SQL of this statement.
    */
@@ -106,122 +107,3 @@ class CompiledRawReadCursor<T, O : RawTables> internal constructor(
    */
   fun getFromCurrentPosition(cursor: Cursor) = readPlan.getFromCurrentPosition(cursor)
 }
-
-/**
- * Create an observable which will notify subscribers with a [Query] for execution.
- *
- * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
- * the data of the tables defined with `observes` changes through the SqliteMagic provided operations. Unsubscribe
- * when you no longer want updates to a query.
- *
- * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
- * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
- * the immediate notification sent on subscribe also uses this scheduler. As such, calling
- * [Observable.subscribeOn] on the returned observable has no effect.
- *
- * Changes made while a notification is being processed are combined into one further notification.
- *
- * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
- * will the operation occur.
- */
-@CheckResult
-@JvmName("observeDeclaredRawRows")
-fun <T> CompiledRawSelect<T, DeclaredTables>.observe() = plan.observe()
-
-/**
- * Create a [Single] that when subscribed to executes this query against a database and emits its result to
- * downstream only once.
- *
- * The query runs only once, since it does not define the tables it reads. Define them with `observes` to receive
- * updates.
- *
- * The query runs and its result is emitted on the [Scheduler] supplied to
- * [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn], so calling `subscribeOn` has no effect.
- *
- * @return Deferred [Single] that when subscribed to executes the query and emits its result to downstream
- */
-@CheckResult
-@JvmName("observeUndeclaredRawRows")
-fun <T> CompiledRawSelect<T, UndeclaredTables>.observe() = plan
-  .observe()
-  .runQueryOnce()
-
-/**
- * Create an observable which will notify subscribers with a [Query] for execution.
- *
- * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
- * the data of the tables defined with `observes` changes through the SqliteMagic provided operations. Unsubscribe
- * when you no longer want updates to a query.
- *
- * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
- * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
- * the immediate notification sent on subscribe also uses this scheduler. As such, calling
- * [Observable.subscribeOn] on the returned observable has no effect.
- *
- * Changes made while a notification is being processed are combined into one further notification.
- *
- * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
- * will the operation occur.
- */
-@CheckResult
-@JvmName("observeDeclaredRawFirst")
-fun <T> CompiledRawFirst<T, DeclaredTables>.observe() = plan.observe()
-
-/**
- * Create a [Maybe] that when subscribed to executes this query against a database and emits the first row to
- * downstream only once. It completes without a value if the query returns no rows or the read value is `null`.
- *
- * The query runs only once, since it does not define the tables it reads. Define them with `observes` to receive
- * updates.
- *
- * The query runs and its result is emitted on the [Scheduler] supplied to
- * [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn], so calling `subscribeOn` has no effect.
- *
- * @return Deferred [Maybe] that when subscribed to executes the query and emits its result to downstream
- */
-@CheckResult
-@JvmName("observeUndeclaredRawFirst")
-fun <T> CompiledRawFirst<T, UndeclaredTables>.observe() = plan
-  .observe()
-  .runQueryOnce()
-
-/**
- * Create an observable which will notify subscribers with a [Query] for execution. Subscribers are responsible for
- * **always** closing [Cursor] instance returned from the [Query].
- *
- * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
- * the data of the tables defined with `observes` changes through the SqliteMagic provided operations. Unsubscribe
- * when you no longer want updates to a query.
- *
- * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
- * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
- * the immediate notification sent on subscribe also uses this scheduler. As such, calling
- * [Observable.subscribeOn] on the returned observable has no effect.
- *
- * Changes made while a notification is being processed are combined into one further notification.
- *
- * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
- * will the operation occur.
- */
-@CheckResult
-@JvmName("observeDeclaredRawCursor")
-fun CompiledRawCursor<DeclaredTables>.observe() = plan.observe()
-
-/**
- * Create a [Single] that when subscribed to executes this query against a database and emits the [Cursor]
- * to downstream only once. Subscribers are responsible for **always** closing the emitted [Cursor].
- *
- * The query runs only once, since it does not define the tables it reads. Define them with `observes` to receive
- * updates.
- *
- * The query runs and its result is emitted on the [Scheduler] supplied to
- * [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn], so calling `subscribeOn` has no effect.
- *
- * @return Deferred [Single] that when subscribed to executes the query and emits its result to downstream
- */
-@CheckResult
-@JvmName("observeUndeclaredRawCursor")
-fun CompiledRawCursor<UndeclaredTables>.observe(): Single<Cursor> = plan
-  .observe()
-  .runQueryOnce()
-  .toSingle()

@@ -26,7 +26,9 @@ internal class GeneratedCodeApiContractTest {
     compile(
       optIn = "",
       program = program
-    ).assertCompilationError("This is SqliteMagic API for generated code; it may change in any release.")
+    ).assertCompilationError(
+      "This is SqliteMagic API for generated code and reactive adapters; it may change in any release."
+    )
   }
 
   private fun compile(optIn: String, program: String) = PlainKotlinCompilation.compile(

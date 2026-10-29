@@ -91,7 +91,6 @@ sqlitemagic {
 dependencies {
   implementation(project(":asset-library"))
   implementation(libs.android.sqlite.framework)
-  implementation(libs.rx.java2)
   testImplementation(libs.android.sqlite.bundled.jvm)
   testImplementation(platform(libs.junit.bom))
   testImplementation(libs.junit.jupiter)

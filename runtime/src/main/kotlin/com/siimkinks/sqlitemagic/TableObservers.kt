@@ -1,10 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-internal interface TableChangeObserver {
-  fun onTablesChanged(tables: Set<String>)
-
-  fun onClosed()
-}
+import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 
 internal class TableObservers {
   @Volatile
@@ -33,9 +29,16 @@ internal class TableObservers {
   }
 
   private fun remove(registration: Registration) = synchronized(this) {
-    registrations = registrations
-      .filterNot(registration::equals)
-      .toTypedArray()
+    val current = registrations
+    val index = current.indexOf(registration)
+    if (index >= 0) {
+      registrations = Array(current.size - 1) { position ->
+        when {
+          position < index -> current[position]
+          else -> current[position + 1]
+        }
+      }
+    }
   }
 
   fun publish(tables: Set<String>) {
@@ -76,4 +79,4 @@ internal class TableObservers {
   }
 }
 
-private val NO_REGISTRATION = AutoCloseable {}
+internal val NO_REGISTRATION = AutoCloseable {}

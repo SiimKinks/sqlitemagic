@@ -16,6 +16,7 @@ import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.observers.TestObserver
 import org.junit.Rule
 import org.junit.Test

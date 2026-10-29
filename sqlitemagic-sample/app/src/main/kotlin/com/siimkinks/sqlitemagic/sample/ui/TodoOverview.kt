@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.TodoListSummaryTable.Companion.TODO_LIST_SUMMARY
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.sample.data.TodoList
 import com.siimkinks.sqlitemagic.sample.data.TodoListSummary
 import io.reactivex.android.schedulers.AndroidSchedulers

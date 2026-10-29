@@ -1,13 +1,11 @@
 package com.siimkinks.sqlitemagic.entity
 
 import android.database.SQLException
-import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Unique
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult.Ignored
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult.Inserted
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult.Updated
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
-import io.reactivex.Single
 
 /**
  * Builder for a persist operation that identifies an existing entity row by a provided unique column.
@@ -32,18 +30,4 @@ interface EntityPersistByColumnBuilder<P> : EntityPersistOperationBuilder<Entity
    *     ignore conflicts
    */
   fun execute(byColumn: Unique<P>): EntityPersistResult
-
-  /**
-   * Creates a [Single] that when subscribed to executes this configured persist operation against a
-   * database using the provided column to identify the entity row. Operation will be executed
-   * inside a transaction if the persisted entity has complex columns which also need to be
-   * persisted. If the operation was successful or intentionally ignored then its result will be
-   * emitted to downstream. If the operation failed then it will be rolled back and error will be
-   * emitted to downstream.
-   *
-   * @param byColumn Generated non-null unique column of the table for this operation
-   * @return Deferred [Single] that when subscribed to executes the operation and emits its result to downstream
-   */
-  @CheckResult
-  fun observe(byColumn: Unique<P>): Single<EntityPersistResult>
 }

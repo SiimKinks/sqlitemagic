@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.runtime.model.CountOperator.ZERO
 import com.siimkinks.sqlitemagic.runtime.model.CountOperatorCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.CountOperatorCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.BackpressureStrategy
 import org.junit.Rule
 import org.junit.Test

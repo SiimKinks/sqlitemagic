@@ -40,7 +40,8 @@ DELETE.RAW("DELETE FROM legacy_log WHERE id = ?", 5L).execute()
 
 - Arguments go into `RAW` as native values; infix `SELECT RAW "SELECT 1"` remains for text without arguments.
 - `.from(tables)`/`FROM tables` on a raw query becomes `.observes(tables)`. Without it, `observe()` runs once
-  (`Single`/`Maybe`) instead of streaming. The raw `observe()` is an extension import.
+  (`Single`/`Maybe`) instead of streaming. Like every `observe()`, the raw one is imported from
+  `com.siimkinks.sqlitemagic.rxjava2`.
 - A raw query without `readAs` has no `execute()`; insert `.toCursor()` for a caller-owned cursor, or read typed rows
   by position with `readAs(…)` (a column count other than `readAs`'s width fails each execution).
 - `UPDATE.RAW`/`DELETE.RAW` declare changed tables with `.notifies(TABLE)`; legacy's string table name is gone. A
@@ -73,7 +74,7 @@ DELETE.FROM(BOOK).WHERE((BOOK.ID IS_NOT 77L) AND (BOOK.TITLE IS "Foo")).execute(
 - Targets are unaliased: `UPDATE TABLE (BOOK AS "b")` is rejected when built. Every SET/WHERE field must belong to the
   target; a correlated subquery aliases its inner occurrence.
 - `compile()` returns `CompiledMutation` (legacy `CompiledUpdate`/`CompiledDelete`); `execute()` is `Int` and
-  `observe()` a cold `Single<Int>`, as before.
+  `observe()` (imported from `com.siimkinks.sqlitemagic.rxjava2`) a cold `Single<Int>`, as before.
 
 ## Views
 
@@ -137,8 +138,10 @@ val QUERY = (
 - `S` in `SelectQuery<T, S>` is the selection: `EntitySelection<Author>`, `ScalarSelection<Long, Required, Long>`
   (decoded type, SQL nullness, result), `RowSelection<Row2<Long, String>>`, `RowSelection<SelectedRow>`. When a type
   must be written, copy the IDE's inferred type rather than reconstructing it.
-- Observation types and operators are unchanged: `ListQueryObservable`, `SingleItemQueryObservable`,
-  `CountQueryObservable`, `runQuery()`, `runQueryOnce()`, `runQueryOrDefault(…)`, `isZero()`, `isNotZero()`.
+- Observation operators are unchanged: `runQuery()`, `runQueryOnce()`, `runQueryOrDefault(…)`, `isZero()`,
+  `isNotZero()`. The types `ListQueryObservable`, `SingleItemQueryObservable` and `CountQueryObservable` moved to
+  `com.siimkinks.sqlitemagic.rxjava2`, with `observe()`, `Query.run()` and `scheduleRxQueriesOn`. `run()` returns
+  `Maybe` of the non-null result type.
 - New: named parameters, `AUTHOR.NAME.asParameter("name")`, bound per plan with `compiled.bind(name TO "Ada")`.
 
 ## Logger, generated code and models

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import org.junit.Test
 
 internal class TableObserversTest {

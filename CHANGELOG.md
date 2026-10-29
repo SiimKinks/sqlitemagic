@@ -19,6 +19,9 @@ legacy queries to the new DSL and lists the changes that compile but behave diff
 * Breaking: With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version,
   as it does with migration testing, instead of one above the latest release, and fails when that version is already
   released
+* Breaking: RxJava support moves out of the runtime into the `sqlitemagic-rxjava2` artifact, whose version must be
+  the same as the plugin version. Import `observe`, `run` and `scheduleRxQueriesOn` from
+  `com.siimkinks.sqlitemagic.rxjava2`. `run()` emits the non-null result type, and the runtime no longer depends on RxJava
 * Breaking: Observed queries combine the changes made while a notification is being processed into one further
   notification, so a burst of writes no longer queues one query run per write. A write made during an emission emits
   after that emission returns

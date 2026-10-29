@@ -17,6 +17,7 @@ import com.siimkinks.sqlitemagic.runtime.support.observeRows
 import com.siimkinks.sqlitemagic.runtime.support.seed
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

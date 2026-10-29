@@ -23,7 +23,6 @@ android {
 
 dependencies {
   implementation(libs.android.sqlite.framework)
-  implementation(libs.rx.java2)
 }
 
 sqlitemagic {

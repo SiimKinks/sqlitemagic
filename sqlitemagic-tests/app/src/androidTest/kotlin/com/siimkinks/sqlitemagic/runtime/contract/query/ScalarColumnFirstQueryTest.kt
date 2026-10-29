@@ -5,6 +5,7 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.ScalarColumnCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ScalarColumnCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

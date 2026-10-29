@@ -9,15 +9,13 @@ import com.siimkinks.sqlitemagic.internal.sql.compileCount
 import com.siimkinks.sqlitemagic.internal.sql.compileCursor
 import com.siimkinks.sqlitemagic.internal.sql.compileFirst
 import com.siimkinks.sqlitemagic.internal.sql.compileSelect
-import io.reactivex.Observable
-import io.reactivex.Scheduler
 
 /**
  * SQL SELECT statement.
  *
- * Execute it with [execute] or [observe], or compile it once with [compile], [takeFirst], [count] or [toCursor] to
- * execute it many times. Queries are immutable and can be reused. A query can also be used as a subquery and as a
- * source in FROM and JOIN clauses.
+ * Execute it with [execute], observe it with a reactive adapter's `observe()`, or compile it once with [compile],
+ * [takeFirst], [count] or [toCursor] to execute it many times. Queries are immutable and can be reused. A query can
+ * also be used as a subquery and as a source in FROM and JOIN clauses.
  *
  * @param T Selection return type
  * @param S Selection type
@@ -111,32 +109,6 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
    * @throws IllegalArgumentException if the query has parameters. Use [compile] and bind their values instead
    */
   fun execute() = compile().execute()
-
-  /**
-   * Create an observable which will notify subscribers with a [Query] for execution.
-   *
-   * Subscribers will receive an immediate notification for initial data as well as subsequent notifications for when
-   * the data of the queried tables changes through the SqliteMagic provided operations. Unsubscribe when you no
-   * longer want updates to a query.
-   *
-   * Since database triggers are inherently asynchronous, items emitted from the returned observable use the
-   * [Scheduler] supplied to [SqliteMagic.DatabaseSetupBuilder.scheduleRxQueriesOn]. For consistency,
-   * the immediate notification sent on subscribe also uses this scheduler. As such, calling
-   * [Observable.subscribeOn] on the returned observable has no effect.
-   *
-   * Changes made while a notification is being processed are combined into one further notification.
-   *
-   * Note: To skip the immediate notification and only receive subsequent notifications when data has changed call
-   * `skip(1)` on the returned observable.
-   *
-   * One might want to explore the returned type methods for convenience query related operators.
-   *
-   * **Warning:** this method does not perform the query! Only by subscribing to the returned [Observable]
-   * will the operation occur.
-   *
-   * @throws IllegalArgumentException if the query has parameters. Use [compile] and bind their values instead
-   */
-  fun observe() = compile().observe()
 
   /**
    * Compile select builder and instruct it to take only the first element from the result set.

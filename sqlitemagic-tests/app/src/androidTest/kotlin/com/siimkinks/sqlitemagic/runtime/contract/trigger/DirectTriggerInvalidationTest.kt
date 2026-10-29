@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.insertedPersistResult
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

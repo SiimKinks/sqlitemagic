@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.runtime.contract.query.readTypedCursor
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.After
 import org.junit.Before
 import org.junit.Test

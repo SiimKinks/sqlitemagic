@@ -18,6 +18,7 @@ import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardTableDeleteModelCase
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 
 internal object NoIdKeyModelCatalog {

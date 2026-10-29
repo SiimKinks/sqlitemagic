@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.runtime.model
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteTableBuilder
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import io.reactivex.Single
 
 data class StandardDeleteBuilders<T>(

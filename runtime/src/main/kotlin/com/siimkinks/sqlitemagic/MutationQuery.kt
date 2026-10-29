@@ -5,7 +5,6 @@ package com.siimkinks.sqlitemagic
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.internal.sql.MutationNode
 import com.siimkinks.sqlitemagic.internal.sql.compileMutation
-import io.reactivex.Single
 
 /**
  * SQL UPDATE or DELETE statement.
@@ -64,17 +63,6 @@ sealed interface MutationQuery {
    *     parameter, or the WHERE clause uses a column of another table outside a subquery
    */
   fun execute(): Int = compile().execute()
-
-  /**
-   * Compile this statement and create a [Single] that when subscribed to executes this statement against a database
-   * and emits nr of updated or deleted records to downstream only once.
-   *
-   * @return Deferred [Single] that when subscribed to executes the statement and emits its result to downstream
-   * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
-   *     parameter, or the WHERE clause uses a column of another table outside a subquery
-   */
-  @CheckResult
-  fun observe(): Single<Int> = compile().observe()
 }
 
 internal class MutationStatement(val node: MutationNode<*>) : MutationQuery {

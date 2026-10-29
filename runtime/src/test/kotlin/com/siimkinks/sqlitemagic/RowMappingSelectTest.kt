@@ -247,10 +247,13 @@ internal class RowMappingSelectTest {
                     }
                   }
                 },
-              observed = case.query
-                .observe()
-                .runQueryOnce()
-                .blockingGet()
+              observed = checkNotNull(
+                case.query
+                  .compile()
+                  .observation()
+                  .query
+                  .runBlocking()
+              )
             )
           )
           .isEqualTo(

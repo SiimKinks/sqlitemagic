@@ -7,8 +7,9 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.SupportSQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
-import io.reactivex.schedulers.Schedulers
+import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mockStatic
@@ -409,6 +410,6 @@ private class ConnectionFixture(
   val connection = DbConnectionImpl(
     database = generatedDatabase,
     dbHelper = helper,
-    queryScheduler = Schedulers.trampoline()
+    adapterSettings = MutableScatterMap(initialCapacity = 0)
   )
 }

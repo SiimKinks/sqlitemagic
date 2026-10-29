@@ -1,5 +1,6 @@
 plugins {
   id 'java'
+  id 'java-test-fixtures'
   alias(libs.plugins.kotlin.jvm)
 }
 
@@ -15,7 +16,11 @@ dependencies {
   implementation rootProject.ext.androidJar
   implementation libs.android.annotations
   implementation libs.android.sqlite
-  implementation libs.rx.java2
+
+  testFixturesImplementation rootProject.ext.androidJar
+  testFixturesImplementation libs.android.sqlite
+  testFixturesImplementation libs.android.sqlite.bundled.jvm
+  testFixturesImplementation libs.mockito.kotlin
 
   testImplementation libs.junit
   testImplementation libs.mockito.kotlin
@@ -35,6 +40,9 @@ kotlin {
     enabled = true
   }
 }
+
+components.java.withVariantsFromConfiguration(configurations.testFixturesApiElements) { skip() }
+components.java.withVariantsFromConfiguration(configurations.testFixturesRuntimeElements) { skip() }
 
 tasks.named('check') {
   dependsOn(kotlin.abiValidation.checkTaskProvider)

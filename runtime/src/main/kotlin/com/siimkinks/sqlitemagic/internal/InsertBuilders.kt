@@ -4,9 +4,6 @@ import com.siimkinks.sqlitemagic.InsertExecutors
 import com.siimkinks.sqlitemagic.OperationContext
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import io.reactivex.Completable
-import io.reactivex.Single
 
 @InternalSqliteMagicApi
 class InsertBuilder<M>(
@@ -23,7 +20,7 @@ class InsertBuilder<M>(
 
   override fun execute() = perform(operation = insert)
 
-  override fun observe(): Single<EntityInsertResult> = observeSingle(insert)
+  internal fun deferred() = defer(insert)
 }
 
 @InternalSqliteMagicApi
@@ -42,5 +39,5 @@ class BulkInsertBuilder<M>(
 
   override fun execute() = executeBulk(insert)
 
-  override fun observe(): Completable = observeBulk(insert)
+  internal fun deferred() = deferBulk(insert)
 }

@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.BuildConfig.*
 import com.siimkinks.sqlitemagic.annotation.Database
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.ExternalTransformer
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleDatabaseConfig
+import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
 import io.reactivex.schedulers.Schedulers
 
 @Database(

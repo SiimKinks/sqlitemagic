@@ -14,6 +14,7 @@ import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test

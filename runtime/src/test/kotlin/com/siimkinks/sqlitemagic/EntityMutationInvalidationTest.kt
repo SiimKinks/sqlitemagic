@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
+import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.doReturn

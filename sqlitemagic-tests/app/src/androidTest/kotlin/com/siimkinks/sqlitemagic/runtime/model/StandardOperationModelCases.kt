@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
+import com.siimkinks.sqlitemagic.rxjava2.observe
 
 data class StandardOperationBuilders<T>(
   val insert: (T) -> EntityInsertBuilder,

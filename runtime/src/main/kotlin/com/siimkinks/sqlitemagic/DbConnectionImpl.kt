@@ -3,12 +3,13 @@ package com.siimkinks.sqlitemagic
 import android.database.sqlite.SQLiteTransactionListener
 import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteOpenHelper
+import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.LogUtil.logDebug
 import com.siimkinks.sqlitemagic.internal.LogUtil.logInfo
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
+import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.ScatterSet
-import io.reactivex.Scheduler
 import java.util.concurrent.TimeUnit
 
 /**
@@ -18,7 +19,7 @@ import java.util.concurrent.TimeUnit
 internal class DbConnectionImpl(
   private val database: GeneratedDatabase,
   private val dbHelper: SupportSQLiteOpenHelper,
-  val queryScheduler: Scheduler
+  private val adapterSettings: ScatterMap<AdapterSettingKey<*>, Any>
 ) : DbConnection {
   private val transactions = ThreadLocal<SqliteTransaction?>()
 
@@ -110,6 +111,9 @@ internal class DbConnectionImpl(
   val hasActiveTransaction get() = transactions.get() != null
 
   val isClosed get() = tableObservers.isClosed
+
+  @Suppress("UNCHECKED_CAST")
+  fun <V : Any> adapterSetting(key: AdapterSettingKey<V>) = adapterSettings[key] as V?
 
   fun ensureNotInTransaction() = check(!hasActiveTransaction) {
     "Cannot subscribe to observable query in a transaction."

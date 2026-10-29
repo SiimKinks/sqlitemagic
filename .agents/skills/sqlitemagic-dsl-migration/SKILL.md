@@ -69,6 +69,9 @@ behind most edits:
 - Keep each call site's existing style: infix stays infix, fluent stays fluent. Kotlin infix precedence is not SQL
   precedence, so keep or add the parentheses around infix operands.
 - Prefer inference over spelling the new generic types; delete explicit legacy type annotations where possible.
+- RxJava APIs come from the `com.siimkinks.sqlitemagic:sqlitemagic-rxjava2` artifact, at the plugin's version. Add it
+  where code observes, and import `observe`, `run`, `scheduleRxQueriesOn` and the observable types from
+  `com.siimkinks.sqlitemagic.rxjava2`. Modules that declared RxJava only because runtime signatures used it can drop it.
 
 Do not recreate legacy names with local extension functions, wrappers or typealiases to shrink the diff. They keep
 legacy semantics alive in the caller's head while the engine behaves differently, and they hide the sites the

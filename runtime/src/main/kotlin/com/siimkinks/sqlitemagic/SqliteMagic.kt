@@ -5,9 +5,9 @@ import androidx.annotation.CheckResult
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration
 import androidx.sqlite.db.SupportSQLiteOpenHelper.Factory
+import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.LogUtil.logInfo
-import io.reactivex.Scheduler
-import io.reactivex.schedulers.Schedulers
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 
 object SqliteMagic {
   var loggingEnabled = false
@@ -67,7 +67,7 @@ object SqliteMagic {
     private var name: String? = null
     private var sqliteFactory: Factory? = null
     private var downgrader: DbDowngrader? = null
-    private var queryScheduler: Scheduler = Schedulers.io()
+    private val adapterSettings = MutableScatterMap<AdapterSettingKey<*>, Any>(initialCapacity = 0)
 
     /**
      * Provide generated database.
@@ -117,18 +117,11 @@ object SqliteMagic {
       this.downgrader = downgrader
     }
 
-    /**
-     * Define the scheduler where RxJava handled queries will emit items.
-     *
-     * Defaults to [io()][Schedulers.io] scheduler.
-     *
-     * @param scheduler The [Scheduler] on which items are emitted when SELECT statement
-     * [observe()][CompiledSelect.observe] methods are used
-     * @return Database connection configuration builder
-     */
-    @CheckResult
-    fun scheduleRxQueriesOn(scheduler: Scheduler) = apply {
-      queryScheduler = scheduler
+    internal fun <V : Any> adapterSetting(
+      key: AdapterSettingKey<V>,
+      value: V
+    ) = apply {
+      adapterSettings[key] = value
     }
 
     /**
@@ -182,7 +175,9 @@ object SqliteMagic {
         DbConnectionImpl(
           database = database,
           dbHelper = helper,
-          queryScheduler = queryScheduler
+          adapterSettings = MutableScatterMap<AdapterSettingKey<*>, Any>(adapterSettings.size).apply {
+            adapterSettings.forEach(::set)
+          }
         )
       } catch (exception: Exception) {
         throw IllegalStateException(

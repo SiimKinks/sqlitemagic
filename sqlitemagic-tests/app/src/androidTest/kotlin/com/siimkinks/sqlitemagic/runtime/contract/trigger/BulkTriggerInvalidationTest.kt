@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
 import com.siimkinks.sqlitemagic.runtime.support.captureDatabaseSnapshot
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

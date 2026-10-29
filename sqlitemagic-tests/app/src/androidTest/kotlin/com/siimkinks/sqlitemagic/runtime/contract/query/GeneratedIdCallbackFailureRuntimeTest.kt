@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.fixture.model.GeneratedIdCallbackEntity
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test

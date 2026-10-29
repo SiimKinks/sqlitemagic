@@ -54,6 +54,7 @@ rx-java2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rx-java2" }
 sqlitemagic-annotations = { module = "com.siimkinks.sqlitemagic:sqlitemagic-annotations", version.ref = "sqlitemagic" }
 sqlitemagic-compiler = { module = "com.siimkinks.sqlitemagic:sqlitemagic-compiler", version.ref = "sqlitemagic" }
 sqlitemagic-runtime = { module = "com.siimkinks.sqlitemagic:sqlitemagic", version.ref = "sqlitemagic" }
+sqlitemagic-rxjava2 = { module = "com.siimkinks.sqlitemagic:sqlitemagic-rxjava2", version.ref = "sqlitemagic" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 
 [plugins]

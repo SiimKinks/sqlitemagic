@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import io.reactivex.schedulers.Schedulers
+import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Before
@@ -125,17 +125,37 @@ internal class SqliteMagicTest {
   }
 
   @Test
-  fun `query scheduler uses io by default and accepts a configured scheduler`() {
-    for ((label, scheduler) in mapOf("default" to null, "custom" to Schedulers.trampoline())) {
-      val fixture = BootstrapFixture()
-      scheduler?.let(fixture.builder::scheduleRxQueriesOn)
+  fun `each connection keeps the adapter settings it was opened with`() {
+    val first = AdapterSettingKey<String>()
+    val second = AdapterSettingKey<String>()
+    val fixture = BootstrapFixture()
+    val opened = fixture.builder
+      .adapterSetting(
+        key = first,
+        value = "first"
+      )
+      .open()
+    val reopened = fixture.builder
+      .adapterSetting(
+        key = first,
+        value = "changed"
+      )
+      .adapterSetting(
+        key = second,
+        value = "second"
+      )
+      .open()
 
-      val connection = fixture.open()
-
-      assertWithMessage(label)
-        .that(connection.queryScheduler)
-        .isSameInstanceAs(scheduler ?: Schedulers.io())
-    }
+    assertThat(
+      listOf(opened, reopened).map { connection ->
+        listOf(connection.adapterSetting(first), connection.adapterSetting(second))
+      }
+    ).isEqualTo(
+      listOf(
+        listOf("first", null),
+        listOf("changed", "second")
+      )
+    )
   }
 
   @Test
@@ -301,7 +321,9 @@ internal class SqliteMagicTest {
     on { dbVersion } doReturn 1
   }
 
-  private fun BootstrapFixture.open() = (builder.openNewConnection() as DbConnectionImpl)
+  private fun BootstrapFixture.open() = builder.open()
+
+  private fun SqliteMagic.DatabaseSetupBuilder.open() = (openNewConnection() as DbConnectionImpl)
     .also(connections::add)
 
   private class NameCase(

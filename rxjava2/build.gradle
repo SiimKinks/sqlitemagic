@@ -1,0 +1,59 @@
+plugins {
+  id 'java-library'
+  alias(libs.plugins.kotlin.jvm)
+}
+
+apply from: '../buildsystem/maven-push.gradle'
+apply from: '../buildsystem/sqlite-support.gradle'
+
+def mockitoAgentConfiguration = configurations.create('mockitoAgent')
+def runtimeProject = project(':runtime')
+
+dependencies {
+  implementation project(':runtime')
+  implementation libs.rx.java2
+
+  compileOnly rootProject.ext.androidJar
+  compileOnly libs.android.annotations
+
+  testImplementation testFixtures(project(':runtime'))
+  testImplementation rootProject.ext.androidJar
+  testImplementation libs.android.sqlite
+  testImplementation libs.junit
+  testImplementation libs.mockito.kotlin
+  testImplementation libs.truth
+
+  mockitoAgent(libs.mockito) {
+    transitive = false
+  }
+}
+
+kotlin {
+  compilerOptions {
+    optIn.add('com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi')
+  }
+  abiValidation {
+    enabled = true
+  }
+}
+
+tasks.named('check') {
+  dependsOn(kotlin.abiValidation.checkTaskProvider)
+}
+
+tasks.named('compileTestKotlin') {
+  friendPaths.from(provider { runtimeProject.tasks.named('jar').get().outputs.files })
+  friendPaths.from(provider { runtimeProject.sourceSets.testFixtures.output.classesDirs })
+}
+
+tasks.withType(Jar).configureEach {
+  from(rootProject.file('LICENSE')) {
+    into "META-INF/$POM_ARTIFACT_ID"
+  }
+}
+
+tasks.withType(Test).configureEach {
+  scanForTestClasses = false
+  include "**/*Test.class"
+  jvmArgs "-javaagent:${mockitoAgentConfiguration.singleFile.absolutePath}"
+}

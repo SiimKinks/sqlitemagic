@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteTableBuilder
-import io.reactivex.Single
 
 @InternalSqliteMagicApi
 class DeleteBuilder<M>(
@@ -23,7 +22,7 @@ class DeleteBuilder<M>(
 
   override fun execute() = perform(operation = delete)
 
-  override fun observe(): Single<Int> = observeSingle(delete)
+  internal fun deferred() = defer(delete)
 }
 
 @InternalSqliteMagicApi
@@ -33,7 +32,7 @@ class DeleteByColumnBuilder<M>(
 ) : OperationBuilder<EntityDeleteByColumnBuilder<M>>(adapter), EntityDeleteByColumnBuilder<M> {
   override fun execute(byColumn: Unique<M>) = perform(operation = delete(byColumn))
 
-  override fun observe(byColumn: Unique<M>): Single<Int> = observeSingle(delete(byColumn))
+  internal fun deferred(byColumn: Unique<M>) = defer(delete(byColumn))
 
   private fun delete(byColumn: Unique<M>) = delete(
     adapter = adapter,
@@ -55,7 +54,7 @@ class BulkDeleteBuilder<M>(
 
   override fun execute() = perform(operation = delete)
 
-  override fun observe(): Single<Int> = observeSingle(delete)
+  internal fun deferred() = defer(delete)
 }
 
 @InternalSqliteMagicApi
@@ -65,7 +64,7 @@ class BulkDeleteByColumnBuilder<M>(
 ) : OperationBuilder<EntityBulkDeleteByColumnBuilder<M>>(adapter), EntityBulkDeleteByColumnBuilder<M> {
   override fun execute(byColumn: Unique<M>) = perform(operation = delete(byColumn))
 
-  override fun observe(byColumn: Unique<M>): Single<Int> = observeSingle(delete(byColumn))
+  internal fun deferred(byColumn: Unique<M>) = defer(delete(byColumn))
 
   private fun delete(byColumn: Unique<M>) = delete(
     adapter = adapter,
@@ -87,7 +86,7 @@ class DeleteTableBuilder<M>(
 
   override fun execute() = perform(operation = delete)
 
-  override fun observe(): Single<Int> = observeSingle(delete)
+  internal fun deferred() = defer(delete)
 }
 
 private fun <M> delete(
