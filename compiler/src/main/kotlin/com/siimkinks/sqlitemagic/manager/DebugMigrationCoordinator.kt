@@ -66,10 +66,16 @@ internal class DebugMigrationCoordinator(
                 snapshots = transaction
               )
             }
-          configuration.structureOutputDirectory != null -> transaction.writeTextIfChanged(
-            file = File(configuration.structureOutputDirectory, "latest.struct"),
-            text = DatabaseStructureJson.write(currentStructure)
-          )
+          configuration.structureOutputDirectory != null -> {
+            transaction.writeTextIfChanged(
+              file = File(configuration.structureOutputDirectory, "latest.struct"),
+              text = DatabaseStructureJson.write(currentStructure)
+            )
+            transaction.writeTextIfChanged(
+              file = File(configuration.structureOutputDirectory, "latest.version"),
+              text = database.databaseVersion.toString()
+            )
+          }
         }
         completion(NO_DATABASE_VERSION_OVERRIDE)
       } catch (exception: Exception) {

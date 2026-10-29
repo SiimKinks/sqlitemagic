@@ -416,6 +416,7 @@ internal class ReleaseEvidencePublicationTest {
       projectDir = directory,
       databaseDirectory = database,
       variantName = "paidRelease",
+      databaseVersion = 8,
       compiledRelease = schema(version = 8).copy(
         tableSql = databaseStructure("books", "authors")
           .tables
@@ -453,6 +454,7 @@ internal class ReleaseEvidencePublicationTest {
       projectDir = directory,
       databaseDirectory = database,
       variantName = "paidRelease",
+      databaseVersion = 7,
       compiledRelease = schema(version = 7),
       evidenceAssetsDirectory = merged
     )
@@ -490,6 +492,7 @@ internal class ReleaseEvidencePublicationTest {
         projectDir = directory,
         databaseDirectory = database,
         variantName = "paidRelease",
+        databaseVersion = version,
         compiledRelease = schema(version),
         evidenceAssetsDirectory = merged
       )
@@ -516,6 +519,7 @@ internal class ReleaseEvidencePublicationTest {
       projectDir = directory,
       databaseDirectory = database,
       variantName = "paidRelease",
+      databaseVersion = 8,
       compiledRelease = schema(version = 8).copy(
         tableSql = databaseStructure("books", "authors")
           .tables
@@ -556,6 +560,7 @@ internal class ReleaseEvidencePublicationTest {
         projectDir = directory,
         databaseDirectory = database,
         variantName = "paidRelease",
+        databaseVersion = 8,
         compiledRelease = schema(version = 8).copy(
           tableSql = databaseStructure("books", "authors")
             .tables
@@ -576,6 +581,7 @@ internal class ReleaseEvidencePublicationTest {
     projectDir = directory,
     databaseDirectory = database,
     variantName = "paidRelease",
+    databaseVersion = compiled.version,
     compiledRelease = compiled
   )
 

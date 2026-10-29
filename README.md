@@ -488,11 +488,17 @@ together.**
 
 #### Migrate Database:
 
-Debug databases migrate automatically when the schema changes. When releasing a new database version, run
-`./gradlew migrateReleaseDb` (or `migrate<Variant>Db` for other release variants). It records the release schema in
-`db/releases` and generates its migration script into `src/release/assets`; commit both. Builds also keep the current
-schema in `db/` and write debug migration scripts into `src/debug/assets`. These are local build state, so keep them
-out of version control:
+Debug databases migrate automatically when the schema changes. When releasing a new database version, raise
+`@Database(version)` and run `./gradlew migrateReleaseDb` (or `migrate<Variant>Db` for other release variants). It
+records the release schema in `db/releases` and generates its migration script into `src/release/assets`; commit both.
+
+To see what the next release would contain, run `./gradlew previewReleaseDbMigration` (or
+`preview<Variant>DbMigration`) at any time, without raising the version first. It prints the schema changes since the
+latest release, the migration warnings and the migration SQL, and saves them in
+`build/sqlitemagic/release/migration-preview` without publishing anything.
+
+Builds also keep the current schema in `db/` and write debug migration scripts into `src/debug/assets`. These are local
+build state, so keep them out of version control:
 
 ```gitignore
 **/db/latest*.struct

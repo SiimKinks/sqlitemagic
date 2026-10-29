@@ -46,6 +46,26 @@ internal class MigrationTestingConsumerIntegrationTest {
     val declaredModel = application.resolve("src/main/kotlin/com/siimkinks/sqlitemagic/MigrationPerson.kt")
 
     for (version in 1..3) {
+      if (version == 2) {
+        applicationBuild.writeText(
+          configuredBuild(
+            original = initialBuild,
+            version = 1
+          )
+        )
+        declaredModel.writeText(modelSource(version))
+        val released = releaseHashes(application)
+        println("Consumer migration fixture: previewing release 2 before raising the database version")
+        val preview = run(
+          project = project,
+          arguments = listOf(":app:previewReleaseDbMigration")
+        )
+        assertThat(preview.output).contains(
+          "Release 2 preview (latest release 1)\nDatabase version 1 is not above the latest release; " +
+              "set @Database(version = 2) before publishing this release."
+        )
+        assertThat(releaseHashes(application)).isEqualTo(released)
+      }
       applicationBuild.writeText(
         configuredBuild(
           original = initialBuild,
@@ -62,6 +82,13 @@ internal class MigrationTestingConsumerIntegrationTest {
         val sql = application.resolve("src/release/assets/$version.sql")
         assertThat(sql.isFile)
           .isTrue()
+        if (version == 2) {
+          assertThat(sql.readText()).isEqualTo(
+            application
+              .resolve("build/sqlitemagic/release/migration-preview/2.sql")
+              .readText()
+          )
+        }
         sql.appendText(
           when (version) {
             2 -> "\nUPDATE migration_person SET name=upper(name), name_length=length(name)\n"

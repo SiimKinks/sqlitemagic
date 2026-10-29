@@ -243,10 +243,12 @@ internal class MigrationTestingTasksTest {
     val staged = projectDir.resolve("build/sqlitemagic/paidRelease/structures/latest.struct")
     check(staged.parentFile.mkdirs())
     staged.writeText(structureJson("books", "authors"))
+    val stagedVersion = staged.resolveSibling("latest.version")
+    stagedVersion.writeText("2")
     val oldScript = projectDir.resolve("src/release/assets/1.sql")
     check(oldScript.parentFile.mkdirs())
     oldScript.writeText("SELECT 1\n")
-    val frozen = listOf(previous, shared, staged, oldScript).associateWith(File::readText)
+    val frozen = listOf(previous, shared, staged, stagedVersion, oldScript).associateWith(File::readText)
     val project = ProjectBuilder.builder()
       .withProjectDir(projectDir)
       .build()
@@ -262,6 +264,7 @@ internal class MigrationTestingTasksTest {
         releaseVariant.set("paidRelease")
         assetsBuildType.set("release")
         currentStructures.from(staged)
+        databaseVersionFile.set(stagedVersion)
         assetsDirectory.set(merged)
       }
 
@@ -272,6 +275,112 @@ internal class MigrationTestingTasksTest {
     assertThat(projectDir.resolve("src/paidRelease/assets").exists()).isFalse()
     assertThat(database.resolve("releases/2.struct").readText()).doesNotContain("unrelated_debug_table")
     assertThat(frozen.keys.associateWith(File::readText)).isEqualTo(frozen)
+  }
+
+  @Test
+  fun `preview saves the next release from merged assets without publishing it`() {
+    val projectDir = directory.toFile()
+    val database = projectDir.resolve("db")
+    check(database.resolve("releases").mkdirs())
+    database
+      .resolve("releases/1.struct")
+      .writeText(structureJson("books"))
+    val staged = projectDir.resolve("build/sqlitemagic/paidRelease/structures/latest.struct")
+    check(staged.parentFile.mkdirs())
+    staged.writeText(structureJson("books", "authors"))
+    val stagedVersion = staged.resolveSibling("latest.version")
+    stagedVersion.writeText("1")
+    val merged = projectDir.resolve("build/merged-assets/paidRelease")
+    check(merged.mkdirs())
+    merged
+      .resolve("2.sql")
+      .writeText("UPDATE books SET id = id + 2;\n")
+    val output = projectDir.resolve("build/sqlitemagic/paidRelease/migration-preview")
+    check(output.mkdirs())
+    output
+      .resolve("9.sql")
+      .writeText("stale")
+    val sources = projectDir
+      .walkTopDown()
+      .filter { it.isFile && !it.startsWith(output) }
+      .associateWith(File::readText)
+    val task = ProjectBuilder.builder()
+      .withProjectDir(projectDir)
+      .build()
+      .tasks
+      .register("previewPaidReleaseDbMigration", PreviewSqliteMagicReleaseMigration::class.java)
+      .get()
+      .apply {
+        projectDirectory.set(projectDir)
+        databaseDirectory.set(database)
+        releaseVariant.set("paidRelease")
+        assetsBuildType.set("release")
+        currentStructures.from(staged)
+        databaseVersionFile.set(stagedVersion)
+        assetsDirectory.set(merged)
+        outputDirectory.set(output)
+      }
+
+    task.preview()
+
+    assertThat(
+      output
+        .listFiles()
+        .orEmpty()
+        .associate { it.name to it.readText() }
+    ).isEqualTo(
+      mapOf(
+        "report.txt" to """
+          Release 2 preview (latest release 1)
+          Database version 1 is not above the latest release; set @Database(version = 2) before publishing this release.
+
+          Schema changes since release 1:
+            Tables:
+              + authors
+
+          No warnings.
+
+          Migration SQL for src/release/assets/2.sql:
+            UPDATE books SET id = id + 2;
+            CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)
+        """.trimIndent() + "\n",
+        "2.sql" to "UPDATE books SET id = id + 2;\nCREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n"
+      )
+    )
+    assertThat(sources.keys.associateWith(File::readText)).isEqualTo(sources)
+    assertThat(database.resolve("releases").list())
+      .asList()
+      .containsExactly("1.struct")
+    assertThat(projectDir.resolve("src").exists()).isFalse()
+  }
+
+  @Test
+  fun `release tasks reject a release variant that migration testing did not select`() {
+    val tasks = fixture().task.project.tasks
+    val unselected: SqliteMagicReleaseTask.() -> Unit = {
+      releaseVariant.set("freeRelease")
+      selectedRelease.set("paidRelease")
+    }
+    val migration = tasks
+      .register("migrateFreeReleaseDb", PublishSqliteMagicRelease::class.java)
+      .get()
+      .apply(unselected)
+    val preview = tasks
+      .register("previewFreeReleaseDbMigration", PreviewSqliteMagicReleaseMigration::class.java)
+      .get()
+      .apply(unselected)
+
+    mapOf(
+      "publish authoritative history" to migration::publish,
+      "preview the next release" to preview::preview
+    ).forEach { (action, taskAction) ->
+      val failure = assertThrows<IllegalStateException>(taskAction)
+
+      assertWithMessage(action)
+        .that(failure)
+        .hasMessageThat()
+        .isEqualTo("Only selected migration release 'paidRelease' may $action")
+    }
   }
 
   @Test

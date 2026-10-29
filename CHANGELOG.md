@@ -16,9 +16,14 @@ legacy queries to the new DSL and lists the changes that compile but behave diff
 * Breaking: Without `queryDeep()`, a related object whose other constructor parameters are nullable is built from its
   ID, with `null` for those parameters, instead of being queried in full. Such objects can also be referenced with
   `handleRecursively = false`
+* Breaking: With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version,
+  as it does with migration testing, instead of one above the latest release, and fails when that version is already
+  released
 * New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to own
   classes
 * New: Generated migrations warn when they drop tables, columns or rows
+* New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
+  without publishing the release or raising the database version
 
 Version 2.0.0 _(2026-10-28)_
 ---------------------------------

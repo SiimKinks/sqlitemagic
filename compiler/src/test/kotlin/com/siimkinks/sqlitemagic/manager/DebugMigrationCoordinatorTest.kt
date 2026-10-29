@@ -165,8 +165,10 @@ internal class DebugMigrationCoordinatorTest {
       migrateDebug = false,
       structureOutputDirectory = structureOutputDirectory
     )
-    val database = debugMainDatabase
-      .copy(views = listOf(mockView(name = "main_view")))
+    val database = debugMainDatabase.copy(
+      databaseMetadata = debugMainDatabase.databaseMetadata.copy(dbVersion = 7),
+      views = listOf(mockView(name = "main_view"))
+    )
     val orderedTables = CreationOrderedTables.from(database.tables)
 
     assertThat(
@@ -187,6 +189,11 @@ internal class DebugMigrationCoordinatorTest {
         views = database.views
       )
     )
+    assertThat(
+      structureOutputDirectory
+        .resolve("latest.version")
+        .readText()
+    ).isEqualTo("7")
   }
 
   @Test

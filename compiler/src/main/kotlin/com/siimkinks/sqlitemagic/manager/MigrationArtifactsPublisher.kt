@@ -5,7 +5,6 @@ import java.io.File
 internal class MigrationArtifactsPublisher(
   private val structureFile: File,
   private val migrationFile: File,
-  private val persistentStructureOnly: Boolean = false,
   private val externalTransaction: FileSnapshotTransaction? = null
 ) {
   fun publish(
@@ -14,13 +13,9 @@ internal class MigrationArtifactsPublisher(
   ) {
     val transaction = externalTransaction ?: FileSnapshotTransaction()
     try {
-      val publishedStructure = when {
-        persistentStructureOnly -> structure.persistentOnly()
-        else -> structure
-      }
       transaction.writeTextIfChanged(
         file = structureFile,
-        text = DatabaseStructureJson.write(publishedStructure)
+        text = DatabaseStructureJson.write(structure)
       )
       publishLines(
         file = migrationFile,
@@ -41,10 +36,7 @@ internal class MigrationArtifactsPublisher(
     when {
       lines.isNotEmpty() -> transaction.writeTextIfChanged(
         file = file,
-        text = lines.joinToString(
-          separator = "\n",
-          postfix = "\n"
-        )
+        text = migrationScript(lines)
       )
       file.isFile -> {
         transaction.track(file)
@@ -55,3 +47,8 @@ internal class MigrationArtifactsPublisher(
     }
   }
 }
+
+internal fun migrationScript(lines: List<String>) = lines.joinToString(
+  separator = "\n",
+  postfix = "\n"
+)

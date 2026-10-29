@@ -65,7 +65,7 @@ class SqliteMagicPlugin : Plugin<Project> {
               variantNames += variant.name
               project.configureKspVariantArgs(variant)
               if (project.plugins.hasPlugin(ANDROID_APPLICATION_PLUGIN_ID) && !variant.isDebug) {
-                variant.addMigrateDbTask(project)
+                variant.addReleaseDbTasks(project)
               }
             }
           }
@@ -302,20 +302,42 @@ private fun Project.configureKspVariantArgs(variant: Variant) {
   }
 }
 
-private fun Variant.addMigrateDbTask(project: Project) {
+private fun Variant.addReleaseDbTasks(project: Project) {
   val variantName = name
-  val taskName = "migrate${variantName.capitalize()}Db"
+  val variantTaskName = variantName.capitalize()
   val releaseAssets = artifacts.get(SingleArtifact.ASSETS)
-  val migrationTask = project.tasks.register(taskName, PublishSqliteMagicRelease::class.java) { task ->
+  val assetsBuildType = checkNotNull(buildType)
+  val structureStagingDirectory = project.structureStagingDirectory(variantName)
+  val configureReleaseInputs = { task: SqliteMagicReleaseTask ->
     task.group = DB_TASK_GROUP
-    task.doNotTrackState("Explicitly publishes reviewed release evidence")
     task.dependsOn(kspTaskName(), releaseAssets)
     task.assetsDirectory.set(releaseAssets)
     task.projectDirectory.set(project.layout.projectDirectory)
     task.databaseDirectory.set(project.layout.projectDirectory.dir("db"))
     task.releaseVariant.set(variantName)
-    task.assetsBuildType.set(checkNotNull(buildType))
-    task.currentStructures.from(project.structureStagingDirectory(variantName).resolve("latest.struct"))
+    task.assetsBuildType.set(assetsBuildType)
+    task.currentStructures.from(structureStagingDirectory.resolve("latest.struct"))
+    task.databaseVersionFile.set(structureStagingDirectory.resolve("latest.version"))
+  }
+  val migrationTask = project.tasks.register(
+    "migrate${variantTaskName}Db",
+    PublishSqliteMagicRelease::class.java
+  ) { task ->
+    configureReleaseInputs(task)
+    task.description = "Publishes the release schema to db/releases and its migration SQL to the release assets"
+    task.doNotTrackState("Explicitly publishes reviewed release evidence")
+  }
+  val previewTask = project.tasks.register(
+    "preview${variantTaskName}DbMigration",
+    PreviewSqliteMagicReleaseMigration::class.java
+  ) { task ->
+    configureReleaseInputs(task)
+    task.description = "Previews the schema changes, warnings and migration SQL of the next release " +
+        "without publishing it"
+    task.doNotTrackState("Previews the next release from mutable release evidence and source assets")
+    task.outputDirectory.set(
+      project.layout.buildDirectory.dir("sqlitemagic/${variantName.lowerFirst()}/migration-preview")
+    )
   }
   project.gradle.projectsEvaluated {
     val submodules = project.structureSubmoduleProjects().map { submodule ->
@@ -323,7 +345,8 @@ private fun Variant.addMigrateDbTask(project: Project) {
         tree.include("latest_*.struct")
       }
     }
-    migrationTask.configure { task -> task.currentStructures.from(submodules) }
+    migrationTask.configure { it.currentStructures.from(submodules) }
+    previewTask.configure { it.currentStructures.from(submodules) }
   }
 }
 

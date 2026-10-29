@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -52,7 +53,7 @@ internal class ReleaseMigrationCoordinatorTest {
       structure = previous
     )
 
-    migrate()
+    migrate(databaseVersion = 4)
 
     assertThat(
       readStructure(databaseDirectory.resolve("releases/4.struct"))
@@ -98,6 +99,7 @@ internal class ReleaseMigrationCoordinatorTest {
       projectDir = temporaryDirectory.toFile(),
       databaseDirectory = databaseDirectory.toFile(),
       variantName = "release",
+      databaseVersion = 4,
       warn = warnings::add
     )
 
@@ -122,7 +124,7 @@ internal class ReleaseMigrationCoordinatorTest {
     pendingMigration.parent.createDirectories()
     pendingMigration.writeText(pendingSql)
 
-    migrate()
+    migrate(databaseVersion = 9)
 
     assertThat(
       readStructure(databaseDirectory.resolve("releases/9.struct"))
@@ -201,7 +203,7 @@ internal class ReleaseMigrationCoordinatorTest {
       )
     )
 
-    migrate()
+    migrate(databaseVersion = 5)
 
     assertThat(readStructure(databaseDirectory.resolve("releases/5.struct")))
       .isEqualTo(
@@ -212,39 +214,40 @@ internal class ReleaseMigrationCoordinatorTest {
   }
 
   @Test
-  fun `ignores nonnumeric files when choosing the first release version`() {
+  fun `publishes the release under the declared database version`() {
+    val current = databaseStructure("books", "authors")
     writeStructure(
       file = databaseDirectory.resolve("module.struct"),
+      structure = current
+    )
+    writeStructure(
+      file = databaseDirectory.resolve("releases/4.struct"),
       structure = databaseStructure("books")
     )
-    assetsDirectory.createDirectories()
-    assetsDirectory
-      .resolve("2.sql")
-      .writeText("old")
-    assetsDirectory
-      .resolve("10.sql")
-      .writeText("old")
-    assetsDirectory
-      .resolve("not-a-version.sql")
-      .writeText("ignored")
-    assetsDirectory
-      .resolve("100.sql.bak")
-      .writeText("ignored")
 
-    migrate()
+    migrate(databaseVersion = 7)
 
     assertThat(
       databaseDirectory
-        .resolve("releases/11.struct")
-        .exists()
-    ).isTrue()
+        .resolve("releases")
+        .toFile()
+        .list()
+    ).asList()
+      .containsExactly("4.struct", "7.struct")
+    assertThat(readStructure(databaseDirectory.resolve("releases/7.struct")))
+      .isEqualTo(current)
+    assertThat(
+      assetsDirectory
+        .resolve("7.sql")
+        .readText()
+    ).isEqualTo("CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n")
   }
 
   @Test
-  fun `uses the latest numeric release snapshot before considering assets`() {
+  fun `rejects a database version that is not above the latest numeric release snapshot`() {
     writeStructure(
       file = databaseDirectory.resolve("module.struct"),
-      structure = databaseStructure("books")
+      structure = databaseStructure("books", "authors")
     )
     writeStructure(
       file = databaseDirectory.resolve("releases/2.struct"),
@@ -257,66 +260,31 @@ internal class ReleaseMigrationCoordinatorTest {
     databaseDirectory
       .resolve("releases/not-a-version.struct")
       .writeText("ignored")
-    assetsDirectory.createDirectories()
-    assetsDirectory
-      .resolve("99.sql")
-      .writeText("ignored")
-    assetsDirectory
-      .resolve("099.sql")
-      .writeText("ignored")
+    val releases = databaseDirectory
+      .resolve("releases")
+      .toFile()
 
-    migrate()
+    mapOf(
+      "latest release" to 10,
+      "unreleased version below the latest release" to 5
+    ).forEach { (label, databaseVersion) ->
+      val exception = assertThrows<IllegalStateException> { migrate(databaseVersion = databaseVersion) }
 
+      assertWithMessage(label)
+        .that(exception)
+        .hasMessageThat()
+        .isEqualTo(
+          "Database version $databaseVersion is not above the latest release 10 in ${releases.absolutePath}. " +
+              "Set @Database(version) to 11 or higher to publish the next release."
+        )
+    }
     assertThat(
       databaseDirectory
         .resolve("releases/11.struct")
         .exists()
-    ).isTrue()
-    assertThat(
-      databaseDirectory
-        .resolve("releases/100.struct")
-        .exists()
     ).isFalse()
-  }
-
-  @Test
-  fun `ignores obsolete view resources when choosing the next release version`() {
-    writeStructure(
-      file = databaseDirectory.resolve("module.struct"),
-      structure = databaseStructure("books")
-    )
-    assetsDirectory.createDirectories()
-    assetsDirectory
-      .resolve("9.sql")
-      .writeText("old")
-    assetsDirectory
-      .resolve("12.views")
-      .writeText("old_view\n")
-
-    migrate()
-
-    assertThat(databaseDirectory.resolve("releases/10.struct").exists())
-      .isTrue()
-  }
-
-  @Test
-  fun `uses SQL versions independently of obsolete view resources`() {
-    writeStructure(
-      file = databaseDirectory.resolve("module.struct"),
-      structure = databaseStructure("books")
-    )
-    assetsDirectory.createDirectories()
-    assetsDirectory
-      .resolve("12.sql")
-      .writeText("old")
-    assetsDirectory
-      .resolve("12.views")
-      .writeText("old_view\n")
-
-    migrate()
-
-    assertThat(databaseDirectory.resolve("releases/13.struct").exists())
-      .isTrue()
+    assertThat(assetsDirectory.exists())
+      .isFalse()
   }
 
   @Test
@@ -340,6 +308,7 @@ internal class ReleaseMigrationCoordinatorTest {
       projectDir = temporaryDirectory.toFile(),
       databaseDirectory = databaseDirectory.toFile(),
       variantName = "release",
+      databaseVersion = 1,
       currentStructureFiles = listOf(feature.toFile(), stagedMain.toFile())
     )
 
@@ -369,25 +338,6 @@ internal class ReleaseMigrationCoordinatorTest {
     assertThat(exception)
       .hasMessageThat()
       .contains("Duplicate numeric struct version 1")
-  }
-
-  @Test
-  fun `rejects duplicate numeric asset versions`() {
-    writeStructure(
-      file = databaseDirectory.resolve("module.struct"),
-      structure = databaseStructure("books")
-    )
-    assetsDirectory.createDirectories()
-    assetsDirectory
-      .resolve("1.sql")
-      .writeText("old")
-    assetsDirectory
-      .resolve("01.sql")
-      .writeText("old")
-
-    assertThat(assertThrows<IllegalStateException>(::migrate))
-      .hasMessageThat()
-      .contains("Duplicate numeric sql version 1")
   }
 
   @Test
@@ -422,7 +372,7 @@ internal class ReleaseMigrationCoordinatorTest {
         writeText("not json")
       }
 
-    assertThat(assertThrows<IllegalStateException>(::migrate))
+    assertThat(assertThrows<IllegalStateException> { migrate(databaseVersion = 8) })
       .hasMessageThat()
       .contains("Malformed latest release")
     assertThat(
@@ -578,9 +528,10 @@ internal class ReleaseMigrationCoordinatorTest {
 
   private fun readStructure(file: Path) = checkNotNull(DatabaseStructureJson.read(file.toFile()))
 
-  private fun migrate() = ReleaseMigrationCoordinator.migrate(
+  private fun migrate(databaseVersion: Int = 1) = ReleaseMigrationCoordinator.migrate(
     projectDir = temporaryDirectory.toFile(),
     databaseDirectory = databaseDirectory.toFile(),
-    variantName = "release"
+    variantName = "release",
+    databaseVersion = databaseVersion
   )
 }

@@ -200,9 +200,8 @@ internal data class TableChange(
     }
   }
   val droppedColumns = from.structure.columns.filterNot { it.lookupName in currentColumnsByName }
-  val columnsWithoutValue = to.structure.columns.filter { column ->
-    column.lookupName !in previousColumnNames && column.requiresValueDuringRebuild(table = to.structure)
-  }
+  val addedColumns = to.structure.columns.filterNot { it.lookupName in previousColumnNames }
+  val columnsWithoutValue = addedColumns.filter { it.requiresValueDuringRebuild(table = to.structure) }
   val copiesRows get() = copiedColumns.isNotEmpty() && columnsWithoutValue.isEmpty()
   val nullRowColumns = copiedColumns
     .filter(ColumnCopy::deletesNullRows)

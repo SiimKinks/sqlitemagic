@@ -105,7 +105,7 @@ internal class IndexStructureContractTest {
 
     compiler
       .compile(
-        mainDatabaseWithTable(tableName = "Shared"),
+        mainDatabaseWithSharedTable(),
         kspOptions = debugMigrationOptions(
           projectDirectory = mainDirectory,
           structureInputDirectories = listOf(mainDirectory.resolve("db"))
@@ -139,7 +139,7 @@ internal class IndexStructureContractTest {
 
     compiler
       .compile(
-        mainDatabaseWithTable(tableName = "Shared"),
+        mainDatabaseWithSharedTable(),
         kspOptions = debugMigrationOptions(
           projectDirectory = mainDirectory,
           structureInputDirectories = listOf(mainDirectory.resolve("db"))
@@ -219,7 +219,7 @@ internal class IndexStructureContractTest {
 
     compiler
       .compile(
-        mainDatabaseWithTable(tableName = "Shared"),
+        mainDatabaseWithSharedTable(),
         kspOptions = debugMigrationOptions(
           projectDirectory = mainDirectory,
           structureInputDirectories = listOf(mainDirectory.resolve("db"))
@@ -291,7 +291,8 @@ internal class IndexStructureContractTest {
     databaseDirectory = temporaryDirectory
       .resolve("db")
       .toFile(),
-    variantName = "release"
+    variantName = "release",
+    databaseVersion = 1
   )
 
   private fun writeStructure(
@@ -353,9 +354,7 @@ private fun indexJson(name: String) = """
   }
 """.trimIndent()
 
-private fun mainDatabaseWithTable(
-  tableName: String
-) = SourceFile.kotlin(
+private fun mainDatabaseWithSharedTable() = SourceFile.kotlin(
   name = "MainDatabase.kt",
   contents = """
     package $PACKAGE
@@ -367,7 +366,7 @@ private fun mainDatabaseWithTable(
     @Database(submodules = [FeatureDatabase::class])
     class MainDatabase
 
-    @Table("$tableName")
+    @Table("Shared")
     data class MainTable(@Id val id: Long)
   """
 )

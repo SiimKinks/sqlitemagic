@@ -165,8 +165,8 @@ abstract class PrepareSqliteMagicMigrationTests : DefaultTask() {
   }
 }
 
-@DisableCachingByDefault(because = "Explicitly publishes reviewed release evidence into consumer source directories")
-abstract class PublishSqliteMagicRelease : DefaultTask() {
+@DisableCachingByDefault(because = "Reads mutable release evidence and source assets")
+abstract class SqliteMagicReleaseTask : DefaultTask() {
   @get:Internal
   abstract val projectDirectory: DirectoryProperty
 
@@ -177,19 +177,52 @@ abstract class PublishSqliteMagicRelease : DefaultTask() {
   abstract val releaseVariant: Property<String>
 
   @get:Input
+  @get:Optional
+  abstract val selectedRelease: Property<String>
+
+  @get:Input
   abstract val assetsBuildType: Property<String>
 
   @get:Internal
   abstract val assetsDirectory: DirectoryProperty
 
-  @get:Input
-  @get:Optional
-  abstract val selectedRelease: Property<String>
-
   @get:InputFiles
   @get:PathSensitive(PathSensitivity.RELATIVE)
   abstract val currentStructures: ConfigurableFileCollection
 
+  @get:Internal
+  abstract val databaseVersionFile: RegularFileProperty
+
+  protected fun checkSelectedRelease(action: String) = check(
+    selectedRelease.orNull == null || selectedRelease.get() == releaseVariant.get()
+  ) { "Only selected migration release '${selectedRelease.get()}' may $action" }
+
+  protected fun checkGeneratedMetadata() {
+    val missingFiles = (currentStructures.files + databaseVersionFile.get().asFile).filterNot(File::isFile)
+    check(missingFiles.isEmpty()) {
+      "Missing generated SqliteMagic metadata: ${missingFiles.joinToString()}. " +
+          "Run ${path.substringBeforeLast(':')}:cleanSqliteMagicMetadata, then rerun $path " +
+          "to rebuild KSP metadata for the application and configured schema submodules."
+    }
+  }
+
+  protected fun databaseVersion() = databaseVersionFile
+    .get()
+    .asFile
+    .readText()
+    .toInt()
+
+  protected fun currentStructureFiles() = currentStructures.files.sortedBy(File::getName)
+
+  protected fun evidenceAssetsDirectory() = assetsDirectory.orNull?.asFile
+    ?: projectDirectory
+      .get()
+      .asFile
+      .resolve("src/${assetsBuildType.get()}/assets")
+}
+
+@DisableCachingByDefault(because = "Explicitly publishes reviewed release evidence into consumer source directories")
+abstract class PublishSqliteMagicRelease : SqliteMagicReleaseTask() {
   @get:InputFile
   @get:PathSensitive(PathSensitivity.NONE)
   @get:Optional
@@ -197,29 +230,52 @@ abstract class PublishSqliteMagicRelease : DefaultTask() {
 
   @TaskAction
   fun publish() {
-    check(selectedRelease.orNull == null || selectedRelease.get() == releaseVariant.get()) {
-      "Only selected migration release '${selectedRelease.get()}' may publish authoritative history"
-    }
+    checkSelectedRelease("publish authoritative history")
     val captured = compiledSchema.orNull?.asFile?.let(::readSchema)
     check(captured == null || captured.releaseVariant == releaseVariant.get()) {
       "Compiled schema belongs to a different selected release variant"
     }
-    val missingStructures = currentStructures.files.filterNot(File::isFile)
-    check(missingStructures.isEmpty()) {
-      "Missing generated SqliteMagic structure(s): ${missingStructures.joinToString()}. " +
-          "Run ${path.substringBeforeLast(':')}:cleanSqliteMagicMetadata, then rerun $path " +
-          "to rebuild KSP metadata for the application and configured schema submodules."
-    }
+    checkGeneratedMetadata()
     ReleaseMigrationCoordinator.migrate(
       projectDir = projectDirectory.get().asFile,
       databaseDirectory = databaseDirectory.get().asFile,
       variantName = assetsBuildType.get(),
-      currentStructureFiles = currentStructures.files.sortedBy(File::getName),
+      databaseVersion = databaseVersion(),
+      currentStructureFiles = currentStructureFiles(),
       compiledRelease = captured,
-      evidenceAssetsDirectory = assetsDirectory.orNull?.asFile
-        ?: projectDirectory.get().asFile.resolve("src/${assetsBuildType.get()}/assets"),
+      evidenceAssetsDirectory = evidenceAssetsDirectory(),
       warn = logger::warn
     )
+  }
+}
+
+@DisableCachingByDefault(because = "Previews the next release from mutable release evidence and source assets")
+abstract class PreviewSqliteMagicReleaseMigration : SqliteMagicReleaseTask() {
+  @get:OutputDirectory
+  abstract val outputDirectory: DirectoryProperty
+
+  @TaskAction
+  fun preview() {
+    checkSelectedRelease("preview the next release")
+    checkGeneratedMetadata()
+    val preview = ReleaseMigrationCoordinator.preview(
+      projectDir = projectDirectory.get().asFile,
+      databaseDirectory = databaseDirectory.get().asFile,
+      variantName = assetsBuildType.get(),
+      databaseVersion = databaseVersion(),
+      currentStructureFiles = currentStructureFiles(),
+      evidenceAssetsDirectory = evidenceAssetsDirectory()
+    )
+    val output = outputDirectory.get().asFile
+    check(output.deleteRecursively() && output.mkdirs()) {
+      "Failed to replace SqliteMagic release migration preview ${output.absolutePath}"
+    }
+    output
+      .resolve("report.txt")
+      .writeText("${preview.report}\n")
+    preview.sql?.let(output.resolve("${preview.version}.sql")::writeText)
+    logger.lifecycle(preview.report)
+    logger.lifecycle("\nSaved release migration preview to ${output.absolutePath}")
   }
 }
 

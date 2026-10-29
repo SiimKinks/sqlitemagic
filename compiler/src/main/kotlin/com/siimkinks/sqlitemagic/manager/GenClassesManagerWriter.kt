@@ -289,7 +289,7 @@ internal class GenClassesManagerWriter(
   private fun GeneratedDatabaseElement.dbVersion() = PropertySpec
     .builder(name = PROPERTY_DB_VERSION, type = INT)
     .addModifiers(OVERRIDE)
-    .initializer("%L", databaseMetadata.dbVersion ?: 1)
+    .initializer("%L", databaseVersion)
     .build()
 
   private fun GeneratedDatabaseElement.dbName() = PropertySpec
