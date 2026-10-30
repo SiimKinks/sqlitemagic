@@ -136,7 +136,7 @@ internal class DbConnectionImpl(
 
   fun sendTableTrigger(table: String) {
     when (val transactionState = transactions.get()) {
-      null -> publishTableTriggers(setOf(table))
+      null -> publishTableTrigger(table)
       else -> transactionState.add(table)
     }
   }
@@ -147,9 +147,7 @@ internal class DbConnectionImpl(
       1 -> sendTableTrigger(tables[0])
       else -> when (val transactionState = transactions.get()) {
         null -> publishTableTriggers(
-          MutableScatterSet<String>(initialCapacity = tables.size)
-            .apply { addAll(tables) }
-            .asSet()
+          MutableScatterSet<String>(initialCapacity = tables.size).apply { addAll(tables) }
         )
         else -> transactionState.addAll(tables)
       }
@@ -158,12 +156,17 @@ internal class DbConnectionImpl(
 
   private fun sendTableTriggers(tables: ScatterSet<String>) {
     when (val transactionState = transactions.get()) {
-      null -> publishTableTriggers(tables.asSet())
+      null -> publishTableTriggers(tables)
       else -> transactionState.addAll(tables)
     }
   }
 
-  private fun publishTableTriggers(tables: Set<String>) {
+  private fun publishTableTrigger(table: String) {
+    logDebug { "TRIGGER [$table]" }
+    tableObservers.publish(table)
+  }
+
+  private fun publishTableTriggers(tables: ScatterSet<String>) {
     logDebug { "TRIGGER $tables" }
     tableObservers.publish(tables)
   }

@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.CompiledRawCursor
 import com.siimkinks.sqlitemagic.CompiledRawFirst
 import com.siimkinks.sqlitemagic.CompiledRawSelect
 import com.siimkinks.sqlitemagic.CompiledSelect
+import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DeclaredTables
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.RawSelectQuery
@@ -19,8 +20,8 @@ import com.siimkinks.sqlitemagic.internal.QueryObservation
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
 import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.BufferOverflow.DROP_LATEST
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -255,31 +256,43 @@ fun <T> RawSelectQuery<T, DeclaredTables>.observe() = compile().observe()
  */
 suspend fun <T> RawSelectQuery<T, UndeclaredTables>.await() = compile().await()
 
-private fun <T> SelectPlan<T>.changes() = ReactiveAdapterSupport
-  .observation(this)
-  .asFlow()
+private fun <T> SelectPlan<T>.changes(): Flow<Query<T>> = QueryChanges(ReactiveAdapterSupport.observation(this))
+
+internal class QueryChanges<T>(
+  val observation: QueryObservation<T>
+) : Flow<Query<T>> by observation.asFlow()
 
 private fun <T> QueryObservation<T>.asFlow() = flow {
-  val changes = TableChanges()
+  listen(connection = connection()) {
+    it.repeatOnChange { emit(query) }
+  }
+}
+
+internal inline fun QueryObservation<*>.listen(
+  connection: DbConnection,
+  block: (TableChanges) -> Unit
+) {
+  val changes = TableChanges(observesChanges)
   val registration = register(
-    connection = connection(),
+    connection = connection,
     observer = changes
   )
   try {
-    if (changes.isClosed) return@flow
-    emit(query)
-    if (observesChanges) {
-      while (changes.awaitChange()) {
-        emit(query)
-      }
+    if (!changes.isClosed) {
+      block(changes)
     }
   } finally {
     registration.close()
   }
 }
 
-private class TableChanges : TableChangeObserver {
-  private val signals = Channel<Unit>(CONFLATED)
+internal class TableChanges(
+  val observesChanges: Boolean
+) : TableChangeObserver {
+  private val signals = Channel<Unit>(
+    capacity = 1,
+    onBufferOverflow = DROP_LATEST
+  )
 
   @Volatile
   var isClosed = false
@@ -292,6 +305,12 @@ private class TableChanges : TableChangeObserver {
   override fun onClosed() {
     isClosed = true
     signals.close()
+  }
+
+  suspend inline fun repeatOnChange(action: () -> Unit) {
+    do {
+      action()
+    } while (observesChanges && awaitChange())
   }
 
   suspend fun awaitChange() = signals.receiveCatching().isSuccess && !isClosed

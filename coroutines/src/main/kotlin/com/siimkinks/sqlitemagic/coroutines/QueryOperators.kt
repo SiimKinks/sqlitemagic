@@ -4,15 +4,23 @@ import android.database.Cursor
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.Query
+import com.siimkinks.sqlitemagic.internal.QueryObservation
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlin.coroutines.ContinuationInterceptor
 
 /**
  * Run each emitted [Query] and emit its rows as a [List].
@@ -21,12 +29,13 @@ import kotlinx.coroutines.isActive
  * time the upstream emits a new query. On tables whose queries update frequently or very large result sets this can
  * result in the creation of many objects.
  *
- * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Cancellation stops reading
- * the rows.
+ * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Cancellation stops reading the
+ * rows. Applied directly to an `observe()` flow, the next query can start on that dispatcher while the collector still
+ * processes the previous result.
  */
 @CheckResult
 @JvmName("runListQuery")
-fun <T> Flow<Query<List<T>>>.runQuery(): Flow<List<T>> = map(Query<List<T>>::awaitResult)
+fun <T> Flow<Query<List<T>>>.runQuery(): Flow<List<T>> = runEach(::identity)
 
 /**
  * Run only the first emitted [Query] and return its rows as a [List].
@@ -43,22 +52,24 @@ suspend fun <T> Flow<Query<List<T>>>.runQueryOnce(): List<T> = first().awaitResu
  * Run each emitted [Query] which returns a single row and emit its result.
  *
  * This operator ignores queries with an empty result or a `null` scalar result. Each query runs on the
- * [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Applied directly to an `observe()` flow, the next
+ * query can start on that dispatcher while the collector still processes the previous result.
  */
 @CheckResult
 @JvmName("runSingleItemQuery")
-fun <T : Any> Flow<Query<T?>>.runQuery(): Flow<T> = runSingleItemQuery(defaultValue = null)
+fun <T : Any> Flow<Query<T?>>.runQuery(): Flow<T> = runEach(::identity)
 
 /**
  * Run each emitted [Query] which returns a single row and emit its result.
  *
  * This operator emits [defaultValue] if the query result is empty or the selected scalar value is `null`. Each query
- * runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Applied directly to an `observe()` flow,
+ * the next query can start on that dispatcher while the collector still processes the previous result.
  *
  * @param defaultValue Value emitted if the [Query] result is empty or the selected scalar value is `null`
  */
 @CheckResult
-fun <T : Any> Flow<Query<T?>>.runQueryOrDefault(defaultValue: T): Flow<T> = runSingleItemQuery(defaultValue)
+fun <T : Any> Flow<Query<T?>>.runQueryOrDefault(defaultValue: T): Flow<T> = runEach { it ?: defaultValue }
 
 /**
  * Run only the first emitted [Query] which returns a single row and return its result.
@@ -86,21 +97,27 @@ suspend fun <T : Any> Flow<Query<T?>>.runQueryOnceOrDefault(defaultValue: T): T 
 /**
  * Run each emitted count [Query] and emit its result.
  *
- * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Applied directly to an
+ * `observe()` flow, the next query can start on that dispatcher while the collector still processes the previous
+ * result.
  */
 @CheckResult
 @JvmName("runCountQuery")
-fun Flow<Query<Long>>.runQuery(): Flow<Long> = runSingleItemQuery(defaultValue = null)
+fun Flow<Query<Long>>.runQuery(): Flow<Long> = runEach(::identity)
 
 /**
  * Run each emitted count [Query] and emit its result.
  *
- * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Applied directly to an
+ * `observe()` flow, the next query can start on that dispatcher while the collector still processes the previous
+ * result.
  *
  * @param defaultValue Value emitted if the [Query] result is `null`
  */
 @CheckResult
-fun Flow<Query<Long>>.runQueryOrDefault(defaultValue: Long): Flow<Long> = runSingleItemQuery(defaultValue)
+fun Flow<Query<Long>>.runQueryOrDefault(defaultValue: Long): Flow<Long> = runEach { count: Long? ->
+  count ?: defaultValue
+}
 
 /**
  * Run only the first emitted count [Query] and return its result.
@@ -127,39 +144,48 @@ suspend fun Flow<Query<Long>>.runQueryOnceOrDefault(defaultValue: Long): Long =
 /**
  * Run each emitted count [Query] and emit whether the count is zero.
  *
- * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Applied directly to an
+ * `observe()` flow, the next query can start on that dispatcher while the collector still processes the previous
+ * result.
  */
 @CheckResult
-fun Flow<Query<Long>>.isZero(): Flow<Boolean> = map { query -> query.awaitResult() == 0L }
+fun Flow<Query<Long>>.isZero(): Flow<Boolean> = runEach { it == 0L }
 
 /**
  * Run each emitted count [Query] and emit whether the count is not zero.
  *
- * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Applied directly to an
+ * `observe()` flow, the next query can start on that dispatcher while the collector still processes the previous
+ * result.
  */
 @CheckResult
-fun Flow<Query<Long>>.isNotZero(): Flow<Boolean> = map { query -> query.awaitResult() != 0L }
+fun Flow<Query<Long>>.isNotZero(): Flow<Boolean> = runEach { it != 0L }
 
 /**
  * Run each emitted cursor [Query] and emit its [Cursor], which the collector must **always** close.
  *
- * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. If the collection is
- * cancelled before a cursor is emitted, the cursor is closed instead.
+ * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. If the collection is cancelled
+ * before a cursor is emitted, the cursor is closed instead. Applied directly to an `observe()` flow, the next query can
+ * start on that dispatcher while the collector still processes the previous result.
  */
 @CheckResult
 @JvmName("runCursorQuery")
-fun Flow<Query<Cursor>>.runQuery(): Flow<Cursor> = runSingleItemQuery(defaultValue = null)
+fun Flow<Query<Cursor>>.runQuery(): Flow<Cursor> = runEach(::identity)
 
 /**
  * Run each emitted cursor [Query] and emit its [Cursor], which the collector must **always** close.
  *
- * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. If the collection is
- * cancelled before a cursor is emitted, the cursor is closed instead. [defaultValue] is never closed.
+ * Each query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. If the collection is cancelled
+ * before a cursor is emitted, the cursor is closed instead. [defaultValue] is never closed. Applied directly to an
+ * `observe()` flow, the next query can start on that dispatcher while the collector still processes the previous
+ * result.
  *
  * @param defaultValue Value emitted if the [Query] result is `null`
  */
 @CheckResult
-fun Flow<Query<Cursor>>.runQueryOrDefault(defaultValue: Cursor): Flow<Cursor> = runSingleItemQuery(defaultValue)
+fun Flow<Query<Cursor>>.runQueryOrDefault(defaultValue: Cursor): Flow<Cursor> = runEach { cursor: Cursor? ->
+  cursor ?: defaultValue
+}
 
 /**
  * Run only the first emitted cursor [Query] and return its [Cursor], which the caller must **always** close.
@@ -220,9 +246,66 @@ internal suspend fun <T> Query<T>.awaitResult(connection: DbConnection = Reactiv
   }
 }
 
-private fun <T : Any> Flow<Query<out T?>>.runSingleItemQuery(defaultValue: T?) = mapNotNull { query ->
-  query.awaitResult() ?: defaultValue
+private fun <T, R : Any> Flow<Query<T>>.runEach(transform: (T) -> R?): Flow<R> = when (this) {
+  is QueryChanges -> QueryResults(
+    observation = observation,
+    transform = transform
+  )
+  else -> mapNotNull { transform(it.awaitResult()) }
 }
+
+private class QueryResults<T, R : Any>(
+  private val observation: QueryObservation<T>,
+  private val transform: (T) -> R?
+) : Flow<R> {
+  override suspend fun collect(collector: FlowCollector<R>) {
+    val connection = observation.connection()
+    val dispatcher = connection.queryDispatcher()
+    val context = currentCoroutineContext()
+    observation.listen(connection = connection) { changes ->
+      when {
+        context[ContinuationInterceptor] == dispatcher || !dispatcher.isDispatchNeeded(context) -> {
+          val isDisposed = { !context.isActive }
+          changes.repeatOnChange {
+            context.ensureActive()
+            collector.emitResult(execute(isDisposed))
+          }
+        }
+        else -> coroutineScope {
+          val results = Channel(onUndeliveredElement = ::discard)
+          launch(dispatcher) {
+            val isDisposed = { !isActive }
+            changes.repeatOnChange { results.send(execute(isDisposed)) }
+            results.close()
+          }
+          results.consumeEach { collector.emitResult(it) }
+        }
+      }
+    }
+  }
+
+  private fun execute(isDisposed: () -> Boolean) = ReactiveAdapterSupport.map(
+    query = observation.query,
+    cursor = ReactiveAdapterSupport.openCursor(observation.query),
+    isDisposed = isDisposed
+  )
+
+  private fun discard(result: T) = ReactiveAdapterSupport.discardResult(
+    query = observation.query,
+    result = result
+  )
+
+  private suspend inline fun FlowCollector<R>.emitResult(result: T) {
+    val context = currentCoroutineContext()
+    if (!context.isActive) {
+      discard(result)
+      context.ensureActive()
+    }
+    transform(result)?.let { emit(it) }
+  }
+}
+
+private fun <T> identity(value: T) = value
 
 private suspend fun <T : Any> Flow<Query<out T?>>.runFirstSingleItemQuery() = firstOrNull()?.awaitResult()
 

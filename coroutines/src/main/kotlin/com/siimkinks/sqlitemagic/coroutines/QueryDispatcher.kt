@@ -18,6 +18,9 @@ internal val QUERY_DISPATCHER = AdapterSettingKey<CoroutineDispatcher>()
  *
  * Defaults to [Dispatchers.IO].
  *
+ * Applied directly to an `observe()` flow, the `runQuery`, `runQueryOrDefault`, `isZero` and `isNotZero` operators also
+ * wait for table changes on this dispatcher, so a change resumes the collector only to deliver the result.
+ *
  * Transactions belong to the thread that started them, so a call that this dispatcher runs on another thread does
  * not take part in a transaction of the calling thread.
  *

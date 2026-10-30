@@ -1,12 +1,13 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import org.junit.Test
 
 internal class TableObserversTest {
   @Test
-  fun `publish reaches registrations whose tables intersect the changed set`() {
+  fun `publish notifies each registration whose tables intersect the changed tables once`() {
     val observers = TableObservers()
     val recorders = mapOf(
       "author" to arrayOf("author"),
@@ -23,42 +24,76 @@ internal class TableObserversTest {
       }
     }
 
-    observers.publish(setOf("author", "note"))
+    observers.publish("author")
+    observers.publish("note")
+    observers.publish(changed("book", "author", "note"))
 
     assertThat(recorders.mapValues { (_, recorder) -> recorder.triggers }).isEqualTo(
       mapOf(
-        "author" to listOf(setOf("author", "note")),
-        "book" to emptyList(),
-        "author or book" to listOf(setOf("author", "note")),
+        "author" to listOf(setOf("author"), setOf("book", "author", "note")),
+        "book" to listOf(setOf("book", "author", "note")),
+        "author or book" to listOf(setOf("author"), setOf("book", "author", "note")),
         "publisher or series" to emptyList(),
-        "all tables" to listOf(setOf("author", "note"))
+        "all tables" to listOf(setOf("author"), setOf("note"), setOf("book", "author", "note"))
       )
     )
+  }
+
+  @Test
+  fun `publishing an observed table delivers the same changed set every time`() {
+    val observers = TableObservers()
+    val delivered = mutableListOf<Set<String>>()
+    observers.add(
+      tables = arrayOf("author"),
+      observer = object : TableChangeObserver {
+        override fun onTablesChanged(tables: Set<String>) {
+          delivered += tables
+        }
+
+        override fun onClosed() = Unit
+      }
+    )
+
+    observers.publish("author")
+    observers.publish("author")
+
+    assertThat(delivered).containsExactly(setOf("author"), setOf("author"))
+    assertThat(delivered[1]).isSameInstanceAs(delivered[0])
   }
 
   @Test
   fun `a closed registration stops receiving while the others continue`() {
     val observers = TableObservers()
     val closing = TriggerRecorder()
+    val closingAllTables = TriggerRecorder()
     val remaining = TriggerRecorder()
-    val registration = observers.add(
-      tables = arrayOf("author"),
-      observer = closing
+    val registrations = listOf(
+      observers.add(
+        tables = arrayOf("author", "book"),
+        observer = closing
+      ),
+      observers.add(
+        tables = null,
+        observer = closingAllTables
+      )
     )
     observers.add(
       tables = arrayOf("author"),
       observer = remaining
     )
 
-    observers.publish(setOf("author"))
-    registration.close()
-    registration.close()
-    observers.publish(setOf("author"))
+    observers.publish("author")
+    registrations.forEach(AutoCloseable::close)
+    registrations.forEach(AutoCloseable::close)
+    observers.publish("author")
+    observers.publish("book")
+    observers.publish(changed("author", "book"))
 
-    assertThat(listOf(closing.triggers, remaining.triggers)).isEqualTo(
+    assertThat(listOf(closing.triggers, closingAllTables.triggers, remaining.triggers)).isEqualTo(
       listOf(
         listOf(setOf("author")),
-        listOf(setOf("author"), setOf("author"))
+        listOf(setOf("author")),
+        listOf(setOf("author"), setOf("author"), setOf("author", "book"))
       )
     )
   }
@@ -66,21 +101,22 @@ internal class TableObserversTest {
   @Test
   fun `close notifies every registration once and ends delivery`() {
     val observers = TableObservers()
-    val recorders = List(2) {
+    val recorders = listOf(arrayOf("author"), arrayOf("author"), arrayOf("author", "book"), null).map { tables ->
       TriggerRecorder().also { recorder ->
         observers.add(
-          tables = arrayOf("author"),
+          tables = tables,
           observer = recorder
         )
       }
     }
 
     val closes = listOf(observers.close(), observers.close())
-    observers.publish(setOf("author"))
+    observers.publish("author")
+    observers.publish(changed("author", "book"))
 
     assertThat(closes).containsExactly(true, false).inOrder()
     assertThat(observers.isClosed).isTrue()
-    assertThat(recorders.map(TriggerRecorder::closeCalls)).containsExactly(1, 1)
+    assertThat(recorders.map(TriggerRecorder::closeCalls)).containsExactly(1, 1, 1, 1)
     assertThat(recorders.flatMap(TriggerRecorder::triggers)).isEmpty()
   }
 
@@ -94,7 +130,7 @@ internal class TableObserversTest {
       tables = arrayOf("author"),
       observer = recorder
     )
-    observers.publish(setOf("author"))
+    observers.publish("author")
     registration.close()
 
     assertThat(recorder.closeCalls).isEqualTo(1)
@@ -130,8 +166,8 @@ internal class TableObserversTest {
       observer = removed
     )
 
-    observers.publish(setOf("author"))
-    observers.publish(setOf("book", "author"))
+    observers.publish("author")
+    observers.publish(changed("book", "author"))
 
     assertThat(listOf(removed.triggers, added.triggers)).isEqualTo(
       listOf(
@@ -140,4 +176,6 @@ internal class TableObserversTest {
       )
     )
   }
+
+  private fun changed(vararg tables: String) = MutableScatterSet<String>().apply { addAll(tables) }
 }

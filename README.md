@@ -148,12 +148,12 @@ Changes made while an observed query's notification is being processed are combi
 
 #### Observe With Coroutines:
 
-The coroutine APIs come from the `sqlitemagic-coroutines` adapter, whose version must be the same as the plugin
-version, in `com.siimkinks.sqlitemagic.coroutines`. `observe()` returns a cold `Flow` of the query that emits again
-whenever a queried table changes, and its `runQuery` operators run the query; changes made while an emission is being
-processed are combined into one further emission. One-shot work uses suspend functions: `runQueryOnce()` on an
-observed query, `Query.run()`, and `await()` on entity operations, UPDATE and DELETE statements and raw SELECTs that
-do not declare the tables they read.
+The coroutine APIs come from the `sqlitemagic-coroutines` adapter, whose version must be the same as the plugin version,
+in `com.siimkinks.sqlitemagic.coroutines`. `observe()` returns a cold `Flow` of the query that emits again whenever a
+queried table changes; changes made while an emission is being processed are combined into one further emission. Its
+`runQuery` operators run the query. One-shot work uses suspend functions: `runQueryOnce()` on an observed query,
+`Query.run()`, and `await()` on entity operations, UPDATE and DELETE statements and raw SELECTs that do not declare the
+tables they read.
 
 ```kotlin
 import com.siimkinks.sqlitemagic.coroutines.await
@@ -180,6 +180,10 @@ SqliteMagic.builder(this)
   .dispatchCoroutineQueriesOn(Dispatchers.Default)
   .openDefaultConnection()
 ```
+
+Applied directly to `observe()`, the `runQuery` operators also wait for changes on that dispatcher, so a change resumes
+the collector only to deliver the result. The first change made while the collector processes a result starts the next
+query at once, and later changes are combined into one further query, so the earlier of the two results may miss them.
 
 A transaction belongs to the thread that started it, so a suspend call that the dispatcher runs on another thread
 does not take part in a transaction of the calling thread. Reading a query on a thread with an active transaction,
