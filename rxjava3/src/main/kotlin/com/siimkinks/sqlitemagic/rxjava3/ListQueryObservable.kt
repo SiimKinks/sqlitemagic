@@ -1,10 +1,10 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Query
-import io.reactivex.Observable
-import io.reactivex.Observer
-import io.reactivex.Single
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Observer
+import io.reactivex.rxjava3.core.Single
 
 /**
  * An [Observable] of [Query] which offers list query specific convenience operators.

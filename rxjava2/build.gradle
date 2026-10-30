@@ -7,6 +7,22 @@ apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/sqlite-support.gradle'
 apply from: '../buildsystem/reactive-adapter.gradle'
 
+def generateRxJava2Sources = tasks.register('generateRxJava2Sources', Sync) {
+  from(rootProject.file('rxjava3/src/main/kotlin/com/siimkinks/sqlitemagic/rxjava3')) {
+    into 'com/siimkinks/sqlitemagic/rxjava2'
+  }
+  into(layout.buildDirectory.dir('generated/source/rxjava2/main/kotlin'))
+  filter { String line ->
+    line
+      .replace('com.siimkinks.sqlitemagic.rxjava3', 'com.siimkinks.sqlitemagic.rxjava2')
+      .replace('io.reactivex.rxjava3.core.', 'io.reactivex.')
+      .replace('io.reactivex.rxjava3.', 'io.reactivex.')
+      .replace('RxJava 3', 'RxJava 2')
+  }
+}
+
+kotlin.sourceSets.main.kotlin.srcDir(generateRxJava2Sources)
+
 dependencies {
   implementation libs.rx.java2
 }

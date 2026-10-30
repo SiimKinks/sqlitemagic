@@ -1,13 +1,13 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.internal.QueryObservation
 import com.siimkinks.sqlitemagic.internal.TableChangeObserver
-import io.reactivex.Observable
-import io.reactivex.Observer
-import io.reactivex.Scheduler
-import io.reactivex.disposables.Disposable
-import io.reactivex.exceptions.Exceptions
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Observer
+import io.reactivex.rxjava3.core.Scheduler
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.exceptions.Exceptions
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class QueryNotifications<T>(

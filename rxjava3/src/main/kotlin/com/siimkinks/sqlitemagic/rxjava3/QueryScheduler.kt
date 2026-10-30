@@ -1,12 +1,12 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder
 import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
-import io.reactivex.Scheduler
-import io.reactivex.schedulers.Schedulers
+import io.reactivex.rxjava3.core.Scheduler
+import io.reactivex.rxjava3.schedulers.Schedulers
 
 internal val QUERY_SCHEDULER = AdapterSettingKey<Scheduler>()
 

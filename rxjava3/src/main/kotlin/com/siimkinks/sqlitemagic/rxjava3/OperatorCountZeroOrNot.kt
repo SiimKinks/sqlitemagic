@@ -1,12 +1,12 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
-import io.reactivex.ObservableOperator
-import io.reactivex.Observer
-import io.reactivex.exceptions.Exceptions
-import io.reactivex.observers.DisposableObserver
-import io.reactivex.plugins.RxJavaPlugins
+import io.reactivex.rxjava3.core.ObservableOperator
+import io.reactivex.rxjava3.core.Observer
+import io.reactivex.rxjava3.exceptions.Exceptions
+import io.reactivex.rxjava3.observers.DisposableObserver
+import io.reactivex.rxjava3.plugins.RxJavaPlugins
 
 internal class OperatorCountZeroOrNot private constructor(
   private val countZero: Boolean

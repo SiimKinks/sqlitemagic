@@ -1,12 +1,12 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Query
-import com.siimkinks.sqlitemagic.rxjava2.OperatorRunSingleItemQuery.Companion.emitNotNull
-import io.reactivex.Maybe
-import io.reactivex.Observable
-import io.reactivex.Observer
-import io.reactivex.Single
+import com.siimkinks.sqlitemagic.rxjava3.OperatorRunSingleItemQuery.Companion.emitNotNull
+import io.reactivex.rxjava3.core.Maybe
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Observer
+import io.reactivex.rxjava3.core.Single
 
 /**
  * An [Observable] of [Query] which offers single item query specific convenience operators.

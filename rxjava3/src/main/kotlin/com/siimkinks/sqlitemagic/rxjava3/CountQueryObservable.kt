@@ -1,10 +1,10 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Query
-import com.siimkinks.sqlitemagic.rxjava2.OperatorCountZeroOrNot.Companion.countNotZero
-import com.siimkinks.sqlitemagic.rxjava2.OperatorCountZeroOrNot.Companion.countZero
-import io.reactivex.Observable
+import com.siimkinks.sqlitemagic.rxjava3.OperatorCountZeroOrNot.Companion.countNotZero
+import com.siimkinks.sqlitemagic.rxjava3.OperatorCountZeroOrNot.Companion.countZero
+import io.reactivex.rxjava3.core.Observable
 
 /** An [Observable] of [Query] which offers count query specific convenience operators. */
 open class CountQueryObservable internal constructor(

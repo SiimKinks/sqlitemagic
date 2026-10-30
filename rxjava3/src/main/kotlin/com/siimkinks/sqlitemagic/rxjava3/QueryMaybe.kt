@@ -1,15 +1,15 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import android.database.Cursor
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
-import io.reactivex.Maybe
-import io.reactivex.MaybeObserver
-import io.reactivex.Scheduler
-import io.reactivex.disposables.Disposable
-import io.reactivex.exceptions.Exceptions
-import io.reactivex.plugins.RxJavaPlugins
+import io.reactivex.rxjava3.core.Maybe
+import io.reactivex.rxjava3.core.MaybeObserver
+import io.reactivex.rxjava3.core.Scheduler
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.exceptions.Exceptions
+import io.reactivex.rxjava3.plugins.RxJavaPlugins
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**

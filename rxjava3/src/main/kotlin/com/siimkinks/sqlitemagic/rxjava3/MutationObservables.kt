@@ -1,10 +1,10 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.CompiledMutation
 import com.siimkinks.sqlitemagic.MutationQuery
 import com.siimkinks.sqlitemagic.RawMutationQuery
-import io.reactivex.Single
+import io.reactivex.rxjava3.core.Single
 
 /**
  * Compile this statement and create a [Single] that when subscribed to executes this statement against a database

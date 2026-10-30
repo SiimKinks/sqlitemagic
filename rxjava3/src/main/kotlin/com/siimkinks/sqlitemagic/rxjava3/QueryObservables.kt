@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import android.database.Cursor
 import androidx.annotation.CheckResult
@@ -16,11 +16,11 @@ import com.siimkinks.sqlitemagic.SelectPlan
 import com.siimkinks.sqlitemagic.SelectQuery
 import com.siimkinks.sqlitemagic.UndeclaredTables
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
-import io.reactivex.Maybe
-import io.reactivex.Observable
-import io.reactivex.Scheduler
-import io.reactivex.Single
-import io.reactivex.plugins.RxJavaPlugins
+import io.reactivex.rxjava3.core.Maybe
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Scheduler
+import io.reactivex.rxjava3.core.Single
+import io.reactivex.rxjava3.plugins.RxJavaPlugins
 
 /**
  * Create an observable which will notify subscribers with a [Query] for execution.

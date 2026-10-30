@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.rxjava2
+package com.siimkinks.sqlitemagic.rxjava3
 
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Unique
@@ -22,8 +22,8 @@ import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.internal.DeferredCompletion
 import com.siimkinks.sqlitemagic.internal.DeferredOperation
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
-import io.reactivex.Completable
-import io.reactivex.Single
+import io.reactivex.rxjava3.core.Completable
+import io.reactivex.rxjava3.core.Single
 
 /**
  * Creates a [Single] that when subscribed to executes this configured insert operation against a
