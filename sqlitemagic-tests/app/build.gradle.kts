@@ -100,6 +100,7 @@ dependencies {
   }
 
   androidTestImplementation(libs.android.test.runner)
+  androidTestImplementation(libs.sqlitemagic.framework.driver)
   androidTestImplementation(libs.junit.runner)
   androidTestImplementation(libs.truth)
   androidTestCompileOnly(libs.sqlitemagic.annotations)

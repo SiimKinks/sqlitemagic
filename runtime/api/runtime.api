@@ -1567,6 +1567,11 @@ public class com/siimkinks/sqlitemagic/internal/MutableScatterSet : com/siimkink
 	public final fun remove (Ljava/lang/Object;)Z
 }
 
+public abstract interface class com/siimkinks/sqlitemagic/internal/MutationResults {
+	public abstract fun executeInsert (Landroidx/sqlite/SQLiteStatement;)J
+	public abstract fun executeUpdateDelete (Landroidx/sqlite/SQLiteStatement;)I
+}
+
 public abstract class com/siimkinks/sqlitemagic/internal/OperationBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityAdapter;)V
 	public final fun conflictAlgorithm (I)Ljava/lang/Object;
