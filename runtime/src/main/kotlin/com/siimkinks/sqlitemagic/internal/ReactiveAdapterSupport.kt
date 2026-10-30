@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.internal
 
 import android.database.Cursor
+import com.siimkinks.sqlitemagic.CompiledMutation
 import com.siimkinks.sqlitemagic.CompiledRawCursor
 import com.siimkinks.sqlitemagic.CompiledRawFirst
 import com.siimkinks.sqlitemagic.CompiledRawSelect
@@ -26,6 +27,7 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
+import com.siimkinks.sqlitemagic.orDefault
 
 /**
  * Hooks that reactive adapters build on.
@@ -135,6 +137,44 @@ object ReactiveAdapterSupport {
     connection: DbConnection,
     key: AdapterSettingKey<V>
   ) = (connection as DbConnectionImpl).adapterSetting(key)
+
+  /**
+   * Resolve the connection that a query runs on: the one it was configured with, or else the current default
+   * connection.
+   *
+   * @param query Query to run
+   * @return Connection of [query]
+   */
+  fun connection(query: Query<*>): DbConnection = query.resolveConnection()
+
+  /**
+   * Resolve the connection that a query runs on, as [connection] does, and check that the calling thread can run the
+   * query. Adapters that run the query on another thread call this first, so that the calling thread is rejected as
+   * [openCursor] would reject it.
+   *
+   * @param query Query to run
+   * @return Connection of [query]
+   * @throws IllegalStateException if called inside a transaction
+   */
+  fun executionConnection(query: Query<*>): DbConnection = query.executionConnection()
+
+  /**
+   * Resolve the connection that a deferred entity operation runs on: the one its builder was configured with, or
+   * else the current default connection.
+   *
+   * @param operation Operation returned by `deferred`
+   * @return Connection of [operation]
+   */
+  fun connection(operation: DeferredOperation<*>): DbConnection = operation.connection.orDefault()
+
+  /**
+   * Resolve the connection that a compiled UPDATE or DELETE statement runs on: the one it was configured with, or
+   * else the current default connection.
+   *
+   * @param mutation Compiled statement
+   * @return Connection of [mutation]
+   */
+  fun connection(mutation: CompiledMutation): DbConnection = mutation.resolveConnection()
 
   fun deferred(builder: EntityInsertBuilder) = (builder as InsertBuilder<*>).deferred()
 

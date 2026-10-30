@@ -26,9 +26,10 @@ abstract class Query<T> internal constructor(
   @WorkerThread
   fun runBlocking(): T? = map(openCursor())
 
-  internal fun openCursor() = resolveConnection().let { connection ->
+  internal fun openCursor() = executionConnection().let(::rawQuery)
+
+  internal fun executionConnection() = resolveConnection().also { connection ->
     check(!connection.hasActiveTransaction) { "Cannot execute observable query in a transaction." }
-    rawQuery(connection)
   }
 
   internal abstract fun rawQuery(dbConnection: DbConnectionImpl): Cursor

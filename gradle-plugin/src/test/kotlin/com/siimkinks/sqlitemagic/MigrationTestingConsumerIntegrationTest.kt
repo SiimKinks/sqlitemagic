@@ -269,6 +269,7 @@ internal class MigrationTestingConsumerIntegrationTest {
     val dependencyNames = runtimeDependencies.output.substringAfter("CONSUMER_RUNTIME_BEGIN")
       .substringBefore("CONSUMER_RUNTIME_END")
     assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic:")
+    assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic-coroutines:")
     assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic-rxjava2:")
     assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic-rxjava3:")
     assertThat(dependencyNames).doesNotContain("migration-core")

@@ -49,7 +49,7 @@ abstract class OperationBuilder<R>(
   }
 
   internal fun <T> defer(operation: (OperationContext) -> T) = configurationSnapshot().let { configuration ->
-    DeferredOperation {
+    DeferredOperation(connection = configuration.connection) {
       perform(
         operation = operation,
         configuration = configuration
@@ -62,7 +62,7 @@ abstract class OperationBuilder<R>(
 
   internal fun deferBulk(operation: (OperationContext, () -> Boolean) -> BulkOperationOutcome) =
     configurationSnapshot().let { configuration ->
-      deferredBulk { isCancelled ->
+      deferredBulk(connection = configuration.connection) { isCancelled ->
         perform(
           operation = { operation(it, isCancelled) },
           configuration = configuration
@@ -96,6 +96,7 @@ private fun neverCancelled() = false
  */
 @InternalSqliteMagicApi
 open class DeferredOperation<T> internal constructor(
+  internal val connection: DbConnectionImpl?,
   private val operation: (isCancelled: () -> Boolean) -> T
 ) {
   /**
@@ -113,9 +114,13 @@ open class DeferredOperation<T> internal constructor(
  */
 @InternalSqliteMagicApi
 class DeferredCompletion internal constructor(
+  connection: DbConnectionImpl?,
   operation: (isCancelled: () -> Boolean) -> Boolean,
   private val completion: (isCancelled: () -> Boolean) -> Exception?
-) : DeferredOperation<Boolean>(operation) {
+) : DeferredOperation<Boolean>(
+  connection = connection,
+  operation = operation
+) {
   /**
    * Run the operation for a terminal that only completes or fails.
    *

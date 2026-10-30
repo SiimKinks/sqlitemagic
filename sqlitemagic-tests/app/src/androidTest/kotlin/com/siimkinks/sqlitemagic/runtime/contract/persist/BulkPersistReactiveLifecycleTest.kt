@@ -207,7 +207,6 @@ internal class BulkPersistReactiveLifecycleTest(
       expectedMixedParents(
         modelCase = modelCase,
         before = originalValues,
-        updatedIndex = 0,
         updatedValue = firstValues[0],
         insertedValues = listOf(firstValues[1]),
         actual = firstActual
@@ -223,7 +222,6 @@ internal class BulkPersistReactiveLifecycleTest(
       expectedMixedParents(
         modelCase = modelCase,
         before = firstActual,
-        updatedIndex = 0,
         updatedValue = secondValues[0],
         insertedValues = listOf(secondValues[1]),
         actual = secondActual
@@ -268,7 +266,6 @@ internal class BulkPersistReactiveLifecycleTest(
     val firstExpected = expectedMixedParents(
       modelCase = modelCase,
       before = originalValues,
-      updatedIndex = 0,
       updatedValue = firstValues[0],
       insertedValues = listOf(firstValues[1]),
       actual = firstActual
@@ -292,7 +289,6 @@ internal class BulkPersistReactiveLifecycleTest(
     val secondExpected = expectedMixedParents(
       modelCase = modelCase,
       before = firstActual,
-      updatedIndex = 0,
       updatedValue = secondValues[0],
       insertedValues = listOf(secondValues[1]),
       actual = secondActual
@@ -431,14 +427,13 @@ internal class BulkPersistReactiveLifecycleTest(
   private fun <T> expectedMixedParents(
     modelCase: BulkPersistModelCase<T>,
     before: List<T>,
-    updatedIndex: Int,
     updatedValue: T,
     insertedValues: List<T>,
     actual: List<T>
   ): List<T> {
     val expectedExisting = before.mapIndexed { index, value ->
       when (index) {
-        updatedIndex -> modelCase.expectedAfterUpdate(value = updatedValue)
+        0 -> modelCase.expectedAfterUpdate(value = updatedValue)
         else -> value
       }
     }

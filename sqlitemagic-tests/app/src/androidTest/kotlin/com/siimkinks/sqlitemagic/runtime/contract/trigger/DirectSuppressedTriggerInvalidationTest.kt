@@ -85,7 +85,7 @@ internal class DirectSuppressedTriggerInvalidationTest(
     modelCase: TriggerConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val existing = modelCase.seed()
+    modelCase.seed()
     val persisted = captureRows(table = modelCase.table).single()
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val observer = observeRows(
@@ -161,7 +161,7 @@ internal class DirectSuppressedTriggerInvalidationTest(
     modelCase: TriggerConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val existing = modelCase.seed()
+    modelCase.seed()
     val persisted = captureRows(table = modelCase.table).single()
     val before = captureDatabaseSnapshot(modelCase = modelCase)
     val observer = observeRows(

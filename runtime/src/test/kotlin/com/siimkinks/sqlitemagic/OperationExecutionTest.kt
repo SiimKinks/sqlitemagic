@@ -13,7 +13,7 @@ internal class OperationExecutionTest {
   @Test
   fun `deferred bulk outcomes execute as applied only and complete unless the operation failed`() {
     val results = BulkOperationOutcome.entries.associateWith { outcome ->
-      val operation = deferredBulk { outcome }
+      val operation = deferredBulk(connection = null) { outcome }
       operation.execute(isCancelled = { false }) to operation.complete(isCancelled = { false })?.toString()
     }
 

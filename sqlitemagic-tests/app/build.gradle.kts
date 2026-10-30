@@ -82,8 +82,10 @@ dependencies {
 
   implementation(project(":submodule"))
   implementation(libs.android.sqlite.framework)
+  implementation(libs.coroutines.core)
   implementation(libs.rx.java2)
   implementation(libs.rx.java3)
+  implementation(libs.sqlitemagic.coroutines)
   implementation(libs.sqlitemagic.rxjava2)
   implementation(libs.sqlitemagic.rxjava3)
 

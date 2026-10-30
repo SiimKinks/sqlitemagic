@@ -4,11 +4,13 @@ import android.app.Application
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.siimkinks.sqlitemagic.BuildConfig.*
 import com.siimkinks.sqlitemagic.annotation.Database
+import com.siimkinks.sqlitemagic.coroutines.dispatchCoroutineQueriesOn
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.ExternalTransformer
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleDatabaseConfig
 import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
 import com.siimkinks.sqlitemagic.rxjava3.scheduleRxQueriesOn
 import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.Dispatchers
 import io.reactivex.rxjava3.schedulers.Schedulers as RxJava3Schedulers
 
 @Database(
@@ -35,6 +37,7 @@ class TestApp : Application() {
       .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
       .scheduleRxQueriesOn(Schedulers.trampoline())
       .scheduleRxQueriesOn(RxJava3Schedulers.trampoline())
+      .dispatchCoroutineQueriesOn(Dispatchers.Unconfined)
       .openDefaultConnection()
   }
 }

@@ -116,6 +116,7 @@ private fun OperationBuilder<*>.deferUpdate(entity: Any?, update: (OperationCont
       )
     }
     DeferredCompletion(
+      connection = configuration.connection,
       operation = execute,
       completion = { isCancelled ->
         when {

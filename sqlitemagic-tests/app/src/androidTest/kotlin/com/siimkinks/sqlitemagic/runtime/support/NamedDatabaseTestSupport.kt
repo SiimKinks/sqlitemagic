@@ -12,9 +12,11 @@ import com.siimkinks.sqlitemagic.GeneratedDatabase
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.TestApp
+import com.siimkinks.sqlitemagic.coroutines.dispatchCoroutineQueriesOn
 import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
 import com.siimkinks.sqlitemagic.rxjava3.scheduleRxQueriesOn
 import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.Dispatchers
 import io.reactivex.rxjava3.schedulers.Schedulers as RxJava3Schedulers
 
 internal val DbConnection.readableDatabase get() = (this as DbConnectionImpl).readableDatabase
@@ -42,6 +44,7 @@ internal fun openNamedConnection(
   .sqliteFactory(sqliteFactory)
   .scheduleRxQueriesOn(Schedulers.trampoline())
   .scheduleRxQueriesOn(RxJava3Schedulers.trampoline())
+  .dispatchCoroutineQueriesOn(Dispatchers.Unconfined)
   .openNewConnection()
 
 internal inline fun withNamedDatabase(

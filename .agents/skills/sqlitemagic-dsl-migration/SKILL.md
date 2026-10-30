@@ -73,6 +73,7 @@ behind most edits:
   where code observes, and import `observe`, `run`, `scheduleRxQueriesOn` and the observable types from
   `com.siimkinks.sqlitemagic.rxjava2`. Modules that declared RxJava only because runtime signatures used it can drop it.
   A project on RxJava 3 uses `sqlitemagic-rxjava3` and `com.siimkinks.sqlitemagic.rxjava3`, which have the same API.
+  Coroutine code uses `sqlitemagic-coroutines`: `observe()` returns a `Flow`, and one-shot writes use suspend `await()`.
 
 Do not recreate legacy names with local extension functions, wrappers or typealiases to shrink the diff. They keep
 legacy semantics alive in the caller's head while the engine behaves differently, and they hide the sites the

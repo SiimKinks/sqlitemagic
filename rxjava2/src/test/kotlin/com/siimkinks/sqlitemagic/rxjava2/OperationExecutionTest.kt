@@ -12,7 +12,7 @@ internal class OperationExecutionTest {
   fun `cancellation exception without disposal is emitted`() {
     val cancellation = CancellationException("not caused by disposal")
 
-    deferredBulk { throw cancellation }
+    deferredBulk(connection = null) { throw cancellation }
       .observeBulk()
       .test()
       .assertFailure(cancellation::equals)
@@ -26,7 +26,7 @@ internal class OperationExecutionTest {
       val observer = TestObserver<Void>()
       var cancelled = false
 
-      deferredBulk { isCancelled ->
+      deferredBulk(connection = null) { isCancelled ->
         observer.dispose()
         cancelled = isCancelled()
         throw CancellationException()

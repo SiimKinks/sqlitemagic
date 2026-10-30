@@ -33,6 +33,9 @@ legacy queries to the new DSL and lists the changes that compile but behave diff
 * New: Generated migrations warn when they drop tables, columns or rows
 * New: The `sqlitemagic-rxjava3` artifact provides the RxJava support for RxJava 3, with the same API as
   `sqlitemagic-rxjava2` in `com.siimkinks.sqlitemagic.rxjava3`
+* New: The `sqlitemagic-coroutines` artifact provides Kotlin coroutine support in
+  `com.siimkinks.sqlitemagic.coroutines`: `observe()` returns a `Flow` with the RxJava read operators, one-shot work
+  uses suspend `runQueryOnce()`, `Query.run()` and `await()`, and `dispatchCoroutineQueriesOn` sets the dispatcher
 * New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
   without publishing the release or raising the database version
 * Fix: Writes from several threads at once no longer leave observed queries without further updates or make disposing

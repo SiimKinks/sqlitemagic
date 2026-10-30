@@ -131,7 +131,11 @@ internal fun <M> executeBulkOperation(
   return outcome
 }
 
-internal fun deferredBulk(perform: (isCancelled: () -> Boolean) -> BulkOperationOutcome) = DeferredCompletion(
+internal fun deferredBulk(
+  connection: DbConnectionImpl?,
+  perform: (isCancelled: () -> Boolean) -> BulkOperationOutcome
+) = DeferredCompletion(
+  connection = connection,
   operation = { isCancelled -> perform(isCancelled) == BulkOperationOutcome.APPLIED },
   completion = { isCancelled ->
     try {

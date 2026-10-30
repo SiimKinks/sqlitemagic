@@ -24,8 +24,7 @@ class CompiledMutation internal constructor(
    *
    * @return Number of updated or deleted rows
    */
-  fun execute(): Int = prepared.connection
-    .orDefault()
+  fun execute(): Int = resolveConnection()
     .let { connection ->
       connection
         .compileStatement(prepared.sql)
@@ -44,6 +43,8 @@ class CompiledMutation internal constructor(
           affected
         }
     }
+
+  internal fun resolveConnection() = prepared.connection.orDefault()
 }
 
 internal inline fun <T> notifyingOnFailure(notify: () -> Unit, block: () -> T): T = try {

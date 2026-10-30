@@ -8,8 +8,8 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 * SQL-first [Kotlin](https://kotlinlang.org/) DSL – queries read like SQL while the compiler checks clause order,
   column types and nullability
 * Minimal setup needed
-* RxJava support with reactive stream semantics on queries and operations, through the `sqlitemagic-rxjava3` and
-  `sqlitemagic-rxjava2` adapters
+* Kotlin coroutines and RxJava support for observed queries and one-shot operations, through the
+  `sqlitemagic-coroutines`, `sqlitemagic-rxjava3` and `sqlitemagic-rxjava2` adapters
 * Built for Kotlin – data classes, generated extension functions and typed result rows
 * Full support for complex columns – related objects and embedded values
 * Support for SQLite views defined with the same DSL
@@ -72,8 +72,12 @@ plugins {
 
 dependencies {
   implementation("androidx.sqlite:sqlite-framework:<sqlite version>")
-  // optional: the RxJava 3 observe() APIs (sqlitemagic-rxjava2 for RxJava 2); use the same version as the plugin
+  // optional: the RxJava 3 observe() APIs; use the same version as the plugin
   implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava3:<latest version>")
+  // optional: the RxJava 2 observe() APIs; use the same version as the plugin
+  implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava2:<latest version>")
+  // optional: the coroutine Flow and suspend APIs; use the same version as the plugin
+  implementation("com.siimkinks.sqlitemagic:sqlitemagic-coroutines:<latest version>")
 }
 ```
 
@@ -141,6 +145,46 @@ SqliteMagic.builder(this)
 ```
 
 Changes made while an observed query's notification is being processed are combined into one further notification.
+
+#### Observe With Coroutines:
+
+The coroutine APIs come from the `sqlitemagic-coroutines` adapter, whose version must be the same as the plugin
+version, in `com.siimkinks.sqlitemagic.coroutines`. `observe()` returns a cold `Flow` of the query that emits again
+whenever a queried table changes, and its `runQuery` operators run the query; changes made while an emission is being
+processed are combined into one further emission. One-shot work uses suspend functions: `runQueryOnce()` on an
+observed query, `Query.run()`, and `await()` on entity operations, UPDATE and DELETE statements and raw SELECTs that
+do not declare the tables they read.
+
+```kotlin
+import com.siimkinks.sqlitemagic.coroutines.await
+import com.siimkinks.sqlitemagic.coroutines.observe
+import com.siimkinks.sqlitemagic.coroutines.runQuery
+
+val authors: Flow<List<Author>> = (SELECT FROM AUTHOR)
+  .observe()
+  .runQuery()
+
+suspend fun save(author: Author): EntityInsertResult = author
+  .insert()
+  .await()
+```
+
+The database work runs on `Dispatchers.IO` unless the connection is configured with another dispatcher:
+
+```kotlin
+import com.siimkinks.sqlitemagic.coroutines.dispatchCoroutineQueriesOn
+
+SqliteMagic.builder(this)
+  .database(SqliteMagicDatabase())
+  .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+  .dispatchCoroutineQueriesOn(Dispatchers.Default)
+  .openDefaultConnection()
+```
+
+A transaction belongs to the thread that started it, so a suspend call that the dispatcher runs on another thread
+does not take part in a transaction of the calling thread. Reading a query on a thread with an active transaction,
+whether by collecting it, `runQueryOnce()`, `Query.run()` or a raw SELECT's `await()`, fails with
+`IllegalStateException`.
 
 #### Define Database:
 

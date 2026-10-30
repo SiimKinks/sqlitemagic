@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 internal const val UNBOUNDED = Long.MAX_VALUE
 
-internal val reactiveAdapters = listOf<ReactiveAdapter>(RxJava2Adapter, RxJava3Adapter)
+internal val reactiveAdapters = listOf<ReactiveAdapter>(RxJava2Adapter, RxJava3Adapter, CoroutinesAdapter)
 
 internal fun withReactiveAdapters(cases: List<*>) = cases.flatMap { case ->
   reactiveAdapters.map { adapter -> arrayOf(case, adapter) }
