@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.migration.export
 
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.migration.MigrationConfiguration
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
@@ -10,15 +11,13 @@ import org.junit.Test
 internal class SchemaRecordingDatabaseTest {
   @Test
   fun `records persistent creation, configuration and transactions`() {
-    val recorder = SchemaRecordingDatabase()
-    recorder.database.apply {
-      setForeignKeyConstraintsEnabled(true)
-      beginTransaction()
+    val recorder = SchemaRecordingDatabase().apply {
+      execSQL("PRAGMA foreign_keys = ON")
+      execSQL("BEGIN IMMEDIATE")
       execSQL("CREATE TABLE books (id INTEGER PRIMARY KEY)")
       execSQL("CREATE VIEW titles AS SELECT id FROM books")
       execSQL("CREATE UNIQUE INDEX books_id ON books(id)")
-      setTransactionSuccessful()
-      endTransaction()
+      execSQL("COMMIT")
     }
     assertThat(
       recorder.snapshot(
@@ -45,12 +44,13 @@ internal class SchemaRecordingDatabaseTest {
         indexSql = listOf("CREATE UNIQUE INDEX books_id ON books(id)")
       )
     )
-    assertThat(recorder.transactionEvents).containsExactly("begin", "successful", "end")
+    assertThat(recorder.transactionEvents)
+      .containsExactly("begin", "commit")
       .inOrder()
   }
 
   @Test
-  fun `absent foreign key call records disabled configuration`() {
+  fun `absent foreign key pragma records disabled configuration`() {
     assertThat(
       SchemaRecordingDatabase().snapshot(
         databaseId = "main",
@@ -76,19 +76,28 @@ internal class SchemaRecordingDatabaseTest {
   @Test
   fun `unsupported calls and temporary SQL fail`() {
     val cases: Map<String, (SchemaRecordingDatabase) -> Unit> = mapOf(
-      "schema outside transaction" to { it.database.execSQL("CREATE TABLE books (id INTEGER)") },
-      "query" to { it.database.query("SELECT 1") },
+      "schema outside transaction" to { it.execSQL("CREATE TABLE books (id INTEGER)") },
+      "query" to {
+        it.execSQL("BEGIN IMMEDIATE")
+        it.execSQL("SELECT 1")
+      },
+      "bound argument" to {
+        it.execSQL("BEGIN IMMEDIATE")
+        it
+          .prepare("CREATE TABLE books (id INTEGER DEFAULT ?)")
+          .use { statement -> statement.bindLong(index = 1, value = 1L) }
+      },
       "nested transaction" to {
-        it.database.beginTransaction()
-        it.database.beginTransaction()
+        it.execSQL("BEGIN IMMEDIATE")
+        it.execSQL("BEGIN IMMEDIATE")
       },
       "foreign keys within transaction" to {
-        it.database.beginTransaction()
-        it.database.setForeignKeyConstraintsEnabled(true)
+        it.execSQL("BEGIN IMMEDIATE")
+        it.execSQL("PRAGMA foreign_keys = ON")
       },
       "temporary object" to {
-        it.database.beginTransaction()
-        it.database.execSQL("CREATE TEMPORARY TABLE scratch (id INTEGER)")
+        it.execSQL("BEGIN IMMEDIATE")
+        it.execSQL("CREATE TEMPORARY TABLE scratch (id INTEGER)")
       }
     )
     cases.forEach { (label, action) ->
@@ -98,11 +107,14 @@ internal class SchemaRecordingDatabaseTest {
 
   @Test
   fun `unsuccessful or unfinished transaction cannot produce evidence`() {
-    listOf(false, true).forEach { finish ->
+    mapOf(
+      "unfinished" to false,
+      "rolled back" to true
+    ).forEach { (label, rolledBack) ->
       val recorder = SchemaRecordingDatabase()
-      recorder.database.beginTransaction()
-      if (finish) recorder.database.endTransaction()
-      assertThrows(IllegalStateException::class.java) {
+      recorder.execSQL("BEGIN IMMEDIATE")
+      if (rolledBack) recorder.execSQL("ROLLBACK")
+      assertThrows(label, IllegalStateException::class.java) {
         recorder.snapshot(
           databaseId = "main",
           releaseVariant = "release",
@@ -116,12 +128,10 @@ internal class SchemaRecordingDatabaseTest {
   @Test
   fun `generated quoted names and multiline definitions are retained verbatim`() {
     val sql = "CREATE VIEW IF NOT EXISTS \"book\"\"titles\narchive\" AS SELECT 'first\nsecond' AS title"
-    val recorder = SchemaRecordingDatabase()
-    recorder.database.apply {
-      beginTransaction()
+    val recorder = SchemaRecordingDatabase().apply {
+      execSQL("BEGIN IMMEDIATE")
       execSQL(sql)
-      setTransactionSuccessful()
-      endTransaction()
+      execSQL("COMMIT")
     }
     assertThat(recorder.views).containsExactly(
       MigrationViewSchema(
@@ -134,14 +144,14 @@ internal class SchemaRecordingDatabaseTest {
   @Test
   fun `malformed generated view headers are rejected`() {
     val cases = listOf(
-      "CREATE VIEW \"unterminated AS SELECT 1",
-      "CREATE VIEW \"title\" SELECT 1",
-      "CREATE VIEW \"title\" AS "
+      """CREATE VIEW "unterminated AS SELECT 1""",
+      """CREATE VIEW "title" SELECT 1""",
+      """CREATE VIEW "title" AS """
     )
     cases.forEach { sql ->
       val recorder = SchemaRecordingDatabase()
-      recorder.database.beginTransaction()
-      assertThrows(sql, IllegalArgumentException::class.java) { recorder.database.execSQL(sql) }
+      recorder.execSQL("BEGIN IMMEDIATE")
+      assertThrows(sql, IllegalArgumentException::class.java) { recorder.execSQL(sql) }
     }
   }
 }

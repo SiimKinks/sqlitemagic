@@ -39,9 +39,6 @@ internal object ModelCatalog {
   val successfulModelProjectionCases = allCases
     .filterIsInstance<SuccessfulModelProjectionCase<*>>()
 
-  val rawCursorCases = allCases
-    .filterIsInstance<RawCursorModelCase<*>>()
-
   val updateCases = allCases
     .filterIsInstance<UpdateModelCase<*>>()
 

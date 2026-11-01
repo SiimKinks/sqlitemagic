@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.readDriverSupport
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
+import com.siimkinks.sqlitemagic.utils.functionBody
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
@@ -116,7 +117,7 @@ internal class PartialEntityContractTest {
             import com.siimkinks.sqlitemagic.SqliteMagic_Reader_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_Shelf_Dao
             import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
-            import fixtures.driver.cursor
+            import fixtures.driver.row
             import fixtures.driver.unjoined
 
             object PartialReadDriver {
@@ -124,52 +125,52 @@ internal class PartialEntityContractTest {
               @JvmStatic
               fun read(): List<String> {
                 val draft = SqliteMagic_Draft_Dao.objectFromSelectedPositions(
-                  cursor = cursor(5L),
+                  statement = row(5L),
                   positions = intArrayOf(0, -1, -1)
                 )
                 val profiles = listOf(
                   SqliteMagic_Profile_Dao.objectFromSelectedPositions(
-                    cursor = cursor(6L),
+                    statement = row(6L),
                     positions = intArrayOf(0, -1, -1)
                   ),
                   SqliteMagic_Profile_Dao.objectFromSelectedPositions(
-                    cursor = cursor(6L, "gold", 3L),
+                    statement = row(6L, "gold", 3L),
                     positions = intArrayOf(0, 1, 2)
                   )
                 )
                 val shelves = listOf(
                   SqliteMagic_Shelf_Dao.objectFromSelectedPositions(
-                    cursor = cursor(8L),
+                    statement = row(8L),
                     positions = intArrayOf(0, -1),
                     related = unjoined(SHELF)
                   ),
                   SqliteMagic_Shelf_Dao.objectFromSelectedPositions(
-                    cursor = cursor(8L, null),
+                    statement = row(8L, null),
                     positions = intArrayOf(0, 1),
                     related = unjoined(SHELF)
                   ),
                   SqliteMagic_Shelf_Dao.objectFromSelectedPositions(
-                    cursor = cursor(8L, 7L),
+                    statement = row(8L, 7L),
                     positions = intArrayOf(0, 1),
                     related = unjoined(SHELF)
                   )
                 )
                 return listOf(
                   SqliteMagic_Author_Dao.objectFromSelectedPositions(
-                    cursor = cursor("skipped", "Ada", 7L, 36L),
+                    statement = row("skipped", "Ada", 7L, 36L),
                     positions = intArrayOf(2, 1, 3)
                   ).toString(),
                   SqliteMagic_Book_Dao.objectFromSelectedPositions(
-                    cursor = cursor(3L, "Dune", 7L),
+                    statement = row(3L, "Dune", 7L),
                     positions = intArrayOf(0, 1, 2),
                     related = unjoined(BOOK)
                   ).toString(),
                   SqliteMagic_Reader_Dao.objectFromSelectedPositions(
-                    cursor = cursor(4L, "Tartu", null),
+                    statement = row(4L, "Tartu", null),
                     positions = intArrayOf(0, 1, 2)
                   ).toString(),
                   SqliteMagic_Reader_Dao.objectFromSelectedPositions(
-                    cursor = cursor(4L),
+                    statement = row(4L),
                     positions = intArrayOf(0, -1, -1)
                   ).toString(),
                   "Draft(" + draft.id + ", " + draft.title + ", " + draft.note + ")"
@@ -188,7 +189,7 @@ internal class PartialEntityContractTest {
           """EntityProperty(path = "Book.title", required = true)""",
           """EntityProperty(path = "Book.author", required = true)""",
           "override fun readPartialEntity(",
-          "SqliteMagic_Book_Dao.objectFromSelectedPositions(cursor, positions, checkNotNull(related))"
+          "SqliteMagic_Book_Dao.objectFromSelectedPositions(statement, positions, checkNotNull(related))"
         )
       }
       .withGeneratedSource("ReaderTable.kt") {
@@ -205,7 +206,7 @@ internal class PartialEntityContractTest {
       .withGeneratedSource("DraftTable.kt") {
         it.assertContainsUnwrapped(
           """EntityProperty(path = "Draft.title", required = false)""",
-          "SqliteMagic_Draft_Dao.objectFromSelectedPositions(cursor, positions)"
+          "SqliteMagic_Draft_Dao.objectFromSelectedPositions(statement, positions)"
         )
       }
       .withGeneratedSource("SqliteMagic_Book_Dao.kt") {
@@ -213,15 +214,19 @@ internal class PartialEntityContractTest {
           "fun objectFromSelectedPositions(",
           "positions: IntArray",
           "related: RelatedEntities,",
-          "related.readSelected(cursor, 0) as Author?",
+          "related.readSelected(statement, 0) as Author?",
           "SqliteMagic_Author_Dao.newInstanceWithOnlyId("
         )
       }
       .withGeneratedSource("SqliteMagic_Edition_Dao.kt") {
-        it.assertContains(
-          """publisher = (related.readSelected(cursor, 0) as Publisher?) ?: """ +
-              """throw SQLException("Required recursive relationship \"publisher\" had a NULL ID")"""
-        )
+        it
+          .functionBody("objectFromSelectedPositions")
+          .assertContainsUnwrapped(
+            """publisher = (related.readSelected(statement, 0) as Publisher?) ?: throw SQLException(""" +
+                """if (columnIndex1 < 0 || statement.isNull(columnIndex1)) """ +
+                """"Required recursive relationship \"publisher\" had a NULL ID" """ +
+                """else "Required recursive relationship \"publisher\" referenced a missing row")"""
+          )
       }
 
     assertThat(

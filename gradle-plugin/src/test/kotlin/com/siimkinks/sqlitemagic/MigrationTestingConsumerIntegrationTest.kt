@@ -4,7 +4,10 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.migration.MigrationMetadataJson
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import org.gradle.testkit.runner.GradleRunner
-import org.gradle.testkit.runner.TaskOutcome
+import org.gradle.testkit.runner.TaskOutcome.FAILED
+import org.gradle.testkit.runner.TaskOutcome.FROM_CACHE
+import org.gradle.testkit.runner.TaskOutcome.SUCCESS
+import org.gradle.testkit.runner.TaskOutcome.UP_TO_DATE
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.BufferedReader
@@ -24,7 +27,9 @@ internal class MigrationTestingConsumerIntegrationTest {
   fun `real selected release permanently tests growing retained history`() {
     val repository = findRepository()
     val original = repository.resolve("sqlitemagic-tests")
-    val project = temporaryDirectory.resolve("consumer").toFile()
+    val project = temporaryDirectory
+      .resolve("consumer")
+      .toFile()
     copyConsumer(
       source = original,
       destination = project
@@ -96,21 +101,31 @@ internal class MigrationTestingConsumerIntegrationTest {
           }
         )
       }
-      val manifest = MigrationMetadataJson.readManifest(application.resolve("db/releases/manifest.json").readText())
+      val manifest = MigrationMetadataJson.readManifest(
+        application.resolve("db/releases/manifest.json")
+          .readText()
+      )
       val reference = manifest.schema(version)
-      val releasedStructure = application.resolve("db/releases/$version.struct").readText()
+      val releasedStructure = application.resolve("db/releases/$version.struct")
+        .readText()
       val snapshot = MigrationMetadataJson.readStructure(
         text = releasedStructure,
         manifest = manifest,
         reference = reference
       )
       assertThat(snapshot.version).isEqualTo(version)
-      assertThat(snapshot.modules).containsExactly("Submodule", ":app").inOrder()
+      assertThat(snapshot.modules)
+        .containsExactly("Submodule", ":app")
+        .inOrder()
       assertThat(snapshot.configuration.foreignKeysEnabled).isTrue()
       assertThat(snapshot.tableSql.any { it.contains("submodule_persistent_value") }).isTrue()
-      assertThat(application.resolve("db/releases/$version.schema.json").exists()).isFalse()
+      assertThat(
+        application.resolve("db/releases/$version.schema.json")
+          .exists()
+      ).isFalse()
       val exported = MigrationMetadataJson.readSchema(
-        application.resolve("build/sqlitemagic/release/current.schema.json").readText()
+        application.resolve("build/sqlitemagic/release/current.schema.json")
+          .readText()
       )
       assertThat(exported.tableSql.toSet()).isEqualTo(snapshot.tableSql.toSet())
       assertThat(exported.tableSql.any { it.contains("migration_person") }).isTrue()
@@ -121,12 +136,15 @@ internal class MigrationTestingConsumerIntegrationTest {
 
       if (version == 1) {
         val beforeAdoption = releaseHashes(application)
-        check(application.resolve("db/releases/manifest.json").delete())
+        check(
+          application.resolve("db/releases/manifest.json")
+            .delete()
+        )
         val cleanup = run(
           project = project,
           arguments = listOf(":app:cleanSqliteMagicMetadata", "--configuration-cache")
         )
-        assertThat(cleanup.task(":submodule:cleanSqliteMagicMetadata")?.outcome).isEqualTo(TaskOutcome.SUCCESS)
+        assertThat(cleanup.task(":submodule:cleanSqliteMagicMetadata")?.outcome).isEqualTo(SUCCESS)
         val adoptionArguments = listOf(":app:generateSqliteMagicMigrationManifest", "--configuration-cache")
         run(
           project = project,
@@ -181,7 +199,7 @@ internal class MigrationTestingConsumerIntegrationTest {
     assertThat(repeated.output)
       .contains("Reusing configuration cache")
     assertThat(repeated.task(":app:prepareSqliteMagicMigrationTests")?.outcome)
-      .isEqualTo(TaskOutcome.UP_TO_DATE)
+      .isEqualTo(UP_TO_DATE)
     assertThat(releaseHashes(application))
       .isEqualTo(frozen)
 
@@ -276,7 +294,7 @@ internal class MigrationTestingConsumerIntegrationTest {
     assertThat(dependencyNames).doesNotContain("migration-tooling")
     assertThat(dependencyNames).doesNotContain("migration-testing")
     assertThat(dependencyNames).doesNotContain("kotlinx-serialization-json")
-    assertThat(dependencyNames).doesNotContain("sqlite-bundled")
+    assertThat(dependencyNames).doesNotContain("sqlite-bundled-jvm")
     println("Consumer migration fixture: verifying conventional SQL-only release assets")
     val releaseAssembly = run(
       project = project,
@@ -288,17 +306,25 @@ internal class MigrationTestingConsumerIntegrationTest {
       .walkTopDown()
       .single { it.isFile && it.extension == "apk" }
     ZipFile(apk).use { archive ->
-      application.resolve("src/release/assets").listFiles().orEmpty()
+      application.resolve("src/release/assets")
+        .listFiles()
+        .orEmpty()
         .filter { it.extension == "sql" }
         .forEach { file ->
           val entry = checkNotNull(archive.getEntry("assets/${file.name}"))
-          assertThat(archive.getInputStream(entry).use(InputStream::readBytes)).isEqualTo(file.readBytes())
+          assertThat(
+            archive.getInputStream(entry)
+              .use(InputStream::readBytes)
+          ).isEqualTo(file.readBytes())
         }
-      val entries = archive.entries().asSequence().map(ZipEntry::getName).toList()
+      val entries = archive.entries()
+        .asSequence()
+        .map(ZipEntry::getName)
+        .toList()
       assertThat(entries.any { entry ->
         entry.endsWith(".struct") || entry.endsWith(".schema.json") || entry.endsWith("manifest.json") ||
             entry.contains("migration-tooling") || entry.contains("migration-testing") ||
-            entry.endsWith(".so") && "sqlite" in entry
+            entry.startsWith("natives/")
       }).isFalse()
     }
     assertThat(releaseHashes(application))
@@ -380,15 +406,15 @@ internal class MigrationTestingConsumerIntegrationTest {
           arguments = listOf(":app:testDebugUnitTest", "--tests", "*OrdinaryUnitTest", "--configuration-cache")
         )
         assertThat(ordinary.task(":app:compileDebugUnitTestKotlin")?.outcome)
-          .isIn(setOf(TaskOutcome.SUCCESS, TaskOutcome.UP_TO_DATE, TaskOutcome.FROM_CACHE))
-        assertThat(ordinary.task(":app:testDebugUnitTest")?.outcome).isEqualTo(TaskOutcome.SUCCESS)
+          .isIn(setOf(SUCCESS, UP_TO_DATE, FROM_CACHE))
+        assertThat(ordinary.task(":app:testDebugUnitTest")?.outcome).isEqualTo(SUCCESS)
         val failure = runner(
           project = project,
           arguments = listOf(":app:testDebugUnitTest", "--tests", "*DatabaseMigrationTest", "--configuration-cache")
         ).buildAndFail()
-        assertThat(failure.task(":app:prepareSqliteMagicMigrationTests")?.outcome).isEqualTo(TaskOutcome.UP_TO_DATE)
-        assertThat(failure.task(":app:compileDebugUnitTestKotlin")?.outcome).isEqualTo(TaskOutcome.UP_TO_DATE)
-        assertThat(failure.task(":app:testDebugUnitTest")?.outcome).isEqualTo(TaskOutcome.FAILED)
+        assertThat(failure.task(":app:prepareSqliteMagicMigrationTests")?.outcome).isEqualTo(UP_TO_DATE)
+        assertThat(failure.task(":app:compileDebugUnitTestKotlin")?.outcome).isEqualTo(UP_TO_DATE)
+        assertThat(failure.task(":app:testDebugUnitTest")?.outcome).isEqualTo(FAILED)
         val report = application
           .resolve("build/test-results/testDebugUnitTest/TEST-com.siimkinks.sqlitemagic.DatabaseMigrationTest.xml")
           .readText()
@@ -445,7 +471,6 @@ sqlitemagic {
     arguments: List<String>
   ) = GradleRunner.create()
     .withProjectDir(project)
-    .withGradleVersion("9.8.0")
     .withArguments(arguments + listOf("--console=plain", "--stacktrace"))
     .forwardOutput()
 
@@ -459,8 +484,7 @@ sqlitemagic {
       .filter(File::isFile)
       .filterNot { it.name == "local.properties" }
       .forEach { file ->
-        val relative = file.relativeTo(source)
-        val target = destination.resolve(relative.path)
+        val target = destination.resolve(file.relativeTo(source).path)
         check(target.parentFile.isDirectory || target.parentFile.mkdirs())
         file.copyTo(target)
       }
@@ -477,10 +501,13 @@ sqlitemagic {
     val configuredLocations = listOf(original.resolve("local.properties"), repository.resolve("local.properties"))
       .filter(File::isFile)
       .mapNotNull { file ->
-        val properties = Properties().apply { file.inputStream().use(::load) }
-        properties.getProperty("sdk.dir")?.let { value ->
-          File(value).takeIf(File::isAbsolute) ?: file.parentFile.resolve(value)
+        val properties = Properties().apply {
+          file.inputStream()
+            .use(::load)
         }
+        properties
+          .getProperty("sdk.dir")
+          ?.let { value -> File(value).takeIf(File::isAbsolute) ?: file.parentFile.resolve(value) }
       }
     val sdk = (environmentLocations + configuredLocations).firstOrNull(File::isDirectory)
       ?: error(
@@ -494,11 +521,20 @@ sqlitemagic {
       .use { properties.store(it, "SDK location for the isolated consumer integration fixture") }
   }
 
+  private fun String.replacePresent(
+    oldValue: String,
+    newValue: String
+  ) = also { check(oldValue in it) { "The consumer build no longer contains: $oldValue" } }
+    .replace(
+      oldValue = oldValue,
+      newValue = newValue
+    )
+
   private fun configuredBuild(
     original: String,
     version: Int
   ) = original
-    .replace(
+    .replacePresent(
       oldValue = """
 // This runtime/compiler fixture has no published release history for migration testing.
 sqlitemagic {
@@ -509,13 +545,19 @@ sqlitemagic {
 """,
       newValue = ""
     )
-    .replace(
-      oldValue = """value = if (variant.buildType == "release") "2" else "3"""",
-      newValue = """value = if (variant.buildType == "release") "$version" else "1038""""
+    .replacePresent(
+      oldValue = """
+            "release" -> "2"
+            else -> "3"
+""",
+      newValue = """
+            "release" -> "$version"
+            else -> "1038"
+"""
     ) + """
 
 dependencies {
-  testImplementation("androidx.sqlite:sqlite-bundled-jvm:2.6.0")
+  testImplementation(libs.android.sqlite.bundled.jvm)
 }
 
 tasks.register("inspectMigrationConsumerRuntimeDependencies") {

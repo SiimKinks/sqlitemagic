@@ -1,22 +1,24 @@
 package com.siimkinks.sqlitemagic.runtime.contract.persist
 
-import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog.recursivePersistConflictCases
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget.CHILD
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget.PARENT
 import com.siimkinks.sqlitemagic.runtime.model.RecursivePersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.isConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.relatedRows
 import com.siimkinks.sqlitemagic.runtime.support.seed
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.rxjava2.observe
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,62 +33,62 @@ internal class RecursiveBulkPersistConflictTest(
   val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun executeWithParentConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRollsBackWholeBatch() =
+  fun executeWithParentConflictAndDefaultAlgorithmThrowsConstraintFailureAndRollsBackWholeBatch() =
     assertDefaultConflict(
       modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
+      conflict = PARENT,
       terminal = EXECUTE
     )
 
   @Test
-  fun observeWithParentConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRollsBackWholeBatch() =
+  fun observeWithParentConflictAndDefaultAlgorithmEmitsConstraintFailureAndRollsBackWholeBatch() =
     assertDefaultConflict(
       modelCase = modelCase,
-      conflict = RecursiveConflictTarget.PARENT,
+      conflict = PARENT,
       terminal = OBSERVE
     )
 
   @Test
-  fun executeWithChildConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRollsBackWholeBatch() =
+  fun executeWithChildConflictAndDefaultAlgorithmThrowsConstraintFailureAndRollsBackWholeBatch() =
     assertDefaultConflict(
       modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
+      conflict = CHILD,
       terminal = EXECUTE
     )
 
   @Test
-  fun observeWithChildConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRollsBackWholeBatch() =
+  fun observeWithChildConflictAndDefaultAlgorithmEmitsConstraintFailureAndRollsBackWholeBatch() =
     assertDefaultConflict(
       modelCase = modelCase,
-      conflict = RecursiveConflictTarget.CHILD,
+      conflict = CHILD,
       terminal = OBSERVE
     )
 
   @Test
   fun executeWithParentConflictAndConflictIgnoreReturnsTrueAndCommitsGraphsAroundConflict() = assertConflictIgnore(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.PARENT,
+    conflict = PARENT,
     terminal = EXECUTE
   )
 
   @Test
   fun observeWithParentConflictAndConflictIgnoreCompletesAndCommitsGraphsAroundConflict() = assertConflictIgnore(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.PARENT,
+    conflict = PARENT,
     terminal = OBSERVE
   )
 
   @Test
   fun executeWithChildConflictAndConflictIgnoreReturnsTrueAndCommitsGraphsAroundConflict() = assertConflictIgnore(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.CHILD,
+    conflict = CHILD,
     terminal = EXECUTE
   )
 
   @Test
   fun observeWithChildConflictAndConflictIgnoreCompletesAndCommitsGraphsAroundConflict() = assertConflictIgnore(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.CHILD,
+    conflict = CHILD,
     terminal = OBSERVE
   )
 
@@ -119,7 +121,7 @@ internal class RecursiveBulkPersistConflictTest(
     )
 
     when (terminal) {
-      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
+      EXECUTE -> assertConstraintFailure {
         bulkPersist(
           modelCase = modelCase,
           values = values
@@ -131,7 +133,7 @@ internal class RecursiveBulkPersistConflictTest(
       )
         .observe()
         .test()
-        .assertFailure(SQLiteConstraintException::class.java)
+        .assertFailure(Throwable::isConstraintFailure)
     }
     assertSnapshot(
       modelCase = modelCase,
@@ -194,12 +196,12 @@ internal class RecursiveBulkPersistConflictTest(
     val values = listOf(
       modelCase.valueWithInsertConflict(
         existing = seed,
-        conflict = RecursiveConflictTarget.PARENT,
+        conflict = PARENT,
         sequence = 2
       ),
       modelCase.valueWithInsertConflict(
         existing = seed,
-        conflict = RecursiveConflictTarget.CHILD,
+        conflict = CHILD,
         sequence = 3
       )
     )
@@ -259,6 +261,6 @@ internal class RecursiveBulkPersistConflictTest(
   companion object {
     @JvmStatic
     @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.recursivePersistConflictCases
+    fun modelCases() = recursivePersistConflictCases
   }
 }

@@ -2,24 +2,22 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import com.siimkinks.sqlitemagic.SqlType.INT
 import com.siimkinks.sqlitemagic.SqlType.STRING
+import com.siimkinks.sqlitemagic.internal.MutationResults
 import com.siimkinks.sqlitemagic.internal.SqlStorage
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import com.siimkinks.sqlitemagic.internal.requiredReadType
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import org.mockito.kotlin.doThrow
-import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
-import org.mockito.kotlin.whenever
 
 internal class MutationStatementTest {
   private data class Outcome(
@@ -30,9 +28,9 @@ internal class MutationStatementTest {
 
   private fun outcome(
     query: MutationQuery,
-    database: BundledSqliteDatabase = personDatabase()
+    database: TestDatabase = personDatabase()
   ) = database.use {
-    val connection = database.dbConnection()
+    val connection = database.connection
     val recorder = connection.recordTriggers()
     val affected = runCatching {
       query
@@ -51,31 +49,33 @@ internal class MutationStatementTest {
     val minors = UPDATE TABLE PERSON SET (PERSON.NAME to "Minor") SET (PERSON.AGE to PERSON.AGE + 1) WHERE
         (PERSON.AGE LESS_THAN 18)
 
-    assertThat(snapshot(minors.compile())).isEqualTo(
-      PlanSnapshot(
-        sql = """UPDATE "main"."person" SET "name" = ?, "age" = "person"."age" + ? """ +
-            """WHERE "person"."age" < ?""",
-        arguments = listOf(NativeValue.Text("Minor"), NativeValue.Integer(1), NativeValue.Integer(18))
+    assertThat(snapshot(minors.compile()))
+      .isEqualTo(
+        PlanSnapshot(
+          sql = """UPDATE "main"."person" SET "name" = ?, "age" = "person"."age" + ? """ +
+              """WHERE "person"."age" < ?""",
+          arguments = listOf(NativeValue.Text("Minor"), NativeValue.Integer(1), NativeValue.Integer(18))
+        )
       )
-    )
-    assertThat(outcome(minors)).isEqualTo(
-      Outcome(
-        affected = 2,
-        rows = listOf(
-          ada,
-          grace,
-          unnamed.copy(
-            name = "Minor",
-            age = 18
+    assertThat(outcome(minors))
+      .isEqualTo(
+        Outcome(
+          affected = 2,
+          rows = listOf(
+            ada,
+            grace,
+            unnamed.copy(
+              name = "Minor",
+              age = 18
+            ),
+            linus.copy(
+              name = "Minor",
+              age = 18
+            )
           ),
-          linus.copy(
-            name = "Minor",
-            age = 18
-          )
-        ),
-        triggers = listOf(setOf("person"))
+          triggers = listOf(setOf("person"))
+        )
       )
-    )
   }
 
   @Test
@@ -117,20 +117,21 @@ internal class MutationStatementTest {
         affected = 2,
         rows = listOf(ada, grace)
       )
-    ).forEach { case ->
-      assertWithMessage(case.label)
-        .that(case.query.compile().sql)
-        .isEqualTo(case.sql)
-      assertWithMessage(case.label)
-        .that(outcome(case.query))
-        .isEqualTo(
-          Outcome(
-            affected = case.affected,
-            rows = case.rows,
-            triggers = listOf(setOf("person"))
+    )
+      .forEach { case ->
+        assertWithMessage(case.label)
+          .that(case.query.compile().sql)
+          .isEqualTo(case.sql)
+        assertWithMessage(case.label)
+          .that(outcome(case.query))
+          .isEqualTo(
+            Outcome(
+              affected = case.affected,
+              rows = case.rows,
+              triggers = listOf(setOf("person"))
+            )
           )
-        )
-    }
+      }
   }
 
   @Test
@@ -138,31 +139,31 @@ internal class MutationStatementTest {
     val update = UPDATE TABLE PERSON SET (PERSON.AGE to 40) SET (PERSON.TOKEN to Token("x")) SET
         (PERSON.FLAG to false) SET (PERSON.NAME to null) WHERE (PERSON.ID IS 1L)
 
-    assertThat(snapshot(update.compile())).isEqualTo(
-      PlanSnapshot(
-        sql = """UPDATE "main"."person" SET "age" = ?, "token" = ?, "flag" = ?, "name" = ? """ +
-            """WHERE "person"."id" = ?""",
-        arguments = listOf(
-          NativeValue.Integer(40),
-          NativeValue.Text("db:x"),
-          NativeValue.Integer(0),
-          NativeValue.Null,
-          NativeValue.Integer(1)
+    assertThat(snapshot(update.compile()))
+      .isEqualTo(
+        PlanSnapshot(
+          sql = """UPDATE "main"."person" SET "age" = ?, "token" = ?, "flag" = ?, "name" = ? """ +
+              """WHERE "person"."id" = ?""",
+          arguments = listOf(
+            NativeValue.Integer(40),
+            NativeValue.Text("db:x"),
+            NativeValue.Integer(0),
+            NativeValue.Null,
+            NativeValue.Integer(1)
+          )
         )
       )
-    )
     personDatabase().use { database ->
       update
-        .usingConnection(database.dbConnection())
+        .usingConnection(database.connection)
         .execute()
 
-      val stored = database
-        .query("SELECT typeof(age), token, typeof(flag), flag, name IS NULL FROM person WHERE id = 1")
-        .use { cursor ->
-          cursor.moveToFirst()
-          listOf(cursor.getString(0), cursor.getString(1), cursor.getString(2), cursor.getLong(3), cursor.getLong(4))
-        }
-      assertThat(stored).isEqualTo(listOf("integer", "db:x", "integer", 0L, 1L))
+      val stored = database.query(
+        "SELECT typeof(age), token, typeof(flag), flag, name IS NULL FROM person WHERE id = 1"
+      ) { row ->
+        listOf(row.getText(0), row.getText(1), row.getText(2), row.getLong(3), row.getLong(4))
+      }
+      assertThat(stored).containsExactly(listOf("integer", "db:x", "integer", 0L, 1L))
     }
   }
 
@@ -174,7 +175,7 @@ internal class MutationStatementTest {
     val accountType = requiredReadType(
       storage = SqlStorage.LONG,
       encode = { id: AccountId -> id.value + 1L },
-      decode = { stored -> AccountId(stored - 1L) },
+      decode = { AccountId(it - 1L) },
       encodingNullness = Required
     )
     val article = object : Table<Article>(
@@ -197,32 +198,30 @@ internal class MutationStatementTest {
     val update = UPDATE TABLE article SET (article.TITLE to "Title") SET (article.ACCOUNT to AccountId(41L)) SET
         (article.ACCOUNT to "? + account".expr(accountType, 7L))
 
-    assertThat(snapshot(update.compile())).isEqualTo(
-      PlanSnapshot(
-        sql = """UPDATE "main"."article" SET "title" = ?, "account" = ?, "account" = ? + account""",
-        arguments = listOf(NativeValue.Text("Title"), NativeValue.Integer(42), NativeValue.Integer(7))
+    assertThat(snapshot(update.compile()))
+      .isEqualTo(
+        PlanSnapshot(
+          sql = """UPDATE "main"."article" SET "title" = ?, "account" = ?, "account" = ? + account""",
+          arguments = listOf(NativeValue.Text("Title"), NativeValue.Integer(42), NativeValue.Integer(7))
+        )
       )
-    )
-    BundledSqliteDatabase().use { database ->
+    TestDatabase().use { database ->
       database.execSQL("CREATE TABLE article (title TEXT NOT NULL, account INTEGER NOT NULL)")
       database.execSQL("INSERT INTO article VALUES ('Draft', 1)")
       update
-        .usingConnection(database.dbConnection())
+        .usingConnection(database.connection)
         .execute()
 
-      val stored = database
-        .query("SELECT title, account FROM article")
-        .use { cursor ->
-          cursor.moveToFirst()
-          listOf(cursor.getString(0), cursor.getLong(1))
-        }
-      assertThat(stored).isEqualTo(listOf("Title", 8L))
+      val stored = database.query("SELECT title, account FROM article") { row ->
+        listOf(row.getText(0), row.getLong(1))
+      }
+      assertThat(stored).containsExactly(listOf("Title", 8L))
     }
   }
 
   @Test
   fun `SQL NULL assignment leaves NOT NULL and conflict handling to SQLite`() {
-    val defaultedAge = BundledSqliteDatabase().apply {
+    val defaultedAge = TestDatabase().apply {
       execSQL(
         "CREATE TABLE person (id INTEGER PRIMARY KEY, name TEXT, age INTEGER NOT NULL DEFAULT 7, " +
             "parent_id INTEGER, token TEXT NOT NULL, flag INTEGER)"
@@ -233,13 +232,14 @@ internal class MutationStatementTest {
     val ignored = UPDATE OR CONFLICT_IGNORE TABLE PERSON SET_NULL PERSON.AGE WHERE (PERSON.ID IS 1L)
     val replaced = UPDATE OR CONFLICT_REPLACE TABLE PERSON SET_NULL PERSON.AGE WHERE (PERSON.ID IS 1L)
 
-    assertThat(listOf(nullableTarget, ignored, replaced).map { it.compile().sql }).isEqualTo(
-      listOf(
-        """UPDATE "main"."person" SET "name" = NULL WHERE "person"."id" = ?""",
-        """UPDATE OR IGNORE "main"."person" SET "age" = NULL WHERE "person"."id" = ?""",
-        """UPDATE OR REPLACE "main"."person" SET "age" = NULL WHERE "person"."id" = ?"""
+    assertThat(listOf(nullableTarget, ignored, replaced).map { it.compile().sql })
+      .isEqualTo(
+        listOf(
+          """UPDATE "main"."person" SET "name" = NULL WHERE "person"."id" = ?""",
+          """UPDATE OR IGNORE "main"."person" SET "age" = NULL WHERE "person"."id" = ?""",
+          """UPDATE OR REPLACE "main"."person" SET "age" = NULL WHERE "person"."id" = ?"""
+        )
       )
-    )
     assertThat(
       listOf(
         outcome(nullableTarget),
@@ -249,25 +249,26 @@ internal class MutationStatementTest {
           database = defaultedAge
         )
       )
-    ).isEqualTo(
-      listOf(
-        Outcome(
-          affected = 1,
-          rows = listOf(ada.copy(name = null), grace, unnamed, linus),
-          triggers = listOf(setOf("person"))
-        ),
-        Outcome(
-          affected = 0,
-          rows = people,
-          triggers = emptyList()
-        ),
-        Outcome(
-          affected = 1,
-          rows = listOf(ada.copy(age = 7)),
-          triggers = listOf(setOf("person"))
+    )
+      .isEqualTo(
+        listOf(
+          Outcome(
+            affected = 1,
+            rows = listOf(ada.copy(name = null), grace, unnamed, linus),
+            triggers = listOf(setOf("person"))
+          ),
+          Outcome(
+            affected = 0,
+            rows = people,
+            triggers = emptyList()
+          ),
+          Outcome(
+            affected = 1,
+            rows = listOf(ada.copy(age = 7)),
+            triggers = listOf(setOf("person"))
+          )
         )
       )
-    )
   }
 
   @Test
@@ -275,25 +276,27 @@ internal class MutationStatementTest {
     val update = UPDATE TABLE PERSON SET (PERSON.PARENT_ID to PERSON.AGE / 2) SET
         (PERSON.AGE to "abs(age) * 2".expr(INT)) WHERE (PERSON.ID IS 2L)
 
-    assertThat(update.compile().sql).isEqualTo(
-      """UPDATE "main"."person" SET "parent_id" = "person"."age" / ?, "age" = abs(age) * 2 """ +
-          """WHERE "person"."id" = ?"""
-    )
-    assertThat(outcome(update)).isEqualTo(
-      Outcome(
-        affected = 1,
-        rows = listOf(
-          ada,
-          grace.copy(
-            parentId = 42L,
-            age = 170
-          ),
-          unnamed,
-          linus
-        ),
-        triggers = listOf(setOf("person"))
+    assertThat(update.compile().sql)
+      .isEqualTo(
+        """UPDATE "main"."person" SET "parent_id" = "person"."age" / ?, "age" = abs(age) * 2 """ +
+            """WHERE "person"."id" = ?"""
       )
-    )
+    assertThat(outcome(update))
+      .isEqualTo(
+        Outcome(
+          affected = 1,
+          rows = listOf(
+            ada,
+            grace.copy(
+              parentId = 42L,
+              age = 170
+            ),
+            unnamed,
+            linus
+          ),
+          triggers = listOf(setOf("person"))
+        )
+      )
   }
 
   @Test
@@ -308,21 +311,24 @@ internal class MutationStatementTest {
         rename
           .bind(name TO "Augusta")
           .bind(name TO "Ada King")
-      ).map(::outcome)
-    ).isEqualTo(
-      listOf("Augusta", "Ada King").map { newName ->
-        Outcome(
-          affected = 1,
-          rows = listOf(ada.copy(name = newName), grace, unnamed, linus),
-          triggers = listOf(setOf("person"))
-        )
+      )
+        .map(::outcome)
+    )
+      .isEqualTo(
+        listOf("Augusta", "Ada King").map { newName ->
+          Outcome(
+            affected = 1,
+            rows = listOf(ada.copy(name = newName), grace, unnamed, linus),
+            triggers = listOf(setOf("person"))
+          )
+        }
+      )
+    assertThat(
+      listOf(rename, rename.bind(name TO "A", other TO 1)).map {
+        assertThrows(IllegalArgumentException::class.java, it::compile).message
       }
     )
-    assertThat(
-      listOf(rename, rename.bind(name TO "A", other TO 1)).map { query ->
-        assertThrows(IllegalArgumentException::class.java, query::compile).message
-      }
-    ).isEqualTo(listOf("Missing parameter 'name'", "Unexpected parameter 'age'"))
+      .isEqualTo(listOf("Missing parameter 'name'", "Unexpected parameter 'age'"))
   }
 
   @Test
@@ -340,17 +346,19 @@ internal class MutationStatementTest {
             .usingConnection(connection)
             .execute()
         }
-      ).map { construction ->
-        assertThrows(IllegalArgumentException::class.java) { construction() }.message
-      }
-    ).isEqualTo(
-      listOf(
-        "UPDATE and DELETE targets cannot be aliased; use person itself and alias inner queries instead",
-        "UPDATE and DELETE targets cannot be aliased; use person itself and alias inner queries instead",
-        "SET target name must be a field of the updated person occurrence",
-        "A field requires the exact table occurrence of its FROM, UPDATE or DELETE"
       )
+        .map { construction ->
+          assertThrows(IllegalArgumentException::class.java) { construction() }.message
+        }
     )
+      .isEqualTo(
+        listOf(
+          "UPDATE and DELETE targets cannot be aliased; use person itself and alias inner queries instead",
+          "UPDATE and DELETE targets cannot be aliased; use person itself and alias inner queries instead",
+          "SET target name must be a field of the updated person occurrence",
+          "A field requires the exact table occurrence of its FROM, UPDATE or DELETE"
+        )
+      )
     verifyNoInteractions(connection)
   }
 
@@ -390,11 +398,12 @@ internal class MutationStatementTest {
           triggers = listOf(setOf("person"))
         )
       )
-    ).forEach { case ->
-      assertWithMessage(case.label)
-        .that(outcome(case.query))
-        .isEqualTo(case.outcome)
-    }
+    )
+      .forEach { case ->
+        assertWithMessage(case.label)
+          .that(outcome(case.query))
+          .isEqualTo(case.outcome)
+      }
   }
 
   @Test
@@ -407,70 +416,67 @@ internal class MutationStatementTest {
         (renamed WHERE (PERSON.ID IS 1L)).compile(),
         (renamed SET (PERSON.AGE to 1)).compile(),
         (renamed WHERE (PERSON.ID IS 2L)).compile()
-      ).map(::snapshot)
-    ).isEqualTo(
-      listOf(
-        PlanSnapshot(
-          sql = """UPDATE "main"."person" SET "name" = ?""",
-          arguments = listOf(NativeValue.Text("X"))
-        ),
-        PlanSnapshot(
-          sql = """UPDATE "main"."person" SET "name" = ? WHERE "person"."id" = ?""",
-          arguments = listOf(NativeValue.Text("X"), NativeValue.Integer(1))
-        ),
-        PlanSnapshot(
-          sql = """UPDATE "main"."person" SET "name" = ?, "age" = ?""",
-          arguments = listOf(NativeValue.Text("X"), NativeValue.Integer(1))
-        ),
-        PlanSnapshot(
-          sql = """UPDATE "main"."person" SET "name" = ? WHERE "person"."id" = ?""",
-          arguments = listOf(NativeValue.Text("X"), NativeValue.Integer(2))
+      )
+        .map(::snapshot)
+    )
+      .isEqualTo(
+        listOf(
+          PlanSnapshot(
+            sql = """UPDATE "main"."person" SET "name" = ?""",
+            arguments = listOf(NativeValue.Text("X"))
+          ),
+          PlanSnapshot(
+            sql = """UPDATE "main"."person" SET "name" = ? WHERE "person"."id" = ?""",
+            arguments = listOf(NativeValue.Text("X"), NativeValue.Integer(1))
+          ),
+          PlanSnapshot(
+            sql = """UPDATE "main"."person" SET "name" = ?, "age" = ?""",
+            arguments = listOf(NativeValue.Text("X"), NativeValue.Integer(1))
+          ),
+          PlanSnapshot(
+            sql = """UPDATE "main"."person" SET "name" = ? WHERE "person"."id" = ?""",
+            arguments = listOf(NativeValue.Text("X"), NativeValue.Integer(2))
+          )
         )
       )
-    )
   }
 
   @Test
-  fun `every execution binds and closes its own statement`() {
-    val statement = mock<SupportSQLiteStatement>()
-    val connection = mock<DbConnectionImpl>()
-    val sql = """UPDATE "main"."person" SET "name" = ? WHERE "person"."id" = ?"""
-    whenever(connection.compileStatement(sql)).thenReturn(statement)
-    whenever(statement.executeUpdateDelete()).thenReturn(3)
+  fun `every execution binds the cached statement and publishes its table`() {
+    val recording = newConnection()
+    recording.sqliteConnection.updateResults += listOf(3, 3)
     val compiled = (UPDATE TABLE PERSON SET (PERSON.NAME to "Ada") WHERE (PERSON.ID IS 1L))
-      .usingConnection(connection)
+      .usingConnection(recording.dbConnection)
       .compile()
 
     assertThat(listOf(compiled.execute(), compiled.execute())).isEqualTo(listOf(3, 3))
-    inOrder(connection, statement) {
-      repeat(2) {
-        verify(connection).compileStatement(sql)
-        verify(statement).bindString(
-          index = 1,
-          value = "Ada"
-        )
-        verify(statement).bindLong(
-          index = 2,
-          value = 1L
-        )
-        verify(statement).executeUpdateDelete()
-        verify(connection).sendTableTriggers(arrayOf("person"))
-        verify(statement).close()
-      }
-    }
+    val statement = recording.sqliteConnection.compiledStatements.single()
+    assertThat(statement.sql).isEqualTo("""UPDATE "main"."person" SET "name" = ? WHERE "person"."id" = ?""")
+    assertThat(recording.sqliteConnection.executions)
+      .isEqualTo(
+        List(2) {
+          RecordedExecution(
+            sql = statement.sql,
+            bindings = mapOf(1 to "Ada", 2 to 1L)
+          )
+        }
+      )
+    assertThat(recording.triggers).isEqualTo(List(2) { setOf("person") })
   }
 
   @Test
-  fun `a native failure closes the statement, invalidates and keeps the original exception`() {
-    val statement = mock<SupportSQLiteStatement>()
-    val connection = mock<DbConnectionImpl>()
+  fun `a native failure invalidates and keeps the original exception`() {
+    val recording = RecordingSQLiteConnection()
     val failure = IllegalStateException("constraint failed")
     val deliveryFailure = IllegalArgumentException("delivery failed")
-    whenever(connection.compileStatement("""DELETE FROM "main"."person"""")).thenReturn(statement)
-    whenever(statement.executeUpdateDelete()).thenThrow(failure)
-    doThrow(deliveryFailure)
-      .whenever(connection)
-      .sendTableTriggers(arrayOf("person"))
+    val connection = testDbConnection(
+      driver = SingleConnectionDriver(
+        object : SQLiteConnection by recording, MutationResults by recording {
+          override fun executeUpdateDelete(statement: SQLiteStatement) = throw failure
+        }
+      )
+    )
+    connection.failTriggerDelivery(deliveryFailure)
 
     val actual = assertThrows(IllegalStateException::class.java) {
       (DELETE FROM PERSON)
@@ -480,6 +486,5 @@ internal class MutationStatementTest {
 
     assertThat(actual).isSameInstanceAs(failure)
     assertThat(actual.suppressed.toList()).containsExactly(deliveryFailure)
-    verify(statement).close()
   }
 }

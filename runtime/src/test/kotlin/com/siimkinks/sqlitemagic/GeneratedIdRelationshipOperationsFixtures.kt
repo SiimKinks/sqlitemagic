@@ -1,8 +1,9 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
+import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
@@ -18,6 +19,8 @@ internal class GeneratedIdOperationState {
     field = mutableListOf()
   val nullOmittingChildIds: List<Long>
     field = mutableListOf()
+  val updatedChildIds: List<Long>
+    field = mutableListOf()
 
   fun recordFixedChildId(childId: Long) {
     fixedChildIds += childId
@@ -26,11 +29,13 @@ internal class GeneratedIdOperationState {
   fun recordNullOmittingChildId(childId: Long) {
     nullOmittingChildIds += childId
   }
+
+  fun recordUpdatedChildId(childId: Long) {
+    updatedChildIds += childId
+  }
 }
 
-private class GeneratedIdChildAdapter(
-  delegate: TestAdapter = TestAdapter()
-) : EntityDefaultIdentityAdapter<TestEntity> by delegate
+private class GeneratedIdChildAdapter : EntityDefaultIdentityAdapter<TestEntity> by TestAdapter()
 
 private class GeneratedIdParentAdapter(
   private val state: GeneratedIdOperationState,
@@ -47,14 +52,13 @@ private class GeneratedIdParentAdapter(
   override val triggerTableNames = arrayOf("generated_id_parent", "books")
 
   override fun bindToInsertStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: GeneratedIdParent,
     generatedRelationshipIds: Map<String, Long>
   ) {
     val childId = generatedRelationshipIds["child"] ?: 0L
     state.recordFixedChildId(childId)
-    statement.clearBindings()
-    statement.bindString(
+    statement.bindText(
       index = 1,
       value = entity.id
     )
@@ -65,16 +69,18 @@ private class GeneratedIdParentAdapter(
   }
 
   override fun bindToUpdateStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: GeneratedIdParent,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
-    statement.clearBindings()
-    statement.bindString(
+    val childId = requiredChildId(generatedRelationshipIds)
+    state.recordUpdatedChildId(childId)
+    statement.bindLong(
       index = 1,
-      value = entity.id
+      value = childId
     )
-    statement.bindString(
+    statement.bindText(
       index = 2,
       value = entity.id
     )
@@ -95,10 +101,17 @@ private class GeneratedIdParentAdapter(
   override fun bindNotNullForUpdate(
     entity: GeneratedIdParent,
     values: MutableScatterMap<String, Any>,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
+    val childId = requiredChildId(generatedRelationshipIds)
+    state.recordUpdatedChildId(childId)
     values.clear()
+    values["child"] = childId
   }
+
+  private fun requiredChildId(generatedRelationshipIds: Map<String, Long>) = generatedRelationshipIds["child"]
+    ?: throw OperationFailedException("""Relationship "child" resolved to a NULL ID""")
 
   override fun identity(
     entity: GeneratedIdParent,

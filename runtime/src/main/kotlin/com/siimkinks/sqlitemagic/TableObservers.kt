@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.ScatterSet
 import com.siimkinks.sqlitemagic.internal.TableChangeObserver
@@ -62,6 +63,15 @@ internal class TableObservers {
     allTables.forEach { it.observer.onTablesChanged(changed) }
     registrations.forEach { it.observer.onTablesChanged(changed) }
   }
+
+  fun publish(tables: Array<out String>) {
+    if (allTableRegistrations.isEmpty() && tables.none(::isObserved)) {
+      return
+    }
+    publish(MutableScatterSet<String>(initialCapacity = tables.size).apply { addAll(tables) })
+  }
+
+  private fun isObserved(table: String) = tableRegistrations[table]?.registrations?.isNotEmpty() == true
 
   fun publish(tables: ScatterSet<String>) {
     allTableRegistrations.forEach { it.observer.onTablesChanged(tables.asSet()) }

@@ -1,42 +1,48 @@
 package com.siimkinks.sqlitemagic.rxjava3
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.CompiledCount
 import com.siimkinks.sqlitemagic.CompiledFirst
-import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.ExecutionReader
 import com.siimkinks.sqlitemagic.Query
-import com.siimkinks.sqlitemagic.SelectPlan
-import com.siimkinks.sqlitemagic.internal.sql.SqlRenderable
-import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
-import com.siimkinks.sqlitemagic.internal.sql.prepareQuery
+import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.SqlType.LONG
+import com.siimkinks.sqlitemagic.asValue
+import com.siimkinks.sqlitemagic.emptyPrepared
+import com.siimkinks.sqlitemagic.listQuery
+import com.siimkinks.sqlitemagic.planQuery
+import com.siimkinks.sqlitemagic.rowStatement
+import com.siimkinks.sqlitemagic.withWorkers
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.observers.TestObserver
 import io.reactivex.rxjava3.plugins.RxJavaPlugins
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.util.concurrent.TimeUnit.SECONDS
 
 internal class QueryObservableContractTest {
   @Test
-  fun `list query closes cursor and preserves empty results and nullable elements`() {
-    val cases = listOf(
+  fun `list query preserves empty results and nullable elements`() {
+    for ((label, rows) in listOf(
       "empty" to emptyList(),
       "nullable scalar rows" to listOf("first", null, "last")
-    )
-    for ((label, rows) in cases) {
-      val cursor = mock<Cursor>()
-      whenever(cursor.count).thenReturn(rows.size)
+    )) {
+      val statement = mock<SQLiteStatement>()
       var index = -1
-      whenever(cursor.moveToNext()).thenAnswer { ++index < rows.size }
+      whenever(statement.step()).thenAnswer { ++index < rows.size }
       val query = listQuery(
-        cursor = cursor,
+        connection = mock(),
+        statement = statement,
         mapper = { rows[index] }
       )
 
@@ -45,24 +51,20 @@ internal class QueryObservableContractTest {
         .test()
         .withTag(label)
         .assertResult(rows)
-      verify(cursor).close()
     }
   }
 
   @Test
-  fun `list mapper failure closes cursor before delivering error`() {
-    val cursor = mock<Cursor>()
-    whenever(cursor.count).thenReturn(1)
-    whenever(cursor.moveToNext()).thenReturn(true)
+  fun `list mapper failure is delivered as the error`() {
     val failure = IllegalArgumentException("cannot map row")
     val query = listQuery(
-      cursor = cursor,
+      connection = mock(),
+      statement = rowStatement(),
       mapper = { throw failure }
     )
 
     ListQueryObservable(Observable.just(query))
       .runQuery()
-      .doOnError { verify(cursor).close() }
       .test()
       .assertNoValues()
       .assertError(failure)
@@ -70,14 +72,13 @@ internal class QueryObservableContractTest {
   }
 
   @Test
-  fun `disposal while mapping closes cursor and suppresses partial list`() {
-    val cursor = mock<Cursor>()
-    whenever(cursor.count).thenReturn(2)
-    whenever(cursor.moveToNext()).thenReturn(true)
+  fun `disposal while mapping stops reading rows and suppresses partial list`() {
+    val statement = rowStatement()
     val observer = TestObserver<List<String?>>()
     var mappedRows = 0
     val query = listQuery(
-      cursor = cursor,
+      connection = mock(),
+      statement = statement,
       mapper = {
         mappedRows++
         observer.dispose()
@@ -91,21 +92,25 @@ internal class QueryObservableContractTest {
 
     observer.assertEmpty()
     assertThat(mappedRows).isEqualTo(1)
-    verify(cursor).close()
+    verify(
+      mock = statement,
+      mode = times(1)
+    ).step()
   }
 
   @Test
-  fun `disposal while opening cursor closes it without mapping`() {
-    val cursor = mock<Cursor>()
+  fun `disposal before reading rows maps none`() {
+    val statement = mock<SQLiteStatement>()
     val observer = TestObserver<List<String?>>()
     var mappedRows = 0
     val query = listQuery(
-      cursor = cursor,
+      connection = mock(),
+      statement = statement,
       mapper = {
         mappedRows++
         null
       },
-      beforeReturn = observer::dispose
+      beforeRead = observer::dispose
     )
 
     ListQueryObservable(Observable.just(query))
@@ -113,18 +118,90 @@ internal class QueryObservableContractTest {
       .subscribe(observer)
 
     observer.assertEmpty()
-    verify(cursor).close()
-    verify(cursor, never()).moveToNext()
+    verify(
+      mock = statement,
+      mode = never()
+    ).step()
     assertThat(mappedRows).isEqualTo(0)
+  }
+
+  @Test
+  fun `disposal while a first-row or count query runs delivers nothing and releases its connection`() {
+    data class Case(
+      val hasRow: Boolean,
+      val observable: () -> Observable<out Any>
+    )
+
+    var observer = TestObserver<Any>()
+    var hasRow = false
+    val connection = queryingConnection(answers = { "SELECT ?" in it }) {
+      mock<SQLiteStatement> {
+        on { step() } doAnswer {
+          observer.dispose()
+          hasRow
+        }
+        on { getLong(0) } doReturn 8L
+      }
+    }
+    val value = SELECT
+      .COLUMN(8L.asValue())
+      .usingConnection(connection)
+
+    mapOf(
+      "first row" to Case(hasRow = true) {
+        value
+          .takeFirst()
+          .observe()
+          .runQuery()
+      },
+      "first row or default" to Case(hasRow = false) {
+        value
+          .takeFirst()
+          .observe()
+          .runQueryOrDefault(7L)
+      },
+      "count" to Case(hasRow = true) {
+        value
+          .count()
+          .observe()
+          .runQuery()
+      },
+      "count is zero" to Case(hasRow = true) {
+        value
+          .count()
+          .observe()
+          .isZero()
+      }
+    ).forEach { (label, case) ->
+      hasRow = case.hasRow
+      observer = TestObserver()
+      case
+        .observable()
+        .subscribe(observer)
+      observer
+        .withTag(label)
+        .assertEmpty()
+    }
+    withWorkers { workers ->
+      val laterRead = workers
+        .submit<List<Long>> {
+          (SELECT RAW "SELECT 1")
+            .readAs(LONG)
+            .usingConnection(connection)
+            .execute()
+        }
+        .get(5L, SECONDS)
+      assertThat(laterRead).isEqualTo(listOf(1L))
+    }
   }
 
   @Test
   fun `scalar queries skip null results or emit the supplied default`() {
     val source = SingleItemQueryObservable(
       Observable.just(
-        scalarQuery<String?> { null },
-        scalarQuery<String?> { "row" },
-        scalarQuery<String?> { null }
+        scalarQuery { null },
+        scalarQuery { "row" },
+        scalarQuery { null }
       )
     )
 
@@ -167,7 +244,8 @@ internal class QueryObservableContractTest {
         },
         "list" to { observer, failure ->
           val query = listQuery(
-            cursor = rowCursor(),
+            connection = mock(),
+            statement = rowStatement(),
             mapper = {
               observer.dispose()
               throw failure
@@ -206,46 +284,49 @@ internal class QueryObservableContractTest {
   }
 
   @Test
-  fun `fatal mapping failures escape and still close the cursor`() {
+  fun `fatal mapping failures escape`() {
     val failure = LinkageError("fatal mapper failure")
-    for ((label, subscribe) in mapOf<String, (Cursor) -> Unit>(
-      "list" to { cursor ->
+    for ((label, subscribe) in mapOf<String, (SQLiteStatement) -> Unit>(
+      "list" to { statement ->
         val query = listQuery(
-          cursor = cursor,
+          connection = mock(),
+          statement = statement,
           mapper = { throw failure }
         )
         ListQueryObservable(Observable.just(query))
           .runQuery()
           .test()
       },
-      "single item" to { cursor ->
-        val query = firstQuery(
-          cursor = cursor,
-          mapper = { throw failure }
+      "single item" to { statement ->
+        val query = planQuery(
+          connection = mock(),
+          plan = CompiledFirst<String?>(
+            prepared = emptyPrepared(),
+            reader = ExecutionReader { { _, _ -> throw failure } }
+          ),
+          statement = statement
         )
         SingleItemQueryObservable(Observable.just(query))
           .runQuery()
           .test()
       },
-      "count" to { cursor ->
-        whenever(cursor.getLong(0)).thenThrow(failure)
+      "count" to { statement ->
+        whenever(statement.getLong(0)).thenThrow(failure)
         val query = planQuery(
+          connection = mock(),
           plan = CompiledCount(emptyPrepared()),
-          cursor = cursor
+          statement = statement
         )
         CountQueryObservable(Observable.just(query))
           .isZero()
           .test()
       }
     )) {
-      val cursor = rowCursor()
-
-      val thrown = assertThrows(LinkageError::class.java) { subscribe(cursor) }
+      val thrown = assertThrows(LinkageError::class.java) { subscribe(rowStatement()) }
 
       assertWithMessage(label)
         .that(thrown)
         .isSameInstanceAs(failure)
-      verify(cursor).close()
     }
   }
 
@@ -256,7 +337,7 @@ internal class QueryObservableContractTest {
       val source = SingleItemQueryObservable(
         Observable.just(
           scalarQuery { firstResult },
-          scalarQuery<String?> {
+          scalarQuery {
             laterExecutions++
             "later"
           }
@@ -277,20 +358,20 @@ internal class QueryObservableContractTest {
   }
 
   @Test
-  fun `one shot list query closes its cursor and does not run later triggers`() {
-    val cursor = mock<Cursor>()
-    whenever(cursor.count).thenReturn(0)
+  fun `one shot list query does not run later triggers`() {
     var laterExecutions = 0
     val source = ListQueryObservable(
       Observable.just(
         listQuery(
-          cursor = cursor,
+          connection = mock(),
+          statement = mock(),
           mapper = { "unused" }
         ),
         listQuery(
-          cursor = mock(),
+          connection = mock(),
+          statement = mock(),
           mapper = { "unused" },
-          beforeReturn = { laterExecutions++ }
+          beforeRead = { laterExecutions++ }
         )
       )
     )
@@ -300,7 +381,6 @@ internal class QueryObservableContractTest {
       .test()
       .assertResult(emptyList())
 
-    verify(cursor).close()
     assertThat(laterExecutions).isEqualTo(0)
   }
 
@@ -321,61 +401,7 @@ internal class QueryObservableContractTest {
       .assertResult(false, true)
   }
 
-  private fun listQuery(
-    cursor: Cursor,
-    mapper: (Cursor) -> String?,
-    beforeReturn: () -> Unit = {}
-  ) = planQuery(
-    plan = CompiledSelect(
-      prepared = emptyPrepared(),
-      reader = ExecutionReader { { rows, _ -> mapper(rows) } }
-    ),
-    cursor = cursor,
-    beforeReturn = beforeReturn
-  )
-
-  private fun firstQuery(
-    cursor: Cursor,
-    mapper: (Cursor) -> String?
-  ) = planQuery(
-    plan = CompiledFirst(
-      prepared = emptyPrepared(),
-      reader = ExecutionReader { { rows, _ -> mapper(rows) } }
-    ),
-    cursor = cursor
-  )
-
-  private fun <T> planQuery(
-    plan: SelectPlan<T>,
-    cursor: Cursor,
-    beforeReturn: () -> Unit = {}
-  ): Query<T> = object : Query<T>(mock()) {
-    override fun rawQuery(dbConnection: DbConnectionImpl): Cursor {
-      beforeReturn()
-      return cursor
-    }
-
-    override fun map(cursor: Cursor, isDisposed: () -> Boolean) = plan.mapRows(
-      cursor = cursor,
-      isDisposed = isDisposed
-    )
-  }
-
-  private fun emptyPrepared() = prepareQuery(
-    renderable = object : SqlRenderable {
-      override fun render(context: SqlRenderingContext) = Unit
-    },
-    connection = null
-  )
-
-  private fun rowCursor() = mock<Cursor>().also { cursor ->
-    whenever(cursor.count).thenReturn(1)
-    whenever(cursor.moveToNext()).thenReturn(true)
-  }
-
   private fun <T> scalarQuery(result: () -> T): Query<T> = object : Query<T>(mock()) {
-    override fun rawQuery(dbConnection: DbConnectionImpl) = mock<Cursor>()
-
-    override fun map(cursor: Cursor, isDisposed: () -> Boolean) = result()
+    override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean) = result()
   }
 }

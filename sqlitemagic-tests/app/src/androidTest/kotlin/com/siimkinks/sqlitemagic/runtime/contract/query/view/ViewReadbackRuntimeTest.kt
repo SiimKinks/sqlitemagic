@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.runtime.contract.query.view
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.SELECT
-import com.siimkinks.sqlitemagic.runtime.contract.query.readTypedCursor
 import com.siimkinks.sqlitemagic.runtime.model.ViewReadCase
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ViewIntegrationCatalog
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
@@ -38,9 +37,9 @@ internal class ViewReadbackRuntimeTest(
   )
 
   @Test
-  fun typedCursorReturnsCompleteViewValue() = withSeededViewCase(
+  fun rowsReturnCompleteViewValue() = withSeededViewCase(
     viewCase = viewCase,
-    assertion = ::assertTypedCursor
+    assertion = ::assertRows
   )
 
   private fun <T> withSeededViewCase(
@@ -78,12 +77,13 @@ internal class ViewReadbackRuntimeTest(
     ).isEqualTo(viewCase.expected)
   }
 
-  private fun <T> assertTypedCursor(viewCase: ViewReadCase<T>, connection: DbConnection) {
-    val cursorQuery = SELECT
-      .FROM(viewCase.table)
-      .usingConnection(connection)
-      .toCursor()
-    assertThat(readTypedCursor(cursorSelect = cursorQuery)).containsExactly(viewCase.expected)
+  private fun <T> assertRows(viewCase: ViewReadCase<T>, connection: DbConnection) {
+    assertThat(
+      SELECT
+        .FROM(viewCase.table)
+        .usingConnection(connection)
+        .useRows(Sequence<T>::toList)
+    ).containsExactly(viewCase.expected)
   }
 
   companion object {

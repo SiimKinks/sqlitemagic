@@ -21,14 +21,8 @@ private class MappingObserver<T>(
   override fun onNext(query: Query<List<T>>) {
     if (done || isDisposed) return
     try {
-      val cursor = ReactiveAdapterSupport.openCursor(query)
-      if (isDisposed) {
-        cursor.close()
-        return
-      }
-      val items = ReactiveAdapterSupport.map(
+      val items = ReactiveAdapterSupport.run(
         query = query,
-        cursor = cursor,
         isDisposed = checkDisposed
       )
       if (!isDisposed) {

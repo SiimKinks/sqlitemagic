@@ -19,7 +19,7 @@ internal class ModelUpdateBindingContractTest {
           contents = """
             package $PACKAGE
 
-            import androidx.sqlite.db.SupportSQLiteStatement
+            import androidx.sqlite.SQLiteStatement
             import com.siimkinks.sqlitemagic.BindingNoIdTable
             import com.siimkinks.sqlitemagic.BindingOneUniqueTable
             import com.siimkinks.sqlitemagic.BindingRecordTable
@@ -164,13 +164,12 @@ internal class ModelUpdateBindingContractTest {
                 }
                 BindingTrace.events.clear()
                 val statement = Proxy.newProxyInstance(
-                  SupportSQLiteStatement::class.java.classLoader,
-                  arrayOf(SupportSQLiteStatement::class.java)
+                  SQLiteStatement::class.java.classLoader,
+                  arrayOf(SQLiteStatement::class.java)
                 ) { _, method, arguments ->
                   when (method.name) {
-                    "clearBindings" -> BindingTrace.events.add("clear")
                     "bindNull" -> BindingTrace.events.add("bindNull:" + checkNotNull(arguments)[0])
-                    "bindLong", "bindDouble", "bindString", "bindBlob" -> {
+                    "bindLong", "bindDouble", "bindText", "bindBlob" -> {
                       val value = checkNotNull(arguments)[1]
                       val text = when (value) {
                         is ByteArray -> value.joinToString(",")
@@ -181,28 +180,32 @@ internal class ModelUpdateBindingContractTest {
                     else -> error("Unexpected statement method: " + method.name)
                   }
                   null
-                } as SupportSQLiteStatement
+                } as SQLiteStatement
                 try {
                   when (label.substringBefore(':')) {
                     "oneUniqueId" -> SqliteMagic_BindingOneUnique_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingOneUnique(),
-                      columnName = "id"
+                      columnName = "id",
+                      generatedRelationshipIds = emptyMap()
                     )
                     "oneUniqueKey" -> SqliteMagic_BindingOneUnique_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingOneUnique(),
-                      columnName = "key"
+                      columnName = "key",
+                      generatedRelationshipIds = emptyMap()
                     )
                     "noIdFirst" -> SqliteMagic_BindingNoId_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingNoId(),
-                      columnName = "first"
+                      columnName = "first",
+                      generatedRelationshipIds = emptyMap()
                     )
                     "noIdSecond" -> SqliteMagic_BindingNoId_Dao.bindToUpdateStatement(
                       statement = statement,
                       entity = BindingNoId(),
-                      columnName = "second"
+                      columnName = "second",
+                      generatedRelationshipIds = emptyMap()
                     )
                     else -> {
                       val selectedColumn = when (label.substringBefore(':')) {
@@ -214,7 +217,8 @@ internal class ModelUpdateBindingContractTest {
                       SqliteMagic_BindingRecord_Dao.bindToUpdateStatement(
                         statement = statement,
                         entity = entity,
-                        columnName = selectedColumn
+                        columnName = selectedColumn,
+                        generatedRelationshipIds = emptyMap()
                       )
                     }
                   }
@@ -236,7 +240,7 @@ internal class ModelUpdateBindingContractTest {
       BindingColumn(
         name = "key",
         reads = listOf("get:key"),
-        method = "bindString",
+        method = "bindText",
         value = "alpha"
       ),
       BindingColumn(
@@ -248,7 +252,7 @@ internal class ModelUpdateBindingContractTest {
       BindingColumn(
         name = "token",
         reads = listOf("get:token", "transform:beta"),
-        method = "bindString",
+        method = "bindText",
         value = "beta"
       ),
       BindingColumn(
@@ -272,13 +276,13 @@ internal class ModelUpdateBindingContractTest {
       BindingColumn(
         name = "optional",
         reads = listOf("get:optional"),
-        method = "bindString",
+        method = "bindText",
         value = "optional"
       ),
       BindingColumn(
         name = "details",
         reads = listOf("get:details", "get:leaf"),
-        method = "bindString",
+        method = "bindText",
         value = "leaf"
       ),
       BindingColumn(
@@ -327,10 +331,10 @@ internal class ModelUpdateBindingContractTest {
       "tokenAlias" to bindingTrace(byToken),
       "key" to bindingTrace(byKey),
       "token" to bindingTrace(byToken),
-      "oneUniqueId" to listOf("clear", "bindString:1:only", "bindLong:2:31", "bindLong:3:13"),
-      "oneUniqueKey" to listOf("clear", "bindLong:1:31", "bindString:2:only"),
-      "noIdFirst" to listOf("clear", "bindLong:1:7", "bindLong:2:29", "bindNull:3", "bindString:4:first"),
-      "noIdSecond" to listOf("clear", "bindString:1:first", "bindLong:2:7", "bindNull:3", "bindLong:4:29")
+      "oneUniqueId" to listOf("bindText:1:only", "bindLong:2:31", "bindLong:3:13"),
+      "oneUniqueKey" to listOf("bindLong:1:31", "bindText:2:only"),
+      "noIdFirst" to listOf("bindLong:1:7", "bindLong:2:29", "bindNull:3", "bindText:4:first"),
+      "noIdSecond" to listOf("bindText:1:first", "bindLong:2:7", "bindNull:3", "bindLong:4:29")
     ) + listOf("id", "key", "token").flatMap { selected ->
       val ordered = when (selected) {
         "id" -> columns + id
@@ -378,7 +382,7 @@ internal class ModelUpdateBindingContractTest {
     else -> column
   }
 
-  private fun bindingTrace(columns: List<BindingColumn>) = listOf("clear") + columns.flatMapIndexed { index, column ->
+  private fun bindingTrace(columns: List<BindingColumn>) = columns.flatMapIndexed { index, column ->
     column.reads + when (column.value) {
       null -> "${column.method}:${index + 1}"
       else -> "${column.method}:${index + 1}:${column.value}"

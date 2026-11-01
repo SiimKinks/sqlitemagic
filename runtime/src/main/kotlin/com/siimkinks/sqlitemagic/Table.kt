@@ -2,8 +2,8 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import androidx.annotation.CheckResult
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqliteObjectKind.TABLE
 import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
 import com.siimkinks.sqlitemagic.internal.EntityProperty
@@ -84,7 +84,7 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
     get() = emptyList()
 
   @InternalSqliteMagicApi
-  protected open fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?): T =
+  protected open fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?): T =
     throw UnsupportedOperationException("$name has no generated entity reader")
 
   @InternalSqliteMagicApi
@@ -94,13 +94,17 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
    * [positions] holds the column position of each entity field, or -1 when the field is not selected.
    */
   @InternalSqliteMagicApi
-  protected open fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?): T =
+  protected open fun readPartialEntity(statement: SQLiteStatement, positions: IntArray, related: RelatedEntities?): T =
     throw UnsupportedOperationException("$name has no generated partial reader")
 
   internal val partialProperties get() = entityProperties
 
-  internal fun readPartialEntityAt(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = readPartialEntity(
-    cursor = cursor,
+  internal fun readPartialEntityAt(
+    statement: SQLiteStatement,
+    positions: IntArray,
+    related: RelatedEntities?
+  ) = readPartialEntity(
+    statement = statement,
     positions = positions,
     related = related
   )
@@ -129,8 +133,8 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
 
   internal open val isDefaultHandle get() = alias == null
 
-  internal fun readEntityAt(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = readEntity(
-    cursor = cursor,
+  internal fun readEntityAt(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = readEntity(
+    statement = statement,
     startIndex = startIndex,
     related = related
   )

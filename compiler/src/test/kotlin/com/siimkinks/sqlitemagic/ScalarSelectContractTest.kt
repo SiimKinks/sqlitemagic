@@ -19,7 +19,8 @@ internal class ScalarSelectContractTest {
       ENTITY_FROM_CONSUMER,
       SOURCE_FREE_CONSUMER,
       CLAUSE_SEQUENCE_CONSUMER
-    ).isOk()
+    )
+      .isOk()
   }
 
   @ParameterizedTest(name = "{0}")
@@ -112,7 +113,8 @@ internal class ScalarSelectContractTest {
           val invalid = $program
         }
       """
-    ).assertCompilationError(diagnostic)
+    )
+      .assertCompilationError(diagnostic)
   }
 
   private fun compile(@Language("kotlin") vararg bodies: String) = PlainKotlinCompilation.compile(
@@ -202,7 +204,6 @@ internal class ScalarSelectContractTest {
     """
 
     const val ORDERED_CONSUMER = """
-        import com.siimkinks.sqlitemagic.CompiledCursor
         import com.siimkinks.sqlitemagic.SelectOrderStage
 
         fun verify(table: Table<Any>, connection: DbConnection) {
@@ -225,7 +226,6 @@ internal class ScalarSelectContractTest {
           val compiled = connected.compile()
           val first = connected.takeFirst()
           val count = connected.count()
-          val cursor = connected.toCursor()
           val sourceFreeType = sourceFree.exactType()
           val projectionFirstType = projectionFirst.exactType()
           val distinctFromWhereType = distinctFromWhere.exactType()
@@ -237,7 +237,6 @@ internal class ScalarSelectContractTest {
           val offsetType = offset.exactType()
           val compiledType = compiled.exactType()
           val firstType = first.exactType()
-          val cursorType = cursor.exactType()
           val exactSourceFree: Exact<SelectOrderStage<Long, ScalarSelection<Long, Required, Long>>> = sourceFreeType
           val exactProjectionFirst:
               Exact<SelectOrderStage<Nothing?, ScalarSelection<Nothing?, SqlNullable, Nothing?>>> = projectionFirstType
@@ -252,7 +251,6 @@ internal class ScalarSelectContractTest {
           val exactCompiled: Exact<CompiledSelect<String>> = compiledType
           val exactFirst: Exact<CompiledFirst<String>> = firstType
           val exactCount: CompiledCount = count
-          val exactCursor: Exact<CompiledCursor<String>> = cursorType
         }
     """
 
@@ -278,7 +276,6 @@ internal class ScalarSelectContractTest {
     """
 
     const val ENTITY_FROM_CONSUMER = """
-        import com.siimkinks.sqlitemagic.CompiledCursor
         import com.siimkinks.sqlitemagic.SelectOrderStage
 
         fun <T> captureRows(table: Table<T>, connection: DbConnection) = SELECT.FROM(table)
@@ -296,7 +293,6 @@ internal class ScalarSelectContractTest {
           val rows = connected.execute()
           val first = connected.takeFirst()
           val count = connected.count()
-          val cursor = connected.toCursor()
           val captured = captureRows(
             table = table,
             connection = connection
@@ -308,7 +304,6 @@ internal class ScalarSelectContractTest {
           val pagedType = paged.exactType()
           val rowsType = rows.exactType()
           val firstType = first.exactType()
-          val cursorType = cursor.exactType()
           val capturedType = captured.exactType()
           val exactSource: Exact<SelectFromStage<Any, EntitySelection<Any>>> = sourceType
           val exactInfix: Exact<SelectWhereStage<Any, EntitySelection<Any>>> = infixType
@@ -318,7 +313,6 @@ internal class ScalarSelectContractTest {
           val exactRows: Exact<List<Any>> = rowsType
           val exactFirst: Exact<CompiledFirst<Any>> = firstType
           val exactCount: CompiledCount = count
-          val exactCursor: Exact<CompiledCursor<Any>> = cursorType
           val exactCaptured: Exact<List<Any>> = capturedType
         }
     """

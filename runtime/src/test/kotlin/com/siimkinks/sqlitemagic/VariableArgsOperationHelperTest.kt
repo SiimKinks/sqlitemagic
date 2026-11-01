@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic
 
+import android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertThat
@@ -18,21 +19,21 @@ internal class VariableArgsOperationHelperTest {
       this["b"] = "second"
       this["a"] = "first"
     }
-    context.compileInsertStatement("books")
+    context.executeBoundInsert("books")
     values.remove("b")
-    context.compileInsertStatement("authors")
-    context.compileUpdateStatement(
+    context.executeBoundInsert("authors")
+    context.executeBoundUpdate(
       tableName = "books",
       resolutionColumn = "key",
       resolutionValue = "book-key"
     )
     values["b"] = 2
-    context.compileUpdateStatement(
+    context.executeBoundUpdate(
       tableName = "authors",
       resolutionColumn = "id",
       resolutionValue = 9L
     )
-    context.compileInsertStatement("books")
+    context.executeBoundInsert("books")
 
     data class ExpectedStatement(
       val prefix: String,
@@ -67,18 +68,40 @@ internal class VariableArgsOperationHelperTest {
         values = mapOf("a" to "first", "b" to 2L)
       )
     )
-    val statements = connection.recordingDatabase.compiledStatements
-    assertThat(statements).hasSize(expectedStatements.size)
-    statements.zip(expectedStatements).forEach { (statement, expected) ->
-      assertThat(statement.sql).startsWith(expected.prefix)
-      assertThat(statement.sql).endsWith(expected.suffix)
-      assertBoundColumns(
-        statement = statement,
-        expected = expected.values
-      )
-    }
-    assertThat(connection.statementBindings[2][2]).isEqualTo("book-key")
-    assertThat(connection.statementBindings[3][3]).isEqualTo(9L)
+    val executions = connection.sqliteConnection.executions
+    assertThat(executions).hasSize(expectedStatements.size)
+    executions
+      .zip(expectedStatements)
+      .forEach { (execution, expected) ->
+        assertThat(execution.sql).startsWith(expected.prefix)
+        assertThat(execution.sql).endsWith(expected.suffix)
+        assertBoundColumns(
+          execution = execution,
+          expected = expected.values
+        )
+      }
+    assertThat(executions[2].bindings[2]).isEqualTo("book-key")
+    assertThat(executions[3].bindings[3]).isEqualTo(9L)
+  }
+
+  @Test
+  fun `abort writes no conflict clause, like the cached entity statements`() {
+    val connection = newConnection()
+    val context = operationContext(
+      connection = connection,
+      conflictAlgorithm = CONFLICT_ABORT
+    )
+    context.bindValues["a"] = "first"
+    context.executeBoundInsert("books")
+    context.executeBoundUpdate(
+      tableName = "books",
+      resolutionColumn = "id",
+      resolutionValue = 1L
+    )
+
+    assertThat(connection.sqliteConnection.executions.map(RecordedExecution::sql))
+      .containsExactly("INSERT INTO books(a) VALUES (?)", "UPDATE books SET a=? WHERE id=?")
+      .inOrder()
   }
 
   @Test
@@ -89,33 +112,35 @@ internal class VariableArgsOperationHelperTest {
     val collidingColumns = listOf("Aa", "BB").flatMap { first ->
       listOf("Aa", "BB").flatMap { second ->
         listOf("Aa", "BB").flatMap { third ->
-          listOf("Aa", "BB").map { fourth -> first + second + third + fourth }
+          listOf("Aa", "BB").map { fourth -> "$first$second$third$fourth" }
         }
       }
     }
     repeat(3) { refill ->
       values.clear()
       collidingColumns.forEachIndexed { index, column -> values[column] = index.toLong() + refill }
-      collidingColumns.take(4).forEach(values::remove)
+      collidingColumns
+        .take(4)
+        .forEach(values::remove)
       values[collidingColumns.first()] = 99L
       val expected = collidingColumns.drop(4)
         .associateWith { collidingColumns.indexOf(it).toLong() + refill } + (collidingColumns.first() to 99L)
-      context.compileInsertStatement("books")
+      context.executeBoundInsert("books")
       assertBoundColumns(
-        statement = connection.recordingDatabase.compiledStatements.last(),
+        execution = connection.sqliteConnection.executions.last(),
         expected = expected
       )
-      context.compileUpdateStatement(
+      context.executeBoundUpdate(
         tableName = "books",
         resolutionColumn = "id",
         resolutionValue = 5L
       )
-      val statement = connection.recordingDatabase.compiledStatements.last()
+      val execution = connection.sqliteConnection.executions.last()
       assertBoundColumns(
-        statement = statement,
+        execution = execution,
         expected = expected
       )
-      assertThat(statement.bindings[values.size + 1]).isEqualTo(5L)
+      assertThat(execution.bindings[values.size + 1]).isEqualTo(5L)
     }
   }
 
@@ -167,51 +192,76 @@ internal class VariableArgsOperationHelperTest {
         label = "blob",
         value = byteArrayOf(1, 2),
         expected = byteArrayOf(1, 2)
+      ),
+      BindingCase(
+        label = "true",
+        value = true,
+        expected = 1L
+      ),
+      BindingCase(
+        label = "false",
+        value = false,
+        expected = 0L
       )
     ).forEach { case ->
       val connection = newConnection()
       val context = operationContext(connection)
       context.bindValues["value"] = case.value
-      context.compileUpdateStatement(
+      context.executeBoundUpdate(
         tableName = "books",
         resolutionColumn = "id",
         resolutionValue = case.value
       )
-      val statement = connection.recordingDatabase.compiledStatements.single()
+      val execution = connection.sqliteConnection.executions.single()
 
       assertWithMessage(case.label)
-        .that(statement.sql)
+        .that(execution.sql)
         .isEqualTo("UPDATE books SET value=? WHERE id=?")
       for (index in 1..2) {
         assertWithMessage("${case.label}: binding $index")
-          .that(statement.bindings[index])
+          .that(execution.bindings[index])
           .isEqualTo(case.expected)
       }
     }
   }
 
   private fun operationContext(
-    connection: RecordingConnection,
+    connection: RecordingDbConnection,
     conflictAlgorithm: Int = CONFLICT_NONE
   ) = OperationContext(
     adapter = TestAdapter(),
     configuration = OperationConfigurationSnapshot(
-      connection = connection.connection,
+      connection = connection.dbConnection,
       conflictAlgorithm = conflictAlgorithm
     )
   )
 }
 
+internal fun OperationContext.executeBoundInsert(tableName: String) =
+  withBoundInsertStatement(tableName) { statement, results -> results.executeInsert(statement) }
+
+internal fun OperationContext.executeBoundUpdate(
+  tableName: String,
+  resolutionColumn: String,
+  resolutionValue: Any
+) = withBoundUpdateStatement(
+  tableName = tableName,
+  resolutionColumn = resolutionColumn,
+  resolutionValue = resolutionValue
+) { statement, results ->
+  results.executeUpdateDelete(statement)
+}
+
 private fun assertBoundColumns(
-  statement: RecordingStatement,
+  execution: RecordedExecution,
   expected: Map<String, Any>
 ) {
   val columns = when {
-    statement.sql.startsWith("INSERT") -> statement.sql
+    execution.sql.startsWith("INSERT") -> execution.sql
       .substringAfter('(')
       .substringBefore(')')
       .split(',')
-    else -> statement.sql
+    else -> execution.sql
       .substringAfter(" SET ")
       .substringBefore(" WHERE ")
       .split(',')
@@ -219,8 +269,8 @@ private fun assertBoundColumns(
   }
   assertThat(columns).containsExactlyElementsIn(expected.keys)
   columns.forEachIndexed { index, column ->
-    assertWithMessage("${statement.sql}: $column")
-      .that(statement.bindings[index + 1])
+    assertWithMessage("${execution.sql}: $column")
+      .that(execution.bindings[index + 1])
       .isEqualTo(expected.getValue(column))
   }
 }

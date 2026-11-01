@@ -8,7 +8,7 @@ internal class ReadbackMutationResults(private val connection: SQLiteConnection)
   private var readback: SQLiteStatement? = null
 
   override fun executeInsert(statement: SQLiteStatement): Long {
-    statement.step()
+    statement.stepToEnd()
     return readResults { results ->
       when (results.getLong(0)) {
         0L -> -1L
@@ -18,7 +18,7 @@ internal class ReadbackMutationResults(private val connection: SQLiteConnection)
   }
 
   override fun executeUpdateDelete(statement: SQLiteStatement): Int {
-    statement.step()
+    statement.stepToEnd()
     return readResults { results -> results.getLong(0).toInt() }
   }
 
@@ -38,6 +38,10 @@ internal class ReadbackMutationResults(private val connection: SQLiteConnection)
     readback?.close(quietly = true)
     readback = null
   }
+}
+
+private fun SQLiteStatement.stepToEnd() {
+  while (step()) continue
 }
 
 internal class PinnedMutationResults(

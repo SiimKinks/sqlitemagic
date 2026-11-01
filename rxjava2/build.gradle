@@ -4,7 +4,6 @@ plugins {
 }
 
 apply from: '../buildsystem/maven-push.gradle'
-apply from: '../buildsystem/sqlite-support.gradle'
 apply from: '../buildsystem/reactive-adapter.gradle'
 
 def generateRxJava2Sources = tasks.register('generateRxJava2Sources', Sync) {
@@ -17,7 +16,6 @@ def generateRxJava2Sources = tasks.register('generateRxJava2Sources', Sync) {
       .replace('com.siimkinks.sqlitemagic.rxjava3', 'com.siimkinks.sqlitemagic.rxjava2')
       .replace('io.reactivex.rxjava3.core.', 'io.reactivex.')
       .replace('io.reactivex.rxjava3.', 'io.reactivex.')
-      .replace('RxJava 3', 'RxJava 2')
   }
 }
 

@@ -1,55 +1,59 @@
 package com.siimkinks.sqlitemagic.internal
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 
 @InternalSqliteMagicApi
 class Storage<S : Any> internal constructor(
   internal val encode: (S) -> NativeValue,
-  internal val read: (Cursor, Int) -> S
+  internal val read: (SQLiteStatement, Int) -> S,
+  internal val nullableRead: ((SQLiteStatement, Int) -> S?)? = null
 )
 
 @InternalSqliteMagicApi
 object SqlStorage {
   val LONG = Storage(
     encode = NativeValue::Integer,
-    read = Cursor::getLong
+    read = SQLiteStatement::getLong
   )
   val INT = Storage(
     encode = { NativeValue.Integer(it.toLong()) },
-    read = Cursor::getInt
+    read = SQLiteStatement::getInt
   )
   val SHORT = Storage(
     encode = { NativeValue.Integer(it.toLong()) },
-    read = Cursor::getShort
+    read = { statement, index -> statement.getLong(index).toShort() }
   )
   val DOUBLE = Storage(
     encode = ::encodeReal,
-    read = Cursor::getDouble
+    read = SQLiteStatement::getDouble
   )
   val FLOAT = Storage(
     encode = { encodeReal(it.toDouble()) },
-    read = Cursor::getFloat
+    read = SQLiteStatement::getFloat
   )
   val STRING = Storage(
     encode = NativeValue::Text,
-    read = Cursor::getString
+    read = SQLiteStatement::getText,
+    nullableRead = SQLiteStatement::getTextOrNull
   )
   val BOOLEAN = Storage(
     encode = ::encodeBoolean,
-    read = { cursor, index -> cursor.getInt(index) != 0 }
+    read = SQLiteStatement::getBoolean
   )
   val BYTE = Storage(
     encode = { NativeValue.Blob.owned(byteArrayOf(it)) },
-    read = { cursor, index -> cursor.getBlob(index).first() }
+    read = { statement, index -> statement.getBlob(index).first() }
   )
   val BYTE_ARRAY = Storage(
     encode = NativeValue.Blob::copyOf,
-    read = Cursor::getBlob
+    read = SQLiteStatement::getBlob,
+    nullableRead = SQLiteStatement::getBlobOrNull
   )
   val BOXED_BYTE_ARRAY = Storage(
     encode = { NativeValue.Blob.owned(it.toByteArray()) },
-    read = { cursor, index -> cursor.getBlob(index).toTypedArray() }
+    read = { statement, index -> statement.getBlob(index).toTypedArray() },
+    nullableRead = { statement, index -> statement.getBlobOrNull(index)?.toTypedArray() }
   )
 }
 

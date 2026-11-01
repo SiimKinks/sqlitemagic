@@ -10,6 +10,7 @@ dependencies {
   testImplementation testFixtures(runtimeProject)
   testImplementation rootProject.ext.androidJar
   testImplementation rootProject.libs.android.sqlite
+  testImplementation rootProject.libs.android.sqlite.bundled.jvm
   testImplementation rootProject.libs.junit
   testImplementation rootProject.libs.mockito.kotlin
   testImplementation rootProject.libs.truth
@@ -45,6 +46,6 @@ tasks.withType(Jar).configureEach {
 
 tasks.withType(Test).configureEach {
   scanForTestClasses = false
-  include "**/*Test.class"
+  include '**/*Test.class'
   jvmArgs "-javaagent:${mockitoAgentConfiguration.singleFile.absolutePath}"
 }

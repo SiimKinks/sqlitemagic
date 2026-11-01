@@ -16,7 +16,8 @@ import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter
-import com.siimkinks.sqlitemagic.writer.databaseCursorGetter
+import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter.PartialRead
+import com.siimkinks.sqlitemagic.writer.databaseValueGetter
 import com.siimkinks.sqlitemagic.writer.entityProperties
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.KModifier.PRIVATE
@@ -63,7 +64,7 @@ internal class ModelTableWriter(
     relationships = table.relationshipColumns
       .takeIf(List<ColumnElement>::isNotEmpty)
       ?.let(::relationships),
-    partialRead = ReadTableStructureWriter.PartialRead(
+    partialRead = PartialRead(
       entityProperties = entityProperties(
         modelName = table.modelName,
         properties = table.allColumns,
@@ -132,9 +133,9 @@ internal class ModelTableWriter(
       column.isSqlNullable -> null
       else -> namedArgument(
         "selectedRead",
-        "{ cursor, index -> %L }",
+        "{ statement, index -> %L }",
         relationship.deserializedDeclaredIdValue(
-          databaseCursorGetter(
+          databaseValueGetter(
             storageType = column.sqlStorageType,
             index = CodeBlock.of("index")
           )
@@ -176,7 +177,6 @@ internal class ModelTableWriter(
 
   private fun relationshipBackedIdType(column: ColumnElement, relationship: RelationshipElement): PropertySpec {
     val idType = relationship.nullableIdType
-    val serializedType = relationship.referencedIdSerializedType.typeName.copy(nullable = true)
     return PropertySpec
       .builder(
         name = column.relationshipBackedIdTypeName,
@@ -197,7 +197,7 @@ internal class ModelTableWriter(
             namedArgument(
               "decode",
               "{ dbValue: %T -> dbValue?.let { %L } }",
-              serializedType,
+              relationship.referencedIdSerializedType.typeName.copy(nullable = true),
               relationship.deserializedDeclaredIdValue(CodeBlock.of("it"))
             ),
             namedArgument("encodingNullness", "%T", SQL_NULLABLE)

@@ -1,7 +1,9 @@
 package com.siimkinks.sqlitemagic.migration.export
 
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.GeneratedDatabase
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
@@ -43,20 +45,66 @@ internal class CompiledSchemaExporterTest {
   }
 
   @Test
-  fun `initialization failure preserves the cause and selected declaration`() {
-    val failure = assertThrows(IllegalStateException::class.java) {
-      CompiledSchemaExporter.export(
-        generatedDatabaseClassName = FailingExportFixtureDatabase::class.java.name,
-        databaseId = "main",
-        releaseVariant = "release"
+  fun `initialization and linkage failures preserve the cause, selected declaration and release context`() {
+    data class Outcome(
+      val message: String?,
+      val cause: Class<out Throwable>?,
+      val causeMessage: String?,
+      val defaultConnection: Any? = null
+    )
+
+    data class Case(
+      val label: String,
+      val generatedDatabase: Class<out GeneratedDatabase>,
+      val releaseVariant: String,
+      val expected: Outcome
+    )
+
+    val guidance =
+      "Generated schema and query owners must initialize without application services or Android execution."
+    listOf(
+      Case(
+        label = "initialization failure",
+        generatedDatabase = FailingExportFixtureDatabase::class.java,
+        releaseVariant = "release",
+        expected = Outcome(
+          message = "Cannot export selected release 'release' from " +
+              "${FailingExportFixtureDatabase::class.java.name}. $guidance",
+          cause = UnsupportedOperationException::class.java,
+          causeMessage = "query owner requires application services"
+        )
+      ),
+      Case(
+        label = "linkage failure",
+        generatedDatabase = LinkageExportFixtureDatabase::class.java,
+        releaseVariant = "paidRelease",
+        expected = Outcome(
+          message = "Cannot export selected release 'paidRelease' from " +
+              "${LinkageExportFixtureDatabase::class.java.name}. $guidance",
+          cause = NoClassDefFoundError::class.java,
+          causeMessage = "query provider dependency missing"
+        )
       )
+    ).forEach { case ->
+      val failure = assertThrows(IllegalStateException::class.java) {
+        CompiledSchemaExporter.export(
+          generatedDatabaseClassName = case.generatedDatabase.name,
+          databaseId = "main",
+          releaseVariant = case.releaseVariant
+        )
+      }
+
+      assertWithMessage(case.label)
+        .that(
+          Outcome(
+            message = failure.message,
+            cause = failure.cause?.javaClass,
+            causeMessage = failure.cause?.message,
+            defaultConnection = ExportRuntimeState.defaultConnection
+          )
+        )
+        .isEqualTo(case.expected)
     }
-    assertThat(failure).hasMessageThat()
-      .contains(FailingExportFixtureDatabase::class.java.name)
-    assertThat(failure.cause).isInstanceOf(UnsupportedOperationException::class.java)
-    assertThat(failure.cause).hasMessageThat()
-      .contains("query owner requires application services")
-    assertThat(ExportRuntimeState.defaultConnection).isNull()
   }
 
   @Test
@@ -71,64 +119,50 @@ internal class CompiledSchemaExporterTest {
     }
     assertThat(SqliteMagic.loggingEnabled).isEqualTo(previousLogging)
   }
-
-  @Test
-  fun `linkage failure preserves the cause and release context`() {
-    val failure = assertThrows(IllegalStateException::class.java) {
-      CompiledSchemaExporter.export(
-        generatedDatabaseClassName = LinkageExportFixtureDatabase::class.java.name,
-        databaseId = "main",
-        releaseVariant = "paidRelease"
-      )
-    }
-    assertThat(failure).hasMessageThat()
-      .contains("paidRelease")
-    assertThat(failure.cause).isInstanceOf(NoClassDefFoundError::class.java)
-  }
 }
 
-/** Exporter contract fixture; generated-source JVM feasibility is covered by consumer integration. */
-class ExportFixtureDatabase : GeneratedDatabase {
+internal class ExportFixtureDatabase : GeneratedDatabase {
   override val dbName = "books"
   override val dbVersion = 7
   override val submoduleNames = arrayOf("Feature")
   override val isDebug = false
 
-  override fun configureDatabase(db: SupportSQLiteDatabase) = db.setForeignKeyConstraintsEnabled(true)
+  override fun applySchemaPragmas(connection: SQLiteConnection) = connection.execSQL("PRAGMA foreign_keys = ON")
 
-  override fun createSchema(db: SupportSQLiteDatabase) {
+  override fun createSchema(connection: SQLiteConnection) {
     check(ExportRuntimeState.defaultConnection == null)
     check(!SqliteMagic.loggingEnabled)
-    db.beginTransaction()
+    connection.execSQL("BEGIN IMMEDIATE")
     try {
-      db.execSQL("CREATE TABLE books (id INTEGER PRIMARY KEY)")
-      db.execSQL("CREATE VIEW titles AS SELECT id FROM books")
-      db.setTransactionSuccessful()
-    } finally {
-      db.endTransaction()
+      connection.execSQL("CREATE TABLE books (id INTEGER PRIMARY KEY)")
+      connection.execSQL("CREATE VIEW titles AS SELECT id FROM books")
+      connection.execSQL("COMMIT")
+    } catch (failure: Throwable) {
+      connection.execSQL("ROLLBACK")
+      throw failure
     }
   }
 
-  override fun clearData(db: SupportSQLiteDatabase) = MutableScatterSet<String>()
-  override fun migrateViews(db: SupportSQLiteDatabase) = Unit
+  override fun clearData(connection: SQLiteConnection) = MutableScatterSet<String>()
+  override fun migrateViews(connection: SQLiteConnection) = Unit
   override fun getNrOfTables(moduleName: String?) = 1
 }
 
-class FailingExportFixtureDatabase : GeneratedDatabase by ExportFixtureDatabase() {
+internal class FailingExportFixtureDatabase : GeneratedDatabase by ExportFixtureDatabase() {
   init {
     throw UnsupportedOperationException("query owner requires application services")
   }
 }
 
-class ExportFatalVmError : VirtualMachineError("fatal export initialization")
+internal class ExportFatalVmError : VirtualMachineError("fatal export initialization")
 
-class FatalVmExportFixtureDatabase : GeneratedDatabase by ExportFixtureDatabase() {
+internal class FatalVmExportFixtureDatabase : GeneratedDatabase by ExportFixtureDatabase() {
   init {
     throw ExportFatalVmError()
   }
 }
 
-class LinkageExportFixtureDatabase : GeneratedDatabase by ExportFixtureDatabase() {
+internal class LinkageExportFixtureDatabase : GeneratedDatabase by ExportFixtureDatabase() {
   init {
     throw NoClassDefFoundError("query provider dependency missing")
   }

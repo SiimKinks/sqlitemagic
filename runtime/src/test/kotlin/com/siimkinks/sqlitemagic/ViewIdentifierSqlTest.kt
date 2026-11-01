@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
@@ -60,9 +60,8 @@ internal class ViewIdentifierSqlTest {
         )
       libraryDatabase().use { database ->
         database.createViews(view.generatedView)
-        val connection = database.dbConnection()
         assertWithMessage("$label rows")
-          .that(listOf(named, aliased).map { it.usingConnection(connection).execute() })
+          .that(listOf(named, aliased).map { it.rows(database) })
           .isEqualTo(listOf(listOf("Ada"), listOf("Ada", "Grace", "Linus")))
       }
     }
@@ -76,16 +75,16 @@ internal class ViewIdentifierSqlTest {
     alias = alias,
     generatedView = generatedView
   ) {
-    val NAME = Column<String, String, SqlNullable, String, String, Required, String>(
+    val NAME = Column(
       table = this,
       name = "name",
       nullness = SqlNullable,
       parameterEncoding = STRING.parameterEncoding(),
-      selectedRead = Cursor::getString
+      selectedRead = SQLiteStatement::getText
     )
 
-    override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?): String =
-      cursor.getString(startIndex)
+    override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) =
+      statement.getText(startIndex)
 
     override infix fun AS(alias: String) = IdentifierViewTable(
       generatedView = generatedView,

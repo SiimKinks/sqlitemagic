@@ -243,13 +243,20 @@ property. Selected values keep the property's type, as legacy typed them.
 | Every non-zero stored Boolean reads `true` (legacy generated readers read only 1 as `true`) | none for data the library wrote; store 0 for false |
 | A required scalar read of SQL NULL throws `android.database.SQLException`; legacy scalar reads returned `0`, `0.0` or `null` | select or read nullable where NULL is possible |
 | A failed UPDATE/DELETE that reached SQLite notifies its table, so observers re-run | none |
+| A delete that fails inside a caller's transaction no longer makes that transaction roll back; legacy ran each delete in a nested transaction | after catching the failure, end the transaction without `markSuccessful()` when it must roll back |
+| An entity read of a nullable property passes SQL NULL to a `@DbValueToObject` function that accepts NULL, as column selections do; legacy read null without calling it | return null from the decoder for NULL where the property should read null |
 | Observed queries combine changes made during an emission into one further emission; a write inside an emission emits after that emission returns | don't count emissions as writes; each emission reads the current data |
 | Observing a query on a closed connection completes without emitting; its `Single` results (`runQueryOnce()`, `runQueryOnceOrDefault()`, `observe()` of a raw SELECT without declared tables) fail with `NoSuchElementException` | observe only open connections |
 | `count()` skips joins that only an entity read needs; its observer re-runs only for tables that can change the count | none |
 | Without `scheduleRxQueriesOn`, observed queries look up `Schedulers.io()` when subscribed, so an `RxJavaPlugins` io handler set after setup applies | none |
 | Values inside view definitions render as SQL literals; legacy failed view creation with bound arguments | drop `asColumn` workarounds |
 | `Float`/`Double` NaN is rejected with `IllegalArgumentException` when encoded | handle NaN before building SQL values |
-| `FastCursor.moveToNext()` past the last row moves to `position == count` | backward traversal after a failed forward move starts at the last row |
+| A read during another thread's transaction returns the last committed data instead of waiting for the transaction | read inside the transaction, on its thread, to see its changes |
+| Errors are the driver's: `FrameworkSQLiteDriver` keeps Android's typed `SQLiteException` subclasses; `BundledSQLiteDriver` throws `SQLException` with the result code in the message | catch `SQLException` |
+| A corrupt database throws and keeps its files; legacy deleted the database and created it again | handle the exception where a fresh database is acceptable |
+| On `FrameworkSQLiteDriver` before API 28, a row larger than the cursor window (about 2 MB) fails with `SQLiteException`; legacy read its values as NULL | keep rows below 2 MB on the framework driver, or use the bundled driver |
+| On `FrameworkSQLiteDriver`, each connection takes the default locale when it opens: after a locale change while the app runs, connections that open later sort `LOCALIZED` text by the new locale, and opening one fails with `SQLiteDatabaseLockedException` if a transaction runs for more than a few seconds | don't rely on `LOCALIZED` order or a fresh connection right after a locale change; restart the app to apply the locale |
+| A statement waiting longer than `connectionPoolTimeout` (30 s) for a connection held by other threads throws `SQLException` | keep transactions short, or raise the timeout |
 | An empty `IN` list renders `IN ()` instead of a bound `'0'` | none; results are the same |
 | `takeFirst()` keeps explicit `LIMIT`/`OFFSET`; `LIMIT(0).takeFirst()` returns null | none |
 | `REPLACE`, `TRIM`, `FORMAT` and `GROUP_CONCAT` arguments bind as `?` (literals only in views) | update tests asserting SQL text |

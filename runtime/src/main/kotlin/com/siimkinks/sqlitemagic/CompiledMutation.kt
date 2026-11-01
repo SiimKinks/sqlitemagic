@@ -24,30 +24,30 @@ class CompiledMutation internal constructor(
    *
    * @return Number of updated or deleted rows
    */
-  fun execute(): Int = resolveConnection()
-    .let { connection ->
-      connection
-        .compileStatement(prepared.sql)
-        .use { statement ->
-          bindNativeValues(
-            statement = statement,
-            values = arguments
-          )
-          val affected = notifyingOnFailure(
-            notify = { connection.sendTableTriggers(tables) },
-            block = statement::executeUpdateDelete
-          )
-          if (affected > 0) {
-            connection.sendTableTriggers(tables)
-          }
-          affected
-        }
+  fun execute(): Int {
+    val connection = resolveConnection()
+    val affected = connection.write { pooled ->
+      pooled.withStatement(prepared.sql) { statement ->
+        bindNativeValues(
+          statement = statement,
+          values = arguments
+        )
+        notifyingOnFailure(
+          notify = { connection.sendTableTriggers(tables) },
+          block = { pooled.mutations.executeUpdateDelete(statement) }
+        )
+      }
     }
+    if (affected > 0) {
+      connection.sendTableTriggers(tables)
+    }
+    return affected
+  }
 
   internal fun resolveConnection() = prepared.connection.orDefault()
 }
 
-internal inline fun <T> notifyingOnFailure(notify: () -> Unit, block: () -> T): T = try {
+internal inline fun <T> notifyingOnFailure(notify: () -> Unit, block: () -> T) = try {
   block()
 } catch (failure: Throwable) {
   try {

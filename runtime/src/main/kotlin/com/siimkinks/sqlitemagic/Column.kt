@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
 import com.siimkinks.sqlitemagic.internal.ParameterEncoding
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
@@ -21,7 +21,7 @@ open class Column<P, R, N : SqlNullability, T, W, PN : SqlNullability, PT> @Inte
   internal val name: String,
   nullness: N,
   internal val parameterEncoding: ParameterEncoding<W, R, PN, PT>,
-  selectedRead: ((Cursor, Int) -> T)? = null,
+  selectedRead: ((SQLiteStatement, Int) -> T)? = null,
   alias: String? = null
 ) : EncodableSqlExpression<W, R, N, T>(
   node = ExpressionNode.Field(
@@ -30,7 +30,8 @@ open class Column<P, R, N : SqlNullability, T, W, PN : SqlNullability, PT> @Inte
   ),
   nullness = nullness,
   nonNullRead = parameterEncoding.nonNullRead,
-  selectRead = selectedRead ?: @Suppress("UNCHECKED_CAST") (parameterEncoding.selectRead as (Cursor, Int) -> T),
+  selectRead = selectedRead
+    ?: @Suppress("UNCHECKED_CAST") (parameterEncoding.selectRead as (SQLiteStatement, Int) -> T),
   encode = parameterEncoding.encode,
   outputAlias = alias
 ), ParameterSource<W, R, PN, PT>, ReadContract<R, N, T> {
@@ -88,7 +89,7 @@ class UniqueColumn<P, R, N : SqlNullability, T, W, PN : SqlNullability, PT> @Int
   name: String,
   nullness: N,
   parameterEncoding: ParameterEncoding<W, R, PN, PT>,
-  selectedRead: ((Cursor, Int) -> T)? = null,
+  selectedRead: ((SQLiteStatement, Int) -> T)? = null,
   alias: String? = null
 ) : Column<P, R, N, T, W, PN, PT>(
   table = table,

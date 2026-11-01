@@ -1,14 +1,13 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query.connection
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.CompiledRawCursor
+import com.siimkinks.sqlitemagic.CompiledRawSelect
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DeclaredTables
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
+import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
-import com.siimkinks.sqlitemagic.runtime.support.readStrings
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.After
@@ -26,51 +25,35 @@ internal class RawCompiledSelectConnectionRuntimeTest {
   fun defaultSynchronousRawSelect() {
     val compiled = compileRaw(connection = null)
     val expected = insertCompiledSelectEntity(value = "default")
-    assertThat(
-      compiled
-        .execute()
-        .use(Cursor::readStrings)
-    ).containsExactly(expected.value)
+    assertThat(compiled.execute()).containsExactly(expected.value)
   }
 
   @Test
   fun defaultObservedRawSelect() {
     val compiled = compileRaw(connection = null)
     val expected = insertCompiledSelectEntity(value = "default")
-    val observer = compiled
+    compiled
       .observe()
       .runQueryOnce()
       .test()
-    val cursor = observer
-      .values()
-      .single()
-    assertThat(cursor.use(Cursor::readStrings)).containsExactly(expected.value)
-    observer.assertComplete()
+      .assertResult(listOf(checkNotNull(expected.value)))
   }
 
   @Test
   fun explicitSynchronousRawSelect() = withAlternateRaw { compiled, expected ->
-    assertThat(
-      compiled
-        .execute()
-        .use(Cursor::readStrings)
-    ).containsExactly(expected)
+    assertThat(compiled.execute()).containsExactly(expected)
   }
 
   @Test
   fun explicitObservedRawSelect() = withAlternateRaw { compiled, expected ->
-    val observer = compiled
+    compiled
       .observe()
       .runQueryOnce()
       .test()
-    val cursor = observer
-      .values()
-      .single()
-    assertThat(cursor.use(Cursor::readStrings)).containsExactly(expected)
-    observer.assertComplete()
+      .assertResult(listOf(expected))
   }
 
-  private fun withAlternateRaw(assertion: (CompiledRawCursor<DeclaredTables>, String) -> Unit) =
+  private fun withAlternateRaw(assertion: (CompiledRawSelect<String, DeclaredTables>, String) -> Unit) =
     withNamedDatabase(databaseName = ALTERNATE_DATABASE_NAME) { application ->
       openNamedConnection(
         application = application,
@@ -91,5 +74,6 @@ internal class RawCompiledSelectConnectionRuntimeTest {
     .RAW("SELECT value FROM simple_mutable_entity ORDER BY id")
     .observes(SIMPLE_MUTABLE_ENTITY)
     .let { select -> connection?.let(select::usingConnection) ?: select }
-    .toCursor()
+    .readAs(STRING)
+    .compile()
 }

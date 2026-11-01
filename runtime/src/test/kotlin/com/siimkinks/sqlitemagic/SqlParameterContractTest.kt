@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.internal.SqlStorage
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
@@ -71,7 +71,8 @@ internal class SqlParameterContractTest {
     assertThat(listOf(fromNull TO null, fromValue TO null).map(ParameterAssignment::argument)).isEqualTo(
       List(2) { NativeValue.Text("encoded-null") }
     )
-    assertThat(encodedValues).containsExactly(null, Token("initial"), null, null)
+    assertThat(encodedValues)
+      .containsExactly(null, Token("initial"), null, null)
       .inOrder()
   }
 
@@ -87,12 +88,12 @@ internal class SqlParameterContractTest {
       },
       encodingNullness = SqlNullable
     )
-    val cursor = mock<Cursor>()
-    whenever(cursor.isNull(0)).thenReturn(true)
+    val statement = mock<SQLiteStatement>()
+    whenever(statement.isNull(0)).thenReturn(true)
 
     val expression = Token("initial").asValue(descriptor)
     val exact: SqlParameter<Token, String, SqlNullable, String?> = expression.asParameter("token")
-    val actual = exact.selectRead(cursor, 0)
+    val actual = exact.selectRead(statement, 0)
 
     assertThat(expression.node).isEqualTo(ExpressionNode.Bound(NativeValue.Null))
     assertThat(actual).isNull()
@@ -118,7 +119,7 @@ internal class SqlParameterContractTest {
 
     assertThat(
       cases.map { (label, binding) ->
-        label to assertThrows(IllegalArgumentException::class.java) { binding() }.message
+        label to assertThrows(IllegalArgumentException::class.java, binding::invoke).message
       }
     ).isEqualTo(
       listOf(
@@ -127,6 +128,31 @@ internal class SqlParameterContractTest {
         "missing at observation" to "Missing parameter 'x'",
         "unexpected" to "Unexpected parameter 'x'",
         "duplicate" to "Duplicate parameter 'x'"
+      )
+    )
+  }
+
+  @Test
+  fun `parameters fill every position they occupy beside bound values`() {
+    val count = 1L
+      .asValue()
+      .asParameter("count")
+    val name = ""
+      .asValue()
+      .asParameter("name")
+    val plan = SELECT.COLUMNS(count, name, 7L.asValue(), count)
+      .compile()
+
+    assertThat(
+      plan
+        .bind(name TO "Ada", count TO 3L)
+        .boundArguments()
+    ).isEqualTo(
+      listOf(
+        NativeValue.Integer(3L),
+        NativeValue.Text("Ada"),
+        NativeValue.Integer(7L),
+        NativeValue.Integer(3L)
       )
     )
   }

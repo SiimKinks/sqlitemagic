@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.coroutines
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.PERSON
 import com.siimkinks.sqlitemagic.SELECT
@@ -16,8 +15,8 @@ import org.junit.Test
 internal class RawQueryTest {
   @Test
   fun `declared queries stream while undeclared ones run once`() = runBlocking {
-    personDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+    personDatabase(adapterSettings = dispatcherSettings()).use { database ->
+      val connection = database.connection
       val names = SELECT
         .RAW("SELECT name FROM person WHERE age < 18 ORDER BY id")
         .readAs(PERSON.NAME)
@@ -42,12 +41,6 @@ internal class RawQueryTest {
         .usingConnection(connection)
         .takeFirst()
         .await()
-      val columnCount = SELECT
-        .RAW("PRAGMA table_info('person')")
-        .usingConnection(connection)
-        .toCursor()
-        .await()
-        .use(Cursor::getCount)
       UPDATE
         .RAW("UPDATE person SET name = ? WHERE id = ?", "Kid", 3L)
         .notifies(PERSON)
@@ -56,12 +49,12 @@ internal class RawQueryTest {
       streamed.cancel()
       firstStreamed.cancel()
 
-      assertThat(listOf(streamed.signals, firstStreamed.signals, FlowSignals(listOf(once, emptyFirst, columnCount))))
+      assertThat(listOf(streamed.signals, firstStreamed.signals, FlowSignals(listOf(once, emptyFirst))))
         .isEqualTo(
           listOf(
             FlowSignals(values = listOf(listOf(null, "Linus"), listOf("Kid", "Linus"))),
             FlowSignals(values = listOf("Kid")),
-            FlowSignals(values = listOf(listOf(null, "Linus"), null, 6))
+            FlowSignals(values = listOf(listOf(null, "Linus"), null))
           )
         )
     }
@@ -69,8 +62,8 @@ internal class RawQueryTest {
 
   @Test
   fun `undeclared queries reject a call on a thread with an active transaction`() {
-    personDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+    personDatabase(adapterSettings = dispatcherSettings()).use { database ->
+      val connection = database.connection
       val raw = SELECT
         .RAW("SELECT 1")
         .readAs(LONG)
@@ -79,8 +72,7 @@ internal class RawQueryTest {
       val messages = try {
         listOf<suspend () -> Any?>(
           raw::await,
-          raw.takeFirst()::await,
-          raw.toCursor()::await
+          raw.takeFirst()::await
         ).map { call ->
           assertThrows(IllegalStateException::class.java) { runBlocking { call() } }.message
         }
@@ -88,22 +80,19 @@ internal class RawQueryTest {
         transaction.end()
       }
 
-      assertThat(messages).isEqualTo(List(3) { "Cannot subscribe to observable query in a transaction." })
+      assertThat(messages).isEqualTo(List(2) { "Cannot subscribe to observable query in a transaction." })
     }
   }
 
   @Test
-  fun `undeclared row and cursor queries of a closed connection fail with NoSuchElementException`() {
+  fun `undeclared row queries of a closed connection fail with NoSuchElementException`() {
     val raw = SELECT
       .RAW("SELECT 1")
       .readAs(LONG)
       .usingConnection(closedConnection(adapterSettings = dispatcherSettings()))
 
-    val failures = listOf<suspend () -> Any?>(
-      raw::await,
-      raw.toCursor()::await
-    ).map { call -> runCatching { runBlocking { call() } }.exceptionOrNull()?.javaClass }
+    val failure = runCatching { runBlocking { raw.await() } }.exceptionOrNull()
 
-    assertThat(failures).isEqualTo(List(2) { NoSuchElementException::class.java })
+    assertThat(failure?.javaClass).isEqualTo(NoSuchElementException::class.java)
   }
 }

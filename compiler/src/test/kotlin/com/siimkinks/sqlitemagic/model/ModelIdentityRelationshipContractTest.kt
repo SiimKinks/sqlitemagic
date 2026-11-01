@@ -8,10 +8,13 @@ import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
+import com.siimkinks.sqlitemagic.utils.functionBody
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class ModelIdentityRelationshipContractTest {
   private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
@@ -206,6 +209,10 @@ internal class ModelIdentityRelationshipContractTest {
         generatedSource.assertContains("TEXT NOT NULL PRIMARY KEY")
         generatedSource.assertDoesNotContain("AUTOINCREMENT")
       }
+      .withGeneratedSource("SqliteMagic_AutomaticBoolean_Adapter.kt") { generatedSource ->
+        generatedSource.assertContains("id INTEGER PRIMARY KEY")
+        generatedSource.assertDoesNotContain("AUTOINCREMENT")
+      }
       .withGeneratedSource("SqliteMagic_AutomaticTransformed_Adapter.kt") {
         it.assertContains("INTEGER PRIMARY KEY AUTOINCREMENT")
       }
@@ -221,8 +228,9 @@ internal class ModelIdentityRelationshipContractTest {
       }
   }
 
-  @Test
-  fun `rejects explicitly enabled auto-increment for an incompatible ID`() {
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = ["String", "Boolean"])
+  fun `rejects explicitly enabled auto-increment for an incompatible ID`(idType: String) {
     compiler
       .compile(
         SourceFile.kotlin(
@@ -235,7 +243,7 @@ internal class ModelIdentityRelationshipContractTest {
 
             @Table
             data class InvalidAutoIncrement(
-              @Id(autoIncrement = true) val id: String
+              @Id(autoIncrement = true) val id: $idType
             )
           """
         )
@@ -299,7 +307,7 @@ internal class ModelIdentityRelationshipContractTest {
           "accountIdToString",
           "stringToAccountId",
           "publisher.id",
-          "bindString",
+          "bindText",
           "bindLong"
         )
       }
@@ -399,7 +407,7 @@ internal class ModelIdentityRelationshipContractTest {
       .withGeneratedSource("SqliteMagic_PropagatedRelationshipOwner_Dao.kt") {
         it.assertContains(
           "SqliteMagic_PropagatedRelationshipId_Dao.newInstanceWithOnlyId(" +
-              "SqliteMagic_NullableRelationshipLeaf_Dao.newInstanceWithOnlyId(cursor.getString(startIndex + 1)))"
+              "SqliteMagic_NullableRelationshipLeaf_Dao.newInstanceWithOnlyId(statement.getText(startIndex + 1)))"
         )
       }
       .withGeneratedSource("PropagatedRelationshipOwnerTable.kt") {
@@ -468,8 +476,8 @@ internal class ModelIdentityRelationshipContractTest {
       .withGeneratedSource("SqliteMagic_NonNullRecursiveTargetOwner_Dao.kt") {
         it.assertContains(
           """Required recursive relationship \"target\" had a NULL ID""",
-          "(related.read(cursor, 0) as NullableRecursiveIdTarget?) ?: " +
-              "SqliteMagic_NullableRecursiveIdTarget_Dao.newInstanceWithOnlyId(cursor.getString(startIndex + 1))"
+          "(related.read(statement, 0) as NullableRecursiveIdTarget?) ?: " +
+              "SqliteMagic_NullableRecursiveIdTarget_Dao.newInstanceWithOnlyId(statement.getText(startIndex + 1))"
         )
       }
   }
@@ -484,8 +492,8 @@ internal class ModelIdentityRelationshipContractTest {
       )
       .withGeneratedSource("SqliteMagic_NullableRecursiveRelationshipOwner_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "cursor.isNull(startIndex + 1)",
-          "related.read(cursor, 0) as NullableRecursiveRelationshipTarget"
+          "statement.isNull(startIndex + 1)",
+          "related.read(statement, 0) as NullableRecursiveRelationshipTarget?"
         )
         generatedSource.assertDoesNotContain(
           "Required recursive relationship",
@@ -496,8 +504,8 @@ internal class ModelIdentityRelationshipContractTest {
         it.assertContains(
           "nullable = true",
           "read = RelationshipRead.ALWAYS",
-          "SqliteMagic_NullableRecursiveRelationshipOwner_Dao.objectFromCursorPosition(" +
-              "cursor, startIndex, checkNotNull(related))"
+          "SqliteMagic_NullableRecursiveRelationshipOwner_Dao.objectFromRow(" +
+              "statement, startIndex, checkNotNull(related))"
         )
       }
   }
@@ -513,7 +521,7 @@ internal class ModelIdentityRelationshipContractTest {
       .withGeneratedSource("SqliteMagic_NullableEmbeddedGraphOwner_Dao.kt") {
         it.assertContains(
           "graph = if",
-          "related.read(cursor, 0) as EmbeddedRecursiveTarget"
+          "related.read(statement, 0) as EmbeddedRecursiveTarget"
         )
       }
       .withGeneratedSource("NullableEmbeddedGraphOwnerTable.kt") {
@@ -615,7 +623,7 @@ internal class ModelIdentityRelationshipContractTest {
   }
 
   @Test
-  fun `forwards generated immutable recursive IDs to the parent insert`() {
+  fun `forwards generated immutable recursive IDs to the parent insert and update`() {
     GENERATED
       .isOk()
       .assertGeneratedSources(
@@ -633,14 +641,23 @@ internal class ModelIdentityRelationshipContractTest {
           "operations.rememberGeneratedId("
         )
       }
-      .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Dao.kt") {
-        it.assertContains(
+      .withGeneratedSource("SqliteMagic_ImmutableGeneratedParent_Dao.kt") { generatedSource ->
+        generatedSource.assertContains(
           "generatedRelationshipIds: Map<String, Long>",
-          """generatedRelationshipIds["child"] ?: entity.child.id""",
           """Relationship \"child\" resolved to a NULL ID""",
           "OperationFailedException",
           "statement.bindLong"
         )
+        listOf(
+          "bindToInsertStatement",
+          "bindNotNullForInsert",
+          "bindToUpdateStatement",
+          "bindNotNullForUpdate"
+        ).forEach { binder ->
+          generatedSource
+            .functionBody(binder)
+            .assertContains("""generatedRelationshipIds["child"] ?: entity.child.id""")
+        }
       }
   }
 
@@ -718,8 +735,8 @@ internal class ModelIdentityRelationshipContractTest {
       }
       .withGeneratedSource("SqliteMagic_IdOnlyNullableOwner_Dao.kt") {
         it.assertContainsUnwrapped(
-          "(related.read(cursor, 0) as IdOnlyNullable?) ?: " +
-              "SqliteMagic_IdOnlyNullable_Dao.newInstanceWithOnlyId(cursor.getString(startIndex + 1))"
+          "(related.read(statement, 0) as IdOnlyNullable?) ?: " +
+              "SqliteMagic_IdOnlyNullable_Dao.newInstanceWithOnlyId(statement.getText(startIndex + 1))"
         )
       }
   }
@@ -761,10 +778,10 @@ internal class ModelIdentityRelationshipContractTest {
       }
       .withGeneratedSource("SqliteMagic_TeamMember_Dao.kt") {
         it.assertContains(
-          "fun objectFromCursorPosition(",
+          "fun objectFromRow(",
           "related: RelatedEntities,",
-          "(related.read(cursor, 0) as Team?) ?: " +
-              "SqliteMagic_Team_Dao.newInstanceWithOnlyId(cursor.getString(startIndex + 1))"
+          "(related.read(statement, 0) as Team?) ?: " +
+              "SqliteMagic_Team_Dao.newInstanceWithOnlyId(statement.getText(startIndex + 1))"
         )
       }
       .withGeneratedSource("TeamMemberTable.kt") {
@@ -776,7 +793,7 @@ internal class ModelIdentityRelationshipContractTest {
             """columnName = "team"""",
             "target = { TeamTable.TEAM }",
             "read = RelationshipRead.DEEP",
-            "SqliteMagic_TeamMember_Dao.objectFromCursorPosition(cursor, startIndex, checkNotNull(related))"
+            "SqliteMagic_TeamMember_Dao.objectFromRow(statement, startIndex, checkNotNull(related))"
           )
       }
   }
@@ -793,16 +810,19 @@ internal class ModelIdentityRelationshipContractTest {
       .withGeneratedSource("RecursiveTargetOwnerTable.kt") {
         it.assertContains(
           "read = RelationshipRead.ALWAYS",
-          "SqliteMagic_RecursiveTargetOwner_Dao.objectFromCursorPosition(cursor, startIndex, checkNotNull(related))"
+          "SqliteMagic_RecursiveTargetOwner_Dao.objectFromRow(statement, startIndex, checkNotNull(related))"
         )
       }
       .withGeneratedSource("SqliteMagic_RecursiveTargetOwner_Dao.kt") {
-        it.assertContains("related.read(cursor, 0) as RequiredRecursiveTarget")
+        it.assertContainsUnwrapped(
+          "(related.read(statement, 0) as RequiredRecursiveTarget?) ?: throw SQLException(",
+          "referenced a missing row"
+        )
       }
       .withGeneratedSource("SqliteMagic_RequiredRecursiveTarget_Dao.kt") {
         it.assertContains(
           "Required recursive relationship",
-          "(related.read(cursor, 0) as ShallowLeaf?) ?: ",
+          "(related.read(statement, 0) as ShallowLeaf?) ?: ",
           "SqliteMagic_ShallowLeaf_Dao.newInstanceWithOnlyId"
         )
       }
@@ -865,7 +885,7 @@ internal class ModelIdentityRelationshipContractTest {
         generatedSource.assertContains(
           """Required recursive relationship \"target\" had a NULL ID""",
           "throw SQLException",
-          "related.read(cursor, 0) as InconstructibleNullableIdTarget"
+          "related.read(statement, 0) as InconstructibleNullableIdTarget"
         )
         generatedSource.assertDoesNotContain("newInstanceWithOnlyId(")
       }
@@ -929,7 +949,7 @@ internal class ModelIdentityRelationshipContractTest {
       .withGeneratedSource("SqliteMagic_OptionalChild_Dao.kt") {
         it.assertContains(
           "parent?.let",
-          "cursor.isNull",
+          "statement.isNull",
           "parent = if (",
           "null else",
           "newInstanceWithOnlyId"
@@ -1208,6 +1228,9 @@ internal class ModelIdentityRelationshipContractTest {
 
               @Table
               data class AutomaticString(@Id val id: String)
+
+              @Table
+              data class AutomaticBoolean(@Id val id: Boolean)
 
               @Table
               data class AutomaticTransformed(@Id val id: SequenceId)

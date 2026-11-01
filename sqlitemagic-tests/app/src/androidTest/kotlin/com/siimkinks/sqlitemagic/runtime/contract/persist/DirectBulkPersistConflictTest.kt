@@ -1,19 +1,19 @@
 package com.siimkinks.sqlitemagic.runtime.contract.persist
 
-import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog.persistConflictCases
 import com.siimkinks.sqlitemagic.runtime.model.PersistConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.isConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.rxjava2.observe
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,28 +28,28 @@ internal class DirectBulkPersistConflictTest(
   val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun executeWithInsertFallbackConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRestoresSnapshot() =
+  fun executeWithInsertFallbackConflictAndDefaultAlgorithmThrowsConstraintFailureAndRestoresSnapshot() =
     assertInsertConflict(
       modelCase = modelCase,
       terminal = EXECUTE
     )
 
   @Test
-  fun observeWithInsertFallbackConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRestoresSnapshot() =
+  fun observeWithInsertFallbackConflictAndDefaultAlgorithmEmitsConstraintFailureAndRestoresSnapshot() =
     assertInsertConflict(
       modelCase = modelCase,
       terminal = OBSERVE
     )
 
   @Test
-  fun executeWithUpdatePathConflictAndDefaultAlgorithmThrowsSQLiteConstraintExceptionAndRestoresSnapshot() =
+  fun executeWithUpdatePathConflictAndDefaultAlgorithmThrowsConstraintFailureAndRestoresSnapshot() =
     assertUpdateConflict(
       modelCase = modelCase,
       terminal = EXECUTE
     )
 
   @Test
-  fun observeWithUpdatePathConflictAndDefaultAlgorithmEmitsSQLiteConstraintExceptionAndRestoresSnapshot() =
+  fun observeWithUpdatePathConflictAndDefaultAlgorithmEmitsConstraintFailureAndRestoresSnapshot() =
     assertUpdateConflict(
       modelCase = modelCase,
       terminal = OBSERVE
@@ -97,7 +97,7 @@ internal class DirectBulkPersistConflictTest(
     )
 
     when (terminal) {
-      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
+      EXECUTE -> assertConstraintFailure {
         bulkPersist(
           modelCase = modelCase,
           values = values
@@ -109,7 +109,7 @@ internal class DirectBulkPersistConflictTest(
       )
         .observe()
         .test()
-        .assertFailure(SQLiteConstraintException::class.java)
+        .assertFailure(Throwable::isConstraintFailure)
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
@@ -140,7 +140,7 @@ internal class DirectBulkPersistConflictTest(
     )
 
     when (terminal) {
-      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
+      EXECUTE -> assertConstraintFailure {
         bulkPersist(
           modelCase = modelCase,
           values = values
@@ -152,7 +152,7 @@ internal class DirectBulkPersistConflictTest(
       )
         .observe()
         .test()
-        .assertFailure(SQLiteConstraintException::class.java)
+        .assertFailure(Throwable::isConstraintFailure)
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
@@ -269,6 +269,6 @@ internal class DirectBulkPersistConflictTest(
   companion object {
     @JvmStatic
     @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.persistConflictCases
+    fun modelCases() = persistConflictCases
   }
 }

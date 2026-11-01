@@ -1,49 +1,34 @@
 package com.siimkinks.sqlitemagic.coroutines
 
-import android.database.Cursor
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteQuery
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.AUTHOR
-import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.DbConnectionImpl
-import com.siimkinks.sqlitemagic.ExecutionReader
-import com.siimkinks.sqlitemagic.PERSON
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.closedConnection
-import com.siimkinks.sqlitemagic.internal.sql.SqlRenderable
-import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
-import com.siimkinks.sqlitemagic.internal.sql.prepareQuery
 import com.siimkinks.sqlitemagic.libraryDatabase
-import com.siimkinks.sqlitemagic.testDbConnection
+import com.siimkinks.sqlitemagic.listQuery
+import com.siimkinks.sqlitemagic.rowStatement
 import kotlinx.coroutines.CoroutineStart.LAZY
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoInteractions
-import org.mockito.kotlin.verifyNoMoreInteractions
-import org.mockito.kotlin.whenever
 
 internal class QueryOperatorsTest {
   @Test
   fun `single-row operators skip, replace or return a missing row`() = runBlocking {
-    libraryDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+    libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
+      val connection = database.connection
       val mary = SELECT
         .COLUMN(AUTHOR.NAME)
         .FROM(AUTHOR)
@@ -87,8 +72,8 @@ internal class QueryOperatorsTest {
 
   @Test
   fun `count operators emit the count and whether it is zero`() = runBlocking {
-    libraryDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+    libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
+      val connection = database.connection
       val marys = SELECT
         .FROM(AUTHOR)
         .WHERE(AUTHOR.NAME IS "Mary")
@@ -100,9 +85,6 @@ internal class QueryOperatorsTest {
           .runQuery(),
         marys
           .observe()
-          .runQueryOrDefault(-1L),
-        marys
-          .observe()
           .isZero(),
         marys
           .observe()
@@ -111,9 +93,6 @@ internal class QueryOperatorsTest {
       val once = marys
         .observe()
         .runQueryOnce()
-      val onceOrDefault = marys
-        .observe()
-        .runQueryOnceOrDefault(-1L)
 
       UPDATE
         .RAW("UPDATE author SET name = ? WHERE id = ?", "Mary", 2L)
@@ -122,13 +101,12 @@ internal class QueryOperatorsTest {
         .execute()
       streams.forEach(FlowCollection<*>::cancel)
 
-      assertThat(streams.map(FlowCollection<*>::signals) + FlowSignals(listOf(once, onceOrDefault))).isEqualTo(
+      assertThat(streams.map(FlowCollection<*>::signals) + FlowSignals(listOf(once))).isEqualTo(
         listOf(
-          FlowSignals(values = listOf(0L, 1L)),
           FlowSignals(values = listOf(0L, 1L)),
           FlowSignals(values = listOf(true, false)),
           FlowSignals(values = listOf(false, true)),
-          FlowSignals(values = listOf(0L, 0L))
+          FlowSignals(values = listOf(0L))
         )
       )
     }
@@ -153,12 +131,6 @@ internal class QueryOperatorsTest {
             .takeFirst()
             .observe()
             .runQueryOnceOrDefault("none")
-        },
-        {
-          names
-            .count()
-            .observe()
-            .runQueryOnceOrDefault(0L)
         }
       ).map { call -> runCatching { call() }.exceptionOrNull()?.javaClass }
       val missing = listOf(
@@ -173,16 +145,16 @@ internal class QueryOperatorsTest {
       )
 
       assertThat(failures to missing).isEqualTo(
-        List(3) { NoSuchElementException::class.java } to listOf(null, null)
+        List(2) { NoSuchElementException::class.java } to listOf(null, null)
       )
     }
 
   @Test
-  fun `a mapping failure fails the flow after closing the cursor`() {
+  fun `a mapping failure fails the flow`() {
     for (failure in listOf(IllegalArgumentException("cannot map row"), LinkageError("fatal mapper failure"))) {
-      val cursor = rowCursor()
       val query = listQuery(
-        cursor = cursor,
+        connection = testConnection(),
+        statement = rowStatement(),
         mapper = { throw failure }
       )
 
@@ -197,17 +169,17 @@ internal class QueryOperatorsTest {
       assertWithMessage(failure.javaClass.simpleName)
         .that(thrown.javaClass to thrown.message)
         .isEqualTo(failure.javaClass to failure.message)
-      verify(cursor).close()
     }
   }
 
   @Test
-  fun `cancellation while mapping stops reading rows, closes the cursor and delivers nothing`() {
-    val cursor = rowCursor(count = 2)
+  fun `cancellation while mapping stops reading rows and delivers nothing`() {
+    val statement = rowStatement()
     val caller = Caller()
     var mappedRows = 0
     val query = listQuery(
-      cursor = cursor,
+      connection = testConnection(),
+      statement = statement,
       mapper = {
         mappedRows++
         caller.cancel()
@@ -218,86 +190,43 @@ internal class QueryOperatorsTest {
     val delivered = caller.run { flowOf(query).runQuery() }
 
     assertThat(delivered to mappedRows).isEqualTo(emptyList<List<String?>>() to 1)
-    verify(cursor).close()
+    verify(statement).step()
   }
 
   @Test
-  fun `cancellation while opening the cursor closes it without mapping`() {
-    val cursor = rowCursor()
+  fun `cancellation before reading rows maps none`() {
+    val statement = rowStatement()
     val caller = Caller()
     var mappedRows = 0
     val query = listQuery(
-      cursor = cursor,
+      connection = testConnection(),
+      statement = statement,
       mapper = {
         mappedRows++
         null
       },
-      beforeReturn = caller::cancel
+      beforeRead = caller::cancel
     )
 
     val delivered = caller.run { flowOf(query).runQuery() }
 
     assertThat(delivered to mappedRows).isEqualTo(emptyList<List<String?>>() to 0)
-    verify(cursor).close()
-    verify(cursor, never()).moveToNext()
+    verify(
+      mock = statement,
+      mode = never()
+    ).step()
   }
 
   @Test
-  fun `a cursor result is closed when cancellation wins before delivery and stays open once delivered`() {
-    for ((label, terminal) in mapOf<String, (Query<Cursor>) -> Flow<Cursor>>(
-      "run" to { query -> flow { emit(query.run()) } },
-      "runQuery" to { query -> flowOf(query).runQuery() },
-      "runQueryOnce" to { query -> flow { emit(checkNotNull(flowOf(query).runQueryOnce())) } }
-    )) {
-      val cancelledCursor = mock<Cursor>()
-      val caller = Caller()
-      val cancelled = cursorQuery(cancelledCursor) { caller.cancel() }
-      val deliveredCursor = mock<Cursor>()
-      val delivered = cursorQuery(deliveredCursor) {}
-
-      val outcome = caller.run { terminal(cancelled) } to runBlocking { terminal(delivered).toList() }
-
-      assertWithMessage(label)
-        .that(outcome)
-        .isEqualTo(emptyList<Cursor>() to listOf(deliveredCursor))
-      verify(cancelledCursor).close()
-      verifyNoMoreInteractions(cancelledCursor)
-      verifyNoInteractions(deliveredCursor)
-    }
-  }
-
-  @Test
-  fun `cancellation before a default is delivered keeps the external default cursor open`() {
-    val defaultCursor = mock<Cursor>()
-    val caller = Caller()
-    val query = object : Query<Cursor?>(mockConnection()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl) = mock<Cursor>()
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor? {
-        caller.cancel()
-        return null
-      }
-    }
-
-    val delivered = caller.run { flowOf(query).runQueryOrDefault(defaultCursor) }
-
-    assertThat(delivered).isEmpty()
-    verifyNoInteractions(defaultCursor)
-  }
-
-  @Test
-  fun `running a query on a thread with an active transaction fails before opening a cursor on any dispatcher`() {
+  fun `running a query on a thread with an active transaction fails before it runs on any dispatcher`() {
     for ((label, dispatcher) in mapOf(
       "calling thread" to Dispatchers.Unconfined,
       "another thread" to Dispatchers.IO
     )) {
-      val connection = mockConnection(dispatcher)
-      val query = object : Query<Cursor>(connection) {
-        override fun rawQuery(dbConnection: DbConnectionImpl): Cursor =
-          error("Rejected query must not acquire a cursor")
-
-        override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor =
-          error("Rejected query must not map a cursor")
+      val connection = testConnection(dispatcher)
+      val query = object : Query<String>(connection) {
+        override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): String =
+          error("Rejected query must not run")
       }
       val transaction = connection.newTransaction()
       val failure = try {
@@ -325,58 +254,4 @@ internal class QueryOperatorsTest {
       }
     }
   }
-
-  private fun cursorQuery(
-    cursor: Cursor,
-    onOpen: () -> Unit
-  ): Query<Cursor> {
-    val database = mock<SupportSQLiteDatabase>()
-    whenever(database.query(any<SupportSQLiteQuery>())).thenAnswer {
-      onOpen()
-      cursor
-    }
-    return SELECT
-      .FROM(PERSON)
-      .usingConnection(
-        testDbConnection(
-          database = database,
-          adapterSettings = dispatcherSettings()
-        )
-      )
-      .toCursor()
-      .execution()
-  }
-
-  private fun listQuery(
-    cursor: Cursor,
-    mapper: (Cursor) -> String?,
-    beforeReturn: () -> Unit = {}
-  ): Query<List<String?>> {
-    val plan = CompiledSelect(
-      prepared = prepareQuery(
-        renderable = object : SqlRenderable {
-          override fun render(context: SqlRenderingContext) = Unit
-        },
-        connection = null
-      ),
-      reader = ExecutionReader { { rows, _ -> mapper(rows) } }
-    )
-    return object : Query<List<String?>>(mockConnection()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl): Cursor {
-        beforeReturn()
-        return cursor
-      }
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean) = plan.mapRows(
-        cursor = cursor,
-        isDisposed = isDisposed
-      )
-    }
-  }
-
-  private fun rowCursor(count: Int = 1) = mock<Cursor>().also { cursor ->
-    whenever(cursor.count).thenReturn(count)
-    whenever(cursor.moveToNext()).thenReturn(true)
-  }
-
 }

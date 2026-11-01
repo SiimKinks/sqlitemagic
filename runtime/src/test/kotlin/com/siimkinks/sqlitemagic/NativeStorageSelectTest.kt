@@ -6,19 +6,19 @@ import com.siimkinks.sqlitemagic.SqlType.DOUBLE
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import org.junit.Test
 
-internal class BundledSqliteDatabaseTest {
-  private data class StorageRow(
-    val integer: Long,
-    val real: Double,
-    val text: String?,
-    val blob: List<Byte>,
-    val nullCell: Long?
-  )
-
+internal class NativeStorageSelectTest {
   @Test
   fun `scalar SELECT reads each native storage class and binds native arguments in order`() {
+    data class StorageRow(
+      val integer: Long,
+      val real: Double,
+      val text: String?,
+      val blob: List<Byte>,
+      val nullCell: Long?
+    )
+
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val row = StorageRow(
         integer = SELECT
           .COLUMN("9007199254740993".expr(LONG))
@@ -52,15 +52,16 @@ internal class BundledSqliteDatabaseTest {
           .single()
       )
 
-      assertThat(row).isEqualTo(
-        StorageRow(
-          integer = 9007199254740993L,
-          real = 2.5,
-          text = "Linus",
-          blob = listOf(1, 2),
-          nullCell = null
+      assertThat(row)
+        .isEqualTo(
+          StorageRow(
+            integer = 9007199254740993L,
+            real = 2.5,
+            text = "Linus",
+            blob = listOf(1, 2),
+            nullCell = null
+          )
         )
-      )
     }
   }
 }

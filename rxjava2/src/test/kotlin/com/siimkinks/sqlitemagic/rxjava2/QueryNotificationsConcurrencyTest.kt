@@ -1,26 +1,16 @@
 package com.siimkinks.sqlitemagic.rxjava2
 
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.AUTHOR
-import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.Stream
+import com.siimkinks.sqlitemagic.Writes
+import com.siimkinks.sqlitemagic.awaitStreams
 import com.siimkinks.sqlitemagic.testDbConnection
 import io.reactivex.schedulers.Schedulers
 import org.junit.Test
-import org.mockito.kotlin.mock
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit.SECONDS
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 
 internal class QueryNotificationsConcurrencyTest {
-  private class Stream {
-    val emissions = AtomicInteger()
-    val lastEmissionStart = AtomicLong()
-  }
-
   private data class Outcome(
     val streamsEmittingAfterLastChange: Int,
     val streamsDeliveringLaterChanges: Int,
@@ -43,10 +33,7 @@ internal class QueryNotificationsConcurrencyTest {
         serialized = false
       )
     )) {
-      val connection = testDbConnection(
-        database = mock<SupportSQLiteDatabase>(),
-        adapterSettings = querySchedulerSettings(Schedulers.io())
-      )
+      val connection = testDbConnection(adapterSettings = querySchedulerSettings(Schedulers.io()))
       val streams = List(10) { Stream() }
       val subscriptions = streams.map { stream ->
         SELECT
@@ -94,56 +81,5 @@ internal class QueryNotificationsConcurrencyTest {
           )
         )
     }
-  }
-
-  private class Writes(
-    val writers: Int,
-    val perWriter: Int,
-    val writeNanos: Long,
-    val serialized: Boolean
-  ) {
-    fun publish(connection: DbConnectionImpl): Long {
-      val lastChange = AtomicLong()
-      val writeLock = Any()
-      val start = CountDownLatch(1)
-      val pool = Executors.newFixedThreadPool(writers) {
-        Thread(it).apply { isDaemon = true }
-      }
-      repeat(writers) {
-        pool.execute {
-          start.await()
-          repeat(perWriter) {
-            when {
-              serialized -> synchronized(writeLock) { write(lastChange) }
-              else -> write(lastChange)
-            }
-            connection.sendTableTrigger("author")
-          }
-        }
-      }
-      start.countDown()
-      pool.shutdown()
-      check(pool.awaitTermination(60, SECONDS))
-      return lastChange.get()
-    }
-
-    private fun write(lastChange: AtomicLong) {
-      val end = System.nanoTime() + writeNanos
-      while (System.nanoTime() < end) {
-        Thread.onSpinWait()
-      }
-      lastChange.accumulateAndGet(System.nanoTime(), ::maxOf)
-    }
-  }
-
-  private fun awaitStreams(
-    streams: List<Stream>,
-    condition: Stream.() -> Boolean
-  ): Int {
-    val deadline = System.nanoTime() + SECONDS.toNanos(10)
-    while (System.nanoTime() < deadline && !streams.all(condition)) {
-      Thread.sleep(5)
-    }
-    return streams.count(condition)
   }
 }

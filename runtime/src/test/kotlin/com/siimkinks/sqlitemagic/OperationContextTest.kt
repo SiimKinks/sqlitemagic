@@ -3,13 +3,14 @@ package com.siimkinks.sqlitemagic
 import android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.LogLevel.ERROR
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityAdapterMetadata
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
-import com.siimkinks.sqlitemagic.internal.identity
+import com.siimkinks.sqlitemagic.internal.MutationResults
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -17,9 +18,9 @@ internal class OperationContextTest {
   @Test
   fun `transaction context maps operation results to transaction state`() {
     val connection = newConnection()
-    val context = context(connection = connection.connection)
+    val context = context(connection = connection.dbConnection)
     val ignoring = context(
-      connection = connection.connection,
+      connection = connection.dbConnection,
       conflictAlgorithm = CONFLICT_IGNORE
     )
 
@@ -30,35 +31,36 @@ internal class OperationContextTest {
         connection.transactionResult(context.executeInTransaction { 0 }),
         connection.transactionResult(ignoring.executeInTransaction { false })
       )
-    ).isEqualTo(
-      listOf(
-        TransactionResult(
-          result = EntityInsertResult.Inserted(rowId = 7L),
-          committed = 1,
-          rolledBack = 0
-        ),
-        TransactionResult(
-          result = EntityPersistResult.Ignored,
-          committed = 1,
-          rolledBack = 1
-        ),
-        TransactionResult(
-          result = 0,
-          committed = 2,
-          rolledBack = 1
-        ),
-        TransactionResult(
-          result = false,
-          committed = 2,
-          rolledBack = 2
+    )
+      .isEqualTo(
+        listOf(
+          TransactionResult(
+            result = EntityInsertResult.Inserted(rowId = 7L),
+            committed = 1,
+            rolledBack = 0
+          ),
+          TransactionResult(
+            result = EntityPersistResult.Ignored,
+            committed = 1,
+            rolledBack = 1
+          ),
+          TransactionResult(
+            result = 0,
+            committed = 2,
+            rolledBack = 1
+          ),
+          TransactionResult(
+            result = false,
+            committed = 2,
+            rolledBack = 2
+          )
         )
       )
-    )
   }
 
   @Test
   fun `a context without table triggers shares execution state and configuration`() {
-    val context = context(connection = newConnection().connection)
+    val context = context(connection = newConnection().dbConnection)
     context.bindValues["name"] = "book"
     context.rememberGeneratedId(
       columnName = "child",
@@ -82,7 +84,7 @@ internal class OperationContextTest {
   @Test
   fun `adapter child context rebases metadata and keeps trigger suppression local`() {
     val context = context(
-      connection = newConnection().connection,
+      connection = newConnection().dbConnection,
       tableName = "parent",
       tablePosition = 2,
       ignoreNullValues = true
@@ -111,16 +113,12 @@ internal class OperationContextTest {
   }
 
   @Test
-  fun `adapter module identity selects the corresponding entity manager cache`() {
-    val database = RecordingDatabase()
-    val generatedDatabase = TestGeneratedDatabase(
-      tableCount = 1,
-      submoduleTableCounts = mapOf("Feature" to 1)
-    )
-    val connection = DbConnectionImpl(
-      database = generatedDatabase,
-      dbHelper = RecordingOpenHelper(database),
-      adapterSettings = MutableScatterMap(initialCapacity = 0)
+  fun `adapter module identity selects the corresponding entity SQL cache`() {
+    val connection = testDbConnection(
+      database = TestGeneratedDatabase(
+        tableCount = 1,
+        submoduleTableCounts = mapOf("Feature" to 1)
+      )
     )
     val mainContext = context(
       connection = connection,
@@ -131,9 +129,13 @@ internal class OperationContextTest {
       moduleName = "Feature"
     )
 
-    assertThat(mainContext.entityDbManager()).isNotSameInstanceAs(featureContext.entityDbManager())
-    assertThat(featureContext.childWithoutTableTriggers().entityDbManager())
-      .isSameInstanceAs(featureContext.entityDbManager())
+    assertThat(mainContext.entitySql()).isNotSameInstanceAs(featureContext.entitySql())
+    assertThat(
+      featureContext
+        .childWithoutTableTriggers()
+        .entitySql()
+    )
+      .isSameInstanceAs(featureContext.entitySql())
     assertThat(
       mainContext
         .relationshipContext(
@@ -144,14 +146,15 @@ internal class OperationContextTest {
           ),
           ignoreNullValues = false
         )
-        .entityDbManager()
-    ).isSameInstanceAs(featureContext.entityDbManager())
+        .entitySql()
+    )
+      .isSameInstanceAs(featureContext.entitySql())
   }
 
   @Test
   fun `operation logging is silent while runtime logging is disabled`() {
     withLogger(loggingEnabled = false) { logger ->
-      context(connection = newConnection().connection).apply {
+      with(context(connection = newConnection().dbConnection)) {
         logInsert(entity = "book")
         logInsertId(rowId = 7L)
         logUpdate(entity = "book")
@@ -171,141 +174,172 @@ internal class OperationContextTest {
       val exception = IllegalStateException("boom")
 
       val actual = assertThrows(IllegalStateException::class.java) {
-        context(connection = newConnection().connection).executeInTransaction {
+        context(connection = newConnection().dbConnection).executeInTransaction {
           throw exception
         }
       }
 
       assertThat(actual).isSameInstanceAs(exception)
-      assertThat(logger.events.filter { it.level == LogLevel.ERROR }).isEmpty()
+      assertThat(logger.events.filter { it.level == ERROR }).isEmpty()
     }
   }
 
   @Test
-  fun `default statements are the ones the connection caches`() {
-    for (conflictAlgorithm in listOf(CONFLICT_NONE, CONFLICT_ABORT)) {
-      val connection = newConnection()
-      val context = context(
-        connection = connection.connection,
-        conflictAlgorithm = conflictAlgorithm
-      )
-      val statements = List(2) {
-        listOf(
-          context.withInsertStatement(
-            sql = INSERT_SQL,
-            block = ::identity
-          ),
-          context.withUpdateStatement(
-            sql = UPDATE_SQL,
-            default = true,
-            block = ::identity
-          )
-        )
-      }
-
-      assertWithMessage("conflict algorithm $conflictAlgorithm")
-        .that(statements[1])
-        .isEqualTo(statements[0])
-      assertThat(connection.statementSql)
-        .containsExactly("INSERT INTO books(name) VALUES (?)", "UPDATE books SET name=? WHERE id=?")
-        .inOrder()
-      assertThat(connection.statementCloseCalls)
-        .containsExactly(0, 0)
-    }
-  }
-
-  @Test
-  fun `other statements outside a transaction are compiled for one call and closed after it`() {
-    data class ScopeCase(
+  fun `statements use the default or conflict SQL and are prepared once on the writer`() {
+    data class StatementCase(
       val label: String,
       val conflictAlgorithm: Int,
       val insert: Boolean,
       val defaultIdentity: Boolean = true,
       val expectedSql: String
     )
+
+    data class StatementUse(
+      val sql: List<String>,
+      val sameStatement: Boolean,
+      val onWriter: List<Boolean>
+    )
+
     listOf(
-      ScopeCase(
+      StatementCase(
+        label = "insert",
+        conflictAlgorithm = CONFLICT_NONE,
+        insert = true,
+        expectedSql = "INSERT INTO books(name) VALUES (?)"
+      ),
+      StatementCase(
+        label = "aborting insert",
+        conflictAlgorithm = CONFLICT_ABORT,
+        insert = true,
+        expectedSql = "INSERT INTO books(name) VALUES (?)"
+      ),
+      StatementCase(
+        label = "update",
+        conflictAlgorithm = CONFLICT_NONE,
+        insert = false,
+        expectedSql = "UPDATE books SET name=? WHERE id=?"
+      ),
+      StatementCase(
+        label = "aborting update",
+        conflictAlgorithm = CONFLICT_ABORT,
+        insert = false,
+        expectedSql = "UPDATE books SET name=? WHERE id=?"
+      ),
+      StatementCase(
         label = "ignored insert",
         conflictAlgorithm = CONFLICT_IGNORE,
         insert = true,
         expectedSql = "INSERT OR IGNORE INTO books(name) VALUES (?)"
       ),
-      ScopeCase(
+      StatementCase(
         label = "ignored update",
         conflictAlgorithm = CONFLICT_IGNORE,
         insert = false,
         expectedSql = "UPDATE OR IGNORE books SET name=? WHERE id=?"
       ),
-      ScopeCase(
+      StatementCase(
         label = "update by another identity column",
         conflictAlgorithm = CONFLICT_NONE,
         insert = false,
         defaultIdentity = false,
         expectedSql = "UPDATE books SET name=? WHERE id=?"
       )
-    ).forEach { case ->
-      val connection = newConnection()
-      val context = context(
-        connection = connection.connection,
-        conflictAlgorithm = case.conflictAlgorithm
-      )
-      repeat(2) {
-        when {
-          case.insert -> context.withInsertStatement(INSERT_SQL) {}
-          else -> context.withUpdateStatement(
-            sql = UPDATE_SQL,
-            default = case.defaultIdentity
-          ) {}
+    )
+      .forEach { case ->
+        val connection = newConnection()
+        val context = context(
+          connection = connection.dbConnection,
+          conflictAlgorithm = case.conflictAlgorithm
+        )
+        val onWriter = mutableListOf<Boolean>()
+        val statements = List(2) {
+          val use = { statement: SQLiteStatement, _: MutationResults ->
+            onWriter += connection.dbConnection.pool.holdsWriter()
+            statement
+          }
+          when {
+            case.insert -> context.withInsertStatement(
+              template = INSERT_SQL,
+              block = use
+            )
+            else -> context.withUpdateStatement(
+              template = UPDATE_SQL,
+              default = case.defaultIdentity,
+              block = use
+            )
+          }
         }
-      }
 
-      assertWithMessage(case.label)
-        .that(connection.statementSql)
-        .containsExactly(case.expectedSql, case.expectedSql)
-      assertWithMessage(case.label)
-        .that(connection.statementCloseCalls)
-        .containsExactly(1, 1)
-    }
+        assertWithMessage(case.label)
+          .that(
+            StatementUse(
+              sql = connection.statementSql,
+              sameStatement = statements[0] === statements[1],
+              onWriter = onWriter
+            )
+          )
+          .isEqualTo(
+            StatementUse(
+              sql = listOf(case.expectedSql),
+              sameStatement = true,
+              onWriter = listOf(true, true)
+            )
+          )
+      }
   }
 
   @Test
-  fun `a transaction compiles each other statement once and closes it when it ends`() {
-    val connection = newConnection()
-    val context = context(
-      connection = connection.connection,
-      conflictAlgorithm = CONFLICT_IGNORE
+  fun `entity SQL is built once per table, conflict algorithm and identity column`() {
+    val connection = newConnection().dbConnection
+    val operations = List(2) {
+      context(
+        connection = connection,
+        conflictAlgorithm = CONFLICT_IGNORE
+      )
+    }
+    val inserts = operations.map { it.insertSql(INSERT_SQL) }
+    val defaultUpdates = operations.map {
+      it.updateSql(
+        template = UPDATE_SQL,
+        default = true
+      )
+    }
+    val otherIdentityUpdates = operations.map {
+      it.updateSql(
+        template = UPDATE_SQL,
+        default = false
+      )
+    }
+    val singleDeletes = operations.map {
+      it.deleteSql(
+        columnName = "id",
+        count = 1
+      )
+    }
+    val tableDeletes = operations.map(OperationContext::deleteTableSql)
+    val twoEntityDelete = operations[0].deleteSql(
+      columnName = "id",
+      count = 2
     )
 
-    val openDuringTransaction = context.executeInTransaction {
-      repeat(2) {
-        context.withInsertStatement(INSERT_SQL) {}
-      }
-      connection.statementCloseCalls
+    mapOf(
+      "insert" to inserts,
+      "default update" to defaultUpdates,
+      "update by another identity column" to otherIdentityUpdates,
+      "single delete" to singleDeletes,
+      "table delete" to tableDeletes
+    ).forEach { (label, sql) ->
+      assertWithMessage(label)
+        .that(sql[1])
+        .isSameInstanceAs(sql[0])
     }
-
-    assertThat(openDuringTransaction).containsExactly(0)
-    assertThat(connection.statementSql).containsExactly("INSERT OR IGNORE INTO books(name) VALUES (?)")
-    assertThat(connection.statementCloseCalls)
-      .containsExactly(1)
-  }
-
-  @Test
-  fun `a failed close keeps the result of the call`() {
-    val connection = newConnection()
-    val context = context(
-      connection = connection.connection,
-      conflictAlgorithm = CONFLICT_IGNORE
-    )
-
-    val result = context.withInsertStatement(INSERT_SQL) {
-      connection.recordingDatabase.compiledStatements
-        .single()
-        .closeFailure = IllegalStateException("close failed")
-      7
-    }
-
-    assertThat(result).isEqualTo(7)
-    assertThat(connection.recordingDatabase.compiledStatements.single().closeCalls).isEqualTo(1)
+    assertThat(listOf(singleDeletes[0], tableDeletes[0], twoEntityDelete))
+      .containsExactly(
+        "DELETE FROM books WHERE id IN (?)",
+        "DELETE FROM books WHERE 1",
+        "DELETE FROM books WHERE id IN (?,?)"
+      )
+      .inOrder()
   }
 
   private fun context(

@@ -1,10 +1,26 @@
 package com.siimkinks.sqlitemagic.migration
 
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 import java.io.FileNotFoundException
 import java.io.InputStreamReader
 import java.nio.charset.CodingErrorAction
 
+/**
+ * Failure of a migration script.
+ *
+ * @property fromVersion Database version before the migration
+ * @property toVersion Database version after the migration
+ * @property stepVersion Database version of the step whose script failed
+ * @property resourceName File name of the script that failed
+ * @property physicalLine Line of the script where it failed, starting from 1
+ * @property statementNumber Number of the statement that failed among the script's executable statements, starting
+ *     from 1
+ * @property statementText The statement that failed, up to its first 500 characters, or `null` when the script
+ *     failed outside a statement, for example when it could not be read
+ * @param cause The exception the script failed with
+ */
 class MigrationException(
   val fromVersion: Int,
   val toVersion: Int,
@@ -21,18 +37,40 @@ class MigrationException(
   cause
 )
 
+/**
+ * Executor of migration plans.
+ *
+ * It does not open a transaction; run it in one so that a failed migration is rolled back.
+ *
+ * @param resources Source of the migration scripts
+ * @param connection Connection to the database being migrated
+ */
 class MigrationExecutor(
   private val resources: MigrationResources,
-  private val database: MigrationDatabase
+  private val connection: SQLiteConnection
 ) {
+  /**
+   * Execute the migration plan.
+   *
+   * The persistent views of the database are dropped first, so that the scripts can change the tables the views
+   * select from. The scripts of each step then run in order, and [createTargetViews] creates the views of the target
+   * schema. A missing optional script is skipped.
+   *
+   * @param plan The migration plan
+   * @param createTargetViews Function that creates the views of the target schema
+   * @param onScript Function that is called before each existing script runs
+   * @throws MigrationException if a required script is missing, a script cannot be read or has no statements when
+   *     it must have them, or a statement fails
+   * @throws IllegalStateException if a view cannot be dropped
+   */
   fun execute(
     plan: MigrationPlan,
     createTargetViews: () -> Unit,
     onScript: (MigrationResource) -> Unit = {}
   ) {
-    for (name in database.persistentViewNames()) {
+    for (name in persistentViewNames()) {
       try {
-        database.execute("DROP VIEW IF EXISTS main.${quoteSqlIdentifier(name)}")
+        connection.execSQL("DROP VIEW IF EXISTS main.${quoteSqlIdentifier(name)}")
       } catch (exception: Exception) {
         throw IllegalStateException("Error removing persistent view $name", exception)
       }
@@ -49,6 +87,16 @@ class MigrationExecutor(
     }
     createTargetViews()
   }
+
+  private fun persistentViewNames() = connection
+    .prepare("SELECT name FROM main.sqlite_master WHERE type = 'view'")
+    .use { statement ->
+      buildList {
+        while (statement.step()) {
+          add(statement.getText(0))
+        }
+      }
+    }
 
   private fun executeScript(
     plan: MigrationPlan,
@@ -99,7 +147,7 @@ class MigrationExecutor(
               lineNumber = index + 1
               if (line.isNotBlank() && !line.isSqlComment()) {
                 try {
-                  database.execute(line)
+                  connection.execSQL(line)
                 } catch (exception: Exception) {
                   throw failure(
                     cause = exception,

@@ -1,20 +1,20 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
-import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog.updateConflictCases
 import com.siimkinks.sqlitemagic.runtime.model.UpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.isConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.rxjava2.observe
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,13 +29,13 @@ internal class DirectSingleUpdateConflictTest(
   val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun executeWithConflictAndDefaultAlgorithmThrowsSQLiteConstraintException() = assertConflict(
+  fun executeWithConflictAndDefaultAlgorithmThrowsConstraintFailure() = assertConflict(
     modelCase = modelCase,
     terminal = EXECUTE
   )
 
   @Test
-  fun observeWithConflictAndDefaultAlgorithmEmitsSQLiteConstraintException() = assertConflict(
+  fun observeWithConflictAndDefaultAlgorithmEmitsConstraintFailure() = assertConflict(
     modelCase = modelCase,
     terminal = OBSERVE
   )
@@ -74,25 +74,26 @@ internal class DirectSingleUpdateConflictTest(
       modelName = modelCase.name
     )
     val persistedValues = captureRows(table = modelCase.table)
-    val candidate = modelCase.valueWithConflict(
-      existing = persistedValues[0],
-      conflicting = persistedValues[1],
-      sequence = 3
-    )
 
     val builder = modelCase
-      .update(value = candidate)
+      .update(
+        value = modelCase.valueWithConflict(
+          existing = persistedValues[0],
+          conflicting = persistedValues[1],
+          sequence = 3
+        )
+      )
       .withConflictAlgorithm(conflictAlgorithm)
     when (terminal) {
       EXECUTE -> when (conflictAlgorithm) {
-        null -> assertThrows(SQLiteConstraintException::class.java, builder::execute)
+        null -> assertConstraintFailure(builder::execute)
         else -> assertThat(builder.execute()).isFalse()
       }
       OBSERVE -> when (conflictAlgorithm) {
         null -> builder
           .observe()
           .test()
-          .assertFailure(SQLiteConstraintException::class.java)
+          .assertFailure(Throwable::isConstraintFailure)
         else -> builder
           .observe()
           .test()
@@ -109,6 +110,6 @@ internal class DirectSingleUpdateConflictTest(
   companion object {
     @JvmStatic
     @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.updateConflictCases
+    fun modelCases() = updateConflictCases
   }
 }

@@ -30,7 +30,7 @@ internal class PredicateSemanticsTest {
     )
 
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val actual = operators.associate { (label, operator) ->
         label to operands.flatMap { left ->
           operands.map { right ->
@@ -56,7 +56,7 @@ internal class PredicateSemanticsTest {
   @Test
   fun `predicate projections read SQLite truth and NULL predicates stay required`() {
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val comparisons = SELECT
         .COLUMNS(PERSON.ID, PERSON.NAME IS "Ada")
         .FROM(PERSON)
@@ -72,14 +72,15 @@ internal class PredicateSemanticsTest {
         .usingConnection(connection)
         .execute()
 
-      assertThat(comparisons).isEqualTo(
-        listOf(
-          Row2(1L, true),
-          Row2(2L, false),
-          Row2(3L, null),
-          Row2(4L, false)
+      assertThat(comparisons)
+        .isEqualTo(
+          listOf(
+            Row2(1L, true),
+            Row2(2L, false),
+            Row2(3L, null),
+            Row2(4L, false)
+          )
         )
-      )
       assertThat(nullTests).isEqualTo(listOf(false, false, true, false))
       assertThat(nullOperand).isEqualTo(listOf(false))
     }
@@ -94,16 +95,17 @@ internal class PredicateSemanticsTest {
       .WHERE((token IS Token("g")) OR (lowerName IN listOf("linus")))
       .ORDER_BY(PERSON.ID.ASC())
 
-    assertThat(snapshot(query.compile())).isEqualTo(
-      PlanSnapshot(
-        sql = """SELECT "person"."id" FROM "main"."person" """ +
-            """WHERE ((person.token) = ?) OR ((lower(person.name)) IN (?)) ORDER BY "person"."id" ASC""",
-        arguments = listOf(
-          NativeValue.Text("db:g"),
-          NativeValue.Text("linus")
+    assertThat(snapshot(query.compile()))
+      .isEqualTo(
+        PlanSnapshot(
+          sql = """SELECT "person"."id" FROM "main"."person" """ +
+              """WHERE ((person.token) = ?) OR ((lower(person.name)) IN (?)) ORDER BY "person"."id" ASC""",
+          arguments = listOf(
+            NativeValue.Text("db:g"),
+            NativeValue.Text("linus")
+          )
         )
       )
-    )
     assertThat(query.rowsIn(::personDatabase)).isEqualTo(listOf(2L, 4L))
   }
 
@@ -243,7 +245,7 @@ internal class PredicateSemanticsTest {
             .compile()
             .sql
         )
-        .isEqualTo(prefix + case.where)
+        .isEqualTo("$prefix${case.where}")
     }
     val nested = SELECT.COLUMN(label IS Token("projected"))
       .FROM(PERSON)
@@ -251,22 +253,23 @@ internal class PredicateSemanticsTest {
       .GROUP_BY(PERSON.FLAG IS_NOT false)
       .HAVING(years GREATER_THAN 7)
       .ORDER_BY((PERSON.NAME IS "last").DESC())
-    assertThat(snapshot(nested.compile())).isEqualTo(
-      PlanSnapshot(
-        sql = """SELECT "person"."token" = ? FROM "main"."person" """ +
-            """WHERE (("person"."token" = ?) AND (NOT ("person"."age" < ?))) OR (person.flag = ?) """ +
-            """GROUP BY "person"."flag" != ? HAVING "person"."age" > ? ORDER BY "person"."name" = ? DESC""",
-        arguments = listOf(
-          NativeValue.Text("db:projected"),
-          NativeValue.Text("db:g"),
-          NativeValue.Integer(40),
-          NativeValue.Integer(1),
-          NativeValue.Integer(0),
-          NativeValue.Integer(7),
-          NativeValue.Text("last")
+    assertThat(snapshot(nested.compile()))
+      .isEqualTo(
+        PlanSnapshot(
+          sql = """SELECT "person"."token" = ? FROM "main"."person" """ +
+              """WHERE (("person"."token" = ?) AND (NOT ("person"."age" < ?))) OR (person.flag = ?) """ +
+              """GROUP BY "person"."flag" != ? HAVING "person"."age" > ? ORDER BY "person"."name" = ? DESC""",
+          arguments = listOf(
+            NativeValue.Text("db:projected"),
+            NativeValue.Text("db:g"),
+            NativeValue.Integer(40),
+            NativeValue.Integer(1),
+            NativeValue.Integer(0),
+            NativeValue.Integer(7),
+            NativeValue.Text("last")
+          )
         )
       )
-    )
   }
 
   @Test
@@ -283,7 +286,7 @@ internal class PredicateSemanticsTest {
     )
 
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val results = predicates.map { predicate ->
         SELECT.COLUMN(predicate)
           .usingConnection(connection)
@@ -298,7 +301,7 @@ internal class PredicateSemanticsTest {
   @Test
   fun `ESCAPE matches literal wildcards and SQLite rejects an invalid escape`() {
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val matches = listOf("50%", "500").map { value ->
         SELECT.COLUMN(value.asValue() LIKE "50!%" ESCAPE "!")
           .usingConnection(connection)

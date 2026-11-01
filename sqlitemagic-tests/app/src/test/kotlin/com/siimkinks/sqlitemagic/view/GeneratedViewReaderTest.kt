@@ -22,7 +22,6 @@ import com.siimkinks.sqlitemagic.SqliteMagic_ReaderRequiredNullableNestedView_Da
 import com.siimkinks.sqlitemagic.SqliteMagic_ReaderRequiredNullableTableView_Dao
 import com.siimkinks.sqlitemagic.SqliteMagic_ReaderTransformedScalarView_Dao
 import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.cursorOf
 import com.siimkinks.sqlitemagic.fixture.view.ReaderAllNullableInnerView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderAllNullableNoIdProjection
 import com.siimkinks.sqlitemagic.fixture.view.ReaderEmail
@@ -40,6 +39,7 @@ import com.siimkinks.sqlitemagic.fixture.view.ReaderRequiredNullableTableView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderTransformedScalarView
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.statementOf
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.never
@@ -50,12 +50,12 @@ internal class GeneratedViewReaderTest {
   fun `reads scalar columns from a start column`() {
     assertThat(
       listOf(
-        SqliteMagic_ReaderAllNullableInnerView_Dao.objectFromCursorPosition(
-          cursor = cursorOf("skipped", "code", 3),
+        SqliteMagic_ReaderAllNullableInnerView_Dao.objectFromRow(
+          statement = statementOf("skipped", "code", 3L),
           startIndex = 1
         ),
-        SqliteMagic_ReaderAllNullableInnerView_Dao.objectFromCursorPosition(
-          cursor = cursorOf(null, null),
+        SqliteMagic_ReaderAllNullableInnerView_Dao.objectFromRow(
+          statement = statementOf(null, null),
           startIndex = 0
         )
       )
@@ -77,13 +77,13 @@ internal class GeneratedViewReaderTest {
   fun `reads required blocks whose leaves are all null`() {
     assertThat(
       listOf(
-        SqliteMagic_ReaderRequiredNullableTableView_Dao.objectFromCursorPosition(
-          cursor = cursorOf(null, null),
+        SqliteMagic_ReaderRequiredNullableTableView_Dao.objectFromRow(
+          statement = statementOf(null, null),
           startIndex = 0,
           related = blocksOf(READER_REQUIRED_NULLABLE_TABLE_VIEW)
         ),
-        SqliteMagic_ReaderRequiredNullableNestedView_Dao.objectFromCursorPosition(
-          cursor = cursorOf(null, null),
+        SqliteMagic_ReaderRequiredNullableNestedView_Dao.objectFromRow(
+          statement = statementOf(null, null),
           startIndex = 0,
           related = blocksOf(READER_REQUIRED_NULLABLE_NESTED_VIEW)
         )
@@ -110,18 +110,18 @@ internal class GeneratedViewReaderTest {
   fun `reads nullable blocks after the view's own columns`() {
     assertThat(
       listOf(
-        SqliteMagic_ReaderReorderedNullableNestedView_Dao.objectFromCursorPosition(
-          cursor = cursorOf("tail", "code", 3),
+        SqliteMagic_ReaderReorderedNullableNestedView_Dao.objectFromRow(
+          statement = statementOf("tail", "code", 3L),
           startIndex = 0,
           related = blocksOf(READER_REORDERED_NULLABLE_NESTED_VIEW)
         ),
-        SqliteMagic_ReaderNullableNoIdView_Dao.objectFromCursorPosition(
-          cursor = cursorOf("tail", "code", 3),
+        SqliteMagic_ReaderNullableNoIdView_Dao.objectFromRow(
+          statement = statementOf("tail", "code", 3L),
           startIndex = 0,
           related = blocksOf(READER_NULLABLE_NO_ID_VIEW)
         ),
-        SqliteMagic_ReaderNullableRelationshipTrailingScalarView_Dao.objectFromCursorPosition(
-          cursor = cursorOf("tail", null, null, null, null),
+        SqliteMagic_ReaderNullableRelationshipTrailingScalarView_Dao.objectFromRow(
+          statement = statementOf("tail", null, null, null, null),
           startIndex = 0,
           related = blocksOf(READER_NULLABLE_RELATIONSHIP_TRAILING_SCALAR_VIEW)
         )
@@ -154,13 +154,13 @@ internal class GeneratedViewReaderTest {
   fun `reads embedded values around nested views`() {
     assertThat(
       listOf(
-        SqliteMagic_ReaderEmbeddedViewLeafView_Dao.objectFromCursorPosition(
-          cursor = cursorOf("tail", "Ada"),
+        SqliteMagic_ReaderEmbeddedViewLeafView_Dao.objectFromRow(
+          statement = statementOf("tail", "Ada"),
           startIndex = 0,
           related = blocksOf(READER_EMBEDDED_VIEW_LEAF_VIEW)
         ),
-        SqliteMagic_ReaderEmbeddedNestedView_Dao.objectFromCursorPosition(
-          cursor = cursorOf("Tallinn", null, "tail", "Ada"),
+        SqliteMagic_ReaderEmbeddedNestedView_Dao.objectFromRow(
+          statement = statementOf("Tallinn", null, "tail", "Ada"),
           startIndex = 0,
           related = blocksOf(READER_EMBEDDED_NESTED_VIEW)
         )
@@ -186,9 +186,9 @@ internal class GeneratedViewReaderTest {
   }
 
   @Test
-  fun `preserves mutable defaults for null cursor columns`() {
-    val view = SqliteMagic_ReaderMutableDefaultsView_Dao.objectFromCursorPosition(
-      cursor = cursorOf(null, null, null),
+  fun `preserves mutable defaults for null columns`() {
+    val view = SqliteMagic_ReaderMutableDefaultsView_Dao.objectFromRow(
+      statement = statementOf(null, null, null),
       startIndex = 0
     )
 
@@ -205,29 +205,29 @@ internal class GeneratedViewReaderTest {
 
   @Test
   fun `reads transformed scalar leaves`() {
-    val cursor = cursorOf("prefix", 99, "ada@example.com")
-    val view = SqliteMagic_ReaderTransformedScalarView_Dao.objectFromCursorPosition(
-      cursor = cursor,
+    val statement = statementOf("prefix", 99L, "ada@example.com")
+    val view = SqliteMagic_ReaderTransformedScalarView_Dao.objectFromRow(
+      statement = statement,
       startIndex = 2
     )
 
     assertThat(view).isEqualTo(ReaderTransformedScalarView(email = ReaderEmail(value = "ada@example.com")))
-    verify(cursor).isNull(2)
-    verify(cursor).getString(2)
+    verify(statement).isNull(2)
+    verify(statement).getText(2)
   }
 
   /** Android's stubbed `SQLException` carries no message on the JVM; the generated text names the column. */
   @Test
   fun `a required column that reads NULL fails without decoding it`() {
-    val cursor = cursorOf(null)
+    val statement = statementOf(null)
 
     assertThrows<SQLException> {
-      SqliteMagic_ReaderTransformedScalarView_Dao.objectFromCursorPosition(
-        cursor = cursor,
+      SqliteMagic_ReaderTransformedScalarView_Dao.objectFromRow(
+        statement = statement,
         startIndex = 0
       )
     }
-    verify(cursor, never()).getString(0)
+    verify(statement, never()).getText(0)
   }
 
   private fun blocksOf(view: Table<*>) = RelatedEntities(

@@ -97,15 +97,7 @@ public class com/siimkinks/sqlitemagic/Column : com/siimkinks/sqlitemagic/Encoda
 public final class com/siimkinks/sqlitemagic/CompiledCount : com/siimkinks/sqlitemagic/SelectPlan {
 	public final fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/CompiledCount;
 	public final fun execute ()J
-	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
-}
-
-public final class com/siimkinks/sqlitemagic/CompiledCursor : com/siimkinks/sqlitemagic/SelectPlan {
-	public final fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/CompiledCursor;
-	public synthetic fun discard$com_siimkinks_sqlitemagic_runtime (Ljava/lang/Object;)V
-	public final fun execute ()Landroid/database/Cursor;
-	public final fun getFromCurrentPosition (Landroid/database/Cursor;)Ljava/lang/Object;
-	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroidx/sqlite/SQLiteStatement;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
 }
 
 public final class com/siimkinks/sqlitemagic/CompiledFirst : com/siimkinks/sqlitemagic/SelectPlan {
@@ -118,29 +110,22 @@ public final class com/siimkinks/sqlitemagic/CompiledMutation {
 	public final fun getSql ()Ljava/lang/String;
 }
 
-public class com/siimkinks/sqlitemagic/CompiledRawCursor {
-	public final fun execute ()Landroid/database/Cursor;
-	public final fun getSql ()Ljava/lang/String;
-}
-
 public final class com/siimkinks/sqlitemagic/CompiledRawFirst {
 	public final fun execute ()Ljava/lang/Object;
 	public final fun getSql ()Ljava/lang/String;
 }
 
-public final class com/siimkinks/sqlitemagic/CompiledRawReadCursor : com/siimkinks/sqlitemagic/CompiledRawCursor {
-	public final fun getFromCurrentPosition (Landroid/database/Cursor;)Ljava/lang/Object;
-}
-
 public final class com/siimkinks/sqlitemagic/CompiledRawSelect {
 	public final fun execute ()Ljava/util/List;
 	public final fun getSql ()Ljava/lang/String;
+	public final fun useRows (Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 }
 
 public final class com/siimkinks/sqlitemagic/CompiledSelect : com/siimkinks/sqlitemagic/SelectPlan {
 	public final fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/CompiledSelect;
 	public final fun execute ()Ljava/util/List;
-	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+	public synthetic fun mapRows$com_siimkinks_sqlitemagic_runtime (Landroidx/sqlite/SQLiteStatement;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+	public final fun useRows (Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 }
 
 public final class com/siimkinks/sqlitemagic/CompoundsKt {
@@ -202,7 +187,7 @@ public abstract interface class com/siimkinks/sqlitemagic/DbConnection : java/io
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/DbDowngrader {
-	public abstract fun onDowngrade (Landroidx/sqlite/db/SupportSQLiteDatabase;II)V
+	public abstract fun onDowngrade (Landroidx/sqlite/SQLiteConnection;II)V
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/DeclaredTables : com/siimkinks/sqlitemagic/RawTables {
@@ -309,20 +294,20 @@ public final class com/siimkinks/sqlitemagic/FrameBound {
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/GeneratedDatabase {
-	public abstract fun clearData (Landroidx/sqlite/db/SupportSQLiteDatabase;)Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;
-	public abstract fun configureDatabase (Landroidx/sqlite/db/SupportSQLiteDatabase;)V
-	public abstract fun createSchema (Landroidx/sqlite/db/SupportSQLiteDatabase;)V
-	public fun createTemporarySchema (Landroidx/sqlite/db/SupportSQLiteDatabase;)V
+	public abstract fun applySchemaPragmas (Landroidx/sqlite/SQLiteConnection;)V
+	public abstract fun clearData (Landroidx/sqlite/SQLiteConnection;)Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;
+	public abstract fun createSchema (Landroidx/sqlite/SQLiteConnection;)V
+	public fun createTemporarySchema (Landroidx/sqlite/SQLiteConnection;)V
 	public abstract fun getDbName ()Ljava/lang/String;
 	public abstract fun getDbVersion ()I
 	public abstract fun getNrOfTables (Ljava/lang/String;)I
 	public abstract fun getSubmoduleNames ()[Ljava/lang/String;
 	public abstract fun isDebug ()Z
-	public abstract fun migrateViews (Landroidx/sqlite/db/SupportSQLiteDatabase;)V
+	public abstract fun migrateViews (Landroidx/sqlite/SQLiteConnection;)V
 }
 
 public final class com/siimkinks/sqlitemagic/GeneratedDatabase$DefaultImpls {
-	public static fun createTemporarySchema (Lcom/siimkinks/sqlitemagic/GeneratedDatabase;Landroidx/sqlite/db/SupportSQLiteDatabase;)V
+	public static fun createTemporarySchema (Lcom/siimkinks/sqlitemagic/GeneratedDatabase;Landroidx/sqlite/SQLiteConnection;)V
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/GroupClause : com/siimkinks/sqlitemagic/ClauseHost {
@@ -508,6 +493,15 @@ public final class com/siimkinks/sqlitemagic/RawMutationQuery {
 	public final fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/RawMutationQuery;
 }
 
+public final class com/siimkinks/sqlitemagic/RawRows {
+	public final fun columnName (I)Ljava/lang/String;
+	public final fun columnType (I)I
+	public final fun getColumnCount ()I
+	public final fun isNull (I)Z
+	public final fun read (ILcom/siimkinks/sqlitemagic/ReadContract;)Ljava/lang/Object;
+	public final fun step ()Z
+}
+
 public final class com/siimkinks/sqlitemagic/RawSelect {
 	public final fun observes (Lcom/siimkinks/sqlitemagic/Table;[Lcom/siimkinks/sqlitemagic/Table;)Lcom/siimkinks/sqlitemagic/RawSelect;
 	public final fun readAs (Lcom/siimkinks/sqlitemagic/ReadContract;)Lcom/siimkinks/sqlitemagic/RawColumnQuery;
@@ -519,7 +513,7 @@ public final class com/siimkinks/sqlitemagic/RawSelect {
 	public final fun readAs (Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;)Lcom/siimkinks/sqlitemagic/RawSelectQuery;
 	public final fun readAs (Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;)Lcom/siimkinks/sqlitemagic/RawSelectQuery;
 	public final fun readAs (Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;Lcom/siimkinks/sqlitemagic/ReadContract;)Lcom/siimkinks/sqlitemagic/RawSelectQuery;
-	public final fun toCursor ()Lcom/siimkinks/sqlitemagic/CompiledRawCursor;
+	public final fun useRows (Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public final fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/RawSelect;
 }
 
@@ -539,7 +533,7 @@ public class com/siimkinks/sqlitemagic/RawSelectQuery {
 	public final fun execute ()Ljava/util/List;
 	public fun observes (Lcom/siimkinks/sqlitemagic/Table;[Lcom/siimkinks/sqlitemagic/Table;)Lcom/siimkinks/sqlitemagic/RawSelectQuery;
 	public final fun takeFirst ()Lcom/siimkinks/sqlitemagic/CompiledRawFirst;
-	public final fun toCursor ()Lcom/siimkinks/sqlitemagic/CompiledRawReadCursor;
+	public final fun useRows (Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/RawSelectQuery;
 }
 
@@ -930,7 +924,7 @@ public class com/siimkinks/sqlitemagic/SelectQuery : com/siimkinks/sqlitemagic/Q
 	public final fun getHandle ()Lcom/siimkinks/sqlitemagic/QueryHandle;
 	public synthetic fun getOccurrence$com_siimkinks_sqlitemagic_runtime ()Lcom/siimkinks/sqlitemagic/QueryOutputTable;
 	public final fun takeFirst ()Lcom/siimkinks/sqlitemagic/CompiledFirst;
-	public final fun toCursor ()Lcom/siimkinks/sqlitemagic/CompiledCursor;
+	public final fun useRows (Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public final fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/SelectQuery;
 }
 
@@ -1092,12 +1086,15 @@ public final class com/siimkinks/sqlitemagic/SqliteMagic {
 }
 
 public final class com/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder {
+	public final fun configureConnection (Lkotlin/jvm/functions/Function1;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
+	public final fun connectionPoolTimeout-LRDsOJo (J)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 	public final fun database (Lcom/siimkinks/sqlitemagic/GeneratedDatabase;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 	public final fun downgrader (Lcom/siimkinks/sqlitemagic/DbDowngrader;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
+	public final fun driver (Landroidx/sqlite/SQLiteDriver;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 	public final fun name (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 	public final fun openDefaultConnection ()V
 	public final fun openNewConnection ()Lcom/siimkinks/sqlitemagic/DbConnection;
-	public final fun sqliteFactory (Landroidx/sqlite/db/SupportSQLiteOpenHelper$Factory;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
+	public final fun readerConnections (I)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
 }
 
 public final class com/siimkinks/sqlitemagic/SubqueriesKt {
@@ -1112,8 +1109,8 @@ public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/Source 
 	protected fun getEntityFields ()Ljava/util/List;
 	protected fun getEntityProperties ()Ljava/util/List;
 	protected fun getRelationships ()Ljava/util/List;
-	protected fun readEntity (Landroid/database/Cursor;ILcom/siimkinks/sqlitemagic/internal/RelatedEntities;)Ljava/lang/Object;
-	protected fun readPartialEntity (Landroid/database/Cursor;[ILcom/siimkinks/sqlitemagic/internal/RelatedEntities;)Ljava/lang/Object;
+	protected fun readEntity (Landroidx/sqlite/SQLiteStatement;ILcom/siimkinks/sqlitemagic/internal/RelatedEntities;)Ljava/lang/Object;
+	protected fun readPartialEntity (Landroidx/sqlite/SQLiteStatement;[ILcom/siimkinks/sqlitemagic/internal/RelatedEntities;)Ljava/lang/Object;
 	public fun toString ()Ljava/lang/String;
 }
 
@@ -1488,8 +1485,8 @@ public abstract interface class com/siimkinks/sqlitemagic/internal/EntityIdentit
 
 public abstract interface class com/siimkinks/sqlitemagic/internal/EntityIdentityStatementBinder : com/siimkinks/sqlitemagic/internal/EntityStatementBinder {
 	public abstract fun bindNotNullForInsert (Ljava/lang/Object;Lcom/siimkinks/sqlitemagic/internal/MutableScatterMap;Ljava/util/Map;)V
-	public abstract fun bindNotNullForUpdate (Ljava/lang/Object;Lcom/siimkinks/sqlitemagic/internal/MutableScatterMap;Ljava/lang/String;)V
-	public abstract fun bindToUpdateStatement (Landroidx/sqlite/db/SupportSQLiteStatement;Ljava/lang/Object;Ljava/lang/String;)V
+	public abstract fun bindNotNullForUpdate (Ljava/lang/Object;Lcom/siimkinks/sqlitemagic/internal/MutableScatterMap;Ljava/lang/String;Ljava/util/Map;)V
+	public abstract fun bindToUpdateStatement (Landroidx/sqlite/SQLiteStatement;Ljava/lang/Object;Ljava/lang/String;Ljava/util/Map;)V
 }
 
 public final class com/siimkinks/sqlitemagic/internal/EntityProperty {
@@ -1512,7 +1509,7 @@ public abstract interface class com/siimkinks/sqlitemagic/internal/EntityRelatio
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/internal/EntityStatementBinder {
-	public abstract fun bindToInsertStatement (Landroidx/sqlite/db/SupportSQLiteStatement;Ljava/lang/Object;Ljava/util/Map;)V
+	public abstract fun bindToInsertStatement (Landroidx/sqlite/SQLiteStatement;Ljava/lang/Object;Ljava/util/Map;)V
 }
 
 public final class com/siimkinks/sqlitemagic/internal/GeneratedEncodingsKt {
@@ -1524,10 +1521,10 @@ public final class com/siimkinks/sqlitemagic/internal/GeneratedEncodingsKt {
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/internal/GeneratedSchema {
-	public abstract fun clearTables (Landroidx/sqlite/db/SupportSQLiteDatabase;Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;)V
+	public abstract fun clearTables (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;)V
 	public abstract fun collectGeneratedViews (Ljava/util/List;)V
-	public abstract fun createSchemaIndexes (Landroidx/sqlite/db/SupportSQLiteDatabase;Z)V
-	public abstract fun createSchemaTables (Landroidx/sqlite/db/SupportSQLiteDatabase;Z)V
+	public abstract fun createSchemaIndexes (Landroidx/sqlite/SQLiteConnection;Z)V
+	public abstract fun createSchemaTables (Landroidx/sqlite/SQLiteConnection;Z)V
 }
 
 public final class com/siimkinks/sqlitemagic/internal/GeneratedView {
@@ -1570,6 +1567,16 @@ public class com/siimkinks/sqlitemagic/internal/MutableScatterSet : com/siimkink
 public abstract interface class com/siimkinks/sqlitemagic/internal/MutationResults {
 	public abstract fun executeInsert (Landroidx/sqlite/SQLiteStatement;)J
 	public abstract fun executeUpdateDelete (Landroidx/sqlite/SQLiteStatement;)I
+}
+
+public abstract interface class com/siimkinks/sqlitemagic/internal/NullableValueReads {
+	public abstract fun getBlobOrNull (I)[B
+	public abstract fun getTextOrNull (I)Ljava/lang/String;
+}
+
+public final class com/siimkinks/sqlitemagic/internal/NullableValueReadsKt {
+	public static final fun getBlobOrNull (Landroidx/sqlite/SQLiteStatement;I)[B
+	public static final fun getTextOrNull (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/String;
 }
 
 public abstract class com/siimkinks/sqlitemagic/internal/OperationBuilder {
@@ -1621,21 +1628,18 @@ public final class com/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport {
 	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityPersistByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
 	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
 	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
-	public final fun discardResult (Lcom/siimkinks/sqlitemagic/Query;Ljava/lang/Object;)V
 	public final fun executionConnection (Lcom/siimkinks/sqlitemagic/Query;)Lcom/siimkinks/sqlitemagic/DbConnection;
-	public final fun map (Lcom/siimkinks/sqlitemagic/Query;Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
-	public static synthetic fun map$default (Lcom/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport;Lcom/siimkinks/sqlitemagic/Query;Landroid/database/Cursor;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun observation (Lcom/siimkinks/sqlitemagic/SelectPlan;)Lcom/siimkinks/sqlitemagic/internal/QueryObservation;
-	public final fun openCursor (Lcom/siimkinks/sqlitemagic/Query;)Landroid/database/Cursor;
-	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lcom/siimkinks/sqlitemagic/CompiledCursor;
 	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lcom/siimkinks/sqlitemagic/CompiledFirst;
 	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lcom/siimkinks/sqlitemagic/CompiledSelect;
+	public final fun run (Lcom/siimkinks/sqlitemagic/Query;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+	public static synthetic fun run$default (Lcom/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport;Lcom/siimkinks/sqlitemagic/Query;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/RelatedEntities {
-	public final fun read (Landroid/database/Cursor;I)Ljava/lang/Object;
-	public final fun readOrNull (Landroid/database/Cursor;I)Ljava/lang/Object;
-	public final fun readSelected (Landroid/database/Cursor;I)Ljava/lang/Object;
+	public final fun read (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/Object;
+	public final fun readOrNull (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/Object;
+	public final fun readSelected (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/Object;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/RelationshipRead : java/lang/Enum {
@@ -1705,9 +1709,9 @@ public final class com/siimkinks/sqlitemagic/internal/SqlStorage {
 
 public final class com/siimkinks/sqlitemagic/internal/SqlUtil {
 	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/internal/SqlUtil;
-	public final fun clearData (Landroidx/sqlite/db/SupportSQLiteDatabase;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;I)Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;
-	public final fun createSchema (Landroidx/sqlite/db/SupportSQLiteDatabase;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;Z)V
-	public final fun migrateViews (Landroidx/sqlite/db/SupportSQLiteDatabase;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;)V
+	public final fun clearData (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;I)Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;
+	public final fun createSchema (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;Z)V
+	public final fun migrateViews (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;)V
 }
 
 public final class com/siimkinks/sqlitemagic/internal/SqliteIdentifier : com/siimkinks/sqlitemagic/internal/SqliteIdentifierProvider {
@@ -1802,11 +1806,6 @@ public final class com/siimkinks/sqlitemagic/internal/ViewBlock {
 	public fun <init> (Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;)V
 }
 
-public abstract interface class com/siimkinks/sqlitemagic/migration/MigrationDatabase {
-	public abstract fun execute (Ljava/lang/String;)V
-	public abstract fun persistentViewNames ()Ljava/util/List;
-}
-
 public final class com/siimkinks/sqlitemagic/migration/MigrationException : java/lang/IllegalStateException {
 	public fun <init> (IIILjava/lang/String;IILjava/lang/String;Ljava/lang/Exception;)V
 	public final fun getFromVersion ()I
@@ -1819,7 +1818,7 @@ public final class com/siimkinks/sqlitemagic/migration/MigrationException : java
 }
 
 public final class com/siimkinks/sqlitemagic/migration/MigrationExecutor {
-	public fun <init> (Lcom/siimkinks/sqlitemagic/migration/MigrationResources;Lcom/siimkinks/sqlitemagic/migration/MigrationDatabase;)V
+	public fun <init> (Lcom/siimkinks/sqlitemagic/migration/MigrationResources;Landroidx/sqlite/SQLiteConnection;)V
 	public final fun execute (Lcom/siimkinks/sqlitemagic/migration/MigrationPlan;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)V
 	public static synthetic fun execute$default (Lcom/siimkinks/sqlitemagic/migration/MigrationExecutor;Lcom/siimkinks/sqlitemagic/migration/MigrationPlan;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 }
@@ -1876,11 +1875,5 @@ public final class com/siimkinks/sqlitemagic/migration/MigrationStep {
 	public final fun getToVersion ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
-}
-
-public final class com/siimkinks/sqlitemagic/transformer/BooleanTransformer {
-	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/transformer/BooleanTransformer;
-	public final fun dbValueToObject (Ljava/lang/Integer;)Ljava/lang/Boolean;
-	public final fun objectToDbValue (Ljava/lang/Boolean;)Ljava/lang/Integer;
 }
 

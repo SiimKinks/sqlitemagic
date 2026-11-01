@@ -79,17 +79,19 @@ internal class ModelEmbeddedAndOptionsContractTest {
           """values.put("shipping_geo_lat", it)""",
           """values.put("shipping_geo_longitude", it)""",
           """values.put("shipping_note", it)""",
-          "shipping = if (column1IsNull && column2IsNull && column3IsNull) null else Delivery(",
+          "shipping = if (column1IsNull && column2IsNull && statement.isNull(startIndex + 3)) null else Delivery(",
           "geo = if (column1IsNull && column2IsNull) null else Geo(",
           """latitude = if (column1IsNull) throw SQLException("Column \"shipping_geo_lat\" was NULL")""",
-          "note = if (column3IsNull) null else cursor.getString(startIndex + 3)",
-          "billing = Geo(latitude = cursor.getDouble(startIndex + 4), longitude = cursor.getDouble(startIndex + 5))"
+          "note = statement.getTextOrNull(startIndex + 3)",
+          "billing = Geo(latitude = statement.getDouble(startIndex + 4), " +
+              "longitude = statement.getDouble(startIndex + 5))"
         )
         assertThat(
-          Regex("""cursor\.isNull""")
-            .findAll(generatedSource.functionBody("objectFromCursorPosition"))
+          Regex("""statement\.isNull""")
+            .findAll(generatedSource.functionBody("objectFromRow"))
             .count()
-        ).isEqualTo(3)
+        )
+          .isEqualTo(3)
       }
   }
 

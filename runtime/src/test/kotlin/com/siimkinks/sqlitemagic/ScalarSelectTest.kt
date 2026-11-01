@@ -1,8 +1,5 @@
-@file:Suppress("TestFunctionName")
-
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
@@ -24,14 +21,14 @@ internal class ScalarSelectTest {
     name = name,
     alias = alias
   ) {
-    val flag =
-      Column<Unit, Boolean, Required, Boolean, Boolean, Required, Boolean>(
-        table = this,
-        name = """active"flag""",
-        nullness = Required,
-        parameterEncoding = BOOLEAN.parameterEncoding()
-      )
+    val flag = Column<Unit, Boolean, Required, Boolean, Boolean, Required, Boolean>(
+      table = this,
+      name = """active"flag""",
+      nullness = Required,
+      parameterEncoding = BOOLEAN.parameterEncoding()
+    )
 
+    @Suppress("TestFunctionName")
     override infix fun AS(alias: String) = ScalarSource(
       name = name,
       alias = alias
@@ -343,11 +340,15 @@ internal class ScalarSelectTest {
 
     assertThat(observedSnapshot(compiled)).isEqualTo(expected)
     assertThat(compiled.prepared.connection).isSameInstanceAs(connection)
-    val rows = mock<Cursor>()
-    whenever(rows.getLong(0)).thenReturn(2L)
+    val statement = rowStatement()
+    whenever(statement.getLong(0)).thenReturn(2L)
     assertThat(
-      paginated.toCursor()
-        .getFromCurrentPosition(rows)
+      paginated
+        .takeFirst()
+        .mapRows(
+          statement = statement,
+          isDisposed = NOT_DISPOSED
+        )
     ).isEqualTo(2L)
     verifyNoInteractions(connection)
   }
@@ -469,16 +470,23 @@ internal class ScalarSelectTest {
         decodes = emptyList()
       )
     )
-    val rows = mock<Cursor>()
+    val statement = rowStatement()
 
     cases.forEach { case ->
       decodes.clear()
-      whenever(rows.isNull(0)).thenReturn(case.cell == null)
-      whenever(rows.getString(0)).thenReturn(case.cell)
-      val read = case.query.toCursor()::getFromCurrentPosition
+      whenever(statement.isNull(0)).thenReturn(case.cell == null)
+      whenever(statement.getText(0)).thenReturn(case.cell)
+      val read = {
+        case.query
+          .takeFirst()
+          .mapRows(
+            statement = statement,
+            isDisposed = NOT_DISPOSED
+          )
+      }
       val actual = when (case.expected) {
-        is Failure -> Failure(sqlExceptionMessage { read(rows) })
-        else -> read(rows)
+        is Failure -> Failure(sqlExceptionMessage { read() })
+        else -> read()
       }
       assertWithMessage(case.label)
         .that(actual to decodes.toList())
@@ -555,7 +563,12 @@ internal class ScalarSelectTest {
         """WHERE "source.alias""name"."active""flag""""
 
     assertThat(query.compile().sql).isEqualTo(sql)
-    assertThat(query.readAs(BOOLEAN).compile().sql).isEqualTo(sql)
+    assertThat(
+      query
+        .readAs(BOOLEAN)
+        .compile()
+        .sql
+    ).isEqualTo(sql)
   }
 
   @Test
@@ -600,8 +613,7 @@ internal class ScalarSelectTest {
           .takeFirst(),
         base.LIMIT(2)
           .OFFSET(-1)
-          .count(),
-        base.toCursor()
+          .count()
       )
         .map(SelectPlan<*>::sql)
     ).isEqualTo(
@@ -610,8 +622,7 @@ internal class ScalarSelectTest {
         "SELECT ? LIMIT 1",
         "SELECT ? LIMIT 0",
         "SELECT ? LIMIT -1 OFFSET 9223372036854775807",
-        "SELECT count(*) FROM (SELECT ? LIMIT 2 OFFSET -1)",
-        "SELECT ?"
+        "SELECT count(*) FROM (SELECT ? LIMIT 2 OFFSET -1)"
       )
     )
   }

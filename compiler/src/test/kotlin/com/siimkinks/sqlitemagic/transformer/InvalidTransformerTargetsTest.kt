@@ -22,6 +22,7 @@ internal class InvalidTransformerTargetsTest {
     strings = [
       "Int",
       "String?",
+      "Boolean",
       "ByteArray",
       "Array<Byte>?"
     ]
@@ -50,6 +51,8 @@ internal class InvalidTransformerTargetsTest {
     strings = [
       "long",
       "Integer",
+      "boolean",
+      "Boolean",
       "byte[]",
       "Byte[]"
     ]

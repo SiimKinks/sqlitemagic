@@ -7,7 +7,7 @@ apply from: '../buildsystem/maven-push.gradle'
 
 dependencies {
   implementation project(':runtime')
-  implementation libs.android.sqlite
+  api libs.android.sqlite
 
   compileOnly rootProject.ext.androidJar
 }

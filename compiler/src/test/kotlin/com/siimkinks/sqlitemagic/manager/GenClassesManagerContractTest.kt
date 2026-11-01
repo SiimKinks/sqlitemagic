@@ -102,18 +102,19 @@ internal class GenClassesManagerContractTest {
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
         generatedSource.assertContains(
-          "override fun configureDatabase(db: SupportSQLiteDatabase)",
-          "db.setForeignKeyConstraintsEnabled(true)",
-          "db.execSQL(SqliteMagic_Parent_Adapter.TABLE_SCHEMA)",
-          "db.execSQL(SqliteMagic_Child_Adapter.TABLE_SCHEMA)",
-          "db.execSQL(SqliteMagic_SessionOwner_Adapter.TABLE_SCHEMA)",
-          "db.execSQL(SqliteMagic_SessionCache_Adapter.TABLE_SCHEMA)"
+          "override fun applySchemaPragmas(connection: SQLiteConnection)",
+          """connection.execSQL("PRAGMA foreign_keys = ON")""",
+          "connection.execSQL(SqliteMagic_Parent_Adapter.TABLE_SCHEMA)",
+          "connection.execSQL(SqliteMagic_Child_Adapter.TABLE_SCHEMA)",
+          "connection.execSQL(SqliteMagic_SessionOwner_Adapter.TABLE_SCHEMA)",
+          "connection.execSQL(SqliteMagic_SessionCache_Adapter.TABLE_SCHEMA)"
         )
         generatedSource.assertContainsUnwrapped(
-          "override fun createSchema(db: SupportSQLiteDatabase): Unit = " +
-              "SqlUtil.createSchema(db = db, schema = this, temporary = false)",
+          "override fun createSchema(connection: SQLiteConnection): Unit = " +
+              "SqlUtil.createSchema(connection = connection, schema = this, temporary = false)",
           CREATE_TEMPORARY_SCHEMA_DELEGATION,
-          "override fun migrateViews(db: SupportSQLiteDatabase): Unit = SqlUtil.migrateViews(db = db, schema = this)"
+          "override fun migrateViews(connection: SQLiteConnection): Unit = " +
+              "SqlUtil.migrateViews(connection = connection, schema = this)"
         )
         generatedSource
           .functionBody("createSchemaTables")
@@ -131,18 +132,19 @@ internal class GenClassesManagerContractTest {
         val database = environment.generatedDatabaseElement()
         val tablesByName = database.tables.associateBy(TableElement::tableName)
 
-        assertThat(DatabaseStructure.from(CreationOrderedTables.from(database.tables))).isEqualTo(
-          DatabaseStructure(
-            tables = mapOf(
-              "parents" to TableStructure.from(tablesByName.getValue("parents")),
-              "children" to TableStructure.from(tablesByName.getValue("children"))
-            ),
-            temporaryTables = mapOf(
-              "session_owners" to TableStructure.from(tablesByName.getValue("session_owners")),
-              "session_cache" to TableStructure.from(tablesByName.getValue("session_cache"))
+        assertThat(DatabaseStructure.from(CreationOrderedTables.from(database.tables)))
+          .isEqualTo(
+            DatabaseStructure(
+              tables = mapOf(
+                "parents" to TableStructure.from(tablesByName.getValue("parents")),
+                "children" to TableStructure.from(tablesByName.getValue("children"))
+              ),
+              temporaryTables = mapOf(
+                "session_owners" to TableStructure.from(tablesByName.getValue("session_owners")),
+                "session_cache" to TableStructure.from(tablesByName.getValue("session_cache"))
+              )
             )
           )
-        )
       }
   }
 
@@ -208,12 +210,12 @@ internal class GenClassesManagerContractTest {
           "override val dbName: String? = null",
           "override val submoduleNames: Array<String>?",
           "get() = null",
-          """db.execSQL("DELETE FROM transformed_values")""",
+          """connection.execSQL("DELETE FROM transformed_values")""",
           """changedTables.add("transformed_values")"""
         )
         generatedSource.assertContainsUnwrapped(
-          "override fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String> = " +
-              "SqlUtil.clearData(db = db, schema = this, tableCount = getNrOfTables(null))"
+          "override fun clearData(connection: SQLiteConnection): MutableScatterSet<String> = " +
+              "SqlUtil.clearData(connection = connection, schema = this, tableCount = getNrOfTables(null))"
         )
       }
   }
@@ -266,11 +268,11 @@ internal class GenClassesManagerContractTest {
       .assertGeneratedSources("SqliteMagicDatabase.kt")
       .withGeneratedSource("SqliteMagicDatabase.kt") {
         it.assertContainsUnwrapped(
-          "FeatureGeneratedClassesManager.configureDatabase(db)",
-          "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+          "FeatureGeneratedClassesManager.applySchemaPragmas(connection)",
+          "FeatureGeneratedClassesManager.createSchemaTables(connection = connection, temporary = temporary)",
           "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
-          "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
-          "FeatureGeneratedClassesManager.clearTables(db = db, changedTables = changedTables)",
+          "FeatureGeneratedClassesManager.createSchemaIndexes(connection = connection, temporary = temporary)",
+          "FeatureGeneratedClassesManager.clearTables(connection = connection, changedTables = changedTables)",
           CREATE_TEMPORARY_SCHEMA_DELEGATION,
           "override val submoduleNames: Array<String>?",
           """get() = arrayOf("Feature")""",
@@ -395,7 +397,7 @@ internal class GenClassesManagerContractTest {
       )
       .withGeneratedSource("SqliteMagicDatabase.kt") {
         it.assertContains(
-          "db.execSQL(SqliteMagic_LateTable_Adapter.TABLE_SCHEMA)",
+          "connection.execSQL(SqliteMagic_LateTable_Adapter.TABLE_SCHEMA)",
           "override fun getNrOfTables(moduleName: String?): Int = 1",
           "late_index"
         )
@@ -408,8 +410,8 @@ internal class GenClassesManagerContractTest {
 
   companion object {
     private const val CREATE_TEMPORARY_SCHEMA_DELEGATION =
-      "override fun createTemporarySchema(db: SupportSQLiteDatabase): Unit = " +
-          "SqlUtil.createSchema(db = db, schema = this, temporary = true)"
+      "override fun createTemporarySchema(connection: SQLiteConnection): Unit = " +
+          "SqlUtil.createSchema(connection = connection, schema = this, temporary = true)"
 
     @JvmStatic
     fun modulesWithoutManagerContents() = listOf(

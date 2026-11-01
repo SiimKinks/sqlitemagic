@@ -64,12 +64,20 @@ androidComponents {
       mapOf(
         "DB_VERSION" to BuildConfigField(
           type = "int",
-          value = if (variant.buildType == "release") "2" else "3",
+          value = when (variant.buildType) {
+            "release" -> "2"
+            else -> "3"
+          },
           comment = null
         ),
         "DB_NAME" to BuildConfigField(
           type = "String",
           value = """"db.db"""",
+          comment = null
+        ),
+        "SQLITE_ENGINE" to BuildConfigField(
+          type = "String",
+          value = """"${providers.gradleProperty("sqliteEngine").getOrElse("framework")}"""",
           comment = null
         )
       )
@@ -81,11 +89,12 @@ dependencies {
   sqliteMagicRuntimeFriend(libs.sqlitemagic.runtime)
 
   implementation(project(":submodule"))
-  implementation(libs.android.sqlite.framework)
   implementation(libs.coroutines.core)
   implementation(libs.rx.java2)
   implementation(libs.rx.java3)
   implementation(libs.sqlitemagic.coroutines)
+  implementation(libs.sqlitemagic.framework.driver)
+  implementation(libs.android.sqlite.bundled)
   implementation(libs.sqlitemagic.rxjava2)
   implementation(libs.sqlitemagic.rxjava3)
 
@@ -99,8 +108,8 @@ dependencies {
     isTransitive = false
   }
 
+  androidTestImplementation(libs.android.sqlite.framework)
   androidTestImplementation(libs.android.test.runner)
-  androidTestImplementation(libs.sqlitemagic.framework.driver)
   androidTestImplementation(libs.junit.runner)
   androidTestImplementation(libs.truth)
   androidTestCompileOnly(libs.sqlitemagic.annotations)

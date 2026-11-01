@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic
 
 import android.app.Application
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import com.siimkinks.sqlitemagic.BuildConfig.*
+import com.siimkinks.sqlitemagic.BuildConfig.DB_NAME
+import com.siimkinks.sqlitemagic.BuildConfig.DB_VERSION
 import com.siimkinks.sqlitemagic.annotation.Database
 import com.siimkinks.sqlitemagic.coroutines.dispatchCoroutineQueriesOn
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.ExternalTransformer
@@ -27,14 +27,14 @@ class TestApp : Application() {
   override fun onCreate() {
     super.onCreate()
     deleteDatabase(SqliteMagicDatabase().dbName)
-    initDb(this)
+    initDb()
   }
 
-  fun initDb(app: Application) {
+  fun initDb() {
     SqliteMagic.setLoggingEnabled(true)
-    SqliteMagic.builder(app)
+    SqliteMagic.builder(this)
       .database(SqliteMagicDatabase())
-      .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+      .driver(testDriver())
       .scheduleRxQueriesOn(Schedulers.trampoline())
       .scheduleRxQueriesOn(RxJava3Schedulers.trampoline())
       .dispatchCoroutineQueriesOn(Dispatchers.Unconfined)

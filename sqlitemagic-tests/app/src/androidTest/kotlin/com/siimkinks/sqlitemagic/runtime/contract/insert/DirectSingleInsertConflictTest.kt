@@ -1,20 +1,20 @@
 package com.siimkinks.sqlitemagic.runtime.contract.insert
 
-import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.entity.EntityInsertResult.Ignored
+import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog.uniqueInsertCases
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.isConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.seed
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.rxjava2.observe
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,13 +43,13 @@ internal class DirectSingleInsertConflictTest(
   )
 
   @Test
-  fun executeWithoutConflictAlgorithmThrowsSQLiteConstraintException() = assertConflict(
+  fun executeWithoutConflictAlgorithmThrowsConstraintFailure() = assertConflict(
     modelCase = modelCase,
     terminal = EXECUTE
   )
 
   @Test
-  fun observeWithoutConflictAlgorithmEmitsSQLiteConstraintException() = assertConflict(
+  fun observeWithoutConflictAlgorithmEmitsConstraintFailure() = assertConflict(
     modelCase = modelCase,
     terminal = OBSERVE
   )
@@ -60,27 +60,28 @@ internal class DirectSingleInsertConflictTest(
     conflictAlgorithm: Int? = null
   ) {
     val existing = modelCase.seed()
-    val candidate = modelCase.conflictingValue(
-      existing = existing,
-      sequence = 2
-    )
     val builder = modelCase
-      .insert(value = candidate)
+      .insert(
+        value = modelCase.conflictingValue(
+          existing = existing,
+          sequence = 2
+        )
+      )
       .withConflictAlgorithm(conflictAlgorithm)
     when (terminal) {
       EXECUTE -> when (conflictAlgorithm) {
-        null -> assertThrows(SQLiteConstraintException::class.java, builder::execute)
-        else -> assertThat(builder.execute()).isEqualTo(EntityInsertResult.Ignored)
+        null -> assertConstraintFailure(builder::execute)
+        else -> assertThat(builder.execute()).isEqualTo(Ignored)
       }
       OBSERVE -> when (conflictAlgorithm) {
         null -> builder
           .observe()
           .test()
-          .assertFailure(SQLiteConstraintException::class.java)
+          .assertFailure(Throwable::isConstraintFailure)
         else -> builder
           .observe()
           .test()
-          .assertResult(EntityInsertResult.Ignored)
+          .assertResult(Ignored)
       }
     }
 
@@ -93,6 +94,6 @@ internal class DirectSingleInsertConflictTest(
   companion object {
     @JvmStatic
     @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.uniqueInsertCases
+    fun modelCases() = uniqueInsertCases
   }
 }

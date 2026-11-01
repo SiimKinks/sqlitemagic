@@ -1,10 +1,10 @@
 package com.siimkinks.sqlitemagic.writer
 
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_CURSOR_POSITION
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_ROW
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_SELECTED_POSITIONS
 import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
 import com.siimkinks.sqlitemagic.WriterTypes.RELATED_ENTITIES
+import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_STATEMENT
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.model.ModelConstruction
@@ -16,6 +16,10 @@ import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.endControlFlowExpression
 import com.siimkinks.sqlitemagic.utils.namedArgument
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Embedded
+import com.siimkinks.sqlitemagic.writer.RowReadNode.PersistedRelationship
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Related
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Scalar
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.INT
@@ -23,76 +27,76 @@ import com.squareup.kotlinpoet.INT_ARRAY
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.buildCodeBlock
 
-internal data class CursorReadTree(
+internal data class RowReadTree(
   val type: TypeName,
   val construction: ModelConstruction,
-  val nodes: List<CursorReadNode>
+  val nodes: List<RowReadNode>
 )
 
-internal data class CursorReadProperty(
+internal data class RowReadProperty(
   override val access: PropertyAccess,
   override val deserializedType: ParsedType,
   override val isNullable: Boolean
 ) : PropertyMetadata
 
-internal fun PropertyMetadata.toCursorReadProperty() = CursorReadProperty(
+internal fun PropertyMetadata.toRowReadProperty() = RowReadProperty(
   access = access,
   deserializedType = deserializedType,
   isNullable = isNullable
 )
 
-internal sealed interface CursorReadNode : PropertyMetadata {
-  val source: CursorReadProperty
+internal sealed interface RowReadNode : PropertyMetadata {
+  val source: RowReadProperty
 
   data class Scalar(
-    override val source: CursorReadProperty,
-    val position: CursorPosition,
+    override val source: RowReadProperty,
+    val position: ColumnPosition,
     val storageType: SqlStorageType,
     val transformer: TransformerElement?,
     val isSqlNullable: Boolean,
     val requiresPresentValue: Boolean,
     val missingMessage: String,
     val nullMessage: String
-  ) : CursorReadNode, PropertyMetadata by source {
-    val decoderInputNullable get() = transformer?.decoderInputNullable == true
+  ) : RowReadNode, PropertyMetadata by source {
+    val decodesSqlNull get() = isSqlNullable && transformer?.decoderInputNullable == true
   }
 
   data class Embedded(
-    override val source: CursorReadProperty,
-    val tree: CursorReadTree,
-    val positions: List<CursorPosition>
-  ) : CursorReadNode, PropertyMetadata by source
+    override val source: RowReadProperty,
+    val tree: RowReadTree,
+    val positions: List<ColumnPosition>
+  ) : RowReadNode, PropertyMetadata by source
 
   data class PersistedRelationship(
-    override val source: CursorReadProperty,
-    val position: CursorPosition,
+    override val source: RowReadProperty,
+    val position: ColumnPosition,
     val read: CodeBlock,
     val isSqlNullable: Boolean,
     val nullMessage: String
-  ) : CursorReadNode, PropertyMetadata by source
+  ) : RowReadNode, PropertyMetadata by source
 
   data class Related(
-    override val source: CursorReadProperty,
+    override val source: RowReadProperty,
     val read: CodeBlock?
-  ) : CursorReadNode, PropertyMetadata by source
+  ) : RowReadNode, PropertyMetadata by source
 }
 
-internal fun CursorReadTree.descendantPositions(): List<CursorPosition> = nodes.flatMap { node ->
+internal fun RowReadTree.descendantPositions(): List<ColumnPosition> = nodes.flatMap { node ->
   when (node) {
-    is CursorReadNode.Scalar -> listOf(node.position)
-    is CursorReadNode.Embedded -> node.tree.descendantPositions()
-    is CursorReadNode.PersistedRelationship -> listOf(node.position)
-    is CursorReadNode.Related -> emptyList()
+    is Scalar -> listOf(node.position)
+    is Embedded -> node.tree.descendantPositions()
+    is PersistedRelationship -> listOf(node.position)
+    is Related -> emptyList()
   }
 }
 
-internal fun <K> cursorPositionReader(
+internal fun <K> startIndexReader(
   returnType: TypeName,
   readsRelated: Boolean,
   columns: List<K>,
-  tree: (Map<K, CursorPosition>) -> CursorReadTree
+  tree: (Map<K, ColumnPosition>) -> RowReadTree
 ): FunSpec {
-  val positions = CursorPositions()
+  val positions = ColumnPositions()
   val columnPositions = columns
     .withIndex()
     .associate { (index, column) ->
@@ -105,8 +109,8 @@ internal fun <K> cursorPositionReader(
       )
     }
   return FunSpec
-    .builder(METHOD_OBJECT_FROM_CURSOR_POSITION)
-    .addParameter(name = "cursor", type = CURSOR)
+    .builder(METHOD_OBJECT_FROM_ROW)
+    .addParameter(name = "statement", type = SQLITE_STATEMENT)
     .addParameter(name = "startIndex", type = INT)
     .readingRelated(readsRelated)
     .returns(returnType)
@@ -119,9 +123,9 @@ internal fun <K> selectedPositionsReader(
   readsRelated: Boolean,
   columns: List<K>,
   mayBeMissing: (K) -> Boolean,
-  tree: (Map<K, CursorPosition>) -> CursorReadTree
+  tree: (Map<K, ColumnPosition>) -> RowReadTree
 ): FunSpec {
-  val positions = CursorPositions()
+  val positions = ColumnPositions()
   val columnPositions = columns
     .withIndex()
     .associate { (index, column) ->
@@ -133,7 +137,7 @@ internal fun <K> selectedPositionsReader(
     }
   return FunSpec
     .builder(METHOD_OBJECT_FROM_SELECTED_POSITIONS)
-    .addParameter(name = "cursor", type = CURSOR)
+    .addParameter(name = "statement", type = SQLITE_STATEMENT)
     .addParameter(name = "positions", type = INT_ARRAY)
     .readingRelated(readsRelated)
     .returns(returnType)
@@ -147,8 +151,8 @@ private fun FunSpec.Builder.readingRelated(readsRelated: Boolean) = apply {
 }
 
 private fun FunSpec.Builder.returnRead(
-  positions: CursorPositions,
-  tree: () -> CursorReadTree
+  positions: ColumnPositions,
+  tree: () -> RowReadTree
 ): FunSpec {
   val result = positions.generate { construct(tree()) }
   positions.addDeclarations(this)
@@ -157,7 +161,7 @@ private fun FunSpec.Builder.returnRead(
     .build()
 }
 
-private fun construct(tree: CursorReadTree): CodeBlock = when (tree.construction.strategy) {
+private fun construct(tree: RowReadTree) = when (tree.construction.strategy) {
   PRIMARY_CONSTRUCTOR -> {
     // Reverse iteration keeps the first node when duplicate paths overwrite an index entry.
     val nodesByPath = tree.nodes
@@ -179,32 +183,32 @@ private fun construct(tree: CursorReadTree): CodeBlock = when (tree.construction
   }
 }
 
-private fun mutableAssignment(node: CursorReadNode): CodeBlock? = when (node) {
-  is CursorReadNode.Scalar -> guardedAssignment(
+private fun mutableAssignment(node: RowReadNode) = when (node) {
+  is Scalar -> guardedAssignment(
     node = node,
     guard = when {
-      node.isNullable -> node.position.nullCheck()
+      node.isNullable && !node.decodesSqlNull -> node.position.nullCheck()
       // A required mutable value whose column a partial read did not select keeps its initializer.
       node.position.mayBeMissing -> node.position.missingCheck()
       else -> null
     }
   )
-  is CursorReadNode.Embedded -> guardedAssignment(
+  is Embedded -> guardedAssignment(
     node = node,
     guard = when {
       node.isNullable -> absent(node.positions)
-      node.positions.allMayBeMissing() -> CursorCheck.all(node.positions.map(CursorPosition::missingCheck))
+      node.positions.allMayBeMissing() -> ColumnCheck.all(node.positions.map(ColumnPosition::missingCheck))
       else -> null
     }
   )
-  is CursorReadNode.PersistedRelationship -> guardedAssignment(
+  is PersistedRelationship -> guardedAssignment(
     node = node,
     guard = when {
       node.isNullable -> node.position.nullCheck()
       else -> null
     }
   )
-  is CursorReadNode.Related -> node.read?.let { read ->
+  is Related -> node.read?.let { read ->
     when {
       node.isNullable -> CodeBlock.of("(%L)?.let { this.%N = it }", read, node.access.path.propertyName)
       else -> CodeBlock.of("this.%N = %L", node.access.path.propertyName, read)
@@ -213,8 +217,8 @@ private fun mutableAssignment(node: CursorReadNode): CodeBlock? = when (node) {
 }
 
 private fun guardedAssignment(
-  node: CursorReadNode,
-  guard: CursorCheck?
+  node: RowReadNode,
+  guard: ColumnCheck?
 ): CodeBlock {
   val assignment = CodeBlock.of(
     "this.%N = %L",
@@ -231,39 +235,46 @@ private fun guardedAssignment(
 }
 
 private fun value(
-  node: CursorReadNode,
+  node: RowReadNode,
   guarded: Boolean = false
-): CodeBlock = when (node) {
-  is CursorReadNode.Scalar -> scalarValue(
+) = when (node) {
+  is Scalar -> scalarValue(
     node = node,
     guarded = guarded
   )
-  is CursorReadNode.Embedded -> embeddedValue(
+  is Embedded -> embeddedValue(
     node = node,
     guarded = guarded
   )
-  is CursorReadNode.PersistedRelationship -> relationshipValue(
+  is PersistedRelationship -> relationshipValue(
     node = node,
     guarded = guarded
   )
-  is CursorReadNode.Related -> node.read ?: CodeBlock.of("null")
+  is Related -> node.read ?: CodeBlock.of("null")
 }
 
 private fun scalarValue(
-  node: CursorReadNode.Scalar,
+  node: Scalar,
   guarded: Boolean
 ): CodeBlock {
   val required = !node.isNullable && node.requiresPresentValue
-  val databaseValue = databaseCursorGetter(
+  val databaseValue = databaseValueGetter(
+    storageType = node.storageType,
+    index = node.position.code
+  )
+  val databaseValueOrNull = nullableDatabaseValueGetter(
     storageType = node.storageType,
     index = node.position.code
   )
   val input = when {
-    node.decoderInputNullable && node.isSqlNullable && !node.isNullable && !required -> CodeBlock.of(
-      "if (%L) null else %L",
-      node.position.presentNullCheck().condition,
-      databaseValue
-    )
+    node.decodesSqlNull && !required -> when {
+      databaseValueOrNull != null && !node.position.mayBeMissing -> databaseValueOrNull
+      else -> CodeBlock.of(
+        "if (%L) null else %L",
+        node.position.presentNullCheck().condition,
+        databaseValue
+      )
+    }
     else -> databaseValue
   }
   val transformedValue = node.transformer?.deserializedValueGetter(input) ?: databaseValue
@@ -276,6 +287,25 @@ private fun scalarValue(
     else -> transformedValue
   }
   return when {
+    node.isNullable && node.decodesSqlNull -> when {
+      node.position.mayBeMissing && !guarded -> CodeBlock.of(
+        "if (%L) null else %L",
+        node.position.missingCheck().condition,
+        value
+      )
+      else -> value
+    }
+    node.isNullable && !guarded && databaseValueOrNull != null -> {
+      val valueOrNull = node.transformer?.nullableDeserializedValueGetter(databaseValueOrNull) ?: databaseValueOrNull
+      when {
+        node.position.mayBeMissing -> CodeBlock.of(
+          "if (%L) null else %L",
+          node.position.missingCheck().condition,
+          valueOrNull
+        )
+        else -> valueOrNull
+      }
+    }
     node.isNullable && !guarded -> CodeBlock.of(
       "if (%L) null else %L",
       node.position.nullCheck().condition,
@@ -293,7 +323,7 @@ private fun scalarValue(
 }
 
 private fun embeddedValue(
-  node: CursorReadNode.Embedded,
+  node: Embedded,
   guarded: Boolean
 ): CodeBlock {
   val construction = construct(node.tree)
@@ -304,9 +334,9 @@ private fun embeddedValue(
 }
 
 private fun relationshipValue(
-  node: CursorReadNode.PersistedRelationship,
+  node: PersistedRelationship,
   guarded: Boolean
-): CodeBlock = when {
+) = when {
   !node.isNullable && node.isSqlNullable -> CodeBlock.of(
     "if (%L) throw %T(%S) else %L",
     node.position.presentNullCheck().condition,
@@ -318,26 +348,26 @@ private fun relationshipValue(
   else -> CodeBlock.of("if (%L) null else %L", node.position.nullCheck().condition, node.read)
 }
 
-private fun absent(positions: List<CursorPosition>): CursorCheck {
-  val nullCheck = CursorCheck.all(positions.map(CursorPosition::presentNullCheck))
+private fun absent(positions: List<ColumnPosition>): ColumnCheck {
+  val nullCheck = ColumnCheck.all(positions.map(ColumnPosition::presentNullCheck))
   return when {
-    positions.allMayBeMissing() -> CursorCheck.either(
-      first = CursorCheck.all(positions.map(CursorPosition::missingCheck)),
+    positions.allMayBeMissing() -> ColumnCheck.either(
+      first = ColumnCheck.all(positions.map(ColumnPosition::missingCheck)),
       second = nullCheck
     )
     else -> nullCheck
   }
 }
 
-private fun List<CursorPosition>.allMayBeMissing() = isNotEmpty() && all(CursorPosition::mayBeMissing)
+private fun List<ColumnPosition>.allMayBeMissing() = isNotEmpty() && all(ColumnPosition::mayBeMissing)
 
 private fun requiredValue(
-  position: CursorPosition,
+  position: ColumnPosition,
   value: CodeBlock,
   missingMessage: String,
   nullMessage: String,
   presenceChecked: Boolean
-): CodeBlock = when {
+) = when {
   position.mayBeMissing && !presenceChecked -> buildCodeBlock {
     beginControlFlow("if (%L)", position.missingCheck().condition)
     add("throw %T(%S)\n", SQL_EXCEPTION, missingMessage)

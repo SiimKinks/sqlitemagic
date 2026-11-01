@@ -73,7 +73,7 @@ sealed class ScatterSet<E> {
   override fun hashCode(): Int {
     var hash = 0
 
-    forEach { element -> hash += element.hashCode() }
+    forEach { hash += it.hashCode() }
 
     return hash
   }
@@ -296,15 +296,13 @@ open class MutableScatterSet<E>(initialCapacity: Int = DefaultScatterCapacity) :
     }
 
     var index = findFirstAvailableSlot(hash1)
-    if (growthLimit == 0 && !isDeleted(metadata, index)
-    ) {
+    if (growthLimit == 0 && !isDeleted(metadata, index)) {
       adjustStorage()
       index = findFirstAvailableSlot(hash1)
     }
 
     _size += 1
-    growthLimit -= if (isEmpty(metadata, index)
-    ) 1 else 0
+    growthLimit -= if (isEmpty(metadata, index)) 1 else 0
     writeMetadata(metadata, _capacity, index, hash2.toLong())
 
     return index
@@ -438,9 +436,8 @@ open class MutableScatterSet<E>(initialCapacity: Int = DefaultScatterCapacity) :
     val newElements = elements
     val capacity = _capacity
 
-    for (i in 0 until previousCapacity) {
-      if (isFull(previousMetadata, i)
-      ) {
+    for (i in 0..<previousCapacity) {
+      if (isFull(previousMetadata, i)) {
         val previousElement = previousElements[i]
         val hash = hash(previousElement)
         val index = findFirstAvailableSlot(h1(hash))
@@ -453,37 +450,29 @@ open class MutableScatterSet<E>(initialCapacity: Int = DefaultScatterCapacity) :
 }
 
 private class SetWrapper<E>(private val parent: ScatterSet<E>) : Set<E> {
-  override val size: Int
-    get() = parent._size
+  override val size get() = parent._size
 
-  override fun containsAll(elements: Collection<E>): Boolean {
-    elements.forEach { element ->
-      if (!parent.contains(element)) {
-        return false
-      }
-    }
-    return true
-  }
+  override fun containsAll(elements: Collection<E>) = elements.all(parent::contains)
 
   @Suppress("KotlinOperator")
-  override fun contains(element: E): Boolean = parent.contains(element)
+  override fun contains(element: E) = parent.contains(element)
 
-  override fun isEmpty(): Boolean = parent.isEmpty()
+  override fun isEmpty() = parent.isEmpty()
 
   override fun iterator(): Iterator<E> = iterator {
-    parent.forEach { element -> yield(element) }
+    parent.forEach { yield(it) }
   }
 
-  override fun equals(other: Any?): Boolean {
-    if (this === other) return true
-    if (other == null || this::class != other::class) return false
-
-    other as SetWrapper<*>
-
-    return parent == other.parent
+  override fun equals(other: Any?) = when {
+    this === other -> true
+    other !is Set<*> || other.size != size -> false
+    else -> other.all(::containsElement)
   }
 
-  override fun hashCode(): Int = parent.hashCode()
+  override fun hashCode() = parent.hashCode()
 
-  override fun toString(): String = parent.toString()
+  @Suppress("UNCHECKED_CAST")
+  private fun containsElement(element: Any?) = parent.contains(element as E)
+
+  override fun toString() = parent.toString()
 }

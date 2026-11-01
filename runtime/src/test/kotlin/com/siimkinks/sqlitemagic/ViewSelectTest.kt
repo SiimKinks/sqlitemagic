@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
@@ -30,9 +30,12 @@ private class SeriesEndingTable(alias: String? = null) : Table<SeriesEnding>(
   alias = alias,
   generatedView = SERIES_ENDING_VIEW
 ) {
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = SeriesEnding(
-    name = cursor.getString(startIndex),
-    lastBook = checkNotNull(related).readOrNull(cursor, 0) as Book?
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = SeriesEnding(
+    name = statement.getText(startIndex),
+    lastBook = checkNotNull(related).readOrNull(
+      statement = statement,
+      relationship = 0
+    ) as Book?
   )
 
   override infix fun AS(alias: String) = SeriesEndingTable(alias)
@@ -58,8 +61,11 @@ private class SummaryCardTable(alias: String? = null) : Table<SummaryCard>(
   alias = alias,
   generatedView = SUMMARY_CARD_VIEW
 ) {
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = SummaryCard(
-    summary = checkNotNull(related).read(cursor, 0) as AuthorSummary
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = SummaryCard(
+    summary = checkNotNull(related).read(
+      statement = statement,
+      relationship = 0
+    ) as AuthorSummary
   )
 
   override infix fun AS(alias: String) = SummaryCardTable(alias)
@@ -88,19 +94,22 @@ private class BookCardTable(
   alias = alias,
   generatedView = view
 ) {
-  val TITLE = Column<BookCard, String, SqlNullable, String, String, Required, String>(
+  val TITLE = Column(
     table = this,
     name = "book.title",
     nullness = SqlNullable,
     parameterEncoding = STRING.parameterEncoding(),
-    selectedRead = Cursor::getString
+    selectedRead = SQLiteStatement::getText
   )
 
   override val entityFields = listOf(TITLE)
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = BookCard(
-    title = cursor.getString(startIndex),
-    book = checkNotNull(related).read(cursor, 0) as Book
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = BookCard(
+    title = statement.getText(startIndex),
+    book = checkNotNull(related).read(
+      statement = statement,
+      relationship = 0
+    ) as Book
   )
 
   override infix fun AS(alias: String) = BookCardTable(
@@ -123,10 +132,10 @@ private fun bookCardView(viewName: String, query: SelectQuery<*, *>) = Generated
 )
 
 internal class ViewSelectTest {
-  private fun BundledSqliteDatabase.viewNames() = SELECT
+  private fun TestDatabase.viewNames() = SELECT
     .RAW("SELECT name FROM sqlite_master WHERE type = 'view'")
     .readAs(STRING)
-    .usingConnection(dbConnection())
+    .usingConnection(connection)
     .execute()
 
   private fun bookCards(shallow: Boolean) = books(shallow = shallow).map { book ->
@@ -152,8 +161,12 @@ internal class ViewSelectTest {
     assertThat(summaries.observedTables()).isEqualTo(listOf("author"))
     libraryDatabase().use { database ->
       database.createViews(AUTHOR_SUMMARY_VIEW)
-      val connection = database.dbConnection()
-      assertThat(summaries.usingConnection(connection).execute()).isEqualTo(
+      val connection = database.connection
+      assertThat(
+        summaries
+          .usingConnection(connection)
+          .execute()
+      ).isEqualTo(
         listOf(
           AuthorSummary(
             id = 1L,
@@ -208,9 +221,49 @@ internal class ViewSelectTest {
     )
     libraryDatabase().use { database ->
       database.createViews(shallowView, deepView)
-      val connection = database.dbConnection()
-      assertThat(shallow.usingConnection(connection).execute()).isEqualTo(bookCards(shallow = true))
-      assertThat(deep.usingConnection(connection).execute()).isEqualTo(bookCards(shallow = false))
+      val connection = database.connection
+      assertThat(
+        shallow
+          .usingConnection(connection)
+          .execute()
+      ).isEqualTo(bookCards(shallow = true))
+      assertThat(
+        deep
+          .usingConnection(connection)
+          .execute()
+      ).isEqualTo(bookCards(shallow = false))
+    }
+  }
+
+  @Test
+  fun `table blocks whose related row is missing fall back to the stored ID or fail`() {
+    val shallowView = bookCardView(
+      viewName = "book_card",
+      query = SELECT FROM BOOK
+    )
+    val deepView = bookCardView(
+      viewName = "deep_book_card",
+      query = (SELECT FROM BOOK).queryDeep()
+    )
+    libraryDatabase().use { database ->
+      database.createViews(shallowView, deepView)
+      database.execSQL("DELETE FROM publisher WHERE id = 1")
+      assertThat(
+        (SELECT FROM BookCardTable(deepView))
+          .rows(database)
+          .first()
+      )
+        .isEqualTo(
+          BookCard(
+            title = "Dune",
+            book = books(shallow = false)
+              .first()
+              .run { copy(author = author.copy(publisher = Publisher(id = 1L))) }
+          )
+        )
+      database.execSQL("DELETE FROM author WHERE id = 1")
+      assertThat(sqlExceptionMessage { (SELECT FROM BookCardTable(shallowView)).rows(database) })
+        .isEqualTo("""Required relationship "author" referenced a missing row""")
     }
   }
 
@@ -247,7 +300,7 @@ internal class ViewSelectTest {
     )
     libraryDatabase().use { database ->
       database.createViews(view)
-      val connection = database.dbConnection()
+      val connection = database.connection
       assertThat(
         listOf(
           (SELECT FROM BookCardTable(view))
@@ -279,9 +332,11 @@ internal class ViewSelectTest {
       val error = assertThrows(IllegalArgumentException::class.java) {
         database.createViews(AUTHOR_SUMMARY_VIEW, view)
       }
-      assertThat(error).hasMessageThat().isEqualTo(
-        "Cannot create view 'book_card': book.author needs the columns of the author its definition joins through it"
-      )
+      assertThat(error)
+        .hasMessageThat()
+        .isEqualTo(
+          "Cannot create view 'book_card': book.author needs the columns of the author its definition joins through it"
+        )
       assertThat(database.viewNames()).isEmpty()
     }
   }
@@ -290,11 +345,7 @@ internal class ViewSelectTest {
   fun `a nullable block reads null when all its columns are NULL`() {
     libraryDatabase().use { database ->
       database.createViews(SERIES_ENDING_VIEW)
-      assertThat(
-        (SELECT FROM SERIES_ENDING)
-          .usingConnection(database.dbConnection())
-          .execute()
-      ).isEqualTo(
+      assertThat((SELECT FROM SERIES_ENDING).rows(database)).isEqualTo(
         listOf(
           SeriesEnding(
             name = "Classics",
@@ -352,14 +403,18 @@ internal class ViewSelectTest {
     ).isEqualTo(rejected.map(Pair<*, String>::second))
     libraryDatabase().use { database ->
       database.createViews(AUTHOR_SUMMARY_VIEW)
-      val connection = database.dbConnection()
+      val connection = database.connection
       assertThat(
         rows
           .usingConnection(connection)
           .execute()
           .map { row -> row[BOOK.TITLE] to row[AUTHOR_SUMMARY.NAME] }
       ).isEqualTo(listOf("Dune" to "Ada", "Emma" to "Grace"))
-      assertThat(summaries.usingConnection(connection).execute()).isEqualTo(
+      assertThat(
+        summaries
+          .usingConnection(connection)
+          .execute()
+      ).isEqualTo(
         listOf(
           AuthorSummary(
             id = 1L,
@@ -389,7 +444,7 @@ internal class ViewSelectTest {
     assertThat(cards.observedTables()).isEqualTo(listOf("author"))
     libraryDatabase().use { database ->
       database.createViews(SUMMARY_CARD_VIEW, AUTHOR_SUMMARY_VIEW)
-      assertThat(cards.usingConnection(database.dbConnection()).execute()).isEqualTo(
+      assertThat(cards.rows(database)).isEqualTo(
         listOf(
           SummaryCard(
             AuthorSummary(
@@ -422,7 +477,7 @@ internal class ViewSelectTest {
       val connectionView = GeneratedView(
         viewName = "connected_author",
         temporary = false,
-        query = { (SELECT COLUMN AUTHOR.ID FROM AUTHOR).usingConnection(database.dbConnection()) },
+        query = { (SELECT COLUMN AUTHOR.ID FROM AUTHOR).usingConnection(database.connection) },
         columns = listOf("author.id")
       )
       val errors = listOf(parameterView, connectionView).map { view ->
@@ -464,7 +519,7 @@ internal class ViewSelectTest {
         SELECT
           .RAW("""SELECT "book.title", next_id FROM next_book ORDER BY next_id""")
           .readAs(STRING, LONG)
-          .usingConnection(database.dbConnection())
+          .usingConnection(database.connection)
           .execute()
       ).isEqualTo(listOf(Row2("Dune", 2L), Row2("Emma", 3L), Row2("Kernel", 4L)))
     }

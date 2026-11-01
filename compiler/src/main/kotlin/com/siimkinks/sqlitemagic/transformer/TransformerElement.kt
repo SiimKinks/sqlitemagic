@@ -37,6 +37,12 @@ internal data class TransformerElement(
   fun deserializedValueGetter(valueGetter: CodeBlock) =
     dbValueToObjectMethod.callWithArgument(valueGetter)
 
+  fun nullableDeserializedValueGetter(valueOrNull: CodeBlock) = CodeBlock.of(
+    "%L?.let { stored -> %L }",
+    valueOrNull,
+    deserializedValueGetter(CodeBlock.of("stored"))
+  )
+
   fun requiredDeserializedValue(
     value: CodeBlock,
     propertyName: String

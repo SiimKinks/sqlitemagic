@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.coroutines
 
 import android.util.Log
 import androidx.sqlite.SQLiteException
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.AUTHOR
@@ -15,7 +14,6 @@ import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.closedConnection
 import com.siimkinks.sqlitemagic.expr
 import com.siimkinks.sqlitemagic.libraryDatabase
-import com.siimkinks.sqlitemagic.testDbConnection
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -31,7 +29,6 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mockStatic
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verifyNoInteractions
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicInteger
@@ -41,8 +38,8 @@ internal class QueryFlowsTest {
   @Test
   fun `collecting emits the rows and again after each write to a queried table but not to other tables`() =
     runBlocking {
-      libraryDatabase().use { database ->
-        val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+      libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
+        val connection = database.connection
         val names = collectUnconfined(
           authorNames(connection)
             .observe()
@@ -74,7 +71,7 @@ internal class QueryFlowsTest {
 
   @Test
   fun `cancelling the collection stops the emissions`() = runBlocking {
-    val connection = mockConnection()
+    val connection = testConnection()
     val queries = collectUnconfined(
       authorNames(connection)
         .observe()
@@ -90,22 +87,27 @@ internal class QueryFlowsTest {
   @Test
   fun `observing does no database work until collected and every collection runs the query again`() =
     runBlocking {
-      val database = mock<SupportSQLiteDatabase>()
+      val queries = AtomicInteger()
       @Suppress("UnusedFlow")
-      authorNames(testDbConnection(database))
+      authorNames(
+        queryingConnection(answers = ::readsAuthor) {
+          queries.incrementAndGet()
+          mock()
+        }
+      )
         .observe()
         .runQuery()
-      verifyNoInteractions(database)
+      val queriesBeforeCollection = queries.get()
 
-      libraryDatabase().use { library ->
-        val names = authorNames(library.dbConnection(adapterSettings = dispatcherSettings()))
+      libraryDatabase(adapterSettings = dispatcherSettings()).use { library ->
+        val names = authorNames(library.connection)
           .observe()
           .runQuery()
         val first = names.first()
         library.execSQL("UPDATE author SET name = 'Lovelace' WHERE id = 1")
 
-        assertThat(listOf(first, names.first())).isEqualTo(
-          listOf(
+        assertThat(queriesBeforeCollection to listOf(first, names.first())).isEqualTo(
+          0 to listOf(
             listOf("Ada", "Grace", "Linus"),
             listOf("Lovelace", "Grace", "Linus")
           )
@@ -115,10 +117,10 @@ internal class QueryFlowsTest {
 
   @Test
   fun `a query that reads no table emits once and completes`() = runBlocking<Unit> {
-    libraryDatabase().use { database ->
+    libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
       val values = SELECT
         .COLUMN(8L.asValue())
-        .usingConnection(database.dbConnection(adapterSettings = dispatcherSettings()))
+        .usingConnection(database.connection)
         .observe()
         .runQuery()
         .toList()
@@ -130,13 +132,14 @@ internal class QueryFlowsTest {
   @Test
   fun `writes in a transaction emit once after the outermost commit and never after a rollback`() =
     runBlocking {
-      libraryDatabase().use { database ->
-        val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+      libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
+        val connection = database.connection
         val names = collectUnconfined(
           authorNames(connection)
             .observe()
             .runQuery()
         )
+
         fun rename(id: Long, name: String) = UPDATE
           .RAW("UPDATE author SET name = ? WHERE id = ?", name, id)
           .notifies(AUTHOR)
@@ -144,16 +147,25 @@ internal class QueryFlowsTest {
           .execute()
 
         val outer = connection.newTransaction()
-        rename(id = 1L, name = "Lovelace")
+        rename(
+          id = 1L,
+          name = "Lovelace"
+        )
         val inner = connection.newTransaction()
-        rename(id = 2L, name = "Hopper")
+        rename(
+          id = 2L,
+          name = "Hopper"
+        )
         inner.markSuccessful()
         inner.end()
         val emittedInsideTransaction = names.signals.values.size
         outer.markSuccessful()
         outer.end()
         val rolledBack = connection.newTransaction()
-        rename(id = 3L, name = "Torvalds")
+        rename(
+          id = 3L,
+          name = "Torvalds"
+        )
         rolledBack.end()
         names.cancel()
 
@@ -170,8 +182,8 @@ internal class QueryFlowsTest {
 
   @Test
   fun `collecting on a thread with an active transaction fails with the transaction guard`() {
-    libraryDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+    libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
+      val connection = database.connection
       val transaction = connection.newTransaction()
       val failure = try {
         assertThrows(IllegalStateException::class.java) {
@@ -191,16 +203,17 @@ internal class QueryFlowsTest {
 
   @Test
   fun `a failing query fails the collection`() {
-    libraryDatabase().use { database ->
+    libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
       val failure = assertThrows(SQLiteException::class.java) {
         runBlocking {
           SELECT
             .FROM(AUTHOR)
             .WHERE(
-              "EXISTS (SELECT 1 FROM missing)".expr(BOOLEAN)
+              "EXISTS (SELECT 1 FROM missing)"
+                .expr(BOOLEAN)
                 .observes(AUTHOR)
             )
-            .usingConnection(database.dbConnection(adapterSettings = dispatcherSettings()))
+            .usingConnection(database.connection)
             .observe()
             .runQuery()
             .first()
@@ -215,7 +228,7 @@ internal class QueryFlowsTest {
 
   @Test
   fun `closing the connection completes the collection without a pending emission`() = runBlocking {
-    val connection = mockConnection()
+    val connection = testConnection()
     val entered = CountDownLatch(1)
     val release = CompletableDeferred<Unit>()
     val emissions = AtomicInteger()
@@ -265,7 +278,7 @@ internal class QueryFlowsTest {
   @Test
   fun `changes during an emission collapse into one further emission that starts after the last change`() =
     runBlocking {
-      val connection = mockConnection()
+      val connection = testConnection()
       val version = AtomicInteger()
       val entered = CountDownLatch(1)
       val release = CompletableDeferred<Unit>()
@@ -297,7 +310,7 @@ internal class QueryFlowsTest {
 
   @Test
   fun `a write made during an emission emits again after that emission returns`() = runBlocking {
-    val connection = mockConnection()
+    val connection = testConnection()
     val events = mutableListOf<String>()
     var emissions = 0
 
@@ -330,10 +343,4 @@ internal class QueryFlowsTest {
 
     assertThat(failure.message).isEqualTo("Missing parameter 'x'")
   }
-
-  private fun authorNames(connection: DbConnectionImpl) = SELECT
-    .COLUMN(AUTHOR.NAME)
-    .FROM(AUTHOR)
-    .ORDER_BY(AUTHOR.ID.ASC())
-    .usingConnection(connection)
 }

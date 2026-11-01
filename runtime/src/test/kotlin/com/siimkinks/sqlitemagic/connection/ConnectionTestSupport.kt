@@ -7,21 +7,26 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.lang.Thread.State.TIMED_WAITING
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import kotlin.concurrent.thread
 import kotlin.time.Duration
 
 internal class TrackingDriver(
   private val delegate: SQLiteDriver = BundledSQLiteDriver(),
   override val hasConnectionPool: Boolean = false
 ) : SQLiteDriver {
-  val connections: MutableList<TrackingConnection> = Collections.synchronizedList(mutableListOf())
+  val connections: List<TrackingConnection>
+    field = Collections.synchronizedList(mutableListOf())
 
   override fun open(fileName: String) = TrackingConnection(delegate.open(fileName)).also(connections::add)
 }
 
 internal class TrackingConnection(private val delegate: SQLiteConnection) : SQLiteConnection by delegate {
   val prepared = mutableListOf<String>()
-  val statements = mutableListOf<TrackingStatement>()
+  val statements: List<TrackingStatement>
+    field = mutableListOf()
   var closed = false
     private set
 
@@ -50,9 +55,10 @@ internal class RecordingSchema(
   override val version: Int = 1,
   private val onUpgrade: (SQLiteConnection) -> Unit = {}
 ) : SchemaCallback {
-  val events: MutableList<String> = Collections.synchronizedList(mutableListOf())
+  val events: List<String>
+    field = Collections.synchronizedList(mutableListOf())
 
-  override fun configure(connection: SQLiteConnection) {
+  override fun applySchemaPragmas(connection: SQLiteConnection) {
     events += "configure"
   }
 
@@ -116,4 +122,36 @@ internal fun SQLiteConnection.text(sql: String) = prepare(sql).use { statement -
 
 internal fun ConnectionPool.balance(id: Long = 1L) = read(requiresWriter = false) { pooled ->
   pooled.connection.long("SELECT balance FROM account WHERE id = $id")
+}
+
+internal fun ConnectionPool.setBalance(id: Long, balance: Long) = write { pooled ->
+  pooled.connection.execSQL("UPDATE account SET balance = $balance WHERE id = $id")
+}
+
+internal fun Thread.awaitTimedWaiting() {
+  while (state != TIMED_WAITING) {
+    Thread.yield()
+  }
+}
+
+internal fun <T> whileHeldBy(
+  name: String,
+  hold: (release: () -> Unit) -> Unit,
+  attempt: () -> T
+): T {
+  val holding = CountDownLatch(1)
+  val released = CountDownLatch(1)
+  val holder = thread(name = name) {
+    hold {
+      holding.countDown()
+      released.await()
+    }
+  }
+  holding.await()
+  return try {
+    attempt()
+  } finally {
+    released.countDown()
+    holder.join()
+  }
 }

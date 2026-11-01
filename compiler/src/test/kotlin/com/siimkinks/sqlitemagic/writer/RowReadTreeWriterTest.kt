@@ -7,16 +7,17 @@ import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERT
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
 import com.siimkinks.sqlitemagic.model.PropertyAccess
 import com.siimkinks.sqlitemagic.model.PropertyPath
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Related
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.STRING
 import org.junit.jupiter.api.Test
 
-internal class CursorReadTreeWriterTest {
+internal class RowReadTreeWriterTest {
   private data class Case(
     val label: String,
     val construction: ModelConstruction,
-    val nodes: List<CursorReadNode>,
+    val nodes: List<RowReadNode>,
     val expectedBody: String
   )
 
@@ -24,8 +25,8 @@ internal class CursorReadTreeWriterTest {
     path: PropertyPath,
     read: String?,
     isNullable: Boolean = false
-  ) = CursorReadNode.Related(
-    source = CursorReadProperty(
+  ) = Related(
+    source = RowReadProperty(
       access = PropertyAccess(
         path = path,
         isMutable = true
@@ -176,12 +177,12 @@ internal class CursorReadTreeWriterTest {
 
     val modelType = ClassName("", "Model")
     for ((label, construction, nodes, expectedBody) in cases) {
-      val reader = cursorPositionReader(
+      val reader = startIndexReader(
         returnType = modelType,
         readsRelated = false,
         columns = emptyList<Unit>(),
         tree = {
-          CursorReadTree(
+          RowReadTree(
             type = modelType,
             construction = construction,
             nodes = nodes

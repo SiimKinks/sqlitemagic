@@ -39,8 +39,8 @@ internal object CompiledSchemaExporter {
         .newInstance() as GeneratedDatabase
       require(!generated.isDebug) { "Schema export must use a selected release database, not a debug database" }
       val recorder = SchemaRecordingDatabase()
-      generated.configureDatabase(recorder.database)
-      generated.createSchema(recorder.database)
+      generated.applySchemaPragmas(recorder)
+      generated.createSchema(recorder)
       check(ExportRuntimeState.defaultConnection == null) { "Schema query initialization opened a database connection" }
       return recorder.snapshot(
         databaseId = databaseId,

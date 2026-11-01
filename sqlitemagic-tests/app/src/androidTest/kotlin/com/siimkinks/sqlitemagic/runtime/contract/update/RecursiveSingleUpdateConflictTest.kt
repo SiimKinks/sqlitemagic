@@ -1,21 +1,23 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
-import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog.recursiveUpdateConflictCases
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget.CHILD
+import com.siimkinks.sqlitemagic.runtime.model.RecursiveConflictTarget.PARENT
 import com.siimkinks.sqlitemagic.runtime.model.RecursiveUpdateConflictModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
+import com.siimkinks.sqlitemagic.runtime.support.isConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.rxjava2.observe
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,23 +32,23 @@ internal class RecursiveSingleUpdateConflictTest(
   val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun executeWithParentConflictAndDefaultAlgorithmThrowsSQLiteConstraintException() = assertConflict(
+  fun executeWithParentConflictAndDefaultAlgorithmThrowsConstraintFailure() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.PARENT,
+    conflict = PARENT,
     terminal = EXECUTE
   )
 
   @Test
-  fun observeWithParentConflictAndDefaultAlgorithmEmitsSQLiteConstraintException() = assertConflict(
+  fun observeWithParentConflictAndDefaultAlgorithmEmitsConstraintFailure() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.PARENT,
+    conflict = PARENT,
     terminal = OBSERVE
   )
 
   @Test
   fun executeWithParentConflictIgnoreReturnsFalse() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.PARENT,
+    conflict = PARENT,
     terminal = EXECUTE,
     conflictAlgorithm = CONFLICT_IGNORE
   )
@@ -54,29 +56,29 @@ internal class RecursiveSingleUpdateConflictTest(
   @Test
   fun observeWithParentConflictIgnoreCompletes() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.PARENT,
+    conflict = PARENT,
     terminal = OBSERVE,
     conflictAlgorithm = CONFLICT_IGNORE
   )
 
   @Test
-  fun executeWithChildConflictAndDefaultAlgorithmThrowsSQLiteConstraintException() = assertConflict(
+  fun executeWithChildConflictAndDefaultAlgorithmThrowsConstraintFailure() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.CHILD,
+    conflict = CHILD,
     terminal = EXECUTE
   )
 
   @Test
-  fun observeWithChildConflictAndDefaultAlgorithmEmitsSQLiteConstraintException() = assertConflict(
+  fun observeWithChildConflictAndDefaultAlgorithmEmitsConstraintFailure() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.CHILD,
+    conflict = CHILD,
     terminal = OBSERVE
   )
 
   @Test
   fun executeWithChildConflictIgnoreReturnsFalse() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.CHILD,
+    conflict = CHILD,
     terminal = EXECUTE,
     conflictAlgorithm = CONFLICT_IGNORE
   )
@@ -84,7 +86,7 @@ internal class RecursiveSingleUpdateConflictTest(
   @Test
   fun observeWithChildConflictIgnoreCompletes() = assertConflict(
     modelCase = modelCase,
-    conflict = RecursiveConflictTarget.CHILD,
+    conflict = CHILD,
     terminal = OBSERVE,
     conflictAlgorithm = CONFLICT_IGNORE
   )
@@ -112,12 +114,12 @@ internal class RecursiveSingleUpdateConflictTest(
     val expectedParents = captureRows(table = modelCase.table)
     val expectedRelated = captureRows(table = modelCase.relatedTable)
     val candidateValue = when (conflict) {
-      RecursiveConflictTarget.PARENT -> modelCase.valueWithParentConflict(
+      PARENT -> modelCase.valueWithParentConflict(
         existing = expectedParents[0],
         conflicting = expectedParents[1],
         sequence = 3
       )
-      RecursiveConflictTarget.CHILD -> modelCase.valueWithChildConflict(
+      CHILD -> modelCase.valueWithChildConflict(
         existing = expectedParents[0],
         conflicting = expectedParents[1],
         sequence = 3
@@ -129,14 +131,14 @@ internal class RecursiveSingleUpdateConflictTest(
       .withConflictAlgorithm(conflictAlgorithm)
     when (terminal) {
       EXECUTE -> when (conflictAlgorithm) {
-        null -> assertThrows(SQLiteConstraintException::class.java, builder::execute)
+        null -> assertConstraintFailure(builder::execute)
         else -> assertThat(builder.execute()).isFalse()
       }
       OBSERVE -> when (conflictAlgorithm) {
         null -> builder
           .observe()
           .test()
-          .assertFailure(SQLiteConstraintException::class.java)
+          .assertFailure(Throwable::isConstraintFailure)
         else -> builder
           .observe()
           .test()
@@ -157,6 +159,6 @@ internal class RecursiveSingleUpdateConflictTest(
   companion object {
     @JvmStatic
     @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.recursiveUpdateConflictCases
+    fun modelCases() = recursiveUpdateConflictCases
   }
 }

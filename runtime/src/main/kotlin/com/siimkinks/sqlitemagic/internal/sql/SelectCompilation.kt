@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
 import com.siimkinks.sqlitemagic.CompiledCount
-import com.siimkinks.sqlitemagic.CompiledCursor
 import com.siimkinks.sqlitemagic.CompiledFirst
 import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.ExecutionReader
@@ -12,8 +11,6 @@ internal fun <T> compileFirst(node: SelectNode<T, *>) = when (node.limit) {
   null -> node.copy(limit = 1L)
   else -> node
 }.compile(::CompiledFirst)
-
-internal fun <T> compileCursor(node: SelectNode<T, *>) = node.compile(::CompiledCursor)
 
 internal fun compileCount(node: SelectNode<*, *>) = CompiledCount(
   prepareQuery(

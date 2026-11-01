@@ -16,7 +16,7 @@ internal class ModelGenerationContractTest {
   private val compiler = SqliteMagicCompiler(::modelProcessingSteps)
 
   @Test
-  fun `generates String ID cursor readers and internal entry points by default`() {
+  fun `generates String ID row readers and internal entry points by default`() {
     compiler
       .compile(libraryBookSource())
       .isOk()
@@ -28,12 +28,12 @@ internal class ModelGenerationContractTest {
       }
       .withGeneratedSource("SqliteMagic_LibraryBook_Dao.kt") {
         it.assertContains(
-          "fun objectFromCursorPosition(cursor: Cursor, startIndex: Int): LibraryBook",
-          "id = cursor.getString(startIndex)",
-          "title = cursor.getString(startIndex + 1)",
-          "subtitle = if (cursor.isNull(startIndex + 3)) null else cursor.getString(startIndex + 3)",
+          "fun objectFromRow(statement: SQLiteStatement, startIndex: Int): LibraryBook",
+          "id = statement.getText(startIndex)",
+          "title = statement.getText(startIndex + 1)",
+          "subtitle = statement.getTextOrNull(startIndex + 3)",
           "fun newInstanceWithOnlyId(id: String): LibraryBook",
-          "bindString"
+          "bindText"
         )
       }
   }
@@ -115,10 +115,9 @@ internal class ModelGenerationContractTest {
           "bindNotNullForInsert",
           "bindNotNullForUpdate",
           "generatedRelationshipIds: Map<String, Long>",
-          "statement.clearBindings()",
           "values.clear()",
           "MutableScatterMap<String, Any>",
-          "objectFromCursorPosition",
+          "objectFromRow",
           "LibraryBook("
         )
       }
@@ -200,8 +199,8 @@ internal class ModelGenerationContractTest {
       }
       .withGeneratedSource("SqliteMagic_NullableIdentityOwner_Dao.kt") {
         it.assertContains(
-          "newInstanceWithOnlyId(cursor.getLong(startIndex + 1))",
-          "optionalTarget = if (cursor.isNull(startIndex + 2)) null else"
+          "newInstanceWithOnlyId(statement.getLong(startIndex + 1))",
+          "optionalTarget = if (statement.isNull(startIndex + 2)) null else"
         )
       }
       .assertNoWarnings("SqliteMagic_NullableIdentityOwner_Dao.kt")
@@ -334,21 +333,23 @@ internal class ModelGenerationContractTest {
           ".toByteArray()",
           "byteArrayOf",
           "statement.bindDouble",
-          "statement.bindString",
+          "statement.bindText",
           "statement.bindNull",
-          "cursor.getBlob",
+          "statement.getBlob",
           "toTypedArray()",
-          "cursor.getFloat",
-          "enabled = checkNotNull(BooleanTransformer.dbValueToObject(cursor.getInt(startIndex + 10)))",
-          "uniqueEnabled = checkNotNull(BooleanTransformer.dbValueToObject",
-          "Transformer com.siimkinks.sqlitemagic.transformer.BooleanTransformer.dbValueToObject " +
-              "returned null for required property enabled",
-          "Transformer com.siimkinks.sqlitemagic.transformer.BooleanTransformer.dbValueToObject " +
-              "returned null for required property uniqueEnabled",
-          "nullableEnabled = if (cursor.isNull(startIndex + 11)) null else " +
-              "BooleanTransformer.dbValueToObject(cursor.getInt(startIndex + 11))"
+          "statement.getFloat",
+          "short = statement.getLong(startIndex + 7).toShort()",
+          "enabled = statement.getBoolean(startIndex + 10)",
+          "nullableEnabled = if (statement.isNull(startIndex + 11)) null else statement.getBoolean(startIndex + 11)",
+          "uniqueEnabled = statement.getBoolean(startIndex + 12)",
+          "statement.bindBoolean(11, entity.enabled)",
+          "statement.bindBoolean(12, value12)",
+          "statement.bindBoolean(13, entity.uniqueEnabled)",
+          "statement.bindBoolean(10, entity.enabled)",
+          "statement.bindBoolean(11, value11)",
+          "statement.bindBoolean(12, entity.uniqueEnabled)"
         )
-        generatedSource.assertDoesNotContain("nullableEnabled = checkNotNull")
+        generatedSource.assertDoesNotContain("BooleanTransformer.dbValueToObject")
       }
       .withGeneratedSource("StorageMatrixTable.kt") {
         it
@@ -356,12 +357,13 @@ internal class ModelGenerationContractTest {
             "val ENABLED: Column<StorageMatrix, Boolean, Required, Boolean, Boolean, Required, Boolean>",
             "val NULLABLE_ENABLED: Column<StorageMatrix, Boolean, SqlNullable, Boolean?, Boolean?, SqlNullable, " +
                 "Boolean?>",
-            "val UNIQUE_ENABLED: Column<StorageMatrix, Boolean, Required, Boolean, Boolean, Required, Boolean>",
+            "val UNIQUE_ENABLED: UniqueColumn<StorageMatrix, Boolean, Required, Boolean, Boolean, Required, Boolean>",
             "val TEXT: Column<StorageMatrix, String, Required, String, String, Required, String>",
             "val NULLABLE_TEXT: Column<StorageMatrix, String, SqlNullable, String?, String?, SqlNullable, String?>",
-            "selectedRead = { cursor, index -> cursor.getBlob(index).toTypedArray() }",
-            "selectedRead = { cursor, index -> cursor.getInt(index) != 0 }",
-            "selectedRead = { cursor, index -> (if (cursor.isNull(index)) null else cursor.getInt(index) != 0) }"
+            "selectedRead = { statement, index -> statement.getBlob(index).toTypedArray() }",
+            "selectedRead = { statement, index -> statement.getBoolean(index) }",
+            "selectedRead = { statement, index -> " +
+                "(if (statement.isNull(index)) null else statement.getBoolean(index)) }"
           )
           .assertContains(
             "parameterEncoding = SqlType.BOOLEAN.",

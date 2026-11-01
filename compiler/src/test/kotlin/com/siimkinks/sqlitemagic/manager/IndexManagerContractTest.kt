@@ -102,12 +102,12 @@ internal class IndexManagerContractTest {
           .unwrapped()
           .run {
             assertContainsInOrder(
-              "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+              "FeatureGeneratedClassesManager.createSchemaTables(connection = connection, temporary = temporary)",
               "SqliteMagic_MainParent_Adapter.TABLE_SCHEMA",
               "SqliteMagic_MainChild_Adapter.TABLE_SCHEMA"
             )
             assertContainsInOrder(
-              "FeatureGeneratedClassesManager.createSchemaTables(db = db, temporary = temporary)",
+              "FeatureGeneratedClassesManager.createSchemaTables(connection = connection, temporary = temporary)",
               "if (temporary)",
               "SqliteMagic_MainSession_Adapter.TABLE_SCHEMA",
               "else"
@@ -119,13 +119,13 @@ internal class IndexManagerContractTest {
           .unwrapped()
           .run {
             assertContainsInOrder(
-              "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
+              "FeatureGeneratedClassesManager.createSchemaIndexes(connection = connection, temporary = temporary)",
               """CREATE UNIQUE INDEX IF NOT EXISTS main.\"main_parent_name_index\" ON \"main_parents\" (\"name\")"""
             )
             substringAfter("else").assertContains("main_parent_name_index")
             substringBefore("else").assertDoesNotContain("main_parent_name_index")
             assertContainsInOrder(
-              "FeatureGeneratedClassesManager.createSchemaIndexes(db = db, temporary = temporary)",
+              "FeatureGeneratedClassesManager.createSchemaIndexes(connection = connection, temporary = temporary)",
               "if (temporary)",
               "CREATE INDEX IF NOT EXISTS",
               "main_session_name_index",

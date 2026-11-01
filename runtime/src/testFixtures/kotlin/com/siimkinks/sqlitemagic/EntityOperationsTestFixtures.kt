@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.LogLevel.DEBUG
+import com.siimkinks.sqlitemagic.LogLevel.ERROR
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
@@ -39,22 +41,21 @@ internal class TestAdapter(
     field = mutableListOf()
 
   override fun bindToInsertStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: TestEntity,
     generatedRelationshipIds: Map<String, Long>
   ) {
-    statement.clearBindings()
-    statement.bindString(
+    statement.bindText(
       index = 1,
       value = entity.id
     )
-    statement.bindString(
+    statement.bindText(
       index = 2,
       value = entity.key
     )
     when (val name = entity.name) {
       null -> statement.bindNull(3)
-      else -> statement.bindString(
+      else -> statement.bindText(
         index = 3,
         value = name
       )
@@ -62,16 +63,16 @@ internal class TestAdapter(
   }
 
   override fun bindToUpdateStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: TestEntity,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
-    statement.clearBindings()
-    statement.bindString(
+    statement.bindText(
       index = 1,
       value = entity.name ?: ""
     )
-    statement.bindString(
+    statement.bindText(
       index = 2,
       value = entity.identityValue(columnName)
     )
@@ -96,7 +97,8 @@ internal class TestAdapter(
   override fun bindNotNullForUpdate(
     entity: TestEntity,
     values: MutableScatterMap<String, Any>,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
     entity.name?.let {
@@ -153,14 +155,14 @@ internal class RecordingLogger : Logger {
 
   override fun logDebug(message: String) {
     events += LoggedMessage(
-      level = LogLevel.DEBUG,
+      level = DEBUG,
       message = message
     )
   }
 
   override fun logError(message: String, throwable: Throwable) {
     events += LoggedMessage(
-      level = LogLevel.ERROR,
+      level = ERROR,
       message = message,
       throwable = throwable
     )

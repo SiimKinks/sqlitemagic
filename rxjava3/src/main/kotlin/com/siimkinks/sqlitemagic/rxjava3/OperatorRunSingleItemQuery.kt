@@ -27,18 +27,8 @@ internal class OperatorRunSingleItemQuery<T>(
     override fun onNext(query: Query<T>) {
       if (done || isDisposed) return
       try {
-        val result = query.runBlocking()
-        if (isDisposed) {
-          if (result != null) {
-            ReactiveAdapterSupport.discardResult(
-              query = query,
-              result = result
-            )
-          }
-          return
-        }
-        val item = result ?: defaultValue
-        if (item != null) {
+        val item = ReactiveAdapterSupport.run(query) ?: defaultValue
+        if (item != null && !isDisposed) {
           downstream.onNext(item)
         }
       } catch (error: Throwable) {

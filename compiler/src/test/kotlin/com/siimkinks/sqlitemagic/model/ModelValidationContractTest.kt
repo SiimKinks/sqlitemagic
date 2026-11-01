@@ -118,18 +118,19 @@ internal class ModelValidationContractTest {
       .isOk()
       .assertGeneratedSources("SqliteMagic_ValidationTable_Dao.kt", "ValidationTableTable.kt")
 
-    assertThat(rounds.first()).isEqualTo(
-      when {
-        required -> RoundState(
-          collected = emptyList(),
-          deferred = listOf("ValidationTable")
-        )
-        else -> RoundState(
-          collected = listOf("ValidationTable"),
-          deferred = emptyList()
-        )
-      }
-    )
+    assertThat(rounds.first())
+      .isEqualTo(
+        when {
+          required -> RoundState(
+            collected = emptyList(),
+            deferred = listOf("ValidationTable")
+          )
+          else -> RoundState(
+            collected = listOf("ValidationTable"),
+            deferred = emptyList()
+          )
+        }
+      )
     assertThat(rounds.drop(1).flatMap(RoundState::deferred)).isEmpty()
     assertThat(rounds.flatMap(RoundState::collected).filter { it == "ValidationTable" })
       .containsExactly("ValidationTable")
@@ -261,8 +262,8 @@ internal class ModelValidationContractTest {
       }
       .withGeneratedSource("SqliteMagicDatabase.kt") {
         it.assertContains(
-          "db.execSQL(SqliteMagic_HelperTable_Adapter.TABLE_SCHEMA)",
-          "db.execSQL(SqliteMagic_ReadyTable_Adapter.TABLE_SCHEMA)",
+          "connection.execSQL(SqliteMagic_HelperTable_Adapter.TABLE_SCHEMA)",
+          "connection.execSQL(SqliteMagic_ReadyTable_Adapter.TABLE_SCHEMA)",
           "index_helper_table_value",
           "index_ready_table_value"
         )

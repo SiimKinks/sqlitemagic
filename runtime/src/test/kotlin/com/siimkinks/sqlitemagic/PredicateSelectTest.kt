@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class PredicateSelectTest(private val case: PredicateCase) {
@@ -18,21 +19,18 @@ internal class PredicateSelectTest(private val case: PredicateCase) {
 
   @Test
   fun `WHERE returns the rows SQLite accepts`() {
-    personDatabase().use { database ->
-      val ids = SELECT.COLUMN(PERSON.ID)
-        .FROM(PERSON)
-        .WHERE(case.predicate())
-        .ORDER_BY(PERSON.ID.ASC())
-        .usingConnection(database.dbConnection())
-        .execute()
+    val ids = SELECT.COLUMN(PERSON.ID)
+      .FROM(PERSON)
+      .WHERE(case.predicate())
+      .ORDER_BY(PERSON.ID.ASC())
+      .rowsIn(::personDatabase)
 
-      assertThat(ids).isEqualTo(case.expectedIds)
-    }
+    assertThat(ids).isEqualTo(case.expectedIds)
   }
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun cases() = listOf(
       PredicateCase(
         label = "IS host value",
@@ -142,7 +140,8 @@ internal class PredicateSelectTest(private val case: PredicateCase) {
       PredicateCase(
         label = "raw operand keeps its own grouping",
         predicate = {
-          "person.name = 'Ada' OR person.age < 18".expr(BOOLEAN)
+          "person.name = 'Ada' OR person.age < 18"
+            .expr(BOOLEAN)
             .observes(PERSON) AND (PERSON.ID GREATER_THAN 1L)
         },
         expectedIds = listOf(3L, 4L)

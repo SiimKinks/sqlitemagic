@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.internal
 
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.siimkinks.sqlitemagic.GeneratedViewResolver
 import com.siimkinks.sqlitemagic.internal.LogUtil.logDebug
 import com.siimkinks.sqlitemagic.internal.LogUtil.loggingFailure
@@ -8,10 +9,10 @@ import com.siimkinks.sqlitemagic.internal.LogUtil.loggingFailure
 @InternalSqliteMagicApi
 object SqlUtil {
   fun createSchema(
-    db: SupportSQLiteDatabase,
+    connection: SQLiteConnection,
     schema: GeneratedSchema,
     temporary: Boolean
-  ) = inTransaction(db) {
+  ) = inTransaction(connection) {
     logDebug {
       when {
         temporary -> "Creating temporary tables"
@@ -19,28 +20,28 @@ object SqlUtil {
       }
     }
     schema.createSchemaTables(
-      db = db,
+      connection = connection,
       temporary = temporary
     )
     createSchemaViews(
-      db = db,
+      connection = connection,
       schema = schema,
       temporary = temporary,
       message = "Creating views"
     )
     logDebug { "Creating indexes" }
     schema.createSchemaIndexes(
-      db = db,
+      connection = connection,
       temporary = temporary
     )
   }
 
   fun migrateViews(
-    db: SupportSQLiteDatabase,
+    connection: SQLiteConnection,
     schema: GeneratedSchema
   ) = loggingFailure(message = "Error while migrating views") {
     createSchemaViews(
-      db = db,
+      connection = connection,
       schema = schema,
       temporary = false,
       message = "Migrating views"
@@ -48,34 +49,34 @@ object SqlUtil {
   }
 
   fun clearData(
-    db: SupportSQLiteDatabase,
+    connection: SQLiteConnection,
     schema: GeneratedSchema,
     tableCount: Int
-  ) = inTransaction(db) {
+  ) = inTransaction(connection) {
     logDebug { "Clearing data" }
     MutableScatterSet<String>(tableCount).also {
       schema.clearTables(
-        db = db,
+        connection = connection,
         changedTables = it
       )
     }
   }
 
   internal fun createViews(
-    db: SupportSQLiteDatabase,
+    connection: SQLiteConnection,
     views: Collection<GeneratedView>,
     temporary: Boolean
   ) = GeneratedViewResolver(views)
     .resolve(temporary = temporary)
     .forEach {
       createViewSql(
-        db = db,
+        connection = connection,
         view = it
       )
     }
 
   private fun createSchemaViews(
-    db: SupportSQLiteDatabase,
+    connection: SQLiteConnection,
     schema: GeneratedSchema,
     temporary: Boolean,
     message: String
@@ -84,7 +85,7 @@ object SqlUtil {
     if (views.isNotEmpty()) {
       logDebug { message }
       createViews(
-        db = db,
+        connection = connection,
         views = views,
         temporary = temporary
       )
@@ -92,23 +93,35 @@ object SqlUtil {
   }
 
   private inline fun <T> inTransaction(
-    db: SupportSQLiteDatabase,
+    connection: SQLiteConnection,
     block: () -> T
   ) = loggingFailure(message = "Error while executing db transaction") {
-    db.beginTransaction()
-    try {
-      block().also { db.setTransactionSuccessful() }
-    } finally {
-      db.endTransaction()
+    when {
+      connection.inTransaction() -> block()
+      else -> {
+        connection.execSQL("BEGIN IMMEDIATE")
+        try {
+          block().also { connection.execSQL("COMMIT") }
+        } catch (failure: Throwable) {
+          if (connection.inTransaction()) {
+            try {
+              connection.execSQL("ROLLBACK")
+            } catch (rollbackFailure: Throwable) {
+              failure.addSuppressed(rollbackFailure)
+            }
+          }
+          throw failure
+        }
+      }
     }
   }
 
-  private fun createViewSql(db: SupportSQLiteDatabase, view: GeneratedView) {
+  private fun createViewSql(connection: SQLiteConnection, view: GeneratedView) {
     val create = when {
       view.temporary -> "CREATE TEMPORARY VIEW"
       else -> "CREATE VIEW"
     }
-    db.execSQL("$create IF NOT EXISTS ${quoteSqlIdentifier(view.viewName)} AS ${view.definition.sql}")
+    connection.execSQL("$create IF NOT EXISTS ${quoteSqlIdentifier(view.viewName)} AS ${view.definition.sql}")
   }
 
   internal fun quoteSqlIdentifier(name: String) =

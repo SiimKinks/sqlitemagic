@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.internal
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.internal.ContainerHelpers.EmptyIntArray
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
@@ -40,24 +40,41 @@ class RelatedEntities internal constructor(
   internal val startIndex: Int = 0,
   internal val width: Int = 0,
   internal val positions: IntArray = EmptyIntArray,
-  internal val joined: List<RelatedEntities> = emptyList()
+  internal val joined: List<RelatedEntities> = emptyList(),
+  private val idOffset: Int = NO_ID
 ) {
-  /** Null when this read did not join [relationship]. */
-  fun read(cursor: Cursor, relationship: Int): Any? = children[relationship]?.let { child ->
-    child.table.readEntityAt(
-      cursor = cursor,
-      startIndex = child.startIndex,
-      related = child
-    )
+  /**
+   * Read a related entity that this read joined.
+   *
+   * @param statement Statement positioned on the row
+   * @param relationship Position of the relationship in the table's relationships
+   * @return Related entity, or `null` when this read did not join [relationship] or the joined row is missing
+   */
+  fun read(statement: SQLiteStatement, relationship: Int): Any? {
+    val child = children[relationship] ?: return null
+    return when {
+      child.idOffset != NO_ID && statement.isNull(child.startIndex + child.idOffset) -> null
+      else -> child.table.readEntityAt(
+        statement = statement,
+        startIndex = child.startIndex,
+        related = child
+      )
+    }
   }
 
-  /** Null when none of the columns of [relationship] are selected or all of them are NULL. */
-  fun readSelected(cursor: Cursor, relationship: Int): Any? {
+  /**
+   * Read a related entity from the selected columns of a partial read.
+   *
+   * @param statement Statement positioned on the row
+   * @param relationship Position of the relationship in the table's relationships
+   * @return Related entity, or `null` when none of the columns of [relationship] are selected or all of them are NULL
+   */
+  fun readSelected(statement: SQLiteStatement, relationship: Int): Any? {
     val child = children[relationship] ?: return null
     val positions = child.positions
     return when {
-      positions.any { it >= 0 && !cursor.isNull(it) } -> child.table.readPartialEntityAt(
-        cursor = cursor,
+      positions.any { it >= 0 && !statement.isNull(it) } -> child.table.readPartialEntityAt(
+        statement = statement,
         positions = positions,
         related = child
       )
@@ -65,14 +82,20 @@ class RelatedEntities internal constructor(
     }
   }
 
-  /** Null when all columns of [relationship] are NULL. */
-  fun readOrNull(cursor: Cursor, relationship: Int): Any? {
+  /**
+   * Read a related entity that this read joined optionally.
+   *
+   * @param statement Statement positioned on the row
+   * @param relationship Position of the relationship in the table's relationships
+   * @return Related entity, or `null` when all columns of [relationship] are NULL
+   */
+  fun readOrNull(statement: SQLiteStatement, relationship: Int): Any? {
     val child = children[relationship] ?: return null
     val start = child.startIndex
-    for (index in start until start + child.width) {
-      if (!cursor.isNull(index)) {
+    for (index in start..<start + child.width) {
+      if (!statement.isNull(index)) {
         return child.table.readEntityAt(
-          cursor = cursor,
+          statement = statement,
           startIndex = start,
           related = child
         )
@@ -89,9 +112,12 @@ class RelatedEntities internal constructor(
     table = table,
     children = Array(children.size) { children[it]?.shifted(offset) },
     startIndex = startIndex + offset,
-    width = width
+    width = width,
+    idOffset = idOffset
   )
 }
+
+private const val NO_ID = -1
 
 /**
  * When [within] is the path of an optional embedded value that contains the property, the property is required

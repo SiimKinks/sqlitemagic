@@ -24,7 +24,6 @@ import com.siimkinks.sqlitemagic.runtime.support.SQLITE_TEMP_MASTER
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
 import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
-import com.siimkinks.sqlitemagic.runtime.support.readableDatabase
 import com.siimkinks.sqlitemagic.runtime.support.schemaObjectNames
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
 import com.siimkinks.sqlitemagic.rxjava2.observe
@@ -32,7 +31,7 @@ import com.siimkinks.sqlitemagic.update
 import org.junit.Rule
 import org.junit.Test
 
-private const val ALTERNATE_DATABASE_NAME = "cov03.db"
+private const val ALTERNATE_DATABASE_NAME = "alternate-connection-manager-integration.db"
 
 internal class AlternateConnectionManagerIntegrationTest {
   @get:Rule
@@ -134,8 +133,13 @@ internal class AlternateConnectionManagerIntegrationTest {
         .usingConnection(connection)
         .execute()
     ).containsExactly("query-inserted")
-    assertThat(rawValues(connection = connection))
-      .containsExactly("query-inserted")
+    assertThat(
+      SELECT
+        .RAW("SELECT value FROM simple_mutable_entity ORDER BY id")
+        .readAs(STRING)
+        .usingConnection(connection)
+        .execute()
+    ).containsExactly("query-inserted")
 
     assertThat(
       UPDATE
@@ -312,19 +316,13 @@ internal class AlternateConnectionManagerIntegrationTest {
     .observe()
     .runQuery()
 
-  private fun rawValues(connection: DbConnection) = SELECT
-    .RAW("SELECT value FROM simple_mutable_entity ORDER BY id")
-    .readAs(STRING)
-    .usingConnection(connection)
-    .execute()
-
   private fun temporaryTableNames(connection: DbConnection) = setOf("main_session_value", "submodule_session_value")
     .intersect(
       schemaObjectNames(
         master = SQLITE_TEMP_MASTER,
         type = "table",
-        database = connection.readableDatabase
-      )
+        connection = connection
+      ).toSet()
     )
 
   private fun assertDefaultPersistentTablesEmpty() {

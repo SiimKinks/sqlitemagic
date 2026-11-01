@@ -82,7 +82,7 @@ query.execute()
 - Final configuration after the last clause: `queryDeep()`, `readAs(…)`, `mapTo(…)`, `usingConnection(…)`. No
   clause follows them. Put `mapTo` after `readAs`: a later `readAs` replaces the whole reader, dropping an earlier
   mapping. `usingConnection` goes before or after the others.
-- Terminals: `execute()`, `takeFirst()`, `count()`, `toCursor()`, `compile()`, and `observe()` from the
+- Terminals: `execute()`, `useRows { }`, `takeFirst()`, `count()`, `compile()`, and `observe()` from the
   `sqlitemagic-rxjava2` adapter.
 - `LIMIT`/`OFFSET` take `Int` or `Long`.
 

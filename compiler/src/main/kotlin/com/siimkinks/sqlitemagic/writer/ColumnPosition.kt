@@ -4,14 +4,14 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.joinToCode
 
-internal class CursorPositions {
-  private val nullChecks = CursorNullChecks()
-  private val indexes = mutableListOf<CursorPosition>()
+internal class ColumnPositions {
+  private val nullChecks = ColumnNullChecks()
+  private val indexes = mutableListOf<ColumnPosition>()
 
   fun positional(
     code: CodeBlock,
     nullCheckName: String
-  ) = CursorPosition(
+  ) = ColumnPosition(
     code = code,
     mayBeMissing = false,
     nullCheckName = nullCheckName,
@@ -22,7 +22,7 @@ internal class CursorPositions {
     indexName: String,
     code: CodeBlock,
     mayBeMissing: Boolean
-  ) = CursorPosition(
+  ) = ColumnPosition(
     code = CodeBlock.of("%N", indexName),
     mayBeMissing = mayBeMissing,
     nullCheckName = "${indexName}IsNull",
@@ -34,17 +34,17 @@ internal class CursorPositions {
 
   fun addDeclarations(function: FunSpec.Builder) {
     indexes
-      .filter(CursorPosition::used)
+      .filter(ColumnPosition::used)
       .forEach { function.addStatement("val %L = %L", it.code, it.declaration) }
     nullChecks.addDeclarations(function)
   }
 }
 
-internal class CursorPosition(
+internal class ColumnPosition(
   code: CodeBlock,
   val mayBeMissing: Boolean,
   val nullCheckName: String,
-  private val nullChecks: CursorNullChecks,
+  private val nullChecks: ColumnNullChecks,
   val declaration: CodeBlock? = null
 ) {
   var used = false
@@ -57,11 +57,11 @@ internal class CursorPosition(
     }
 
   fun missingCheck() = when {
-    mayBeMissing -> CursorCheck(
+    mayBeMissing -> ColumnCheck(
       condition = CodeBlock.of("%L < 0", code),
       negation = CodeBlock.of("%L >= 0", code)
     )
-    else -> CursorCheck.FALSE
+    else -> ColumnCheck.FALSE
   }
 
   fun nullCheck() = nullChecks.nullCheck(this)
@@ -69,7 +69,7 @@ internal class CursorPosition(
   fun presentNullCheck() = nullChecks.presentNullCheck(this)
 }
 
-internal class CursorCheck(
+internal class ColumnCheck(
   val condition: CodeBlock,
   val negation: CodeBlock = CodeBlock.of("!%L", condition),
   private val compound: Boolean = false
@@ -87,21 +87,21 @@ internal class CursorCheck(
     }
 
   companion object {
-    val FALSE = CursorCheck(
+    val FALSE = ColumnCheck(
       condition = CodeBlock.of("false"),
       negation = CodeBlock.of("true")
     )
 
-    fun all(checks: List<CursorCheck>) = when (checks.size) {
+    fun all(checks: List<ColumnCheck>) = when (checks.size) {
       1 -> checks.single()
-      else -> CursorCheck(
-        condition = checks.map(CursorCheck::operand).joinToCode(separator = " && "),
-        negation = checks.map(CursorCheck::negatedOperand).joinToCode(separator = " || "),
+      else -> ColumnCheck(
+        condition = checks.map(ColumnCheck::operand).joinToCode(separator = " && "),
+        negation = checks.map(ColumnCheck::negatedOperand).joinToCode(separator = " || "),
         compound = true
       )
     }
 
-    fun either(first: CursorCheck, second: CursorCheck) = CursorCheck(
+    fun either(first: ColumnCheck, second: ColumnCheck) = ColumnCheck(
       condition = CodeBlock.of("%L || %L", first.operand, second.operand),
       negation = CodeBlock.of("%L && %L", first.negatedOperand, second.negatedOperand),
       compound = true
@@ -109,8 +109,8 @@ internal class CursorCheck(
   }
 }
 
-internal class CursorNullChecks {
-  private val usages = linkedMapOf<CursorNullCheckKey, CursorNullCheckUsage>()
+internal class ColumnNullChecks {
+  private val usages = linkedMapOf<ColumnNullCheckKey, ColumnNullCheckUsage>()
   private var prepared = false
 
   fun addDeclarations(function: FunSpec.Builder) {
@@ -120,10 +120,10 @@ internal class CursorNullChecks {
         function.addStatement(
           "val %N = %L",
           usage.name,
-          when {
-            usage.mayBeMissing -> CodeBlock.of("%L >= 0 && cursor.isNull(%L)", usage.code, usage.code)
-            else -> CodeBlock.of("cursor.isNull(%L)", usage.code)
-          }
+          presentNull(
+            code = usage.code,
+            mayBeMissing = usage.mayBeMissing
+          ).condition
         )
       }
   }
@@ -134,44 +134,48 @@ internal class CursorNullChecks {
     return construction()
   }
 
-  fun nullCheck(position: CursorPosition): CursorCheck {
+  fun nullCheck(position: ColumnPosition): ColumnCheck {
     val cached = cachedValue(position)
     return when {
-      cached != null && position.mayBeMissing -> CursorCheck(
+      cached != null && position.mayBeMissing -> ColumnCheck(
         condition = CodeBlock.of("%L < 0 || %L", position.code, cached),
         negation = CodeBlock.of("%L >= 0 && !%L", position.code, cached),
         compound = true
       )
-      cached != null -> CursorCheck(condition = cached)
-      position.mayBeMissing -> CursorCheck(
-        condition = CodeBlock.of("%L < 0 || cursor.isNull(%L)", position.code, position.code),
-        negation = CodeBlock.of("%L >= 0 && !cursor.isNull(%L)", position.code, position.code),
+      cached != null -> ColumnCheck(condition = cached)
+      position.mayBeMissing -> ColumnCheck(
+        condition = CodeBlock.of("%L < 0 || statement.isNull(%L)", position.code, position.code),
+        negation = CodeBlock.of("%L >= 0 && !statement.isNull(%L)", position.code, position.code),
         compound = true
       )
-      else -> CursorCheck(condition = CodeBlock.of("cursor.isNull(%L)", position.code))
+      else -> ColumnCheck(condition = CodeBlock.of("statement.isNull(%L)", position.code))
     }
   }
 
-  fun presentNullCheck(position: CursorPosition): CursorCheck {
-    val cached = cachedValue(position)
-    return when {
-      cached != null -> CursorCheck(condition = cached)
-      position.mayBeMissing -> CursorCheck(
-        condition = CodeBlock.of("%L >= 0 && cursor.isNull(%L)", position.code, position.code),
-        negation = CodeBlock.of("%L < 0 || !cursor.isNull(%L)", position.code, position.code),
-        compound = true
-      )
-      else -> CursorCheck(condition = CodeBlock.of("cursor.isNull(%L)", position.code))
-    }
+  fun presentNullCheck(position: ColumnPosition) = when (val cached = cachedValue(position)) {
+    null -> presentNull(
+      code = position.code,
+      mayBeMissing = position.mayBeMissing
+    )
+    else -> ColumnCheck(condition = cached)
   }
 
-  private fun cachedValue(position: CursorPosition): CodeBlock? {
-    val key = CursorNullCheckKey(
+  private fun presentNull(code: CodeBlock, mayBeMissing: Boolean) = when {
+    mayBeMissing -> ColumnCheck(
+      condition = CodeBlock.of("%L >= 0 && statement.isNull(%L)", code, code),
+      negation = CodeBlock.of("%L < 0 || !statement.isNull(%L)", code, code),
+      compound = true
+    )
+    else -> ColumnCheck(condition = CodeBlock.of("statement.isNull(%L)", code))
+  }
+
+  private fun cachedValue(position: ColumnPosition): CodeBlock? {
+    val key = ColumnNullCheckKey(
       code = position.code.toString(),
       mayBeMissing = position.mayBeMissing
     )
     val usage = usages.getOrPut(key) {
-      CursorNullCheckUsage(
+      ColumnNullCheckUsage(
         name = position.nullCheckName,
         code = position.code,
         mayBeMissing = position.mayBeMissing
@@ -185,12 +189,12 @@ internal class CursorNullChecks {
   }
 }
 
-private data class CursorNullCheckKey(
+private data class ColumnNullCheckKey(
   val code: String,
   val mayBeMissing: Boolean
 )
 
-private class CursorNullCheckUsage(
+private class ColumnNullCheckUsage(
   val name: String,
   val code: CodeBlock,
   val mayBeMissing: Boolean,

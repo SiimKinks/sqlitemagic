@@ -1,6 +1,9 @@
 package com.siimkinks.sqlitemagic.migration
 
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.NoRowStatement
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.ByteArrayInputStream
@@ -32,29 +35,21 @@ internal class MigrationExecutorTest {
 
   @Test
   fun `SQL reader preserves UTF8 literals semicolons and physical statement diagnostics`() {
-    val executed = mutableListOf<String>()
     val failure = IllegalArgumentException("SQLite failure")
     val sql = "INSERT INTO sample VALUES ('õ;''quoted');"
-    val database = object : MigrationDatabase {
-      override fun execute(sql: String) {
-        executed += sql
-        if (sql == "BAD_SQL") throw failure
-      }
-
-      override fun persistentViewNames() = emptyList<String>()
-    }
+    val connection = RecordingMigrationConnection(failures = mapOf("BAD_SQL" to failure))
     val exception = assertThrows(MigrationException::class.java) {
       MigrationExecutor(
         resources = { "\n -- ignored\n$sql\n\nBAD_SQL\n".byteInputStream() },
-        database = database
+        connection = connection
       )
         .execute(
           plan = plan(),
           createTargetViews = { error("Must not recreate views after failure") }
         )
     }
-    assertThat(executed)
-      .containsExactly(sql, "BAD_SQL")
+    assertThat(connection.events)
+      .containsExactly("lookup", sql, "BAD_SQL")
       .inOrder()
     assertThat(exception.message)
       .isEqualTo("Error executing migration script 2.sql at line 5 (statement 2, migration 1 -> 2, step 2): BAD_SQL")
@@ -72,21 +67,21 @@ internal class MigrationExecutorTest {
       "SELECT [bracket;identifier];",
       "SELECT (1 + 2) /* same line comment */;"
     )
-    val database = RecordingMigrationDatabase()
+    val connection = RecordingMigrationConnection()
     MigrationExecutor(
       resources = {
         statements
           .joinToString("\n")
           .byteInputStream()
       },
-      database = database
+      connection = connection
     )
       .execute(
         plan = plan(),
         createTargetViews = {}
       )
-    assertThat(database.statements)
-      .containsExactlyElementsIn(statements)
+    assertThat(connection.events)
+      .containsExactlyElementsIn(listOf("lookup") + statements)
       .inOrder()
   }
 
@@ -96,7 +91,7 @@ internal class MigrationExecutorTest {
     val exception = assertThrows(MigrationException::class.java) {
       MigrationExecutor(
         resources = { throw failure },
-        database = RecordingMigrationDatabase()
+        connection = RecordingMigrationConnection()
       )
         .execute(
           plan = plan(),
@@ -109,7 +104,7 @@ internal class MigrationExecutorTest {
     val thrown = assertThrows(LinkageError::class.java) {
       MigrationExecutor(
         resources = { throw error },
-        database = RecordingMigrationDatabase()
+        connection = RecordingMigrationConnection()
       )
         .execute(
           plan = plan(),
@@ -122,16 +117,10 @@ internal class MigrationExecutorTest {
   @Test
   fun `all persistent views drop once before SQL without reading view resources`() {
     val events = mutableListOf<String>()
-    val database = object : MigrationDatabase {
-      override fun execute(sql: String) {
-        events += sql
-      }
-
-      override fun persistentViewNames(): List<String> {
-        events += "lookup"
-        return listOf("""quoted"view""", "--literal_view")
-      }
-    }
+    val connection = RecordingMigrationConnection(
+      viewNames = listOf("""quoted"view""", "--literal_view"),
+      events = events
+    )
     val files = mapOf(
       "2.views" to """quoted"view""" + "\ntable\n",
       "3.views" to "--literal_view\n",
@@ -144,7 +133,7 @@ internal class MigrationExecutorTest {
         files.getValue(resource.name)
           .byteInputStream()
       },
-      database = database
+      connection = connection
     )
       .execute(
         plan = MigrationPlanner.plan(
@@ -189,7 +178,7 @@ internal class MigrationExecutorTest {
       val exception = assertThrows(case.label, MigrationException::class.java) {
         MigrationExecutor(
           resources = { throw case.cause },
-          database = RecordingMigrationDatabase()
+          connection = RecordingMigrationConnection()
         )
           .execute(
             plan = plan(case.resource),
@@ -201,7 +190,7 @@ internal class MigrationExecutorTest {
     var recreated = false
     MigrationExecutor(
       resources = { throw FileNotFoundException() },
-      database = RecordingMigrationDatabase()
+      connection = RecordingMigrationConnection()
     )
       .execute(
         plan = plan(optional("2.sql")),
@@ -212,19 +201,21 @@ internal class MigrationExecutorTest {
 
   @Test
   fun `required empty scripts fail before recreation`() {
-    val database = RecordingMigrationDatabase()
+    val connection = RecordingMigrationConnection()
     val failure = assertThrows(MigrationException::class.java) {
       MigrationExecutor(
         resources = { "-- empty\n\n".byteInputStream() },
-        database = database
+        connection = connection
       )
         .execute(
           plan = plan(),
           createTargetViews = { error("Empty required script must stop recreation") }
         )
     }
-    assertThat(database.statements).isEmpty()
-    assertThat(failure.cause).hasMessageThat().contains("Migration script contains no executable statements")
+    assertThat(connection.events).containsExactly("lookup")
+    assertThat(failure.cause)
+      .hasMessageThat()
+      .contains("Migration script contains no executable statements")
   }
 
   @Test
@@ -243,7 +234,7 @@ internal class MigrationExecutorTest {
       val exception = assertThrows(label, MigrationException::class.java) {
         MigrationExecutor(
           resources = { stream },
-          database = RecordingMigrationDatabase()
+          connection = RecordingMigrationConnection()
         )
           .execute(
             plan = plan(),
@@ -287,13 +278,42 @@ private fun plan(resource: MigrationResource = MigrationResource("2.sql")) = Mig
   )
 )
 
-private class RecordingMigrationDatabase : MigrationDatabase {
-  val statements: List<String>
-    field = mutableListOf()
-
-  override fun execute(sql: String) {
-    statements += sql
+private class RecordingMigrationConnection(
+  private val viewNames: List<String> = emptyList(),
+  private val failures: Map<String, RuntimeException> = emptyMap(),
+  val events: MutableList<String> = mutableListOf()
+) : SQLiteConnection {
+  override fun prepare(sql: String): SQLiteStatement = when {
+    sql.startsWith("SELECT name FROM main.sqlite_master") -> {
+      events += "lookup"
+      ViewNamesStatement(viewNames.iterator())
+    }
+    else -> ExecutedStatement(sql)
   }
 
-  override fun persistentViewNames() = emptyList<String>()
+  override fun inTransaction() = false
+
+  override fun close() = Unit
+
+  private inner class ExecutedStatement(private val sql: String) : NoRowStatement() {
+    override fun step(): Boolean {
+      events += sql
+      failures[sql]?.let { throw it }
+      return false
+    }
+  }
+
+  private class ViewNamesStatement(private val names: Iterator<String>) : NoRowStatement() {
+    private var name = ""
+
+    override fun step(): Boolean {
+      if (!names.hasNext()) {
+        return false
+      }
+      name = names.next()
+      return true
+    }
+
+    override fun getText(index: Int) = name
+  }
 }

@@ -1,30 +1,31 @@
 package com.siimkinks.sqlitemagic.rxjava2
 
+import android.app.Application
 import android.util.Log
-import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.TestGeneratedDatabase
-import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
+import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport.adapterSetting
 import io.reactivex.schedulers.Schedulers
 import org.junit.Test
 import org.mockito.Mockito.mockStatic
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import java.io.File
 
 internal class QuerySchedulerTest {
   @Test
   fun `scheduleRxQueriesOn sets the query scheduler of the connections that the builder opens`() {
-    val helper = mock<SupportSQLiteOpenHelper>()
-    val factory = mock<SupportSQLiteOpenHelper.Factory> {
-      on { create(any()) } doReturn helper
+    val context = mock<Application> {
+      on { getDatabasePath(any()) } doReturn File("unopened.db")
     }
     val scheduler = Schedulers.trampoline()
     fun builder() = SqliteMagic
-      .builder(mock())
+      .builder(context)
       .database(TestGeneratedDatabase(tableCount = 0))
-      .sqliteFactory(factory)
+      .driver(BundledSQLiteDriver())
 
     val schedulers = mockStatic(Log::class.java).use {
       listOf(
@@ -34,7 +35,7 @@ internal class QuerySchedulerTest {
         configured
           .openNewConnection()
           .use { connection ->
-            ReactiveAdapterSupport.adapterSetting(
+            adapterSetting(
               connection = connection,
               key = QUERY_SCHEDULER
             )

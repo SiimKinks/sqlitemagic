@@ -19,9 +19,9 @@ open class ListQueryObservable<R>(
   /**
    * Transform each emitted [Query] to a `List<R>`.
    *
-   * Be careful using this operator as it will always consume the entire cursor and create objects
-   * for each row, every time this observable emits a new query. On tables whose queries update
-   * frequently or very large result sets this can result in the creation of many objects.
+   * Be careful using this operator as it will always read the entire result and create objects for each row, every time
+   * this observable emits a new query. On tables whose queries update frequently or very large result sets this can
+   * result in the creation of many objects.
    */
   @CheckResult
   fun runQuery(): Observable<List<R>> = lift(runListQuery())

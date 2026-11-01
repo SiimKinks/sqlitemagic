@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic
 
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import com.siimkinks.sqlitemagic.SqlType.LONG
@@ -8,22 +9,21 @@ import com.siimkinks.sqlitemagic.SqliteObjectKind.VIEW
 import com.siimkinks.sqlitemagic.internal.GeneratedView
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 internal class RawQueryTest {
-  private data class MinorName(
-    val id: Long,
-    val name: String?
-  )
-
-  private data class PersonId(val value: Long)
-
   @Test
   fun `raw queries bind native arguments and read columns by position`() {
+    data class MinorName(
+      val id: Long,
+      val name: String?
+    )
+
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val minors = SELECT
         .RAW("SELECT id, name FROM person WHERE age < ? ORDER BY id", 18)
         .readAs(LONG, PERSON.NAME)
@@ -38,7 +38,7 @@ internal class RawQueryTest {
       assertThat(
         listOf(
           compiled.sql,
-          compiled.plan.prepared.arguments(emptyList()),
+          compiled.plan.prepared.bind(emptyList()),
           compiled.execute(),
           compiled.execute(),
           minors
@@ -79,10 +79,10 @@ internal class RawQueryTest {
   fun `single columns map each row for every terminal`() {
     val adultIds = (SELECT RAW "SELECT id FROM person WHERE age >= 18 ORDER BY id")
       .readAs(LONG)
-      .mapTo(::PersonId)
+      .mapTo(::MappedId)
 
     personDatabase().use { database ->
-      val connected = adultIds.usingConnection(database.dbConnection())
+      val connected = adultIds.usingConnection(database.connection)
       assertThat(
         listOf(
           connected.execute(),
@@ -92,8 +92,8 @@ internal class RawQueryTest {
         )
       ).isEqualTo(
         listOf(
-          listOf(PersonId(1L), PersonId(2L)),
-          PersonId(1L)
+          listOf(MappedId(1L), MappedId(2L)),
+          MappedId(1L)
         )
       )
     }
@@ -113,7 +113,7 @@ internal class RawQueryTest {
           true
         )
         .readAs(STRING, STRING, STRING, STRING, STRING, STRING)
-        .usingConnection(database.dbConnection())
+        .usingConnection(database.connection)
         .execute()
 
       assertThat(types).isEqualTo(
@@ -131,7 +131,7 @@ internal class RawQueryTest {
   @Test
   fun `descriptors and field templates keep their null policies`() {
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val unnamed = SELECT.RAW("SELECT name, token FROM person WHERE id = 3")
 
       assertThat(
@@ -163,9 +163,50 @@ internal class RawQueryTest {
   }
 
   @Test
+  fun `required columns without a NULL check of their own reject SQL NULL in raw reads`() {
+    val unnamed = SELECT.RAW("SELECT name FROM person WHERE id = 3")
+    val name = Column(
+      table = PERSON,
+      name = "name",
+      nullness = Required,
+      parameterEncoding = STRING.parameterEncoding(),
+      selectedRead = SQLiteStatement::getText
+    )
+    val messages = personDatabase().use { database ->
+      val connection = database.connection
+      mapOf<String, () -> Unit>(
+        "readAs" to {
+          unnamed
+            .readAs(name)
+            .usingConnection(connection)
+            .execute()
+        },
+        "useRows" to {
+          unnamed
+            .usingConnection(connection)
+            .useRows { rows ->
+              rows.step()
+              rows.read(
+                index = 0,
+                type = name
+              )
+            }
+        }
+      ).mapValues { (_, read) -> sqlExceptionMessage(read) }
+    }
+
+    assertThat(messages).isEqualTo(
+      mapOf(
+        "readAs" to "Required SQL result returned SQL NULL",
+        "useRows" to "Required SQL result returned SQL NULL"
+      )
+    )
+  }
+
+  @Test
   fun `every execution checks once that the result has the columns readAs reads`() {
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val wide = SELECT
         .RAW("SELECT id, name, age FROM person")
         .readAs(LONG, STRING.nullable)
@@ -202,48 +243,12 @@ internal class RawQueryTest {
   }
 
   @Test
-  fun `cursors belong to their callers and read cursors read their current row`() {
-    personDatabase().use { database ->
-      val connection = database.dbConnection()
-      val unread = SELECT
-        .RAW("SELECT id, name FROM person WHERE id > ? ORDER BY id", 2L)
-        .usingConnection(connection)
-        .toCursor()
-      val read = SELECT
-        .RAW("SELECT id, name FROM person WHERE id > ? ORDER BY id", 2L)
-        .readAs(LONG, PERSON.NAME)
-        .mapTo(::MinorName)
-        .usingConnection(connection)
-        .toCursor()
-      unread.execute().use { unreadCursor ->
-        read.execute().use { readCursor ->
-          val rows = buildList {
-            while (unreadCursor.moveToNext() && readCursor.moveToNext()) {
-              add(unreadCursor.getLong(0) to read.getFromCurrentPosition(readCursor))
-            }
-          }
-
-          assertThat(listOf(unreadCursor.isClosed, readCursor.isClosed)).isEqualTo(listOf(false, false))
-          assertThat(rows).isEqualTo(
-            listOf(
-              3L to MinorName(
-                id = 3L,
-                name = null
-              ),
-              4L to MinorName(
-                id = 4L,
-                name = "Linus"
-              )
-            )
-          )
-        }
-      }
-    }
-  }
-
-  @Test
   fun `declarations name their sources once while undeclared queries have unknown sources`() {
-    fun RawSelect<*>.observedTables() = toCursor().plan.prepared.dependencies.observedTables.asList()
+    fun RawSelect<*>.observedTables() = prepare(readWidth = 0)
+      .dependencies
+      .observedTables
+      .asList()
+
     fun declared(table: Table<*>, vararg tables: Table<*>) = dependencySnapshot(
       QueryDependencies.declared(
         table = table,
@@ -340,7 +345,7 @@ internal class RawQueryTest {
     )
 
     fun outcome(statement: RawMutationQuery) = petDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val recorder = connection.recordTriggers()
       val compiled = statement
         .usingConnection(connection)
@@ -361,6 +366,8 @@ internal class RawQueryTest {
         .notifies(PERSON, PET),
       "replaced declaration" to (DELETE RAW "DELETE FROM person WHERE id = 3")
         .notifies(PET)
+        .notifies(PERSON),
+      "DELETE returning rows" to (DELETE RAW "DELETE FROM person WHERE age < 18 RETURNING id")
         .notifies(PERSON)
     )
     val outcomes = cases.map { (label, statement) -> label to outcome(statement) }
@@ -391,6 +398,13 @@ internal class RawQueryTest {
           arguments = emptyList(),
           affected = 1,
           rows = listOf(ada, grace, linus),
+          triggers = listOf(setOf("person"))
+        ),
+        "DELETE returning rows" to Outcome(
+          sql = "DELETE FROM person WHERE age < 18 RETURNING id",
+          arguments = emptyList(),
+          affected = 2,
+          rows = listOf(ada, grace),
           triggers = listOf(setOf("person"))
         )
       )

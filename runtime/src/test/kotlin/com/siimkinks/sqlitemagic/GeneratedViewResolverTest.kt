@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SqlType.LONG
@@ -15,12 +14,6 @@ import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import com.siimkinks.sqlitemagic.internal.sql.compileViewDefinition
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.doAnswer
-import org.mockito.kotlin.inOrder
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.verifyNoInteractions
-import org.mockito.kotlin.whenever
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicInteger
@@ -59,15 +52,7 @@ internal class GeneratedViewResolverTest {
     val expectedCreates = names.map(::createSql)
 
     for ((label, registry) in cases) {
-      val statements = mutableListOf<String>()
-      val database = mock<SupportSQLiteDatabase>()
-      doAnswer {
-        statements += it.getArgument<String>(0)
-      }.whenever(database)
-        .execSQL(any())
-
-      createViews(
-        db = database,
+      val statements = createdViewSql(
         views = registry,
         temporary = false
       )
@@ -205,12 +190,13 @@ internal class GeneratedViewResolverTest {
           temporary = false
         )
       }
-    ).isEqualTo(
-      listOf(
-        "direct self cycle" to "Generated view dependency cycle: main.self -> main.self",
-        "cycle reached from a root" to "Generated view dependency cycle: main.first -> main.second -> main.first"
-      )
     )
+      .isEqualTo(
+        listOf(
+          "direct self cycle" to "Generated view dependency cycle: main.self -> main.self",
+          "cycle reached from a root" to "Generated view dependency cycle: main.first -> main.second -> main.first"
+        )
+      )
   }
 
   @Test
@@ -236,13 +222,14 @@ internal class GeneratedViewResolverTest {
           temporary = true
         )
       )
-    ).isEqualTo(
-      listOf(
-        "missing same schema view" to "Generated view 'outer' references unregistered generated view 'main.inner'",
-        "temporary view missing a main view" to
-            "Generated view 'session' references unregistered generated view 'main.missing_main'"
-      )
     )
+      .isEqualTo(
+        listOf(
+          "missing same schema view" to "Generated view 'outer' references unregistered generated view 'main.inner'",
+          "temporary view missing a main view" to
+              "Generated view 'session' references unregistered generated view 'main.missing_main'"
+        )
+      )
   }
 
   @Test
@@ -276,12 +263,13 @@ internal class GeneratedViewResolverTest {
           temporary = false
         )
       }
-    ).isEqualTo(
-      listOf(
-        "Cannot create persistent view 'bad_table': defining query references temporary table 'drafts'",
-        "Cannot create persistent view 'bad_view': defining query references temporary view 'draft_view'"
-      )
     )
+      .isEqualTo(
+        listOf(
+          "Cannot create persistent view 'bad_table': defining query references temporary table 'drafts'",
+          "Cannot create persistent view 'bad_view': defining query references temporary view 'draft_view'"
+        )
+      )
 
     val main = generatedView(
       name = "main_view",
@@ -302,29 +290,23 @@ internal class GeneratedViewResolverTest {
         )
       )
     )
-    val database = mock<SupportSQLiteDatabase>()
-    createViews(
-      db = database,
-      views = listOf(temporary, tempView, main),
-      temporary = true
+    assertThat(
+      createdViewSql(
+        views = listOf(temporary, tempView, main),
+        temporary = true
+      )
     )
-    inOrder(database) {
-      verify(database)
-        .execSQL(
-          createSql(
-            name = "draft_view",
-            temporary = true
-          )
+      .containsExactly(
+        createSql(
+          name = "draft_view",
+          temporary = true
+        ),
+        createSql(
+          name = "temp_view",
+          temporary = true
         )
-      verify(database)
-        .execSQL(
-          createSql(
-            name = "temp_view",
-            temporary = true
-          )
-        )
-      verifyNoMoreInteractions()
-    }
+      )
+      .inOrder()
   }
 
   @Test
@@ -338,29 +320,23 @@ internal class GeneratedViewResolverTest {
       temporary = true,
       sources = listOf(viewSource("report"))
     )
-    val database = mock<SupportSQLiteDatabase>()
 
-    createViews(
-      db = database,
-      views = listOf(temporary, main),
-      temporary = true
+    assertThat(
+      createdViewSql(
+        views = listOf(temporary, main),
+        temporary = true
+      )
     )
-
-    inOrder(database) {
-      verify(database)
-        .execSQL(
-          createSql(
-            name = "REPORT",
-            temporary = true
-          )
+      .containsExactly(
+        createSql(
+          name = "REPORT",
+          temporary = true
         )
-      verifyNoMoreInteractions()
-    }
+      )
   }
 
   @Test
   fun `persistent view creation ignores temporary descriptors in the complete registry`() {
-    val database = mock<SupportSQLiteDatabase>()
     val temporary = generatedView(
       name = "session",
       temporary = true
@@ -370,17 +346,13 @@ internal class GeneratedViewResolverTest {
       sources = listOf(tableSource("books"))
     )
 
-    createViews(
-      db = database,
-      views = listOf(temporary, persistent),
-      temporary = false
+    assertThat(
+      createdViewSql(
+        views = listOf(temporary, persistent),
+        temporary = false
+      )
     )
-
-    inOrder(database) {
-      verify(database)
-        .execSQL(createSql("report"))
-      verifyNoMoreInteractions()
-    }
+      .containsExactly(createSql("report"))
   }
 
   @Test
@@ -412,33 +384,48 @@ internal class GeneratedViewResolverTest {
         dependencySnapshot(outer.definition.queryDependencies),
         dependencySnapshot(originalBaseDependencies)
       )
-    ).isEqualTo(
-      listOf(
-        DependencySnapshot(
-          observed = listOf("books"),
-          direct = listOf(viewSource("base"))
-        ),
-        DependencySnapshot(
-          observed = listOf("books"),
-          direct = listOf(tableSource("books"))
+    )
+      .isEqualTo(
+        listOf(
+          DependencySnapshot(
+            observed = listOf("books"),
+            direct = listOf(viewSource("base"))
+          ),
+          DependencySnapshot(
+            observed = listOf("books"),
+            direct = listOf(tableSource("books"))
+          )
         )
       )
-    )
   }
+
+  private fun createdViewSql(
+    views: List<GeneratedView>,
+    temporary: Boolean
+  ) = RecordingSQLiteConnection()
+    .also { database ->
+      createViews(
+        connection = database,
+        views = views,
+        temporary = temporary
+      )
+    }
+    .compiledStatements
+    .map(RecordingStatement::sql)
 
   private inline fun <reified T : Throwable> failureBeforeDdl(
     views: List<GeneratedView>,
     temporary: Boolean
   ): String? {
-    val database = mock<SupportSQLiteDatabase>()
+    val database = RecordingSQLiteConnection()
     val failure = assertThrows(T::class.java) {
       createViews(
-        db = database,
+        connection = database,
         views = views,
         temporary = temporary
       )
     }
-    verifyNoInteractions(database)
+    assertThat(database.compiledStatements).isEmpty()
     return failure.message
   }
 

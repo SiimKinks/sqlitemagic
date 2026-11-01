@@ -10,8 +10,9 @@ import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_GENERATED_RELATIONSHIP_
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_IDENTITY_COLUMN_NAME
 import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.BIND_VALUES_MAP
+import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_RELATIONSHIP_IDS
 import com.siimkinks.sqlitemagic.WriterTypes.OPERATION_FAILED_EXCEPTION
-import com.siimkinks.sqlitemagic.WriterTypes.SUPPORT_SQLITE_STATEMENT
+import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_STATEMENT
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERTIES
 import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.PRIMARY_CONSTRUCTOR
 import com.siimkinks.sqlitemagic.utils.callCode
@@ -21,9 +22,6 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
-import com.squareup.kotlinpoet.LONG
-import com.squareup.kotlinpoet.MAP
-import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeSpec
 
@@ -62,8 +60,7 @@ private class TableDaoWriter(
           notNullValues(
             functionName = METHOD_BIND_NOT_NULL_FOR_INSERT,
             columns = table.columnsForInsert,
-            excludesIdentityColumn = false,
-            usesGeneratedRelationshipIds = table.needsGeneratedRelationshipIds
+            excludesIdentityColumn = false
           )
         )
           .addFunction(bindToUpdateStatement())
@@ -76,7 +73,7 @@ private class TableDaoWriter(
           )
       }
     }
-    .addFunctions(cursorReaders(table))
+    .addFunctions(rowReaders(table))
     .build()
 
   private fun readExpression(column: ColumnElement) = propertyReadExpressions.getOrPut(column.access.path) {
@@ -84,7 +81,6 @@ private class TableDaoWriter(
   }
 
   private fun idOnlyConstructor(idColumn: ColumnElement): FunSpec {
-    val idType = idColumn.deserializedType.typeName.copy(nullable = idColumn.isNullable)
     val construction = when (table.construction.strategy) {
       PRIMARY_CONSTRUCTOR -> callCode(
         callee = CodeBlock.of("%T", table.modelClassName),
@@ -106,7 +102,10 @@ private class TableDaoWriter(
     }
     return FunSpec
       .builder(METHOD_NEW_INSTANCE_WITH_ONLY_ID)
-      .addParameter(name = "id", type = idType)
+      .addParameter(
+        name = "id",
+        type = idColumn.deserializedType.typeName.copy(nullable = idColumn.isNullable)
+      )
       .returns(table.modelClassName)
       .addStatement("return %L", construction)
       .build()
@@ -115,23 +114,19 @@ private class TableDaoWriter(
   private fun bindToInsertStatement() = FunSpec
     .builder(METHOD_BIND_TO_INSERT_STATEMENT)
     .addModifiers(OVERRIDE)
-    .addParameter(name = "statement", type = SUPPORT_SQLITE_STATEMENT)
+    .addParameter(name = "statement", type = SQLITE_STATEMENT)
     .addParameter(name = "entity", type = table.modelClassName)
-    .addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = MAP.parameterizedBy(STRING, LONG))
-    .addStatement("statement.clearBindings()")
-    .addBindings(
-      columns = table.columnsForInsert,
-      usesGeneratedRelationshipIds = table.needsGeneratedRelationshipIds
-    )
+    .addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = GENERATED_RELATIONSHIP_IDS)
+    .addBindings(table.columnsForInsert)
     .build()
 
   private fun bindToUpdateStatement() = FunSpec
     .builder(METHOD_BIND_TO_UPDATE_STATEMENT)
     .addModifiers(OVERRIDE)
-    .addParameter(name = "statement", type = SUPPORT_SQLITE_STATEMENT)
+    .addParameter(name = "statement", type = SQLITE_STATEMENT)
     .addParameter(name = "entity", type = table.modelClassName)
     .addParameter(name = VARIABLE_IDENTITY_COLUMN_NAME, type = STRING)
-    .addStatement("statement.clearBindings()")
+    .addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = GENERATED_RELATIONSHIP_IDS)
     .apply {
       val uniqueColumns = table.identityColumns.filterNot(ColumnElement::isId)
       when {
@@ -146,7 +141,7 @@ private class TableDaoWriter(
     fun FunSpec.Builder.addBindingsBy(identityColumn: ColumnElement) = addBindings(
       columns = table
         .allColumns
-        .filterNot { column -> column === identityColumn || column.isId } + identityColumn
+        .filterNot { it === identityColumn || it.isId } + identityColumn
     )
     return when (identityColumns.size) {
       1 -> addBindingsBy(identityColumns.single())
@@ -173,10 +168,7 @@ private class TableDaoWriter(
   ) = when (val idColumn = table.idColumn) {
     null -> addUniqueUpdateBindings(uniqueColumns)
     else -> beginControlFlow("when (%N)", VARIABLE_IDENTITY_COLUMN_NAME)
-      .beginControlFlow(
-        "%S ->",
-        idColumn.columnName
-      )
+      .beginControlFlow("%S ->", idColumn.columnName)
       .addBindings(
         columns = table
           .allColumns
@@ -244,8 +236,7 @@ private class TableDaoWriter(
   private fun notNullValues(
     functionName: String,
     columns: List<ColumnElement>,
-    excludesIdentityColumn: Boolean,
-    usesGeneratedRelationshipIds: Boolean = false
+    excludesIdentityColumn: Boolean
   ) = FunSpec
     .builder(functionName)
     .addModifiers(OVERRIDE)
@@ -253,20 +244,17 @@ private class TableDaoWriter(
     .addParameter(name = "values", type = BIND_VALUES_MAP)
     .addStatement("values.clear()")
     .apply {
-      when {
-        excludesIdentityColumn -> addParameter(name = VARIABLE_IDENTITY_COLUMN_NAME, type = STRING)
-        else -> addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = MAP.parameterizedBy(STRING, LONG))
+      if (excludesIdentityColumn) {
+        addParameter(name = VARIABLE_IDENTITY_COLUMN_NAME, type = STRING)
       }
+      addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = GENERATED_RELATIONSHIP_IDS)
       columns
         .filterNot { excludesIdentityColumn && it.isId }
         .forEach { column ->
           val nullableValue = column.bindingValueCanBeNull
-          val value = serializedInsertAccessCode(
-            column = column,
-            usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
-          )
+          val value = serializedAccessCode(column)
           val nullableReceiver = when {
-            usesGeneratedRelationshipIds && column.needsGeneratedRelationshipId -> CodeBlock.of("(%L)", value)
+            column.needsGeneratedRelationshipId -> CodeBlock.of("(%L)", value)
             else -> value
           }
           val excludesSelectedIdentity = when {
@@ -313,17 +301,13 @@ private class TableDaoWriter(
     }
     .build()
 
-  private fun FunSpec.Builder.addBindings(
-    columns: List<ColumnElement>,
-    usesGeneratedRelationshipIds: Boolean = false
-  ) = apply {
+  private fun FunSpec.Builder.addBindings(columns: List<ColumnElement>) = apply {
     columns.forEachIndexed { index, column ->
       val parameterIndex = index + 1
       addBinding(
         column = column,
         parameterIndex = CodeBlock.of("%L", parameterIndex),
-        valueName = "value$parameterIndex",
-        usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
+        valueName = "value$parameterIndex"
       )
     }
   }
@@ -331,13 +315,9 @@ private class TableDaoWriter(
   private fun FunSpec.Builder.addBinding(
     column: ColumnElement,
     parameterIndex: CodeBlock,
-    valueName: String,
-    usesGeneratedRelationshipIds: Boolean = false
+    valueName: String
   ) = apply {
-    val value = serializedInsertAccessCode(
-      column = column,
-      usesGeneratedRelationshipIds = usesGeneratedRelationshipIds
-    )
+    val value = serializedAccessCode(column)
     when {
       column.bindingValueCanBeNull -> addStatement("val %N = %L", valueName, value)
         .beginControlFlow("if (%N == null)", valueName)
@@ -357,10 +337,7 @@ private class TableDaoWriter(
     }
   }
 
-  private fun serializedInsertAccessCode(
-    column: ColumnElement,
-    usesGeneratedRelationshipIds: Boolean
-  ): CodeBlock {
+  private fun serializedAccessCode(column: ColumnElement): CodeBlock {
     val propertyReadExpression = readExpression(column)
     val relationship = column.relationship ?: return table.serializedReadExpression(
       column = column,
@@ -379,7 +356,7 @@ private class TableDaoWriter(
       valueCanBeNull = relationship.referencedIdValueCanBeNull
     )
     val resolvedId = when {
-      usesGeneratedRelationshipIds && column.needsGeneratedRelationshipId -> CodeBlock.of(
+      column.needsGeneratedRelationshipId -> CodeBlock.of(
         "generatedRelationshipIds[%S] ?: %L",
         column.columnName,
         serializedId
@@ -419,12 +396,13 @@ private fun FunSpec.Builder.addValueBinding(
     parameterIndex,
     column.databaseWriteValue(value)
   )
+  SqlStorageType.BOOLEAN -> addStatement("statement.bindBoolean(%L, %L)", parameterIndex, value)
   SqlStorageType.DOUBLE -> addStatement("statement.bindDouble(%L, %L)", parameterIndex, value)
   SqlStorageType.FLOAT -> addStatement("statement.bindDouble(%L, %L.toDouble())", parameterIndex, value)
   SqlStorageType.INT,
   SqlStorageType.SHORT -> addStatement("statement.bindLong(%L, %L.toLong())", parameterIndex, value)
   SqlStorageType.LONG -> addStatement("statement.bindLong(%L, %L)", parameterIndex, value)
-  SqlStorageType.STRING -> addStatement("statement.bindString(%L, %L)", parameterIndex, value)
+  SqlStorageType.STRING -> addStatement("statement.bindText(%L, %L)", parameterIndex, value)
 }
 
 private fun ColumnElement.databaseWriteValue(value: CodeBlock) = when (sqlStorageType) {

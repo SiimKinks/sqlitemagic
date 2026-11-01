@@ -1,6 +1,9 @@
-public class com/siimkinks/sqlitemagic/rxjava2/CountQueryObservable : com/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable {
+public class com/siimkinks/sqlitemagic/rxjava2/CountQueryObservable : io/reactivex/Observable {
 	public final fun isNotZero ()Lio/reactivex/Observable;
 	public final fun isZero ()Lio/reactivex/Observable;
+	public final fun runQuery ()Lio/reactivex/Observable;
+	public final fun runQueryOnce ()Lio/reactivex/Maybe;
+	protected fun subscribeActual (Lio/reactivex/Observer;)V
 }
 
 public final class com/siimkinks/sqlitemagic/rxjava2/EntityOperationsKt {
@@ -40,15 +43,12 @@ public final class com/siimkinks/sqlitemagic/rxjava2/QueryMaybeKt {
 
 public final class com/siimkinks/sqlitemagic/rxjava2/QueryObservablesKt {
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledCount;)Lcom/siimkinks/sqlitemagic/rxjava2/CountQueryObservable;
-	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledCursor;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledFirst;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledSelect;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
-	public static final fun observeDeclaredRawCursor (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
 	public static final fun observeDeclaredRawFirst (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lcom/siimkinks/sqlitemagic/rxjava2/SingleItemQueryObservable;
 	public static final fun observeDeclaredRawQuery (Lcom/siimkinks/sqlitemagic/RawSelectQuery;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
 	public static final fun observeDeclaredRawRows (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lcom/siimkinks/sqlitemagic/rxjava2/ListQueryObservable;
-	public static final fun observeUndeclaredRawCursor (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lio/reactivex/Single;
 	public static final fun observeUndeclaredRawFirst (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lio/reactivex/Maybe;
 	public static final fun observeUndeclaredRawQuery (Lcom/siimkinks/sqlitemagic/RawSelectQuery;)Lio/reactivex/Single;
 	public static final fun observeUndeclaredRawRows (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lio/reactivex/Single;

@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.ReviewStarAuthorViewTable.Companion.REVIEW_STAR
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SelectQuery
 import com.siimkinks.sqlitemagic.asValue
-import com.siimkinks.sqlitemagic.cursorOf
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.view.ReaderNestedNameView
@@ -20,11 +19,16 @@ import com.siimkinks.sqlitemagic.fixture.view.ReaderRepeatedNestedView
 import com.siimkinks.sqlitemagic.fixture.view.ReviewRelationshipCompositionView
 import com.siimkinks.sqlitemagic.fixture.view.ReviewStarAuthorView
 import com.siimkinks.sqlitemagic.mapTo
+import com.siimkinks.sqlitemagic.statementOf
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 internal class GeneratedViewCompositionTest {
-  private fun <T> SelectQuery<T, *>.readRow(vararg values: Any?) = toCursor().getFromCurrentPosition(cursorOf(*values))
+  private fun <T> SelectQuery<T, *>.readRow(vararg values: Any?) = takeFirst()
+    .mapRows(
+      statement = statementOf(*values),
+      isDisposed = { false }
+    )
 
   @Test
   fun `view field lists map partial views at zero and nonzero positions and wide rows read aliased views`() {
@@ -69,7 +73,7 @@ internal class GeneratedViewCompositionTest {
         )
       }
     )
-    assertThat(assertThrows<IllegalArgumentException> { computed.compile() })
+    assertThat(assertThrows<IllegalArgumentException>(computed::compile))
       .hasMessageThat()
       .isEqualTo("mapTo(review_star_author) reads plain fields, but selected value 1 is computed")
   }
@@ -93,7 +97,7 @@ internal class GeneratedViewCompositionTest {
       .mapTo(view)
 
     assertThat((SELECT FROM view).readRow("tail", 1L, 2L, 2L, "Ada")).isEqualTo(expected)
-    assertThat(assertThrows<IllegalArgumentException> { partial.compile() })
+    assertThat(assertThrows<IllegalArgumentException>(partial::compile))
       .hasMessageThat()
       .isEqualTo(
         "mapTo(review_relationship_composition) cannot read a view whose required properties hold tables or views"
@@ -146,7 +150,7 @@ internal class GeneratedViewCompositionTest {
           """INNER JOIN "main"."review_star_author" AS "joined_author" """ +
           """ON "entity_with_relationship"."value" = "joined_author"."query_composition_author.name""""
     )
-    assertThat(query.readRow(7L, "root", 2L, 3)).isEqualTo(
+    assertThat(query.readRow(7L, "root", 2L, 3L)).isEqualTo(
       EntityWithRelationship().apply {
         id = 7L
         value = "root"

@@ -35,7 +35,7 @@ internal sealed interface JoinOccurrence {
   fun register(context: SqlRenderingContext)
 }
 
-internal open class UserOccurrence(
+private open class UserOccurrence(
   table: Table<*>,
   val index: Int
 ) : SourceOccurrence(
@@ -45,7 +45,7 @@ internal open class UserOccurrence(
   override val name get() = table.referenceName
 }
 
-internal class JoinedOccurrence(
+private class JoinedOccurrence(
   val join: JoinNode,
   index: Int
 ) : UserOccurrence(
@@ -66,7 +66,7 @@ internal class JoinedOccurrence(
   }
 }
 
-internal class AutomaticOccurrence(
+private class AutomaticOccurrence(
   table: Table<*>,
   pathName: String,
   private val parent: SourceOccurrence,
@@ -242,12 +242,14 @@ internal class RelationshipPlanner(
             relationship = index
           )
           val grandchildren = arrayOfNulls<RelatedEntities>(child.table.tableRelationships.size)
+          val fields = child.table.selectedEntityFields()
           val read = RelatedEntities(
             table = child.table,
             children = grandchildren,
-            startIndex = nextIndex
+            startIndex = nextIndex,
+            idOffset = fields.indexOfFirst { it.name == relationship.targetIdColumnName }
           )
-          nextIndex += child.table.selectedEntityFields().size
+          nextIndex += fields.size
           children[index] = read
           joinedReads += read
           queue.add(child to grandchildren)
@@ -479,14 +481,11 @@ internal class RelationshipPlanner(
       )
       visited.clear()
     }
-    return when (routes.size) {
-      0 -> null
-      1 -> routes.single()
-      else -> throw IllegalArgumentException(
-        "Several relationships lead to ${target.name}: ${routes.joinToString(transform = ::describe)}; " +
-            "join the one you mean"
-      )
+    require(routes.size <= 1) {
+      "Several relationships lead to ${target.name}: ${routes.joinToString(transform = ::describe)}; " +
+          "join the one you mean"
     }
+    return routes.singleOrNull()
   }
 
   private fun describe(route: Route): String {

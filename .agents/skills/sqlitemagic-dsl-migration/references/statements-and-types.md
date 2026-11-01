@@ -1,7 +1,7 @@
 # Legacy → new statements, views and types
 
-Whole raw SQL, UPDATE/DELETE, views, compiled plans and declared types, loggers, generated code, and what was
-removed. Query shapes are in [queries.md](queries.md).
+Whole raw SQL, UPDATE/DELETE, views, compiled plans and declared types, setup and row reading, loggers, generated
+code, and what was removed. Query shapes are in [queries.md](queries.md).
 
 Examples assume generated `AUTHOR` and `BOOK` tables with `Author` and `Book` models; names are illustrative.
 "Legacy" covers both of the old DSL's forms: Kotlin infix (`SELECT FROM AUTHOR WHERE (…)`) and the Java-style
@@ -14,6 +14,7 @@ differ. Keep whichever style the call site already uses.
 - [UPDATE and DELETE](#update-and-delete)
 - [Views](#views)
 - [Plans, observation and declared types](#plans-observation-and-declared-types)
+- [Setup, drivers and reading rows](#setup-drivers-and-reading-rows)
 - [Logger, generated code and models](#logger-generated-code-and-models)
 - [Removed without replacement](#removed-without-replacement)
 
@@ -28,7 +29,7 @@ UPDATE TABLE "book" SET ("count" to "1") WHERE ("id=?" to arrayOf("2"))
 Delete.from("legacy_log").where("id = ?", "5").execute()
 
 // New
-SELECT.RAW("SELECT id, name FROM author WHERE id > ?", 10L).observes(AUTHOR).toCursor().execute()
+SELECT.RAW("SELECT id, name FROM author WHERE id > ?", 10L).observes(AUTHOR).useRows { rows -> … }
 SELECT.RAW("SELECT id, name FROM author WHERE id > ?", 10L)
     .observes(AUTHOR)
     .readAs(SqlType.LONG, SqlType.STRING.nullable)
@@ -42,8 +43,9 @@ DELETE.RAW("DELETE FROM legacy_log WHERE id = ?", 5L).execute()
 - `.from(tables)`/`FROM tables` on a raw query becomes `.observes(tables)`. Without it, `observe()` runs once
   (`Single`/`Maybe`) instead of streaming. Like every `observe()`, the raw one is imported from
   `com.siimkinks.sqlitemagic.rxjava2`.
-- A raw query without `readAs` has no `execute()`; insert `.toCursor()` for a caller-owned cursor, or read typed rows
-  by position with `readAs(…)` (a column count other than `readAs`'s width fails each execution).
+- A raw query without `readAs` has no `execute()`; read its rows with `useRows { rows -> }` (`rows.step()`,
+  `rows.read(index, type)`, `rows.columnType(index)` for `Cursor.getType`), or read typed rows by position with
+  `readAs(…)` (a column count other than `readAs`'s width fails each execution).
 - `UPDATE.RAW`/`DELETE.RAW` declare changed tables with `.notifies(TABLE)`; legacy's string table name is gone. A
   conflict algorithm goes into the text (`UPDATE OR REPLACE …`).
 - A raw condition on a generated table stays typed: `WHERE ("pages < ?" to arrayOf("100"))` becomes
@@ -123,26 +125,81 @@ val QUERY = (
 | `CompiledSelect<T, S>` | `CompiledSelect<T>` |
 | `CompiledFirstSelect<T, S>` | `CompiledFirst<T>` |
 | `CompiledCountSelect<S>` | `CompiledCount` |
-| `CompiledCursorSelect<T, S>` | `CompiledCursor<T>` (still has `getFromCurrentPosition(cursor)`) |
-| `CompiledRawSelect`, `CompiledObservableRawSelect` | `CompiledRawCursor` from `SELECT.RAW(…).toCursor()`, or read plans after `readAs` (the new generic `CompiledRawSelect<T, O>` is the list plan after `readAs`, so a legacy annotation fails on type arguments) |
+| `CompiledCursorSelect<T, S>` | `CompiledSelect<T>` read with `useRows { rows -> }`; see [Setup, drivers and reading rows](#setup-drivers-and-reading-rows) |
+| `CompiledRawSelect`, `CompiledObservableRawSelect` | `SELECT.RAW(…).useRows { rows -> }` for run-time columns, or read plans after `readAs` (the new generic `CompiledRawSelect<T, O>` is the list plan after `readAs`, so a legacy annotation fails on type arguments) |
 | `CompiledUpdate`, `CompiledDelete` | `CompiledMutation` |
-| `compiled.takeFirst()`, `compiled.count()`, `compiled.toCursor()` | `query.takeFirst()`, `query.count()`, `query.toCursor()`: create each plan from the query |
+| `compiled.takeFirst()`, `compiled.count()` | `query.takeFirst()`, `query.count()`: create each plan from the query |
 | `Expr` | `SqlExpression<Boolean, SqlNullable, Boolean?>`; `IS_NULL()`: `SqlExpression<Boolean, Required, Boolean>` |
 | `OrderingTerm` | `Ordering` |
 | `Select.From<…>`, `Select.Where<…>`, … | inferred stage types, or `SelectQuery<T, S>` after final configuration |
 | `NotNullable`, `Nullable` markers | `Required`, `SqlNullable` |
 | `Column<T, R, ET, P, N>`, `NumericColumn<…>`, `UniqueNumericColumn<…>` | generated `Column<…>`/`UniqueColumn<…>` (seven type parameters); let them be inferred |
 | `val starter: Select<Select.SelectN> = SELECT` | `val starter = SELECT` |
-| `Query.Mapper` | removed: map with `readAs`/`mapTo`, or read `toCursor()` directly |
+| `Query.Mapper` | removed: map with `readAs`/`mapTo`, or read rows with `useRows` |
 
 - `S` in `SelectQuery<T, S>` is the selection: `EntitySelection<Author>`, `ScalarSelection<Long, Required, Long>`
   (decoded type, SQL nullness, result), `RowSelection<Row2<Long, String>>`, `RowSelection<SelectedRow>`. When a type
   must be written, copy the IDE's inferred type rather than reconstructing it.
 - Observation operators are unchanged: `runQuery()`, `runQueryOnce()`, `runQueryOrDefault(…)`, `isZero()`,
-  `isNotZero()`. The types `ListQueryObservable`, `SingleItemQueryObservable` and `CountQueryObservable` moved to
-  `com.siimkinks.sqlitemagic.rxjava2`, with `observe()`, `Query.run()` and `scheduleRxQueriesOn`. `run()` returns
-  `Maybe` of the non-null result type.
+  `isNotZero()`, except that count streams drop `runQueryOrDefault(…)` and `runQueryOnceOrDefault(…)`, whose default a
+  count never used: call `runQuery()` or `runQueryOnce()`. The types `ListQueryObservable`, `SingleItemQueryObservable`
+  and `CountQueryObservable` moved to `com.siimkinks.sqlitemagic.rxjava2`, with `observe()`, `Query.run()` and
+  `scheduleRxQueriesOn`. `run()` returns `Maybe` of the non-null result type.
 - New: named parameters, `AUTHOR.NAME.asParameter("name")`, bound per plan with `compiled.bind(name TO "Ada")`.
+
+## Setup, drivers and reading rows
+
+The database runs on an androidx `SQLiteDriver` instead of a SupportSQLite helper factory:
+
+```kotlin
+// legacy
+SqliteMagic.builder(app)
+    .database(SqliteMagicDatabase())
+    .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+    .openDefaultConnection()
+
+// new: the device's SQLite, from com.siimkinks.sqlitemagic:sqlitemagic-framework-driver
+SqliteMagic.builder(app)
+    .database(SqliteMagicDatabase())
+    .driver(FrameworkSQLiteDriver())
+    .openDefaultConnection()
+
+// or a SQLite shipped with the app, from androidx.sqlite:sqlite-bundled
+    .driver(BundledSQLiteDriver())
+```
+
+- Replace the `androidx.sqlite:sqlite-framework` dependency with the driver's artifacts. A custom `DbDowngrader`
+  receives a `SQLiteConnection` (`connection.execSQL(…)`, `connection.prepare(…)`) instead of a
+  `SupportSQLiteDatabase`.
+- Every `Cursor` API is gone. Read rows lazily inside a block instead; the rows are valid only inside it and can be
+  iterated once:
+
+  ```kotlin
+  // legacy
+  val compiled = (SELECT FROM BOOK).toCursor()
+  val cursor = compiled.execute()
+  try {
+    while (cursor.moveToNext()) {
+      show(compiled.getFromCurrentPosition(cursor))
+    }
+  } finally {
+    cursor.close()
+  }
+
+  // new
+  (SELECT FROM BOOK).useRows { books -> books.forEach(::show) }
+
+  // raw SQL whose columns are known only when it runs
+  SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
+    while (rows.step()) {
+      show(rows.read(1, SqlType.STRING))
+    }
+  }
+  ```
+
+  `useRows` exists wherever `execute()` returns a list: on queries, `compile()`d plans and raw queries after
+  `readAs`. Reactive cursor forms (`observe()` of a cursor plan, `runCursorQuery`, `runQueryOrDefault(cursor)`) have
+  no replacement: observe a list query, or run `useRows` when notified.
 
 ## Logger, generated code and models
 
@@ -151,6 +208,8 @@ val QUERY = (
 - Regenerate with the new processor. Generated DAOs now live in `com.siimkinks.sqlitemagic`; only code that calls a
   DAO directly (normally tests) changes its import.
 - Java models, their persisted members and external transformer functions must be public.
+- `BooleanTransformer` is removed: `Boolean` is a built-in column type, stored as before. Code that called it converts
+  directly (`if (value) 1 else 0`, `value != 0`).
 - Hand-built `Table`/`Column` instances, generated readers and adapters are generated-code API: add
   `@file:OptIn(InternalSqliteMagicApi::class)`, or better, use generated tables.
 - Entity `byColumn(…)` takes the generated unique column of the entity's own table, as before; a unique column of
@@ -165,4 +224,6 @@ val QUERY = (
 - String table and column names inside UPDATE/DELETE (`UPDATE TABLE "book"`, `SET ("title" to "x")`,
   `WHERE ("sql" to args)`): use whole raw statements or raw expressions.
 - `Query.Mapper`, `GeneratedDatabase.columnForValue`, `Logger.logQueryTime`.
+- Positional `Cursor` access (`moveToPosition`, moving backwards, `CursorAdapter`) and `Cursor` streams: read a list
+  with `execute()` or rows with `useRows`.
 - Java-facing query API: port query-building Java code to Kotlin.

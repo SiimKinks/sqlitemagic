@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 
@@ -24,9 +24,9 @@ class RowSelection<T> internal constructor(
 
   override val exportedValues get() = outputs
 
-  internal val columnReads get() = outputs.selectReads()
+  internal val columnReads get() = outputs.map(SqlExpression<*, *, *>::selectRead)
 
-  internal fun <M> withReader(read: (Cursor, Int) -> M) = withReader(ExecutionReader { read })
+  internal fun <M> withReader(read: (SQLiteStatement, Int) -> M) = withReader(reader = { read })
 
   internal fun <M> withReader(reader: ExecutionReader<M>) = RowSelection(
     outputs = outputs,
@@ -34,160 +34,158 @@ class RowSelection<T> internal constructor(
   )
 }
 
-internal fun List<SqlExpression<*, *, *>>.selectReads() = map(SqlExpression<*, *, *>::selectRead)
-
 internal fun List<SqlExpression<*, *, *>>.forEachField(action: (ExpressionNode.Field) -> Unit) = forEach {
   it.node.forEachField(action)
 }
 
 @Suppress("UNCHECKED_CAST")
-private fun <V> List<(Cursor, Int) -> Any?>.read(index: Int) = this[index] as (Cursor, Int) -> V
+private fun <V> List<(SQLiteStatement, Int) -> Any?>.read(index: Int) = this[index] as (SQLiteStatement, Int) -> V
 
 internal fun <A, B, M> read2(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
   create: (A, B) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1)
   )
 }
 
 internal fun <A, B, C, M> read3(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
-  readC: (Cursor, Int) -> C,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
+  readC: (SQLiteStatement, Int) -> C,
   create: (A, B, C) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1),
-    readC(cursor, startIndex + 2)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1),
+    readC(statement, startIndex + 2)
   )
 }
 
 internal fun <A, B, C, D, M> read4(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
-  readC: (Cursor, Int) -> C,
-  readD: (Cursor, Int) -> D,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
+  readC: (SQLiteStatement, Int) -> C,
+  readD: (SQLiteStatement, Int) -> D,
   create: (A, B, C, D) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1),
-    readC(cursor, startIndex + 2),
-    readD(cursor, startIndex + 3)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1),
+    readC(statement, startIndex + 2),
+    readD(statement, startIndex + 3)
   )
 }
 
 internal fun <A, B, C, D, E, M> read5(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
-  readC: (Cursor, Int) -> C,
-  readD: (Cursor, Int) -> D,
-  readE: (Cursor, Int) -> E,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
+  readC: (SQLiteStatement, Int) -> C,
+  readD: (SQLiteStatement, Int) -> D,
+  readE: (SQLiteStatement, Int) -> E,
   create: (A, B, C, D, E) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1),
-    readC(cursor, startIndex + 2),
-    readD(cursor, startIndex + 3),
-    readE(cursor, startIndex + 4)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1),
+    readC(statement, startIndex + 2),
+    readD(statement, startIndex + 3),
+    readE(statement, startIndex + 4)
   )
 }
 
 internal fun <A, B, C, D, E, F, M> read6(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
-  readC: (Cursor, Int) -> C,
-  readD: (Cursor, Int) -> D,
-  readE: (Cursor, Int) -> E,
-  readF: (Cursor, Int) -> F,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
+  readC: (SQLiteStatement, Int) -> C,
+  readD: (SQLiteStatement, Int) -> D,
+  readE: (SQLiteStatement, Int) -> E,
+  readF: (SQLiteStatement, Int) -> F,
   create: (A, B, C, D, E, F) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1),
-    readC(cursor, startIndex + 2),
-    readD(cursor, startIndex + 3),
-    readE(cursor, startIndex + 4),
-    readF(cursor, startIndex + 5)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1),
+    readC(statement, startIndex + 2),
+    readD(statement, startIndex + 3),
+    readE(statement, startIndex + 4),
+    readF(statement, startIndex + 5)
   )
 }
 
 internal fun <A, B, C, D, E, F, G, M> read7(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
-  readC: (Cursor, Int) -> C,
-  readD: (Cursor, Int) -> D,
-  readE: (Cursor, Int) -> E,
-  readF: (Cursor, Int) -> F,
-  readG: (Cursor, Int) -> G,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
+  readC: (SQLiteStatement, Int) -> C,
+  readD: (SQLiteStatement, Int) -> D,
+  readE: (SQLiteStatement, Int) -> E,
+  readF: (SQLiteStatement, Int) -> F,
+  readG: (SQLiteStatement, Int) -> G,
   create: (A, B, C, D, E, F, G) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1),
-    readC(cursor, startIndex + 2),
-    readD(cursor, startIndex + 3),
-    readE(cursor, startIndex + 4),
-    readF(cursor, startIndex + 5),
-    readG(cursor, startIndex + 6)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1),
+    readC(statement, startIndex + 2),
+    readD(statement, startIndex + 3),
+    readE(statement, startIndex + 4),
+    readF(statement, startIndex + 5),
+    readG(statement, startIndex + 6)
   )
 }
 
 internal fun <A, B, C, D, E, F, G, H, M> read8(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
-  readC: (Cursor, Int) -> C,
-  readD: (Cursor, Int) -> D,
-  readE: (Cursor, Int) -> E,
-  readF: (Cursor, Int) -> F,
-  readG: (Cursor, Int) -> G,
-  readH: (Cursor, Int) -> H,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
+  readC: (SQLiteStatement, Int) -> C,
+  readD: (SQLiteStatement, Int) -> D,
+  readE: (SQLiteStatement, Int) -> E,
+  readF: (SQLiteStatement, Int) -> F,
+  readG: (SQLiteStatement, Int) -> G,
+  readH: (SQLiteStatement, Int) -> H,
   create: (A, B, C, D, E, F, G, H) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1),
-    readC(cursor, startIndex + 2),
-    readD(cursor, startIndex + 3),
-    readE(cursor, startIndex + 4),
-    readF(cursor, startIndex + 5),
-    readG(cursor, startIndex + 6),
-    readH(cursor, startIndex + 7)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1),
+    readC(statement, startIndex + 2),
+    readD(statement, startIndex + 3),
+    readE(statement, startIndex + 4),
+    readF(statement, startIndex + 5),
+    readG(statement, startIndex + 6),
+    readH(statement, startIndex + 7)
   )
 }
 
 internal fun <A, B, C, D, E, F, G, H, I, M> read9(
-  readA: (Cursor, Int) -> A,
-  readB: (Cursor, Int) -> B,
-  readC: (Cursor, Int) -> C,
-  readD: (Cursor, Int) -> D,
-  readE: (Cursor, Int) -> E,
-  readF: (Cursor, Int) -> F,
-  readG: (Cursor, Int) -> G,
-  readH: (Cursor, Int) -> H,
-  readI: (Cursor, Int) -> I,
+  readA: (SQLiteStatement, Int) -> A,
+  readB: (SQLiteStatement, Int) -> B,
+  readC: (SQLiteStatement, Int) -> C,
+  readD: (SQLiteStatement, Int) -> D,
+  readE: (SQLiteStatement, Int) -> E,
+  readF: (SQLiteStatement, Int) -> F,
+  readG: (SQLiteStatement, Int) -> G,
+  readH: (SQLiteStatement, Int) -> H,
+  readI: (SQLiteStatement, Int) -> I,
   create: (A, B, C, D, E, F, G, H, I) -> M
-): (Cursor, Int) -> M = { cursor, startIndex ->
+): (SQLiteStatement, Int) -> M = { statement, startIndex ->
   create(
-    readA(cursor, startIndex),
-    readB(cursor, startIndex + 1),
-    readC(cursor, startIndex + 2),
-    readD(cursor, startIndex + 3),
-    readE(cursor, startIndex + 4),
-    readF(cursor, startIndex + 5),
-    readG(cursor, startIndex + 6),
-    readH(cursor, startIndex + 7),
-    readI(cursor, startIndex + 8)
+    readA(statement, startIndex),
+    readB(statement, startIndex + 1),
+    readC(statement, startIndex + 2),
+    readD(statement, startIndex + 3),
+    readE(statement, startIndex + 4),
+    readF(statement, startIndex + 5),
+    readG(statement, startIndex + 6),
+    readH(statement, startIndex + 7),
+    readI(statement, startIndex + 8)
   )
 }
 
-internal fun <A, B, M> List<(Cursor, Int) -> Any?>.read2(
+internal fun <A, B, M> List<(SQLiteStatement, Int) -> Any?>.read2(
   create: (A, B) -> M
 ) = read2(
   readA = read(index = 0),
@@ -195,7 +193,7 @@ internal fun <A, B, M> List<(Cursor, Int) -> Any?>.read2(
   create = create
 )
 
-internal fun <A, B, C, M> List<(Cursor, Int) -> Any?>.read3(
+internal fun <A, B, C, M> List<(SQLiteStatement, Int) -> Any?>.read3(
   create: (A, B, C) -> M
 ) = read3(
   readA = read(index = 0),
@@ -204,7 +202,7 @@ internal fun <A, B, C, M> List<(Cursor, Int) -> Any?>.read3(
   create = create
 )
 
-internal fun <A, B, C, D, M> List<(Cursor, Int) -> Any?>.read4(
+internal fun <A, B, C, D, M> List<(SQLiteStatement, Int) -> Any?>.read4(
   create: (A, B, C, D) -> M
 ) = read4(
   readA = read(index = 0),
@@ -214,7 +212,7 @@ internal fun <A, B, C, D, M> List<(Cursor, Int) -> Any?>.read4(
   create = create
 )
 
-internal fun <A, B, C, D, E, M> List<(Cursor, Int) -> Any?>.read5(
+internal fun <A, B, C, D, E, M> List<(SQLiteStatement, Int) -> Any?>.read5(
   create: (A, B, C, D, E) -> M
 ) = read5(
   readA = read(index = 0),
@@ -225,7 +223,7 @@ internal fun <A, B, C, D, E, M> List<(Cursor, Int) -> Any?>.read5(
   create = create
 )
 
-internal fun <A, B, C, D, E, F, M> List<(Cursor, Int) -> Any?>.read6(
+internal fun <A, B, C, D, E, F, M> List<(SQLiteStatement, Int) -> Any?>.read6(
   create: (A, B, C, D, E, F) -> M
 ) = read6(
   readA = read(index = 0),
@@ -237,7 +235,7 @@ internal fun <A, B, C, D, E, F, M> List<(Cursor, Int) -> Any?>.read6(
   create = create
 )
 
-internal fun <A, B, C, D, E, F, G, M> List<(Cursor, Int) -> Any?>.read7(
+internal fun <A, B, C, D, E, F, G, M> List<(SQLiteStatement, Int) -> Any?>.read7(
   create: (A, B, C, D, E, F, G) -> M
 ) = read7(
   readA = read(index = 0),
@@ -250,7 +248,7 @@ internal fun <A, B, C, D, E, F, G, M> List<(Cursor, Int) -> Any?>.read7(
   create = create
 )
 
-internal fun <A, B, C, D, E, F, G, H, M> List<(Cursor, Int) -> Any?>.read8(
+internal fun <A, B, C, D, E, F, G, H, M> List<(SQLiteStatement, Int) -> Any?>.read8(
   create: (A, B, C, D, E, F, G, H) -> M
 ) = read8(
   readA = read(index = 0),
@@ -264,7 +262,7 @@ internal fun <A, B, C, D, E, F, G, H, M> List<(Cursor, Int) -> Any?>.read8(
   create = create
 )
 
-internal fun <A, B, C, D, E, F, G, H, I, M> List<(Cursor, Int) -> Any?>.read9(
+internal fun <A, B, C, D, E, F, G, H, I, M> List<(SQLiteStatement, Int) -> Any?>.read9(
   create: (A, B, C, D, E, F, G, H, I) -> M
 ) = read9(
   readA = read(index = 0),

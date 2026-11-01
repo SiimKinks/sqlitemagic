@@ -12,10 +12,10 @@ internal class EntityPersistOperationsTest {
   @Test
   fun `observed terminal snapshots null omission configuration`() {
     val connection = newConnection()
-    connection.recordingDatabase.updateResults.addAll(listOf(1, 1))
+    connection.sqliteConnection.updateResults += listOf(1, 1)
     val builder = TestAdapter()
       .persist(TestEntity(name = null))
-      .usingConnection(connection.connection)
+      .usingConnection(connection.dbConnection)
     val fixedValues = builder.observe()
 
     builder.ignoreNullValues()
@@ -38,12 +38,12 @@ internal class EntityPersistOperationsTest {
   @Test
   fun `each observed subscription receives isolated execution scratch state`() {
     val connection = newConnection()
-    connection.recordingDatabase.updateResults.addAll(listOf(0, 0))
-    connection.recordingDatabase.insertResults.addAll(listOf(7L, 8L))
+    connection.sqliteConnection.updateResults += listOf(0, 0)
+    connection.sqliteConnection.insertResults += listOf(7L, 8L)
     val adapter = TestAdapter()
     val persist = adapter
       .persist(TestEntity(name = null))
-      .usingConnection(connection.connection)
+      .usingConnection(connection.dbConnection)
       .ignoreNullValues()
       .observe()
 

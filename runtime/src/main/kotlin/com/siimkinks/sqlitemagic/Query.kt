@@ -1,12 +1,11 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import androidx.annotation.CheckResult
 import androidx.annotation.WorkerThread
 
 /** An executable query. */
 abstract class Query<T> internal constructor(
-  internal val dbConnection: DbConnectionImpl?
+  private val dbConnection: DbConnectionImpl?
 ) {
   internal fun resolveConnection() = dbConnection.orDefault()
 
@@ -24,19 +23,13 @@ abstract class Query<T> internal constructor(
    */
   @CheckResult
   @WorkerThread
-  fun runBlocking(): T? = map(openCursor())
+  fun runBlocking(): T? = run(executionConnection())
 
-  internal fun openCursor() = executionConnection().let(::rawQuery)
-
-  internal fun executionConnection() = resolveConnection().also { connection ->
-    check(!connection.hasActiveTransaction) { "Cannot execute observable query in a transaction." }
+  internal fun executionConnection() = resolveConnection().also {
+    check(!it.hasActiveTransaction) { "Cannot execute observable query in a transaction." }
   }
 
-  internal abstract fun rawQuery(dbConnection: DbConnectionImpl): Cursor
-
-  internal open fun discardResult(result: T) = Unit
-
-  internal abstract fun map(cursor: Cursor, isDisposed: () -> Boolean = NOT_DISPOSED): T
+  internal abstract fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean = NOT_DISPOSED): T
 }
 
-internal val NOT_DISPOSED: () -> Boolean = { false }
+internal val NOT_DISPOSED = { false }

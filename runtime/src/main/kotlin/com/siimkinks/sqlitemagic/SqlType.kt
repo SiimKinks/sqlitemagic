@@ -1,9 +1,9 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
-import android.database.Cursor.FIELD_TYPE_FLOAT
-import android.database.Cursor.FIELD_TYPE_INTEGER
-import android.database.Cursor.FIELD_TYPE_NULL
+import androidx.sqlite.SQLITE_DATA_FLOAT
+import androidx.sqlite.SQLITE_DATA_INTEGER
+import androidx.sqlite.SQLITE_DATA_NULL
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.SqlStorage
 import com.siimkinks.sqlitemagic.internal.Storage
 
@@ -56,20 +56,31 @@ object SqlType {
   val NUMBER = ReadType(
     nonNullRead = ::readNumber,
     selectRead = ::readNumber,
-    readNullness = Required
+    readNullness = Required,
+    storageNullableRead = ::readNumberOrNull
   )
 }
 
 private fun <T : Any> builtinType(storage: Storage<T>) = EncodingType<T, T, Required, Required>(
   encode = storage.encode,
   nonNullRead = storage.read,
-  selectRead = requiredReader(storage.read),
-  readNullness = Required
+  selectRead = requiredReader(
+    read = storage.read,
+    nullableRead = storage.nullableRead
+  ),
+  readNullness = Required,
+  storageNullableRead = storage.nullableRead
 )
 
-private fun readNumber(cursor: Cursor, index: Int): Number = when (cursor.getType(index)) {
-  FIELD_TYPE_INTEGER -> cursor.getLong(index)
-  FIELD_TYPE_FLOAT -> cursor.getDouble(index)
-  FIELD_TYPE_NULL -> throw requiredSqlNull()
-  else -> error("NUMBER requires an INTEGER or REAL SQL result")
-}
+private fun readNumber(statement: SQLiteStatement, index: Int) = readNumberOrNull(
+  statement = statement,
+  index = index
+) ?: throw requiredSqlNull()
+
+private fun readNumberOrNull(statement: SQLiteStatement, index: Int): Number? =
+  when (statement.getColumnType(index)) {
+    SQLITE_DATA_INTEGER -> statement.getLong(index)
+    SQLITE_DATA_FLOAT -> statement.getDouble(index)
+    SQLITE_DATA_NULL -> null
+    else -> error("NUMBER requires an INTEGER or REAL SQL result")
+  }

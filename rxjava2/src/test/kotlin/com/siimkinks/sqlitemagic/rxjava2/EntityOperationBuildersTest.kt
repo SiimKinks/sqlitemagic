@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic.rxjava2
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DbConnection
@@ -17,47 +16,43 @@ import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.newConnection
-import com.siimkinks.sqlitemagic.testDbConnection
 import com.siimkinks.sqlitemagic.update
 import io.reactivex.Completable
 import io.reactivex.observers.TestObserver
 import io.reactivex.plugins.RxJavaPlugins
 import org.junit.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
 
 internal class EntityOperationBuildersTest {
   @Test
   fun `observed terminal snapshots connection conflict and selected identity`() {
     val initialConnection = newConnection()
-    initialConnection.recordingDatabase.insertResults += -1L
+    initialConnection.sqliteConnection.insertResults += -1L
     val laterConnection = newConnection()
-    laterConnection.recordingDatabase.insertResults += 7L
+    laterConnection.sqliteConnection.insertResults += 7L
     val insertBuilder = TestAdapter()
       .insert(TestEntity())
-      .usingConnection(initialConnection.connection)
+      .usingConnection(initialConnection.dbConnection)
     val insert = insertBuilder.observe()
 
     insertBuilder
-      .usingConnection(laterConnection.connection)
+      .usingConnection(laterConnection.dbConnection)
       .conflictAlgorithm(CONFLICT_IGNORE)
 
     insert
       .test()
       .assertFailure(OperationFailedException::class.java)
-    assertThat(initialConnection.recordingDatabase.compiledStatements).hasSize(1)
-    assertThat(laterConnection.recordingDatabase.compiledStatements).isEmpty()
+    assertThat(initialConnection.sqliteConnection.compiledStatements).hasSize(1)
+    assertThat(laterConnection.sqliteConnection.compiledStatements).isEmpty()
     insertBuilder
       .observe()
       .test()
       .assertResult(EntityInsertResult.Inserted(rowId = 7L))
 
     val updateConnection = newConnection()
-    updateConnection.recordingDatabase.updateResults.addAll(listOf(1, 1))
+    updateConnection.sqliteConnection.updateResults += listOf(1, 1)
     val updateBuilder = TestAdapter()
       .update(TestEntity())
-      .usingConnection(updateConnection.connection)
+      .usingConnection(updateConnection.dbConnection)
       .byColumn(TestSchema.id)
     val update = updateBuilder.observe()
 
@@ -87,8 +82,8 @@ internal class EntityOperationBuildersTest {
         .insert(TestEntity())
         .observe()
       val current = newConnection()
-      current.recordingDatabase.insertResults += 7L
-      SqliteMagic.defaultConnection = current.connection
+      current.sqliteConnection.insertResults += 7L
+      SqliteMagic.defaultConnection = current.dbConnection
 
       insert
         .test()
@@ -129,29 +124,19 @@ internal class EntityOperationBuildersTest {
         pluginErrors.clear()
         val observer = TestObserver<Any>()
         val failure = RuntimeException("$label failed after disposal")
-        val database = mock<SupportSQLiteDatabase>()
-        whenever(database.compileStatement(any())).thenAnswer {
+        val connection = queryingConnection(answers = { "books" in it }) {
           observer.dispose()
           throw failure
         }
 
-        subscribe(testDbConnection(database), observer)
+        subscribe(connection, observer)
 
+        observer
+          .withTag(label)
+          .assertEmpty()
         assertWithMessage(label)
-          .that(
-            Triple(
-              first = observer.values(),
-              second = observer.errors(),
-              third = pluginErrors.map(Throwable::cause)
-            )
-          )
-          .isEqualTo(
-            Triple(
-              first = emptyList<Any>(),
-              second = emptyList<Throwable>(),
-              third = listOf(failure)
-            )
-          )
+          .that(pluginErrors.map(Throwable::cause))
+          .containsExactly(failure)
       }
     } finally {
       RxJavaPlugins.reset()
@@ -161,7 +146,8 @@ internal class EntityOperationBuildersTest {
   @Test
   fun `deferred bulk by-column terminals capture each selected column`() {
     val entity = TestEntity()
-    val cases = listOf<Pair<String, (DbConnection) -> (Unique<TestEntity>) -> Completable>>(
+
+    for ((label, terminals) in mapOf<String, (DbConnection) -> (Unique<TestEntity>) -> Completable>(
       "bulk update" to { connection ->
         val builder = TestAdapter()
           .bulkUpdateByColumn(listOf(entity))
@@ -174,12 +160,10 @@ internal class EntityOperationBuildersTest {
           .usingConnection(connection)
         builder::observe
       }
-    )
-
-    for ((label, terminals) in cases) {
+    )) {
       val connection = newConnection()
-      connection.recordingDatabase.updateResults.addAll(listOf(1, 1))
-      val observe = terminals(connection.connection)
+      connection.sqliteConnection.updateResults += listOf(1, 1)
+      val observe = terminals(connection.dbConnection)
 
       val first = observe(TestSchema.id)
       val second = observe(TestSchema.key)
@@ -190,7 +174,7 @@ internal class EntityOperationBuildersTest {
         .test()
         .assertResult()
 
-      val statements = connection.recordingDatabase.compiledStatements.map { it.sql to it.bindings[2] }
+      val statements = connection.sqliteConnection.compiledStatements.map { it.sql to it.bindings[2] }
       assertWithMessage(label)
         .that(statements)
         .containsExactly(

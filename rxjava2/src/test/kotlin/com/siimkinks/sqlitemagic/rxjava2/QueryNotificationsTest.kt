@@ -1,15 +1,11 @@
 package com.siimkinks.sqlitemagic.rxjava2
 
 import android.util.Log
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
-import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.AUTHOR
 import com.siimkinks.sqlitemagic.DbConnectionImpl
-import com.siimkinks.sqlitemagic.RecordingOpenHelper
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SqlType.STRING
-import com.siimkinks.sqlitemagic.TestGeneratedDatabase
 import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.closedConnection
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
@@ -20,7 +16,6 @@ import io.reactivex.schedulers.Schedulers
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mockStatic
-import org.mockito.kotlin.mock
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -52,10 +47,13 @@ internal class QueryNotificationsTest {
       }
       release.countDown()
       check(emitted.await(5, SECONDS))
-      scheduled.submit {}.get(5, SECONDS)
+      scheduled.submit {}
+        .get(5, SECONDS)
       subscription.dispose()
 
-      assertThat(seenVersions).containsExactly(0, 100).inOrder()
+      assertThat(seenVersions)
+        .containsExactly(0, 100)
+        .inOrder()
     }
   }
 
@@ -75,7 +73,8 @@ internal class QueryNotificationsTest {
         connection.sendTableTrigger("author")
       }
       release.countDown()
-      scheduled.submit {}.get(5, SECONDS)
+      scheduled.submit {}
+        .get(5, SECONDS)
       subscription.dispose()
 
       assertThat(seenVersions).containsExactly(3)
@@ -84,10 +83,7 @@ internal class QueryNotificationsTest {
 
   @Test
   fun `a write made during an emission emits again after that emission returns`() {
-    val connection = testDbConnection(
-      database = mock<SupportSQLiteDatabase>(),
-      adapterSettings = querySchedulerSettings()
-    )
+    val connection = testDbConnection(adapterSettings = querySchedulerSettings())
     val events = mutableListOf<String>()
     var emissions = 0
 
@@ -126,7 +122,7 @@ internal class QueryNotificationsTest {
       }
       release.countDown()
 
-      check(observer.awaitTerminalEvent(5, SECONDS))
+      check(observer.await(5, SECONDS))
       observer
         .assertValueCount(1)
         .assertComplete()
@@ -163,23 +159,9 @@ internal class QueryNotificationsTest {
           .test()
       }
     )) {
-      val observer = observe(closedConnection(adapterSettings = querySchedulerSettings()))
-
-      assertWithMessage(label)
-        .that(
-          Triple(
-            first = observer.values(),
-            second = observer.completions(),
-            third = observer.errors()
-          )
-        )
-        .isEqualTo(
-          Triple(
-            first = emptyList<Any>(),
-            second = 1L,
-            third = emptyList<Throwable>()
-          )
-        )
+      observe(closedConnection(adapterSettings = querySchedulerSettings()))
+        .withTag(label)
+        .assertResult()
     }
   }
 
@@ -204,23 +186,11 @@ internal class QueryNotificationsTest {
           .test()
       }
     )) {
-      val observer = observe(closedConnection(adapterSettings = querySchedulerSettings()))
-
-      assertWithMessage(label)
-        .that(
-          Triple(
-            first = observer.values(),
-            second = observer.completions(),
-            third = observer.errors().map { it.javaClass }
-          )
-        )
-        .isEqualTo(
-          Triple(
-            first = emptyList<Any>(),
-            second = 0L,
-            third = listOf(NoSuchElementException::class.java)
-          )
-        )
+      observe(closedConnection(adapterSettings = querySchedulerSettings()))
+        .withTag(label)
+        .assertNoValues()
+        .assertError { it.javaClass == NoSuchElementException::class.java }
+        .assertNotComplete()
     }
   }
 
@@ -232,7 +202,7 @@ internal class QueryNotificationsTest {
       source
     }
     try {
-      authorNames(testDbConnection(mock<SupportSQLiteDatabase>()))
+      authorNames(testDbConnection())
 
       assertThat(assembled).containsExactly(QueryNotifications::class.java)
     } finally {
@@ -266,13 +236,7 @@ internal class QueryNotificationsTest {
       "configured" to querySchedulerSettings(Schedulers.from(executors.getValue("configured"))),
       "default" to MutableScatterMap()
     ).mapValues { (_, settings) ->
-      authorNames(
-        DbConnectionImpl(
-          database = TestGeneratedDatabase(tableCount = 1),
-          dbHelper = RecordingOpenHelper(mock<SupportSQLiteDatabase>()),
-          adapterSettings = settings
-        )
-      )
+      authorNames(testDbConnection(adapterSettings = settings))
     }
     RxJavaPlugins.setIoSchedulerHandler { Schedulers.from(executors.getValue("io")) }
     try {
@@ -324,10 +288,7 @@ internal class QueryNotificationsTest {
     }
     try {
       block(
-        testDbConnection(
-          database = mock<SupportSQLiteDatabase>(),
-          adapterSettings = querySchedulerSettings(Schedulers.from(scheduled, interruptible))
-        ),
+        testDbConnection(adapterSettings = querySchedulerSettings(Schedulers.from(scheduled, interruptible))),
         scheduled
       )
     } finally {

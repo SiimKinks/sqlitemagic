@@ -6,24 +6,6 @@ import com.siimkinks.sqlitemagic.SqlType.LONG
 import org.junit.Test
 
 internal class RowMappingSelectTest {
-  private data class PersonSummary(
-    val id: Long,
-    val name: String?,
-    val age: Int
-  )
-
-  private data class PersonRecord(
-    val id: Long,
-    val name: String?,
-    val age: Int,
-    val parentId: Long?,
-    val token: Token,
-    val flag: Boolean?,
-    val nameAgain: String?,
-    val ageAgain: Int,
-    val idAgain: Long
-  )
-
   @Test
   fun `three through nine expressions read into rows in selection order`() {
     val row3 = SELECT
@@ -46,9 +28,7 @@ internal class RowMappingSelectTest {
       .ORDER_BY(PERSON.ID.ASC())
 
     assertThat(row3.rowsIn(::personDatabase)).isEqualTo(
-      people.map { person ->
-        Row3(person.id, person.name, person.age)
-      }
+      people.map { Row3(it.id, it.name, it.age) }
     )
     assertThat(row9.rowsIn(::personDatabase)).isEqualTo(
       people.map { person ->
@@ -69,6 +49,12 @@ internal class RowMappingSelectTest {
 
   @Test
   fun `mapTo builds results without changing the SQL`() {
+    data class PersonSummary(
+      val id: Long,
+      val name: String?,
+      val age: Int
+    )
+
     val summaries = SELECT
       .COLUMNS(PERSON.ID, PERSON.NAME, PERSON.AGE)
       .FROM(PERSON)
@@ -119,8 +105,19 @@ internal class RowMappingSelectTest {
       val list: List<Any?>,
       val first: Any?,
       val count: Long,
-      val cursor: List<Any?>,
       val observed: List<Any?>
+    )
+
+    data class PersonRecord(
+      val id: Long,
+      val name: String?,
+      val age: Int,
+      val parentId: Long?,
+      val token: Token,
+      val flag: Boolean?,
+      val nameAgain: String?,
+      val ageAgain: Int,
+      val idAgain: Long
     )
 
     val records = SELECT
@@ -154,7 +151,7 @@ internal class RowMappingSelectTest {
       }
 
     libraryDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val cases = listOf(
         Case(
           label = "scalar",
@@ -227,7 +224,6 @@ internal class RowMappingSelectTest {
       )
 
       cases.forEach { case ->
-        val compiledCursor = case.query.toCursor()
         assertWithMessage(case.label)
           .that(
             Terminals(
@@ -238,15 +234,6 @@ internal class RowMappingSelectTest {
               count = case.query
                 .count()
                 .execute(),
-              cursor = compiledCursor
-                .execute()
-                .use { rows ->
-                  buildList {
-                    while (rows.moveToNext()) {
-                      add(compiledCursor.getFromCurrentPosition(rows))
-                    }
-                  }
-                },
               observed = checkNotNull(
                 case.query
                   .compile()
@@ -261,7 +248,6 @@ internal class RowMappingSelectTest {
               list = case.rows,
               first = case.rows.first(),
               count = case.rows.size.toLong(),
-              cursor = case.rows,
               observed = case.rows
             )
           )

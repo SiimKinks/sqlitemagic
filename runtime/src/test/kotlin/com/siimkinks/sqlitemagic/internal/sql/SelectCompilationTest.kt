@@ -1,12 +1,15 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.ExecutionReader
+import com.siimkinks.sqlitemagic.NOT_DISPOSED
+import com.siimkinks.sqlitemagic.PlanSnapshot
 import com.siimkinks.sqlitemagic.SelectPlan
 import com.siimkinks.sqlitemagic.Selection
 import com.siimkinks.sqlitemagic.asValue
+import com.siimkinks.sqlitemagic.snapshot
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mockingDetails
@@ -20,7 +23,7 @@ internal class SelectCompilationTest {
       .asParameter("value")
     val selection = RecordingSelection(
       output = parameter.node,
-      reader = Cursor::getLong
+      reader = SQLiteStatement::getLong
     )
     val initial = SelectNode(selection)
     val filtered = initial.copy(
@@ -31,31 +34,42 @@ internal class SelectCompilationTest {
     assertThat(selection.events).isEmpty()
     val count = compileCount(filtered)
       .bind(parameter TO 9L)
-    assertThat(count.sql).isEqualTo("SELECT count(*) FROM (SELECT ? WHERE ? LIMIT 2)")
-    assertThat(count.boundArguments())
-      .containsExactly(NativeValue.Integer(9L), NativeValue.Integer(1L))
-      .inOrder()
+    assertThat(snapshot(count)).isEqualTo(
+      PlanSnapshot(
+        sql = "SELECT count(*) FROM (SELECT ? WHERE ? LIMIT 2)",
+        arguments = listOf(NativeValue.Integer(9L), NativeValue.Integer(1L))
+      )
+    )
     assertThat(selection.events).containsExactly("render")
 
     selection.events.clear()
-    val cursorPlan = compileCursor(filtered)
-    assertThat(selection.events).containsExactly("render", "reader")
+    val selectPlan = compileSelect(filtered)
+    assertThat(selection.events)
+      .containsExactly("render", "reader")
       .inOrder()
-    val first = cursorPlan.bind(parameter TO 11L)
-    val second = cursorPlan.bind(parameter TO 13L)
-    assertThat(first.prepared).isSameInstanceAs(cursorPlan.prepared)
-    assertThat(second.prepared).isSameInstanceAs(cursorPlan.prepared)
-    assertThat(first.boundArguments())
-      .containsExactly(NativeValue.Integer(11L), NativeValue.Integer(1L))
-      .inOrder()
-    assertThat(second.boundArguments())
-      .containsExactly(NativeValue.Integer(13L), NativeValue.Integer(1L))
-      .inOrder()
-    val rows = mock<Cursor>()
-    whenever(rows.getLong(0)).thenReturn(17L)
-    assertThat(first.getFromCurrentPosition(rows)).isEqualTo(17L)
-    assertThat(second.getFromCurrentPosition(rows)).isEqualTo(17L)
-    assertThat(selection.events).containsExactly("render", "reader")
+    val first = selectPlan.bind(parameter TO 11L)
+    val second = selectPlan.bind(parameter TO 13L)
+    assertThat(first.prepared).isSameInstanceAs(selectPlan.prepared)
+    assertThat(second.prepared).isSameInstanceAs(selectPlan.prepared)
+    assertThat(listOf(first, second).map(SelectPlan<*>::boundArguments)).isEqualTo(
+      listOf(
+        listOf(NativeValue.Integer(11L), NativeValue.Integer(1L)),
+        listOf(NativeValue.Integer(13L), NativeValue.Integer(1L))
+      )
+    )
+    val statement = mock<SQLiteStatement>()
+    whenever(statement.step()).thenReturn(true, false, true, false)
+    whenever(statement.getLong(0)).thenReturn(17L)
+    assertThat(
+      listOf(first, second).map { plan ->
+        plan.mapRows(
+          statement = statement,
+          isDisposed = NOT_DISPOSED
+        )
+      }
+    ).isEqualTo(listOf(listOf(17L), listOf(17L)))
+    assertThat(selection.events)
+      .containsExactly("render", "reader")
       .inOrder()
   }
 
@@ -69,24 +83,31 @@ internal class SelectCompilationTest {
           context.sql.append("11, 'eleven'")
         }
       },
-      reader = { cursor: Cursor, index: Int ->
+      reader = { statement, index ->
         PairResult(
-          number = cursor.getLong(index),
-          text = cursor.getString(index + 1)
+          number = statement.getLong(index),
+          text = statement.getText(index + 1)
         )
       }
     )
     val node = SelectNode(selection)
     val select = compileSelect(node)
     val first = compileFirst(node)
-    val cursor = compileCursor(node)
-    val readers: List<Pair<String, (Cursor) -> PairResult?>> = listOf(
-      "select" to { rows ->
-        select.mapRows(rows)
+    val readers: List<Pair<String, (SQLiteStatement) -> PairResult?>> = listOf(
+      "select" to { statement ->
+        select
+          .mapRows(
+            statement = statement,
+            isDisposed = NOT_DISPOSED
+          )
           .single()
       },
-      "first" to { rows -> first.mapRows(rows) },
-      "cursor" to cursor::getFromCurrentPosition
+      "first" to { statement ->
+        first.mapRows(
+          statement = statement,
+          isDisposed = NOT_DISPOSED
+        )
+      }
     )
     val expected = PairResult(
       number = 11L,
@@ -95,16 +116,16 @@ internal class SelectCompilationTest {
 
     assertThat(select.sql).isEqualTo("SELECT 11, 'eleven'")
     readers.forEach { (terminal, read) ->
-      val rows = mock<Cursor>()
-      whenever(rows.moveToNext()).thenReturn(true, false)
-      whenever(rows.getLong(0)).thenReturn(11L)
-      whenever(rows.getString(1)).thenReturn("eleven")
+      val statement = mock<SQLiteStatement>()
+      whenever(statement.step()).thenReturn(true, false)
+      whenever(statement.getLong(0)).thenReturn(11L)
+      whenever(statement.getText(1)).thenReturn("eleven")
       assertWithMessage(terminal)
-        .that(read(rows))
+        .that(read(statement))
         .isEqualTo(expected)
     }
     assertThat(selection.events)
-      .containsExactly("render", "reader", "render", "reader", "render", "reader")
+      .containsExactly("render", "reader", "render", "reader")
       .inOrder()
   }
 
@@ -112,15 +133,14 @@ internal class SelectCompilationTest {
   fun `rendering failures never request a reader`() {
     val terminals: List<Pair<String, (SelectNode<Long, Selection<Long>>) -> SelectPlan<*>>> = listOf(
       "select" to ::compileSelect,
-      "first" to ::compileFirst,
-      "cursor" to ::compileCursor
+      "first" to ::compileFirst
     )
     val output = 1L.asValue().node
 
     terminals.forEach { (terminal, compile) ->
       val selection = RecordingSelection(
         output = output,
-        reader = Cursor::getLong,
+        reader = SQLiteStatement::getLong,
         failure = "render"
       )
       val node = SelectNode<Long, Selection<Long>>(selection)
@@ -132,17 +152,17 @@ internal class SelectCompilationTest {
   }
 
   @Test
-  fun `reading terminals close their cursor while cursor terminals leave it to the caller`() {
+  fun `reading terminals map the rows of the statement and leave it to its lease`() {
     data class Case(
       val label: String,
       val rows: Int,
-      val read: (Cursor) -> Any?
+      val read: (SQLiteStatement) -> Any?
     )
 
     val node = SelectNode(
       RecordingSelection(
         output = 7L.asValue().node,
-        reader = Cursor::getLong
+        reader = SQLiteStatement::getLong
       )
     )
     val failing = SelectNode(
@@ -151,66 +171,75 @@ internal class SelectCompilationTest {
         reader = { _, _ -> error("read failed") }
       )
     )
-    val cursor = compileCursor(node)
+
+    fun reading(plan: SelectPlan<*>, disposed: Boolean = false): (SQLiteStatement) -> Any? = { statement ->
+      plan.mapRows(
+        statement = statement,
+        isDisposed = { disposed }
+      )
+    }
+
     val cases = listOf(
       Case(
         label = "select",
         rows = 2,
-        read = compileSelect(node)::mapRows
+        read = reading(compileSelect(node))
+      ),
+      Case(
+        label = "disposed select",
+        rows = 2,
+        read = reading(
+          plan = compileSelect(node),
+          disposed = true
+        )
       ),
       Case(
         label = "first",
         rows = 1,
-        read = compileFirst(node)::mapRows
+        read = reading(compileFirst(node))
       ),
       Case(
         label = "empty first",
         rows = 0,
-        read = compileFirst(node)::mapRows
+        read = reading(compileFirst(node))
       ),
       Case(
         label = "count",
         rows = 1,
-        read = compileCount(node)::mapRows
+        read = reading(compileCount(node))
       ),
       Case(
         label = "failed select read",
         rows = 1,
-        read = { rows -> runCatching { compileSelect(failing).mapRows(rows) }.exceptionOrNull()?.message }
-      ),
-      Case(
-        label = "cursor",
-        rows = 1,
-        read = { rows -> cursor.mapRows(rows) === rows }
+        read = { statement -> runCatching { reading(compileSelect(failing))(statement) }.exceptionOrNull()?.message }
       )
     )
 
     assertThat(
       cases.map { case ->
         var position = -1
-        val rows = mock<Cursor>()
-        whenever(rows.count).thenReturn(case.rows)
-        whenever(rows.moveToNext()).thenAnswer { ++position < case.rows }
-        whenever(rows.getLong(0)).thenReturn(7L)
-        val result = case.read(rows)
-        val closes = mockingDetails(rows).invocations.count { it.method.name == "close" }
+        val statement = mock<SQLiteStatement>()
+        whenever(statement.step()).thenAnswer { ++position < case.rows }
+        whenever(statement.getLong(0)).thenReturn(7L)
+        val result = case.read(statement)
+        val closes = mockingDetails(statement).invocations.count { it.method.name == "close" }
         case.label to (result to closes)
       }
     ).isEqualTo(
       listOf(
-        "select" to (listOf(7L, 7L) to 1),
-        "first" to (7L to 1),
-        "empty first" to (null to 1),
-        "count" to (7L to 1),
-        "failed select read" to ("read failed" to 1),
-        "cursor" to (true to 0)
+        "select" to (listOf(7L, 7L) to 0),
+        "disposed select" to (emptyList<Long>() to 0),
+        "first" to (7L to 0),
+        "empty first" to (null to 0),
+        "count" to (7L to 0),
+        "failed select read" to ("read failed" to 0)
       )
     )
   }
 
   private class RecordingSelection<T>(
     private val output: SqlRenderable,
-    private val reader: (Cursor, Int) -> T,
+    private val reader: (SQLiteStatement, Int) -> T,
     private val failure: String? = null
   ) : Selection<T>() {
     val events = mutableListOf<String>()

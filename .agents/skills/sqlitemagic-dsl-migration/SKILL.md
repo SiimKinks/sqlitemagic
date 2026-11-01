@@ -63,7 +63,7 @@ behind most edits:
   Legacy `usingConnection()` and `queryDeep()` mutated a shared builder, so ignored results used to work.
 - Clauses follow SQL order: selection before `FROM`, `DISTINCT` right after `SELECT`, a join's `ON`/`USING` after the
   joined source. `queryDeep()`, `readAs`, `mapTo` and `usingConnection()` are final configuration after the last
-  clause; terminals (`execute()`, `takeFirst()`, `count()`, `toCursor()`, `compile()`, `observe()`) come last.
+  clause; terminals (`execute()`, `useRows { }`, `takeFirst()`, `count()`, `compile()`, `observe()`) come last.
 - One uppercase spelling per SQL construct, callable infix or with a dot. Lowercase Java-style builders
   (`.where(…)`, `.orderBy(…)`, `.leftJoin(…)`) become the uppercase dot-call (`.WHERE(…)`, `.ORDER_BY(…)`).
 - Keep each call site's existing style: infix stays infix, fluent stays fluent. Kotlin infix precedence is not SQL
@@ -74,6 +74,9 @@ behind most edits:
   `com.siimkinks.sqlitemagic.rxjava2`. Modules that declared RxJava only because runtime signatures used it can drop it.
   A project on RxJava 3 uses `sqlitemagic-rxjava3` and `com.siimkinks.sqlitemagic.rxjava3`, which have the same API.
   Coroutine code uses `sqlitemagic-coroutines`: `observe()` returns a `Flow`, and one-shot writes use suspend `await()`.
+- Setup takes a driver: `sqliteFactory(FrameworkSQLiteOpenHelperFactory())` becomes `driver(FrameworkSQLiteDriver())`
+  or `driver(BundledSQLiteDriver())`, and `Cursor` reads become `useRows`; see
+  [statements-and-types.md](references/statements-and-types.md#setup-drivers-and-reading-rows).
 
 Do not recreate legacy names with local extension functions, wrappers or typealiases to shrink the diff. They keep
 legacy semantics alive in the caller's head while the engine behaves differently, and they hide the sites the

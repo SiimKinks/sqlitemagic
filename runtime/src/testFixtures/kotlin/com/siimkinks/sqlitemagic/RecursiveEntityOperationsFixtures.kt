@@ -1,6 +1,18 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.CHILD_INSERT
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.CHILD_INSERT_RELATIONSHIPS
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.CHILD_PERSIST_RELATIONSHIPS
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.CHILD_UPDATE
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.CHILD_UPDATE_RELATIONSHIPS
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.GRANDCHILD_INSERT
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.GRANDCHILD_UPDATE
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.PARENT_INSERT
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.PARENT_INSERT_RELATIONSHIPS
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.PARENT_PERSIST_RELATIONSHIPS
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.PARENT_UPDATE
+import com.siimkinks.sqlitemagic.RecursiveOperationEvent.PARENT_UPDATE_RELATIONSHIPS
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
@@ -108,30 +120,29 @@ internal class RecursiveGrandchildAdapter(
   override val defaultIdentityColumnName = "id"
 
   override fun bindToInsertStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: RecursiveGrandchild,
     generatedRelationshipIds: Map<String, Long>
   ) {
-    state.record(RecursiveOperationEvent.GRANDCHILD_INSERT)
-    statement.clearBindings()
-    statement.bindString(
+    state.record(GRANDCHILD_INSERT)
+    statement.bindText(
       index = 1,
       value = entity.id
     )
   }
 
   override fun bindToUpdateStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: RecursiveGrandchild,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
-    state.record(RecursiveOperationEvent.GRANDCHILD_UPDATE)
-    statement.clearBindings()
-    statement.bindString(
+    state.record(GRANDCHILD_UPDATE)
+    statement.bindText(
       index = 1,
       value = entity.id
     )
-    statement.bindString(
+    statement.bindText(
       index = 2,
       value = entity.id
     )
@@ -149,7 +160,8 @@ internal class RecursiveGrandchildAdapter(
   override fun bindNotNullForUpdate(
     entity: RecursiveGrandchild,
     values: MutableScatterMap<String, Any>,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
   }
@@ -186,19 +198,18 @@ internal class RecursiveChildAdapter(
   )
 
   override fun bindToInsertStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: RecursiveChild,
     generatedRelationshipIds: Map<String, Long>
   ) {
-    state.record(RecursiveOperationEvent.CHILD_INSERT)
-    statement.clearBindings()
-    statement.bindString(
+    state.record(CHILD_INSERT)
+    statement.bindText(
       index = 1,
       value = entity.id
     )
     when (val grandchild = entity.grandchild) {
       null -> statement.bindNull(2)
-      else -> statement.bindString(
+      else -> statement.bindText(
         index = 2,
         value = grandchild.id
       )
@@ -206,17 +217,17 @@ internal class RecursiveChildAdapter(
   }
 
   override fun bindToUpdateStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: RecursiveChild,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
-    state.record(RecursiveOperationEvent.CHILD_UPDATE)
-    statement.clearBindings()
-    statement.bindString(
+    state.record(CHILD_UPDATE)
+    statement.bindText(
       index = 1,
       value = entity.id
     )
-    statement.bindString(
+    statement.bindText(
       index = 2,
       value = entity.id
     )
@@ -237,7 +248,8 @@ internal class RecursiveChildAdapter(
   override fun bindNotNullForUpdate(
     entity: RecursiveChild,
     values: MutableScatterMap<String, Any>,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
   }
@@ -259,7 +271,7 @@ internal class RecursiveChildAdapter(
     entity: RecursiveChild,
     operations: EntityRelationshipOperations
   ): Boolean {
-    state.record(RecursiveOperationEvent.CHILD_INSERT_RELATIONSHIPS)
+    state.record(CHILD_INSERT_RELATIONSHIPS)
     return entity.grandchild
       ?.let {
         operations.insert(
@@ -274,7 +286,7 @@ internal class RecursiveChildAdapter(
     entity: RecursiveChild,
     operations: EntityRelationshipOperations
   ): Boolean {
-    state.record(RecursiveOperationEvent.CHILD_UPDATE_RELATIONSHIPS)
+    state.record(CHILD_UPDATE_RELATIONSHIPS)
     return entity.grandchild
       ?.let {
         operations.update(
@@ -289,7 +301,7 @@ internal class RecursiveChildAdapter(
     entity: RecursiveChild,
     operations: EntityRelationshipOperations
   ): Boolean {
-    state.record(RecursiveOperationEvent.CHILD_PERSIST_RELATIONSHIPS)
+    state.record(CHILD_PERSIST_RELATIONSHIPS)
     state.recordChildIgnoreNullValue((operations as RelationshipOperations).ignoreNullValues)
     return entity.grandchild
       ?.let {
@@ -321,19 +333,18 @@ internal class RecursiveParentAdapter(
   )
 
   override fun bindToInsertStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: RecursiveParent,
     generatedRelationshipIds: Map<String, Long>
   ) {
-    state.record(RecursiveOperationEvent.PARENT_INSERT)
-    statement.clearBindings()
-    statement.bindString(
+    state.record(PARENT_INSERT)
+    statement.bindText(
       index = 1,
       value = entity.id
     )
     when (val child = entity.child) {
       null -> statement.bindNull(2)
-      else -> statement.bindString(
+      else -> statement.bindText(
         index = 2,
         value = child.id
       )
@@ -341,17 +352,17 @@ internal class RecursiveParentAdapter(
   }
 
   override fun bindToUpdateStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
     entity: RecursiveParent,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
-    state.record(RecursiveOperationEvent.PARENT_UPDATE)
-    statement.clearBindings()
-    statement.bindString(
+    state.record(PARENT_UPDATE)
+    statement.bindText(
       index = 1,
       value = entity.id
     )
-    statement.bindString(
+    statement.bindText(
       index = 2,
       value = entity.id
     )
@@ -372,7 +383,8 @@ internal class RecursiveParentAdapter(
   override fun bindNotNullForUpdate(
     entity: RecursiveParent,
     values: MutableScatterMap<String, Any>,
-    columnName: String
+    columnName: String,
+    generatedRelationshipIds: Map<String, Long>
   ) {
     values.clear()
   }
@@ -394,7 +406,7 @@ internal class RecursiveParentAdapter(
     entity: RecursiveParent,
     operations: EntityRelationshipOperations
   ): Boolean {
-    state.record(RecursiveOperationEvent.PARENT_INSERT_RELATIONSHIPS)
+    state.record(PARENT_INSERT_RELATIONSHIPS)
     return entity.child
       ?.let {
         operations.insert(
@@ -409,7 +421,7 @@ internal class RecursiveParentAdapter(
     entity: RecursiveParent,
     operations: EntityRelationshipOperations
   ): Boolean {
-    state.record(RecursiveOperationEvent.PARENT_UPDATE_RELATIONSHIPS)
+    state.record(PARENT_UPDATE_RELATIONSHIPS)
     return entity.child
       ?.let {
         operations.update(
@@ -424,7 +436,7 @@ internal class RecursiveParentAdapter(
     entity: RecursiveParent,
     operations: EntityRelationshipOperations
   ): Boolean {
-    state.record(RecursiveOperationEvent.PARENT_PERSIST_RELATIONSHIPS)
+    state.record(PARENT_PERSIST_RELATIONSHIPS)
     return entity.child
       ?.let {
         operations.persist(
@@ -446,7 +458,7 @@ internal class RecursiveScenario {
     )
   )
   val recordingConnection = newRecursiveConnection()
-  val database = recordingConnection.recordingDatabase
-  val connection = recordingConnection.connection
+  val database = recordingConnection.sqliteConnection
+  val connection = recordingConnection.dbConnection
   val triggers get() = recordingConnection.triggers
 }

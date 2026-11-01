@@ -1,15 +1,18 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.BulkEntityOutcome.APPLIED
 import com.siimkinks.sqlitemagic.BulkEntityOutcome.IGNORED
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
+import com.siimkinks.sqlitemagic.entity.EntityInsertResult.Ignored
+import com.siimkinks.sqlitemagic.entity.EntityInsertResult.Inserted
 import com.siimkinks.sqlitemagic.exception.OperationFailedException
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
+import com.siimkinks.sqlitemagic.internal.MutationResults
 import com.siimkinks.sqlitemagic.internal.recursiveOrNull
 
 internal object InsertExecutors {
@@ -57,7 +60,7 @@ internal object InsertExecutors {
       )
       ?: true
     return when {
-      !relationshipsInserted && context.conflictAlgorithm == CONFLICT_IGNORE -> EntityInsertResult.Ignored
+      !relationshipsInserted && context.conflictAlgorithm == CONFLICT_IGNORE -> Ignored
       !relationshipsInserted -> throw OperationFailedException("Failed to insert relationship for $entity")
       else -> mapResult(
         adapter = adapter,
@@ -68,10 +71,10 @@ internal object InsertExecutors {
           logOperation = standalone
         ),
         conflictAlgorithm = context.conflictAlgorithm,
-        failureMessage = "Failed to insert $entity"
+        failureMessage = { "Failed to insert $entity" }
       )
     }.also { result ->
-      if (standalone && (result is EntityInsertResult.Inserted || recursiveAdapter != null)) {
+      if (standalone && (result is Inserted || recursiveAdapter != null)) {
         context.sendTableTriggers(adapter)
       }
     }
@@ -88,7 +91,7 @@ internal object InsertExecutors {
       if (logOperation) {
         context.logInsert(entity = entity)
       }
-      val rowId = context.withInsertStatement(adapter.insertSql) { statement ->
+      val rowId = context.withInsertStatement(adapter.insertSql) { statement, results ->
         adapter.bindToInsertStatement(
           statement = statement,
           entity = entity,
@@ -96,6 +99,7 @@ internal object InsertExecutors {
         )
         executeStatement(
           statement = statement,
+          results = results,
           withoutRowId = adapter.withoutRowId,
           execution = this@mutation
         )
@@ -121,15 +125,14 @@ internal object InsertExecutors {
         values = context.bindValues,
         generatedRelationshipIds = context.generatedRelationshipIds
       )
-      val rowId = context
-        .compileInsertStatement(adapter.tableName)
-        .use { statement ->
-          executeStatement(
-            statement = statement,
-            withoutRowId = adapter.withoutRowId,
-            execution = this@mutation
-          )
-        }
+      val rowId = context.withBoundInsertStatement(adapter.tableName) { statement, results ->
+        executeStatement(
+          statement = statement,
+          results = results,
+          withoutRowId = adapter.withoutRowId,
+          execution = this@mutation
+        )
+      }
       complete(
         adapter = adapter,
         entity = entity,
@@ -140,15 +143,22 @@ internal object InsertExecutors {
   )
 
   private fun executeStatement(
-    statement: SupportSQLiteStatement,
+    statement: SQLiteStatement,
+    results: MutationResults,
     withoutRowId: Boolean,
     execution: EntityMutationExecution
   ) = when {
     withoutRowId -> when {
-      execution.executeUpdateDelete(statement) > 0 -> 0L
+      execution.executeUpdateDelete(
+        statement = statement,
+        results = results
+      ) > 0 -> 0L
       else -> -1L
     }
-    else -> execution.executeInsert(statement)
+    else -> execution.executeInsert(
+      statement = statement,
+      results = results
+    )
   }
 
   private fun <M> complete(
@@ -169,15 +179,15 @@ internal object InsertExecutors {
     return rowId
   }
 
-  fun mapResult(
+  inline fun mapResult(
     adapter: EntityAdapter<*>,
     rowId: Long,
     conflictAlgorithm: Int,
-    failureMessage: String
+    failureMessage: () -> String
   ) = when (rowId) {
-    -1L if conflictAlgorithm == CONFLICT_IGNORE -> EntityInsertResult.Ignored
-    -1L -> throw OperationFailedException(failureMessage)
-    else -> EntityInsertResult.Inserted(
+    -1L if conflictAlgorithm == CONFLICT_IGNORE -> Ignored
+    -1L -> throw OperationFailedException(failureMessage())
+    else -> Inserted(
       when {
         adapter.withoutRowId -> null
         else -> rowId
@@ -202,8 +212,8 @@ internal object InsertExecutors {
         context = context.childWithoutTableTriggers()
       )
       when (result) {
-        is EntityInsertResult.Inserted -> APPLIED
-        EntityInsertResult.Ignored -> IGNORED
+        is Inserted -> APPLIED
+        Ignored -> IGNORED
       }
     }
   )

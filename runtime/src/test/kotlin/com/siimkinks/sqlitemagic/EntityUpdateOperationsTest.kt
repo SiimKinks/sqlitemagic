@@ -61,10 +61,10 @@ internal class EntityUpdateOperationsTest {
       )
     ).forEach { case ->
       val connection = newConnection()
-      connection.recordingDatabase.updateResults += case.updateResult
+      connection.sqliteConnection.updateResults += case.updateResult
       val operation = TestAdapter()
         .update(TestEntity())
-        .usingConnection(connection.connection)
+        .usingConnection(connection.dbConnection)
         .conflictAlgorithm(case.conflictAlgorithm)
       val actualResult = when {
         case.byKey -> operation

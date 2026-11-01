@@ -2,15 +2,15 @@ package com.siimkinks.sqlitemagic.writer
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_CURSOR_POSITION
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_ROW
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_SELECTED_POSITIONS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.WriterTypes.CHECK_NOT_NULL
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
-import com.siimkinks.sqlitemagic.WriterTypes.CURSOR
 import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_PROPERTY
 import com.siimkinks.sqlitemagic.WriterTypes.RELATED_ENTITIES
+import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_STATEMENT
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE_RELATIONSHIP
 import com.siimkinks.sqlitemagic.model.PropertyMetadata
@@ -119,7 +119,7 @@ internal class ReadTableStructureWriter(
             name = "readEntity",
             position = "startIndex",
             positionType = INT,
-            daoReader = METHOD_OBJECT_FROM_CURSOR_POSITION,
+            daoReader = METHOD_OBJECT_FROM_ROW,
             related = readsRelated
           )
         )
@@ -193,12 +193,12 @@ internal class ReadTableStructureWriter(
   ) = FunSpec
     .builder(name)
     .addModifiers(OVERRIDE)
-    .addParameter(name = "cursor", type = CURSOR)
+    .addParameter(name = "statement", type = SQLITE_STATEMENT)
     .addParameter(name = position, type = positionType)
     .addParameter(name = "related", type = RELATED_ENTITIES.copy(nullable = true))
     .returns(modelClassName)
     .addStatement(
-      "return %T.%N(cursor, %N%L)",
+      "return %T.%N(statement, %N%L)",
       names.daoClassName,
       daoReader,
       position,

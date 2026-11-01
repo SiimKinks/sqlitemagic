@@ -76,22 +76,22 @@ internal class EntitySelectContractTest {
             import com.siimkinks.sqlitemagic.SqliteMagic_Author_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_Book_Dao
             import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
-            import fixtures.driver.cursor
+            import fixtures.driver.row
             import fixtures.driver.unjoined
 
             object EntityReadDriver {
               @JvmStatic
               fun read(): List<Any> = listOf(
-                SqliteMagic_Author_Dao.objectFromCursorPosition(
-                  cursor = cursor("skipped", 7L, "Ada", 36L),
+                SqliteMagic_Author_Dao.objectFromRow(
+                  statement = row("skipped", 7L, "Ada", 36L),
                   startIndex = 1
                 ),
-                SqliteMagic_Author_Dao.objectFromCursorPosition(
-                  cursor = cursor(8L, null, 17L),
+                SqliteMagic_Author_Dao.objectFromRow(
+                  statement = row(8L, null, 17L),
                   startIndex = 0
                 ),
-                SqliteMagic_Book_Dao.objectFromCursorPosition(
-                  cursor = cursor("skipped", "skipped", 1L, "Dune", 7L),
+                SqliteMagic_Book_Dao.objectFromRow(
+                  statement = row("skipped", "skipped", 1L, "Dune", 7L),
                   startIndex = 2,
                   related = unjoined(BOOK)
                 )
@@ -106,7 +106,7 @@ internal class EntitySelectContractTest {
           .assertContainsUnwrapped(
             "override val entityFields: List<Column<Author, *, *, *, *, *, *>> = listOf(ID, NAME, AGE)",
             "related: RelatedEntities?",
-            "SqliteMagic_Author_Dao.objectFromCursorPosition(cursor, startIndex)"
+            "SqliteMagic_Author_Dao.objectFromRow(statement, startIndex)"
           )
           .assertDoesNotContain("relationships")
       }
@@ -118,31 +118,33 @@ internal class EntitySelectContractTest {
           """targetIdColumnName = "id"""",
           "nullable = false",
           "read = RelationshipRead.DEEP",
-          "SqliteMagic_Book_Dao.objectFromCursorPosition(cursor, startIndex, checkNotNull(related))"
+          "SqliteMagic_Book_Dao.objectFromRow(statement, startIndex, checkNotNull(related))"
         )
       }
       .withGeneratedSource("PetTable.kt") {
         it.assertContainsUnwrapped(
           "override val entityFields: List<Column<Pet, *, *, *, *, *, *>> = listOf(ID, OWNER)",
           "read = RelationshipRead.ALWAYS",
-          "SqliteMagic_Pet_Dao.objectFromCursorPosition(cursor, startIndex, checkNotNull(related))"
+          "SqliteMagic_Pet_Dao.objectFromRow(statement, startIndex, checkNotNull(related))"
         )
       }
       .withGeneratedSource("SqliteMagic_Author_Dao.kt") {
-        it.assertContains("fun objectFromCursorPosition(cursor: Cursor, startIndex: Int): Author")
+        it.assertContains("fun objectFromRow(statement: SQLiteStatement, startIndex: Int): Author")
       }
       .withGeneratedSource("SqliteMagic_Book_Dao.kt") {
         it.assertContains(
           "related: RelatedEntities,",
-          "related.read(cursor, 0) as Author?",
+          "related.read(statement, 0) as Author?",
           "SqliteMagic_Author_Dao.newInstanceWithOnlyId("
         )
       }
       .withGeneratedSource("SqliteMagic_Pet_Dao.kt") {
-        it.assertContains(
-          "related: RelatedEntities,",
-          "related.read(cursor, 0) as Owner"
-        )
+        it
+          .assertContains("related: RelatedEntities,")
+          .assertContainsUnwrapped(
+            "(related.read(statement, 0) as Owner?) ?: throw SQLException(",
+            """Required recursive relationship \"owner\" referenced a missing row"""
+          )
       }
       .assertNoWarnings(
         "SqliteMagic_Author_Dao.kt",

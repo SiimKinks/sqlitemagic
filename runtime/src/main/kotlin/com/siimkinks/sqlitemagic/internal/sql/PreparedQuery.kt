@@ -1,11 +1,13 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.ParameterAssignment
 import com.siimkinks.sqlitemagic.QueryDependencies
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.internal.ScatterSet
+
+private const val NOT_A_PARAMETER = -1
 
 internal sealed interface QueryBinding
 
@@ -17,47 +19,103 @@ internal class ParameterIdentity<W>(
 internal class PreparedQuery(
   val sql: String,
   val bindings: List<QueryBinding>,
-  val parameters: ScatterSet<ParameterIdentity<*>>,
+  parameters: ScatterSet<ParameterIdentity<*>>,
   val dependencies: QueryDependencies,
   val connection: DbConnectionImpl?,
   private val readWidth: Int
 ) {
+  val requiresWriter = dependencies.readsTemporaryObjects || !dependencies.declaresSources
+
+  private val parameterSlots = when {
+    parameters.isEmpty() -> null
+    else -> ParameterSlots(
+      bindings = bindings,
+      parameterCount = parameters.size
+    )
+  }
+
   @Suppress("UNCHECKED_CAST")
-  private val immediateArguments = when {
-    parameters.isEmpty() -> bindings as List<NativeValue>
-    else -> null
+  fun bind(assignments: List<ParameterAssignment>) = when (parameterSlots) {
+    null -> {
+      require(assignments.isEmpty()) { "Unexpected parameter '${assignments[0].parameter.name}'" }
+      bindings as List<NativeValue>
+    }
+    else -> parameterSlots.bind(assignments)
   }
 
-  fun arguments(assignments: List<ParameterAssignment>) = when {
-    assignments.isEmpty() && immediateArguments != null -> immediateArguments
-    else -> bind(assignments)
+  inline fun <R> withStatement(
+    dbConnection: DbConnectionImpl,
+    values: List<NativeValue>,
+    block: (SQLiteStatement) -> R
+  ): R = dbConnection.read(requiresWriter = requiresWriter) { pooled ->
+    pooled.withStatement(sql) { statement ->
+      bindNativeValues(
+        statement = statement,
+        values = values
+      )
+      checkReadWidth(statement)
+      block(statement)
+    }
   }
 
+  fun checkReadWidth(statement: SQLiteStatement) {
+    if (readWidth != 0) {
+      val columnCount = statement.getColumnCount()
+      check(columnCount == readWidth) { "raw query returned $columnCount columns; readAs reads $readWidth" }
+    }
+  }
+}
+
+private class ParameterSlots(
+  private val bindings: List<QueryBinding>,
+  parameterCount: Int
+) {
+  private val parameters = arrayOfNulls<ParameterIdentity<*>>(parameterCount)
+  private val ordinals = MutableObjectIntMap<ParameterIdentity<*>>(initialCapacity = parameterCount)
+  private val slotOrdinals = IntArray(bindings.size) { slot ->
+    when (val binding = bindings[slot]) {
+      is NativeValue -> NOT_A_PARAMETER
+      is ParameterIdentity<*> -> ordinalOf(binding)
+    }
+  }
+
+  private fun ordinalOf(parameter: ParameterIdentity<*>): Int {
+    val ordinal = ordinals.getOrDefault(
+      key = parameter,
+      defaultValue = ordinals.size
+    )
+    if (ordinal == ordinals.size) {
+      ordinals[parameter] = ordinal
+      parameters[ordinal] = parameter
+    }
+    return ordinal
+  }
+
+  @Suppress("UNCHECKED_CAST")
   fun bind(assignments: List<ParameterAssignment>): List<NativeValue> {
-    val values = MutableScatterMap<ParameterIdentity<*>, NativeValue>(initialCapacity = assignments.size)
-    assignments.forEach { assignment ->
+    val values = arrayOfNulls<NativeValue>(parameters.size)
+    for (index in assignments.indices) {
+      val assignment = assignments[index]
       val parameter = assignment.parameter
-      require(parameter in parameters) { "Unexpected parameter '${parameter.name}'" }
-      require(parameter !in values) { "Duplicate parameter '${parameter.name}'" }
-      values[parameter] = assignment.argument
+      val ordinal = ordinals.getOrDefault(
+        key = parameter,
+        defaultValue = NOT_A_PARAMETER
+      )
+      require(ordinal != NOT_A_PARAMETER) { "Unexpected parameter '${parameter.name}'" }
+      require(values[ordinal] == null) { "Duplicate parameter '${parameter.name}'" }
+      values[ordinal] = assignment.argument
     }
-    parameters.forEach { parameter ->
-      require(parameter in values) { "Missing parameter '${parameter.name}'" }
+    require(assignments.size == parameters.size) {
+      "Missing parameter '${parameters[values.indexOf(null)]?.name}'"
     }
-    return bindings.map { binding ->
-      when (binding) {
-        is NativeValue -> binding
-        is ParameterIdentity<*> -> values.getExisting(binding)
+    val arguments = arrayOfNulls<NativeValue>(bindings.size)
+    for (slot in arguments.indices) {
+      arguments[slot] = when (val ordinal = slotOrdinals[slot]) {
+        NOT_A_PARAMETER -> bindings[slot] as NativeValue
+        else -> values[ordinal]
       }
     }
-  }
-
-  fun checkReadWidth(cursor: Cursor) {
-    if (readWidth != 0 && cursor.columnCount != readWidth) {
-      val columnCount = cursor.columnCount
-      cursor.close()
-      error("raw query returned $columnCount columns; readAs reads $readWidth")
-    }
+    return arguments.asList() as List<NativeValue>
   }
 }
 

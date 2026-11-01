@@ -2,12 +2,10 @@ package com.siimkinks.sqlitemagic.coroutines
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.RECURSIVE_TABLES
-import com.siimkinks.sqlitemagic.RecursiveParent
 import com.siimkinks.sqlitemagic.RecursiveScenario
 import com.siimkinks.sqlitemagic.TestAdapter
 import com.siimkinks.sqlitemagic.TestEntity
@@ -25,25 +23,18 @@ import com.siimkinks.sqlitemagic.deleteByColumn
 import com.siimkinks.sqlitemagic.deleteTable
 import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder
-import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkPersistBuilder
-import com.siimkinks.sqlitemagic.entity.EntityBulkPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateBuilder
-import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteBuilder
-import com.siimkinks.sqlitemagic.entity.EntityDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteTableBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
-import com.siimkinks.sqlitemagic.entity.EntityPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
-import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.newConnection
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.persistByColumn
-import com.siimkinks.sqlitemagic.testDbConnection
 import com.siimkinks.sqlitemagic.twoParentBulkGraphs
 import com.siimkinks.sqlitemagic.update
 import com.siimkinks.sqlitemagic.updateByColumn
@@ -53,9 +44,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
 
 internal class EntityOperationsTest {
   @Test
@@ -68,96 +56,97 @@ internal class EntityOperationsTest {
         key = "key-2"
       )
     )
+
     val cases = listOf(
       Case(
         label = "insert",
         builder = { adapter.insert(TestEntity()) },
         execute = EntityInsertBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityInsertBuilder::await
       ),
       Case(
         label = "bulk insert",
         builder = { adapter.bulkInsert(entities()) },
         execute = EntityBulkInsertBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityBulkInsertBuilder::await
       ),
       Case(
         label = "update",
         builder = { adapter.update(TestEntity()) },
         execute = EntityUpdateBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityUpdateBuilder::await
       ),
       Case(
         label = "update by column",
         builder = { adapter.updateByColumn(TestEntity()) },
-        execute = { builder -> builder.execute(TestSchema.key) },
-        await = { builder -> builder.await(TestSchema.key) }
+        execute = { it.execute(TestSchema.key) },
+        await = { it.await(TestSchema.key) }
       ),
       Case(
         label = "bulk update",
         builder = { adapter.bulkUpdate(entities()) },
         execute = EntityBulkUpdateBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityBulkUpdateBuilder::await
       ),
       Case(
         label = "bulk update by column",
         builder = { adapter.bulkUpdateByColumn(entities()) },
-        execute = { builder -> builder.execute(TestSchema.key) },
-        await = { builder -> builder.await(TestSchema.key) }
+        execute = { it.execute(TestSchema.key) },
+        await = { it.await(TestSchema.key) }
       ),
       Case(
         label = "persist",
         builder = { adapter.persist(TestEntity()) },
         execute = EntityPersistBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityPersistBuilder::await
       ),
       Case(
         label = "persist by column",
         builder = { adapter.persistByColumn(TestEntity()) },
-        execute = { builder -> builder.execute(TestSchema.key) },
-        await = { builder -> builder.await(TestSchema.key) }
+        execute = { it.execute(TestSchema.key) },
+        await = { it.await(TestSchema.key) }
       ),
       Case(
         label = "bulk persist",
         builder = { adapter.bulkPersist(entities()) },
         execute = EntityBulkPersistBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityBulkPersistBuilder::await
       ),
       Case(
         label = "bulk persist by column",
         builder = { adapter.bulkPersistByColumn(entities()) },
-        execute = { builder -> builder.execute(TestSchema.key) },
-        await = { builder -> builder.await(TestSchema.key) }
+        execute = { it.execute(TestSchema.key) },
+        await = { it.await(TestSchema.key) }
       ),
       Case(
         label = "delete",
         builder = { adapter.delete(TestEntity()) },
         execute = EntityDeleteBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityDeleteBuilder::await
       ),
       Case(
         label = "delete by column",
         builder = { adapter.deleteByColumn(TestEntity()) },
-        execute = { builder -> builder.execute(TestSchema.key) },
-        await = { builder -> builder.await(TestSchema.key) }
+        execute = { it.execute(TestSchema.key) },
+        await = { it.await(TestSchema.key) }
       ),
       Case(
         label = "bulk delete",
         builder = { adapter.bulkDelete(entities()) },
         execute = EntityBulkDeleteBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityBulkDeleteBuilder::await
       ),
       Case(
         label = "bulk delete by column",
         builder = { adapter.bulkDeleteByColumn(entities()) },
-        execute = { builder -> builder.execute(TestSchema.key) },
-        await = { builder -> builder.await(TestSchema.key) }
+        execute = { it.execute(TestSchema.key) },
+        await = { it.await(TestSchema.key) }
       ),
       Case(
         label = "delete table",
         builder = { adapter.deleteTable() },
         execute = EntityDeleteTableBuilder::execute,
-        await = { builder -> builder.await() }
+        await = EntityDeleteTableBuilder::await
       )
     )
 
@@ -173,14 +162,13 @@ internal class EntityOperationsTest {
   @Test
   fun `a failing operation throws the database failure`() {
     val failure = RuntimeException("statement failed")
-    val database = mock<SupportSQLiteDatabase>()
-    whenever(database.compileStatement(any())).thenThrow(failure)
+    val connection = queryingConnection(answers = { "books" in it }) { throw failure }
 
     val thrown = assertThrows(RuntimeException::class.java) {
       runBlocking {
         TestAdapter()
           .insert(TestEntity())
-          .usingConnection(testDbConnection(database))
+          .usingConnection(connection)
           .await()
       }
     }
@@ -225,7 +213,7 @@ internal class EntityOperationsTest {
         }
       }
 
-      val completed = caller.run { operation(entities, connection.connection) }
+      val completed = caller.run { operation(entities, connection.dbConnection) }
 
       assertWithMessage(label)
         .that(connection.transactionResult(completed) to connection.triggers)
@@ -246,18 +234,11 @@ internal class EntityOperationsTest {
       scenario.database.insertResults.addAll(listOf(201L, 202L, 211L, 212L))
       val caller = Caller()
       val graphs = twoParentBulkGraphs()
-      val entities = object : Iterable<RecursiveParent> {
-        override fun iterator() = object : Iterator<RecursiveParent> {
-          private var index = 0
-
-          override fun hasNext(): Boolean {
-            if (index == 1) {
-              caller.cancel()
-            }
-            return index < graphs.size
-          }
-
-          override fun next() = graphs[index++]
+      val entities = Iterable {
+        iterator {
+          yield(graphs[0])
+          caller.cancel()
+          yield(graphs[1])
         }
       }
 
@@ -305,7 +286,7 @@ internal class EntityOperationsTest {
   ) {
     fun run(awaited: Boolean): Outcome {
       val connection = newConnection()
-      val builder = builder().usingConnection(connection.connection)
+      val builder = builder().usingConnection(connection.dbConnection)
       val result = when {
         awaited -> runBlocking { await(builder) }
         else -> execute(builder)

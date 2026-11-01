@@ -67,7 +67,8 @@ private class ViewBlockLayout(
   private fun tableBlock(key: String, table: Table<*>): RelatedEntities {
     val root = read(
       occurrence = key,
-      table = table
+      table = table,
+      targetIdColumnName = null
     )
     val queue = ArrayDeque<Pair<String, RelatedEntities>>()
     queue.add(key to root)
@@ -91,7 +92,8 @@ private class ViewBlockLayout(
           targetOccurrence != null -> {
             val child = read(
               occurrence = targetOccurrence,
-              table = target
+              table = target,
+              targetIdColumnName = relationship.targetIdColumnName
             )
             parent.setChild(
               relationship = index,
@@ -109,7 +111,11 @@ private class ViewBlockLayout(
     return root
   }
 
-  private fun read(occurrence: String, table: Table<*>): RelatedEntities {
+  private fun read(
+    occurrence: String,
+    table: Table<*>,
+    targetIdColumnName: String?
+  ): RelatedEntities {
     val start = columnNames.size
     val fields = table.selectedEntityFields()
     fields.mapTo(columnNames) { "$occurrence.${it.name}" }
@@ -117,7 +123,8 @@ private class ViewBlockLayout(
       table = table,
       children = arrayOfNulls(table.tableRelationships.size),
       startIndex = start,
-      width = fields.size
+      width = fields.size,
+      idOffset = fields.indexOfFirst { it.name == targetIdColumnName }
     )
   }
 

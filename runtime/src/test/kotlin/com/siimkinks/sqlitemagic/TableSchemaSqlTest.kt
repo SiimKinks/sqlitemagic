@@ -30,12 +30,11 @@ internal class TableSchemaSqlTest {
 
   @Test
   fun `aliased tables read their declared schemas when both contain the same name`() {
-    val rows = BundledSqliteDatabase().use { database ->
+    val rows = TestDatabase().use { database ->
       database.execSQL("CREATE TABLE main.books (title TEXT NOT NULL)")
       database.execSQL("CREATE TEMP TABLE books (title TEXT NOT NULL)")
       database.execSQL("INSERT INTO main.books VALUES ('main title')")
       database.execSQL("INSERT INTO temp.books VALUES ('temp title')")
-      val connection = database.dbConnection()
       listOf(false, true).map { temporary ->
         val books = testTable<Any>(
           name = "books",
@@ -50,8 +49,7 @@ internal class TableSchemaSqlTest {
             )
           )
           .FROM(books)
-          .usingConnection(connection)
-          .execute()
+          .rows(database)
       }
     }
 

@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import android.database.SQLException
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.ParameterEncoding
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 
@@ -33,8 +33,22 @@ sealed interface ReadContract<out R, out N : SqlNullability, out T>
 internal val <T> ReadContract<*, *, T>.columnRead
   get() = when (this) {
     is ReadType -> selectRead
-    is Column<*, *, *, *, *, *, *> -> selectRead as (Cursor, Int) -> T
+    is Column<*, *, *, *, *, *, *> -> when (nullness) {
+      Required -> requiredReader(selectRead)
+      SqlNullable -> selectRead
+    } as (SQLiteStatement, Int) -> T
   }
+
+@Suppress("UNCHECKED_CAST")
+internal fun <T> ReadContract<*, *, T>.readValue(statement: SQLiteStatement, index: Int) = when (this) {
+  is ReadType -> selectRead(statement, index)
+  is Column<*, *, *, *, *, *, *> -> {
+    if (nullness == Required && statement.isNull(index)) {
+      throw requiredSqlNull()
+    }
+    selectRead(statement, index) as T
+  }
+}
 
 /**
  * Type of SQL values, which defines how they are read.
@@ -44,9 +58,10 @@ internal val <T> ReadContract<*, *, T>.columnRead
  * @param T Return type (when the value is selected)
  */
 open class ReadType<out R, out N : SqlNullability, out T> internal constructor(
-  internal val nonNullRead: (Cursor, Int) -> R,
-  internal val selectRead: (Cursor, Int) -> T,
-  internal val readNullness: N
+  internal val nonNullRead: (SQLiteStatement, Int) -> R,
+  internal val selectRead: (SQLiteStatement, Int) -> T,
+  internal val readNullness: N,
+  internal val storageNullableRead: ((SQLiteStatement, Int) -> R?)? = null
 ) : ReadContract<R, N, T> {
   /** A racing first use may build an equal immutable copy; final fields make either safe to publish. */
   private var nullableForm: ReadType<R, SqlNullable, R?>? = null
@@ -57,9 +72,12 @@ open class ReadType<out R, out N : SqlNullability, out T> internal constructor(
   open val nullable: ReadType<R, SqlNullable, R?>
     get() = nullableForm ?: ReadType(
       nonNullRead = nonNullRead,
-      selectRead = contextualRead(nonNullRead),
-      readNullness = SqlNullable
+      selectRead = nullableRead(),
+      readNullness = SqlNullable,
+      storageNullableRead = storageNullableRead
     ).also { nullableForm = it }
+
+  internal fun nullableRead() = storageNullableRead ?: contextualRead(nonNullRead)
 }
 
 /**
@@ -72,13 +90,15 @@ open class ReadType<out R, out N : SqlNullability, out T> internal constructor(
  */
 open class EncodableReadType<W, out R, out N : SqlNullability, out T> internal constructor(
   internal val encode: (W) -> NativeValue,
-  nonNullRead: (Cursor, Int) -> R,
-  selectRead: (Cursor, Int) -> T,
-  readNullness: N
+  nonNullRead: (SQLiteStatement, Int) -> R,
+  selectRead: (SQLiteStatement, Int) -> T,
+  readNullness: N,
+  storageNullableRead: ((SQLiteStatement, Int) -> R?)? = null
 ) : ReadType<R, N, T>(
   nonNullRead = nonNullRead,
   selectRead = selectRead,
-  readNullness = readNullness
+  readNullness = readNullness,
+  storageNullableRead = storageNullableRead
 ) {
   private var encodableNullableForm: EncodableReadType<W, R, SqlNullable, R?>? = null
 
@@ -89,8 +109,9 @@ open class EncodableReadType<W, out R, out N : SqlNullability, out T> internal c
     get() = encodableNullableForm ?: EncodableReadType(
       encode = encode,
       nonNullRead = nonNullRead,
-      selectRead = contextualRead(nonNullRead),
-      readNullness = SqlNullable
+      selectRead = nullableRead(),
+      readNullness = SqlNullable,
+      storageNullableRead = storageNullableRead
     ).also { encodableNullableForm = it }
 }
 
@@ -105,14 +126,16 @@ open class EncodableReadType<W, out R, out N : SqlNullability, out T> internal c
  */
 class EncodingType<W, out R, out E : SqlNullability, out N : SqlNullability> internal constructor(
   encode: (W) -> NativeValue,
-  nonNullRead: (Cursor, Int) -> R,
-  selectRead: (Cursor, Int) -> R,
-  readNullness: N
+  nonNullRead: (SQLiteStatement, Int) -> R,
+  selectRead: (SQLiteStatement, Int) -> R,
+  readNullness: N,
+  storageNullableRead: ((SQLiteStatement, Int) -> R?)? = null
 ) : EncodableReadType<W, R, N, R>(
   encode = encode,
   nonNullRead = nonNullRead,
   selectRead = selectRead,
-  readNullness = readNullness
+  readNullness = readNullness,
+  storageNullableRead = storageNullableRead
 ) {
   private var requiredEncodingCache: ParameterEncoding<W, R, Required, R>? = null
   private var nullableEncodingCache: ParameterEncoding<W, R, SqlNullable, R?>? = null
@@ -128,30 +151,49 @@ class EncodingType<W, out R, out E : SqlNullability, out N : SqlNullability> int
   internal fun nullableEncoding() = nullableEncodingCache ?: ParameterEncoding(
     encode = encode,
     nonNullRead = nonNullRead,
-    selectRead = contextualRead(nonNullRead),
+    selectRead = nullableRead(),
     nullness = SqlNullable
   ).also { nullableEncodingCache = it }
 
   internal fun nullBypassEncoding() = nullBypassEncodingCache ?: ParameterEncoding(
     encode = { value: W? -> value?.let(encode) ?: NativeValue.Null },
     nonNullRead = nonNullRead,
-    selectRead = contextualRead(nonNullRead),
+    selectRead = nullableRead(),
     nullness = SqlNullable
   ).also { nullBypassEncodingCache = it }
 }
 
 internal fun requiredSqlNull() = SQLException("Required SQL result returned SQL NULL")
 
-internal fun <T> requiredReader(read: (Cursor, Int) -> T): (Cursor, Int) -> T = { cursor, index ->
-  if (cursor.isNull(index)) {
-    throw requiredSqlNull()
-  }
-  read(cursor, index)
+internal fun <T> requiredReader(
+  read: (SQLiteStatement, Int) -> T,
+  nullableRead: ((SQLiteStatement, Int) -> T?)? = null
+): (SQLiteStatement, Int) -> T = RequiredRead(
+  read = read,
+  nullableRead = nullableRead
+)
+
+internal fun <R> contextualRead(read: (SQLiteStatement, Int) -> R): (SQLiteStatement, Int) -> R? = when (read) {
+  is RequiredRead<R> -> read.nullableRead ?: NullableRead(read.read)
+  is NullableRead<*> -> read
+  else -> NullableRead(read)
 }
 
-internal fun <R> contextualRead(nonNullRead: (Cursor, Int) -> R): (Cursor, Int) -> R? = { cursor, index ->
-  when {
-    cursor.isNull(index) -> null
-    else -> nonNullRead(cursor, index)
+private class RequiredRead<T>(
+  val read: (SQLiteStatement, Int) -> T,
+  val nullableRead: ((SQLiteStatement, Int) -> T?)?
+) : (SQLiteStatement, Int) -> T {
+  override fun invoke(statement: SQLiteStatement, index: Int): T {
+    if (statement.isNull(index)) {
+      throw requiredSqlNull()
+    }
+    return read(statement, index)
+  }
+}
+
+private class NullableRead<T>(private val read: (SQLiteStatement, Int) -> T) : (SQLiteStatement, Int) -> T? {
+  override fun invoke(statement: SQLiteStatement, index: Int) = when {
+    statement.isNull(index) -> null
+    else -> read(statement, index)
   }
 }

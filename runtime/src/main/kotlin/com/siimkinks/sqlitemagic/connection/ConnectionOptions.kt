@@ -13,7 +13,7 @@ internal class ConnectionOptions(
 internal interface SchemaCallback {
   val version: Int
 
-  fun configure(connection: SQLiteConnection)
+  fun applySchemaPragmas(connection: SQLiteConnection)
 
   fun create(connection: SQLiteConnection)
 

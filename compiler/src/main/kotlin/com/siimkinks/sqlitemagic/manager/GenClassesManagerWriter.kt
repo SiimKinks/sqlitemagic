@@ -4,10 +4,10 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.siimkinks.sqlitemagic.Const.GENERATION_COMMENT
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_GENERATED_VIEW
 import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_APPLY_SCHEMA_PRAGMAS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CLEAR_DATA
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CLEAR_TABLES
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLLECT_GENERATED_VIEWS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CONFIGURE_DATABASE
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA_INDEXES
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA_TABLES
@@ -18,11 +18,12 @@ import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_DB_NAME
 import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_DB_VERSION
 import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_IS_DEBUG
 import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_SUBMODULE_NAMES
+import com.siimkinks.sqlitemagic.WriterTypes.EXEC_SQL
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_DATABASE
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_SCHEMA
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_VIEW
 import com.siimkinks.sqlitemagic.WriterTypes.OPT_IN_INTERNAL_API
-import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_DATABASE
+import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_CONNECTION
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_SCATTER_SET
@@ -64,7 +65,7 @@ internal class GenClassesManagerWriter(
       }
         .addSuperinterface(GENERATED_SCHEMA)
         .addModifiers(PUBLIC)
-        .addFunction(configureDatabase())
+        .addFunction(applySchemaPragmas())
         .addFunction(createSchemaTables(orderedTables))
         .addFunction(collectGeneratedViews())
         .addFunction(createSchemaIndexes(orderedTables.sortedIndexes(indices)))
@@ -132,14 +133,14 @@ internal class GenClassesManagerWriter(
     if (!database.isSubmodule) addType(positionOwner.build())
   }
 
-  private fun GeneratedDatabaseElement.configureDatabase() =
-    databaseFunction(METHOD_CONFIGURE_DATABASE)
-      .addParameter(DB_PARAMETER)
+  private fun GeneratedDatabaseElement.applySchemaPragmas() =
+    databaseFunction(METHOD_APPLY_SCHEMA_PRAGMAS)
+      .addParameter(CONNECTION_PARAMETER)
       .apply {
         if (tables.any(TableElement::hasCascadeDelete)) {
-          addStatement("db.setForeignKeyConstraintsEnabled(true)")
+          addStatement("connection.%M(%S)", EXEC_SQL, "PRAGMA foreign_keys = ON")
         }
-        submodules.forEach { addStatement("%T.%N(db)", it.managerClassName, METHOD_CONFIGURE_DATABASE) }
+        submodules.forEach { addStatement("%T.%N(connection)", it.managerClassName, METHOD_APPLY_SCHEMA_PRAGMAS) }
       }
       .build()
 
@@ -172,13 +173,13 @@ internal class GenClassesManagerWriter(
   ) = FunSpec
     .builder(functionName)
     .addModifiers(OVERRIDE)
-    .addParameter(DB_PARAMETER)
+    .addParameter(CONNECTION_PARAMETER)
     .addStatement(
       "return %L",
       callCode(
         callee = CodeBlock.of("%T.%N", SQL_UTIL, utilFunctionName),
         arguments = listOf(
-          namedArgument("db", "db"),
+          namedArgument("connection", "connection"),
           namedArgument("schema", "this")
         ) + arguments
       )
@@ -188,7 +189,7 @@ internal class GenClassesManagerWriter(
     orderedTables: CreationOrderedTables
   ) = schemaPartFunction(
     name = METHOD_CREATE_SCHEMA_TABLES,
-    parameters = listOf(DB_PARAMETER, TEMPORARY_PARAMETER)
+    parameters = listOf(CONNECTION_PARAMETER, TEMPORARY_PARAMETER)
   )
     .addSchemaBranches(
       temporary = orderedTables.temporary.map(::createTable),
@@ -197,7 +198,7 @@ internal class GenClassesManagerWriter(
     .build()
 
   private fun createTable(table: TableElement) =
-    CodeBlock.of("db.execSQL(%T.%N)", table.generationNames.adapterClassName, FIELD_TABLE_SCHEMA)
+    CodeBlock.of("connection.%M(%T.%N)", EXEC_SQL, table.generationNames.adapterClassName, FIELD_TABLE_SCHEMA)
 
   private fun GeneratedDatabaseElement.collectGeneratedViews() = schemaPartFunction(
     name = METHOD_COLLECT_GENERATED_VIEWS,
@@ -213,7 +214,7 @@ internal class GenClassesManagerWriter(
     .let { (temporaryIndexes, persistentIndexes) ->
       schemaPartFunction(
         name = METHOD_CREATE_SCHEMA_INDEXES,
-        parameters = listOf(DB_PARAMETER, TEMPORARY_PARAMETER)
+        parameters = listOf(CONNECTION_PARAMETER, TEMPORARY_PARAMETER)
       )
         .addSchemaBranches(
           temporary = temporaryIndexes.map(::createIndex),
@@ -222,15 +223,15 @@ internal class GenClassesManagerWriter(
         .build()
     }
 
-  private fun createIndex(index: IndexElement) = CodeBlock.of("db.execSQL(%S)", index.createSql())
+  private fun createIndex(index: IndexElement) = CodeBlock.of("connection.%M(%S)", EXEC_SQL, index.createSql())
 
   private fun GeneratedDatabaseElement.clearTables() = schemaPartFunction(
     name = METHOD_CLEAR_TABLES,
-    parameters = listOf(DB_PARAMETER, ParameterSpec(name = "changedTables", type = STRING_SCATTER_SET))
+    parameters = listOf(CONNECTION_PARAMETER, ParameterSpec(name = "changedTables", type = STRING_SCATTER_SET))
   )
     .apply {
       tables.forEach { table ->
-        addStatement("db.execSQL(%S)", "DELETE FROM ${table.tableName}")
+        addStatement("connection.%M(%S)", EXEC_SQL, "DELETE FROM ${table.tableName}")
         addStatement("changedTables.add(%S)", table.tableName)
       }
     }
@@ -333,7 +334,7 @@ internal class GenClassesManagerWriter(
     }
 }
 
-private val DB_PARAMETER = ParameterSpec(name = "db", type = SQLITE_DATABASE)
+private val CONNECTION_PARAMETER = ParameterSpec(name = "connection", type = SQLITE_CONNECTION)
 private val TEMPORARY_PARAMETER = ParameterSpec(name = "temporary", type = BOOLEAN)
 
 private fun FunSpec.Builder.addSchemaBranches(

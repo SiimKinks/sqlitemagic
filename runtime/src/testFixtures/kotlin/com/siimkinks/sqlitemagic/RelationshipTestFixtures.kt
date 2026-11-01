@@ -2,13 +2,17 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import android.database.SQLException
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
+import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.EntityProperty
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
+import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.TableRelationship
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
@@ -47,19 +51,19 @@ internal class PublisherTable(alias: String? = null) : Table<Publisher>(
     nullness = Required,
     parameterEncoding = LONG.parameterEncoding()
   )
-  val NAME = Column<Publisher, String, SqlNullable, String?, String?, SqlNullable, String?>(
+  val NAME = Column(
     table = this,
     name = "name",
     nullness = SqlNullable,
     parameterEncoding = STRING.nullBypassParameterEncoding(),
-    selectedRead = Cursor::getString
+    selectedRead = nullableRead(SQLiteStatement::getText)
   )
 
   override val entityFields = listOf(ID, NAME)
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Publisher(
-    id = ID.selectRead(cursor, startIndex),
-    name = NAME.selectRead(cursor, startIndex + 1)
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = Publisher(
+    id = ID.selectRead(statement, startIndex),
+    name = NAME.selectRead(statement, startIndex + 1)
   )
 
   override val entityProperties = listOf(
@@ -73,9 +77,13 @@ internal class PublisherTable(alias: String? = null) : Table<Publisher>(
     )
   )
 
-  override fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = Publisher(
-    id = cursor.getLong(positions[0]),
-    name = positions[1].takeIf { it >= 0 && !cursor.isNull(it) }?.let(cursor::getString)
+  override fun readPartialEntity(
+    statement: SQLiteStatement,
+    positions: IntArray,
+    related: RelatedEntities?
+  ) = Publisher(
+    id = statement.getLong(positions[0]),
+    name = positions[1].takeIf { it >= 0 && !statement.isNull(it) }?.let(statement::getText)
   )
 
   override infix fun AS(alias: String) = PublisherTable(alias)
@@ -104,19 +112,22 @@ internal class AuthorTable(alias: String? = null) : Table<Author>(
     name = "publisher",
     nullness = SqlNullable,
     parameterEncoding = LONG.nullBypassParameterEncoding(),
-    selectedRead = nullableRead(Cursor::getLong)
+    selectedRead = nullableRead(SQLiteStatement::getLong)
   )
 
   override val entityFields = listOf(ID, NAME, PUBLISHER)
 
   override val relationships get() = AUTHOR_RELATIONSHIPS
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Author(
-    id = ID.selectRead(cursor, startIndex),
-    name = NAME.selectRead(cursor, startIndex + 1),
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = Author(
+    id = ID.selectRead(statement, startIndex),
+    name = NAME.selectRead(statement, startIndex + 1),
     publisher = when {
-      cursor.isNull(startIndex + 2) -> null
-      else -> related?.read(cursor, 0) as Publisher? ?: Publisher(id = cursor.getLong(startIndex + 2))
+      statement.isNull(startIndex + 2) -> null
+      else -> related?.read(
+        statement = statement,
+        relationship = 0
+      ) as Publisher? ?: Publisher(id = statement.getLong(startIndex + 2))
     }
   )
 
@@ -135,12 +146,15 @@ internal class AuthorTable(alias: String? = null) : Table<Author>(
     )
   )
 
-  override fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = Author(
-    id = cursor.getLong(positions[0]),
-    name = cursor.getString(positions[1]),
-    publisher = related?.readSelected(cursor, 0) as Publisher? ?: when {
-      positions[2] < 0 || cursor.isNull(positions[2]) -> null
-      else -> Publisher(id = cursor.getLong(positions[2]))
+  override fun readPartialEntity(statement: SQLiteStatement, positions: IntArray, related: RelatedEntities?) = Author(
+    id = statement.getLong(positions[0]),
+    name = statement.getText(positions[1]),
+    publisher = related?.readSelected(
+      statement = statement,
+      relationship = 0
+    ) as Publisher? ?: when {
+      positions[2] < 0 || statement.isNull(positions[2]) -> null
+      else -> Publisher(id = statement.getLong(positions[2]))
     }
   )
 
@@ -186,10 +200,15 @@ internal class BookTable(alias: String? = null) : Table<Book>(
 
   override val relationships get() = BOOK_RELATIONSHIPS
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Book(
-    id = ID.selectRead(cursor, startIndex),
-    title = TITLE.selectRead(cursor, startIndex + 1),
-    author = checkNotNull(related).read(cursor, 0) as Author
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = Book(
+    id = ID.selectRead(statement, startIndex),
+    title = TITLE.selectRead(statement, startIndex + 1),
+    author = checkNotNull(related)
+      .read(
+        statement = statement,
+        relationship = 0
+      ) as Author?
+      ?: throw SQLException("""Required relationship "author" referenced a missing row""")
   )
 
   override val entityProperties = listOf(
@@ -207,10 +226,14 @@ internal class BookTable(alias: String? = null) : Table<Book>(
     )
   )
 
-  override fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = Book(
-    id = cursor.getLong(positions[0]),
-    title = cursor.getString(positions[1]),
-    author = checkNotNull(related).readSelected(cursor, 0) as Author
+  override fun readPartialEntity(statement: SQLiteStatement, positions: IntArray, related: RelatedEntities?) = Book(
+    id = statement.getLong(positions[0]),
+    title = statement.getText(positions[1]),
+    author = checkNotNull(related)
+      .readSelected(
+        statement = statement,
+        relationship = 0
+      ) as Author
   )
 
   override infix fun AS(alias: String) = BookTable(alias)
@@ -255,20 +278,28 @@ internal class SeriesTable(alias: String? = null) : Table<Series>(
     name = "last_book",
     nullness = SqlNullable,
     parameterEncoding = LONG.nullBypassParameterEncoding(),
-    selectedRead = nullableRead(Cursor::getLong)
+    selectedRead = nullableRead(SQLiteStatement::getLong)
   )
 
   override val entityFields = listOf(ID, NAME, FIRST_BOOK, LAST_BOOK)
 
   override val relationships get() = SERIES_RELATIONSHIPS
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Series(
-    id = ID.selectRead(cursor, startIndex),
-    name = NAME.selectRead(cursor, startIndex + 1),
-    firstBook = checkNotNull(related).read(cursor, 0) as Book,
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = Series(
+    id = ID.selectRead(statement, startIndex),
+    name = NAME.selectRead(statement, startIndex + 1),
+    firstBook = checkNotNull(related)
+      .read(
+        statement = statement,
+        relationship = 0
+      ) as Book?
+      ?: throw SQLException("""Required relationship "first_book" referenced a missing row"""),
     lastBook = when {
-      cursor.isNull(startIndex + 3) -> null
-      else -> related.read(cursor, 1) as Book
+      statement.isNull(startIndex + 3) -> null
+      else -> related.read(
+        statement = statement,
+        relationship = 1
+      ) as Book?
     }
   )
 
@@ -326,7 +357,9 @@ internal fun books(shallow: Boolean) = listOf(adaAuthor, graceAuthor, linusAutho
   )
 }
 
-internal fun libraryDatabase() = personDatabase().apply {
+internal fun libraryDatabase(
+  adapterSettings: ScatterMap<AdapterSettingKey<*>, Any> = MutableScatterMap(initialCapacity = 0)
+) = personDatabase(adapterSettings).apply {
   execSQL("CREATE TABLE publisher (id INTEGER PRIMARY KEY, name TEXT)")
   execSQL("INSERT INTO publisher VALUES (1, 'Tor'), (2, NULL)")
   execSQL("CREATE TABLE author (id INTEGER PRIMARY KEY, name TEXT NOT NULL, publisher INTEGER)")

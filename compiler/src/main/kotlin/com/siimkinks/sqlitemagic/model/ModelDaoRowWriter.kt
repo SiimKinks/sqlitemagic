@@ -5,18 +5,22 @@ import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ID_ONLY
-import com.siimkinks.sqlitemagic.writer.CursorPosition
-import com.siimkinks.sqlitemagic.writer.CursorReadNode
-import com.siimkinks.sqlitemagic.writer.CursorReadTree
-import com.siimkinks.sqlitemagic.writer.cursorPositionReader
-import com.siimkinks.sqlitemagic.writer.databaseCursorGetter
+import com.siimkinks.sqlitemagic.writer.ColumnPosition
+import com.siimkinks.sqlitemagic.writer.RowReadNode
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Embedded
+import com.siimkinks.sqlitemagic.writer.RowReadNode.PersistedRelationship
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Related
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Scalar
+import com.siimkinks.sqlitemagic.writer.RowReadTree
+import com.siimkinks.sqlitemagic.writer.databaseValueGetter
 import com.siimkinks.sqlitemagic.writer.selectedPositionsReader
-import com.siimkinks.sqlitemagic.writer.toCursorReadProperty
+import com.siimkinks.sqlitemagic.writer.startIndexReader
+import com.siimkinks.sqlitemagic.writer.toRowReadProperty
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.TypeName
 
-internal fun cursorReaders(table: TableElement) = listOf(
-  cursorPositionReader(
+internal fun rowReaders(table: TableElement) = listOf(
+  startIndexReader(
     returnType = table.modelClassName,
     readsRelated = table.hasRecursiveRelationships,
     columns = table.allColumns,
@@ -26,12 +30,7 @@ internal fun cursorReaders(table: TableElement) = listOf(
         construction = table.construction,
         properties = table.properties,
         positions = positions,
-        columnNode = { column, position ->
-          table.persistedNode(
-            column = column,
-            position = position
-          )
-        }
+        columnNode = table::persistedNode
       )
     }
   ),
@@ -46,12 +45,7 @@ internal fun cursorReaders(table: TableElement) = listOf(
         construction = table.construction,
         properties = table.properties,
         positions = positions,
-        columnNode = { column, position ->
-          table.selectedNode(
-            column = column,
-            position = position
-          )
-        }
+        columnNode = table::selectedNode
       )
     }
   )
@@ -65,16 +59,16 @@ private fun readTree(
   type: TypeName,
   construction: ModelConstruction,
   properties: List<PropertyElement>,
-  positions: Map<ColumnElement, CursorPosition>,
-  columnNode: (ColumnElement, CursorPosition) -> CursorReadNode
-): CursorReadTree = CursorReadTree(
+  positions: Map<ColumnElement, ColumnPosition>,
+  columnNode: (ColumnElement, ColumnPosition) -> RowReadNode
+): RowReadTree = RowReadTree(
   type = type,
   construction = construction,
   nodes = properties.map { property ->
     when (property) {
       is ColumnPropertyElement -> columnNode(property.column, positions.getValue(property.column))
-      is EmbeddedPropertyElement -> CursorReadNode.Embedded(
-        source = property.toCursorReadProperty(),
+      is EmbeddedPropertyElement -> Embedded(
+        source = property.toRowReadProperty(),
         tree = readTree(
           type = property.deserializedType.typeName,
           construction = property.construction,
@@ -92,14 +86,14 @@ private fun readTree(
 
 private fun TableElement.persistedNode(
   column: ColumnElement,
-  position: CursorPosition
-): CursorReadNode {
-  val relationship = column.relationship ?: return scalarNode(
+  position: ColumnPosition
+) = when (val relationship = column.relationship) {
+  null -> scalarNode(
     column = column,
     position = position
   )
-  return CursorReadNode.PersistedRelationship(
-    source = column.toCursorReadProperty(),
+  else -> PersistedRelationship(
+    source = column.toRowReadProperty(),
     position = position,
     read = relationshipValue(
       column = column,
@@ -114,14 +108,14 @@ private fun TableElement.persistedNode(
 
 private fun TableElement.selectedNode(
   column: ColumnElement,
-  position: CursorPosition
-): CursorReadNode {
-  val relationship = column.relationship ?: return scalarNode(
+  position: ColumnPosition
+) = when (val relationship = column.relationship) {
+  null -> scalarNode(
     column = column,
     position = position
   )
-  return CursorReadNode.Related(
-    source = column.toCursorReadProperty(),
+  else -> Related(
+    source = column.toRowReadProperty(),
     read = selectedRelationshipValue(
       column = column,
       relationship = relationship,
@@ -133,14 +127,14 @@ private fun TableElement.selectedNode(
 
 private fun TableElement.scalarNode(
   column: ColumnElement,
-  position: CursorPosition
-) = CursorReadNode.Scalar(
-  source = column.toCursorReadProperty(),
+  position: ColumnPosition
+) = Scalar(
+  source = column.toRowReadProperty(),
   position = position,
   storageType = column.sqlStorageType,
   transformer = column.transformer,
   isSqlNullable = column.isSqlNullable,
-  requiresPresentValue = column.isModelPathNullable,
+  requiresPresentValue = column.isModelPathNullable && column.transformer?.decoderInputNullable != true,
   missingMessage = """Selected columns did not contain table "$tableName" required column "${column.columnName}"""",
   nullMessage = """Column "${column.columnName}" was NULL"""
 )
@@ -148,7 +142,7 @@ private fun TableElement.scalarNode(
 private fun relationshipValue(
   column: ColumnElement,
   relationship: RelationshipElement,
-  position: CursorPosition,
+  position: ColumnPosition,
   relationshipIndex: Int
 ): CodeBlock {
   val targetType = relationship.referencedTableType.typeName
@@ -159,7 +153,7 @@ private fun relationshipValue(
       position = position
     )
     DEEP -> CodeBlock.of(
-      "(related.read(cursor, %L) as %T?) ?: %L",
+      "(related.read(statement, %L) as %T?) ?: %L",
       relationshipIndex,
       targetType,
       idOnlyRelationship(
@@ -168,36 +162,78 @@ private fun relationshipValue(
         position = position
       )
     )
-    ALWAYS -> CodeBlock.of("related.read(cursor, %L) as %T", relationshipIndex, targetType)
+    ALWAYS -> when {
+      column.isNullable -> CodeBlock.of("related.read(statement, %L) as %T?", relationshipIndex, targetType)
+      else -> CodeBlock.of(
+        "(related.read(statement, %L) as %T?) ?: throw %T(%S)",
+        relationshipIndex,
+        targetType,
+        SQL_EXCEPTION,
+        column.missingRelationshipMessage
+      )
+    }
   }
 }
 
 private fun selectedRelationshipValue(
   column: ColumnElement,
   relationship: RelationshipElement,
-  position: CursorPosition,
+  position: ColumnPosition,
   relationshipIndex: Int
 ): CodeBlock {
-  val targetType = relationship.referencedTableType.typeName
-  val required = !column.isNullable
+  val selected = CodeBlock.of(
+    "(related.readSelected(statement, %L) as %T?)",
+    relationshipIndex,
+    relationship.referencedTableType.typeName
+  )
+  return when (relationship.read) {
+    ID_ONLY -> storedRelationship(
+      column = column,
+      relationship = relationship,
+      position = position
+    )
+    DEEP -> CodeBlock.of(
+      "%L ?: %L",
+      selected,
+      storedRelationship(
+        column = column,
+        relationship = relationship,
+        position = position
+      )
+    )
+    ALWAYS -> when {
+      column.isNullable -> selected
+      else -> CodeBlock.of(
+        "%L ?: throw %T(if (%L) %S else %S)",
+        selected,
+        SQL_EXCEPTION,
+        position.nullCheck().condition,
+        column.relationshipNullMessage,
+        column.missingRelationshipMessage
+      )
+    }
+  }
+}
+
+private fun storedRelationship(
+  column: ColumnElement,
+  relationship: RelationshipElement,
+  position: ColumnPosition
+): CodeBlock {
   val idOnly = idOnlyRelationship(
     column = column,
     relationship = relationship,
     position = position
   )
-  val nullFailure = CodeBlock.of("throw %T(%S)", SQL_EXCEPTION, column.relationshipNullMessage)
-  val stored = when {
-    required -> CodeBlock.of("(if (%L) %L else %L)", position.nullCheck().condition, nullFailure, idOnly)
-    else -> CodeBlock.of("(if (%L) null else %L)", position.nullCheck().condition, idOnly)
-  }
-  val selected = CodeBlock.of("(related.readSelected(cursor, %L) as %T?)", relationshipIndex, targetType)
-  return when (relationship.read) {
-    ID_ONLY -> stored
-    DEEP -> CodeBlock.of("%L ?: %L", selected, stored)
-    ALWAYS -> when {
-      required -> CodeBlock.of("%L ?: %L", selected, nullFailure)
-      else -> selected
-    }
+  return when {
+    column.isNullable -> CodeBlock.of("(if (%L) null else %L)", position.nullCheck().condition, idOnly)
+    else -> CodeBlock.of(
+      "(if (%L) throw %T(%S) else %L)",
+      position.nullCheck().condition,
+      SQL_EXCEPTION,
+      column.relationshipNullMessage,
+      idOnly
+    )
   }
 }
 
@@ -205,13 +241,13 @@ private fun selectedRelationshipValue(
 private fun idOnlyRelationship(
   column: ColumnElement,
   relationship: RelationshipElement,
-  position: CursorPosition
+  position: ColumnPosition
 ) = CodeBlock.of(
   "%T.%N(%L)",
   relationship.referencedTableNames.daoClassName,
   METHOD_NEW_INSTANCE_WITH_ONLY_ID,
   relationship.deserializedDeclaredIdValue(
-    databaseCursorGetter(
+    databaseValueGetter(
       storageType = column.sqlStorageType,
       index = position.code
     )
@@ -222,4 +258,10 @@ private val ColumnElement.relationshipNullMessage
   get() = when {
     isHandledRecursively -> """Required recursive relationship "$columnName" had a NULL ID"""
     else -> """Required relationship "$columnName" had a NULL ID"""
+  }
+
+private val ColumnElement.missingRelationshipMessage
+  get() = when {
+    isHandledRecursively -> """Required recursive relationship "$columnName" referenced a missing row"""
+    else -> """Required relationship "$columnName" referenced a missing row"""
   }

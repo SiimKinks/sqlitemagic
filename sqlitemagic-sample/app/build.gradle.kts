@@ -17,7 +17,6 @@ android {
     versionCode = 1
     versionName = "1.0"
     buildConfigField("int", "DB_VERSION", "5")
-    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
   sourceSets.named("debug") {
     assets.directories.add("src/release/assets")
@@ -55,12 +54,10 @@ dependencies {
   implementation(libs.rx.java3)
   implementation(libs.rx.android3)
   implementation(libs.compose.runtime.rxjava3)
-  implementation(libs.sqlite.framework)
+  implementation(libs.sqlite.bundled)
   implementation(libs.sqlitemagic.rxjava3)
 
   debugImplementation(libs.compose.ui.tooling)
-  androidTestImplementation(libs.android.test.runner)
-  androidTestImplementation(libs.android.test.junit)
 
   testImplementation(libs.sqlite.bundled.jvm)
   testImplementation(platform(libs.junit.bom))

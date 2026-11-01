@@ -167,6 +167,33 @@ internal class TransformerCodeGenerationStepTest {
         )
       ),
       DescriptorCase(
+        label = "generates boolean descriptor for boolean serialized type",
+        sources = listOf(
+          kotlinTransformerSource(
+            name = "VerifiedEmailTransformer",
+            contents = """
+              data class VerifiedEmail(val verified: Boolean)
+
+              object VerifiedEmailTransformer {
+                @ObjectToDbValue
+                fun emailToBoolean(email: VerifiedEmail): Boolean = email.verified
+
+                @DbValueToObject
+                fun booleanToEmail(value: Boolean): VerifiedEmail = VerifiedEmail(value)
+              }
+              """
+          )
+        ),
+        descriptorFile = "VerifiedEmailSqlType.kt",
+        expected = listOf(
+          "EncodingType<VerifiedEmail, VerifiedEmail, Required, Required> = requiredReadType(",
+          "storage = SqlStorage.BOOLEAN",
+          "encode = VerifiedEmailTransformer::emailToBoolean",
+          "decode = VerifiedEmailTransformer::booleanToEmail",
+          "encodingNullness = Required"
+        )
+      ),
+      DescriptorCase(
         label = "generates descriptor for byte array serialized type",
         sources = listOf(
           kotlinTransformerSource(

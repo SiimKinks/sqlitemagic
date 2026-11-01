@@ -12,8 +12,8 @@ import org.junit.Test
 internal class RawQueryTest {
   @Test
   fun `declared queries stream while undeclared ones run once`() {
-    personDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = querySchedulerSettings())
+    personDatabase(adapterSettings = querySchedulerSettings()).use { database ->
+      val connection = database.connection
       val names = SELECT
         .RAW("SELECT name FROM person WHERE age < 18 ORDER BY id")
         .readAs(PERSON.NAME)
@@ -39,12 +39,6 @@ internal class RawQueryTest {
         .takeFirst()
         .observe()
         .test()
-      val cursors = SELECT
-        .RAW("PRAGMA table_info('person')")
-        .usingConnection(connection)
-        .toCursor()
-        .observe()
-        .test()
       UPDATE
         .RAW("UPDATE person SET name = ? WHERE id = ?", "Kid", 3L)
         .notifies(PERSON)
@@ -59,14 +53,6 @@ internal class RawQueryTest {
       emptyFirst
         .assertNoValues()
         .assertComplete()
-      cursors
-        .assertComplete()
-        .values()
-        .single()
-        .use { cursor ->
-          assertThat(cursor.isClosed).isFalse()
-          assertThat(cursor.count).isEqualTo(6)
-        }
       streamed.dispose()
       firstStreamed.dispose()
     }
@@ -74,8 +60,8 @@ internal class RawQueryTest {
 
   @Test
   fun `undeclared observation rejects subscription in a transaction`() {
-    personDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = querySchedulerSettings())
+    personDatabase(adapterSettings = querySchedulerSettings()).use { database ->
+      val connection = database.connection
       val raw = SELECT
         .RAW("SELECT 1")
         .readAs(LONG)
@@ -89,10 +75,6 @@ internal class RawQueryTest {
           "first" to raw
             .takeFirst()
             .observe()
-            .test(),
-          "cursor" to raw
-            .toCursor()
-            .observe()
             .test()
         )
       } finally {
@@ -104,7 +86,7 @@ internal class RawQueryTest {
           .withTag(label)
           .assertNoValues()
           .assertError { failure ->
-            failure is IllegalStateException &&
+            failure.javaClass == IllegalStateException::class.java &&
                 failure.message == "Cannot subscribe to observable query in a transaction."
           }
       }

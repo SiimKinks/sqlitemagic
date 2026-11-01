@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.support
 
-import android.database.sqlite.SQLiteException
+import android.database.SQLException
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.SELECT
@@ -24,7 +24,7 @@ internal data class DatabaseSnapshot<T>(
 
 internal fun <B : EntityOperationBuilder<B>> B.withConflictAlgorithm(
   conflictAlgorithm: Int?
-): B = apply {
+) = apply {
   conflictAlgorithm?.let(this::conflictAlgorithm)
 }
 
@@ -133,16 +133,15 @@ internal fun <T> assertDatabaseSnapshotIgnoringOrder(
     table = modelCase.table,
     expected = expected.parents
   )
-  expected.related?.let { expectedRelated ->
-    when (modelCase) {
-      is RecursiveModelCase<*> -> assertRowsIgnoringOrder(
-        table = modelCase.relatedTable,
-        expected = expectedRelated
-      )
-      else -> throw AssertionError(
-        "Expected related rows for non-recursive model case ${modelCase.name}"
-      )
-    }
+  val expectedRelated = expected.related ?: return
+  when (modelCase) {
+    is RecursiveModelCase<*> -> assertRowsIgnoringOrder(
+      table = modelCase.relatedTable,
+      expected = expectedRelated
+    )
+    else -> throw AssertionError(
+      "Expected related rows for non-recursive model case ${modelCase.name}"
+    )
   }
 }
 
@@ -159,6 +158,6 @@ internal fun supportsSqlite(version: String, minor: Int) = version
   }
 
 internal fun assertSqliteRejects(containing: String, query: () -> Any?) =
-  assertThat(assertThrows(SQLiteException::class.java) { query() })
+  assertThat(assertThrows(SQLException::class.java, query::invoke))
     .hasMessageThat()
     .contains(containing)

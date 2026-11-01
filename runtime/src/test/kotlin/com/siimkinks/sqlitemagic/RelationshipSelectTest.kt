@@ -67,7 +67,7 @@ internal class RelationshipSelectTest {
         database.execSQL("INSERT INTO author VALUES (4, 'Mary', NULL)")
         listOf(deep, titles).map { query ->
           query
-            .usingConnection(database.dbConnection())
+            .usingConnection(database.connection)
             .count()
             .execute()
         }
@@ -238,5 +238,18 @@ internal class RelationshipSelectTest {
           """WHERE "publisher"."name" = ?"""
     )
     assertThat(tors.rowsIn(::libraryDatabase)).isEqualTo(books(shallow = false).take(1))
+  }
+
+  @Test
+  fun `joined relationships whose target row is missing fall back to the stored ID or fail`() {
+    val adas = (SELECT FROM AUTHOR WHERE (AUTHOR.NAME IS "Ada")).queryDeep()
+
+    assertThat(adas.rowsIn { libraryDatabase().apply { execSQL("DELETE FROM publisher WHERE id = 1") } })
+      .isEqualTo(listOf(adaAuthor.copy(publisher = Publisher(id = 1L))))
+    assertThat(
+      sqlExceptionMessage {
+        (SELECT FROM BOOK).rowsIn { libraryDatabase().apply { execSQL("DELETE FROM author WHERE id = 1") } }
+      }
+    ).isEqualTo("""Required relationship "author" referenced a missing row""")
   }
 }

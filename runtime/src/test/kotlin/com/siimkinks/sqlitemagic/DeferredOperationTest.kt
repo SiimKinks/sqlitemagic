@@ -3,20 +3,14 @@ package com.siimkinks.sqlitemagic
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.entity.ConnectionProvidedOperation
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder
-import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkPersistBuilder
-import com.siimkinks.sqlitemagic.entity.EntityBulkPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateBuilder
-import com.siimkinks.sqlitemagic.entity.EntityBulkUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteBuilder
-import com.siimkinks.sqlitemagic.entity.EntityDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityDeleteTableBuilder
 import com.siimkinks.sqlitemagic.entity.EntityInsertBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
-import com.siimkinks.sqlitemagic.entity.EntityPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
-import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
 import com.siimkinks.sqlitemagic.internal.DeferredOperation
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
 import org.junit.Test
@@ -34,25 +28,25 @@ internal class DeferredOperationTest {
     )
 
     val cases = listOf(
-      Case<EntityInsertBuilder>(
+      Case(
         label = "insert",
         builder = { adapter.insert(TestEntity()) },
         execute = EntityInsertBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityBulkInsertBuilder>(
+      Case(
         label = "bulk insert",
         builder = { adapter.bulkInsert(entities()) },
         execute = EntityBulkInsertBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityUpdateBuilder>(
+      Case(
         label = "update",
         builder = { adapter.update(TestEntity()) },
         execute = EntityUpdateBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityUpdateByColumnBuilder<TestEntity>>(
+      Case(
         label = "update by column",
         builder = { adapter.updateByColumn(TestEntity()) },
         execute = { builder -> builder.execute(TestSchema.key) },
@@ -63,13 +57,13 @@ internal class DeferredOperationTest {
           )
         }
       ),
-      Case<EntityBulkUpdateBuilder>(
+      Case(
         label = "bulk update",
         builder = { adapter.bulkUpdate(entities()) },
         execute = EntityBulkUpdateBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityBulkUpdateByColumnBuilder<TestEntity>>(
+      Case(
         label = "bulk update by column",
         builder = { adapter.bulkUpdateByColumn(entities()) },
         execute = { builder -> builder.execute(TestSchema.key) },
@@ -80,13 +74,13 @@ internal class DeferredOperationTest {
           )
         }
       ),
-      Case<EntityPersistBuilder>(
+      Case(
         label = "persist",
         builder = { adapter.persist(TestEntity()) },
         execute = EntityPersistBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityPersistByColumnBuilder<TestEntity>>(
+      Case(
         label = "persist by column",
         builder = { adapter.persistByColumn(TestEntity()) },
         execute = { builder -> builder.execute(TestSchema.key) },
@@ -97,13 +91,13 @@ internal class DeferredOperationTest {
           )
         }
       ),
-      Case<EntityBulkPersistBuilder>(
+      Case(
         label = "bulk persist",
         builder = { adapter.bulkPersist(entities()) },
         execute = EntityBulkPersistBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityBulkPersistByColumnBuilder<TestEntity>>(
+      Case(
         label = "bulk persist by column",
         builder = { adapter.bulkPersistByColumn(entities()) },
         execute = { builder -> builder.execute(TestSchema.key) },
@@ -114,13 +108,13 @@ internal class DeferredOperationTest {
           )
         }
       ),
-      Case<EntityDeleteBuilder>(
+      Case(
         label = "delete",
         builder = { adapter.delete(TestEntity()) },
         execute = EntityDeleteBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityDeleteByColumnBuilder<TestEntity>>(
+      Case(
         label = "delete by column",
         builder = { adapter.deleteByColumn(TestEntity()) },
         execute = { builder -> builder.execute(TestSchema.key) },
@@ -131,13 +125,13 @@ internal class DeferredOperationTest {
           )
         }
       ),
-      Case<EntityBulkDeleteBuilder>(
+      Case(
         label = "bulk delete",
         builder = { adapter.bulkDelete(entities()) },
         execute = EntityBulkDeleteBuilder::execute,
         defer = ReactiveAdapterSupport::deferred
       ),
-      Case<EntityBulkDeleteByColumnBuilder<TestEntity>>(
+      Case(
         label = "bulk delete by column",
         builder = { adapter.bulkDeleteByColumn(entities()) },
         execute = { builder -> builder.execute(TestSchema.key) },
@@ -148,7 +142,7 @@ internal class DeferredOperationTest {
           )
         }
       ),
-      Case<EntityDeleteTableBuilder>(
+      Case(
         label = "delete table",
         builder = { adapter.deleteTable() },
         execute = EntityDeleteTableBuilder::execute,
@@ -179,7 +173,7 @@ internal class DeferredOperationTest {
   ) {
     fun run(deferred: Boolean): Outcome {
       val connection = newConnection()
-      val builder = builder().usingConnection(connection.connection)
+      val builder = builder().usingConnection(connection.dbConnection)
       val result = when {
         deferred -> defer(builder).execute(isCancelled = { false })
         else -> execute(builder)

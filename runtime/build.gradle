@@ -6,7 +6,6 @@ plugins {
 
 apply from: '../buildsystem/maven-push.gradle'
 apply from: '../buildsystem/bintray-push.gradle'
-apply from: '../buildsystem/sqlite-support.gradle'
 
 def mockitoAgentConfiguration = configurations.create('mockitoAgent')
 
@@ -56,6 +55,6 @@ tasks.withType(Jar).configureEach {
 
 tasks.withType(Test).configureEach {
   scanForTestClasses = false
-  include "**/*Test.class"
+  include '**/*Test.class'
   jvmArgs "-javaagent:${mockitoAgentConfiguration.singleFile.absolutePath}"
 }

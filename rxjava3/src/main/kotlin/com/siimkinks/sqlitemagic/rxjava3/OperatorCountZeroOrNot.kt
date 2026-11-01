@@ -27,10 +27,7 @@ internal class OperatorCountZeroOrNot private constructor(
     override fun onNext(query: Query<Long>) {
       if (done || isDisposed) return
       try {
-        val count = ReactiveAdapterSupport.map(
-          query = query,
-          cursor = ReactiveAdapterSupport.openCursor(query)
-        )
+        val count = ReactiveAdapterSupport.run(query)
         if (!isDisposed) {
           downstream.onNext((count > 0) xor countZero)
         }

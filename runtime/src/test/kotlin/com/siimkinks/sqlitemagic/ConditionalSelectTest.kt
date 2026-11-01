@@ -18,9 +18,8 @@ internal class ConditionalSelectTest {
       .FROM(PERSON)
       .WHERE(COALESCE(PERSON.FLAG, true.asValue()))
       .ORDER_BY(display.DESC())
-    val plan = query.compile()
 
-    assertThat(snapshot(plan)).isEqualTo(
+    assertThat(snapshot(query.compile())).isEqualTo(
       PlanSnapshot(
         sql = """SELECT COALESCE("person"."name", ?), IFNULL("person"."parent_id", "person"."id"), """ +
             """COALESCE("person"."parent_id", NULL), COALESCE("person"."name", "person"."name", """ +
@@ -52,9 +51,8 @@ internal class ConditionalSelectTest {
       .COLUMNS(NULLIF(PERSON.AGE, 17), NULLIF(PERSON.PARENT_ID, PERSON.ID), NULLIF(PERSON.TOKEN, Token("a")))
       .FROM(PERSON)
       .ORDER_BY(PERSON.ID.ASC())
-    val plan = query.compile()
 
-    assertThat(snapshot(plan)).isEqualTo(
+    assertThat(snapshot(query.compile())).isEqualTo(
       PlanSnapshot(
         sql = """SELECT NULLIF("person"."age", ?), NULLIF("person"."parent_id", "person"."id"), """ +
             """NULLIF("person"."token", ?) FROM "main"."person" ORDER BY "person"."id" ASC""",
@@ -110,7 +108,6 @@ internal class ConditionalSelectTest {
       .COLUMNS(stage, flagged, parent)
       .FROM(PERSON)
       .ORDER_BY(PERSON.ID.ASC())
-    val plan = query.compile()
     val adult = CASE
       .WHEN(PERSON.AGE GREATER_OR_EQUAL 18)
       .THEN(PERSON.AGE)
@@ -122,15 +119,15 @@ internal class ConditionalSelectTest {
         .WHEN(PERSON.NAME.IS_NULL())
         .THEN(PERSON.ID)
         .END()
-    ).map { expression ->
+    ).map {
       SELECT
-        .COLUMN(expression)
+        .COLUMN(it)
         .FROM(PERSON)
         .compile()
         .sql
     }
 
-    assertThat(snapshot(plan)).isEqualTo(
+    assertThat(snapshot(query.compile())).isEqualTo(
       PlanSnapshot(
         sql = """SELECT CASE WHEN "person"."age" >= ? THEN ? WHEN "person"."age" >= ? THEN ? ELSE ? END, """ +
             """CASE "person"."flag" WHEN ? THEN ? WHEN ? THEN ? END, """ +
@@ -267,12 +264,11 @@ internal class ConditionalSelectTest {
       .hasMessageThat()
       .isEqualTo("book.title is NOT NULL but an outer join can leave it NULL; select the field with .nullable()")
     libraryDatabase().use { database ->
-      val connection = database.dbConnection()
       val renamed = UPDATE
         .TABLE(PERSON)
         .SET(PERSON.NAME to COALESCE(PERSON.NAME, "anonymous".asValue()))
         .WHERE(NULLIF(PERSON.AGE, 17).IS_NULL())
-        .usingConnection(connection)
+        .usingConnection(database.connection)
         .execute()
 
       assertThat(

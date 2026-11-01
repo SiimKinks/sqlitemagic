@@ -79,7 +79,6 @@ internal class TypedRowSelectContractTest {
             package downstream.typedrow.pair
 
             import com.siimkinks.sqlitemagic.CompiledCount
-            import com.siimkinks.sqlitemagic.CompiledCursor
             import com.siimkinks.sqlitemagic.CompiledFirst
             import com.siimkinks.sqlitemagic.CompiledSelect
             import com.siimkinks.sqlitemagic.DbConnection
@@ -138,7 +137,6 @@ internal class TypedRowSelectContractTest {
               val compiled = connected.compile()
               val first = connected.takeFirst()
               val count = connected.count()
-              val cursor = connected.toCursor()
               val rows = connected.execute()
 
               val sourceFreeType = sourceFree.exactType()
@@ -197,8 +195,6 @@ internal class TypedRowSelectContractTest {
               val exactFirst: Exact<CompiledFirst<Row2<Long, String?>>> = firstType
               val countType = count.exactType()
               val exactCount: Exact<CompiledCount> = countType
-              val cursorType = cursor.exactType()
-              val exactCursor: Exact<CompiledCursor<Row2<Long, String?>>> = cursorType
               val rowsType = rows.exactType()
               val exactRows: Exact<List<Row2<Long, String?>>> = rowsType
             }
@@ -357,7 +353,6 @@ internal class TypedRowSelectContractTest {
           contents = """
             package downstream.typedrow.mapped
 
-            import com.siimkinks.sqlitemagic.CompiledCursor
             import com.siimkinks.sqlitemagic.CompiledFirst
             import com.siimkinks.sqlitemagic.CompiledSelect
             import com.siimkinks.sqlitemagic.DbConnection
@@ -457,8 +452,6 @@ internal class TypedRowSelectContractTest {
               val exactCompiled: Exact<CompiledSelect<Policies>> = compiledType
               val firstType = wide.takeFirst().exactType()
               val exactFirst: Exact<CompiledFirst<Wide>> = firstType
-              val cursorType = ids.toCursor().exactType()
-              val exactCursor: Exact<CompiledCursor<AuthorId>> = cursorType
               val rowsType = policies.execute().exactType()
               val exactRows: Exact<List<Policies>> = rowsType
             }

@@ -24,6 +24,9 @@ internal class SqlStorageTypeTest {
   @Test
   fun `parses simple nullable and aliased kotlin types`() {
     assertStorageTypes(
+      BOOLEAN mapsTo SqlStorageType.BOOLEAN,
+      BOOLEAN.copy(nullable = true) mapsTo SqlStorageType.BOOLEAN,
+      aliasOf(BOOLEAN) mapsTo SqlStorageType.BOOLEAN,
       BYTE mapsTo SqlStorageType.BYTE,
       BYTE.copy(nullable = true) mapsTo SqlStorageType.BYTE,
       aliasOf(BYTE) mapsTo SqlStorageType.BYTE,
@@ -54,6 +57,7 @@ internal class SqlStorageTypeTest {
   @Test
   fun `parses Java types`() {
     assertStorageTypes(
+      ClassName(packageName = "java.lang", "Boolean") mapsTo SqlStorageType.BOOLEAN,
       ClassName(packageName = "java.lang", "Byte") mapsTo SqlStorageType.BYTE,
       ARRAY.parameterizedBy(
         ClassName(packageName = "java.lang", "Byte")
@@ -89,7 +93,6 @@ internal class SqlStorageTypeTest {
   @Test
   fun `does not parse unsupported types`() {
     assertStorageTypes(
-      BOOLEAN mapsTo null,
       ClassName(packageName = "kotlin", "Char") mapsTo null,
       ARRAY.parameterizedBy(INT) mapsTo null,
       LIST.parameterizedBy(BYTE) mapsTo null,
@@ -103,6 +106,7 @@ internal class SqlStorageTypeTest {
       SqlStorageType.BYTE_ARRAY, SqlAffinity.BLOB,
       SqlStorageType.BOXED_BYTE_ARRAY, SqlAffinity.BLOB,
       SqlStorageType.BYTE, SqlAffinity.BLOB,
+      SqlStorageType.BOOLEAN, SqlAffinity.INTEGER,
       SqlStorageType.DOUBLE, SqlAffinity.REAL,
       SqlStorageType.FLOAT, SqlAffinity.REAL,
       SqlStorageType.INT, SqlAffinity.INTEGER,

@@ -4,11 +4,8 @@ plugins {
 }
 
 apply from: '../buildsystem/maven-push.gradle'
-apply from: '../buildsystem/sqlite-support.gradle'
 apply from: '../buildsystem/reactive-adapter.gradle'
 
 dependencies {
   implementation libs.coroutines.core
-
-  testImplementation libs.coroutines.test
 }

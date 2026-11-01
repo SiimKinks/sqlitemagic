@@ -1,9 +1,11 @@
 package com.siimkinks.sqlitemagic.rxjava3
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.Query
+import com.siimkinks.sqlitemagic.rxjava3.QueryOperatorTerminalContractTest.Terminal.COUNT
+import com.siimkinks.sqlitemagic.rxjava3.QueryOperatorTerminalContractTest.Terminal.LIST
+import com.siimkinks.sqlitemagic.rxjava3.QueryOperatorTerminalContractTest.Terminal.SCALAR
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Observer
 import io.reactivex.rxjava3.disposables.Disposable
@@ -12,8 +14,8 @@ import io.reactivex.rxjava3.subjects.PublishSubject
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 
 @RunWith(Parameterized::class)
@@ -56,11 +58,8 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
   @Test
   fun `mapping failure disposes upstream before error like map`() {
     val failure = IllegalArgumentException("mapping failed")
-    val cursor = mock<Cursor>()
     val query = object : Query<Any>(mock()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Any = cursor.use { throw failure }
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): Any = throw failure
     }
     val events = mutableListOf<String>()
     val source = PublishSubject.create<Query<Any>>()
@@ -80,7 +79,6 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
       .assertNoValues()
       .assertError(failure)
       .assertNotComplete()
-    verify(cursor).close()
     assertThat(events)
       .containsExactly("upstream finally", "downstream error")
       .inOrder()
@@ -146,9 +144,9 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
 
   @Suppress("UNCHECKED_CAST")
   private fun Observable<Query<Any>>.executeQuery() = when (terminal) {
-    Terminal.SCALAR -> lift(OperatorRunSingleItemQuery())
-    Terminal.LIST -> (this as Observable<Query<List<Any>>>).lift(runListQuery())
-    Terminal.COUNT -> (this as Observable<Query<Long>>).lift(OperatorCountZeroOrNot.countZero)
+    SCALAR -> lift(OperatorRunSingleItemQuery())
+    LIST -> (this as Observable<Query<List<Any>>>).lift(runListQuery())
+    COUNT -> (this as Observable<Query<Long>>).lift(OperatorCountZeroOrNot.countZero)
   }
 
   private fun Observable<*>.record(events: MutableList<String>) =
@@ -174,7 +172,7 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun terminals() = Terminal.entries
   }
 }

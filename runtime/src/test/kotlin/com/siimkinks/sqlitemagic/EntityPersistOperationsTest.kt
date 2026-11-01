@@ -95,12 +95,12 @@ internal class EntityPersistOperationsTest {
       )
     ).forEach { case ->
       val connection = newConnection()
-      connection.recordingDatabase.updateResults.addAll(case.updateResults)
-      case.insertResult?.let(connection.recordingDatabase.insertResults::add)
+      connection.sqliteConnection.updateResults += case.updateResults
+      case.insertResult?.let(connection.sqliteConnection.insertResults::add)
       val entity = TestEntity(generatedRowId = 5L)
       val operation = TestAdapter(withoutRowId = case.withoutRowId)
         .persist(entity)
-        .usingConnection(connection.connection)
+        .usingConnection(connection.dbConnection)
         .conflictAlgorithm(case.conflictAlgorithm)
 
       when (val expectedResult = case.expectedResult) {
@@ -121,7 +121,7 @@ internal class EntityPersistOperationsTest {
   @Test
   fun `persist skips update without selected identity and supports explicit identity`() {
     val missingDefaultConnection = newConnection()
-    missingDefaultConnection.recordingDatabase.insertResults += 8L
+    missingDefaultConnection.sqliteConnection.insertResults += 8L
     val missingDefaultEntity = TestEntity(
       id = "",
       key = "key-1",
@@ -131,7 +131,7 @@ internal class EntityPersistOperationsTest {
     assertThat(
       TestAdapter()
         .persist(missingDefaultEntity)
-        .usingConnection(missingDefaultConnection.connection)
+        .usingConnection(missingDefaultConnection.dbConnection)
         .execute()
     ).isEqualTo(EntityPersistResult.Inserted(8L))
     assertThat(missingDefaultConnection.statementSql).containsExactly(
@@ -139,7 +139,7 @@ internal class EntityPersistOperationsTest {
     )
 
     val explicitConnection = newConnection()
-    explicitConnection.recordingDatabase.updateResults += 1
+    explicitConnection.sqliteConnection.updateResults += 1
     val explicitEntity = TestEntity(
       id = "",
       key = "key-1",
@@ -149,7 +149,7 @@ internal class EntityPersistOperationsTest {
     assertThat(
       TestAdapter()
         .persist(explicitEntity)
-        .usingConnection(explicitConnection.connection)
+        .usingConnection(explicitConnection.dbConnection)
         .byColumn(TestSchema.key)
         .execute()
     ).isEqualTo(EntityPersistResult.Updated)
@@ -224,11 +224,11 @@ internal class EntityPersistOperationsTest {
       )
     ).forEach { case ->
       val connection = newConnection()
-      connection.recordingDatabase.updateResults += case.updateResult
-      case.insertResult?.let(connection.recordingDatabase.insertResults::add)
+      connection.sqliteConnection.updateResults += case.updateResult
+      case.insertResult?.let(connection.sqliteConnection.insertResults::add)
       val operation = TestAdapter(omitNullInsertValues = case.omitAllInsertValues)
         .persist(TestEntity(name = null))
-        .usingConnection(connection.connection)
+        .usingConnection(connection.dbConnection)
         .ignoreNullValues()
       val actualResult = when {
         case.byKey -> operation.byColumn(TestSchema.key)
@@ -256,12 +256,12 @@ internal class EntityPersistOperationsTest {
   @Test
   fun `reused persist builder rebuilds variable statement when conflict changes`() {
     val connection = newConnection()
-    connection.recordingDatabase.updateResults.addAll(listOf(0, 0))
-    connection.recordingDatabase.insertResults.addAll(listOf(7L, -1L))
+    connection.sqliteConnection.updateResults += listOf(0, 0)
+    connection.sqliteConnection.insertResults += listOf(7L, -1L)
     val entity = TestEntity(name = null)
     val builder = TestAdapter()
       .persist(entity)
-      .usingConnection(connection.connection)
+      .usingConnection(connection.dbConnection)
       .ignoreNullValues()
 
     assertThat(builder.execute()).isEqualTo(EntityPersistResult.Inserted(rowId = 7L))

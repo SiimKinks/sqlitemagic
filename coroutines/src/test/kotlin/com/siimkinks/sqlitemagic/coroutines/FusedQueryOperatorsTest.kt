@@ -1,9 +1,7 @@
 package com.siimkinks.sqlitemagic.coroutines
 
-import android.database.Cursor
 import android.util.Log
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteQuery
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.AUTHOR
@@ -13,7 +11,6 @@ import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.closedConnection
 import com.siimkinks.sqlitemagic.libraryDatabase
-import com.siimkinks.sqlitemagic.testDbConnection
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -22,7 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
@@ -41,12 +37,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mockStatic
 import org.mockito.Mockito.mockingDetails
-import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoInteractions
-import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -90,12 +81,12 @@ internal class FusedQueryOperatorsTest {
     ).mapValues { (_, case) ->
       val (dispatcher, flow) = case
       val threads = CopyOnWriteArrayList<String>()
-      val connection = queryingConnection(dispatcher = dispatcher) {
+      val connection = authorConnection(dispatcher = dispatcher) {
         threads += Thread
           .currentThread()
           .name
           .substringBefore(" @coroutine")
-        mock<Cursor>()
+        mock()
       }
       val emissions = LinkedBlockingQueue<Int>()
       val collection = CoroutineScope(collector).launch {
@@ -153,12 +144,6 @@ internal class FusedQueryOperatorsTest {
           .observe()
           .runQuery()
       },
-      "count or default" to { connection ->
-        lovelaceNames(connection)
-          .count()
-          .observe()
-          .runQueryOrDefault(-1L)
-      },
       "is zero" to { connection ->
         lovelaceNames(connection)
           .count()
@@ -170,19 +155,12 @@ internal class FusedQueryOperatorsTest {
           .count()
           .observe()
           .isNotZero()
-      },
-      "cursor" to { connection ->
-        lovelaceNames(connection)
-          .toCursor()
-          .observe()
-          .runQuery()
-          .map { it.use(Cursor::getCount) }
       }
     )
 
     val outcomes = cases.mapValues { (_, flow) ->
-      libraryDatabase().use { database ->
-        val connection = database.dbConnection(adapterSettings = dispatcherSettings(queryDispatcher))
+      libraryDatabase(adapterSettings = dispatcherSettings(queryDispatcher)).use { database ->
+        val connection = database.connection
         runBlocking {
           flow(connection)
             .withIndex()
@@ -208,10 +186,8 @@ internal class FusedQueryOperatorsTest {
         "first row" to listOf("Ada", "Lovelace"),
         "first row or default" to listOf("none", "Lovelace"),
         "count" to listOf(0L, 1L),
-        "count or default" to listOf(0L, 1L),
         "is zero" to listOf(true, false),
-        "is not zero" to listOf(false, true),
-        "cursor" to listOf(0, 1)
+        "is not zero" to listOf(false, true)
       )
     )
   }
@@ -220,14 +196,14 @@ internal class FusedQueryOperatorsTest {
   fun `the next query starts while the collector processes a result and later changes collapse into one more query`() {
     val queries = AtomicInteger()
     val queried = Semaphore(0)
-    val cursors = List(3) { index ->
-      mock<Cursor>().also { cursor ->
-        whenever(cursor.moveToNext()).thenReturn(true)
-        whenever(cursor.getLong(0)).thenReturn(index + 1L)
+    val results = List(3) { index ->
+      mock<SQLiteStatement>().also { statement ->
+        whenever(statement.step()).thenReturn(true)
+        whenever(statement.getLong(0)).thenReturn(index + 1L)
       }
     }
-    val connection = queryingConnection {
-      cursors[queries.getAndIncrement()].also { queried.release() }
+    val connection = authorConnection {
+      results[queries.getAndIncrement()].also { queried.release() }
     }
     val processing = CountDownLatch(1)
     val release = CompletableDeferred<Unit>()
@@ -272,89 +248,104 @@ internal class FusedQueryOperatorsTest {
   }
 
   @Test
-  fun `cancelling the collection closes a cursor waiting for the collector and leaves a delivered cursor open`() {
-    val deliveredCursor = mock<Cursor>()
-    val waitingCursor = mock<Cursor>()
-    val queried = Semaphore(0)
-    val connection = queryingConnection {
-      queried.release()
-      when (queried.availablePermits()) {
-        1 -> deliveredCursor
-        else -> waitingCursor
-      }
-    }
-    val delivered = LinkedBlockingQueue<Cursor>()
-    val collection = CoroutineScope(executor("collector").asCoroutineDispatcher()).launch {
-      SELECT
-        .FROM(AUTHOR)
-        .usingConnection(connection)
-        .toCursor()
-        .observe()
-        .runQuery()
-        .collect { cursor ->
-          delivered.add(cursor)
-          awaitCancellation()
-        }
-    }
-    val firstDelivery = delivered.poll(5, SECONDS)
-
-    connection.sendTableTrigger("author")
-    check(queried.tryAcquire(2, 5, SECONDS))
-    runBlocking { collection.cancelAndJoin() }
-
-    assertThat(firstDelivery to delivered.toList()).isEqualTo(deliveredCursor to emptyList<Cursor>())
-    verify(waitingCursor).close()
-    verifyNoMoreInteractions(waitingCursor)
-    verifyNoInteractions(deliveredCursor)
-  }
-
-  @Test
-  fun `cancelling the collection while a query runs delivers nothing, reads no row and closes a cursor result`() {
+  fun `cancelling the collection while a query runs delivers nothing and stops reading rows`() {
     val collector = executor("collector").asCoroutineDispatcher()
-    val shapes = mapOf<String, (DbConnectionImpl) -> Flow<Any>>(
-      "rows" to { connection ->
-        authorNames(connection)
-          .observe()
-          .runQuery()
-      },
-      "cursor" to { connection ->
-        SELECT
-          .FROM(AUTHOR)
-          .usingConnection(connection)
-          .toCursor()
-          .observe()
-          .runQuery()
-      }
-    )
     val outcomes = mapOf(
       "on the collector's dispatcher" to collector,
       "on Unconfined" to Dispatchers.Unconfined,
       "on another dispatcher" to queryDispatcher
-    ).flatMap { (dispatcherLabel, dispatcher) ->
-      shapes.map { (shapeLabel, flow) ->
-        val cursor = mock<Cursor>()
-        lateinit var collection: Job
-        val connection = queryingConnection(dispatcher = dispatcher) {
-          collection.cancel()
-          cursor
-        }
-        val delivered = mutableListOf<Any>()
-        collection = CoroutineScope(collector).launch(start = LAZY) { flow(connection).collect(delivered::add) }
-        collection.start()
-        runBlocking { collection.join() }
-        val cursorCalls = mockingDetails(cursor).invocations.map { it.method.name }
-        "$shapeLabel $dispatcherLabel" to (delivered to cursorCalls)
+    ).mapValues { (_, dispatcher) ->
+      val rows = mock<SQLiteStatement>().also { statement ->
+        whenever(statement.step()).thenReturn(true)
+        whenever(statement.getText(0)).thenReturn("Ada")
       }
+      lateinit var collection: Job
+      val connection = authorConnection(dispatcher = dispatcher) {
+        collection.cancel()
+        rows
+      }
+      val delivered = mutableListOf<Any>()
+      collection = CoroutineScope(collector).launch(start = LAZY) {
+        authorNames(connection)
+          .observe()
+          .runQuery()
+          .collect(delivered::add)
+      }
+      collection.start()
+      runBlocking { collection.join() }
+      delivered to mockingDetails(rows).invocations.map { it.method.name }
     }
 
-    assertThat(outcomes.toMap()).isEqualTo(
+    assertThat(outcomes).isEqualTo(
       mapOf(
-        "rows on the collector's dispatcher" to (emptyList<Any>() to listOf("getCount", "close")),
-        "cursor on the collector's dispatcher" to (emptyList<Any>() to listOf("close")),
-        "rows on Unconfined" to (emptyList<Any>() to listOf("getCount", "close")),
-        "cursor on Unconfined" to (emptyList<Any>() to listOf("close")),
-        "rows on another dispatcher" to (emptyList<Any>() to listOf("getCount", "close")),
-        "cursor on another dispatcher" to (emptyList<Any>() to listOf("close"))
+        "on the collector's dispatcher" to (emptyList<Any>() to listOf("step", "isNull", "getText")),
+        "on Unconfined" to (emptyList<Any>() to listOf("step", "isNull", "getText")),
+        "on another dispatcher" to (emptyList<Any>() to listOf("step", "isNull", "getText"))
+      )
+    )
+  }
+
+  @Test
+  fun `cancelling the collection while a first-row or count query runs delivers nothing`() {
+    data class Case(
+      val hasRow: Boolean,
+      val flow: (DbConnectionImpl) -> Flow<Any?>
+    )
+
+    val collector = executor("collector").asCoroutineDispatcher()
+    val delivered = mapOf(
+      "first row" to Case(hasRow = true) { connection ->
+        authorNames(connection)
+          .takeFirst()
+          .observe()
+          .runQuery()
+      },
+      "first row or default" to Case(hasRow = false) { connection ->
+        authorNames(connection)
+          .takeFirst()
+          .observe()
+          .runQueryOrDefault("none")
+      },
+      "count" to Case(hasRow = true) { connection ->
+        authorNames(connection)
+          .count()
+          .observe()
+          .runQuery()
+      },
+      "is zero" to Case(hasRow = true) { connection ->
+        authorNames(connection)
+          .count()
+          .observe()
+          .isZero()
+      }
+    ).mapValues { (_, case) ->
+      lateinit var collection: Job
+      val connection = authorConnection {
+        mock<SQLiteStatement>().also { statement ->
+          whenever(statement.step()).thenAnswer {
+            collection.cancel()
+            case.hasRow
+          }
+          whenever(statement.getText(0)).thenReturn("Ada")
+        }
+      }
+      val values = mutableListOf<Any?>()
+      collection = CoroutineScope(collector).launch(start = LAZY) {
+        case
+          .flow(connection)
+          .collect(values::add)
+      }
+      collection.start()
+      runBlocking { collection.join() }
+      values
+    }
+
+    assertThat(delivered).isEqualTo(
+      mapOf(
+        "first row" to emptyList<Any?>(),
+        "first row or default" to emptyList(),
+        "count" to emptyList(),
+        "is zero" to emptyList()
       )
     )
   }
@@ -367,9 +358,9 @@ internal class FusedQueryOperatorsTest {
       "on Unconfined" to Dispatchers.Unconfined
     ).mapValues { (_, dispatcher) ->
       val queries = AtomicInteger()
-      val connection = queryingConnection(dispatcher = dispatcher) {
+      val connection = authorConnection(dispatcher = dispatcher) {
         queries.incrementAndGet()
-        mock<Cursor>()
+        mock()
       }
       val collection = CoroutineScope(collector).launch {
         authorNames(connection)
@@ -393,19 +384,18 @@ internal class FusedQueryOperatorsTest {
   }
 
   @Test
-  fun `a failure to open or map a query fails the collection after closing the cursor`() {
+  fun `a failure to run or map a query fails the collection`() {
     for ((label, case) in mapOf(
-      "opening the cursor" to (IllegalStateException("cannot open the cursor") to null),
-      "mapping a row" to (IllegalArgumentException("cannot map row") to mock<Cursor>()),
-      "fatal mapping failure" to (LinkageError("fatal mapper failure") to mock<Cursor>())
+      "running the query" to (IllegalStateException("cannot run the query") to null),
+      "mapping a row" to (IllegalArgumentException("cannot map row") to mock<SQLiteStatement>()),
+      "fatal mapping failure" to (LinkageError("fatal mapper failure") to mock<SQLiteStatement>())
     )) {
-      val (failure, cursor) = case
-      cursor?.let {
-        whenever(it.count).thenReturn(1)
-        whenever(it.moveToNext()).thenReturn(true)
-        whenever(it.getString(0)).thenThrow(failure)
+      val (failure, rows) = case
+      if (rows != null) {
+        whenever(rows.step()).thenReturn(true)
+        whenever(rows.getText(0)).thenThrow(failure)
       }
-      val connection = queryingConnection { cursor ?: throw failure }
+      val connection = authorConnection { rows ?: throw failure }
 
       val thrown = assertThrows(Throwable::class.java) {
         runBlocking {
@@ -419,16 +409,15 @@ internal class FusedQueryOperatorsTest {
       assertWithMessage(label)
         .that(thrown.javaClass to thrown.message)
         .isEqualTo(failure.javaClass to failure.message)
-      cursor?.let { verify(it).close() }
     }
   }
 
   @Test
   fun `a failing collector fails the collection and stops the queries`() {
     val queries = AtomicInteger()
-    val connection = queryingConnection {
+    val connection = authorConnection {
       queries.incrementAndGet()
-      mock<Cursor>()
+      mock()
     }
     val failure = IllegalStateException("collector failed")
 
@@ -447,11 +436,11 @@ internal class FusedQueryOperatorsTest {
 
   @Test
   fun `collecting on a thread with an active transaction fails before any query runs`() {
-    val database = mock<SupportSQLiteDatabase>()
-    val connection = testDbConnection(
-      database = database,
-      adapterSettings = dispatcherSettings(queryDispatcher)
-    )
+    val queries = AtomicInteger()
+    val connection = authorConnection {
+      queries.incrementAndGet()
+      mock()
+    }
     val transaction = connection.newTransaction()
     val failure = try {
       assertThrows(IllegalStateException::class.java) {
@@ -466,8 +455,8 @@ internal class FusedQueryOperatorsTest {
       transaction.end()
     }
 
-    assertThat(failure.message).isEqualTo("Cannot subscribe to observable query in a transaction.")
-    verify(database, never()).query(any<SupportSQLiteQuery>())
+    assertThat(failure.message to queries.get())
+      .isEqualTo("Cannot subscribe to observable query in a transaction." to 0)
   }
 
   @Test
@@ -482,11 +471,11 @@ internal class FusedQueryOperatorsTest {
         }
       },
       "source-free query" to {
-        libraryDatabase().use { database ->
+        libraryDatabase(adapterSettings = dispatcherSettings(queryDispatcher)).use { database ->
           runBlocking {
             SELECT
               .COLUMN(8L.asValue())
-              .usingConnection(database.dbConnection(adapterSettings = dispatcherSettings(queryDispatcher)))
+              .usingConnection(database.connection)
               .observe()
               .runQuery()
               .toList()
@@ -494,7 +483,7 @@ internal class FusedQueryOperatorsTest {
         }
       },
       "connection closed after the first result" to {
-        val connection = queryingConnection { mock<Cursor>() }
+        val connection = authorConnection { mock() }
         runBlocking {
           authorNames(connection)
             .observe()
@@ -522,21 +511,14 @@ internal class FusedQueryOperatorsTest {
     .newSingleThreadExecutor { Thread(it, name).apply { isDaemon = true } }
     .also(executors::add)
 
-  private fun queryingConnection(
+  private fun authorConnection(
     dispatcher: CoroutineDispatcher = queryDispatcher,
-    onQuery: () -> Cursor
-  ) = testDbConnection(
-    database = mock<SupportSQLiteDatabase>().also { database ->
-      whenever(database.query(any<SupportSQLiteQuery>())).thenAnswer { onQuery() }
-    },
-    adapterSettings = dispatcherSettings(dispatcher)
+    onQuery: () -> SQLiteStatement
+  ) = queryingConnection(
+    answers = ::readsAuthor,
+    adapterSettings = dispatcherSettings(dispatcher),
+    onQuery = onQuery
   )
-
-  private fun authorNames(connection: DbConnectionImpl) = SELECT
-    .COLUMN(AUTHOR.NAME)
-    .FROM(AUTHOR)
-    .ORDER_BY(AUTHOR.ID.ASC())
-    .usingConnection(connection)
 
   private fun lovelaceNames(connection: DbConnectionImpl) = SELECT
     .COLUMN(AUTHOR.NAME)

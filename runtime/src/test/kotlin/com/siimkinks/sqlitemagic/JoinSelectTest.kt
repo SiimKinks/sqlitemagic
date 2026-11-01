@@ -161,14 +161,15 @@ internal class JoinSelectTest {
         joinSql = """ NATURAL FULL JOIN "main"."pet"""",
         ids = listOf(1L, 2L, 3L, null, null, null, null)
       )
-    ).forEach { case ->
-      assertWithMessage(case.label)
-        .that(case.query.compile().sql)
-        .contains("""FROM "main"."person"${case.joinSql}""")
-      assertWithMessage(case.label)
-        .that(case.query.rowsIn(::petDatabase))
-        .isEqualTo(case.ids)
-    }
+    )
+      .forEach { case ->
+        assertWithMessage(case.label)
+          .that(case.query.compile().sql)
+          .contains("""FROM "main"."person"${case.joinSql}""")
+        assertWithMessage(case.label)
+          .that(case.query.rowsIn(::petDatabase))
+          .isEqualTo(case.ids)
+      }
   }
 
   @Test
@@ -190,37 +191,40 @@ internal class JoinSelectTest {
     fun joinSql(kind: String) = """FROM "main"."person" $kind JOIN "main"."pet" ON ("person"."id" = """ +
         """"pet"."owner") AND ("person"."age" > ?)"""
 
-    assertThat(listOf(right.compile(), full.compile()).map(::snapshot)).isEqualTo(
-      listOf(
-        PlanSnapshot(
-          sql = """SELECT "person"."id", "pet"."name" ${joinSql("RIGHT")} """ +
-              """ORDER BY "pet"."id" ASC""",
-          arguments = listOf(NativeValue.Integer(40))
-        ),
-        PlanSnapshot(
-          sql = """SELECT "person"."id", "pet"."name" ${joinSql("FULL")} """ +
-              """ORDER BY "person"."id" ASC, "pet"."id" ASC""",
-          arguments = listOf(NativeValue.Integer(40))
+    assertThat(listOf(right.compile(), full.compile()).map(::snapshot))
+      .isEqualTo(
+        listOf(
+          PlanSnapshot(
+            sql = """SELECT "person"."id", "pet"."name" ${joinSql("RIGHT")} """ +
+                """ORDER BY "pet"."id" ASC""",
+            arguments = listOf(NativeValue.Integer(40))
+          ),
+          PlanSnapshot(
+            sql = """SELECT "person"."id", "pet"."name" ${joinSql("FULL")} """ +
+                """ORDER BY "person"."id" ASC, "pet"."id" ASC""",
+            arguments = listOf(NativeValue.Integer(40))
+          )
         )
       )
-    )
-    assertThat(right.rowsIn(::petDatabase)).isEqualTo(
-      listOf(
-        Row2(null, "Rex"),
-        Row2(null, "Tom"),
-        Row2(2L, "Kit")
+    assertThat(right.rowsIn(::petDatabase))
+      .isEqualTo(
+        listOf(
+          Row2(null, "Rex"),
+          Row2(null, "Tom"),
+          Row2(2L, "Kit")
+        )
       )
-    )
-    assertThat(full.rowsIn(::petDatabase)).isEqualTo(
-      listOf(
-        Row2(null, "Rex"),
-        Row2(null, "Tom"),
-        Row2(1L, null),
-        Row2(2L, "Kit"),
-        Row2(3L, null),
-        Row2(4L, null)
+    assertThat(full.rowsIn(::petDatabase))
+      .isEqualTo(
+        listOf(
+          Row2(null, "Rex"),
+          Row2(null, "Tom"),
+          Row2(1L, null),
+          Row2(2L, "Kit"),
+          Row2(3L, null),
+          Row2(4L, null)
+        )
       )
-    )
   }
 
   @Test
@@ -233,21 +237,23 @@ internal class JoinSelectTest {
       .USING(PERSON.ID)
       .ORDER_BY(mergedId.ASC())
 
-    assertThat(snapshot(ids.compile())).isEqualTo(
-      PlanSnapshot(
-        sql = """SELECT id, "pet"."id" FROM "main"."pet" FULL JOIN "main"."person" USING ("id") """ +
-            "ORDER BY id ASC",
-        arguments = emptyList()
+    assertThat(snapshot(ids.compile()))
+      .isEqualTo(
+        PlanSnapshot(
+          sql = """SELECT id, "pet"."id" FROM "main"."pet" FULL JOIN "main"."person" USING ("id") """ +
+              "ORDER BY id ASC",
+          arguments = emptyList()
+        )
       )
-    )
-    assertThat(ids.rowsIn(::petDatabase)).isEqualTo(
-      listOf(
-        Row2(1L, 1L),
-        Row2(2L, 2L),
-        Row2(3L, 3L),
-        Row2(4L, null)
+    assertThat(ids.rowsIn(::petDatabase))
+      .isEqualTo(
+        listOf(
+          Row2(1L, 1L),
+          Row2(2L, 2L),
+          Row2(3L, 3L),
+          Row2(4L, null)
+        )
       )
-    )
   }
 
   @Test
@@ -273,21 +279,20 @@ internal class JoinSelectTest {
         "${names[PERSON.NAME]}",
         "${names[PERSON.NAME] AS "name"}"
       )
-    ).isEqualTo(
-      listOf(
-        """"person"."id"""",
-        """"parent"."name"""",
-        """"pet"."name"""",
-        """"pet"."name"""",
-        """"person"."id"""",
-        """"a""b"."id"""",
-        """"names"."person.name"""",
-        """"names"."person.name""""
+    )
+      .isEqualTo(
+        listOf(
+          """"person"."id"""",
+          """"parent"."name"""",
+          """"pet"."name"""",
+          """"pet"."name"""",
+          """"person"."id"""",
+          """"a""b"."id"""",
+          """"names"."person.name"""",
+          """"names"."person.name""""
+        )
       )
-    )
-    assertThat(children.compile().sql).endsWith(
-      """WHERE "parent"."age" < ? ORDER BY "person"."id" ASC"""
-    )
+    assertThat(children.compile().sql).endsWith("""WHERE "parent"."age" < ? ORDER BY "person"."id" ASC""")
     assertThat(children.rowsIn(::petDatabase)).isEqualTo(listOf("Grace", "Linus"))
   }
 
@@ -298,29 +303,32 @@ internal class JoinSelectTest {
         SELECT FROM PERSON INNER_JOIN PET ON (PERSON.ID IS PET.OWNER) ORDER_BY PET.ID.ASC(),
         (SELECT FROM PERSON LEFT_JOIN PET ON (PERSON.ID IS PET.OWNER) WHERE (PET.ID.IS_NULL())) ORDER_BY
             PERSON.ID.ASC()
-      ).map { it.rowsIn(::petDatabase) }
-    ).isEqualTo(
-      listOf(
-        listOf(ada, ada, grace),
-        listOf(unnamed, linus)
       )
+        .map { it.rowsIn(::petDatabase) }
     )
+      .isEqualTo(
+        listOf(
+          listOf(ada, ada, grace),
+          listOf(unnamed, linus)
+        )
+      )
     assertThat(
       SELECT.FROM(PET)
         .INNER_JOIN(PERSON)
         .ON(PET.OWNER IS PERSON.ID)
         .WHERE(PERSON.NAME IS "Grace")
         .rowsIn(::petDatabase)
-    ).isEqualTo(
-      listOf(
-        Pet(
-          id = 3L,
-          owner = 2L,
-          name = "Kit",
-          nickname = null
+    )
+      .isEqualTo(
+        listOf(
+          Pet(
+            id = 3L,
+            owner = 2L,
+            name = "Kit",
+            nickname = null
+          )
         )
       )
-    )
   }
 
   @Test
@@ -333,17 +341,19 @@ internal class JoinSelectTest {
       .ON(PERSON.PARENT_ID IS parent.ID)
       .ORDER_BY(PERSON.ID.ASC())
 
-    assertThat(parents.compile().sql).isEqualTo(
-      """SELECT "person"."name", "parent"."name" FROM "main"."person" INNER JOIN "main"."person" """ +
-          """AS "parent" ON "person"."parent_id" = "parent"."id" ORDER BY "person"."id" ASC"""
-    )
-    assertThat(parents.rowsIn(::petDatabase)).isEqualTo(
-      listOf(
-        Row2("Grace", "Ada"),
-        Row2(null, "Grace"),
-        Row2("Linus", "Linus")
+    assertThat(parents.compile().sql)
+      .isEqualTo(
+        """SELECT "person"."name", "parent"."name" FROM "main"."person" INNER JOIN "main"."person" """ +
+            """AS "parent" ON "person"."parent_id" = "parent"."id" ORDER BY "person"."id" ASC"""
       )
-    )
+    assertThat(parents.rowsIn(::petDatabase))
+      .isEqualTo(
+        listOf(
+          Row2("Grace", "Ada"),
+          Row2(null, "Grace"),
+          Row2("Linus", "Linus")
+        )
+      )
   }
 
   @Test
@@ -358,14 +368,15 @@ internal class JoinSelectTest {
         .ON(PERSON.ID IS child.PARENT_ID)
         .ORDER_BY(PERSON.ID.ASC())
         .rowsIn(::petDatabase)
-    ).isEqualTo(
-      listOf(
-        Row2(1L, Token("g")),
-        Row2(2L, Token("n")),
-        Row2(3L, null),
-        Row2(4L, Token("l"))
-      )
     )
+      .isEqualTo(
+        listOf(
+          Row2(1L, Token("g")),
+          Row2(2L, Token("n")),
+          Row2(3L, null),
+          Row2(4L, Token("l"))
+        )
+      )
   }
 
   @Test
@@ -446,29 +457,31 @@ internal class JoinSelectTest {
       rejected.map { (label, query) ->
         label to assertThrows(IllegalArgumentException::class.java, query::compile).message
       }
-    ).isEqualTo(
-      listOf(
-        "LEFT JOIN right side" to notNull("pet.name"),
-        "LEFT JOIN computed value" to notNull("pet.id"),
-        "LEFT JOIN second output" to notNull("pet.owner"),
-        "NATURAL LEFT JOIN alias" to notNull("p.name"),
-        "RIGHT JOIN left side" to notNull("person.id"),
-        "RIGHT JOIN prefix" to notNull("pet.name"),
-        "FULL JOIN left side" to notNull("person.age"),
-        "FULL JOIN right side" to notNull("pet.name"),
-        "NATURAL RIGHT JOIN left side" to notNull("person.id"),
-        "NATURAL FULL JOIN right side" to notNull("pet.id"),
-        "RIGHT JOIN entity" to nullEntity("person"),
-        "FULL JOIN aliased entity" to nullEntity("owner")
-      )
     )
-    assertThat(accepted.map { (label, query) -> label to query.rowsIn(::petDatabase).size }).isEqualTo(
-      listOf(
-        "LEFT JOIN nullable field" to 5,
-        "LEFT JOIN null test" to 5,
-        "RIGHT JOIN preserved alias" to 5
+      .isEqualTo(
+        listOf(
+          "LEFT JOIN right side" to notNull("pet.name"),
+          "LEFT JOIN computed value" to notNull("pet.id"),
+          "LEFT JOIN second output" to notNull("pet.owner"),
+          "NATURAL LEFT JOIN alias" to notNull("p.name"),
+          "RIGHT JOIN left side" to notNull("person.id"),
+          "RIGHT JOIN prefix" to notNull("pet.name"),
+          "FULL JOIN left side" to notNull("person.age"),
+          "FULL JOIN right side" to notNull("pet.name"),
+          "NATURAL RIGHT JOIN left side" to notNull("person.id"),
+          "NATURAL FULL JOIN right side" to notNull("pet.id"),
+          "RIGHT JOIN entity" to nullEntity("person"),
+          "FULL JOIN aliased entity" to nullEntity("owner")
+        )
       )
-    )
+    assertThat(accepted.map { (label, query) -> label to query.rowsIn(::petDatabase).size })
+      .isEqualTo(
+        listOf(
+          "LEFT JOIN nullable field" to 5,
+          "LEFT JOIN null test" to 5,
+          "RIGHT JOIN preserved alias" to 5
+        )
+      )
   }
 
   @Test
@@ -479,21 +492,23 @@ internal class JoinSelectTest {
       .ON((PERSON.ID IS PET.OWNER) AND (PET.NAME IS "Rex"))
       .WHERE(PERSON.AGE GREATER_THAN 18)
 
-    assertThat(observedSnapshot(filtered.compile())).isEqualTo(
-      ObservedPlanSnapshot(
-        sql = """SELECT "person"."id" FROM "main"."person" LEFT JOIN "main"."pet" ON """ +
-            """("person"."id" = "pet"."owner") AND ("pet"."name" = ?) WHERE "person"."age" > ?""",
-        arguments = listOf(NativeValue.Text("Rex"), NativeValue.Integer(18)),
-        sources = listOf("person", "pet")
+    assertThat(observedSnapshot(filtered.compile()))
+      .isEqualTo(
+        ObservedPlanSnapshot(
+          sql = """SELECT "person"."id" FROM "main"."person" LEFT JOIN "main"."pet" ON """ +
+              """("person"."id" = "pet"."owner") AND ("pet"."name" = ?) WHERE "person"."age" > ?""",
+          arguments = listOf(NativeValue.Text("Rex"), NativeValue.Integer(18)),
+          sources = listOf("person", "pet")
+        )
       )
-    )
     assertThat(
-      petDatabase().use { database ->
+      petDatabase().use {
         filtered
-          .usingConnection(database.dbConnection())
+          .usingConnection(it.connection)
           .count()
           .execute()
       }
-    ).isEqualTo(2L)
+    )
+      .isEqualTo(2L)
   }
 }

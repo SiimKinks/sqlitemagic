@@ -36,8 +36,8 @@ internal fun scalarFieldProperty(
   )
   val encoding = parameterEncodingPolicy(
     inputNullable = isModelPathNullable,
-    encoderInputNullable = read.customTransformer?.encoderInputNullable == true,
-    encodingNullable = read.customTransformer?.serializedTypeCanBeNull == true
+    encoderInputNullable = transformer?.encoderInputNullable == true,
+    encodingNullable = transformer?.serializedTypeCanBeNull == true
   )
   return PropertySpec
     .builder(
@@ -60,7 +60,7 @@ internal fun scalarFieldProperty(
           namedArgument("name", "%S", columnName),
           namedArgument("nullness", "%T", read.nullness),
           namedArgument("parameterEncoding", "%T.%N.%M()", SQL_TYPE, read.descriptorName, encoding.factory),
-          namedArgument("selectedRead", "{ cursor, index -> %L }", read.selectedRead)
+          namedArgument("selectedRead", "{ statement, index -> %L }", read.selectedRead)
         )
       )
     )

@@ -91,9 +91,9 @@ internal class ViewEmbeddedQueryColumnNullabilityContractTest {
       )
       .withGeneratedSource("EmbeddedQueryColumnNullabilityViewTable.kt") {
         it.assertContains(
-          "selectedRead = { cursor, index -> (if (cursor.isNull(index)) null else cursor.getInt(index)) }",
-          """selectedRead = { cursor, index -> (if (cursor.isNull(index)) throw SQLException(""" +
-              """"Column \"required_inner_number\" was NULL") else cursor.getInt(index)) }""",
+          "selectedRead = { statement, index -> (if (statement.isNull(index)) null else statement.getInt(index)) }",
+          """selectedRead = { statement, index -> (if (statement.isNull(index)) throw SQLException(""" +
+              """"Column \"required_inner_number\" was NULL") else statement.getInt(index)) }""",
           "parameterEncoding = SqlType.INT.nullBypassParameterEncoding()",
           "parameterEncoding = SqlType.INT.parameterEncoding()"
         )

@@ -2,8 +2,8 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import androidx.annotation.CheckResult
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.SelectNode
 import com.siimkinks.sqlitemagic.internal.sql.nativeValue
@@ -17,8 +17,8 @@ object Select {
   /**
    * Create raw SQL SELECT statement.
    *
-   * Read the results with `readAs` or get a cursor with `toCursor`. Define the tables that the query reads with
-   * `observes`, otherwise `observe` runs the query only once.
+   * Read the results with `readAs`, or with `useRows` when the columns are known only when the query runs. Define
+   * the tables that the query reads with `observes`, otherwise `observe` runs the query only once.
    *
    * Example:
    * ```
@@ -43,8 +43,8 @@ object Select {
   /**
    * Create raw SQL SELECT statement.
    *
-   * Read the results with `readAs` or get a cursor with `toCursor`. Define the tables that the query reads with
-   * `observes`, otherwise `observe` runs the query only once.
+   * Read the results with `readAs`, or with `useRows` when the columns are known only when the query runs. Define
+   * the tables that the query reads with `observes`, otherwise `observe` runs the query only once.
    *
    * Example:
    * ```
@@ -709,7 +709,7 @@ object SelectDistinct {
 
 private fun <T> rowProjection(
   outputs: List<SqlExpression<*, *, *>>,
-  read: (Cursor, Int) -> T
+  read: (SQLiteStatement, Int) -> T
 ) = SelectProjectionStage(
   SelectNode(
     RowSelection(

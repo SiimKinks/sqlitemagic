@@ -351,7 +351,7 @@ internal class DerivedSourceSelectTest {
       }
     )
     libraryDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       database.createViews(view, defaultView)
       val compiled = writers
         .usingConnection(connection)

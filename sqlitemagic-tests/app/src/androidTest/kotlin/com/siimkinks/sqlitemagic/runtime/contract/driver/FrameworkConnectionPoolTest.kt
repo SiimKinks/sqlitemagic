@@ -10,6 +10,9 @@ import com.siimkinks.sqlitemagic.connection.ConnectionOptions
 import com.siimkinks.sqlitemagic.connection.ConnectionPool
 import com.siimkinks.sqlitemagic.framework.FrameworkSQLiteDriver
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.runtime.support.freshDatabasePath
+import com.siimkinks.sqlitemagic.runtime.support.long
+import com.siimkinks.sqlitemagic.runtime.support.text
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
@@ -101,7 +104,9 @@ internal class FrameworkConnectionPoolTest {
       }
 
       assertThat(throughWriter).isEqualTo(1L)
-      assertThat(throughReader.exceptionOrNull()).hasMessageThat().contains("no such table: scratch")
+      assertThat(throughReader.exceptionOrNull())
+        .hasMessageThat()
+        .contains("no such table: scratch")
     }
   }
 
@@ -123,17 +128,17 @@ internal class FrameworkConnectionPoolTest {
       }
 
       assertThat(native to rowId).isEqualTo(true to 2L)
-      assertThat(failure).hasMessageThat().contains("UNIQUE constraint failed: account.id")
+      assertThat(failure)
+        .hasMessageThat()
+        .contains("UNIQUE constraint failed: account.id")
     }
   }
 
   @Test
   fun aCommitFailingOnADeferredForeignKeyRollsTheTransactionBack() {
-    frameworkPool(
-      configureConnection = { it.execSQL("PRAGMA foreign_keys = ON") }
-    ).use { pool ->
-      pool.write { pooled ->
-        pooled.connection.execSQL(
+    frameworkPool(configureConnection = { it.execSQL("PRAGMA foreign_keys = ON") }).use { pool ->
+      pool.write {
+        it.connection.execSQL(
           "CREATE TABLE entry(account_id INTEGER REFERENCES account(id) DEFERRABLE INITIALLY DEFERRED)"
         )
       }
@@ -147,8 +152,12 @@ internal class FrameworkConnectionPoolTest {
       pool.endTransaction()
       val entries = pool.read(requiresWriter = false) { it.connection.long("SELECT count(*) FROM entry") }
 
-      assertThat(failure).hasMessageThat().contains("FOREIGN KEY constraint failed")
-      assertThat(listOf(pool.balance(), entries)).containsExactly(5L, 0L).inOrder()
+      assertThat(failure)
+        .hasMessageThat()
+        .contains("FOREIGN KEY constraint failed")
+      assertThat(listOf(pool.balance(), entries))
+        .containsExactly(5L, 0L)
+        .inOrder()
     }
   }
 
@@ -162,8 +171,12 @@ internal class FrameworkConnectionPoolTest {
       }
       val committed = pool.endTransaction()
 
-      assertThat(failure).hasMessageThat().contains("UNIQUE constraint failed: account.id")
-      assertThat(listOf(committed, pool.inTransaction)).containsExactly(false, false).inOrder()
+      assertThat(failure)
+        .hasMessageThat()
+        .contains("UNIQUE constraint failed: account.id")
+      assertThat(listOf(committed, pool.inTransaction))
+        .containsExactly(false, false)
+        .inOrder()
       assertThat(pool.balance()).isEqualTo(100L)
     }
   }
@@ -175,8 +188,8 @@ internal class FrameworkConnectionPoolTest {
     schema = AccountSchema
   )
 
-  private fun ConnectionPool.balance() = read(requiresWriter = false) { pooled ->
-    pooled.connection.long("SELECT balance FROM account WHERE id = 1")
+  private fun ConnectionPool.balance() = read(requiresWriter = false) {
+    it.connection.long("SELECT balance FROM account WHERE id = 1")
   }
 
   private fun SQLiteConnection.settings() = listOf(

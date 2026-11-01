@@ -36,11 +36,11 @@ internal class ViewGenerationContractTest {
           "val AUTHOR_NAME:",
           "Column<AuthorSummary, String, Required, String, String, Required, String>",
           """name = "author.name"""",
-          """selectedRead = { cursor, index -> (if (cursor.isNull(index)) throw """ +
-              """SQLException("Column \"author.name\" was NULL") else cursor.getString(index)) }""",
+          """selectedRead = { statement, index -> (if (statement.isNull(index)) throw """ +
+              """SQLException("Column \"author.name\" was NULL") else statement.getText(index)) }""",
           "val RATING: Column<AuthorSummary, Int, SqlNullable, Int?, Int?, SqlNullable, Int?>",
           """name = "rating"""",
-          "SqliteMagic_AuthorSummary_Dao.objectFromCursorPosition(cursor, startIndex)",
+          "SqliteMagic_AuthorSummary_Dao.objectFromRow(statement, startIndex)",
           "override infix fun AS(alias: String): AuthorSummaryTable",
           "public val AUTHOR_SUMMARY: AuthorSummaryTable"
         )
@@ -54,10 +54,10 @@ internal class ViewGenerationContractTest {
           "temporary = false",
           "query = { AuthorSummary.query }",
           """columns = listOf("author.name", "rating")""",
-          "fun objectFromCursorPosition(cursor: Cursor, startIndex: Int): AuthorSummary",
+          "fun objectFromRow(statement: SQLiteStatement, startIndex: Int): AuthorSummary",
           """Column \"author.name\" was NULL""",
-          "cursor.getString(startIndex)",
-          "rating = if (cursor.isNull(startIndex + 1)) null else cursor.getInt(startIndex + 1)"
+          "statement.getText(startIndex)",
+          "rating = if (statement.isNull(startIndex + 1)) null else statement.getInt(startIndex + 1)"
         )
         generatedSource.assertContainsInOrder(
           "AuthorSummary(",
@@ -70,14 +70,16 @@ internal class ViewGenerationContractTest {
         )
         assertThat(
           Regex("""AuthorSummary\(""")
-            .findAll(generatedSource.functionBody("objectFromCursorPosition"))
+            .findAll(generatedSource.functionBody("objectFromRow"))
             .count()
-        ).isEqualTo(1)
+        )
+          .isEqualTo(1)
         assertThat(
-          Regex("""fun objectFromCursorPosition\(""")
+          Regex("""fun objectFromRow\(""")
             .findAll(generatedSource)
             .count()
-        ).isEqualTo(1)
+        )
+          .isEqualTo(1)
       }
   }
 
@@ -92,15 +94,31 @@ internal class ViewGenerationContractTest {
       )
       .withGeneratedSource("SqliteMagic_EmailView_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
-          "fun objectFromCursorPosition(",
-          "email = if (cursor.isNull(startIndex)) throw SQLException(",
-          "else EmailTransformer.stringToEmail(cursor.getString(startIndex))"
+          "fun objectFromRow(",
+          "email = if (statement.isNull(startIndex)) throw SQLException(",
+          "else EmailTransformer.stringToEmail(statement.getText(startIndex))"
         )
         assertThat(
           Regex("""EmailTransformer\.stringToEmail\(""")
-            .findAll(generatedSource.functionBody("objectFromCursorPosition"))
+            .findAll(generatedSource.functionBody("objectFromRow"))
             .count()
-        ).isEqualTo(1)
+        )
+          .isEqualTo(1)
+      }
+  }
+
+  @Test
+  fun `reads Boolean leaves directly and rejects SQL NULL in required ones`() {
+    GENERATED
+      .isOk()
+      .assertGeneratedSources("SqliteMagic_FlagView_Dao.kt")
+      .withGeneratedSource("SqliteMagic_FlagView_Dao.kt") { generatedSource ->
+        generatedSource.assertContainsUnwrapped(
+          """enabled = if (statement.isNull(startIndex)) throw SQLException("Column \"enabled\" was NULL") """ +
+              "else statement.getBoolean(startIndex)",
+          "archived = if (statement.isNull(startIndex + 1)) null else statement.getBoolean(startIndex + 1)"
+        )
+        generatedSource.assertDoesNotContain("BooleanTransformer")
       }
   }
 
@@ -112,9 +130,9 @@ internal class ViewGenerationContractTest {
       .withGeneratedSource("SqliteMagic_MutableAuthorSummary_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "MutableAuthorSummary().apply",
-          "this.name = if (cursor.isNull(startIndex)) throw SQLException(",
-          "if (!cursor.isNull(startIndex + 1)) this.rating = cursor.getInt(startIndex + 1)",
-          "(related.readOrNull(cursor, 0) as Author?)?.let { this.author = it }"
+          "this.name = if (statement.isNull(startIndex)) throw SQLException(",
+          "if (!statement.isNull(startIndex + 1)) this.rating = statement.getInt(startIndex + 1)",
+          "(related.readOrNull(statement, 0) as Author?)?.let { this.author = it }"
         )
         generatedSource.assertDoesNotContain("this.cache =")
         generatedSource
@@ -132,7 +150,7 @@ internal class ViewGenerationContractTest {
             contents = """
               package $PACKAGE
 
-              import android.database.Cursor
+              import androidx.sqlite.SQLiteStatement
               import com.siimkinks.sqlitemagic.SelectQuery
               import com.siimkinks.sqlitemagic.SqliteMagic_AuthorSummary_Dao
               import com.siimkinks.sqlitemagic.annotation.Id
@@ -161,8 +179,8 @@ internal class ViewGenerationContractTest {
                 }
               }
 
-              private val positional: (Cursor, Int) -> AuthorSummary =
-                SqliteMagic_AuthorSummary_Dao::objectFromCursorPosition
+              private val positional: (SQLiteStatement, Int) -> AuthorSummary =
+                SqliteMagic_AuthorSummary_Dao::objectFromRow
             """
           ),
           SourceFile.kotlin(
@@ -194,6 +212,28 @@ internal class ViewGenerationContractTest {
                 companion object {
                   @ViewQuery
                   val query: SelectQuery<String, *> = error("compile-only")
+                }
+              }
+            """
+          ),
+          SourceFile.kotlin(
+            name = "FlagView.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.SelectQuery
+              import com.siimkinks.sqlitemagic.annotation.View
+              import com.siimkinks.sqlitemagic.annotation.ViewColumn
+              import com.siimkinks.sqlitemagic.annotation.ViewQuery
+
+              @View
+              data class FlagView(
+                @ViewColumn("enabled") val enabled: Boolean,
+                @ViewColumn("archived") val archived: Boolean?
+              ) {
+                companion object {
+                  @ViewQuery
+                  val query: SelectQuery<Author, *> = error("compile-only")
                 }
               }
             """

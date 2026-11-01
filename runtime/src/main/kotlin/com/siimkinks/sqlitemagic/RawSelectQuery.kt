@@ -1,8 +1,8 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import android.database.SQLException
 import androidx.annotation.CheckResult
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.prepareQuery
 
@@ -24,8 +24,8 @@ sealed interface UndeclaredTables : RawTables
 /**
  * Builder for raw SQL SELECT statement.
  *
- * Read the results with `readAs` or get a cursor with [toCursor]. Read columns that can hold SQL NULL with a nullable
- * type, such as `SqlType.STRING.nullable`.
+ * Read the results with `readAs`, or with [useRows] when the columns are known only when the query runs. Read
+ * columns that can hold SQL NULL with a nullable type, such as `SqlType.STRING.nullable`.
  *
  * @param O Whether the query defines the tables it reads -- either [DeclaredTables] or [UndeclaredTables]
  */
@@ -37,7 +37,8 @@ class RawSelect<O : RawTables> internal constructor(
    * Define tables that this query reads.
    *
    * Observed queries are re-run when these tables change. Without defined tables `observe` runs the query only
-   * once. Calling this method again replaces the previously defined tables.
+   * once. Defined tables must include the temporary tables and views that the query reads, or it fails with "no
+   * such table". Calling this method again replaces the previously defined tables.
    *
    * @param table Table that this query reads
    * @param tables Additional tables that this query reads
@@ -65,6 +66,35 @@ class RawSelect<O : RawTables> internal constructor(
     raw = raw,
     connection = connection as DbConnectionImpl
   )
+
+  /**
+   * Execute this query against a database and read its rows inside [block], for SQL whose columns are known only when
+   * it runs. Read queries with known columns with `readAs` instead.
+   *
+   * The rows are valid only inside [block], on the calling thread. The query holds a database connection until
+   * [block] returns, so keep [block] short. This method runs synchronously in the calling thread.
+   *
+   * Example:
+   * ```
+   * val columnNames = SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
+   *   buildList {
+   *     while (rows.step()) {
+   *       add(rows.read(1, SqlType.STRING))
+   *     }
+   *   }
+   * }
+   * ```
+   *
+   * @param block Reads the rows of the query
+   * @return Result of [block]
+   */
+  fun <R> useRows(block: (RawRows) -> R): R {
+    val prepared = prepare(readWidth = 0)
+    return prepared.withStatement(
+      dbConnection = prepared.connection.orDefault(),
+      values = prepared.bind(emptyList())
+    ) { RawRows(it).use(block) }
+  }
 
   /**
    * Read the single column of each row.
@@ -103,14 +133,10 @@ class RawSelect<O : RawTables> internal constructor(
   fun <A, B> readAs(
     first: ReadContract<*, *, A>,
     second: ReadContract<*, *, B>
-  ) = readColumns(
-    columns = listOf(first.columnRead, second.columnRead),
-    read = read2(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      create = ::Row2
-    )
-  )
+  ): RawSelectQuery<Row2<A, B>, O> = readColumns(
+    first.columnRead,
+    second.columnRead
+  ) { it.read2(::Row2) }
 
   /**
    * Read three columns of each row by position.
@@ -127,15 +153,11 @@ class RawSelect<O : RawTables> internal constructor(
     first: ReadContract<*, *, A>,
     second: ReadContract<*, *, B>,
     third: ReadContract<*, *, C>
-  ) = readColumns(
-    columns = listOf(first.columnRead, second.columnRead, third.columnRead),
-    read = read3(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      readC = third.columnRead,
-      create = ::Row3
-    )
-  )
+  ): RawSelectQuery<Row3<A, B, C>, O> = readColumns(
+    first.columnRead,
+    second.columnRead,
+    third.columnRead
+  ) { it.read3(::Row3) }
 
   /**
    * Read four columns of each row by position.
@@ -154,16 +176,12 @@ class RawSelect<O : RawTables> internal constructor(
     second: ReadContract<*, *, B>,
     third: ReadContract<*, *, C>,
     fourth: ReadContract<*, *, D>
-  ) = readColumns(
-    columns = listOf(first.columnRead, second.columnRead, third.columnRead, fourth.columnRead),
-    read = read4(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      readC = third.columnRead,
-      readD = fourth.columnRead,
-      create = ::Row4
-    )
-  )
+  ): RawSelectQuery<Row4<A, B, C, D>, O> = readColumns(
+    first.columnRead,
+    second.columnRead,
+    third.columnRead,
+    fourth.columnRead
+  ) { it.read4(::Row4) }
 
   /**
    * Read five columns of each row by position.
@@ -184,23 +202,13 @@ class RawSelect<O : RawTables> internal constructor(
     third: ReadContract<*, *, C>,
     fourth: ReadContract<*, *, D>,
     fifth: ReadContract<*, *, E>
-  ) = readColumns(
-    columns = listOf(
-      first.columnRead,
-      second.columnRead,
-      third.columnRead,
-      fourth.columnRead,
-      fifth.columnRead
-    ),
-    read = read5(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      readC = third.columnRead,
-      readD = fourth.columnRead,
-      readE = fifth.columnRead,
-      create = ::Row5
-    )
-  )
+  ): RawSelectQuery<Row5<A, B, C, D, E>, O> = readColumns(
+    first.columnRead,
+    second.columnRead,
+    third.columnRead,
+    fourth.columnRead,
+    fifth.columnRead
+  ) { it.read5(::Row5) }
 
   /**
    * Read six columns of each row by position.
@@ -223,25 +231,14 @@ class RawSelect<O : RawTables> internal constructor(
     fourth: ReadContract<*, *, D>,
     fifth: ReadContract<*, *, E>,
     sixth: ReadContract<*, *, F>
-  ) = readColumns(
-    columns = listOf(
-      first.columnRead,
-      second.columnRead,
-      third.columnRead,
-      fourth.columnRead,
-      fifth.columnRead,
-      sixth.columnRead
-    ),
-    read = read6(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      readC = third.columnRead,
-      readD = fourth.columnRead,
-      readE = fifth.columnRead,
-      readF = sixth.columnRead,
-      create = ::Row6
-    )
-  )
+  ): RawSelectQuery<Row6<A, B, C, D, E, F>, O> = readColumns(
+    first.columnRead,
+    second.columnRead,
+    third.columnRead,
+    fourth.columnRead,
+    fifth.columnRead,
+    sixth.columnRead
+  ) { it.read6(::Row6) }
 
   /**
    * Read seven columns of each row by position.
@@ -266,27 +263,15 @@ class RawSelect<O : RawTables> internal constructor(
     fifth: ReadContract<*, *, E>,
     sixth: ReadContract<*, *, F>,
     seventh: ReadContract<*, *, G>
-  ) = readColumns(
-    columns = listOf(
-      first.columnRead,
-      second.columnRead,
-      third.columnRead,
-      fourth.columnRead,
-      fifth.columnRead,
-      sixth.columnRead,
-      seventh.columnRead
-    ),
-    read = read7(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      readC = third.columnRead,
-      readD = fourth.columnRead,
-      readE = fifth.columnRead,
-      readF = sixth.columnRead,
-      readG = seventh.columnRead,
-      create = ::Row7
-    )
-  )
+  ): RawSelectQuery<Row7<A, B, C, D, E, F, G>, O> = readColumns(
+    first.columnRead,
+    second.columnRead,
+    third.columnRead,
+    fourth.columnRead,
+    fifth.columnRead,
+    sixth.columnRead,
+    seventh.columnRead
+  ) { it.read7(::Row7) }
 
   /**
    * Read eight columns of each row by position.
@@ -313,29 +298,16 @@ class RawSelect<O : RawTables> internal constructor(
     sixth: ReadContract<*, *, F>,
     seventh: ReadContract<*, *, G>,
     eighth: ReadContract<*, *, H>
-  ) = readColumns(
-    columns = listOf(
-      first.columnRead,
-      second.columnRead,
-      third.columnRead,
-      fourth.columnRead,
-      fifth.columnRead,
-      sixth.columnRead,
-      seventh.columnRead,
-      eighth.columnRead
-    ),
-    read = read8(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      readC = third.columnRead,
-      readD = fourth.columnRead,
-      readE = fifth.columnRead,
-      readF = sixth.columnRead,
-      readG = seventh.columnRead,
-      readH = eighth.columnRead,
-      create = ::Row8
-    )
-  )
+  ): RawSelectQuery<Row8<A, B, C, D, E, F, G, H>, O> = readColumns(
+    first.columnRead,
+    second.columnRead,
+    third.columnRead,
+    fourth.columnRead,
+    fifth.columnRead,
+    sixth.columnRead,
+    seventh.columnRead,
+    eighth.columnRead
+  ) { it.read8(::Row8) }
 
   /**
    * Read nine columns of each row by position.
@@ -364,48 +336,17 @@ class RawSelect<O : RawTables> internal constructor(
     seventh: ReadContract<*, *, G>,
     eighth: ReadContract<*, *, H>,
     ninth: ReadContract<*, *, I>
-  ) = readColumns(
-    columns = listOf(
-      first.columnRead,
-      second.columnRead,
-      third.columnRead,
-      fourth.columnRead,
-      fifth.columnRead,
-      sixth.columnRead,
-      seventh.columnRead,
-      eighth.columnRead,
-      ninth.columnRead
-    ),
-    read = read9(
-      readA = first.columnRead,
-      readB = second.columnRead,
-      readC = third.columnRead,
-      readD = fourth.columnRead,
-      readE = fifth.columnRead,
-      readF = sixth.columnRead,
-      readG = seventh.columnRead,
-      readH = eighth.columnRead,
-      readI = ninth.columnRead,
-      create = ::Row9
-    )
-  )
-
-  /**
-   * Compile raw SQL query and instruct it to return raw [Cursor] when query is executed.
-   *
-   * Result is immutable object which can be shared across multiple threads without side effects.
-   *
-   * NB! This method does not compile the underlying SQL statement against a database.
-   *
-   * @return Immutable compiled raw SQL query
-   */
-  @CheckResult
-  fun toCursor() = CompiledRawCursor<O>(
-    CompiledCursor(
-      prepared = prepare(readWidth = 0),
-      reader = UNREAD_ROWS
-    )
-  )
+  ): RawSelectQuery<Row9<A, B, C, D, E, F, G, H, I>, O> = readColumns(
+    first.columnRead,
+    second.columnRead,
+    third.columnRead,
+    fourth.columnRead,
+    fifth.columnRead,
+    sixth.columnRead,
+    seventh.columnRead,
+    eighth.columnRead,
+    ninth.columnRead
+  ) { it.read9(::Row9) }
 
   internal fun prepare(readWidth: Int) = prepareQuery(
     renderable = raw,
@@ -413,14 +354,17 @@ class RawSelect<O : RawTables> internal constructor(
     readWidth = readWidth
   )
 
-  private fun <T> readColumns(
-    columns: List<(Cursor, Int) -> Any?>,
-    read: (Cursor, Int) -> T
-  ) = RawSelectQuery(
-    select = this,
-    columns = columns,
-    read = read
-  )
+  private inline fun <T> readColumns(
+    vararg reads: (SQLiteStatement, Int) -> Any?,
+    read: (List<(SQLiteStatement, Int) -> Any?>) -> (SQLiteStatement, Int) -> T
+  ): RawSelectQuery<T, O> {
+    val columns = reads.asList()
+    return RawSelectQuery(
+      select = this,
+      columns = columns,
+      read = read(columns)
+    )
+  }
 }
 
 /**
@@ -433,8 +377,8 @@ class RawSelect<O : RawTables> internal constructor(
  */
 open class RawSelectQuery<T, O : RawTables> internal constructor(
   internal val select: RawSelect<O>,
-  internal val columns: List<(Cursor, Int) -> Any?>,
-  internal val read: (Cursor, Int) -> T
+  internal val columns: List<(SQLiteStatement, Int) -> Any?>,
+  internal val read: (SQLiteStatement, Int) -> T
 ) {
   private val reader = ExecutionReader { read }
 
@@ -442,7 +386,8 @@ open class RawSelectQuery<T, O : RawTables> internal constructor(
    * Define tables that this query reads.
    *
    * Observed queries are re-run when these tables change. Without defined tables `observe` runs the query only
-   * once. Calling this method again replaces the previously defined tables.
+   * once. Defined tables must include the temporary tables and views that the query reads, or it fails with "no
+   * such table". Calling this method again replaces the previously defined tables.
    *
    * @param table Table that this query reads
    * @param tables Additional tables that this query reads
@@ -498,6 +443,27 @@ open class RawSelectQuery<T, O : RawTables> internal constructor(
   fun execute() = compile().execute()
 
   /**
+   * Compile and execute this query against a database and read its rows inside [block].
+   *
+   * The rows are read lazily, one at a time, while [block] iterates them. They can be iterated once and only inside
+   * [block], on the calling thread. The query holds a database connection until [block] returns, so keep [block]
+   * short. This method runs synchronously in the calling thread.
+   *
+   * Example:
+   * ```
+   * val firstTitle = (SELECT RAW "SELECT title FROM book ORDER BY title")
+   *     .readAs(SqlType.STRING)
+   *     .useRows { titles -> titles.firstOrNull() }
+   * ```
+   *
+   * @param block Reads the rows of the query
+   * @return Result of [block]
+   * @throws IllegalStateException if the query returns another number of columns than `readAs` reads
+   * @throws SQLException if a column read with a not nullable type holds SQL NULL
+   */
+  fun <R> useRows(block: (Sequence<T>) -> R): R = compile().useRows(block)
+
+  /**
    * Compile raw SQL query and instruct it to take only the first row from the result set.
    *
    * Result is immutable object which can be shared across multiple threads without side effects.
@@ -516,24 +482,7 @@ open class RawSelectQuery<T, O : RawTables> internal constructor(
     )
   )
 
-  /**
-   * Compile raw SQL query and instruct it to return raw [Cursor] when query is executed.
-   *
-   * Result is immutable object which can be shared across multiple threads without side effects.
-   *
-   * NB! This method does not compile the underlying SQL statement against a database.
-   *
-   * @return Immutable compiled raw SQL query
-   */
-  @CheckResult
-  fun toCursor() = CompiledRawReadCursor<T, O>(
-    CompiledCursor(
-      prepared = prepare(),
-      reader = reader
-    )
-  )
-
-  internal fun <M> mapped(read: (Cursor, Int) -> M) = RawSelectQuery(
+  internal fun <M> mapped(read: (SQLiteStatement, Int) -> M) = RawSelectQuery(
     select = select,
     columns = columns,
     read = read
@@ -552,7 +501,7 @@ open class RawSelectQuery<T, O : RawTables> internal constructor(
  */
 class RawColumnQuery<T, O : RawTables> internal constructor(
   select: RawSelect<O>,
-  read: (Cursor, Int) -> T
+  read: (SQLiteStatement, Int) -> T
 ) : RawSelectQuery<T, O>(
   select = select,
   columns = listOf(read),
@@ -585,7 +534,6 @@ class RawColumnQuery<T, O : RawTables> internal constructor(
    * @return Raw SQL SELECT statement
    */
   @CheckResult
-  fun <M> mapTo(transform: (T) -> M) = mapped { cursor, index -> transform(read(cursor, index)) }
+  fun <M> mapTo(transform: (T) -> M) = mapped { statement, index -> transform(read(statement, index)) }
 }
 
-private val UNREAD_ROWS = ExecutionReader<Nothing> { error("A raw query without readAs reads no rows") }

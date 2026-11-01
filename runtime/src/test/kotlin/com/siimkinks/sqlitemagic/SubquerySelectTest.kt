@@ -29,9 +29,8 @@ internal class SubquerySelectTest {
       .ORDER_BY(BOOK.ID.DESC())
     val edges = SELECT
       .COLUMNS(missing.asScalar(), titles.asScalar())
-    val plan = query.compile()
 
-    assertThat(snapshot(plan)).isEqualTo(
+    assertThat(snapshot(query.compile())).isEqualTo(
       PlanSnapshot(
         sql = """SELECT "author"."name", (SELECT "book"."id" FROM "main"."book" WHERE "book"."title" = """ +
             """?) FROM "main"."author" WHERE "author"."id" >= """ +
@@ -248,7 +247,7 @@ internal class SubquerySelectTest {
   @Test
   fun `statements take correlated scalar values and query membership`() {
     libraryDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val lastIsFirst = UPDATE TABLE SERIES SET
           (SERIES.LAST_BOOK to (SELECT COLUMN BOOK.ID FROM BOOK WHERE (BOOK.ID IS SERIES.FIRST_BOOK)).asScalar())
       val unpublished = DELETE FROM BOOK WHERE
@@ -305,7 +304,7 @@ internal class SubquerySelectTest {
       val connected = SELECT
         .COLUMN(AUTHOR.ID)
         .FROM(AUTHOR)
-        .usingConnection(database.dbConnection())
+        .usingConnection(database.connection)
       val failures = listOf(
         { BOOK.AUTHOR IN connected },
         connected::asScalar,

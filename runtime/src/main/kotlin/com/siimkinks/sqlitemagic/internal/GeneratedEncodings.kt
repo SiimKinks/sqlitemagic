@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic.internal
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.EncodingType
 import com.siimkinks.sqlitemagic.Required
 import com.siimkinks.sqlitemagic.SqlNullability
@@ -11,8 +11,8 @@ import com.siimkinks.sqlitemagic.requiredReader
 @InternalSqliteMagicApi
 class ParameterEncoding<in W, out R, out N : SqlNullability, out T> internal constructor(
   internal val encode: (W) -> NativeValue,
-  internal val nonNullRead: (Cursor, Int) -> R,
-  internal val selectRead: (Cursor, Int) -> T,
+  internal val nonNullRead: (SQLiteStatement, Int) -> R,
+  internal val selectRead: (SQLiteStatement, Int) -> T,
   internal val nullness: N
 )
 
@@ -36,7 +36,7 @@ fun <W, R, S : Any, E : SqlNullability> requiredReadType(
   decode: (S) -> R,
   encodingNullness: E
 ): EncodingType<W, R, E, Required> {
-  val nonNullRead = { cursor: Cursor, index: Int -> decode(storage.read(cursor, index)) }
+  val nonNullRead = { statement: SQLiteStatement, index: Int -> decode(storage.read(statement, index)) }
   return EncodingType(
     encode = storage.encoding(encode),
     nonNullRead = nonNullRead,
@@ -54,16 +54,19 @@ fun <W, R, S : Any, E : SqlNullability> nullableReadType(
   encodingNullness: E
 ): EncodingType<W, R, E, SqlNullable> = EncodingType(
   encode = storage.encoding(encode),
-  nonNullRead = { cursor, index ->
-    decode(storage.read(cursor, index))
+  nonNullRead = { statement, index ->
+    decode(storage.read(statement, index))
   },
-  selectRead = { cursor, index ->
-    decode(
-      when {
-        cursor.isNull(index) -> null
-        else -> storage.read(cursor, index)
-      }
-    )
+  selectRead = when (val readOrNull = storage.nullableRead) {
+    null -> { statement, index ->
+      decode(
+        when {
+          statement.isNull(index) -> null
+          else -> storage.read(statement, index)
+        }
+      )
+    }
+    else -> { statement, index -> decode(readOrNull(statement, index)) }
   },
   readNullness = SqlNullable
 )

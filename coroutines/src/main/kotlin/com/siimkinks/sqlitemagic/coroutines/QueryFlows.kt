@@ -1,11 +1,8 @@
 package com.siimkinks.sqlitemagic.coroutines
 
-import android.database.Cursor
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.CompiledCount
-import com.siimkinks.sqlitemagic.CompiledCursor
 import com.siimkinks.sqlitemagic.CompiledFirst
-import com.siimkinks.sqlitemagic.CompiledRawCursor
 import com.siimkinks.sqlitemagic.CompiledRawFirst
 import com.siimkinks.sqlitemagic.CompiledRawSelect
 import com.siimkinks.sqlitemagic.CompiledSelect
@@ -23,7 +20,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow.DROP_LATEST
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 
 /**
@@ -103,26 +99,6 @@ fun <T> CompiledFirst<T>.observe(): Flow<Query<T?>> = changes()
 fun CompiledCount.observe(): Flow<Query<Long>> = changes()
 
 /**
- * Create a cold [Flow] of a [Query] for execution. Collectors are responsible for **always** closing the [Cursor]
- * that a delivered query result is.
- *
- * A collector receives the query immediately for the initial data and again whenever the data of the queried tables
- * changes through the SqliteMagic provided operations. Collecting starts listening for those changes before the
- * initial emission and stops when the collection ends. The flow completes when the connection is closed.
- *
- * Changes made while an emission is being processed are combined into one further emission.
- *
- * The flow emits in the collector's context. Use the `runQuery` operators to run each query on the
- * [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
- *
- * Collecting fails with [IllegalStateException] on a thread that has an active transaction.
- *
- * @throws IllegalArgumentException if the query has parameters without bound values
- */
-@CheckResult
-fun CompiledCursor<*>.observe(): Flow<Query<Cursor>> = changes()
-
-/**
  * Create a cold [Flow] of a [Query] for execution.
  *
  * A collector receives the query immediately for the initial data and again whenever the data of the tables defined
@@ -189,43 +165,6 @@ suspend fun <T> CompiledRawFirst<T, UndeclaredTables>.await() = ReactiveAdapterS
   .plan(this)
   .observe()
   .runQueryOnce()
-
-/**
- * Create a cold [Flow] of a [Query] for execution. Collectors are responsible for **always** closing the [Cursor]
- * that a delivered query result is.
- *
- * A collector receives the query immediately for the initial data and again whenever the data of the tables defined
- * with `observes` changes through the SqliteMagic provided operations. Collecting starts listening for those changes
- * before the initial emission and stops when the collection ends. The flow completes when the connection is closed.
- *
- * Changes made while an emission is being processed are combined into one further emission.
- *
- * The flow emits in the collector's context. Use the `runQuery` operators to run each query on the
- * [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
- *
- * Collecting fails with [IllegalStateException] on a thread that has an active transaction.
- */
-@CheckResult
-fun CompiledRawCursor<DeclaredTables>.observe() = ReactiveAdapterSupport
-  .plan(this)
-  .observe()
-
-/**
- * Execute this query against a database and return its [Cursor], which the caller must **always** close. If the
- * calling coroutine is cancelled before the cursor is returned, the cursor is closed instead.
- *
- * The query runs once, since it does not define the tables it reads. Define them with `observes` to observe it. It
- * runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
- *
- * @return Query result
- * @throws IllegalStateException if called on a thread that has an active transaction
- * @throws NoSuchElementException if the connection is closed
- */
-suspend fun CompiledRawCursor<UndeclaredTables>.await() = ReactiveAdapterSupport
-  .plan(this)
-  .observe()
-  .first()
-  .awaitResult()
 
 /**
  * Create a cold [Flow] of a [Query] for execution.

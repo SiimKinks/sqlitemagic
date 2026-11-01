@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.runtime.model.catalog
 
-import android.database.Cursor
 import com.siimkinks.sqlitemagic.BlobEntityTable.Companion.BLOB_ENTITY
 import com.siimkinks.sqlitemagic.BlobEntitys
 import com.siimkinks.sqlitemagic.CustomColumnEntityTable.Companion.CUSTOM_COLUMN_ENTITY
@@ -13,7 +12,6 @@ import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldsTable.Companion
 import com.siimkinks.sqlitemagic.ImmutableValueWithNullableFieldss
 import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
 import com.siimkinks.sqlitemagic.LibraryBooks
-import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntityTable.Companion.SELECTIVE_COLUMNS_ENTITY
 import com.siimkinks.sqlitemagic.SelectiveColumnsEntitys
@@ -35,7 +33,6 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.model.InsertRowIdExpectation.PRESENT
 import com.siimkinks.sqlitemagic.runtime.model.NullOmittingAllNullPersistModelCase
-import com.siimkinks.sqlitemagic.runtime.model.RawCursorModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RepresentativeEmptyBulkModelCase
 import com.siimkinks.sqlitemagic.runtime.model.RuntimeModelCase
 import com.siimkinks.sqlitemagic.runtime.model.StandardBulkDeleteModelCase
@@ -64,8 +61,7 @@ internal object ScalarModelCatalog {
 
   private object SimpleMutableEntityCase :
     RepresentativeEmptyBulkModelCase<SimpleMutableEntity>,
-    TriggerModelCase<SimpleMutableEntity>,
-    RawCursorModelCase<SimpleMutableEntity> {
+    TriggerModelCase<SimpleMutableEntity> {
     override val name = "SimpleMutableEntity"
     override val table = SIMPLE_MUTABLE_ENTITY
     override val rowIdExpectation = PRESENT
@@ -99,33 +95,6 @@ internal object ScalarModelCatalog {
     )
 
     override fun expectedAfterInsert(value: SimpleMutableEntity, result: EntityInsertResult.Inserted) = value
-
-    override fun rawSelect() = SELECT
-      .RAW("SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity ORDER BY id")
-      .observes(table)
-      .toCursor()
-
-    override fun rawSelectWithArgs(value: SimpleMutableEntity) = SELECT
-      .RAW(
-        "SELECT id, value, boxed_boolean, primitive_boolean FROM simple_mutable_entity WHERE value = ? ORDER BY id",
-        checkNotNull(value.value)
-      )
-      .observes(table)
-      .toCursor()
-
-    override fun readCurrentPosition(cursor: Cursor) = SimpleMutableEntity(
-      id = cursor.getLong(cursor.getColumnIndexOrThrow("id")),
-      value = cursor.getString(cursor.getColumnIndexOrThrow("value")),
-      boxedBoolean = cursor
-        .getColumnIndexOrThrow("boxed_boolean")
-        .let { index ->
-          when {
-            cursor.isNull(index) -> null
-            else -> cursor.getInt(index) != 0
-          }
-        },
-      primitiveBoolean = cursor.getInt(cursor.getColumnIndexOrThrow("primitive_boolean")) != 0
-    )
 
     override fun toString() = name
   }

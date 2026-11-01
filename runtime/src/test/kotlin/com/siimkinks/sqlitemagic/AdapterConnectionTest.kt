@@ -1,18 +1,16 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
 import org.junit.Test
-import org.mockito.kotlin.mock
 
 internal class AdapterConnectionTest {
   @Test
   fun `adapter connections resolve the configured connection or else the current default connection`() {
     val previousConnection = SqliteMagic.defaultConnection
     try {
-      val configured = testDbConnection(mock<SupportSQLiteDatabase>())
-      val defaults = List(2) { testDbConnection(mock<SupportSQLiteDatabase>()) }
+      val configured = testDbConnection()
+      val defaults = List(2) { testDbConnection() }
       val queries = listOf(
         SELECT
           .COLUMN(AUTHOR.NAME)
@@ -21,9 +19,8 @@ internal class AdapterConnectionTest {
         SELECT
           .COLUMN(AUTHOR.NAME)
           .FROM(AUTHOR)
-      ).map { select ->
-        select
-          .compile()
+      ).map {
+        it.compile()
           .execution()
       }
       val resolvers = mapOf(
@@ -53,7 +50,7 @@ internal class AdapterConnectionTest {
 
         assertWithMessage(label)
           .that(resolved)
-          .isEqualTo(defaults.map { default -> listOf(configured, default) })
+          .isEqualTo(defaults.map { listOf(configured, it) })
       }
     } finally {
       SqliteMagic.defaultConnection = previousConnection

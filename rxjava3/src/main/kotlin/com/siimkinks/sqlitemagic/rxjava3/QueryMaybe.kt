@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.rxjava3
 
-import android.database.Cursor
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
@@ -18,9 +17,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * The resulting stream will be empty if query result is `null`.
  *
- * A [Cursor] result that is emitted must be closed by the subscriber. If the subscription is disposed before the
- * result is emitted, the [Cursor] is closed instead.
- *
  * **Scheduler:** `run` does not operate by default on a particular [Scheduler].
  *
  * @return Deferred [Maybe] that when subscribed to executes the query and emits its result to downstream
@@ -35,24 +31,15 @@ private class QueryMaybe<T>(private val query: Query<T>) : Maybe<T & Any>() {
     observer.onSubscribe(subscription)
     if (subscription.isDisposed) return
     try {
-      val cursor = ReactiveAdapterSupport.openCursor(query)
-      if (subscription.isDisposed) {
-        cursor.close()
-        return
-      }
-      val result = ReactiveAdapterSupport.map(
+      val result = ReactiveAdapterSupport.run(
         query = query,
-        cursor = cursor
+        isDisposed = subscription
       )
-      when {
-        subscription.compareAndSet(false, true) -> when {
+      if (subscription.compareAndSet(false, true)) {
+        when {
           result != null -> observer.onSuccess(result)
           else -> observer.onComplete()
         }
-        result != null -> ReactiveAdapterSupport.discardResult(
-          query = query,
-          result = result
-        )
       }
     } catch (failure: Throwable) {
       Exceptions.throwIfFatal(failure)
@@ -63,9 +50,11 @@ private class QueryMaybe<T>(private val query: Query<T>) : Maybe<T & Any>() {
     }
   }
 
-  private class QueryDisposable : AtomicBoolean(), Disposable {
+  private class QueryDisposable : AtomicBoolean(), Disposable, () -> Boolean {
     override fun dispose() = set(true)
 
     override fun isDisposed() = get()
+
+    override fun invoke() = get()
   }
 }

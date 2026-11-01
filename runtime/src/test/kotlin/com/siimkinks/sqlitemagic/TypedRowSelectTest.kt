@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.SqlStorage
@@ -17,7 +17,7 @@ internal class TypedRowSelectTest {
   @Test
   fun `ordinal readers use consecutive offsets and retain independent null policies`() {
     val reads = mutableListOf<Int>()
-    val sentinel = SqlExpression<String, SqlNullable, String>(
+    val sentinel = SqlExpression(
       node = ExpressionNode.Literal(NativeValue.Null),
       nonNullRead = STRING.nonNullRead,
       selectRead = { _, index ->
@@ -32,16 +32,15 @@ internal class TypedRowSelectTest {
       decode = { _: Long -> null as Long? },
       encodingNullness = Required
     )
-    val query = SELECT
-      .COLUMNS(sentinel, "7".expr(nullableDecoder))
-    val rows = mock<Cursor>()
-    whenever(rows.getLong(6)).thenReturn(7L)
+    val query = SELECT.COLUMNS(sentinel, "7".expr(nullableDecoder))
+    val statement = mock<SQLiteStatement>()
+    whenever(statement.getLong(6)).thenReturn(7L)
     val read = query.node.selection
       .createExecutionReader(SqlRenderingContext())
       .open()
 
-    assertThat(read(rows, 5)).isEqualTo(Row2("sentinel", null))
+    assertThat(read(statement, 5)).isEqualTo(Row2("sentinel", null))
     assertThat(reads).containsExactly(5)
-    verify(rows).getLong(6)
+    verify(statement).getLong(6)
   }
 }

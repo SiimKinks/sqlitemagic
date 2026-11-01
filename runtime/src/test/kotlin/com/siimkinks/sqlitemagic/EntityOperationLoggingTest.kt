@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.LogLevel.DEBUG
 import org.junit.Test
 
 internal class EntityOperationLoggingTest {
@@ -8,29 +9,29 @@ internal class EntityOperationLoggingTest {
   fun `single operations log their CRUD events`() {
     withLogger(loggingEnabled = true) { logger ->
       val insertConnection = newConnection()
-      insertConnection.recordingDatabase.insertResults += 41L
+      insertConnection.sqliteConnection.insertResults += 41L
       TestAdapter()
         .insert(TestEntity())
-        .usingConnection(insertConnection.connection)
+        .usingConnection(insertConnection.dbConnection)
         .execute()
 
       val updateConnection = newConnection()
-      updateConnection.recordingDatabase.updateResults += 1
+      updateConnection.sqliteConnection.updateResults += 1
       TestAdapter()
         .update(TestEntity())
-        .usingConnection(updateConnection.connection)
+        .usingConnection(updateConnection.dbConnection)
         .execute()
 
       val persistConnection = newConnection()
-      persistConnection.recordingDatabase.updateResults += 1
+      persistConnection.sqliteConnection.updateResults += 1
       TestAdapter()
         .persist(TestEntity())
-        .usingConnection(persistConnection.connection)
+        .usingConnection(persistConnection.dbConnection)
         .execute()
 
       val persistInsertConnection = newConnection()
-      persistInsertConnection.recordingDatabase.updateResults += 0
-      persistInsertConnection.recordingDatabase.insertResults += 7L
+      persistInsertConnection.sqliteConnection.updateResults += 0
+      persistInsertConnection.sqliteConnection.insertResults += 7L
       TestAdapter()
         .persist(
           TestEntity(
@@ -39,7 +40,7 @@ internal class EntityOperationLoggingTest {
             name = "name"
           )
         )
-        .usingConnection(persistInsertConnection.connection)
+        .usingConnection(persistInsertConnection.dbConnection)
         .execute()
 
       assertThat(logger.events.filterNot { it.message.startsWith("TRIGGER") })
@@ -55,7 +56,7 @@ internal class EntityOperationLoggingTest {
             "PERSIST insert id: 7"
           ).map {
             LoggedMessage(
-              level = LogLevel.DEBUG,
+              level = DEBUG,
               message = it
             )
           }

@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.INTERSECT
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SelectQuery
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
+import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.UNION
 import com.siimkinks.sqlitemagic.UNION_ALL
 import com.siimkinks.sqlitemagic.mapTo
@@ -23,7 +24,8 @@ internal class SelectRawAndCompoundSqlTest {
     assertThat(
       mapOf(
         "infix" to (SELECT RAW all)
-          .toCursor()
+          .readAs(LONG)
+          .compile()
           .sql,
         "argument, observed table and read columns" to SELECT
           .RAW(filtered, "foo")

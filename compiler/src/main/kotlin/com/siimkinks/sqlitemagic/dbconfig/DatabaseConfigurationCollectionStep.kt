@@ -31,7 +31,8 @@ internal class DatabaseConfigurationCollectionStep(
       .toList()
     if (submoduleDatabaseSymbols.isNotEmpty() && databaseSymbols.isNotEmpty()) {
       environment.logger.error(
-        message = "Module can have either $DATABASE_ANNOTATION_NAME or $SUBMODULE_DATABASE_ANNOTATION_NAME annotated element, but not both"
+        message = "Module can have either $DATABASE_ANNOTATION_NAME or $SUBMODULE_DATABASE_ANNOTATION_NAME " +
+            "annotated element, but not both"
       )
       return ProcessingStepResult.Failed
     }
@@ -62,6 +63,11 @@ internal class DatabaseConfigurationCollectionStep(
         dbVersion = databaseAnnotation.version
           .takeIf { !environment.options.isDebugVariant }
       )
+    }
+    val dbVersion = environment.dbMetadata.dbVersion
+    if (dbVersion != null && dbVersion < 1) {
+      environment.logger.error("Database version must be at least 1, but was $dbVersion")
+      return ProcessingStepResult.Failed
     }
     return ProcessingStepResult.Continue
   }
@@ -147,7 +153,8 @@ internal class DatabaseConfigurationCollectionStep(
     val submoduleDatabase = annotatedDeclaration.findAnnotationWithType<SubmoduleDatabase>()
     if (submoduleDatabase == null) {
       environment.logger.error(
-        message = "Database submodule ${annotatedDeclaration.qualifiedName?.asString()} must be annotated with $SUBMODULE_DATABASE_ANNOTATION_NAME",
+        message = "Database submodule ${annotatedDeclaration.qualifiedName?.asString()} must be annotated " +
+            "with $SUBMODULE_DATABASE_ANNOTATION_NAME",
         symbol = annotatedDeclaration
       )
       return null

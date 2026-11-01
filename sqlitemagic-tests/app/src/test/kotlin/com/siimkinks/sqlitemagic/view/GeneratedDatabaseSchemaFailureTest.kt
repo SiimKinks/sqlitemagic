@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.view
 
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.BuildConfig
@@ -10,10 +11,7 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.mockito.kotlin.any
-import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 internal class GeneratedDatabaseSchemaFailureTest {
@@ -52,29 +50,37 @@ internal class GeneratedDatabaseSchemaFailureTest {
   }
 
   private fun assertSchemaFailure(case: FailureCase) {
-    val database = mock<SupportSQLiteDatabase>()
     val failure = IllegalStateException("Injected ${case.label} schema failure")
-    var matchedSql: String? = null
-    doAnswer { invocation ->
-      val sql = invocation.getArgument<String>(0)
-      if (sql.startsWith(case.sqlPrefix)) {
-        matchedSql = sql
-        throw failure
+    val executed = mutableListOf<String>()
+    val connection = mock<SQLiteConnection>()
+    whenever(connection.inTransaction())
+      .thenAnswer { executed.lastOrNull { it in TRANSACTION_SQL } == "BEGIN IMMEDIATE" }
+    whenever(connection.prepare(any()))
+      .thenAnswer { invocation ->
+        val sql = invocation.getArgument<String>(0)
+        mock<SQLiteStatement>().also { statement ->
+          whenever(statement.step())
+            .thenAnswer {
+              executed += sql
+              if (sql.startsWith(case.sqlPrefix)) {
+                throw failure
+              }
+              false
+            }
+        }
       }
-      null
-    }
-      .whenever(database)
-      .execSQL(any())
 
     val actualFailure = runCatching {
-      SqliteMagicDatabase().createSchema(database)
+      SqliteMagicDatabase().createSchema(connection)
     }.exceptionOrNull()
 
-    assertWithMessage(case.label).that(matchedSql).startsWith(case.sqlPrefix)
-    verify(database).beginTransaction()
-    verify(database).endTransaction()
-    verify(database, never()).setTransactionSuccessful()
-    assertWithMessage(case.label).that(actualFailure).isSameInstanceAs(failure)
+    assertWithMessage(case.label)
+      .that(executed.filter { it in TRANSACTION_SQL || it.startsWith(case.sqlPrefix) })
+      .containsExactly("BEGIN IMMEDIATE", executed.single { it.startsWith(case.sqlPrefix) }, "ROLLBACK")
+      .inOrder()
+    assertWithMessage(case.label)
+      .that(actualFailure)
+      .isSameInstanceAs(failure)
   }
 
   private data class FailureCase(
@@ -82,3 +88,5 @@ internal class GeneratedDatabaseSchemaFailureTest {
     val sqlPrefix: String
   )
 }
+
+private val TRANSACTION_SQL = setOf("BEGIN IMMEDIATE", "COMMIT", "ROLLBACK")

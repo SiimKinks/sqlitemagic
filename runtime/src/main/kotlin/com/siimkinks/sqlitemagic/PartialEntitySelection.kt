@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.EntityProperty
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
@@ -62,9 +62,9 @@ class PartialEntitySelection<M> internal constructor(
       "mapTo(${table.name}) needs a FROM"
     }
     val positions = related.positions
-    val read = { cursor: Cursor, _: Int ->
+    val read = { statement: SQLiteStatement, _: Int ->
       table.readPartialEntityAt(
-        cursor = cursor,
+        statement = statement,
         positions = positions,
         related = related
       )

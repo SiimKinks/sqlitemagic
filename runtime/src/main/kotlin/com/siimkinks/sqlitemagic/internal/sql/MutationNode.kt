@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic.internal.sql
 
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.CompiledMutation
-import com.siimkinks.sqlitemagic.ConflictAlgorithm
+import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.MutationQuery
 import com.siimkinks.sqlitemagic.MutationStatement
@@ -69,13 +69,13 @@ internal sealed interface MutationHead : SqlRenderable {
 
 internal class UpdateHead(
   override val table: Table<*>,
-  val conflictAlgorithm: Int,
-  val assignments: List<ColumnAssignment>
+  private val conflictAlgorithm: Int,
+  private val assignments: List<ColumnAssignment>
 ) : MutationHead {
   override fun render(context: SqlRenderingContext) {
     context.sql
       .append("UPDATE")
-      .append(ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm])
+      .append(CONFLICT_VALUES[conflictAlgorithm])
       .append(' ')
       .append(table.sqlSource)
       .append(" SET ")
@@ -121,7 +121,7 @@ internal fun compileMutation(
   .let { prepared ->
     CompiledMutation(
       prepared = prepared,
-      arguments = prepared.arguments(parameterValues),
+      arguments = prepared.bind(parameterValues),
       tables = tables
     )
   }

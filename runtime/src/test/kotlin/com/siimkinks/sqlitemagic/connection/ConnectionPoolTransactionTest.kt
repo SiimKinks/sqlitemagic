@@ -31,9 +31,15 @@ internal class ConnectionPoolTransactionTest {
     val outcomes = listOf(true, false).associateWith { innerSuccessful ->
       pool(fileName = folder.databasePath("nested-$innerSuccessful.db")).use { pool ->
         pool.beginTransaction()
-        pool.setBalance(id = 1, balance = 0)
+        pool.setBalance(
+          id = 1,
+          balance = 0
+        )
         pool.beginTransaction()
-        pool.setBalance(id = 2, balance = 0)
+        pool.setBalance(
+          id = 2,
+          balance = 0
+        )
         if (innerSuccessful) {
           pool.setTransactionSuccessful()
         }
@@ -72,7 +78,12 @@ internal class ConnectionPoolTransactionTest {
         pool.beginTransaction()
         pool.beginTransaction()
         pool.endTransaction()
-        val waiting = workers.submit { pool.setBalance(id = 1, balance = 5) }
+        val waiting = workers.submit {
+          pool.setBalance(
+            id = 1,
+            balance = 5
+          )
+        }
         val writtenDuringTransaction = runCatching { waiting.get(100, MILLISECONDS) }
         pool.endTransaction()
         waiting.get(5, SECONDS)
@@ -141,18 +152,37 @@ internal class ConnectionPoolTransactionTest {
     pool(fileName = folder.databasePath()).use { pool ->
       withWorkers { workers ->
         pool.beginTransaction()
-        pool.setBalance(id = 1, balance = 1)
+        pool.setBalance(
+          id = 1,
+          balance = 1
+        )
         val uncontended = pool.yieldIfContended(sleepMillis = 0)
-        val waiting = workers.submit { pool.setBalance(id = 2, balance = 2) }
+        val waiting = workers.submit {
+          pool.setBalance(
+            id = 2,
+            balance = 2
+          )
+        }
         val yielded = pool.yieldToWaitingWriter()
         waiting.get(5, SECONDS)
-        pool.setBalance(id = 1, balance = 99)
+        pool.setBalance(
+          id = 1,
+          balance = 99
+        )
         val committed = pool.endTransaction()
 
-        assertWithMessage("uncontended yield").that(uncontended).isFalse()
-        assertWithMessage("contended yield").that(yielded).isTrue()
-        assertWithMessage("a yielded segment counts as committed").that(committed).isTrue()
-        assertThat(listOf(pool.balance(id = 1), pool.balance(id = 2))).containsExactly(1L, 2L).inOrder()
+        assertWithMessage("uncontended yield")
+          .that(uncontended)
+          .isFalse()
+        assertWithMessage("contended yield")
+          .that(yielded)
+          .isTrue()
+        assertWithMessage("a yielded segment counts as committed")
+          .that(committed)
+          .isTrue()
+        assertThat(listOf(pool.balance(id = 1), pool.balance(id = 2)))
+          .containsExactly(1L, 2L)
+          .inOrder()
       }
     }
   }
@@ -162,20 +192,33 @@ internal class ConnectionPoolTransactionTest {
     pool(fileName = folder.databasePath()).use { pool ->
       pool.beginTransaction()
       pool.beginTransaction()
-      pool.setBalance(id = 1, balance = 1)
+      pool.setBalance(
+        id = 1,
+        balance = 1
+      )
       pool.endTransaction()
-      val waiter = thread { pool.setBalance(id = 2, balance = 2) }
-      while (waiter.state != Thread.State.TIMED_WAITING) {
-        Thread.yield()
+      val waiter = thread {
+        pool.setBalance(
+          id = 2,
+          balance = 2
+        )
       }
+      waiter.awaitTimedWaiting()
       val yielded = pool.yieldIfContended(sleepMillis = 0)
-      pool.setBalance(id = 1, balance = 3)
+      pool.setBalance(
+        id = 1,
+        balance = 3
+      )
       pool.setTransactionSuccessful()
       val committed = pool.endTransaction()
       waiter.join()
 
-      assertThat(listOf(yielded, committed)).containsExactly(false, false).inOrder()
-      assertThat(listOf(pool.balance(id = 1), pool.balance(id = 2))).containsExactly(100L, 2L).inOrder()
+      assertThat(listOf(yielded, committed))
+        .containsExactly(false, false)
+        .inOrder()
+      assertThat(listOf(pool.balance(id = 1), pool.balance(id = 2)))
+        .containsExactly(100L, 2L)
+        .inOrder()
     }
   }
 
@@ -194,14 +237,20 @@ internal class ConnectionPoolTransactionTest {
       poolTimeout = 300.milliseconds
     ).use { pool ->
       pool.beginTransaction()
-      pool.setBalance(id = 1, balance = 1)
+      pool.setBalance(
+        id = 1,
+        balance = 1
+      )
       val release = CountDownLatch(1)
       var holderCommitted: Boolean? = null
       lateinit var holder: Thread
       val yieldFailure = sqlExceptionMessage {
         holder = thread(name = "next holder") {
           pool.beginTransaction()
-          pool.setBalance(id = 2, balance = 2)
+          pool.setBalance(
+            id = 2,
+            balance = 2
+          )
           release.await()
           pool.setTransactionSuccessful()
           holderCommitted = pool.endTransaction()
@@ -235,19 +284,59 @@ internal class ConnectionPoolTransactionTest {
   }
 
   @Test
+  fun `a write inside a transaction fails after close and ending the transaction closes the writer`() {
+    val driver = TrackingDriver()
+    val pool = pool(
+      fileName = folder.databasePath(),
+      driver = driver
+    )
+    pool.beginTransaction()
+    pool.setBalance(
+      id = 1,
+      balance = 1
+    )
+    pool.close()
+    val failure = assertThrows(IllegalStateException::class.java) {
+      pool.setBalance(
+        id = 1,
+        balance = 2
+      )
+    }
+    val committed = pool.endTransaction()
+
+    assertThat(failure)
+      .hasMessageThat()
+      .isEqualTo("DB connection closed")
+    assertThat(committed).isFalse()
+    assertThat(driver.connections.map(TrackingConnection::closed)).containsExactly(true)
+  }
+
+  @Test
   fun `ending after SQLite rolled the transaction back keeps the statement failure`() {
     pool(fileName = folder.databasePath()).use { pool ->
       pool.beginTransaction()
-      pool.setBalance(id = 1, balance = 0)
+      pool.setBalance(
+        id = 1,
+        balance = 0
+      )
       val failure = assertThrows(SQLiteException::class.java) {
         pool.write { it.connection.execSQL("INSERT OR ROLLBACK INTO account(id, balance) VALUES (2, 0)") }
       }
       val committed = pool.endTransaction()
-      pool.setBalance(id = 2, balance = 5)
+      pool.setBalance(
+        id = 2,
+        balance = 5
+      )
 
-      assertThat(failure).hasMessageThat().contains("UNIQUE constraint failed: account.id")
-      assertThat(listOf(committed, pool.inTransaction)).containsExactly(false, false).inOrder()
-      assertThat(listOf(pool.balance(id = 1), pool.balance(id = 2))).containsExactly(100L, 5L).inOrder()
+      assertThat(failure)
+        .hasMessageThat()
+        .contains("UNIQUE constraint failed: account.id")
+      assertThat(listOf(committed, pool.inTransaction))
+        .containsExactly(false, false)
+        .inOrder()
+      assertThat(listOf(pool.balance(id = 1), pool.balance(id = 2)))
+        .containsExactly(100L, 5L)
+        .inOrder()
     }
   }
 
@@ -263,14 +352,22 @@ internal class ConnectionPoolTransactionTest {
         )
       }
       pool.beginTransaction()
-      pool.setBalance(id = 1, balance = 0)
+      pool.setBalance(
+        id = 1,
+        balance = 0
+      )
       pool.write { it.connection.execSQL("INSERT INTO entry VALUES (99)") }
       pool.setTransactionSuccessful()
-      val failure = assertThrows(SQLiteException::class.java) { pool.endTransaction() }
-      pool.setBalance(id = 2, balance = 5)
+      val failure = assertThrows(SQLiteException::class.java, pool::endTransaction)
+      pool.setBalance(
+        id = 2,
+        balance = 5
+      )
       val entries = pool.read(requiresWriter = false) { it.connection.long("SELECT count(*) FROM entry") }
 
-      assertThat(failure).hasMessageThat().contains("FOREIGN KEY constraint failed")
+      assertThat(failure)
+        .hasMessageThat()
+        .contains("FOREIGN KEY constraint failed")
       assertThat(listOf(pool.balance(id = 1), pool.balance(id = 2), entries))
         .containsExactly(100L, 5L, 0L)
         .inOrder()
@@ -285,9 +382,5 @@ internal class ConnectionPoolTransactionTest {
       }
     }
     return false
-  }
-
-  private fun ConnectionPool.setBalance(id: Long, balance: Long) = write { pooled ->
-    pooled.connection.execSQL("UPDATE account SET balance = $balance WHERE id = $id")
   }
 }

@@ -1,28 +1,43 @@
 package com.siimkinks.sqlitemagic
 
 import android.app.Application
-import android.database.Cursor
 import android.util.Log
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.InitializationFailure.CONNECTION
+import com.siimkinks.sqlitemagic.InitializationFailure.DATABASE_PATH
+import com.siimkinks.sqlitemagic.InitializationFailure.DRIVER
+import com.siimkinks.sqlitemagic.SqliteMagic.DatabaseSetupBuilder
+import com.siimkinks.sqlitemagic.connection.MEMORY_DATABASE
+import com.siimkinks.sqlitemagic.connection.databasePath
+import com.siimkinks.sqlitemagic.connection.long
+import com.siimkinks.sqlitemagic.connection.whileHeldBy
 import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.mockito.MockedStatic
 import org.mockito.Mockito.mockStatic
 import org.mockito.kotlin.any
-import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.io.File
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 internal class SqliteMagicTest {
+  @get:Rule
+  val folder = TemporaryFolder()
+
   private val previousConnection = SqliteMagic.defaultConnection
   private val previousLogger = SqliteMagic.logger
   private val previousLogging = SqliteMagic.loggingEnabled
@@ -51,11 +66,11 @@ internal class SqliteMagicTest {
 
   @Test
   fun `missing configuration fails before initialization wrapping`() {
-    val fixture = BootstrapFixture()
+    val fixture = BootstrapFixture(folder.root)
     val cases = mapOf(
-      "SQLite Factory cannot be missing" to SqliteMagic.builder(fixture.context),
+      "SQLite driver cannot be missing" to SqliteMagic.builder(fixture.context),
       "Generated database cannot be missing" to SqliteMagic.builder(fixture.context)
-        .sqliteFactory(fixture.factory)
+        .driver(fixture.driver)
     )
     for ((message, builder) in cases) {
       val failure = assertThrows(
@@ -69,35 +84,42 @@ internal class SqliteMagicTest {
         .isEqualTo(message)
       assertThat(failure.cause).isNull()
     }
-    verify(fixture.factory, never()).create(any())
+    assertThat(fixture.opened).isEmpty()
   }
 
   @Test
   fun `configuration uses name override or generated name including in memory database`() {
+    class NameCase(
+      val label: String,
+      val name: String?,
+      val generatedName: String?,
+      val expected: String
+    )
+
     val cases = listOf(
       NameCase(
         label = "override",
         name = "override.db",
         generatedName = "generated.db",
-        expected = "override.db"
+        expected = folder.databasePath("override.db")
       ),
       NameCase(
         label = "unset",
         name = null,
         generatedName = "generated.db",
-        expected = "generated.db"
+        expected = folder.databasePath("generated.db")
       ),
       NameCase(
         label = "empty",
         name = "",
         generatedName = "generated.db",
-        expected = "generated.db"
+        expected = folder.databasePath("generated.db")
       ),
       NameCase(
         label = "in memory",
         name = null,
         generatedName = null,
-        expected = null
+        expected = MEMORY_DATABASE
       )
     )
     for (case in cases) {
@@ -106,21 +128,19 @@ internal class SqliteMagicTest {
         .thenReturn(case.generatedName)
       whenever(generated.dbVersion)
         .thenReturn(7)
-      val fixture = BootstrapFixture(generated)
+      val fixture = BootstrapFixture(
+        databaseDirectory = folder.root,
+        generated = generated
+      )
 
-      connections += fixture.builder
+      val version = fixture.builder
         .name(case.name)
-        .openNewConnection()
+        .open()
+        .userVersion()
 
       assertWithMessage(case.label)
-        .that(fixture.configurations.single().name)
-        .isEqualTo(case.expected)
-      assertWithMessage(case.label)
-        .that(fixture.configurations.single().callback.version)
-        .isEqualTo(7)
-      assertWithMessage(case.label)
-        .that(fixture.configurations.single().context)
-        .isSameInstanceAs(fixture.context)
+        .that(fixture.opened to version)
+        .isEqualTo(listOf(case.expected) to 7L)
     }
   }
 
@@ -128,7 +148,7 @@ internal class SqliteMagicTest {
   fun `each connection keeps the adapter settings it was opened with`() {
     val first = AdapterSettingKey<String>()
     val second = AdapterSettingKey<String>()
-    val fixture = BootstrapFixture()
+    val fixture = BootstrapFixture(folder.root)
     val opened = fixture.builder
       .adapterSetting(
         key = first,
@@ -159,60 +179,116 @@ internal class SqliteMagicTest {
   }
 
   @Test
-  fun `configured downgrade callback receives database and versions`() {
-    val fixture = BootstrapFixture()
-    val downgrader = mock<DbDowngrader>()
-    fixture.builder.downgrader(downgrader)
-    fixture.open()
+  fun `pool options and the connection hook configure the opened connections`() {
+    val connection = BootstrapFixture(folder.root).builder
+      .readerConnections(0)
+      .connectionPoolTimeout(100.milliseconds)
+      .configureConnection { it.execSQL("PRAGMA cache_size = -1234") }
+      .open()
+    val cacheSize = connection.write { pooled -> pooled.connection.long("PRAGMA cache_size") }
+    val timeout = whileHeldBy(
+      name = "holder",
+      hold = { release -> connection.write { release() } },
+      attempt = { sqlExceptionMessage { connection.write {} } }
+    )
 
-    fixture.configurations
-      .single()
-      .callback
-      .onDowngrade(
-        db = fixture.db,
-        oldVersion = 7,
-        newVersion = 2
+    assertThat(
+      Triple(
+        first = connection.pool.maxReaders,
+        second = cacheSize,
+        third = timeout
       )
-
-    verify(downgrader).onDowngrade(
-      db = fixture.db,
-      oldVersion = 7,
-      newVersion = 2
+    ).isEqualTo(
+      Triple(
+        first = 0,
+        second = -1234L,
+        third = "Timed out after 100ms waiting for the writer connection, held by thread holder"
+      )
     )
   }
 
   @Test
-  fun `default downgrade callback recreates the configured database schema`() {
-    val generated = mockGeneratedDatabase()
-    val fixture = BootstrapFixture(generated)
-    val cursor = mock<Cursor>()
-    whenever(fixture.db.query(any<String>()))
-      .thenReturn(cursor)
-    fixture.open()
+  fun `pool options reject negative reader counts and non-positive timeouts`() {
+    val builder = BootstrapFixture(folder.root).builder
+    val failures = listOf(
+      assertThrows(IllegalArgumentException::class.java) { builder.readerConnections(-1) },
+      assertThrows(IllegalArgumentException::class.java) { builder.connectionPoolTimeout(Duration.ZERO) }
+    )
 
-    fixture.configurations
-      .single()
-      .callback
-      .onDowngrade(
-        db = fixture.db,
-        oldVersion = 7,
-        newVersion = 2
+    assertThat(failures.map(Throwable::message))
+      .containsExactly(
+        "Reader connection count cannot be negative: -1",
+        "Connection pool timeout must be positive: 0s"
       )
-
-    verify(generated).createSchema(fixture.db)
+      .inOrder()
   }
 
   @Test
-  fun `helper creation and connection initialization failures retain their original cause`() {
+  fun `configured downgrade callback receives the connection and versions`() {
+    BundledSQLiteDriver()
+      .open(folder.databasePath())
+      .use { it.execSQL("PRAGMA user_version = 7") }
+    val fixture = BootstrapFixture(folder.root)
+    val downgrader = mock<DbDowngrader>()
+
+    val version = fixture.builder
+      .downgrader(downgrader)
+      .open()
+      .userVersion()
+
+    verify(downgrader).onDowngrade(
+      connection = any(),
+      oldVersion = eq(7),
+      newVersion = eq(1)
+    )
+    assertThat(version).isEqualTo(1L)
+  }
+
+  @Test
+  fun `default downgrade callback recreates the configured database schema`() {
+    BundledSQLiteDriver()
+      .open(folder.databasePath())
+      .use { connection ->
+        connection.execSQL("CREATE TABLE newer_item (id INTEGER)")
+        connection.execSQL("PRAGMA user_version = 7")
+      }
+    val fixture = BootstrapFixture(
+      databaseDirectory = folder.root,
+      generated = TestGeneratedDatabase(
+        tableCount = 1,
+        schema = listOf("CREATE TABLE item (id INTEGER)")
+      )
+    )
+
+    val tables = fixture.builder
+      .open()
+      .write { pooled ->
+        pooled.connection.query("SELECT name FROM sqlite_master WHERE type = 'table'") { statement ->
+          statement.getText(0)
+        }
+      }
+
+    assertThat(tables).containsExactly("item")
+  }
+
+  @Test
+  fun `driver, database path and connection initialization failures retain their original cause`() {
     InitializationFailure.entries.forEach { stage ->
       val label = stage.name
       val failure = IllegalArgumentException(label)
       val generated = mockGeneratedDatabase()
-      val fixture = BootstrapFixture(generated)
+      whenever(generated.dbName)
+        .thenReturn("test.db")
+      val fixture = BootstrapFixture(
+        databaseDirectory = folder.root,
+        generated = generated,
+        driverFailure = failure.takeIf { stage == DRIVER }
+      )
       when (stage) {
-        InitializationFailure.FACTORY -> whenever(fixture.factory.create(any()))
+        DRIVER -> Unit
+        DATABASE_PATH -> whenever(fixture.context.getDatabasePath(any()))
           .thenThrow(failure)
-        InitializationFailure.CONNECTION -> whenever(generated.getNrOfTables(any()))
+        CONNECTION -> whenever(generated.getNrOfTables(any()))
           .thenThrow(failure)
       }
 
@@ -241,55 +317,56 @@ internal class SqliteMagicTest {
       "transaction" to SqliteMagic::newTransaction
     )
     for ((label, access) in accesses) {
-      val failure = assertThrows(IllegalStateException::class.java) { access() }
+      val failure = assertThrows(IllegalStateException::class.java, access::invoke)
       assertWithMessage(label)
         .that(failure)
         .hasMessageThat()
         .isEqualTo("Looks like SqliteMagic is not initialized...")
     }
-    val fixture = BootstrapFixture()
+    val fixture = BootstrapFixture(folder.root)
     fixture.builder.openDefaultConnection()
     val connection = SqliteMagic.defaultDbConnection
     connections += connection
 
     assertThat(SqliteMagic.getDefaultConnection()).isSameInstanceAs(connection)
-    SqliteMagic.newTransaction().use(Transaction::markSuccessful)
+    val inTransaction = SqliteMagic.newTransaction()
+      .use { transaction ->
+        transaction.markSuccessful()
+        connection.hasActiveTransaction
+      }
 
-    verify(fixture.db).beginTransactionWithListener(any())
-    verify(fixture.db).setTransactionSuccessful()
-    verify(fixture.db).endTransaction()
+    assertThat(inTransaction to connection.hasActiveTransaction).isEqualTo(true to false)
   }
 
   @Test
   fun `independent connections leave default open while default replacement closes before creation`() {
-    val original = BootstrapFixture()
-    original.builder.openDefaultConnection()
+    BootstrapFixture(folder.root).builder.openDefaultConnection()
     val first = SqliteMagic.defaultDbConnection
     connections += first
-    val independent = BootstrapFixture()
 
-    val second = independent.open()
+    val second = BootstrapFixture(folder.root).builder.open()
 
     assertThat(second).isNotSameInstanceAs(first)
     assertThat(SqliteMagic.getDefaultConnection()).isSameInstanceAs(first)
-    verify(original.helper, never()).close()
+    assertThat(first.isClosed).isFalse()
 
-    val replacement = BootstrapFixture()
-    whenever(replacement.factory.create(any()))
-      .thenAnswer { invocation ->
-        verify(original.helper).close()
-        assertThat(SqliteMagic.defaultConnection).isSameInstanceAs(first)
-        replacement.configurations += invocation.getArgument<SupportSQLiteOpenHelper.Configuration>(0)
-        replacement.helper
+    var firstClosedOnCreation: Boolean? = null
+    val replacement = BootstrapFixture(
+      databaseDirectory = folder.root,
+      generated = object : GeneratedDatabase by TestGeneratedDatabase(tableCount = 0) {
+        override fun getNrOfTables(moduleName: String?): Int {
+          firstClosedOnCreation = first.isClosed
+          return 0
+        }
       }
-
+    )
     replacement.builder.openDefaultConnection()
     val third = SqliteMagic.defaultDbConnection
     connections += third
 
     assertThat(third).isNotSameInstanceAs(first)
-    assertThat(third.writableDatabase).isSameInstanceAs(replacement.db)
-    verify(independent.helper, never()).close()
+    assertThat(listOf(firstClosedOnCreation, first.isClosed, second.isClosed, third.isClosed))
+      .isEqualTo(listOf(true, true, false, false))
   }
 
   @Test
@@ -321,45 +398,43 @@ internal class SqliteMagicTest {
     on { dbVersion } doReturn 1
   }
 
-  private fun BootstrapFixture.open() = builder.open()
-
-  private fun SqliteMagic.DatabaseSetupBuilder.open() = (openNewConnection() as DbConnectionImpl)
+  private fun DatabaseSetupBuilder.open() = (openNewConnection() as DbConnectionImpl)
     .also(connections::add)
 
-  private class NameCase(
-    val label: String,
-    val name: String?,
-    val generatedName: String?,
-    val expected: String?
-  )
+  private fun DbConnectionImpl.userVersion() = write { pooled -> pooled.connection.long("PRAGMA user_version") }
 }
 
 private class BootstrapFixture(
-  generated: GeneratedDatabase = TestGeneratedDatabase(tableCount = 0)
+  databaseDirectory: File,
+  generated: GeneratedDatabase = TestGeneratedDatabase(tableCount = 0),
+  driverFailure: RuntimeException? = null
 ) {
   val context = mock<Application>()
-  val db = mock<SupportSQLiteDatabase>()
-  val helper = mock<SupportSQLiteOpenHelper> {
-    on { writableDatabase } doReturn db
+  val opened = mutableListOf<String>()
+  val driver = object : SQLiteDriver {
+    override val hasConnectionPool: Boolean
+      get() = when (driverFailure) {
+        null -> false
+        else -> throw driverFailure
+      }
+
+    override fun open(fileName: String) = BundledSQLiteDriver()
+      .open(fileName)
+      .also { opened += fileName }
   }
-  val factory = mock<SupportSQLiteOpenHelper.Factory>()
-  val configurations = mutableListOf<SupportSQLiteOpenHelper.Configuration>()
 
   init {
-    doAnswer { invocation ->
-      configurations += invocation.getArgument<SupportSQLiteOpenHelper.Configuration>(0)
-      helper
-    }
-      .whenever(factory)
-      .create(any())
+    whenever(context.getDatabasePath(any()))
+      .thenAnswer { File(databaseDirectory, it.getArgument(0)) }
   }
 
   val builder = SqliteMagic.builder(context)
     .database(generated)
-    .sqliteFactory(factory)
+    .driver(driver)
 }
 
 private enum class InitializationFailure {
-  FACTORY,
+  DRIVER,
+  DATABASE_PATH,
   CONNECTION
 }

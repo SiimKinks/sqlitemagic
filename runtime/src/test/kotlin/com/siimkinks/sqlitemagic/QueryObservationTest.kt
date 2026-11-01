@@ -1,17 +1,15 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.internal.QueryObservation
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import org.mockito.kotlin.mock
 
 internal class QueryObservationTest {
   @Test
   fun `registration delivers changes of the tables the query reads until it is closed`() {
-    val connection = testDbConnection(mock<SupportSQLiteDatabase>())
+    val connection = testDbConnection()
     val observation = authorNames(connection)
     val recorder = TriggerRecorder()
     val registration = observation.register(
@@ -29,7 +27,7 @@ internal class QueryObservationTest {
 
   @Test
   fun `registering on a thread with an active transaction fails without registering`() {
-    val connection = newConnection().connection
+    val connection = newConnection().dbConnection
     val observation = authorNames(connection)
     val recorder = TriggerRecorder()
     val transaction = connection.newTransaction()
@@ -73,7 +71,7 @@ internal class QueryObservationTest {
 
   @Test
   fun `only queries that read tables observe changes`() {
-    val connection = testDbConnection(mock<SupportSQLiteDatabase>())
+    val connection = testDbConnection()
 
     assertThat(listOf(authorNames(connection), sourceFree(connection)).map(QueryObservation<*>::observesChanges))
       .containsExactly(true, false)
@@ -84,8 +82,8 @@ internal class QueryObservationTest {
   fun `connection resolves the configured connection or else the current default connection`() {
     val previousConnection = SqliteMagic.defaultConnection
     try {
-      val configured = testDbConnection(mock<SupportSQLiteDatabase>())
-      val defaults = List(2) { testDbConnection(mock<SupportSQLiteDatabase>()) }
+      val configured = testDbConnection()
+      val defaults = List(2) { testDbConnection() }
       val observations = listOf(
         authorNames(configured),
         SELECT
@@ -100,7 +98,7 @@ internal class QueryObservationTest {
         observations.map(QueryObservation<*>::connection)
       }
 
-      assertThat(resolved).isEqualTo(defaults.map { default -> listOf(configured, default) })
+      assertThat(resolved).isEqualTo(defaults.map { listOf(configured, it) })
     } finally {
       SqliteMagic.defaultConnection = previousConnection
     }

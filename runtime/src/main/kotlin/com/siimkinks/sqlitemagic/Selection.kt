@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
@@ -32,17 +32,17 @@ abstract class Selection<out T> internal constructor() {
 
 internal fun SqlRenderingContext.renderOutput(expression: SqlExpression<*, *, *>) {
   if (expression.nullness == Required && !nested) {
-    expression.node
+    val output = expression.node
       .outerJoinNull(this)
-      ?.let { field ->
-        val output = fieldOutputName(
-          table = field.table,
-          name = field.name
-        )
-        throw IllegalArgumentException(
-          "$output is NOT NULL but an outer join can leave it NULL; select the field with .nullable()"
+      ?.let {
+        fieldOutputName(
+          table = it.table,
+          name = it.name
         )
       }
+    require(output == null) {
+      "$output is NOT NULL but an outer join can leave it NULL; select the field with .nullable()"
+    }
   }
   appendOutput(expression)
 }
@@ -62,5 +62,5 @@ internal fun SqlRenderingContext.appendOutput(expression: SqlExpression<*, *, *>
 }
 
 internal fun interface ExecutionReader<out T> {
-  fun open(): (Cursor, Int) -> T
+  fun open(): (SQLiteStatement, Int) -> T
 }

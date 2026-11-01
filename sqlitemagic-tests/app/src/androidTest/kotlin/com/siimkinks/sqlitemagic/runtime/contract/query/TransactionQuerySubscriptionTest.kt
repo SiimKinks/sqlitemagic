@@ -59,12 +59,12 @@ internal class TransactionQuerySubscriptionTest(
   }
 
   @Test
-  fun differentThreadSubscriptionReadsCommittedStateAfterOwnerTransactionEnds() {
+  fun differentThreadSubscriptionReadsLastCommittedStateDuringOwnerTransaction() {
     val initialSimple = TransactionObservationCatalog.simple.insert(sequence = 1)
     TransactionObservationCatalog.string.insert(sequence = 1)
     val transaction = SqliteMagic.newTransaction()
     val executor = Executors.newSingleThreadExecutor()
-    val rawQueryEmitted = CountDownLatch(1)
+    val firstReadEmitted = CountDownLatch(1)
     val queryFinished = CountDownLatch(1)
     val workerError = AtomicReference<Throwable?>()
     val observer = Recording<List<String?>>()
@@ -79,8 +79,8 @@ internal class TransactionQuerySubscriptionTest(
         try {
           TransactionObservationCatalog
             .observeMatchingQueries(adapter)
-            .onEach { rawQueryEmitted.countDown() }
             .map { checkNotNull(it.runBlocking()) }
+            .onEach { firstReadEmitted.countDown() }
             .subscribe(observer)
         } catch (error: Throwable) {
           workerError.set(error)
@@ -89,7 +89,7 @@ internal class TransactionQuerySubscriptionTest(
         }
       }
 
-      assertThat(rawQueryEmitted.await(TIMEOUT_SECONDS, SECONDS)).isTrue()
+      assertThat(firstReadEmitted.await(TIMEOUT_SECONDS, SECONDS)).isTrue()
       transaction.markSuccessful()
       transaction.end()
       ownerTransactionOpen = false
@@ -97,7 +97,7 @@ internal class TransactionQuerySubscriptionTest(
       assertThat(queryFinished.await(TIMEOUT_SECONDS, SECONDS)).isTrue()
       assertThat(workerError.get()).isNull()
       observer.assertValuesOnly(
-        listOf(initialSimple.value, transactionSimple.value),
+        listOf(initialSimple.value),
         listOf(initialSimple.value, transactionSimple.value)
       )
 
@@ -107,7 +107,7 @@ internal class TransactionQuerySubscriptionTest(
         TransactionObservationCatalog.string.insert(sequence = 3)
       }
       observer.assertValuesOnly(
-        listOf(initialSimple.value, transactionSimple.value),
+        listOf(initialSimple.value),
         listOf(initialSimple.value, transactionSimple.value),
         listOf(initialSimple.value, transactionSimple.value, nextSimple.value)
       )

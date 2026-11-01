@@ -109,6 +109,23 @@ internal class DatabaseConfigurationCollectionStepTest {
   }
 
   @Test
+  fun `fails when the annotation database version is below 1`() {
+    compiler
+      .compile(database(version = 0))
+      .assertCompilationError("Database version must be at least 1, but was 0")
+  }
+
+  @Test
+  fun `fails when the compiler option database version is below 1`() {
+    compiler
+      .compile(
+        plainClass(className = "Unconfigured"),
+        kspOptions = mapOf(OPTION_DB_VERSION to "0")
+      )
+      .assertCompilationError("Database version must be at least 1, but was 0")
+  }
+
+  @Test
   fun `collects submodule names and multiple database submodule manager references`() {
     val featureCompilation = compiler
       .compile(

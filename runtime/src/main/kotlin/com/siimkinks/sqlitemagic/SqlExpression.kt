@@ -2,9 +2,20 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.OrderingDirection.ASC
 import com.siimkinks.sqlitemagic.OrderingDirection.DESC
+import com.siimkinks.sqlitemagic.QueryDependencies.Companion.NONE
+import com.siimkinks.sqlitemagic.SqlOperator.EQUAL
+import com.siimkinks.sqlitemagic.SqlOperator.GLOB
+import com.siimkinks.sqlitemagic.SqlOperator.GREATER
+import com.siimkinks.sqlitemagic.SqlOperator.GREATER_OR_EQUAL
+import com.siimkinks.sqlitemagic.SqlOperator.LESS
+import com.siimkinks.sqlitemagic.SqlOperator.LESS_OR_EQUAL
+import com.siimkinks.sqlitemagic.SqlOperator.LIKE
+import com.siimkinks.sqlitemagic.SqlOperator.NOT_EQUAL
+import com.siimkinks.sqlitemagic.SqlOperator.NOT_GLOB
+import com.siimkinks.sqlitemagic.SqlOperator.NOT_LIKE
 import com.siimkinks.sqlitemagic.internal.ParameterEncoding
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
@@ -27,8 +38,8 @@ sealed interface SqlOperand
 open class SqlExpression<out R, out N : SqlNullability, out T> internal constructor(
   internal val node: ExpressionNode,
   internal val nullness: N,
-  internal val nonNullRead: (Cursor, Int) -> R,
-  internal val selectRead: (Cursor, Int) -> T,
+  internal val nonNullRead: (SQLiteStatement, Int) -> R,
+  internal val selectRead: (SQLiteStatement, Int) -> T,
   internal val outputAlias: String? = null
 ) : SqlOperand, SqlOutput {
   internal constructor(
@@ -131,7 +142,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun IS(other: SqlExpression<@UnsafeVariance R?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.EQUAL,
+    operator = EQUAL,
     right = other.node
   )
 
@@ -145,7 +156,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun IS_NOT(other: SqlExpression<@UnsafeVariance R?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.NOT_EQUAL,
+    operator = NOT_EQUAL,
     right = other.node
   )
 
@@ -177,7 +188,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun GREATER_THAN(other: SqlExpression<@UnsafeVariance R?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.GREATER,
+    operator = GREATER,
     right = other.node
   )
 
@@ -189,7 +200,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun GREATER_OR_EQUAL(other: SqlExpression<@UnsafeVariance R?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.GREATER_OR_EQUAL,
+    operator = GREATER_OR_EQUAL,
     right = other.node
   )
 
@@ -201,7 +212,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun LESS_THAN(other: SqlExpression<@UnsafeVariance R?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.LESS,
+    operator = LESS,
     right = other.node
   )
 
@@ -213,7 +224,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun LESS_OR_EQUAL(other: SqlExpression<@UnsafeVariance R?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.LESS_OR_EQUAL,
+    operator = LESS_OR_EQUAL,
     right = other.node
   )
 
@@ -322,7 +333,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    * @see [SQLite documentation: Expression](https://www.sqlite.org/lang_expr.html#like)
    */
   infix fun LIKE(pattern: String) = like(
-    operator = SqlOperator.LIKE,
+    operator = LIKE,
     pattern = textValue(pattern)
   )
 
@@ -339,7 +350,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    * @see [SQLite documentation: Expression](https://www.sqlite.org/lang_expr.html#like)
    */
   infix fun LIKE(pattern: SqlExpression<String?, *, *>) = like(
-    operator = SqlOperator.LIKE,
+    operator = LIKE,
     pattern = pattern.node
   )
 
@@ -356,7 +367,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    * @see [SQLite documentation: Expression](https://www.sqlite.org/lang_expr.html#like)
    */
   infix fun NOT_LIKE(pattern: String) = like(
-    operator = SqlOperator.NOT_LIKE,
+    operator = NOT_LIKE,
     pattern = textValue(pattern)
   )
 
@@ -373,7 +384,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    * @see [SQLite documentation: Expression](https://www.sqlite.org/lang_expr.html#like)
    */
   infix fun NOT_LIKE(pattern: SqlExpression<String?, *, *>) = like(
-    operator = SqlOperator.NOT_LIKE,
+    operator = NOT_LIKE,
     pattern = pattern.node
   )
 
@@ -391,7 +402,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun GLOB(pattern: String) = binaryPredicate(
     left = node,
-    operator = SqlOperator.GLOB,
+    operator = GLOB,
     right = textValue(pattern)
   )
 
@@ -409,7 +420,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun GLOB(pattern: SqlExpression<String?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.GLOB,
+    operator = GLOB,
     right = pattern.node
   )
 
@@ -427,7 +438,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun NOT_GLOB(pattern: String) = binaryPredicate(
     left = node,
-    operator = SqlOperator.NOT_GLOB,
+    operator = NOT_GLOB,
     right = textValue(pattern)
   )
 
@@ -445,7 +456,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    */
   infix fun NOT_GLOB(pattern: SqlExpression<String?, *, *>) = binaryPredicate(
     left = node,
-    operator = SqlOperator.NOT_GLOB,
+    operator = NOT_GLOB,
     right = pattern.node
   )
 
@@ -518,8 +529,8 @@ internal fun <C> nullableNativeResult(
 open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> internal constructor(
   node: ExpressionNode,
   nullness: N,
-  nonNullRead: (Cursor, Int) -> R,
-  selectRead: (Cursor, Int) -> T,
+  nonNullRead: (SQLiteStatement, Int) -> R,
+  selectRead: (SQLiteStatement, Int) -> T,
   internal val encode: (W) -> NativeValue,
   outputAlias: String? = null
 ) : SqlExpression<R, N, T>(
@@ -565,7 +576,7 @@ open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> inter
    * @return Expression
    */
   infix fun IS(value: W & Any) = hostComparison(
-    operator = SqlOperator.EQUAL,
+    operator = EQUAL,
     value = value
   )
 
@@ -576,7 +587,7 @@ open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> inter
    * @return Expression
    */
   infix fun IS_NOT(value: W & Any) = hostComparison(
-    operator = SqlOperator.NOT_EQUAL,
+    operator = NOT_EQUAL,
     value = value
   )
 
@@ -587,7 +598,7 @@ open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> inter
    * @return Expression
    */
   infix fun GREATER_THAN(value: W & Any) = hostComparison(
-    operator = SqlOperator.GREATER,
+    operator = GREATER,
     value = value
   )
 
@@ -598,7 +609,7 @@ open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> inter
    * @return Expression
    */
   infix fun GREATER_OR_EQUAL(value: W & Any) = hostComparison(
-    operator = SqlOperator.GREATER_OR_EQUAL,
+    operator = GREATER_OR_EQUAL,
     value = value
   )
 
@@ -609,7 +620,7 @@ open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> inter
    * @return Expression
    */
   infix fun LESS_THAN(value: W & Any) = hostComparison(
-    operator = SqlOperator.LESS,
+    operator = LESS,
     value = value
   )
 
@@ -620,7 +631,7 @@ open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> inter
    * @return Expression
    */
   infix fun LESS_OR_EQUAL(value: W & Any) = hostComparison(
-    operator = SqlOperator.LESS_OR_EQUAL,
+    operator = LESS_OR_EQUAL,
     value = value
   )
 
@@ -815,8 +826,8 @@ class EncodedSqlExpression<W, R, N : SqlNullability, T> internal constructor(
  */
 class RawSqlExpression<out R, out N : SqlNullability, out T> internal constructor(
   private val raw: ExpressionNode.Raw,
-  nonNullRead: (Cursor, Int) -> R,
-  selectRead: (Cursor, Int) -> T,
+  nonNullRead: (SQLiteStatement, Int) -> R,
+  selectRead: (SQLiteStatement, Int) -> T,
   nullness: N
 ) : SqlExpression<R, N, T>(
   node = raw,
@@ -828,8 +839,9 @@ class RawSqlExpression<out R, out N : SqlNullability, out T> internal constructo
    * Define tables that this raw SQL reads.
    *
    * Observed queries are re-run when these tables change. Tables that the query selects from are observed anyway,
-   * so only the tables that appear in the raw SQL alone, such as in a raw subquery, need to be defined here.
-   * Calling this method again replaces the previously defined tables.
+   * so only the tables that appear in the raw SQL alone, such as in a raw subquery, need to be defined here. A
+   * temporary table or view that appears in the raw SQL alone must be defined, or the query fails with "no such
+   * table". Calling this method again replaces the previously defined tables.
    *
    * @param table Table that this SQL reads
    * @param tables Additional tables that this SQL reads
@@ -858,8 +870,8 @@ class RawSqlExpression<out R, out N : SqlNullability, out T> internal constructo
  */
 class EncodableRawSqlExpression<W, out R, out N : SqlNullability, out T> internal constructor(
   private val raw: ExpressionNode.Raw,
-  nonNullRead: (Cursor, Int) -> R,
-  selectRead: (Cursor, Int) -> T,
+  nonNullRead: (SQLiteStatement, Int) -> R,
+  selectRead: (SQLiteStatement, Int) -> T,
   nullness: N,
   encode: (W) -> NativeValue
 ) : EncodableSqlExpression<W, R, N, T>(
@@ -873,8 +885,9 @@ class EncodableRawSqlExpression<W, out R, out N : SqlNullability, out T> interna
    * Define tables that this raw SQL reads.
    *
    * Observed queries are re-run when these tables change. Tables that the query selects from are observed anyway,
-   * so only the tables that appear in the raw SQL alone, such as in a raw subquery, need to be defined here.
-   * Calling this method again replaces the previously defined tables.
+   * so only the tables that appear in the raw SQL alone, such as in a raw subquery, need to be defined here. A
+   * temporary table or view that appears in the raw SQL alone must be defined, or the query fails with "no such
+   * table". Calling this method again replaces the previously defined tables.
    *
    * @param table Table that this SQL reads
    * @param tables Additional tables that this SQL reads
@@ -910,11 +923,11 @@ internal enum class OrderingDirection {
   DESC
 }
 
-internal fun requireHostValue(value: Any?) {
-  require(value !is SqlOperand) { "SQL expressions and queries are not host values" }
+internal fun requireHostValue(value: Any?) = require(value !is SqlOperand) {
+  "SQL expressions and queries are not host values"
 }
 
-internal fun operandNode(value: Any?): ExpressionNode = when (value) {
+internal fun operandNode(value: Any?) = when (value) {
   is SqlExpression<*, *, *> -> value.node
   else -> {
     requireHostValue(value)
@@ -980,7 +993,7 @@ fun <W, R, N : SqlNullability, T> String.expr(
 private fun String.rawNode(arguments: Array<out Any?>) = ExpressionNode.Raw(
   sql = this,
   arguments = arguments.map(::nativeValue),
-  dependencies = QueryDependencies.NONE
+  dependencies = NONE
 )
 
 /**

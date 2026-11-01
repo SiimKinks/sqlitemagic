@@ -33,7 +33,7 @@ internal class MutationStatementTest {
       }
     )) {
       personDatabase().use { database ->
-        val connection = database.dbConnection()
+        val connection = database.connection
         val birthday = observe(connection)
         val before = connection.persons()
 

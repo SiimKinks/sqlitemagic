@@ -5,7 +5,6 @@ import androidx.sqlite.SQLiteDriver
 import com.siimkinks.sqlitemagic.MigrationValidationMode.ADJACENT
 import com.siimkinks.sqlitemagic.MigrationValidationMode.EVERY_VERSION_TO_CURRENT
 import com.siimkinks.sqlitemagic.MigrationValidationMode.OLDEST_TO_CURRENT
-import com.siimkinks.sqlitemagic.migration.MigrationDatabase
 import com.siimkinks.sqlitemagic.migration.MigrationDatabaseDescriptor
 import com.siimkinks.sqlitemagic.migration.MigrationExecutor
 import com.siimkinks.sqlitemagic.migration.MigrationManifest
@@ -17,6 +16,7 @@ import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
+import com.siimkinks.sqlitemagic.migration.testing.InspectedSchema
 import com.siimkinks.sqlitemagic.migration.testing.SQLiteQueries
 import com.siimkinks.sqlitemagic.migration.testing.SchemaComparator
 import com.siimkinks.sqlitemagic.migration.testing.SchemaIntrospector
@@ -46,6 +46,8 @@ class SqliteMagicMigrationTestHelper(
   private var closed = false
   private var automaticRun = 0
   private var currentEvidenceValidated = false
+  private var currentSnapshotVerified = false
+  private val expectedSchemas = mutableMapOf<Int, InspectedSchema>()
 
   private val publicationAdvice
     get() = "Run ${descriptor.migrationTaskPath}, review and commit its release inputs before migration tests."
@@ -183,7 +185,6 @@ class SqliteMagicMigrationTestHelper(
         connection = connection,
         schema = target
       )
-      val database = DriverMigrationDatabase(connection)
       val plan = MigrationPlanner.plan(
         fromVersion = fromVersion,
         toVersion = toVersion,
@@ -194,11 +195,12 @@ class SqliteMagicMigrationTestHelper(
           resources = { resource ->
             ByteArrayInputStream(resources[resource.name] ?: throw FileNotFoundException(resource.name))
           },
-          database = database
-        ).execute(
-          plan = plan,
-          createTargetViews = { database.createPersistentViews(target.views) }
+          connection = connection
         )
+          .execute(
+            plan = plan,
+            createTargetViews = { connection.createPersistentViews(target.views) }
+          )
         SQLiteQueries.execute(
           connection = connection,
           sql = "PRAGMA user_version = $toVersion"
@@ -206,13 +208,16 @@ class SqliteMagicMigrationTestHelper(
       }
       require(userVersion(connection) == toVersion.toLong()) { "Migration did not set user_version to $toVersion" }
       verifyCurrentSnapshot()
-      withFreshSchema(schema = expectedSchema(toVersion)) { expected ->
-        compareSchemas(
-          expected = expected,
-          actual = connection,
-          operation = "Migration $fromVersion -> $toVersion completed with a different target schema"
-        )
-      }
+      compareSchemas(
+        expected = expectedSchemas.getOrPut(toVersion) {
+          withFreshSchema(
+            schema = expectedSchema(toVersion),
+            action = SchemaIntrospector::inspect
+          )
+        },
+        actual = connection,
+        operation = "Migration $fromVersion -> $toVersion completed with a different target schema"
+      )
       verifyIntegrity(connection)
       register(
         name = name,
@@ -375,10 +380,10 @@ class SqliteMagicMigrationTestHelper(
         } catch (_: FileNotFoundException) {
           null
         }
-        stream?.let {
+        if (stream != null) {
           readResource(
             name = resource.name,
-            stream = it
+            stream = stream
           )
         }
       }
@@ -439,16 +444,18 @@ class SqliteMagicMigrationTestHelper(
   private fun verifyCurrentSnapshot() = contextual(
     operation = "verifying current snapshot against compiled release export"
   ) {
+    if (currentSnapshotVerified) return@contextual
     withFreshSchema(schema = schema(descriptor.currentVersion)) { committed ->
       withFreshSchema(schema = compiledCurrent.copy(views = emptyList())) { compiled ->
         compareSchemas(
-          expected = compiled,
+          expected = SchemaIntrospector.inspect(compiled),
           actual = committed,
           operation = "Current release snapshot is stale relative to the independent compiled release export"
         )
         verifyIntegrity(compiled)
       }
     }
+    currentSnapshotVerified = true
   }
 
   private fun <T> withFreshSchema(
@@ -552,12 +559,12 @@ class SqliteMagicMigrationTestHelper(
     .single() as Long
 
   private fun compareSchemas(
-    expected: SQLiteConnection,
+    expected: InspectedSchema,
     actual: SQLiteConnection,
     operation: String
   ) {
     val differences = SchemaComparator.compare(
-      expected = SchemaIntrospector.inspect(expected),
+      expected = expected,
       actual = SchemaIntrospector.inspect(actual)
     )
     check(differences.isEmpty()) { "$operation:\n${differences.take(30).joinToString(separator = "\n")}" }
@@ -657,20 +664,6 @@ class SqliteMagicMigrationTestHelper(
         "Driver $driverImplementation, SQLite ${sqliteVersion ?: "unavailable"}. ${failure.message}",
     failure
   )
-}
-
-private class DriverMigrationDatabase(private val connection: SQLiteConnection) : MigrationDatabase {
-  override fun execute(sql: String) = SQLiteQueries.execute(
-    connection = connection,
-    sql = sql
-  )
-
-  override fun persistentViewNames(): List<String> = SQLiteQueries.query(
-    connection = connection,
-    sql = "SELECT name FROM main.sqlite_schema WHERE type = 'view'"
-  )
-    .rows
-    .map { it.single() as String }
 }
 
 private class TestDatabase(

@@ -4,6 +4,7 @@ import android.database.SQLException
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.execSQL
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import java.io.Closeable
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.NANOSECONDS
@@ -27,9 +28,11 @@ internal class ConnectionPool(
   }
 
   private val writerLock = ReentrantLock(true)
+
   @Volatile
   private var writerHolder: Thread? = null
   private var writer: PooledConnection? = null
+
   @Volatile
   private var writerOpened = false
 
@@ -39,39 +42,47 @@ internal class ConnectionPool(
   private var openedReaders = 0
 
   private val threadStates = ThreadLocal<ThreadState>()
+
   @Volatile
-  private var closed = false
+  var isClosed = false
+    private set
 
-  val inTransaction get() = threadState().transaction != null
+  val inTransaction get() = transaction != null
 
-  val isClosed get() = closed
+  val transaction get() = threadState().transaction
 
   inline fun <T> read(requiresWriter: Boolean, block: (PooledConnection) -> T): T {
     if (requiresWriter || maxReaders == 0 || holdsWriter()) {
       return write(block)
     }
     val state = threadState()
-    return when (val held = state.reader) {
-      null -> {
+    val held = state.reader
+    return when {
+      held == null -> {
         val reader = acquireReader()
         state.reader = reader
         try {
           block(reader)
         } finally {
           state.reader = null
+          state.wroteDuringRead = false
           releaseReader(reader)
         }
       }
+      state.wroteDuringRead -> write(block)
       else -> block(held)
     }
   }
 
   inline fun <T> write(block: (PooledConnection) -> T): T {
-    val connection = acquireWriter()
+    val held = reentrantWriter()
+    val connection = held ?: acquireWriter()
     try {
       return block(connection)
     } finally {
-      releaseWriter()
+      if (held == null) {
+        releaseWriter()
+      }
     }
   }
 
@@ -154,10 +165,10 @@ internal class ConnectionPool(
   }
 
   override fun close() {
-    if (closed) {
+    if (isClosed) {
       return
     }
-    closed = true
+    isClosed = true
     val idle = readerLock.withLock {
       idleReaders
         .toList()
@@ -168,7 +179,7 @@ internal class ConnectionPool(
         }
     }
     idle.forEach(PooledConnection::close)
-    if (writerLock.tryLock()) {
+    if (!writerLock.isHeldByCurrentThread && writerLock.tryLock()) {
       try {
         closeWriter()
       } finally {
@@ -181,11 +192,23 @@ internal class ConnectionPool(
 
   fun holdsWriter() = writerLock.isHeldByCurrentThread
 
+  fun reentrantWriter(): PooledConnection? {
+    if (!writerLock.isHeldByCurrentThread) {
+      return null
+    }
+    checkOpen()
+    return writer
+  }
+
   fun acquireWriter(): PooledConnection {
     checkOpen()
     lockWriter()
     if (writerLock.holdCount == 1) {
       writerHolder = Thread.currentThread()
+      val state = threadStates.get()
+      if (state?.reader != null) {
+        state.wroteDuringRead = true
+      }
     }
     return try {
       checkOpen()
@@ -199,7 +222,7 @@ internal class ConnectionPool(
   fun releaseWriter() {
     if (writerLock.holdCount == 1) {
       writerHolder = null
-      if (closed) {
+      if (isClosed) {
         closeWriter()
       }
     }
@@ -257,7 +280,7 @@ internal class ConnectionPool(
   fun releaseReader(reader: PooledConnection) {
     val closeReader = readerLock.withLock {
       when {
-        closed -> {
+        isClosed -> {
           openedReaders--
           true
         }
@@ -326,33 +349,33 @@ internal class ConnectionPool(
         }
       }
     }
-    schema.configure(connection)
+    schema.applySchemaPragmas(connection)
   }
 
   private fun migrate(connection: SQLiteConnection) {
     val newVersion = schema.version
-    val oldVersion = connection
-      .long("PRAGMA user_version")
-      .toInt()
-    if (oldVersion == newVersion) {
+    if (connection.userVersion() == newVersion) {
       return
     }
     connection.execSQL("BEGIN EXCLUSIVE")
     try {
-      when {
-        oldVersion == 0 -> schema.create(connection)
-        oldVersion > newVersion -> schema.downgrade(
-          connection = connection,
-          oldVersion = oldVersion,
-          newVersion = newVersion
-        )
-        else -> schema.upgrade(
-          connection = connection,
-          oldVersion = oldVersion,
-          newVersion = newVersion
-        )
+      val oldVersion = connection.userVersion()
+      if (oldVersion != newVersion) {
+        when {
+          oldVersion == 0 -> schema.create(connection)
+          oldVersion > newVersion -> schema.downgrade(
+            connection = connection,
+            oldVersion = oldVersion,
+            newVersion = newVersion
+          )
+          else -> schema.upgrade(
+            connection = connection,
+            oldVersion = oldVersion,
+            newVersion = newVersion
+          )
+        }
+        connection.execSQL("PRAGMA user_version = $newVersion")
       }
-      connection.execSQL("PRAGMA user_version = $newVersion")
       connection.execSQL("COMMIT")
     } catch (failure: Throwable) {
       try {
@@ -364,6 +387,8 @@ internal class ConnectionPool(
     }
   }
 
+  fun currentTransaction() = currentTransaction(threadState())
+
   private fun currentTransaction(state: ThreadState) = checkNotNull(state.transaction) { NO_TRANSACTION }
 
   private fun heldWriter() = checkNotNull(writer) { CLOSED }
@@ -373,7 +398,7 @@ internal class ConnectionPool(
     writer = null
   }
 
-  private fun checkOpen() = check(!closed) { CLOSED }
+  private fun checkOpen() = check(!isClosed) { CLOSED }
 
   private fun lockWriter() {
     if (timeoutNanos == Long.MAX_VALUE) {
@@ -415,9 +440,9 @@ internal class ConnectionPool(
     statement.getText(0)
   }
 
-  private fun SQLiteConnection.long(sql: String) = prepare(sql).use { statement ->
+  private fun SQLiteConnection.userVersion() = prepare("PRAGMA user_version").use { statement ->
     statement.step()
-    statement.getLong(0)
+    statement.getLong(0).toInt()
   }
 
   private fun Thread?.describe() = when (this) {
@@ -446,14 +471,24 @@ internal class ConnectionPool(
 
   internal class ThreadState {
     var reader: PooledConnection? = null
+    var wroteDuringRead = false
     var transaction: TransactionLevel? = null
   }
 
   internal class TransactionLevel(val parent: TransactionLevel?) {
+    val changedTables = MutableScatterSet<String>(initialCapacity = 0)
     var successful = false
     var childFailed = false
     var committedByYield = false
     var detached = false
+
+    override fun toString(): String {
+      val name = "%08x".format(System.identityHashCode(this))
+      return when (parent) {
+        null -> name
+        else -> "$name [$parent]"
+      }
+    }
   }
 }
 

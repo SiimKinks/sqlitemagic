@@ -34,14 +34,6 @@ internal class CompiledSelectConnectionConstructionTest {
       }
     ),
     constructionCase(
-      label = "generated scalar cursor",
-      construct = {
-        SELECT.COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
-          .FROM(SIMPLE_MUTABLE_ENTITY)
-          .toCursor()
-      }
-    ),
-    constructionCase(
       label = "generated Row2 compile",
       construct = {
         SELECT
@@ -52,27 +44,15 @@ internal class CompiledSelectConnectionConstructionTest {
     ),
     constructionCase(
       label = "generated entity compile",
-      construct = {
-        source.compile()
-      }
+      construct = source::compile
     ),
     constructionCase(
       label = "generated entity first",
-      construct = {
-        source.takeFirst()
-      }
+      construct = source::takeFirst
     ),
     constructionCase(
       label = "generated entity count",
-      construct = {
-        source.count()
-      }
-    ),
-    constructionCase(
-      label = "generated entity cursor",
-      construct = {
-        source.toCursor()
-      }
+      construct = source::count
     ),
     constructionCase(
       label = "distinct generated scalar compile",

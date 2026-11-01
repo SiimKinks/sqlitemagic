@@ -43,7 +43,7 @@ internal class OperationExecutionTest {
       executeBulkOperation(
         adapter = TestAdapter(),
         entities = entities,
-        context = contextFor(connection = connection.connection),
+        context = contextFor(connection = connection.dbConnection),
         isCancelled = { cancelled },
         operation = { BulkEntityOutcome.APPLIED }
       )
@@ -69,7 +69,7 @@ internal class OperationExecutionTest {
         adapter = TestAdapter(),
         entities = listOf(TestEntity()),
         context = contextFor(
-          connection = connection.connection,
+          connection = connection.dbConnection,
           conflictAlgorithm = CONFLICT_IGNORE
         ),
         isCancelled = { false },

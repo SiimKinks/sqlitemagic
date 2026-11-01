@@ -68,9 +68,8 @@ internal class CastRowValueSelectTest {
             (CAST(PERSON.ID AS TEXT) IS_NOT "3")
       )
       .ORDER_BY(PERSON.ID.ASC())
-    val plan = query.compile()
 
-    assertThat(snapshot(plan)).isEqualTo(
+    assertThat(snapshot(query.compile())).isEqualTo(
       PlanSnapshot(
         sql = """SELECT "person"."id" FROM "main"."person" """ +
             """WHERE (((CAST("person"."age" AS TEXT) IN (?, ?)) AND (CAST("person"."age" AS REAL) > ?)) AND """ +
@@ -85,8 +84,8 @@ internal class CastRowValueSelectTest {
         )
       )
     )
-    personDatabase().use { database ->
-      assertThat(query.rows(database)).isEqualTo(listOf(4L))
+    personDatabase().use {
+      assertThat(query.rows(it)).isEqualTo(listOf(4L))
     }
   }
 
@@ -137,9 +136,8 @@ internal class CastRowValueSelectTest {
       .FROM(BOOK)
       .WHERE((row(BOOK.AUTHOR, BOOK.ID) GREATER_OR_EQUAL row(2L, 2L)) AND (row(BOOK.ID, 0) LESS_THAN row(4L, 0)))
       .ORDER_BY(BOOK.ID.ASC())
-    val plan = after.compile()
 
-    assertThat(snapshot(plan)).isEqualTo(
+    assertThat(snapshot(after.compile())).isEqualTo(
       PlanSnapshot(
         sql = """SELECT "book"."title" FROM "main"."book" """ +
             """WHERE ("book"."author", "book"."id") > (?, ?) """ +
@@ -156,7 +154,7 @@ internal class CastRowValueSelectTest {
         listOf(
           after.rows(database),
           upTo
-            .usingConnection(database.dbConnection())
+            .usingConnection(database.connection)
             .compile()
             .bind(lastId TO 2L)
             .execute(),

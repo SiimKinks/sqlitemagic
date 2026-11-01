@@ -261,7 +261,6 @@ data class AssetRecord(
     arguments: List<String>
   ) = GradleRunner.create()
     .withProjectDir(project)
-    .withGradleVersion("9.8.0")
     .withArguments(arguments + listOf("--console=plain", "--stacktrace"))
     .forwardOutput()
     .build()

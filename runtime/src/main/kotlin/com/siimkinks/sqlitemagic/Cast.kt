@@ -2,7 +2,6 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import com.siimkinks.sqlitemagic.SqlType.BYTE_ARRAY
 import com.siimkinks.sqlitemagic.SqlType.DOUBLE
 import com.siimkinks.sqlitemagic.SqlType.LONG
@@ -19,10 +18,11 @@ import com.siimkinks.sqlitemagic.internal.sql.numericValue
  */
 class CastType<C> internal constructor(
   internal val sql: String,
-  internal val read: (Cursor, Int) -> C,
+  type: ReadType<C, Required, C>,
   internal val encode: (C) -> NativeValue
 ) {
-  internal val nullableRead = contextualRead(read)
+  internal val read = type.nonNullRead
+  internal val nullableRead = type.nullableRead()
 }
 
 /**
@@ -30,7 +30,7 @@ class CastType<C> internal constructor(
  */
 val INTEGER = CastType(
   sql = "INTEGER",
-  read = LONG.nonNullRead,
+  type = LONG,
   encode = LONG.encode
 )
 
@@ -39,7 +39,7 @@ val INTEGER = CastType(
  */
 val REAL = CastType(
   sql = "REAL",
-  read = DOUBLE.nonNullRead,
+  type = DOUBLE,
   encode = DOUBLE.encode
 )
 
@@ -48,7 +48,7 @@ val REAL = CastType(
  */
 val TEXT = CastType(
   sql = "TEXT",
-  read = STRING.nonNullRead,
+  type = STRING,
   encode = STRING.encode
 )
 
@@ -57,7 +57,7 @@ val TEXT = CastType(
  */
 val BLOB = CastType(
   sql = "BLOB",
-  read = BYTE_ARRAY.nonNullRead,
+  type = BYTE_ARRAY,
   encode = BYTE_ARRAY.encode
 )
 
@@ -67,7 +67,7 @@ val BLOB = CastType(
  */
 val NUMERIC = CastType(
   sql = "NUMERIC",
-  read = NUMBER.nonNullRead,
+  type = NUMBER,
   encode = ::numericValue
 )
 

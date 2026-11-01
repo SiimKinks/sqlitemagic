@@ -1,14 +1,7 @@
 package com.siimkinks.sqlitemagic
 
-import android.content.ContentValues
-import android.database.Cursor
-import android.database.sqlite.SQLiteTransactionListener
-import android.os.CancellationSignal
-import android.util.Pair
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteOpenHelper
-import androidx.sqlite.db.SupportSQLiteQuery
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityBulkInsertBuilder
@@ -24,7 +17,6 @@ import com.siimkinks.sqlitemagic.entity.EntityPersistBuilder
 import com.siimkinks.sqlitemagic.entity.EntityPersistByColumnBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateBuilder
 import com.siimkinks.sqlitemagic.entity.EntityUpdateByColumnBuilder
-import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.BulkDeleteBuilder
 import com.siimkinks.sqlitemagic.internal.BulkDeleteByColumnBuilder
 import com.siimkinks.sqlitemagic.internal.BulkInsertBuilder
@@ -39,286 +31,192 @@ import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.InsertBuilder
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
-import com.siimkinks.sqlitemagic.internal.MutableScatterSet
+import com.siimkinks.sqlitemagic.internal.MutationResults
 import com.siimkinks.sqlitemagic.internal.PersistBuilder
 import com.siimkinks.sqlitemagic.internal.PersistByColumnBuilder
-import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.UpdateBuilder
 import com.siimkinks.sqlitemagic.internal.UpdateByColumnBuilder
-import java.util.Locale
 
-internal class RecordingDatabase : SupportSQLiteDatabase {
+internal class RecordingSQLiteConnection : SQLiteConnection, MutationResults {
   val compiledStatements: List<RecordingStatement>
     field = mutableListOf()
-  private val triggerTransactions = mutableListOf<SQLiteTransactionListener>()
+  val executions: List<RecordedExecution>
+    field = mutableListOf()
   val insertResults = ArrayDeque<Long>()
   val updateResults = ArrayDeque<Int>()
   var successfulTransactions = 0
     private set
   var rolledBackTransactions = 0
     private set
-  private var transactionSuccessful = false
+  private var transaction = false
 
-  override fun compileStatement(sql: String) = RecordingStatement(
-    database = this,
-    sql = sql
-  ).also(compiledStatements::add)
-
-  override fun beginTransaction() = error("Unexpected transaction method")
-
-  override fun beginTransactionNonExclusive() = error("Unexpected transaction method")
-
-  override fun beginTransactionWithListener(transactionListener: SQLiteTransactionListener) {
-    triggerTransactions += transactionListener
-    transactionSuccessful = false
-    transactionListener.onBegin()
+  override fun prepare(sql: String): SQLiteStatement = when {
+    TRANSACTION_CONTROL.any(sql::startsWith) -> TransactionControlStatement(sql)
+    sql.startsWith("PRAGMA") -> ConnectionSetupStatement(sql)
+    else -> RecordingStatement(
+      sql = sql,
+      onStep = executions::add
+    ).also(compiledStatements::add)
   }
 
-  override fun beginTransactionWithListenerNonExclusive(transactionListener: SQLiteTransactionListener) =
-    beginTransactionWithListener(transactionListener)
+  override fun inTransaction() = transaction
 
-  override fun endTransaction() {
-    val listener = triggerTransactions.removeLast()
-    when {
-      transactionSuccessful -> {
-        successfulTransactions++
-        listener.onCommit()
-      }
-      else -> {
-        rolledBackTransactions++
-        listener.onRollback()
-      }
-    }
-    transactionSuccessful = false
+  override fun executeInsert(statement: SQLiteStatement): Long {
+    statement.step()
+    return insertResults.removeFirstOrNull() ?: 1L
   }
 
-  override fun setTransactionSuccessful() {
-    transactionSuccessful = true
+  override fun executeUpdateDelete(statement: SQLiteStatement): Int {
+    statement.step()
+    return updateResults.removeFirstOrNull() ?: 1
   }
-
-  override fun inTransaction() = triggerTransactions.isNotEmpty()
-
-  override val isDbLockedByCurrentThread = false
-
-  override fun yieldIfContendedSafely() = false
-
-  override fun yieldIfContendedSafely(sleepAfterYieldDelayMillis: Long) = false
-
-  override var version = 1
-
-  override val maximumSize = Long.MAX_VALUE
-
-  override fun setMaximumSize(numBytes: Long) = numBytes
-
-  override var pageSize = 4096L
-
-  override fun query(query: String): Cursor = error("Unexpected query")
-
-  override fun query(
-    query: String,
-    bindArgs: Array<out Any?>
-  ): Cursor = error("Unexpected query")
-
-  override fun query(query: SupportSQLiteQuery): Cursor = error("Unexpected query")
-
-  override fun query(
-    query: SupportSQLiteQuery,
-    cancellationSignal: CancellationSignal?
-  ): Cursor = error("Unexpected query")
-
-  override fun insert(
-    table: String,
-    conflictAlgorithm: Int,
-    values: ContentValues
-  ) = error("Unexpected insert")
-
-  override fun delete(
-    table: String,
-    whereClause: String?,
-    whereArgs: Array<out Any?>?
-  ) = error("Unexpected delete")
-
-  override fun update(
-    table: String,
-    conflictAlgorithm: Int,
-    values: ContentValues,
-    whereClause: String?,
-    whereArgs: Array<out Any?>?
-  ) = error("Unexpected update")
-
-  override fun execSQL(sql: String) = error("Unexpected execSQL")
-
-  override fun execSQL(
-    sql: String,
-    bindArgs: Array<out Any?>
-  ) = error("Unexpected execSQL")
-
-  override val isReadOnly = false
-
-  override val isOpen = true
-
-  override fun needUpgrade(newVersion: Int) = false
-
-  override val path = "test.db"
-
-  override fun setLocale(locale: Locale) = Unit
-
-  override fun setMaxSqlCacheSize(cacheSize: Int) = Unit
-
-  override fun setForeignKeyConstraintsEnabled(enabled: Boolean) = Unit
-
-  override fun enableWriteAheadLogging() = false
-
-  override fun disableWriteAheadLogging() = Unit
-
-  override val isWriteAheadLoggingEnabled = false
-
-  override val attachedDbs = emptyList<Pair<String, String>>()
-
-  override val isDatabaseIntegrityOk = true
 
   override fun close() = Unit
+
+  private inner class TransactionControlStatement(private val sql: String) : NoRowStatement() {
+    override fun step(): Boolean {
+      when {
+        sql.startsWith("BEGIN") -> transaction = true
+        sql == "COMMIT" -> {
+          transaction = false
+          successfulTransactions++
+        }
+        else -> {
+          transaction = false
+          rolledBackTransactions++
+        }
+      }
+      return false
+    }
+  }
+
+  private class ConnectionSetupStatement(private val sql: String) : NoRowStatement() {
+    override fun step() = sql == USER_VERSION
+
+    override fun getLong(index: Int) = 1L
+  }
 }
 
+internal data class RecordedExecution(
+  val sql: String,
+  val bindings: Map<Int, Any?>
+)
+
 internal class RecordingStatement(
-  private val database: RecordingDatabase,
-  val sql: String
-) : SupportSQLiteStatement {
-  val bindings = linkedMapOf<Int, Any?>()
+  val sql: String,
+  private val onStep: (RecordedExecution) -> Unit = {}
+) : NoRowStatement() {
+  private val boundValues = linkedMapOf<Int, Any?>()
+  var bindings = emptyMap<Int, Any?>()
+    private set
   var closeCalls = 0
     private set
-  var closeFailure: RuntimeException? = null
 
   override fun bindNull(index: Int) {
-    bindings[index] = null
+    boundValues[index] = null
   }
 
   override fun bindLong(index: Int, value: Long) {
-    bindings[index] = value
+    boundValues[index] = value
   }
 
   override fun bindDouble(index: Int, value: Double) {
-    bindings[index] = value
+    boundValues[index] = value
   }
 
-  override fun bindString(index: Int, value: String) {
-    bindings[index] = value
+  override fun bindText(index: Int, value: String) {
+    boundValues[index] = value
   }
 
   override fun bindBlob(index: Int, value: ByteArray) {
-    bindings[index] = value
+    boundValues[index] = value
   }
 
-  override fun clearBindings() = bindings.clear()
+  override fun clearBindings() = boundValues.clear()
 
-  override fun execute() = Unit
-
-  override fun executeUpdateDelete() = database.updateResults.removeFirstOrNull() ?: 1
-
-  override fun executeInsert() = database.insertResults.removeFirstOrNull() ?: 1L
-
-  override fun simpleQueryForLong() = 0L
-
-  override fun simpleQueryForString() = ""
+  override fun step(): Boolean {
+    bindings = boundValues.toMap()
+    onStep(
+      RecordedExecution(
+        sql = sql,
+        bindings = bindings
+      )
+    )
+    return false
+  }
 
   override fun close() {
     closeCalls++
-    closeFailure?.let { throw it }
   }
 }
 
-internal class RecordingOpenHelper(
-  database: SupportSQLiteDatabase
-) : SupportSQLiteOpenHelper {
-  override val databaseName = "test.db"
+internal abstract class NoRowStatement : SQLiteStatement {
+  override fun bindBlob(index: Int, value: ByteArray) = Unit
 
-  override fun setWriteAheadLoggingEnabled(enabled: Boolean) = Unit
+  override fun bindDouble(index: Int, value: Double) = Unit
 
-  override val writableDatabase = database
+  override fun bindLong(index: Int, value: Long) = Unit
 
-  override val readableDatabase = database
+  override fun bindText(index: Int, value: String) = Unit
+
+  override fun bindNull(index: Int) = Unit
+
+  override fun getBlob(index: Int) = noRow()
+
+  override fun getDouble(index: Int) = noRow()
+
+  override fun getLong(index: Int): Long = noRow()
+
+  override fun getText(index: Int): String = noRow()
+
+  override fun isNull(index: Int) = noRow()
+
+  override fun getColumnCount() = 0
+
+  override fun getColumnName(index: Int) = noRow()
+
+  override fun getColumnType(index: Int) = noRow()
+
+  override fun reset() = Unit
+
+  override fun clearBindings() = Unit
 
   override fun close() = Unit
+
+  private fun noRow(): Nothing = error("Recorded statements return no rows")
 }
 
-internal class TestGeneratedDatabase(
-  private val tableCount: Int,
-  private val submoduleTableCounts: Map<String, Int> = emptyMap()
-) : GeneratedDatabase {
-  val temporarySchemaDatabases: List<SupportSQLiteDatabase>
-    field = mutableListOf()
-
-  override fun configureDatabase(db: SupportSQLiteDatabase) = Unit
-
-  override fun createSchema(db: SupportSQLiteDatabase) = Unit
-
-  override fun createTemporarySchema(db: SupportSQLiteDatabase) {
-    temporarySchemaDatabases += db
-  }
-
-  override fun clearData(db: SupportSQLiteDatabase) = MutableScatterSet<String>()
-
-  override fun migrateViews(db: SupportSQLiteDatabase) = Unit
-
-  override val submoduleNames
-    get() = submoduleTableCounts
-      .keys
-      .toTypedArray()
-      .takeIf(Array<String>::isNotEmpty)
-
-  override fun getNrOfTables(moduleName: String?) = when (moduleName) {
-    null, "" -> tableCount
-    else -> submoduleTableCounts.getValue(moduleName)
-  }
-
-  override val dbVersion = 1
-
-  override val dbName = "test.db"
-
-  override val isDebug = false
-}
-
-internal fun testDbConnection(
-  database: SupportSQLiteDatabase,
-  tableCount: Int = 1,
-  adapterSettings: ScatterMap<AdapterSettingKey<*>, Any> = MutableScatterMap(initialCapacity = 0)
-) = DbConnectionImpl(
-  database = TestGeneratedDatabase(tableCount),
-  dbHelper = RecordingOpenHelper(database),
-  adapterSettings = adapterSettings
-)
-
-internal class RecordingConnection(
-  val recordingDatabase: RecordingDatabase,
+internal class RecordingDbConnection(
+  val sqliteConnection: RecordingSQLiteConnection,
   tableCount: Int = 1
 ) {
-  val connection = testDbConnection(
-    database = recordingDatabase,
-    tableCount = tableCount
+  val dbConnection = testDbConnection(
+    database = TestGeneratedDatabase(tableCount),
+    driver = SingleConnectionDriver(sqliteConnection)
   )
-  private val recordedTriggers = connection.recordTriggers()
+  private val recordedTriggers = dbConnection.recordTriggers()
   val triggers get() = recordedTriggers.triggers
   val statementSql
-    get() = recordingDatabase.compiledStatements.map(RecordingStatement::sql)
+    get() = sqliteConnection.compiledStatements.map(RecordingStatement::sql)
   val statementBindings
-    get() = recordingDatabase.compiledStatements.map(RecordingStatement::bindings)
-  val statementCloseCalls
-    get() = recordingDatabase.compiledStatements.map(RecordingStatement::closeCalls)
+    get() = sqliteConnection.compiledStatements.map(RecordingStatement::bindings)
 
   fun <R> transactionResult(result: R) = TransactionResult(
     result = result,
-    committed = recordingDatabase.successfulTransactions,
-    rolledBack = recordingDatabase.rolledBackTransactions
+    committed = sqliteConnection.successfulTransactions,
+    rolledBack = sqliteConnection.rolledBackTransactions
   )
 }
 
-internal fun newConnection() = RecordingConnection(RecordingDatabase())
+internal fun newConnection() = RecordingDbConnection(RecordingSQLiteConnection())
 
-internal fun newRecursiveConnection() = RecordingConnection(
-  recordingDatabase = RecordingDatabase(),
+internal fun newRecursiveConnection() = RecordingDbConnection(
+  sqliteConnection = RecordingSQLiteConnection(),
   tableCount = 3
 )
+
+private val TRANSACTION_CONTROL = listOf("BEGIN", "COMMIT", "ROLLBACK")
+private const val USER_VERSION = "PRAGMA user_version"
 
 internal data class TransactionResult<R>(
   val result: R,
@@ -346,9 +244,7 @@ internal fun <M> EntityAdapter<M>.bulkInsert(entities: Iterable<M>): EntityBulkI
   entities = entities
 )
 
-internal fun <M> EntityAdapter<M>.deleteTable(): EntityDeleteTableBuilder = DeleteTableBuilder(
-  adapter = this
-)
+internal fun <M> EntityAdapter<M>.deleteTable(): EntityDeleteTableBuilder = DeleteTableBuilder(adapter = this)
 
 internal fun <M> EntityIdentityAdapter<M>.updateByColumn(entity: M): EntityUpdateByColumnBuilder<M> =
   UpdateByColumnBuilder(

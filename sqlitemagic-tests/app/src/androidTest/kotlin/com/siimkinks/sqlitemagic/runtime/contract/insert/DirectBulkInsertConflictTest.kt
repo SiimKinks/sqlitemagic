@@ -1,18 +1,18 @@
 package com.siimkinks.sqlitemagic.runtime.contract.insert
 
-import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog.uniqueInsertCases
 import com.siimkinks.sqlitemagic.runtime.model.UniqueInsertModelCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.captureRows
+import com.siimkinks.sqlitemagic.runtime.support.isConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.seed
 import com.siimkinks.sqlitemagic.rxjava2.observe
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,13 +27,13 @@ internal class DirectBulkInsertConflictTest(
   val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun executeWithDefaultConflictThrowsSQLiteConstraintExceptionAndRollsBackBatch() = assertDefaultConflict(
+  fun executeWithDefaultConflictThrowsConstraintFailureAndRollsBackBatch() = assertDefaultConflict(
     modelCase = modelCase,
     terminal = EXECUTE
   )
 
   @Test
-  fun observeWithDefaultConflictEmitsSQLiteConstraintExceptionAndRollsBackBatch() = assertDefaultConflict(
+  fun observeWithDefaultConflictEmitsConstraintFailureAndRollsBackBatch() = assertDefaultConflict(
     modelCase = modelCase,
     terminal = OBSERVE
   )
@@ -77,7 +77,7 @@ internal class DirectBulkInsertConflictTest(
     )
 
     when (terminal) {
-      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
+      EXECUTE -> assertConstraintFailure {
         modelCase
           .bulkInsert(values)
           .execute()
@@ -86,7 +86,7 @@ internal class DirectBulkInsertConflictTest(
         .bulkInsert(values)
         .observe()
         .test()
-        .assertFailure(SQLiteConstraintException::class.java)
+        .assertFailure(Throwable::isConstraintFailure)
     }
     assertRows(
       modelCase = modelCase,
@@ -187,6 +187,6 @@ internal class DirectBulkInsertConflictTest(
   companion object {
     @JvmStatic
     @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.uniqueInsertCases
+    fun modelCases() = uniqueInsertCases
   }
 }

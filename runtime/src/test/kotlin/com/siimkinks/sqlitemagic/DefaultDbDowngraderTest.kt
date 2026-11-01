@@ -1,13 +1,16 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.FailureStage.CLOSE
 import com.siimkinks.sqlitemagic.FailureStage.CREATE
 import com.siimkinks.sqlitemagic.FailureStage.DROP
-import com.siimkinks.sqlitemagic.FailureStage.MOVE
+import com.siimkinks.sqlitemagic.FailureStage.STEP
+import com.siimkinks.sqlitemagic.connection.MEMORY_DATABASE
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -17,7 +20,7 @@ import org.mockito.kotlin.whenever
 
 internal class DefaultDbDowngraderTest {
   @Test
-  fun `downgrade drops every returned table in order before closing and recreating the schema`() {
+  fun `downgrade reads every returned table, then drops them in order and recreates the schema`() {
     val fixture = DowngradeFixture(tableNames = listOf("first_table", "second_table"))
 
     fixture.downgrade()
@@ -25,9 +28,9 @@ internal class DefaultDbDowngraderTest {
     assertThat(fixture.events)
       .containsExactly(
         "query",
+        "close",
         """drop:DROP TABLE IF EXISTS "first_table"""",
         """drop:DROP TABLE IF EXISTS "second_table"""",
-        "close",
         "create"
       )
       .inOrder()
@@ -35,37 +38,33 @@ internal class DefaultDbDowngraderTest {
 
   @Test
   fun `downgrade drops the newer version's views and quoted tables before recreating the schema`() {
-    val names = BundledSqliteDatabase().use { db ->
-      db.execSQL("CREATE TABLE android_metadata (locale TEXT)")
-      db.execSQL("""CREATE TABLE "newer item" (id INTEGER)""")
-      db.execSQL("""CREATE VIEW newer_view AS SELECT id FROM "newer item"""")
-      val database = mock<GeneratedDatabase>()
-      doAnswer {
-        db.execSQL("CREATE TABLE item (id INTEGER)")
-      }
-        .whenever(database)
-        .createSchema(any())
+    val names = BundledSQLiteDriver()
+      .open(MEMORY_DATABASE)
+      .use { connection ->
+        connection.execSQL("CREATE TABLE android_metadata (locale TEXT)")
+        connection.execSQL("""CREATE TABLE "newer item" (id INTEGER)""")
+        connection.execSQL("""CREATE VIEW newer_view AS SELECT id FROM "newer item"""")
 
-      DefaultDbDowngrader(database).onDowngrade(
-        db = db,
-        oldVersion = 7,
-        newVersion = 2
-      )
-      db.query("SELECT name FROM sqlite_master ORDER BY name").use { cursor ->
-        buildList {
-          while (cursor.moveToNext()) {
-            add(cursor.getString(0))
-          }
-        }
+        DefaultDbDowngrader(
+          TestGeneratedDatabase(
+            tableCount = 1,
+            schema = listOf("CREATE TABLE item (id INTEGER)")
+          )
+        ).onDowngrade(
+          connection = connection,
+          oldVersion = 7,
+          newVersion = 2
+        )
+        connection.query("SELECT name FROM sqlite_master ORDER BY name") { it.getText(0) }
       }
-    }
 
-    assertThat(names).containsExactly("android_metadata", "item")
+    assertThat(names)
+      .containsExactly("android_metadata", "item")
       .inOrder()
   }
 
   @Test
-  fun `failures propagate after closing the cursor and stop the downgrade`() {
+  fun `failures propagate after closing the schema query and stop the downgrade`() {
     data class FailureCase(
       val stages: Set<FailureStage>,
       val tableNames: List<String> = listOf("first_table", "second_table"),
@@ -74,13 +73,13 @@ internal class DefaultDbDowngraderTest {
       val expectedEvents: List<String> = listOf("query", "close")
     )
     listOf(
-      FailureCase(stages = setOf(MOVE)),
+      FailureCase(stages = setOf(STEP)),
       FailureCase(
         stages = setOf(DROP),
-        expectedEvents = listOf("query", """drop:DROP TABLE IF EXISTS "first_table"""", "close")
+        expectedEvents = listOf("query", "close", """drop:DROP TABLE IF EXISTS "first_table"""")
       ),
       FailureCase(
-        stages = setOf(MOVE, CLOSE),
+        stages = setOf(STEP, CLOSE),
         suppressed = { listOf(it.closeFailure) }
       ),
       FailureCase(
@@ -100,10 +99,7 @@ internal class DefaultDbDowngraderTest {
         failureStages = case.stages
       )
 
-      val failure = assertThrows(
-        IllegalStateException::class.java,
-        fixture::downgrade
-      )
+      val failure = assertThrows(IllegalStateException::class.java, fixture::downgrade)
 
       assertWithMessage(label)
         .that(failure)
@@ -120,7 +116,7 @@ internal class DefaultDbDowngraderTest {
 }
 
 private enum class FailureStage {
-  MOVE,
+  STEP,
   DROP,
   CLOSE,
   CREATE
@@ -133,43 +129,49 @@ private class DowngradeFixture(
   val events: List<String>
     field = mutableListOf()
   val failure = IllegalStateException("Failure at $failureStages")
-  val closeFailure = IllegalStateException("Failure closing the cursor")
+  val closeFailure = IllegalStateException("Failure closing the schema query")
   private var row = -1
-  private val cursor = mock<Cursor>()
-  private val db = mock<SupportSQLiteDatabase>()
+  private val query = mock<SQLiteStatement>()
+  private val connection = mock<SQLiteConnection>()
   private val database = mock<GeneratedDatabase>()
 
   init {
-    whenever(cursor.moveToNext())
+    whenever(query.step())
       .thenAnswer {
-        failAt(MOVE)
+        failAt(STEP)
         ++row < tableNames.size
       }
-    whenever(cursor.getString(0))
+    whenever(query.getText(0))
       .thenReturn("TABLE")
-    whenever(cursor.getString(1))
+    whenever(query.getText(1))
       .thenAnswer { tableNames[row] }
     doAnswer {
       events += "close"
       failAt(CLOSE)
       null
     }
-      .whenever(cursor)
+      .whenever(query)
       .close()
-    whenever(db.query(any<String>()))
-      .thenAnswer {
-        events += "query"
-        cursor
+    whenever(connection.prepare(any()))
+      .thenAnswer { invocation ->
+        val sql = invocation.getArgument<String>(0)
+        when {
+          sql.startsWith("SELECT") -> {
+            events += "query"
+            query
+          }
+          else -> mock<SQLiteStatement>().also { drop ->
+            whenever(drop.step())
+              .thenAnswer {
+                events += "drop:$sql"
+                failAt(DROP)
+                false
+              }
+          }
+        }
       }
     doAnswer { invocation ->
-      events += "drop:${invocation.getArgument<String>(0)}"
-      failAt(DROP)
-      null
-    }
-      .whenever(db)
-      .execSQL(any())
-    doAnswer { invocation ->
-      check(invocation.getArgument<SupportSQLiteDatabase>(0) === db)
+      check(invocation.getArgument<SQLiteConnection>(0) === connection)
       events += "create"
       failAt(CREATE)
       null
@@ -180,7 +182,7 @@ private class DowngradeFixture(
 
   fun downgrade() = DefaultDbDowngrader(database)
     .onDowngrade(
-      db = db,
+      connection = connection,
       oldVersion = 7,
       newVersion = 2
     )

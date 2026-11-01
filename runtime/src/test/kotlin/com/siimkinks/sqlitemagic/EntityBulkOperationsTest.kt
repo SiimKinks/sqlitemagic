@@ -9,8 +9,8 @@ internal class EntityBulkOperationsTest {
   @Test
   fun `bulk operations cover empty ignored partial and failure transactions`() {
     data class BulkCase(
-      val name: String,
-      val operation: (RecordingConnection) -> Boolean,
+      val label: String,
+      val operation: (RecordingDbConnection) -> Boolean,
       val expected: Boolean,
       val committed: Int,
       val rolledBack: Int
@@ -18,11 +18,11 @@ internal class EntityBulkOperationsTest {
 
     listOf(
       BulkCase(
-        name = "empty insert",
+        label = "empty insert",
         operation = { connection ->
           TestAdapter()
             .bulkInsert(emptyList())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .execute()
         },
         expected = false,
@@ -30,12 +30,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 0
       ),
       BulkCase(
-        name = "successful insert",
+        label = "successful insert",
         operation = { connection ->
-          connection.recordingDatabase.insertResults.addAll(listOf(5L, 6L))
+          connection.sqliteConnection.insertResults += listOf(5L, 6L)
           TestAdapter()
             .bulkInsert(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .execute()
         },
         expected = true,
@@ -43,12 +43,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 0
       ),
       BulkCase(
-        name = "partial ignored insert",
+        label = "partial ignored insert",
         operation = { connection ->
-          connection.recordingDatabase.insertResults.addAll(listOf(-1L, 5L))
+          connection.sqliteConnection.insertResults += listOf(-1L, 5L)
           TestAdapter()
             .bulkInsert(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .execute()
         },
@@ -57,12 +57,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 0
       ),
       BulkCase(
-        name = "all ignored insert",
+        label = "all ignored insert",
         operation = { connection ->
-          connection.recordingDatabase.insertResults.addAll(listOf(-1L, -1L))
+          connection.sqliteConnection.insertResults += listOf(-1L, -1L)
           TestAdapter()
             .bulkInsert(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .execute()
         },
@@ -71,12 +71,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 1
       ),
       BulkCase(
-        name = "non-ignored insert failure",
+        label = "non-ignored insert failure",
         operation = { connection ->
-          connection.recordingDatabase.insertResults.addAll(listOf(5L, -1L))
+          connection.sqliteConnection.insertResults += listOf(5L, -1L)
           TestAdapter()
             .bulkInsert(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .execute()
         },
         expected = false,
@@ -84,12 +84,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 1
       ),
       BulkCase(
-        name = "successful update",
+        label = "successful update",
         operation = { connection ->
-          connection.recordingDatabase.updateResults.addAll(listOf(1, 1))
+          connection.sqliteConnection.updateResults += listOf(1, 1)
           TestAdapter()
             .bulkUpdate(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_NONE)
             .execute()
         },
@@ -98,12 +98,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 0
       ),
       BulkCase(
-        name = "partially ignored update",
+        label = "partially ignored update",
         operation = { connection ->
-          connection.recordingDatabase.updateResults.addAll(listOf(0, 1))
+          connection.sqliteConnection.updateResults += listOf(0, 1)
           TestAdapter()
             .bulkUpdate(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .execute()
         },
@@ -112,12 +112,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 0
       ),
       BulkCase(
-        name = "all ignored update",
+        label = "all ignored update",
         operation = { connection ->
-          connection.recordingDatabase.updateResults.addAll(listOf(0, 0))
+          connection.sqliteConnection.updateResults += listOf(0, 0)
           TestAdapter()
             .bulkUpdate(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .execute()
         },
@@ -126,12 +126,12 @@ internal class EntityBulkOperationsTest {
         rolledBack = 1
       ),
       BulkCase(
-        name = "non-ignored update failure",
+        label = "non-ignored update failure",
         operation = { connection ->
-          connection.recordingDatabase.updateResults.addAll(listOf(1, 0))
+          connection.sqliteConnection.updateResults += listOf(1, 0)
           TestAdapter()
             .bulkUpdate(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_NONE)
             .execute()
         },
@@ -140,13 +140,13 @@ internal class EntityBulkOperationsTest {
         rolledBack = 1
       ),
       BulkCase(
-        name = "successful persist",
+        label = "successful persist",
         operation = { connection ->
-          connection.recordingDatabase.updateResults.addAll(listOf(0, 1))
-          connection.recordingDatabase.insertResults += 7L
+          connection.sqliteConnection.updateResults += listOf(0, 1)
+          connection.sqliteConnection.insertResults += 7L
           TestAdapter()
             .bulkPersist(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_NONE)
             .execute()
         },
@@ -155,13 +155,13 @@ internal class EntityBulkOperationsTest {
         rolledBack = 0
       ),
       BulkCase(
-        name = "partially ignored persist",
+        label = "partially ignored persist",
         operation = { connection ->
-          connection.recordingDatabase.updateResults.addAll(listOf(0, 0))
-          connection.recordingDatabase.insertResults.addAll(listOf(-1L, 7L))
+          connection.sqliteConnection.updateResults += listOf(0, 0)
+          connection.sqliteConnection.insertResults += listOf(-1L, 7L)
           TestAdapter()
             .bulkPersist(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .execute()
         },
@@ -170,13 +170,13 @@ internal class EntityBulkOperationsTest {
         rolledBack = 0
       ),
       BulkCase(
-        name = "all ignored persist",
+        label = "all ignored persist",
         operation = { connection ->
-          connection.recordingDatabase.updateResults.addAll(listOf(0, 0))
-          connection.recordingDatabase.insertResults.addAll(listOf(-1L, -1L))
+          connection.sqliteConnection.updateResults += listOf(0, 0)
+          connection.sqliteConnection.insertResults += listOf(-1L, -1L)
           TestAdapter()
             .bulkPersist(twoEntities())
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .execute()
         },
@@ -185,13 +185,13 @@ internal class EntityBulkOperationsTest {
         rolledBack = 1
       ),
       BulkCase(
-        name = "non-ignored persist failure",
+        label = "non-ignored persist failure",
         operation = { connection ->
-          connection.recordingDatabase.updateResults += 0
-          connection.recordingDatabase.insertResults += -1L
+          connection.sqliteConnection.updateResults += 0
+          connection.sqliteConnection.insertResults += -1L
           TestAdapter()
             .bulkPersist(listOf(TestEntity()))
-            .usingConnection(connection.connection)
+            .usingConnection(connection.dbConnection)
             .conflictAlgorithm(CONFLICT_NONE)
             .execute()
         },
@@ -203,7 +203,7 @@ internal class EntityBulkOperationsTest {
       val connection = newConnection()
       val actual = connection.transactionResult(case.operation(connection))
 
-      assertWithMessage(case.name)
+      assertWithMessage(case.label)
         .that(actual)
         .isEqualTo(
           TransactionResult(
@@ -212,7 +212,7 @@ internal class EntityBulkOperationsTest {
             rolledBack = case.rolledBack
           )
         )
-      assertWithMessage(case.name)
+      assertWithMessage(case.label)
         .that(connection.triggers)
         .isEqualTo(
           when {

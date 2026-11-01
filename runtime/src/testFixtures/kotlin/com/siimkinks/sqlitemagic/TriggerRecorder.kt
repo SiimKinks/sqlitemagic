@@ -1,13 +1,11 @@
 package com.siimkinks.sqlitemagic
 
 import android.util.Log
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import org.mockito.Mockito.mockStatic
-import org.mockito.kotlin.mock
 
 internal class TriggerRecorder : TableChangeObserver {
   val triggers: List<Set<String>>
@@ -24,19 +22,25 @@ internal class TriggerRecorder : TableChangeObserver {
   }
 }
 
-internal fun DbConnectionImpl.recordTriggers() = TriggerRecorder().also { recorder ->
+internal fun DbConnectionImpl.recordTriggers() = TriggerRecorder().also {
   tableObservers.add(
     tables = null,
-    observer = recorder
+    observer = it
   )
 }
 
+internal fun DbConnectionImpl.failTriggerDelivery(failure: Throwable) = tableObservers.add(
+  tables = null,
+  observer = object : TableChangeObserver {
+    override fun onTablesChanged(tables: Set<String>) = throw failure
+
+    override fun onClosed() = Unit
+  }
+)
+
 internal fun closedConnection(
   adapterSettings: ScatterMap<AdapterSettingKey<*>, Any> = MutableScatterMap(initialCapacity = 0)
-) = testDbConnection(
-  database = mock<SupportSQLiteDatabase>(),
-  adapterSettings = adapterSettings
-).also { connection ->
+) = testDbConnection(adapterSettings = adapterSettings).also { connection ->
   mockStatic(Log::class.java).use {
     connection.close()
   }

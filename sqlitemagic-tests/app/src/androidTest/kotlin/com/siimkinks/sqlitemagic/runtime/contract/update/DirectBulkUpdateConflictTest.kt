@@ -1,19 +1,19 @@
 package com.siimkinks.sqlitemagic.runtime.contract.update
 
-import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.runtime.model.BulkUpdateConflictModelCase
-import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.ModelCatalog.bulkUpdateConflictCases
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.EXECUTE
 import com.siimkinks.sqlitemagic.runtime.support.OperationTerminal.OBSERVE
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
+import com.siimkinks.sqlitemagic.runtime.support.isConstraintFailure
 import com.siimkinks.sqlitemagic.runtime.support.seedRows
 import com.siimkinks.sqlitemagic.runtime.support.withConflictAlgorithm
 import com.siimkinks.sqlitemagic.rxjava2.observe
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,13 +28,13 @@ internal class DirectBulkUpdateConflictTest(
   val clearDatabase = ClearDatabaseRule()
 
   @Test
-  fun executeWithDefaultConflictThrowsSQLiteConstraintExceptionAndRestoresSnapshot() = assertDefaultConflict(
+  fun executeWithDefaultConflictThrowsConstraintFailureAndRestoresSnapshot() = assertDefaultConflict(
     modelCase = modelCase,
     terminal = EXECUTE
   )
 
   @Test
-  fun observeWithDefaultConflictEmitsSQLiteConstraintExceptionAndRestoresSnapshot() = assertDefaultConflict(
+  fun observeWithDefaultConflictEmitsConstraintFailureAndRestoresSnapshot() = assertDefaultConflict(
     modelCase = modelCase,
     terminal = OBSERVE
   )
@@ -70,7 +70,7 @@ internal class DirectBulkUpdateConflictTest(
     val scenario = threeRowScenario(modelCase = modelCase)
 
     when (terminal) {
-      EXECUTE -> assertThrows(SQLiteConstraintException::class.java) {
+      EXECUTE -> assertConstraintFailure {
         bulkUpdate(
           modelCase = modelCase,
           values = scenario.values
@@ -82,7 +82,7 @@ internal class DirectBulkUpdateConflictTest(
       )
         .observe()
         .test()
-        .assertFailure(SQLiteConstraintException::class.java)
+        .assertFailure(Throwable::isConstraintFailure)
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
@@ -123,19 +123,34 @@ internal class DirectBulkUpdateConflictTest(
     modelCase: BulkUpdateConflictModelCase<T>,
     terminal: OperationTerminal
   ) {
-    val scenario = allConflictScenario(modelCase = modelCase)
+    val before = seedRows(
+      modelCase = modelCase,
+      count = 2
+    )
+    val values = listOf(
+      modelCase.valueWithConflict(
+        existing = before[0],
+        conflicting = before[1],
+        sequence = 3
+      ),
+      modelCase.valueWithConflict(
+        existing = before[1],
+        conflicting = before[0],
+        sequence = 4
+      )
+    )
 
     when (terminal) {
       EXECUTE -> assertThat(
         bulkUpdate(
           modelCase = modelCase,
-          values = scenario.values,
+          values = values,
           conflictAlgorithm = CONFLICT_IGNORE
         ).execute()
       ).isFalse()
       OBSERVE -> bulkUpdate(
         modelCase = modelCase,
-        values = scenario.values,
+        values = values,
         conflictAlgorithm = CONFLICT_IGNORE
       )
         .observe()
@@ -144,7 +159,7 @@ internal class DirectBulkUpdateConflictTest(
     }
     assertRowsIgnoringOrder(
       table = modelCase.table,
-      expected = scenario.before
+      expected = before
     )
   }
 
@@ -189,31 +204,6 @@ internal class DirectBulkUpdateConflictTest(
     )
   }
 
-  private fun <T> allConflictScenario(
-    modelCase: BulkUpdateConflictModelCase<T>
-  ): BulkUpdateScenario<T> {
-    val before = seedRows(
-      modelCase = modelCase,
-      count = 2
-    )
-    return BulkUpdateScenario(
-      before = before,
-      values = listOf(
-        modelCase.valueWithConflict(
-          existing = before[0],
-          conflicting = before[1],
-          sequence = 3
-        ),
-        modelCase.valueWithConflict(
-          existing = before[1],
-          conflicting = before[0],
-          sequence = 4
-        )
-      ),
-      afterMixedConflict = before
-    )
-  }
-
   private data class BulkUpdateScenario<T>(
     val before: List<T>,
     val values: List<T>,
@@ -223,6 +213,6 @@ internal class DirectBulkUpdateConflictTest(
   companion object {
     @JvmStatic
     @Parameters(name = "{0}")
-    fun modelCases() = ModelCatalog.bulkUpdateConflictCases
+    fun modelCases() = bulkUpdateConflictCases
   }
 }

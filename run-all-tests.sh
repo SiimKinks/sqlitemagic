@@ -19,9 +19,8 @@ usage() {
   printf '  gradle-plugin-unit        Gradle plugin unit and task-cache tests, without publication\n'
   printf '  gradle-plugin-integration Gradle plugin consumer integration tests, with publication\n'
   printf '  consumer                  sqlitemagic-tests JVM tests\n'
-  printf '  android                   sqlitemagic-tests connected Android tests\n'
+  printf '  android                   sqlitemagic-tests connected Android tests, on framework and bundled SQLite\n'
   printf '  sample                    Sample JVM tests, debug assembly, and lint\n'
-  printf '  sample-android            Sample connected Android tests\n'
   printf '  --init-script FILE        Apply a Gradle init script, including focused test filters\n'
   printf 'Examples: %s runtime gradle-plugin-unit; %s gradle-plugin-integration\n' \
       "${0##*/}" "${0##*/}"
@@ -50,7 +49,6 @@ select_plugin_integration=0
 select_consumer=0
 select_android=0
 select_sample=0
-select_sample_android=0
 clean_results=0
 fresh_run=0
 gradle_init_scripts=()
@@ -87,7 +85,6 @@ while [ "$#" -gt 0 ]; do
     consumer) select_consumer=1 ;;
     android) select_android=1 ;;
     sample) select_sample=1 ;;
-    sample-android) select_sample_android=1 ;;
     *)
       printf 'Unknown suite selector: %s\n' "$selector" >&2
       usage >&2
@@ -99,7 +96,7 @@ done
 if [ "$fresh_run" -eq 1 ] && [ "$clean_results" -eq 0 ] \
     && [ "$((select_all + select_compiler + select_runtime + select_rxjava2 + select_rxjava3 \
         + select_coroutines + select_plugin_unit + select_plugin_integration + select_consumer \
-        + select_android + select_sample + select_sample_android))" -eq 0 ]; then
+        + select_android + select_sample))" -eq 0 ]; then
   select_all=1
 fi
 
@@ -120,7 +117,6 @@ if [ "$select_all" -eq 1 ]; then
   select_consumer=1
   select_android=1
   select_sample=1
-  select_sample_android=1
 else
   if [ "$select_compiler" -eq 1 ]; then
     root_tasks+=(":compiler:test")
@@ -151,15 +147,8 @@ if [ "$select_android" -eq 1 ]; then
   nested_tasks+=(connectedAndroidTest)
 fi
 
-if [ "$select_sample_android" -eq 1 ] && [ ! -d "$repo_root/sqlitemagic-sample/app/src/androidTest" ]; then
-  printf 'The sample has no connected tests; skipping sample-android.\n'
-  select_sample_android=0
-fi
 if [ "$select_sample" -eq 1 ]; then
   sample_tasks=(":app:testDebugUnitTest" ":app:assembleDebug" ":app:lintDebug")
-fi
-if [ "$select_sample_android" -eq 1 ]; then
-  sample_tasks+=(":app:connectedDebugAndroidTest")
 fi
 
 if [ "$clean_results" -eq 1 ]; then
@@ -335,6 +324,18 @@ if [ "${#nested_tasks[@]}" -gt 0 ]; then
         nested_status=FAIL
         exit_status=1
       fi
+      bundled_connected_marker="$run_dir/android-bundled-connected-start"
+      touch "$bundled_connected_marker" || exit 1
+      if ! run_phase android-tests-bundled "$repo_root/sqlitemagic-tests" connectedAndroidTest \
+          -PsqliteEngine=bundled "${run_options[@]}"; then
+        nested_status=FAIL
+        exit_status=1
+      fi
+      if ! verify_connected_results android-tests-bundled "$repo_root/sqlitemagic-tests" \
+          "$bundled_connected_marker"; then
+        nested_status=FAIL
+        exit_status=1
+      fi
     fi
   else
     nested_status=SKIPPED
@@ -344,21 +345,11 @@ fi
 
 if [ "${#sample_tasks[@]}" -gt 0 ]; then
   if [ "$publication_status" = PASS ]; then
-    sample_connected_marker="$run_dir/sample-connected-start"
-    if [ "$select_sample_android" -eq 1 ]; then
-      touch "$sample_connected_marker" || exit 1
-    fi
     if run_phase sample-tests "$repo_root/sqlitemagic-sample" "${sample_tasks[@]}" "${run_options[@]}"; then
       sample_status=PASS
     else
       sample_status=FAIL
       exit_status=1
-    fi
-    if [ "$select_sample_android" -eq 1 ]; then
-      if ! verify_connected_results sample-tests "$repo_root/sqlitemagic-sample" "$sample_connected_marker"; then
-        sample_status=FAIL
-        exit_status=1
-      fi
     fi
   else
     sample_status=SKIPPED
@@ -369,7 +360,11 @@ fi
 printf '\nTest run summary:\n'
 printf '  Publication: %s\n' "$publication_status"
 printf '  Root JVM tests [%s]: %s\n' "${root_tasks[*]-}" "$root_status"
-printf '  Android project tests [%s]: %s\n' "${nested_tasks[*]-}" "$nested_status"
+android_engines=''
+if [ "$select_android" -eq 1 ]; then
+  android_engines=' (connected on framework and bundled SQLite)'
+fi
+printf '  Android project tests [%s]%s: %s\n' "${nested_tasks[*]-}" "$android_engines" "$nested_status"
 printf '  Sample checks [%s]: %s\n' "${sample_tasks[*]-}" "$sample_status"
 printf '  Retained logs: %s\n' "$run_dir"
 printf '  Root test reports: %s/<module>/build/reports/tests/\n' "$repo_root"

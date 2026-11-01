@@ -1,13 +1,18 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import com.siimkinks.sqlitemagic.SqlType.LONG
+import com.siimkinks.sqlitemagic.connection.MEMORY_DATABASE
+import com.siimkinks.sqlitemagic.connection.TrackingDriver
+import com.siimkinks.sqlitemagic.connection.long
 import com.siimkinks.sqlitemagic.internal.GeneratedSchema
 import com.siimkinks.sqlitemagic.internal.GeneratedView
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
-import com.siimkinks.sqlitemagic.internal.SqlUtil
+import com.siimkinks.sqlitemagic.internal.SqlUtil.clearData
+import com.siimkinks.sqlitemagic.internal.SqlUtil.createSchema
+import com.siimkinks.sqlitemagic.internal.SqlUtil.migrateViews
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -15,7 +20,7 @@ internal class SchemaCreationTest {
   private class PersonSchema(
     private val indexFailure: RuntimeException? = null
   ) : GeneratedSchema {
-    override fun createSchemaTables(db: SupportSQLiteDatabase, temporary: Boolean) = db.execSQL(
+    override fun createSchemaTables(connection: SQLiteConnection, temporary: Boolean) = connection.execSQL(
       when {
         temporary -> SESSION_TABLE
         else -> PERSON_TABLE
@@ -35,43 +40,18 @@ internal class SchemaCreationTest {
       )
     }
 
-    override fun createSchemaIndexes(db: SupportSQLiteDatabase, temporary: Boolean) {
-      indexFailure?.let { throw it }
+    override fun createSchemaIndexes(connection: SQLiteConnection, temporary: Boolean) {
+      if (indexFailure != null) {
+        throw indexFailure
+      }
       if (!temporary) {
-        db.execSQL(PERSON_INDEX)
+        connection.execSQL(PERSON_INDEX)
       }
     }
 
-    override fun clearTables(db: SupportSQLiteDatabase, changedTables: MutableScatterSet<String>) {
-      db.execSQL("DELETE FROM person")
+    override fun clearTables(connection: SQLiteConnection, changedTables: MutableScatterSet<String>) {
+      connection.execSQL("DELETE FROM person")
       changedTables.add("person")
-    }
-  }
-
-  private class RecordingSchemaDatabase(
-    private val database: BundledSqliteDatabase
-  ) : SupportSQLiteDatabase by database {
-    val events: List<String>
-      field = mutableListOf()
-
-    override fun execSQL(sql: String) {
-      events += sql
-      database.execSQL(sql)
-    }
-
-    override fun beginTransaction() {
-      events += "BEGIN"
-      database.beginTransaction()
-    }
-
-    override fun setTransactionSuccessful() {
-      events += "SUCCESS"
-      database.setTransactionSuccessful()
-    }
-
-    override fun endTransaction() {
-      events += "END"
-      database.endTransaction()
     }
   }
 
@@ -87,80 +67,79 @@ internal class SchemaCreationTest {
       Case(
         label = "persistent",
         temporary = false,
-        expectedEvents = listOf("BEGIN", PERSON_TABLE, PERSON_NAMES_VIEW, PERSON_INDEX, "SUCCESS", "END")
+        expectedEvents = listOf("BEGIN IMMEDIATE", PERSON_TABLE, PERSON_NAMES_VIEW, PERSON_INDEX, "COMMIT")
       ),
       Case(
         label = "temporary",
         temporary = true,
-        expectedEvents = listOf("BEGIN", SESSION_TABLE, "SUCCESS", "END")
+        expectedEvents = listOf("BEGIN IMMEDIATE", SESSION_TABLE, "COMMIT")
       )
     ).forEach { case ->
-      BundledSqliteDatabase().use { database ->
-        val recording = RecordingSchemaDatabase(database)
-        SqlUtil.createSchema(
-          db = recording,
-          schema = PersonSchema(),
-          temporary = case.temporary
+      TrackingDriver()
+        .open(MEMORY_DATABASE)
+        .use { connection ->
+          createSchema(
+            connection = connection,
+            schema = PersonSchema(),
+            temporary = case.temporary
+          )
+
+          assertWithMessage(case.label)
+            .that(connection.prepared)
+            .isEqualTo(case.expectedEvents)
+        }
+    }
+  }
+
+  @Test
+  fun `a failure rolls back earlier schema work and propagates unchanged`() = TrackingDriver()
+    .open(MEMORY_DATABASE)
+    .use { connection ->
+      val failure = IllegalStateException("index failure")
+
+      val actual = assertThrows(IllegalStateException::class.java) {
+        createSchema(
+          connection = connection,
+          schema = PersonSchema(indexFailure = failure),
+          temporary = false
         )
-
-        assertWithMessage(case.label)
-          .that(recording.events)
-          .isEqualTo(case.expectedEvents)
       }
+
+      assertThat(actual).isSameInstanceAs(failure)
+      assertThat(connection.prepared).isEqualTo(listOf("BEGIN IMMEDIATE", PERSON_TABLE, PERSON_NAMES_VIEW, "ROLLBACK"))
+      assertThat(connection.long("SELECT count(*) FROM sqlite_master")).isEqualTo(0L)
     }
-  }
 
   @Test
-  fun `a failure rolls back earlier schema work and propagates unchanged`() = BundledSqliteDatabase().use { database ->
-    val recording = RecordingSchemaDatabase(database)
-    val failure = IllegalStateException("index failure")
+  fun `view migration creates persistent views outside a transaction`() = TrackingDriver()
+    .open(MEMORY_DATABASE)
+    .use { connection ->
+      connection.execSQL(PERSON_TABLE)
+      connection.prepared.clear()
 
-    val actual = assertThrows(IllegalStateException::class.java) {
-      SqlUtil.createSchema(
-        db = recording,
-        schema = PersonSchema(indexFailure = failure),
-        temporary = false
+      migrateViews(
+        connection = connection,
+        schema = PersonSchema()
       )
+
+      assertThat(connection.prepared).isEqualTo(listOf(PERSON_NAMES_VIEW))
     }
 
-    assertThat(actual).isSameInstanceAs(failure)
-    assertThat(recording.events).isEqualTo(listOf("BEGIN", PERSON_TABLE, PERSON_NAMES_VIEW, "END"))
-    assertThat(
-      SELECT
-        .RAW("SELECT count(*) FROM sqlite_master")
-        .readAs(LONG)
-        .usingConnection(database.dbConnection())
-        .execute()
-    ).isEqualTo(listOf(0L))
-  }
-
   @Test
-  fun `view migration creates persistent views outside a transaction`() = BundledSqliteDatabase().use { database ->
-    database.execSQL(PERSON_TABLE)
-    val recording = RecordingSchemaDatabase(database)
+  fun `clearing data deletes rows in one transaction and reports the changed tables`() = TrackingDriver()
+    .open(MEMORY_DATABASE)
+    .use { connection ->
+      connection.execSQL(PERSON_TABLE)
+      connection.prepared.clear()
 
-    SqlUtil.migrateViews(
-      db = recording,
-      schema = PersonSchema()
-    )
-
-    assertThat(recording.events).isEqualTo(listOf(PERSON_NAMES_VIEW))
-  }
-
-  @Test
-  fun `clearing data deletes rows in one transaction and reports the changed tables`() =
-    BundledSqliteDatabase().use { database ->
-      database.execSQL(PERSON_TABLE)
-      val recording = RecordingSchemaDatabase(database)
-
-      val changedTables = SqlUtil.clearData(
-        db = recording,
+      val changedTables = clearData(
+        connection = connection,
         schema = PersonSchema(),
         tableCount = 1
       )
 
       assertThat(changedTables.asSet()).containsExactly("person")
-      assertThat(recording.events).isEqualTo(listOf("BEGIN", "DELETE FROM person", "SUCCESS", "END"))
+      assertThat(connection.prepared).isEqualTo(listOf("BEGIN IMMEDIATE", "DELETE FROM person", "COMMIT"))
     }
 
   private companion object {

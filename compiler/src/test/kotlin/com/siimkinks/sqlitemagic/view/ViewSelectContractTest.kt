@@ -67,25 +67,25 @@ internal class ViewSelectContractTest {
 
             import com.siimkinks.sqlitemagic.SqliteMagic_AuthorSummary_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_SummaryHolder_Dao
-            import fixtures.driver.cursor
+            import fixtures.driver.row
 
             object ViewReadDriver {
               @JvmStatic
               fun read(): List<Any> = listOf(
-                SqliteMagic_AuthorSummary_Dao.objectFromCursorPosition(
-                  cursor = cursor("skipped", 7L, "Ada", 4L),
+                SqliteMagic_AuthorSummary_Dao.objectFromRow(
+                  statement = row("skipped", 7L, "Ada", 4L),
                   startIndex = 1
                 ),
-                SqliteMagic_AuthorSummary_Dao.objectFromCursorPosition(
-                  cursor = cursor(8L, "Alan", null),
+                SqliteMagic_AuthorSummary_Dao.objectFromRow(
+                  statement = row(8L, "Alan", null),
                   startIndex = 0
                 ),
                 SqliteMagic_AuthorSummary_Dao.objectFromSelectedPositions(
-                  cursor = cursor("Ada", 7L),
+                  statement = row("Ada", 7L),
                   positions = intArrayOf(1, 0, -1)
                 ),
                 SqliteMagic_SummaryHolder_Dao.objectFromSelectedPositions(
-                  cursor = cursor(),
+                  statement = row(),
                   positions = intArrayOf()
                 )
               )
@@ -102,10 +102,11 @@ internal class ViewSelectContractTest {
     val reader = generated
       .loadClass("fixtures.view.ViewReadDriver")
       .getMethod("read")
-    assertThat(reader.invoke(null).toString()).isEqualTo(
-      "[AuthorSummary(id=7, name=Ada, rating=4), AuthorSummary(id=8, name=Alan, rating=null), " +
-          "AuthorSummary(id=7, name=Ada, rating=null), SummaryHolder(summary=null)]"
-    )
+    assertThat(reader.invoke(null).toString())
+      .isEqualTo(
+        "[AuthorSummary(id=7, name=Ada, rating=4), AuthorSummary(id=8, name=Alan, rating=null), " +
+            "AuthorSummary(id=7, name=Ada, rating=null), SummaryHolder(summary=null)]"
+      )
 
     PlainKotlinCompilation
       .compile(

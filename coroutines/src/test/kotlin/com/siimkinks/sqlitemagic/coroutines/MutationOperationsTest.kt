@@ -35,8 +35,8 @@ internal class MutationOperationsTest {
           .await()
       }
     )) {
-      personDatabase().use { database ->
-        val connection = database.dbConnection(adapterSettings = dispatcherSettings())
+      personDatabase(adapterSettings = dispatcherSettings()).use { database ->
+        val connection = database.connection
         val outcome = runBlocking {
           val ages = collectUnconfined(
             SELECT

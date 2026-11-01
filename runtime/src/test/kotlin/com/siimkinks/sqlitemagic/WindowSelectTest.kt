@@ -62,7 +62,7 @@ internal class WindowSelectTest {
     personDatabase().use { database ->
       assertThat(
         query
-          .usingConnection(database.dbConnection())
+          .usingConnection(database.connection)
           .compile()
           .bind(offset TO 2L)
           .execute()

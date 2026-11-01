@@ -19,7 +19,7 @@ apply from: 'buildsystem/android-sdk.gradle'
 
 allprojects {
   group = 'com.siimkinks.sqlitemagic'
-  version = rootProject.libs.versions.project.get()
+  version = rootProject.libs.versions.sqlitemagic.get()
 
   repositories {
     mavenLocal()

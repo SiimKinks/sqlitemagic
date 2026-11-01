@@ -1,20 +1,19 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.LogLevel.ERROR
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityDefaultIdentityAdapter
 import com.siimkinks.sqlitemagic.internal.EntityGeneratedIdAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.EntityRelationshipOperations
-import com.siimkinks.sqlitemagic.internal.TableChangeObserver
+import com.siimkinks.sqlitemagic.internal.MutationResults
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.mock
 
 internal class EntityMutationInvalidationTest {
   @Test
@@ -39,7 +38,7 @@ internal class EntityMutationInvalidationTest {
     listOf(MutationOperation.NULL_OMITTING_UPDATE, MutationOperation.DELETE_TABLE).forEach { operation ->
       val fixture = MutationFailureFixture(
         zeroResult = true,
-        closeFailure = IllegalStateException("close failed")
+        resetFailure = IllegalStateException("reset failed")
       )
       assertThrows(Exception::class.java) {
         fixture.execute(operation)
@@ -51,7 +50,8 @@ internal class EntityMutationInvalidationTest {
     listOf(
       MutationOperation.UPDATE,
       MutationOperation.NULL_OMITTING_UPDATE,
-      MutationOperation.INSERT
+      MutationOperation.INSERT,
+      MutationOperation.DELETE
     ).forEach { operation ->
       val fixture = MutationFailureFixture(bindFailure = IllegalStateException("encoder failed"))
       assertThrows(Exception::class.java) {
@@ -66,7 +66,7 @@ internal class EntityMutationInvalidationTest {
   @Test
   fun `successful writes invalidate when statement cleanup fails`() {
     listOf(MutationOperation.NULL_OMITTING_UPDATE, MutationOperation.DELETE_TABLE).forEach { operation ->
-      val fixture = MutationFailureFixture(closeFailure = IllegalStateException("close failed"))
+      val fixture = MutationFailureFixture(resetFailure = IllegalStateException("reset failed"))
       assertThrows(Exception::class.java) {
         fixture.execute(operation)
       }
@@ -113,10 +113,10 @@ internal class EntityMutationInvalidationTest {
           MutationFailureFixture(nativeFailure = failure).execute(operation)
         }
         assertWithMessage(operation.name)
-          .that(logger.events.filter { it.level == LogLevel.ERROR })
+          .that(logger.events.filter { it.level == ERROR })
           .containsExactly(
             LoggedMessage(
-              level = LogLevel.ERROR,
+              level = ERROR,
               message = "Operation failed",
               throwable = failure
             )
@@ -200,20 +200,12 @@ internal class EntityMutationInvalidationTest {
     val fixture = MutationFailureFixture()
     val mutationFailure = IllegalStateException("mutation failed")
     val deliveryFailure = IllegalArgumentException("delivery failed")
-    fixture.connection.tableObservers.add(
-      tables = null,
-      observer = object : TableChangeObserver {
-        override fun onTablesChanged(tables: Set<String>) = throw deliveryFailure
-
-        override fun onClosed() = Unit
-      }
-    )
-    val context = mutationContext(fixture)
+    fixture.connection.failTriggerDelivery(deliveryFailure)
     val actual = assertThrows(IllegalStateException::class.java) {
-      context.executeMutation(
+      mutationContext(fixture).executeMutation(
         adapter = fixture.adapter,
         operation = {
-          executeUpdateDelete(changedRow())
+          changeRow()
           throw mutationFailure
         }
       )
@@ -236,7 +228,7 @@ internal class EntityMutationInvalidationTest {
       child.executeMutation(
         adapter = fixture.adapter,
         operation = {
-          executeUpdateDelete(changedRow())
+          changeRow()
           throw failure
         }
       )
@@ -272,7 +264,7 @@ internal class EntityMutationInvalidationTest {
       mutationContext(fixture).executeMutation(
         adapter = adapter,
         operation = {
-          executeUpdateDelete(changedRow())
+          changeRow()
           throw failure
         }
       )
@@ -283,9 +275,10 @@ internal class EntityMutationInvalidationTest {
       .containsExactly(setOf("books", "authors", "publishers"))
   }
 
-  private fun changedRow() = mock<SupportSQLiteStatement> {
-    on { executeUpdateDelete() } doReturn 1
-  }
+  private fun EntityMutationExecution.changeRow() = executeUpdateDelete(
+    statement = RecordingStatement("UPDATE books SET name=?"),
+    results = RecordingSQLiteConnection()
+  )
 
   private fun mutationContext(fixture: MutationFailureFixture) = OperationContext(
     adapter = fixture.adapter,
@@ -295,27 +288,38 @@ internal class EntityMutationInvalidationTest {
 
 private class MutationFailureFixture(
   nativeFailure: RuntimeException? = null,
-  closeFailure: RuntimeException? = null,
+  resetFailure: RuntimeException? = null,
   bindFailure: RuntimeException? = null,
   idFailure: RuntimeException? = null,
   compileFailure: RuntimeException? = null,
   zeroResult: Boolean = false
 ) {
-  val recording = RecordingDatabase()
-  private val database = object : SupportSQLiteDatabase by recording {
-    override fun compileStatement(sql: String): SupportSQLiteStatement {
-      compileFailure?.let { throw it }
-      val statement = recording.compileStatement(sql)
-      return object : SupportSQLiteStatement by statement {
-        override fun bindString(index: Int, value: String) {
-          bindFailure?.let { throw it }
-          statement.bindString(
-            index = index,
-            value = value
-          )
+  val recording = RecordingSQLiteConnection()
+  val connection = testDbConnection(
+    driver = SingleConnectionDriver(
+      object : SQLiteConnection by recording, MutationResults by recording {
+        override fun prepare(sql: String) = when (val statement = recording.prepare(sql)) {
+          is RecordingStatement -> {
+            compileFailure?.let { throw it }
+            object : SQLiteStatement by statement {
+              override fun bindText(index: Int, value: String) {
+                bindFailure?.let { throw it }
+                statement.bindText(
+                  index = index,
+                  value = value
+                )
+              }
+
+              override fun reset() {
+                resetFailure?.let { throw it }
+                statement.reset()
+              }
+            }
+          }
+          else -> statement
         }
 
-        override fun executeInsert(): Long {
+        override fun executeInsert(statement: SQLiteStatement): Long {
           nativeFailure?.let { throw it }
           return when {
             zeroResult -> -1L
@@ -323,22 +327,16 @@ private class MutationFailureFixture(
           }
         }
 
-        override fun executeUpdateDelete(): Int {
+        override fun executeUpdateDelete(statement: SQLiteStatement): Int {
           nativeFailure?.let { throw it }
           return when {
-            zeroResult || sql.startsWith("UPDATE") && idFailure != null -> 0
+            zeroResult || idFailure != null -> 0
             else -> 1
           }
         }
-
-        override fun close() {
-          closeFailure?.let { throw it }
-          statement.close()
-        }
       }
-    }
-  }
-  val connection = testDbConnection(database)
+    )
+  )
   private val recordedTriggers = connection.recordTriggers()
   val triggers get() = recordedTriggers.triggers
   private val entity = TestEntity(
@@ -378,6 +376,10 @@ private class MutationFailureFixture(
       .conflictAlgorithm(CONFLICT_IGNORE)
       .usingConnection(connection)
       .execute()
+    MutationOperation.DELETE -> adapter
+      .delete(entity)
+      .usingConnection(connection)
+      .execute()
     MutationOperation.DELETE_TABLE -> adapter
       .deleteTable()
       .usingConnection(connection)
@@ -394,6 +396,7 @@ private enum class MutationOperation {
   NULL_OMITTING_UPDATE,
   INSERT,
   PERSIST,
+  DELETE,
   DELETE_TABLE,
   BULK_INSERT
 }

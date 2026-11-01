@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AccountTable.Companion.ACCOUNT
 import com.siimkinks.sqlitemagic.ArticleTable.Companion.ARTICLE
@@ -19,7 +18,7 @@ import com.siimkinks.sqlitemagic.queryDeep
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
 import com.siimkinks.sqlitemagic.runtime.support.insertedRowId
-import com.siimkinks.sqlitemagic.runtime.support.readRows
+import com.siimkinks.sqlitemagic.runtime.support.queryRows
 import com.siimkinks.sqlitemagic.update
 import org.junit.Rule
 import org.junit.Test
@@ -90,12 +89,7 @@ internal class TransformedIdentityRuntimeTest {
     ).isEqualTo(expected.id)
 
     assertThat(
-      SELECT
-        .RAW("SELECT id, typeof(id), value FROM automatic_transformed")
-        .toCursor()
-        .execute()
-        .use(Cursor::readRows)
-        .single()
+      queryRows(sql = "SELECT id, typeof(id), value FROM automatic_transformed").single()
     ).isEqualTo(listOf(expected.id.value.toString(), "integer", expected.value))
   }
 
@@ -150,14 +144,7 @@ internal class TransformedIdentityRuntimeTest {
 
     assertThat(
       listOf("SELECT id, typeof(id) FROM account", "SELECT account, typeof(account), value FROM article")
-        .map {
-          SELECT
-            .RAW(it)
-            .toCursor()
-            .execute()
-            .use(Cursor::readRows)
-            .single()
-        }
+        .map { queryRows(sql = it).single() }
     ).isEqualTo(
       listOf(
         listOf(account.id.value, "text"),

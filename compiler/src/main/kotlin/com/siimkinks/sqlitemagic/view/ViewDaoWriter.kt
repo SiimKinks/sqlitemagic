@@ -9,16 +9,17 @@ import com.siimkinks.sqlitemagic.model.ModelConstruction
 import com.siimkinks.sqlitemagic.model.writeModelSource
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
-import com.siimkinks.sqlitemagic.writer.CursorPosition
-import com.siimkinks.sqlitemagic.writer.CursorReadNode
-import com.siimkinks.sqlitemagic.writer.CursorReadTree
-import com.siimkinks.sqlitemagic.writer.cursorPositionReader
+import com.siimkinks.sqlitemagic.writer.ColumnPosition
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Embedded
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Related
+import com.siimkinks.sqlitemagic.writer.RowReadNode.Scalar
+import com.siimkinks.sqlitemagic.writer.RowReadTree
 import com.siimkinks.sqlitemagic.writer.descendantPositions
 import com.siimkinks.sqlitemagic.writer.selectedPositionsReader
-import com.siimkinks.sqlitemagic.writer.toCursorReadProperty
+import com.siimkinks.sqlitemagic.writer.startIndexReader
+import com.siimkinks.sqlitemagic.writer.toRowReadProperty
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
-import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
@@ -94,26 +95,23 @@ internal class ViewDaoWriter(
     )
   )
 
-  private fun reader(view: ViewElement): FunSpec {
-    val blockIndexes = view.blocks
-      .withIndex()
-      .associate { (index, block) -> block to index }
-    return cursorPositionReader(
-      returnType = view.modelClassName,
-      readsRelated = view.hasBlocks,
-      columns = view.scalarProperties,
-      tree = { positions ->
-        readTree(
-          viewName = view.viewName,
-          type = view.modelClassName,
-          construction = view.construction,
-          properties = view.properties,
-          scalarPositions = positions,
-          blockIndexes = blockIndexes
-        )
-      }
-    )
-  }
+  private fun reader(view: ViewElement) = startIndexReader(
+    returnType = view.modelClassName,
+    readsRelated = view.hasBlocks,
+    columns = view.scalarProperties,
+    tree = { positions ->
+      readTree(
+        viewName = view.viewName,
+        type = view.modelClassName,
+        construction = view.construction,
+        properties = view.properties,
+        scalarPositions = positions,
+        blockIndexes = view.blocks
+          .withIndex()
+          .associate { (index, block) -> block to index }
+      )
+    }
+  )
 
   /** Required columns are always selected, since the runtime checks them before SQL. */
   private fun selectedReader(view: ViewElement) = selectedPositionsReader(
@@ -139,15 +137,15 @@ internal class ViewDaoWriter(
     type: TypeName,
     construction: ModelConstruction,
     properties: List<ViewPropertyElement>,
-    scalarPositions: Map<ViewScalarPropertyElement, CursorPosition>,
+    scalarPositions: Map<ViewScalarPropertyElement, ColumnPosition>,
     blockIndexes: Map<ViewProjectionPropertyElement, Int>?
-  ): CursorReadTree = CursorReadTree(
+  ): RowReadTree = RowReadTree(
     type = type,
     construction = construction,
     nodes = properties.map { property ->
       when (property) {
-        is ViewScalarPropertyElement -> CursorReadNode.Scalar(
-          source = property.toCursorReadProperty(),
+        is ViewScalarPropertyElement -> Scalar(
+          source = property.toRowReadProperty(),
           position = scalarPositions.getValue(property),
           storageType = property.sqlStorageType,
           transformer = property.transformer,
@@ -166,14 +164,14 @@ internal class ViewDaoWriter(
             scalarPositions = scalarPositions,
             blockIndexes = blockIndexes
           )
-          CursorReadNode.Embedded(
-            source = property.toCursorReadProperty(),
+          Embedded(
+            source = property.toRowReadProperty(),
             tree = child,
             positions = child.descendantPositions()
           )
         }
-        is ViewProjectionPropertyElement -> CursorReadNode.Related(
-          source = property.toCursorReadProperty(),
+        is ViewProjectionPropertyElement -> Related(
+          source = property.toRowReadProperty(),
           read = blockIndexes?.let { indexes ->
             blockRead(
               block = property,
@@ -188,8 +186,8 @@ internal class ViewDaoWriter(
   private fun blockRead(block: ViewProjectionPropertyElement, index: Int): CodeBlock {
     val type = block.deserializedType.typeName.copy(nullable = false)
     return when {
-      block.isNullable -> CodeBlock.of("related.readOrNull(cursor, %L) as %T?", index, type)
-      else -> CodeBlock.of("related.read(cursor, %L) as %T", index, type)
+      block.isNullable -> CodeBlock.of("related.readOrNull(statement, %L) as %T?", index, type)
+      else -> CodeBlock.of("related.read(statement, %L) as %T", index, type)
     }
   }
 }

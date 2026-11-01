@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqlType.DOUBLE
 import com.siimkinks.sqlitemagic.SqlType.FLOAT
 import com.siimkinks.sqlitemagic.SqlType.INT
@@ -617,7 +617,7 @@ val CASE = Case
  */
 class SearchedCaseWhen<out R, out N : SqlNullability> internal constructor(
   internal val branches: CaseBranch?,
-  internal val read: ((Cursor, Int) -> R)?,
+  internal val read: ((SQLiteStatement, Int) -> R)?,
   internal val condition: ExpressionNode
 )
 
@@ -629,7 +629,7 @@ class SearchedCaseWhen<out R, out N : SqlNullability> internal constructor(
  */
 class SearchedCaseBranches<out R, out N : SqlNullability> internal constructor(
   branches: CaseBranch,
-  read: ((Cursor, Int) -> R)?
+  read: ((SQLiteStatement, Int) -> R)?
 ) : CaseBranches<R, N>(
   branches = branches,
   read = read
@@ -756,7 +756,7 @@ infix fun <C : Number?, W> SimpleCase<C, W>.WHEN(match: SqlExpression<Number?, *
 class SimpleCaseWhen<out R, out N : SqlNullability, C, W> internal constructor(
   internal val case: SimpleCase<C, W>,
   internal val branches: CaseBranch?,
-  internal val read: ((Cursor, Int) -> R)?,
+  internal val read: ((SQLiteStatement, Int) -> R)?,
   internal val match: ExpressionNode
 )
 
@@ -771,7 +771,7 @@ class SimpleCaseWhen<out R, out N : SqlNullability, C, W> internal constructor(
 class SimpleCaseBranches<out R, out N : SqlNullability, C, W> internal constructor(
   internal val case: SimpleCase<C, W>,
   branches: CaseBranch,
-  read: ((Cursor, Int) -> R)?
+  read: ((SQLiteStatement, Int) -> R)?
 ) : CaseBranches<R, N>(
   branches = branches,
   read = read
@@ -876,7 +876,7 @@ infix fun <R, C, W> SimpleCaseWhen<R, *, C, W>.THEN(value: SqlExpression<R, *, *
  */
 abstract class CaseBranches<out R, out N : SqlNullability> internal constructor(
   internal val branches: CaseBranch,
-  internal val read: ((Cursor, Int) -> R)?
+  internal val read: ((SQLiteStatement, Int) -> R)?
 ) {
   internal abstract val base: ExpressionNode?
 
@@ -1061,7 +1061,7 @@ private fun SqlExpression<*, *, *>.nullIfOperand(second: SqlExpression<*, *, *>)
 
 private fun <R> requiredResult(
   node: ExpressionNode,
-  read: ((Cursor, Int) -> R)?
+  read: ((SQLiteStatement, Int) -> R)?
 ) = (read ?: nullResultRead()).let { resultRead ->
   SqlExpression(
     node = node,
@@ -1073,7 +1073,7 @@ private fun <R> requiredResult(
 
 private fun <R> nullableResult(
   node: ExpressionNode,
-  read: ((Cursor, Int) -> R)?
+  read: ((SQLiteStatement, Int) -> R)?
 ) = (read ?: nullResultRead()).let { resultRead ->
   SqlExpression(
     node = node,
@@ -1084,14 +1084,14 @@ private fun <R> nullableResult(
 }
 
 @Suppress("UNCHECKED_CAST")
-private fun <R> nullResultRead() = NULL.nonNullRead as (Cursor, Int) -> R
+private fun <R> nullResultRead() = NULL.nonNullRead as (SQLiteStatement, Int) -> R
 
 private fun <R> callRead(
   function: String,
   leading: Array<out SqlExpression<R, *, *>>,
   rest: Array<out SqlExpression<R, *, *>>
-): ((Cursor, Int) -> R)? {
-  var read: ((Cursor, Int) -> R)? = null
+): ((SQLiteStatement, Int) -> R)? {
+  var read: ((SQLiteStatement, Int) -> R)? = null
   for (alternatives in arrayOf(leading, rest)) {
     for (alternative in alternatives) {
       read = mergedRead(
@@ -1105,7 +1105,7 @@ private fun <R> callRead(
 }
 
 private fun <R> caseRead(
-  read: ((Cursor, Int) -> R)?,
+  read: ((SQLiteStatement, Int) -> R)?,
   value: SqlExpression<R, *, *>
 ) = mergedRead(
   read = read,
@@ -1115,16 +1115,18 @@ private fun <R> caseRead(
 
 @Suppress("UNCHECKED_CAST")
 private fun <R> mergedRead(
-  read: ((Cursor, Int) -> R)?,
-  other: (Cursor, Int) -> R,
+  read: ((SQLiteStatement, Int) -> R)?,
+  other: (SQLiteStatement, Int) -> R,
   function: String
-): ((Cursor, Int) -> R)? = when {
+): ((SQLiteStatement, Int) -> R)? = when {
   other === NULL.nonNullRead -> read
   read == null || read === other -> other
-  read.isNativeNumber() && other.isNativeNumber() -> NUMBER.nonNullRead as (Cursor, Int) -> R
-  else -> throw IllegalArgumentException(
-    "$function values must decode alike: one type with one transformer, or native numbers read as Number"
-  )
+  else -> {
+    require(read.isNativeNumber() && other.isNativeNumber()) {
+      "$function values must decode alike: one type with one transformer, or native numbers read as Number"
+    }
+    NUMBER.nonNullRead as (SQLiteStatement, Int) -> R
+  }
 }
 
 private val nativeNumberReads = arrayOf(
@@ -1136,4 +1138,4 @@ private val nativeNumberReads = arrayOf(
   NUMBER.nonNullRead
 )
 
-private fun ((Cursor, Int) -> Any?).isNativeNumber() = nativeNumberReads.any { it === this }
+private fun ((SQLiteStatement, Int) -> Any?).isNativeNumber() = nativeNumberReads.any { it === this }

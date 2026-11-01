@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.RelationshipOwnerTable.Companion.RELATIONSHIP_OWNER
 import com.siimkinks.sqlitemagic.SELECT
@@ -11,7 +10,7 @@ import com.siimkinks.sqlitemagic.fixture.model.RelationshipOwner
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.insertedResult
-import com.siimkinks.sqlitemagic.runtime.support.readRows
+import com.siimkinks.sqlitemagic.runtime.support.queryRows
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -30,14 +29,7 @@ internal class RelationshipBackedIdRuntimeTest {
         "SELECT value, typeof(value) FROM leaf_id",
         "SELECT id, typeof(id) FROM relationship_id",
         "SELECT owner_id, relationship_id, typeof(relationship_id) FROM relationship_owner"
-      ).map {
-        SELECT
-          .RAW(it)
-          .toCursor()
-          .execute()
-          .use(Cursor::readRows)
-          .single()
-      }
+      ).map { queryRows(sql = it).single() }
     ).isEqualTo(
       listOf(
         listOf(leafValue, "text"),

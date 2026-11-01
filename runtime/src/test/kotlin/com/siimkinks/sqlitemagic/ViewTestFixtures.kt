@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.EntityProperty
@@ -28,21 +28,21 @@ internal class AuthorSummaryTable(
     name = "author.id",
     nullness = SqlNullable,
     parameterEncoding = LONG.parameterEncoding(),
-    selectedRead = Cursor::getLong
+    selectedRead = SQLiteStatement::getLong
   )
-  val NAME = Column<AuthorSummary, String, SqlNullable, String, String, Required, String>(
+  val NAME = Column(
     table = this,
     name = "name",
     nullness = SqlNullable,
     parameterEncoding = STRING.parameterEncoding(),
-    selectedRead = Cursor::getString
+    selectedRead = SQLiteStatement::getText
   )
 
   override val entityFields = listOf(AUTHOR_ID, NAME)
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = AuthorSummary(
-    id = cursor.getLong(startIndex),
-    name = cursor.getString(startIndex + 1)
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = AuthorSummary(
+    id = statement.getLong(startIndex),
+    name = statement.getText(startIndex + 1)
   )
 
   override val entityProperties = listOf(
@@ -56,9 +56,13 @@ internal class AuthorSummaryTable(
     )
   )
 
-  override fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = AuthorSummary(
-    id = cursor.getLong(positions[0]),
-    name = cursor.getString(positions[1])
+  override fun readPartialEntity(
+    statement: SQLiteStatement,
+    positions: IntArray,
+    related: RelatedEntities?
+  ) = AuthorSummary(
+    id = statement.getLong(positions[0]),
+    name = statement.getText(positions[1])
   )
 
   override infix fun AS(alias: String) = AuthorSummaryTable(

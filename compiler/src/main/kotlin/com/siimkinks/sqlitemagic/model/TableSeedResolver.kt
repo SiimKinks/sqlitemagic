@@ -6,6 +6,9 @@ import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
+import com.siimkinks.sqlitemagic.SqlStorageType.INT
+import com.siimkinks.sqlitemagic.SqlStorageType.LONG
+import com.siimkinks.sqlitemagic.SqlStorageType.SHORT
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
@@ -149,7 +152,7 @@ internal class TableSeedResolver(
     val autoIncrementMode = seed.idAnnotation?.autoIncrementMode()
     val id = autoIncrementMode?.let { mode ->
       val withoutRowId = WITHOUT_ROWID in tableSeed.options
-      val compatible = storageType.affinity == INTEGER && relationship == null
+      val compatible = storageType in ROW_ID_STORAGE_TYPES && relationship == null
       when {
         withoutRowId && mode == ENABLED -> reporter.error(
           message = "WITHOUT_ROWID does not support explicit auto-increment: ${seed.diagnosticPath}",
@@ -381,6 +384,8 @@ internal class TableSeedResolver(
     }
   }
 }
+
+private val ROW_ID_STORAGE_TYPES = setOf(INT, SHORT, LONG)
 
 private fun KSAnnotation.autoIncrementMode(): AutoIncrementMode {
   val autoIncrementArgument = getArgument(Id::autoIncrement)

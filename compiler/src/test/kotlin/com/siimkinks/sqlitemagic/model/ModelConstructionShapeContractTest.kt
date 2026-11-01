@@ -198,8 +198,8 @@ internal class ModelConstructionShapeContractTest {
       .withGeneratedSource("SqliteMagic_MutableAuthor_Dao.kt") {
         it.assertContainsUnwrapped(
           "MutableAuthor().apply { this.id = id }",
-          "MutableAuthor().apply { this.createdBy = cursor.getString(startIndex) " +
-              "this.id = cursor.getLong(startIndex + 1) this.displayName = cursor.getString(startIndex + 2) }"
+          "MutableAuthor().apply { this.createdBy = statement.getText(startIndex) " +
+              "this.id = statement.getLong(startIndex + 1) this.displayName = statement.getText(startIndex + 2) }"
         )
       }
   }
@@ -263,8 +263,8 @@ internal class ModelConstructionShapeContractTest {
       )
       .withGeneratedSource("SqliteMagic_MutableNullableDefaults_Dao.kt") {
         it.assertContains(
-          "if (!cursor.isNull(startIndex + 1)) this.label = cursor.getString(startIndex + 1)",
-          "if (!cursor.isNull(startIndex + 2)) this.count = cursor.getInt(startIndex + 2)"
+          "if (!statement.isNull(startIndex + 1)) this.label = statement.getText(startIndex + 1)",
+          "if (!statement.isNull(startIndex + 2)) this.count = statement.getInt(startIndex + 2)"
         )
       }
       .withGeneratedSource("SqliteMagic_MutableNullableCompositeDefaults_Dao.kt") {
@@ -272,8 +272,9 @@ internal class ModelConstructionShapeContractTest {
           "if (!column1IsNull || !column2IsNull) this.details =",
           "this.label =",
           "this.count =",
-          "if (!cursor.isNull(startIndex + 3)) this.owner = (related.read(cursor, 0) as MutableNullableOwner?) ?: " +
-              "SqliteMagic_MutableNullableOwner_Dao.newInstanceWithOnlyId(cursor.getLong(startIndex + 3))"
+          "if (!statement.isNull(startIndex + 3)) this.owner = " +
+              "(related.read(statement, 0) as MutableNullableOwner?) ?: " +
+              "SqliteMagic_MutableNullableOwner_Dao.newInstanceWithOnlyId(statement.getLong(startIndex + 3))"
         )
       }
   }

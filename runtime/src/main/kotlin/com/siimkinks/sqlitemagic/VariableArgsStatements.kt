@@ -1,12 +1,17 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteStatement
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
+import com.siimkinks.sqlitemagic.internal.MutationResults
+import com.siimkinks.sqlitemagic.internal.ScatterMap
 
-internal fun OperationContext.compileInsertStatement(tableName: String) = compileBoundStatement(
-  buildString {
+internal inline fun <T> OperationContext.withBoundInsertStatement(
+  tableName: String,
+  block: (SQLiteStatement, MutationResults) -> T
+) = withBoundStatement(
+  sql = buildString {
     append("INSERT")
-    append(ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm])
+    append(CONFLICT_VALUES[statementConflictAlgorithm])
     append(" INTO ")
     append(tableName)
     when {
@@ -22,17 +27,19 @@ internal fun OperationContext.compileInsertStatement(tableName: String) = compil
         append(')')
       }
     }
-  }
+  },
+  block = block
 )
 
-internal fun OperationContext.compileUpdateStatement(
+internal inline fun <T> OperationContext.withBoundUpdateStatement(
   tableName: String,
   resolutionColumn: String,
-  resolutionValue: Any
-) = compileBoundStatement(
-  buildString {
+  resolutionValue: Any,
+  block: (SQLiteStatement, MutationResults) -> T
+) = withBoundStatement(
+  sql = buildString {
     append("UPDATE")
-    append(ConflictAlgorithm.CONFLICT_VALUES[conflictAlgorithm])
+    append(CONFLICT_VALUES[statementConflictAlgorithm])
     append(' ')
     append(tableName)
     append(" SET ")
@@ -51,13 +58,13 @@ internal fun OperationContext.compileUpdateStatement(
     append(resolutionColumn)
     append("=?")
   }
-)
-  .bindSafely {
-    bindStorageValue(
-      position = bindValues.size + 1,
-      value = resolutionValue
-    )
-  }
+) { statement, results ->
+  statement.bindStorageValue(
+    position = bindValues.size + 1,
+    value = resolutionValue
+  )
+  block(statement, results)
+}
 
 internal fun StringBuilder.appendPlaceholders(count: Int) = repeat(count) { index ->
   if (index > 0) {
@@ -66,17 +73,18 @@ internal fun StringBuilder.appendPlaceholders(count: Int) = repeat(count) { inde
   append('?')
 }
 
-internal fun SupportSQLiteStatement.bindStorageValue(position: Int, value: Any) {
+internal fun SQLiteStatement.bindStorageValue(position: Int, value: Any) {
   when (value) {
-    is String -> bindString(position, value)
+    is String -> bindText(position, value)
     is Float -> bindDouble(position, value.toDouble())
     is Double -> bindDouble(position, value)
     is Number -> bindLong(position, value.toLong())
     is ByteArray -> bindBlob(position, value)
+    is Boolean -> bindBoolean(position, value)
   }
 }
 
-private fun StringBuilder.appendColumns(values: MutableScatterMap<String, Any>, suffix: String) {
+internal fun StringBuilder.appendColumns(values: ScatterMap<String, Any>, suffix: String) {
   var first = true
   values.forEachKey { column ->
     if (!first) {
@@ -88,29 +96,16 @@ private fun StringBuilder.appendColumns(values: MutableScatterMap<String, Any>, 
   }
 }
 
-private fun OperationContext.compileBoundStatement(sql: String) = entityDbManager()
-  .compileStatement(sql)
-  .bindSafely {
-    var position = 1
-    bindValues.forEachValue { value ->
-      bindStorageValue(
-        position = position++,
-        value = value
-      )
-    }
+internal inline fun <T> OperationContext.withBoundStatement(
+  sql: String,
+  block: (SQLiteStatement, MutationResults) -> T
+) = withStatement(sql = { sql }) { statement, results ->
+  var position = 1
+  bindValues.forEachValue { value ->
+    statement.bindStorageValue(
+      position = position++,
+      value = value
+    )
   }
-
-private inline fun SupportSQLiteStatement.bindSafely(
-  bind: SupportSQLiteStatement.() -> Unit
-) = apply {
-  try {
-    bind()
-  } catch (failure: Throwable) {
-    try {
-      close()
-    } catch (closeFailure: Throwable) {
-      failure.addSuppressed(closeFailure)
-    }
-    throw failure
-  }
+  block(statement, results)
 }

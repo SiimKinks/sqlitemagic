@@ -1,14 +1,14 @@
 package com.siimkinks.sqlitemagic.internal
 
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
 
 @InternalSqliteMagicApi
 interface GeneratedSchema {
-  fun createSchemaTables(db: SupportSQLiteDatabase, temporary: Boolean)
+  fun createSchemaTables(connection: SQLiteConnection, temporary: Boolean)
 
   fun collectGeneratedViews(views: MutableList<GeneratedView>)
 
-  fun createSchemaIndexes(db: SupportSQLiteDatabase, temporary: Boolean)
+  fun createSchemaIndexes(connection: SQLiteConnection, temporary: Boolean)
 
-  fun clearTables(db: SupportSQLiteDatabase, changedTables: MutableScatterSet<String>)
+  fun clearTables(connection: SQLiteConnection, changedTables: MutableScatterSet<String>)
 }

@@ -12,6 +12,7 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.connection.ConnectionOptions
 import com.siimkinks.sqlitemagic.connection.ConnectionPool
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.runtime.support.freshDatabasePath
 import org.junit.Test
 
 internal class PoolingDriverConnectionPoolTest {
@@ -64,6 +65,8 @@ internal class PoolingDriverConnectionPoolTest {
       }
     }
 
-    assertThat(results).containsExactly(1L, 2L, 2L).inOrder()
+    assertThat(results)
+      .containsExactly(1L, 2L, 2L)
+      .inOrder()
   }
 }

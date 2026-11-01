@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.QueryCompositionAuthors
@@ -7,8 +8,14 @@ import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.persist
+import com.siimkinks.sqlitemagic.runtime.contract.query.FailingMutation.DELETE_TABLE
+import com.siimkinks.sqlitemagic.runtime.contract.query.FailingMutation.NULL_OMITTING_UPDATE
+import com.siimkinks.sqlitemagic.runtime.contract.query.FailingMutation.UPDATE
+import com.siimkinks.sqlitemagic.runtime.contract.query.MutationTransactionMode.COMMIT
+import com.siimkinks.sqlitemagic.runtime.contract.query.MutationTransactionMode.NONE
+import com.siimkinks.sqlitemagic.runtime.contract.query.MutationTransactionMode.ROLLBACK
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
-import com.siimkinks.sqlitemagic.runtime.support.defaultWritableDatabase
+import com.siimkinks.sqlitemagic.runtime.support.withDefaultWriter
 import com.siimkinks.sqlitemagic.rxjava2.observe
 import com.siimkinks.sqlitemagic.update
 import org.junit.After
@@ -29,13 +36,12 @@ internal class NativeGeneratedEntityMutationFailureRuntimeTest(
   val clearDatabase = ClearDatabaseRule()
 
   @Before
-  fun prepareFixture() {
-    val database = defaultWritableDatabase()
-    database.execSQL("DROP TRIGGER IF EXISTS generated_mutation_fail")
-    database.execSQL("INSERT INTO query_composition_author(id,name) VALUES (1,'one'),(2,'two'),(3,'three')")
-    database.execSQL(
+  fun prepareFixture() = withDefaultWriter { connection ->
+    connection.execSQL("DROP TRIGGER IF EXISTS generated_mutation_fail")
+    connection.execSQL("INSERT INTO query_composition_author(id,name) VALUES (1,'one'),(2,'two'),(3,'three')")
+    connection.execSQL(
       when (operation) {
-        FailingMutation.DELETE_TABLE -> "CREATE TRIGGER generated_mutation_fail BEFORE DELETE ON " +
+        DELETE_TABLE -> "CREATE TRIGGER generated_mutation_fail BEFORE DELETE ON " +
             "query_composition_author WHEN OLD.id=2 BEGIN SELECT RAISE(FAIL,'stop'); END"
         else -> "CREATE TRIGGER generated_mutation_fail BEFORE UPDATE ON query_composition_author " +
             "WHEN OLD.id=2 BEGIN UPDATE query_composition_author SET name='retained' WHERE id=1; " +
@@ -45,8 +51,7 @@ internal class NativeGeneratedEntityMutationFailureRuntimeTest(
   }
 
   @After
-  fun removeFixture() = defaultWritableDatabase()
-    .execSQL("DROP TRIGGER IF EXISTS generated_mutation_fail")
+  fun removeFixture() = withDefaultWriter { it.execSQL("DROP TRIGGER IF EXISTS generated_mutation_fail") }
 
   @Test
   fun retainedGeneratedWriteRefreshesOnlyAfterCommit() {
@@ -58,7 +63,7 @@ internal class NativeGeneratedEntityMutationFailureRuntimeTest(
       .runQuery()
       .test()
     val transaction = when (transactionMode) {
-      MutationTransactionMode.NONE -> null
+      NONE -> null
       else -> SqliteMagic.newTransaction()
     }
     try {
@@ -68,20 +73,20 @@ internal class NativeGeneratedEntityMutationFailureRuntimeTest(
           name = "changed"
         )
         when (operation) {
-          FailingMutation.UPDATE -> changed
+          UPDATE -> changed
             .update()
             .execute()
-          FailingMutation.NULL_OMITTING_UPDATE -> changed
+          NULL_OMITTING_UPDATE -> changed
             .persist()
             .ignoreNullValues()
             .execute()
-          FailingMutation.DELETE_TABLE -> QueryCompositionAuthors
+          DELETE_TABLE -> QueryCompositionAuthors
             .deleteTable()
             .execute()
         }
       }
       if (transaction != null) observer.assertValueCount(1)
-      if (transactionMode == MutationTransactionMode.COMMIT) transaction?.markSuccessful()
+      if (transactionMode == COMMIT) transaction?.markSuccessful()
     } finally {
       transaction?.end()
     }
@@ -101,8 +106,8 @@ internal class NativeGeneratedEntityMutationFailureRuntimeTest(
         )
       )
       val expected = when {
-        transactionMode == MutationTransactionMode.ROLLBACK -> original
-        operation == FailingMutation.DELETE_TABLE -> original.drop(1)
+        transactionMode == ROLLBACK -> original
+        operation == DELETE_TABLE -> original.drop(1)
         else -> listOf(
           QueryCompositionAuthor(
             id = 1L,
@@ -113,20 +118,12 @@ internal class NativeGeneratedEntityMutationFailureRuntimeTest(
       assertThat(query.execute())
         .isEqualTo(expected)
       when (transactionMode) {
-        MutationTransactionMode.ROLLBACK -> observer.assertValuesOnly(original)
+        ROLLBACK -> observer.assertValuesOnly(original)
         else -> observer.assertValuesOnly(original, expected)
       }
     } finally {
       observer.dispose()
     }
-  }
-
-  enum class FailingMutation(private val label: String) {
-    UPDATE("update"),
-    NULL_OMITTING_UPDATE("null omitting update"),
-    DELETE_TABLE("delete table");
-
-    override fun toString() = label
   }
 
   companion object {
@@ -138,7 +135,15 @@ internal class NativeGeneratedEntityMutationFailureRuntimeTest(
   }
 }
 
-enum class MutationTransactionMode(private val label: String) {
+internal enum class FailingMutation(private val label: String) {
+  UPDATE("update"),
+  NULL_OMITTING_UPDATE("null omitting update"),
+  DELETE_TABLE("delete table");
+
+  override fun toString() = label
+}
+
+internal enum class MutationTransactionMode(private val label: String) {
   NONE("none"),
   COMMIT("commit"),
   ROLLBACK("rollback");

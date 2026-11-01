@@ -42,8 +42,8 @@ androidComponents {
       mapOf(
         "DB_VERSION" to BuildConfigField(
           type = "int",
-          value = when {
-            variant.buildType == "release" -> "8"
+          value = when (variant.buildType) {
+            "release" -> "8"
             else -> "9"
           },
           comment = null
@@ -60,7 +60,7 @@ androidComponents {
 
 dependencies {
   implementation(project(":migration-consumer-feature"))
-  implementation(libs.android.sqlite.framework)
+  implementation(libs.android.sqlite)
 
   testImplementation(libs.android.sqlite.bundled.jvm)
   testImplementation(platform(libs.junit.bom))

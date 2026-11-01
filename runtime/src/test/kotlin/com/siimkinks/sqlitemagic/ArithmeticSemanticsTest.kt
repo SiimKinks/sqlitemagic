@@ -51,14 +51,11 @@ internal class ArithmeticSemanticsTest {
       encodingNullness = Required
     )
 
-    personDatabase().use { database ->
-      val sum = SELECT
-        .COLUMN("'10.50'".expr(amountType) + 1.asValue())
-        .usingConnection(database.dbConnection())
-        .execute()
+    val sum = SELECT
+      .COLUMN("'10.50'".expr(amountType) + 1.asValue())
+      .rowsIn(::personDatabase)
 
-      assertThat(sum).isEqualTo(listOf(11.5))
-    }
+    assertThat(sum).isEqualTo(listOf(11.5))
   }
 
   @Test
@@ -70,8 +67,7 @@ internal class ArithmeticSemanticsTest {
         SELECT
           .COLUMN(infinite - infinite)
           .FROM(PERSON)
-          .usingConnection(database.dbConnection())
-          .execute()
+          .rows(database)
       }
     }
 

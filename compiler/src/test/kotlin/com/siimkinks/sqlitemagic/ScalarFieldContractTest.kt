@@ -41,7 +41,6 @@ internal class ScalarFieldContractTest {
 
             import com.siimkinks.sqlitemagic.AND
             import com.siimkinks.sqlitemagic.CompiledCount
-            import com.siimkinks.sqlitemagic.CompiledCursor
             import com.siimkinks.sqlitemagic.CompiledFirst
             import com.siimkinks.sqlitemagic.CompiledSelect
             import com.siimkinks.sqlitemagic.ParameterSource
@@ -75,7 +74,6 @@ internal class ScalarFieldContractTest {
               Exact<SqlParameter<W, R, N, T>>()
             fun <T> CompiledSelect<T>.exact() = Exact<CompiledSelect<T>>()
             fun <T> CompiledFirst<T>.exact() = Exact<CompiledFirst<T>>()
-            fun <T> CompiledCursor<T>.exact() = Exact<CompiledCursor<T>>()
             fun <T, S : Selection<T>> SelectProjectionStage<T, S>.exact() =
               Exact<SelectProjectionStage<T, S>>()
             fun <T, S : Selection<T>> SelectFromStage<T, S>.exact() = Exact<SelectFromStage<T, S>>()
@@ -216,9 +214,6 @@ internal class ScalarFieldContractTest {
               val count = SELECT.COLUMN(required)
                   .FROM(SCALAR_FIELD_RECORD)
                   .count()
-              val cursor = SELECT.COLUMN(required)
-                  .FROM(SCALAR_FIELD_RECORD)
-                  .toCursor()
               val orderedId = SELECT.COLUMN(id)
                   .FROM(SCALAR_FIELD_RECORD)
                   .ORDER_BY(id.ASC())
@@ -235,7 +230,6 @@ internal class ScalarFieldContractTest {
               val decodedPlanExact = decodedPlan.exact()
               val booleanPlanExact = booleanPlan.exact()
               val firstExact = first.exact()
-              val cursorExact = cursor.exact()
               val orderedIdExact = orderedId.exact()
               val orderedDecodedExact = orderedDecoded.exact()
               val orderedIdPlanExact = orderedIdPlan.exact()
@@ -249,7 +243,6 @@ internal class ScalarFieldContractTest {
               val booleanPlanType: Exact<CompiledSelect<Boolean?>> = booleanPlanExact
               val firstType: Exact<CompiledFirst<String>> = firstExact
               val countType: CompiledCount = count
-              val cursorType: Exact<CompiledCursor<String>> = cursorExact
               val orderedIdType: Exact<SelectOrderStage<Long, ScalarSelection<Long, Required, Long>>> = orderedIdExact
               val orderedDecodedType:
                   Exact<SelectOrderStage<DecodedToken, ScalarSelection<DecodedToken?, Required, DecodedToken>>> =
@@ -278,11 +271,11 @@ internal class ScalarFieldContractTest {
                   Exact<SelectHavingStage<DecodedToken, ScalarSelection<DecodedToken?, Required, DecodedToken>>> =
                   havingDecodedExact
               val groupedIdPlan = groupedId.compile()
-              val havingDecodedCursor = havingDecoded.toCursor()
+              val havingDecodedPlan = havingDecoded.compile()
               val groupedIdPlanExact = groupedIdPlan.exact()
-              val havingDecodedCursorExact = havingDecodedCursor.exact()
+              val havingDecodedPlanExact = havingDecodedPlan.exact()
               val groupedIdPlanType: Exact<CompiledSelect<Long>> = groupedIdPlanExact
-              val havingDecodedCursorType: Exact<CompiledCursor<DecodedToken>> = havingDecodedCursorExact
+              val havingDecodedPlanType: Exact<CompiledSelect<DecodedToken>> = havingDecodedPlanExact
 
               val distinctId = SELECT DISTINCT id
               val distinctSentinel = SELECT.DISTINCT(sentinel)
@@ -330,13 +323,23 @@ internal class ScalarFieldContractTest {
   @Test
   fun `generated fields read required columns as their property types`() {
     GENERATED.tableSource.assertContainsUnwrapped(
-      "selectedRead = { cursor, index -> cursor.getString(index) }",
-      "selectedRead = { cursor, index -> cursor.getBlob(index) }",
-      "selectedRead = { cursor, index -> SentinelTokenTransformer.fromDb(cursor.getString(index)) }",
-      "selectedRead = { cursor, index -> checkNotNull(DecodedTokenTransformer.fromDb(cursor.getString(index))) { " +
+      "selectedRead = { statement, index -> statement.getText(index) }",
+      "selectedRead = { statement, index -> statement.getBlob(index) }",
+      "selectedRead = { statement, index -> SentinelTokenTransformer.fromDb(statement.getText(index)) }",
+      "selectedRead = { statement, index -> checkNotNull(DecodedTokenTransformer.fromDb(statement.getText(index))) { " +
           """"Transformer fixtures.scalarfield.DecodedTokenTransformer.fromDb returned null for required property """ +
-          """decoded" } }""",
-      "selectedRead = { cursor, index -> cursor.getString(index)?.let(DecodedTokenTransformer::fromDb) }"
+          """decoded" } }"""
+    )
+  }
+
+  @Test
+  fun `generated fields read SQL NULL of nullable columns as null`() {
+    GENERATED.tableSource.assertContainsUnwrapped(
+      "selectedRead = { statement, index -> statement.getTextOrNull(index) }",
+      "selectedRead = { statement, index -> SentinelTokenTransformer.fromDb(statement.getTextOrNull(index)) }",
+      "selectedRead = { statement, index -> statement.getTextOrNull(index)?.let { stored -> " +
+          "DecodedTokenTransformer.fromDb(stored) } }",
+      "selectedRead = { statement, index -> (if (statement.isNull(index)) null else statement.getBoolean(index)) }"
     )
   }
 

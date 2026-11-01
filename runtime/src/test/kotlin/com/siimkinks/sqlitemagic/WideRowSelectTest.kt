@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqlType.INT
 import com.siimkinks.sqlitemagic.SqlType.LONG
@@ -32,19 +32,19 @@ private class MemberTable : Table<Member>(
     nullness = Required,
     parameterEncoding = LONG.parameterEncoding()
   )
-  val PLACE_CITY = Column<Member, String, SqlNullable, String?, String?, SqlNullable, String?>(
+  val PLACE_CITY = Column(
     table = this,
     name = "place_city",
     nullness = SqlNullable,
     parameterEncoding = STRING.nullBypassParameterEncoding(),
-    selectedRead = Cursor::getString
+    selectedRead = nullableRead(SQLiteStatement::getText)
   )
   val PLACE_ZIP = Column(
     table = this,
     name = "place_zip",
     nullness = SqlNullable,
     parameterEncoding = INT.nullBypassParameterEncoding(),
-    selectedRead = nullableRead(Cursor::getInt)
+    selectedRead = nullableRead(SQLiteStatement::getInt)
   )
 
   override val entityFields = listOf(ID, PLACE_CITY, PLACE_ZIP)
@@ -65,21 +65,21 @@ private class MemberTable : Table<Member>(
     )
   )
 
-  override fun readPartialEntity(cursor: Cursor, positions: IntArray, related: RelatedEntities?) = Member(
-    id = cursor.getLong(positions[0]),
+  override fun readPartialEntity(statement: SQLiteStatement, positions: IntArray, related: RelatedEntities?) = Member(
+    id = statement.getLong(positions[0]),
     place = when {
       positions[1] < 0 && positions[2] < 0 -> null
       else -> Place(
-        city = cursor.getString(positions[1]),
-        zip = positions[2].takeIf { it >= 0 && !cursor.isNull(it) }?.let(cursor::getInt)
+        city = statement.getText(positions[1]),
+        zip = positions[2]
+          .takeIf { it >= 0 && !statement.isNull(it) }
+          ?.let(statement::getInt)
       )
     }
   )
 }
 
 internal class WideRowSelectTest {
-  private val authorFields = """"author"."id", "author"."name", "author"."publisher""""
-
   @Test
   fun `field lists expand into selected rows read by their expressions`() {
     val nextId = (BOOK.ID + 1L) AS "next_id"
@@ -89,8 +89,9 @@ internal class WideRowSelectTest {
       .ORDER_BY(BOOK.ID.ASC())
 
     assertThat(query.compile().sql).isEqualTo(
-      """SELECT "book"."title", "book"."id" + ? AS "next_id", $authorFields FROM "main"."book" """ +
-          """LEFT JOIN "main"."author" ON "book"."author" = "author"."id" ORDER BY "book"."id" ASC"""
+      """SELECT "book"."title", "book"."id" + ? AS "next_id", "author"."id", "author"."name", """ +
+          """"author"."publisher" FROM "main"."book" LEFT JOIN "main"."author" ON "book"."author" = "author"."id" """ +
+          """ORDER BY "book"."id" ASC"""
     )
     val rows = query.rowsIn(::libraryDatabase)
     assertThat(
@@ -105,7 +106,9 @@ internal class WideRowSelectTest {
       )
     )
     val error = assertThrows(IllegalArgumentException::class.java) { rows.first()[PUBLISHER.NAME] }
-    assertThat(error).hasMessageThat().isEqualTo(""""publisher"."name" was not selected""")
+    assertThat(error)
+      .hasMessageThat()
+      .isEqualTo(""""publisher"."name" was not selected""")
   }
 
   @Test
@@ -121,7 +124,7 @@ internal class WideRowSelectTest {
       }
 
     libraryDatabase().use { database ->
-      val connected = labels.usingConnection(database.dbConnection())
+      val connected = labels.usingConnection(database.connection)
       val expected = listOf("Dune by Ada", "Emma by Grace", "Kernel by Linus")
 
       assertThat(
@@ -184,10 +187,10 @@ internal class WideRowSelectTest {
       .FROM(member)
       .mapTo(member)
 
-    BundledSqliteDatabase().use { database ->
+    TestDatabase().use { database ->
       database.execSQL("CREATE TABLE member (id INTEGER PRIMARY KEY, place_city TEXT, place_zip INTEGER)")
       database.execSQL("INSERT INTO member VALUES (1, 'Tartu', NULL)")
-      val connection = database.dbConnection()
+      val connection = database.connection
       assertThat(
         listOf(withoutPlace, withPlace).map {
           it.usingConnection(connection)
@@ -217,7 +220,9 @@ internal class WideRowSelectTest {
           .usingConnection(connection)
           .execute()
       }
-      assertThat(error).hasMessageThat().isEqualTo("""Member.place.city is required; select "member"."place_city"""")
+      assertThat(error)
+        .hasMessageThat()
+        .isEqualTo("""Member.place.city is required; select "member"."place_city"""")
     }
   }
 

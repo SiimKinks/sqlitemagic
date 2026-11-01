@@ -6,6 +6,8 @@ import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.RecursiveOperationEvent.PARENT_UPDATE
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
+import com.siimkinks.sqlitemagic.exception.OperationFailedException
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 internal class RecursiveEntityExecutionTest {
@@ -17,7 +19,7 @@ internal class RecursiveEntityExecutionTest {
       val updateResults: List<Int> = emptyList(),
       val operation: (RecursiveScenario) -> Any,
       val expectedResult: Any,
-      val expectedStatements: List<StatementRecord>
+      val expectedStatements: List<RecordedExecution>
     )
 
     listOf(
@@ -32,15 +34,15 @@ internal class RecursiveEntityExecutionTest {
         },
         expectedResult = EntityInsertResult.Inserted(13L),
         expectedStatements = listOf(
-          StatementRecord(
+          RecordedExecution(
             sql = "INSERT INTO recursive_grandchild (id) VALUES (?)",
             bindings = mapOf(1 to "grandchild")
           ),
-          StatementRecord(
+          RecordedExecution(
             sql = "INSERT INTO recursive_child (id, grandchild) VALUES (?, ?)",
             bindings = mapOf(1 to "child", 2 to "grandchild")
           ),
-          StatementRecord(
+          RecordedExecution(
             sql = "INSERT INTO recursive_parent (id, child) VALUES (?, ?)",
             bindings = mapOf(1 to "parent", 2 to "child")
           )
@@ -57,15 +59,15 @@ internal class RecursiveEntityExecutionTest {
         },
         expectedResult = true,
         expectedStatements = listOf(
-          StatementRecord(
+          RecordedExecution(
             sql = "UPDATE recursive_parent SET id=? WHERE id=?",
             bindings = mapOf(1 to "parent", 2 to "parent")
           ),
-          StatementRecord(
+          RecordedExecution(
             sql = "UPDATE recursive_child SET id=? WHERE id=?",
             bindings = mapOf(1 to "child", 2 to "child")
           ),
-          StatementRecord(
+          RecordedExecution(
             sql = "UPDATE recursive_grandchild SET id=? WHERE id=?",
             bindings = mapOf(1 to "grandchild", 2 to "grandchild")
           )
@@ -82,15 +84,15 @@ internal class RecursiveEntityExecutionTest {
         },
         expectedResult = EntityPersistResult.Updated,
         expectedStatements = listOf(
-          StatementRecord(
+          RecordedExecution(
             sql = "UPDATE recursive_grandchild SET id=? WHERE id=?",
             bindings = mapOf(1 to "grandchild", 2 to "grandchild")
           ),
-          StatementRecord(
+          RecordedExecution(
             sql = "UPDATE recursive_child SET id=? WHERE id=?",
             bindings = mapOf(1 to "child", 2 to "child")
           ),
-          StatementRecord(
+          RecordedExecution(
             sql = "UPDATE recursive_parent SET id=? WHERE id=?",
             bindings = mapOf(1 to "parent", 2 to "parent")
           )
@@ -98,8 +100,8 @@ internal class RecursiveEntityExecutionTest {
       )
     ).forEach { case ->
       val scenario = RecursiveScenario()
-      scenario.database.insertResults.addAll(case.insertResults)
-      scenario.database.updateResults.addAll(case.updateResults)
+      scenario.database.insertResults += case.insertResults
+      scenario.database.updateResults += case.updateResults
 
       assertWithMessage(case.label)
         .that(case.operation(scenario))
@@ -107,9 +109,9 @@ internal class RecursiveEntityExecutionTest {
       assertWithMessage(case.label)
         .that(
           scenario.database.compiledStatements.map {
-            StatementRecord(
+            RecordedExecution(
               sql = it.sql,
-              bindings = it.bindings.toMap()
+              bindings = it.bindings
             )
           }
         )
@@ -141,9 +143,33 @@ internal class RecursiveEntityExecutionTest {
   }
 
   @Test
+  fun `a failed recursive write rolls back the caller's transaction that is marked successful`() {
+    val scenario = RecursiveScenario()
+    scenario.database.insertResults += listOf(41L, 42L, -1L)
+    val transaction = scenario.connection.newTransaction()
+    assertThrows(OperationFailedException::class.java) {
+      scenario.parent
+        .insert(recursiveGraph())
+        .usingConnection(scenario.connection)
+        .execute()
+    }
+    transaction.markSuccessful()
+    transaction.end()
+
+    assertThat(scenario.recordingConnection.transactionResult(result = scenario.triggers))
+      .isEqualTo(
+        TransactionResult(
+          result = emptyList<Set<String>>(),
+          committed = 0,
+          rolledBack = 1
+        )
+      )
+  }
+
+  @Test
   fun `relationship operations inherit the conflict algorithm`() {
     val scenario = RecursiveScenario()
-    scenario.database.insertResults.addAll(listOf(31L, 32L, 33L))
+    scenario.database.insertResults += listOf(31L, 32L, 33L)
 
     assertThat(
       scenario.parent
@@ -164,7 +190,7 @@ internal class RecursiveEntityExecutionTest {
   @Test
   fun `relationship persist inherits ignore null values`() {
     val scenario = RecursiveScenario()
-    scenario.database.updateResults.addAll(listOf(1, 1, 1))
+    scenario.database.updateResults += listOf(1, 1, 1)
 
     assertThat(
       scenario.parent
@@ -176,8 +202,3 @@ internal class RecursiveEntityExecutionTest {
     assertThat(scenario.state.childIgnoreNullValues).containsExactly(true)
   }
 }
-
-private data class StatementRecord(
-  val sql: String,
-  val bindings: Map<Int, Any?>
-)

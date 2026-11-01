@@ -10,7 +10,7 @@ internal class EntitySelectTest {
   @Test
   fun `entity queries read every row through the table reader with clauses`() {
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val adults = (SELECT FROM PERSON) WHERE (PERSON.AGE GREATER_THAN 18)
       val alias = PERSON.AS("p")
       val minors = SELECT.FROM(alias)
@@ -35,9 +35,8 @@ internal class EntitySelectTest {
 
   @Test
   fun `entity selection renders every field of its occurrence`() {
-    val alias = PERSON.AS("p")
     val plan = SELECT.DISTINCT
-      .FROM(alias)
+      .FROM(PERSON.AS("p"))
       .compile()
 
     assertThat(snapshot(plan)).isEqualTo(
@@ -53,14 +52,17 @@ internal class EntitySelectTest {
   fun `DISTINCT entities compare every entity column`() {
     personDatabase().use { database ->
       database.execSQL("INSERT INTO person VALUES (5, 'Ada', 36, NULL, 'db:a', 1)")
-      val connection = database.dbConnection()
       val distinctAdas = (SELECT.DISTINCT FROM PERSON)
         .WHERE(PERSON.NAME IS "Ada")
         .ORDER_BY(PERSON.ID.ASC())
-        .usingConnection(connection)
+        .usingConnection(database.connection)
 
       assertThat(distinctAdas.execute()).isEqualTo(listOf(ada, ada.copy(id = 5L)))
-      assertThat(distinctAdas.count().execute()).isEqualTo(2L)
+      assertThat(
+        distinctAdas
+          .count()
+          .execute()
+      ).isEqualTo(2L)
     }
   }
 

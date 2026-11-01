@@ -1,70 +1,57 @@
 package com.siimkinks.sqlitemagic.migration.export
 
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.migration.MigrationConfiguration
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
-import java.lang.reflect.InvocationHandler
-import java.lang.reflect.Method
-import java.lang.reflect.Proxy
+import kotlin.text.RegexOption.DOT_MATCHES_ALL
+import kotlin.text.RegexOption.IGNORE_CASE
 
-/** Records generated schema creation without executing Android framework or SQLite operations. */
-internal class SchemaRecordingDatabase : InvocationHandler {
+internal class SchemaRecordingDatabase : SQLiteConnection {
   private var foreignKeysEnabled = false
   private var transactionActive = false
-  private var transactionSuccessful = false
   private var transactionFailed = false
   val tableSql: List<String> field = mutableListOf()
   val views: List<MigrationViewSchema> field = mutableListOf()
   val indexSql: List<String> field = mutableListOf()
   val transactionEvents: List<String> field = mutableListOf()
 
-  val database = Proxy.newProxyInstance(
-    SupportSQLiteDatabase::class.java.classLoader,
-    arrayOf(SupportSQLiteDatabase::class.java),
-    this
-  ) as SupportSQLiteDatabase
+  override fun prepare(sql: String): SQLiteStatement = RecordedStatement(sql)
 
-  override fun invoke(
-    proxy: Any,
-    method: Method,
-    args: Array<out Any?>?
-  ): Any? = when (method.name) {
-    "toString" -> "SqliteMagic schema recording database"
-    "hashCode" -> System.identityHashCode(proxy)
-    "equals" -> proxy === args?.singleOrNull()
-    "setForeignKeyConstraintsEnabled" -> {
-      check(!transactionActive) { "Schema configuration must precede its transaction" }
-      foreignKeysEnabled = args?.singleOrNull() as Boolean
-      null
+  override fun inTransaction() = transactionActive
+
+  override fun close() = Unit
+
+  override fun toString() = "SqliteMagic schema recording database"
+
+  private fun execute(sql: String) {
+    when {
+      FOREIGN_KEYS.matches(sql) -> {
+        check(!transactionActive) { "Schema configuration must precede its transaction" }
+        foreignKeysEnabled = true
+      }
+      BEGIN.matches(sql) -> {
+        check(!transactionActive) { "Nested schema transactions are unsupported" }
+        transactionActive = true
+        transactionEvents.add("begin")
+      }
+      COMMIT.matches(sql) -> {
+        check(transactionActive) { "No schema transaction to commit" }
+        transactionActive = false
+        transactionEvents.add("commit")
+      }
+      ROLLBACK.matches(sql) -> {
+        check(transactionActive) { "No schema transaction to roll back" }
+        transactionActive = false
+        transactionFailed = true
+        transactionEvents.add("rollback")
+      }
+      else -> {
+        check(transactionActive) { "Generated schema SQL must execute inside its schema transaction" }
+        recordSql(sql)
+      }
     }
-    "beginTransaction" -> {
-      check(!transactionActive) { "Nested schema transactions are unsupported" }
-      transactionActive = true
-      transactionSuccessful = false
-      transactionEvents.add("begin")
-      null
-    }
-    "setTransactionSuccessful" -> {
-      check(transactionActive && !transactionSuccessful) { "No unfinished schema transaction to mark successful" }
-      transactionSuccessful = true
-      transactionEvents.add("successful")
-      null
-    }
-    "endTransaction" -> {
-      check(transactionActive) { "No schema transaction to end" }
-      if (!transactionSuccessful) transactionFailed = true
-      transactionActive = false
-      transactionEvents.add("end")
-      null
-    }
-    "execSQL" -> {
-      require(method.parameterCount == 1) { "Generated schema SQL must not use bound arguments" }
-      check(transactionActive) { "Generated schema SQL must execute inside its schema transaction" }
-      recordSql(args?.singleOrNull() as String)
-      null
-    }
-    else -> error("Unsupported generated schema database operation ${method.name}")
   }
 
   fun snapshot(
@@ -99,18 +86,86 @@ internal class SchemaRecordingDatabase : InvocationHandler {
   }
 
   private companion object {
-    val OPTIONS = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
-    val TABLE = Regex(pattern = "\\s*CREATE\\s+TABLE\\s+.+", options = OPTIONS)
-    val VIEW = Regex(pattern = "\\s*CREATE\\s+VIEW\\s+.+", options = OPTIONS)
-    val INDEX = Regex(pattern = "\\s*CREATE\\s+(?:UNIQUE\\s+)?INDEX\\s+.+", options = OPTIONS)
+    val OPTIONS = setOf(IGNORE_CASE, DOT_MATCHES_ALL)
+    val FOREIGN_KEYS = Regex(
+      pattern = """\s*PRAGMA\s+foreign_keys\s*=\s*ON\s*""",
+      options = OPTIONS
+    )
+    val BEGIN = Regex(
+      pattern = """\s*BEGIN\b.*""",
+      options = OPTIONS
+    )
+    val COMMIT = Regex(
+      pattern = """\s*COMMIT\s*""",
+      options = OPTIONS
+    )
+    val ROLLBACK = Regex(
+      pattern = """\s*ROLLBACK\s*""",
+      options = OPTIONS
+    )
+    val TABLE = Regex(
+      pattern = """\s*CREATE\s+TABLE\s+.+""",
+      options = OPTIONS
+    )
+    val VIEW = Regex(
+      pattern = """\s*CREATE\s+VIEW\s+.+""",
+      options = OPTIONS
+    )
+    val INDEX = Regex(
+      pattern = """\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+.+""",
+      options = OPTIONS
+    )
+  }
+
+  private inner class RecordedStatement(private val sql: String) : SQLiteStatement {
+    override fun step(): Boolean {
+      execute(sql)
+      return false
+    }
+
+    override fun reset() = Unit
+
+    override fun clearBindings() = Unit
+
+    override fun close() = Unit
+
+    override fun bindBlob(index: Int, value: ByteArray) = boundArgument()
+
+    override fun bindDouble(index: Int, value: Double) = boundArgument()
+
+    override fun bindLong(index: Int, value: Long) = boundArgument()
+
+    override fun bindText(index: Int, value: String) = boundArgument()
+
+    override fun bindNull(index: Int) = boundArgument()
+
+    override fun getBlob(index: Int) = unsupported()
+
+    override fun getDouble(index: Int) = unsupported()
+
+    override fun getLong(index: Int) = unsupported()
+
+    override fun getText(index: Int) = unsupported()
+
+    override fun isNull(index: Int) = unsupported()
+
+    override fun getColumnCount() = 0
+
+    override fun getColumnName(index: Int) = unsupported()
+
+    override fun getColumnType(index: Int) = unsupported()
+
+    private fun boundArgument(): Nothing =
+      throw IllegalArgumentException("Generated schema SQL must not use bound arguments")
+
+    private fun unsupported(): Nothing = error("Unsupported generated schema database operation on $sql")
   }
 }
 
-/** Parses only the CREATE VIEW header emitted by the generated renderer, retaining defining SQL verbatim. */
 private fun parseGeneratedViewSql(sql: String): MigrationViewSchema {
   val prefix = Regex(
-    pattern = "^\\s*CREATE\\s+VIEW\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?",
-    option = RegexOption.IGNORE_CASE
+    pattern = """^\s*CREATE\s+VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?""",
+    option = IGNORE_CASE
   ).find(sql) ?: error("Malformed generated view creation SQL: $sql")
   var position = prefix.range.last + 1
   val name = buildString {
@@ -143,8 +198,8 @@ private fun parseGeneratedViewSql(sql: String): MigrationViewSchema {
     }
   }
   val definition = Regex(
-    pattern = "\\s+AS\\s+\\S.*",
-    options = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    pattern = """\s+AS\s+\S.*""",
+    options = setOf(IGNORE_CASE, DOT_MATCHES_ALL)
   )
   require(definition.matches(sql.substring(position))) { "Malformed generated view definition: $sql" }
   return MigrationViewSchema(

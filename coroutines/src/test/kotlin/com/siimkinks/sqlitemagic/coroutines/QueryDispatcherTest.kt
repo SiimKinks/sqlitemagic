@@ -1,15 +1,16 @@
 package com.siimkinks.sqlitemagic.coroutines
 
-import android.database.Cursor
+import android.app.Application
 import android.util.Log
-import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DELETE
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.PERSON
 import com.siimkinks.sqlitemagic.Query
-import com.siimkinks.sqlitemagic.RecordingDatabase
+import com.siimkinks.sqlitemagic.RecordingSQLiteConnection
+import com.siimkinks.sqlitemagic.SingleConnectionDriver
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.TestAdapter
 import com.siimkinks.sqlitemagic.TestEntity
@@ -28,20 +29,21 @@ import org.mockito.Mockito.mockStatic
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 
 internal class QueryDispatcherTest {
   @Test
   fun `a connection uses the dispatchCoroutineQueriesOn dispatcher of its builder or else Dispatchers IO`() {
-    val helper = mock<SupportSQLiteOpenHelper>()
-    val factory = mock<SupportSQLiteOpenHelper.Factory> {
-      on { create(any()) } doReturn helper
+    val context = mock<Application> {
+      on { getDatabasePath(any()) } doReturn File("unopened.db")
     }
+
     fun builder() = SqliteMagic
-      .builder(mock())
+      .builder(context)
       .database(TestGeneratedDatabase(tableCount = 0))
-      .sqliteFactory(factory)
+      .driver(BundledSQLiteDriver())
 
     val dispatchers = mockStatic(Log::class.java).use {
       listOf(
@@ -61,8 +63,8 @@ internal class QueryDispatcherTest {
 
   @Test
   fun `database calls run on the connection dispatcher or else on Dispatchers IO`() {
-    val executor = Executors.newSingleThreadExecutor { runnable ->
-      Thread(runnable, "configured-dispatcher").apply { isDaemon = true }
+    val executor = Executors.newSingleThreadExecutor {
+      Thread(it, "configured-dispatcher").apply { isDaemon = true }
     }
     try {
       val threads = listOf(
@@ -70,7 +72,7 @@ internal class QueryDispatcherTest {
         MutableScatterMap(initialCapacity = 0)
       ).map { settings ->
         val connection = testDbConnection(
-          database = RecordingDatabase(),
+          driver = SingleConnectionDriver(RecordingSQLiteConnection()),
           adapterSettings = settings
         )
         val writers = WriterThreads().also {
@@ -79,7 +81,10 @@ internal class QueryDispatcherTest {
             observer = it
           )
         }
-        val reader = threadNameQuery(connection)
+        val reader = object : Query<List<String>>(connection) {
+          override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean) =
+            listOf(Thread.currentThread().name)
+        }
         runBlocking {
           val readers = listOf(
             flowOf(reader)
@@ -96,7 +101,7 @@ internal class QueryDispatcherTest {
             .usingConnection(connection)
             .await()
           (readers + writers.names)
-            .map { name -> name.substringBefore(" @coroutine") }
+            .map { it.substringBefore(" @coroutine") }
             .map { thread ->
               when {
                 thread.startsWith("DefaultDispatcher-worker") -> "io"
@@ -115,12 +120,6 @@ internal class QueryDispatcherTest {
     } finally {
       executor.shutdownNow()
     }
-  }
-
-  private fun threadNameQuery(connection: DbConnectionImpl) = object : Query<List<String>>(connection) {
-    override fun rawQuery(dbConnection: DbConnectionImpl) = mock<Cursor>()
-
-    override fun map(cursor: Cursor, isDisposed: () -> Boolean) = listOf(Thread.currentThread().name)
   }
 
   private class WriterThreads : TableChangeObserver {

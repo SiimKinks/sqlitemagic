@@ -34,13 +34,13 @@ internal class EntityInsertOperationsTest {
       val adapter = TestAdapter(withoutRowId = case.withoutRowId)
       val recording = newConnection()
       when {
-        case.withoutRowId -> recording.recordingDatabase.updateResults += 1
-        else -> recording.recordingDatabase.insertResults += 41L
+        case.withoutRowId -> recording.sqliteConnection.updateResults += 1
+        else -> recording.sqliteConnection.insertResults += 41L
       }
       val entity = TestEntity()
       val actualResult = adapter
         .insert(entity)
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute()
 
       assertWithMessage(case.label)
@@ -91,13 +91,13 @@ internal class EntityInsertOperationsTest {
     ).forEach { case ->
       val recording = newConnection()
       when {
-        case.withoutRowId -> recording.recordingDatabase.updateResults += 0
-        else -> recording.recordingDatabase.insertResults += -1L
+        case.withoutRowId -> recording.sqliteConnection.updateResults += 0
+        else -> recording.sqliteConnection.insertResults += -1L
       }
       val entity = TestEntity(generatedRowId = 7L)
       val operation = TestAdapter(withoutRowId = case.withoutRowId)
         .insert(entity)
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .conflictAlgorithm(case.conflictAlgorithm)
 
       when (val expectedResult = case.expectedResult) {
@@ -110,7 +110,7 @@ internal class EntityInsertOperationsTest {
         .that(entity)
         .isEqualTo(TestEntity(generatedRowId = 7L))
       assertWithMessage(case.label)
-        .that(recording.recordingDatabase.rolledBackTransactions)
+        .that(recording.sqliteConnection.rolledBackTransactions)
         .isEqualTo(0)
       assertWithMessage(case.label)
         .that(recording.triggers)

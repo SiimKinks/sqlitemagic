@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.SqlAffinity.REAL
 import com.siimkinks.sqlitemagic.SqlAffinity.TEXT
 import com.siimkinks.sqlitemagic.utils.expandedTypeAlias
 import com.squareup.kotlinpoet.ARRAY
+import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.BYTE
 import com.squareup.kotlinpoet.BYTE_ARRAY
 import com.squareup.kotlinpoet.ClassName
@@ -33,6 +34,7 @@ internal enum class SqlStorageType(
   BYTE_ARRAY(BLOB, "X''"),
   BOXED_BYTE_ARRAY(BLOB, "X''"),
   BYTE(BLOB, "X'00'"),
+  BOOLEAN(INTEGER, "0"),
   DOUBLE(REAL, "0.0"),
   FLOAT(REAL, "0.0"),
   INT(INTEGER, "0"),
@@ -74,6 +76,8 @@ private val BYTE_CLASS_NAMES = setOf(
 )
 
 private val SIMPLE_TYPES = mapOf(
+  BOOLEAN.canonicalName to SqlStorageType.BOOLEAN,
+  Boolean::class.javaObjectType.canonicalName to SqlStorageType.BOOLEAN,
   BYTE_ARRAY.canonicalName to SqlStorageType.BYTE_ARRAY,
   BYTE.canonicalName to SqlStorageType.BYTE,
   Byte::class.javaObjectType.canonicalName to SqlStorageType.BYTE,

@@ -32,6 +32,10 @@ internal class SqlStorageTypeParsingTest {
         "Kotlin SQL storage type variants",
         "KotlinSqlTypes",
         mapOf(
+          "boolean" to SqlStorageType.BOOLEAN,
+          "nullableBoolean" to SqlStorageType.BOOLEAN,
+          "booleanAlias" to SqlStorageType.BOOLEAN,
+          "nullableBooleanAlias" to SqlStorageType.BOOLEAN,
           "byte" to SqlStorageType.BYTE,
           "nullableByte" to SqlStorageType.BYTE,
           "byteAlias" to SqlStorageType.BYTE,
@@ -77,9 +81,6 @@ internal class SqlStorageTypeParsingTest {
         "unsupported Kotlin SQL storage types",
         "UnsupportedKotlinSqlTypes",
         mapOf(
-          "boolean" to null,
-          "nullableBoolean" to null,
-          "booleanAlias" to null,
           "char" to null,
           "unsignedInt" to null,
           "intArray" to null,
@@ -92,6 +93,8 @@ internal class SqlStorageTypeParsingTest {
         "Java primitive and boxed SQL storage types",
         "JavaSqlTypes",
         mapOf(
+          "primitiveBoolean" to SqlStorageType.BOOLEAN,
+          "boxedBoolean" to SqlStorageType.BOOLEAN,
           "primitiveByte" to SqlStorageType.BYTE,
           "boxedByte" to SqlStorageType.BYTE,
           "primitiveShort" to SqlStorageType.SHORT,
@@ -113,8 +116,6 @@ internal class SqlStorageTypeParsingTest {
         "unsupported Java SQL storage types",
         "UnsupportedJavaSqlTypes",
         mapOf(
-          "unsupportedBoolean" to null,
-          "unsupportedBoxedBoolean" to null,
           "unsupportedChar" to null,
           "unsupportedBoxedChar" to null,
           "unsupportedPrimitiveIntArray" to null,
@@ -135,6 +136,7 @@ internal class SqlStorageTypeParsingTest {
             contents = """
               package com.example
 
+              typealias BooleanAlias = Boolean
               typealias ByteAlias = Byte
               typealias ShortAlias = Short
               typealias IntAlias = Int
@@ -146,6 +148,10 @@ internal class SqlStorageTypeParsingTest {
               typealias BoxedByteArrayAlias = Array<Byte>
 
               class KotlinSqlTypes {
+                val boolean: Boolean = false
+                val nullableBoolean: Boolean? = null
+                val booleanAlias: BooleanAlias = false
+                val nullableBooleanAlias: BooleanAlias? = null
                 val byte: Byte = 0
                 val nullableByte: Byte? = null
                 val byteAlias: ByteAlias = 0
@@ -193,14 +199,9 @@ internal class SqlStorageTypeParsingTest {
             contents = """
               package com.example
 
-              typealias BooleanAlias = Boolean
-
               class Value
 
               class UnsupportedKotlinSqlTypes {
-                val boolean: Boolean = false
-                val nullableBoolean: Boolean? = null
-                val booleanAlias: BooleanAlias = false
                 val char: Char = 'a'
                 val unsignedInt: UInt = 0u
                 val intArray: IntArray = intArrayOf()
@@ -216,6 +217,8 @@ internal class SqlStorageTypeParsingTest {
               package com.example;
 
               public class JavaSqlTypes {
+                public boolean primitiveBoolean;
+                public Boolean boxedBoolean;
                 public byte primitiveByte;
                 public Byte boxedByte;
                 public short primitiveShort;
@@ -240,8 +243,6 @@ internal class SqlStorageTypeParsingTest {
               package com.example;
 
               public class UnsupportedJavaSqlTypes {
-                public boolean unsupportedBoolean;
-                public Boolean unsupportedBoxedBoolean;
                 public char unsupportedChar;
                 public Character unsupportedBoxedChar;
                 public int[] unsupportedPrimitiveIntArray;

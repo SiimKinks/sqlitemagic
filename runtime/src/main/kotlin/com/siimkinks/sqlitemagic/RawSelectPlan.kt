@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import android.database.SQLException
 
 /**
@@ -30,6 +29,20 @@ class CompiledRawSelect<T, O : RawTables> internal constructor(
    * @throws SQLException if a column read with a not nullable type holds SQL NULL
    */
   fun execute(): List<T> = plan.execute()
+
+  /**
+   * Execute this compiled query against a database and read its rows inside [block].
+   *
+   * The rows are read lazily, one at a time, while [block] iterates them. They can be iterated once and only inside
+   * [block], on the calling thread. The query holds a database connection until [block] returns, so keep [block]
+   * short. This method runs synchronously in the calling thread.
+   *
+   * @param block Reads the rows of the query
+   * @return Result of [block]
+   * @throws IllegalStateException if the query returns another number of columns than `readAs` reads
+   * @throws SQLException if a column read with a not nullable type holds SQL NULL
+   */
+  fun <R> useRows(block: (Sequence<T>) -> R): R = plan.useRows(block)
 }
 
 /**
@@ -58,52 +71,4 @@ class CompiledRawFirst<T, O : RawTables> internal constructor(
    * @throws SQLException if a column read with a not nullable type holds SQL NULL
    */
   fun execute(): T? = plan.execute()
-}
-
-/**
- * Compiled raw SQL query that returns query results in raw [Cursor] objects.
- *
- * This object is immutable and can be shared across multiple threads without side effects.
- *
- * @param O Whether the query defines the tables it reads -- either [DeclaredTables] or [UndeclaredTables]
- */
-open class CompiledRawCursor<O : RawTables> internal constructor(
-  internal val plan: CompiledCursor<*>
-) {
-  /**
-   * SQL of this statement.
-   */
-  val sql get() = plan.sql
-
-  /**
-   * Execute this compiled query against a database.
-   *
-   * Caller of this method is responsible for **always** closing the returned [Cursor]. This method runs synchronously
-   * in the calling thread.
-   *
-   * @return Cursor over the result set
-   * @throws IllegalStateException if the query returns another number of columns than `readAs` reads
-   */
-  fun execute(): Cursor = plan.execute()
-}
-
-/**
- * Compiled raw SQL query that returns query results in raw [Cursor] objects and reads their rows.
- *
- * This object is immutable and can be shared across multiple threads without side effects.
- *
- * @param T Row type
- * @param O Whether the query defines the tables it reads -- either [DeclaredTables] or [UndeclaredTables]
- */
-class CompiledRawReadCursor<T, O : RawTables> internal constructor(
-  private val readPlan: CompiledCursor<T>
-) : CompiledRawCursor<O>(readPlan) {
-  /**
-   * Read the row at the current cursor position.
-   *
-   * @param cursor Cursor returned by this query
-   * @return Row
-   * @throws SQLException if a column read with a not nullable type holds SQL NULL
-   */
-  fun getFromCurrentPosition(cursor: Cursor) = readPlan.getFromCurrentPosition(cursor)
 }

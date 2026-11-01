@@ -9,19 +9,16 @@ import org.junit.jupiter.params.provider.CsvSource
 
 internal class RawQueryContractTest {
   @Test
-  fun `whole raw queries, cursors and statements keep their declared types`() {
+  fun `whole raw queries and statements keep their declared types`() {
     PlainKotlinCompilation
       .compile(
         fileName = "RawQueryConsumer.kt",
         contents = """
           package downstream.raw
 
-          import android.database.Cursor
           import com.siimkinks.sqlitemagic.Column
           import com.siimkinks.sqlitemagic.CompiledMutation
-          import com.siimkinks.sqlitemagic.CompiledRawCursor
           import com.siimkinks.sqlitemagic.CompiledRawFirst
-          import com.siimkinks.sqlitemagic.CompiledRawReadCursor
           import com.siimkinks.sqlitemagic.CompiledRawSelect
           import com.siimkinks.sqlitemagic.DELETE
           import com.siimkinks.sqlitemagic.DbConnection
@@ -76,12 +73,6 @@ internal class RawQueryContractTest {
             val list = names.execute()
             val first = names.takeFirst()
             val firstValue = first.execute()
-            val cursorPlan = SELECT
-                .RAW("PRAGMA index_list('author')")
-                .toCursor()
-            val cursor = cursorPlan.execute()
-            val readCursor = names.toCursor()
-            val cursorName = readCursor.getFromCurrentPosition(cursor)
             val compiled = names.compile()
             val streamed = names.observe()
             val compiledStream = compiled.observe()
@@ -94,13 +85,6 @@ internal class RawQueryContractTest {
                 .observe()
             val firstStream = names
                 .takeFirst()
-                .observe()
-            val cursorOnce = cursorPlan.observe()
-            val cursorStream = declared
-                .toCursor()
-                .observe()
-            val readCursorOnce = ids
-                .toCursor()
                 .observe()
             val update = UPDATE.RAW("UPDATE author SET name = ? WHERE id = ?", "Ada", 1L)
             val delete = DELETE RAW "DELETE FROM legacy_log"
@@ -139,14 +123,6 @@ internal class RawQueryContractTest {
             val exactFirst: Exact<CompiledRawFirst<AuthorName, DeclaredTables>> = firstType
             val firstValueType = firstValue.exactType()
             val exactFirstValue: Exact<AuthorName?> = firstValueType
-            val cursorPlanType = cursorPlan.exactType()
-            val exactCursorPlan: Exact<CompiledRawCursor<UndeclaredTables>> = cursorPlanType
-            val cursorType = cursor.exactType()
-            val exactCursor: Exact<Cursor> = cursorType
-            val readCursorType = readCursor.exactType()
-            val exactReadCursor: Exact<CompiledRawReadCursor<AuthorName, DeclaredTables>> = readCursorType
-            val cursorNameType = cursorName.exactType()
-            val exactCursorName: Exact<AuthorName> = cursorNameType
             val compiledType = compiled.exactType()
             val exactCompiled: Exact<CompiledRawSelect<AuthorName, DeclaredTables>> = compiledType
             val streamedType = streamed.exactType()
@@ -161,12 +137,6 @@ internal class RawQueryContractTest {
             val exactFirstOnce: Exact<Maybe<Long>> = firstOnceType
             val firstStreamType = firstStream.exactType()
             val exactFirstStream: Exact<SingleItemQueryObservable<AuthorName?>> = firstStreamType
-            val cursorOnceType = cursorOnce.exactType()
-            val exactCursorOnce: Exact<Single<Cursor>> = cursorOnceType
-            val cursorStreamType = cursorStream.exactType()
-            val exactCursorStream: Exact<SingleItemQueryObservable<Cursor>> = cursorStreamType
-            val readCursorOnceType = readCursorOnce.exactType()
-            val exactReadCursorOnce: Exact<Single<Cursor>> = readCursorOnceType
             val updateType = update.exactType()
             val exactUpdate: Exact<RawMutationQuery> = updateType
             val deleteType = delete.exactType()

@@ -4,8 +4,8 @@ import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DbConnectionImpl
-import com.siimkinks.sqlitemagic.RecordingConnection
-import com.siimkinks.sqlitemagic.RecordingDatabase
+import com.siimkinks.sqlitemagic.RecordingDbConnection
+import com.siimkinks.sqlitemagic.RecordingSQLiteConnection
 import com.siimkinks.sqlitemagic.TestAdapter
 import com.siimkinks.sqlitemagic.TestEntity
 import com.siimkinks.sqlitemagic.TransactionResult
@@ -43,8 +43,8 @@ internal class EntityBulkOperationsTest {
       }
     ).forEach { (operationName, operation) ->
       val connection = newConnection()
-      connection.recordingDatabase.insertResults += 1L
-      connection.recordingDatabase.updateResults += 1
+      connection.sqliteConnection.insertResults += 1L
+      connection.sqliteConnection.updateResults += 1
       val observer = TestObserver<Void>()
       val (first, second) = twoEntities()
       val entities = Iterable {
@@ -55,7 +55,7 @@ internal class EntityBulkOperationsTest {
         }
       }
 
-      operation(entities, connection.connection).subscribe(observer)
+      operation(entities, connection.dbConnection).subscribe(observer)
 
       observer.assertEmpty()
       assertWithMessage(operationName)
@@ -85,7 +85,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkInsert(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .observe()
         }
       ),
@@ -94,7 +94,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkUpdate(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .observe()
         }
       ),
@@ -103,26 +103,27 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkPersist(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .observe()
         }
       )
     ).forEach { case ->
       val connection = newConnection()
-      case.operation(
-        BulkRxInput(
-          connection = connection,
-          entities = oneShotIterable(emptyList())
+      case
+        .operation(
+          BulkRxInput(
+            connection = connection,
+            entities = oneShotIterable(emptyList())
+          )
         )
-      )
         .test()
         .assertResult()
 
       assertWithMessage(case.label)
-        .that(connection.recordingDatabase.successfulTransactions)
+        .that(connection.sqliteConnection.successfulTransactions)
         .isEqualTo(1)
       assertWithMessage(case.label)
-        .that(connection.recordingDatabase.rolledBackTransactions)
+        .that(connection.sqliteConnection.rolledBackTransactions)
         .isEqualTo(0)
       assertWithMessage(case.label)
         .that(connection.triggers)
@@ -134,7 +135,7 @@ internal class EntityBulkOperationsTest {
   fun `non-empty one-shot bulk Rx terminals preserve failure and ignored completion`() {
     data class NonEmptyBulkCase(
       val label: String,
-      val configure: (RecordingDatabase) -> Unit,
+      val configure: (RecordingSQLiteConnection) -> Unit,
       val operation: (BulkRxInput) -> Completable,
       val expectedTerminal: BulkRxTerminal
     )
@@ -145,7 +146,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkInsert(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .conflictAlgorithm(CONFLICT_NONE)
             .observe()
         },
@@ -157,7 +158,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkInsert(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .observe()
         },
@@ -169,7 +170,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkUpdate(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .conflictAlgorithm(CONFLICT_NONE)
             .observe()
         },
@@ -181,7 +182,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkUpdate(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .observe()
         },
@@ -196,7 +197,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkPersist(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .conflictAlgorithm(CONFLICT_NONE)
             .observe()
         },
@@ -211,7 +212,7 @@ internal class EntityBulkOperationsTest {
         operation = { input ->
           TestAdapter()
             .bulkPersist(input.entities)
-            .usingConnection(input.connection.connection)
+            .usingConnection(input.connection.dbConnection)
             .conflictAlgorithm(CONFLICT_IGNORE)
             .observe()
         },
@@ -219,23 +220,25 @@ internal class EntityBulkOperationsTest {
       )
     ).forEach { case ->
       val connection = newConnection()
-      case.configure(connection.recordingDatabase)
-      val observer = case.operation(
-        BulkRxInput(
-          connection = connection,
-          entities = oneShotIterable(listOf(TestEntity()))
+      case.configure(connection.sqliteConnection)
+      val observer = case
+        .operation(
+          BulkRxInput(
+            connection = connection,
+            entities = oneShotIterable(listOf(TestEntity()))
+          )
         )
-      ).test()
+        .test()
 
       when (case.expectedTerminal) {
         BulkRxTerminal.ERROR -> observer.assertFailure(OperationFailedException::class.java)
         BulkRxTerminal.COMPLETE -> observer.assertResult()
       }
       assertWithMessage(case.label)
-        .that(connection.recordingDatabase.successfulTransactions)
+        .that(connection.sqliteConnection.successfulTransactions)
         .isEqualTo(0)
       assertWithMessage(case.label)
-        .that(connection.recordingDatabase.rolledBackTransactions)
+        .that(connection.sqliteConnection.rolledBackTransactions)
         .isEqualTo(1)
       assertWithMessage(case.label)
         .that(connection.triggers)
@@ -257,7 +260,7 @@ internal class EntityBulkOperationsTest {
   )
 
   private data class BulkRxInput(
-    val connection: RecordingConnection,
+    val connection: RecordingDbConnection,
     val entities: Iterable<TestEntity>
   )
 

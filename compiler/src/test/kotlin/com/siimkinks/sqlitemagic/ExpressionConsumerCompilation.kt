@@ -104,7 +104,7 @@ internal fun compileExpressionConsumer(
         name = "name",
         nullness = SqlNullable,
         parameterEncoding = SqlType.STRING.nullBypassParameterEncoding(),
-        selectedRead = { cursor, index -> cursor.getString(index) }
+        selectedRead = { statement, index -> if (statement.isNull(index)) null else statement.getText(index) }
       )
       val AGE = Column<Person, Int, Required, Int, Int, Required, Int>(
         table = this,

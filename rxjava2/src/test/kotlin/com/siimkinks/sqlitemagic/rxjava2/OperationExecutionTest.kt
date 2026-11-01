@@ -15,7 +15,9 @@ internal class OperationExecutionTest {
     deferredBulk(connection = null) { throw cancellation }
       .observeBulk()
       .test()
-      .assertFailure(cancellation::equals)
+      .assertNoValues()
+      .assertError(cancellation)
+      .assertNotComplete()
   }
 
   @Test

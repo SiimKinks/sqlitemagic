@@ -8,10 +8,10 @@ import org.mockito.Mockito.mockConstruction
 
 internal data class MappedId(val value: Long)
 
-internal fun <T> SelectQuery<T, *>.rows(database: BundledSqliteDatabase) = usingConnection(database.dbConnection())
+internal fun <T> SelectQuery<T, *>.rows(database: TestDatabase) = usingConnection(database.connection)
   .execute()
 
-internal fun <T> SelectQuery<T, *>.rowsIn(database: () -> BundledSqliteDatabase) = database().use(this::rows)
+internal fun <T> SelectQuery<T, *>.rowsIn(database: () -> TestDatabase) = database().use(this::rows)
 
 internal data class PlanSnapshot(
   val sql: String,
@@ -58,9 +58,8 @@ internal fun SelectQuery<*, *>.observedTables() = compile()
 
 internal fun sqlExceptionMessage(block: () -> Unit): String? {
   val messages = mutableListOf<Any?>()
-  mockConstruction(SQLException::class.java) { _, context -> messages += context.arguments().firstOrNull() }.use {
-    assertThrows(SQLException::class.java, block)
-  }
+  mockConstruction(SQLException::class.java) { _, context -> messages += context.arguments().firstOrNull() }
+    .use { assertThrows(SQLException::class.java, block) }
   return messages.single() as String?
 }
 

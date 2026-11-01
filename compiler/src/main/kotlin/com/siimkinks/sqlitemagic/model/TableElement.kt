@@ -62,7 +62,6 @@ internal data class TableElement(
   val requiresByColumnTerminal = supportsIdentityOperations && !supportsDefaultIdentity
   val hasRecursiveRelationships = recursiveRelationshipColumns.isNotEmpty()
   val hasCascadeDelete get() = allColumns.any { it.relationship?.onDeleteCascade == true }
-  val needsGeneratedRelationshipIds = columnsForInsert.any(ColumnElement::needsGeneratedRelationshipId)
 
   val tablePositionPropertyName get() = "${FIELD_TABLE_POSITION}_$artifactStem"
 }

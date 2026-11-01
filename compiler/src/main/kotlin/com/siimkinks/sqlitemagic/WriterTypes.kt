@@ -58,6 +58,8 @@ import com.squareup.kotlinpoet.ARRAY
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.AnnotationSpec.UseSiteTarget.FILE
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.LONG
+import com.squareup.kotlinpoet.MAP
 import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.STRING
@@ -132,19 +134,24 @@ internal object WriterTypes {
   val ENTITY_RELATIONSHIP_OPERATIONS = EntityRelationshipOperations::class.asClassName()
   val OPERATION_FAILED_EXCEPTION = OperationFailedException::class.asClassName()
 
-  val BIND_VALUES_MAP = MutableScatterMap::class.asClassName().parameterizedBy(STRING, ANY)
+  val BIND_VALUES_MAP = MutableScatterMap::class
+    .asClassName()
+    .parameterizedBy(STRING, ANY)
+  val GENERATED_RELATIONSHIP_IDS = MAP.parameterizedBy(STRING, LONG)
   val STRING_ARRAY = ARRAY.parameterizedBy(STRING)
   val STRING_SCATTER_SET = MutableScatterSet::class
     .asClassName()
     .parameterizedBy(STRING)
 
-  val CURSOR = ClassName("android.database", "Cursor")
-  val SQLITE_DATABASE = ClassName("androidx.sqlite.db", "SupportSQLiteDatabase")
+  val SQLITE_STATEMENT = ClassName("androidx.sqlite", "SQLiteStatement")
+  val SQLITE_CONNECTION = ClassName("androidx.sqlite", "SQLiteConnection")
+  val EXEC_SQL = MemberName("androidx.sqlite", "execSQL", isExtension = true)
   val SQL_EXCEPTION = ClassName("android.database", "SQLException")
-  val SUPPORT_SQLITE_STATEMENT = ClassName("androidx.sqlite.db", "SupportSQLiteStatement")
 
   val CHECK_NOT_NULL = MemberName("kotlin", "checkNotNull")
   val NULLABLE_READ_TYPE = MemberName(PACKAGE_INTERNAL, "nullableReadType")
+  val GET_TEXT_OR_NULL = MemberName(PACKAGE_INTERNAL, "getTextOrNull", isExtension = true)
+  val GET_BLOB_OR_NULL = MemberName(PACKAGE_INTERNAL, "getBlobOrNull", isExtension = true)
   val NULL_BYPASS_PARAMETER_ENCODING = MemberName(PACKAGE_INTERNAL, "nullBypassParameterEncoding")
   val PARAMETER_ENCODING_FACTORY = MemberName(PACKAGE_INTERNAL, "parameterEncoding")
   val REQUIRED_READ_TYPE = MemberName(PACKAGE_INTERNAL, "requiredReadType")

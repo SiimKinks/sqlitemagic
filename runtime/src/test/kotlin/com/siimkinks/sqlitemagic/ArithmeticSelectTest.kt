@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 
 @RunWith(Parameterized::class)
 internal class ArithmeticSelectTest(private val case: ArithmeticCase) {
@@ -17,21 +18,18 @@ internal class ArithmeticSelectTest(private val case: ArithmeticCase) {
 
   @Test
   fun `projection reads the SQLite result`() {
-    personDatabase().use { database ->
-      val values = SELECT
-        .COLUMN(case.expression())
-        .FROM(PERSON)
-        .ORDER_BY(PERSON.ID.ASC())
-        .usingConnection(database.dbConnection())
-        .execute()
+    val values = SELECT
+      .COLUMN(case.expression())
+      .FROM(PERSON)
+      .ORDER_BY(PERSON.ID.ASC())
+      .rowsIn(::personDatabase)
 
-      assertThat(values).isEqualTo(case.expectedValues)
-    }
+    assertThat(values).isEqualTo(case.expectedValues)
   }
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun cases() = listOf(
       ArithmeticCase(
         label = "plus a plain number",

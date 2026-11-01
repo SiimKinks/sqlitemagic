@@ -2,12 +2,15 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import com.siimkinks.sqlitemagic.SqlType.INT
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
+import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.SqlStorage
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
@@ -18,7 +21,7 @@ internal data class Token(val value: String)
 internal val TOKEN_TYPE = requiredReadType(
   storage = SqlStorage.STRING,
   encode = { value: Token -> "db:${value.value}" },
-  decode = { value -> Token(value.removePrefix("db:")) },
+  decode = { Token(it.removePrefix("db:")) },
   encodingNullness = Required
 )
 
@@ -41,12 +44,12 @@ internal class PersonTable(alias: String? = null) : Table<Person>(
     nullness = Required,
     parameterEncoding = LONG.parameterEncoding()
   )
-  val NAME = Column<Person, String, SqlNullable, String?, String?, SqlNullable, String?>(
+  val NAME = Column(
     table = this,
     name = "name",
     nullness = SqlNullable,
     parameterEncoding = STRING.nullBypassParameterEncoding(),
-    selectedRead = Cursor::getString
+    selectedRead = nullableRead(SQLiteStatement::getText)
   )
   val AGE = Column<Person, Int, Required, Int, Int, Required, Int>(
     table = this,
@@ -59,7 +62,7 @@ internal class PersonTable(alias: String? = null) : Table<Person>(
     name = "parent_id",
     nullness = SqlNullable,
     parameterEncoding = LONG.nullBypassParameterEncoding(),
-    selectedRead = nullableRead(Cursor::getLong)
+    selectedRead = nullableRead(SQLiteStatement::getLong)
   )
   val TOKEN = Column<Person, Token, Required, Token, Token, Required, Token>(
     table = this,
@@ -72,18 +75,18 @@ internal class PersonTable(alias: String? = null) : Table<Person>(
     name = "flag",
     nullness = SqlNullable,
     parameterEncoding = BOOLEAN.nullBypassParameterEncoding(),
-    selectedRead = nullableRead { cursor, index -> cursor.getLong(index) != 0L }
+    selectedRead = nullableRead(SQLiteStatement::getBoolean)
   )
 
   override val entityFields = listOf(ID, NAME, AGE, PARENT_ID, TOKEN, FLAG)
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Person(
-    id = ID.selectRead(cursor, startIndex),
-    name = NAME.selectRead(cursor, startIndex + 1),
-    age = AGE.selectRead(cursor, startIndex + 2),
-    parentId = PARENT_ID.selectRead(cursor, startIndex + 3),
-    token = TOKEN.selectRead(cursor, startIndex + 4),
-    flag = FLAG.selectRead(cursor, startIndex + 5)
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = Person(
+    id = ID.selectRead(statement, startIndex),
+    name = NAME.selectRead(statement, startIndex + 1),
+    age = AGE.selectRead(statement, startIndex + 2),
+    parentId = PARENT_ID.selectRead(statement, startIndex + 3),
+    token = TOKEN.selectRead(statement, startIndex + 4),
+    flag = FLAG.selectRead(statement, startIndex + 5)
   )
 
   override infix fun AS(alias: String) = PersonTable(alias)
@@ -126,16 +129,15 @@ internal val linus = Person(
 
 internal val people = listOf(ada, grace, unnamed, linus)
 
-internal fun personDatabase() = BundledSqliteDatabase().apply {
-  execSQL(
-    "CREATE TABLE person (id INTEGER PRIMARY KEY, name TEXT, age INTEGER NOT NULL, parent_id INTEGER, " +
-        "token TEXT NOT NULL, flag INTEGER)"
-  )
-  execSQL(
-    "INSERT INTO person VALUES (1, 'Ada', 36, NULL, 'db:a', 1), (2, 'Grace', 85, 1, 'db:g', 0), " +
-        "(3, NULL, 17, 2, 'db:n', NULL), (4, 'Linus', 17, 4, 'db:l', 1)"
-  )
-}
+internal fun personDatabase(
+  adapterSettings: ScatterMap<AdapterSettingKey<*>, Any> = MutableScatterMap(initialCapacity = 0)
+) = TestDatabase(
+  "CREATE TABLE person (id INTEGER PRIMARY KEY, name TEXT, age INTEGER NOT NULL, parent_id INTEGER, " +
+      "token TEXT NOT NULL, flag INTEGER)",
+  "INSERT INTO person VALUES (1, 'Ada', 36, NULL, 'db:a', 1), (2, 'Grace', 85, 1, 'db:g', 0), " +
+      "(3, NULL, 17, 2, 'db:n', NULL), (4, 'Linus', 17, 4, 'db:l', 1)",
+  adapterSettings = adapterSettings
+)
 
 internal data class Pet(
   val id: Long,
@@ -166,21 +168,21 @@ internal class PetTable(alias: String? = null) : Table<Pet>(
     nullness = Required,
     parameterEncoding = STRING.parameterEncoding()
   )
-  val NICKNAME = Column<Pet, String, SqlNullable, String?, String?, SqlNullable, String?>(
+  val NICKNAME = Column(
     table = this,
     name = "nickname",
     nullness = SqlNullable,
     parameterEncoding = STRING.nullBypassParameterEncoding(),
-    selectedRead = Cursor::getString
+    selectedRead = nullableRead(SQLiteStatement::getText)
   )
 
   override val entityFields = listOf(ID, OWNER, NAME, NICKNAME)
 
-  override fun readEntity(cursor: Cursor, startIndex: Int, related: RelatedEntities?) = Pet(
-    id = ID.selectRead(cursor, startIndex),
-    owner = OWNER.selectRead(cursor, startIndex + 1),
-    name = NAME.selectRead(cursor, startIndex + 2),
-    nickname = NICKNAME.selectRead(cursor, startIndex + 3)
+  override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = Pet(
+    id = ID.selectRead(statement, startIndex),
+    owner = OWNER.selectRead(statement, startIndex + 1),
+    name = NAME.selectRead(statement, startIndex + 2),
+    nickname = NICKNAME.selectRead(statement, startIndex + 3)
   )
 
   override infix fun AS(alias: String) = PetTable(alias)

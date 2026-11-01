@@ -29,7 +29,7 @@ internal class PreparedReuseTest {
       .prepared
 
     assertThat(prepared.bindings).isEqualTo(listOf(NativeValue.Integer(30)))
-    assertThat(prepared.arguments(emptyList())).isSameInstanceAs(prepared.bindings)
+    assertThat(prepared.bind(emptyList())).isSameInstanceAs(prepared.bindings)
   }
 
   @Test
@@ -103,7 +103,7 @@ internal class PreparedReuseTest {
     )
 
     libraryDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       cases.forEach { case ->
         val compiled = case.query
           .usingConnection(connection)

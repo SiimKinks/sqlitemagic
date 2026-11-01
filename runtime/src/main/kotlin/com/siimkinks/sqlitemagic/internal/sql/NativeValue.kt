@@ -1,7 +1,15 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
-import androidx.sqlite.db.SupportSQLiteProgram
-import com.siimkinks.sqlitemagic.internal.SqlStorage
+import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.SqlStorage.BOOLEAN
+import com.siimkinks.sqlitemagic.internal.SqlStorage.BYTE
+import com.siimkinks.sqlitemagic.internal.SqlStorage.BYTE_ARRAY
+import com.siimkinks.sqlitemagic.internal.SqlStorage.DOUBLE
+import com.siimkinks.sqlitemagic.internal.SqlStorage.FLOAT
+import com.siimkinks.sqlitemagic.internal.SqlStorage.INT
+import com.siimkinks.sqlitemagic.internal.SqlStorage.LONG
+import com.siimkinks.sqlitemagic.internal.SqlStorage.SHORT
+import com.siimkinks.sqlitemagic.internal.SqlStorage.STRING
 
 private const val HEX_DIGITS = "0123456789ABCDEF"
 
@@ -26,15 +34,15 @@ internal sealed interface NativeValue : QueryBinding {
 
 internal fun nativeValue(value: Any?) = when (value) {
   null -> NativeValue.Null
-  is Long -> SqlStorage.LONG.encode(value)
-  is Int -> SqlStorage.INT.encode(value)
-  is Short -> SqlStorage.SHORT.encode(value)
-  is Double -> SqlStorage.DOUBLE.encode(value)
-  is Float -> SqlStorage.FLOAT.encode(value)
-  is String -> SqlStorage.STRING.encode(value)
-  is Boolean -> SqlStorage.BOOLEAN.encode(value)
-  is Byte -> SqlStorage.BYTE.encode(value)
-  is ByteArray -> SqlStorage.BYTE_ARRAY.encode(value)
+  is Long -> LONG.encode(value)
+  is Int -> INT.encode(value)
+  is Short -> SHORT.encode(value)
+  is Double -> DOUBLE.encode(value)
+  is Float -> FLOAT.encode(value)
+  is String -> STRING.encode(value)
+  is Boolean -> BOOLEAN.encode(value)
+  is Byte -> BYTE.encode(value)
+  is ByteArray -> BYTE_ARRAY.encode(value)
   else -> throw IllegalArgumentException("Unsupported native SQL argument: ${value.javaClass.name}")
 }
 
@@ -43,7 +51,7 @@ internal fun numericValue(value: Number) = when (value) {
   else -> nativeValue(value)
 }
 
-internal fun bindNativeValues(statement: SupportSQLiteProgram, values: List<NativeValue>) {
+internal fun bindNativeValues(statement: SQLiteStatement, values: List<NativeValue>) {
   for (index in values.indices) {
     bindNativeValue(
       statement = statement,
@@ -54,14 +62,14 @@ internal fun bindNativeValues(statement: SupportSQLiteProgram, values: List<Nati
 }
 
 internal fun bindNativeValue(
-  statement: SupportSQLiteProgram,
+  statement: SQLiteStatement,
   index: Int,
   value: NativeValue
 ) = when (value) {
   NativeValue.Null -> statement.bindNull(index)
   is NativeValue.Integer -> statement.bindLong(index, value.value)
   is NativeValue.Real -> statement.bindDouble(index, value.value)
-  is NativeValue.Text -> statement.bindString(index, value.value)
+  is NativeValue.Text -> statement.bindText(index, value.value)
   is NativeValue.Blob -> statement.bindBlob(index, value.value)
 }
 

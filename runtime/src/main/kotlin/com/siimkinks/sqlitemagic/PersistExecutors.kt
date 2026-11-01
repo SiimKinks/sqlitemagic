@@ -16,7 +16,7 @@ internal object PersistExecutors {
     entity: M,
     context: OperationContext,
     columnName: String
-  ): EntityPersistResult = when (val recursiveAdapter = adapter.recursiveOrNull()) {
+  ) = when (val recursiveAdapter = adapter.recursiveOrNull()) {
     null -> persist(
       adapter = adapter,
       recursiveAdapter = null,
@@ -58,26 +58,16 @@ internal object PersistExecutors {
       }
       else -> {
         context.logPersist(entity = entity)
-        val updated = when {
-          !adapter.hasIdentityValue(
-            entity = entity,
-            columnName = columnName
-          ) -> false
-          context.ignoreNullValues -> UpdateExecutors.executeIgnoringNullValues(
-            adapter = adapter,
-            entity = entity,
-            context = context,
-            columnName = columnName,
-            standalone = false
-          )
-          else -> UpdateExecutors.executeEntity(
-            adapter = adapter,
-            entity = entity,
-            context = context,
-            columnName = columnName,
-            standalone = false
-          )
-        }
+        val updated = adapter.hasIdentityValue(
+          entity = entity,
+          columnName = columnName
+        ) && UpdateExecutors.updateEntity(
+          adapter = adapter,
+          entity = entity,
+          context = context,
+          columnName = columnName,
+          standalone = false
+        )
         when {
           updated -> {
             context.sendTableTriggers(adapter)
@@ -94,7 +84,7 @@ internal object PersistExecutors {
                   context = context
                 ),
                 conflictAlgorithm = context.conflictAlgorithm,
-                failureMessage = "Failed to persist $entity"
+                failureMessage = { "Failed to persist $entity" }
               )
               else -> InsertExecutors.execute(
                 adapter = adapter,

@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 
@@ -22,9 +22,11 @@ internal fun <M> testStringKey(table: Table<M>, name: String) =
     parameterEncoding = STRING.parameterEncoding()
   )
 
-internal fun <T : Any> nullableRead(read: (Cursor, Int) -> T): (Cursor, Int) -> T? = { cursor, index ->
+internal fun <T : Any> nullableRead(
+  read: (SQLiteStatement, Int) -> T
+): (SQLiteStatement, Int) -> T? = { statement, index ->
   when {
-    cursor.isNull(index) -> null
-    else -> read(cursor, index)
+    statement.isNull(index) -> null
+    else -> read(statement, index)
   }
 }

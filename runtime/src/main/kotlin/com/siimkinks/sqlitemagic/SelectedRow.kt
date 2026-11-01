@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 
 /**
@@ -62,7 +62,7 @@ internal class KeyedField<R, N : SqlNullability, T>(
  * Row of multiple columns selection.
  *
  * Values are read by the selected expressions, for example `row[BOOK.ID]`. A row passed to `mapTo` reads the
- * current cursor row and is valid only during the call.
+ * current result row and is valid only during the call.
  */
 sealed class SelectedRow(
   internal val outputs: SelectedOutputs
@@ -106,17 +106,17 @@ internal class SelectedOutputs(
       }
     }
 
-  fun ownedRow(cursor: Cursor, startIndex: Int): SelectedRow = OwnedSelectedRow(
+  fun ownedRow(statement: SQLiteStatement, startIndex: Int): SelectedRow = OwnedSelectedRow(
     outputs = this,
-    values = Array(readers.size) { index -> readers[index](cursor, startIndex + index) }
+    values = Array(readers.size) { readers[it](statement, startIndex + it) }
   )
 
   fun <M> liveRows(mapper: (SelectedRow) -> M): ExecutionReader<M> = ExecutionReader {
     val row = LiveSelectedRow(this)
-    return@ExecutionReader { cursor, startIndex ->
+    return@ExecutionReader { statement, startIndex ->
       mapper(
         row.moveTo(
-          cursor = cursor,
+          statement = statement,
           startIndex = startIndex
         )
       )
@@ -124,7 +124,7 @@ internal class SelectedOutputs(
   }
 }
 
-internal class OwnedSelectedRow(
+private class OwnedSelectedRow(
   outputs: SelectedOutputs,
   private val values: Array<Any?>
 ) : SelectedRow(outputs) {
@@ -141,17 +141,17 @@ internal class OwnedSelectedRow(
   )
 }
 
-internal class LiveSelectedRow(outputs: SelectedOutputs) : SelectedRow(outputs) {
-  private lateinit var cursor: Cursor
+private class LiveSelectedRow(outputs: SelectedOutputs) : SelectedRow(outputs) {
+  private lateinit var statement: SQLiteStatement
   private var startIndex = 0
 
-  fun moveTo(cursor: Cursor, startIndex: Int) = apply {
-    this.cursor = cursor
+  fun moveTo(statement: SQLiteStatement, startIndex: Int) = apply {
+    this.statement = statement
     this.startIndex = startIndex
   }
 
   override fun <T> get(expression: SqlExpression<*, *, T>) = expression.selectRead(
-    cursor,
+    statement,
     startIndex + outputs.position(expression)
   )
 }

@@ -207,7 +207,7 @@ internal class CompoundSelectTest {
           labels.rows(database),
           listOf(
             (adults UNION_ALL owners)
-              .usingConnection(database.dbConnection())
+              .usingConnection(database.connection)
               .count()
               .execute()
           )
@@ -236,8 +236,8 @@ internal class CompoundSelectTest {
       """SELECT "person"."id" FROM "main"."person" WHERE "person"."age" > ? UNION SELECT * FROM (""" +
           """SELECT "person"."id" FROM "main"."person" ORDER BY "person"."id" DESC LIMIT 1)"""
     )
-    petDatabase().use { database ->
-      assertThat(compound.rows(database)).containsExactly(1L, 2L, 4L)
+    petDatabase().use {
+      assertThat(compound.rows(it)).containsExactly(1L, 2L, 4L)
     }
   }
 
@@ -257,7 +257,7 @@ internal class CompoundSelectTest {
           """ORDER BY "person"."id" ASC"""
     )
     petDatabase().use { database ->
-      val connected = adults.usingConnection(database.dbConnection())
+      val connected = adults.usingConnection(database.connection)
       assertThat(assertThrows(IllegalArgumentException::class.java) { connected UNION owners })
         .hasMessageThat()
         .isEqualTo("A compound's arms cannot use a connection; choose it on the compound")
@@ -266,7 +266,7 @@ internal class CompoundSelectTest {
         SELECT
           .RAW("""SELECT "person.id" FROM member_ids""")
           .readAs(LONG)
-          .usingConnection(database.dbConnection())
+          .usingConnection(database.connection)
           .execute()
       ).isEqualTo(listOf(1L, 2L))
       assertThat(sqliteErrorMessage { orderedArm.rows(database) })

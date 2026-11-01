@@ -1,40 +1,35 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.SqlStorageType.BOXED_BYTE_ARRAY
-import com.siimkinks.sqlitemagic.SqlStorageType.BYTE_ARRAY
-import com.siimkinks.sqlitemagic.SqlStorageType.STRING
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.WriterTypes.nullnessType
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
-import com.siimkinks.sqlitemagic.writer.databaseCursorGetter
+import com.siimkinks.sqlitemagic.writer.databaseValueGetter
+import com.siimkinks.sqlitemagic.writer.nullableDatabaseValueGetter
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.TypeName
 
 internal class ScalarFieldRead(
   deserializedType: TypeName,
   private val sqlStorageType: SqlStorageType,
-  transformer: TransformerElement?,
-  private val isSqlNullable: Boolean,
+  private val transformer: TransformerElement?,
+  isSqlNullable: Boolean,
   private val checksRequiredNull: Boolean,
   private val columnName: String,
   private val propertyName: String
 ) {
-  val customTransformer = transformer?.takeUnless(TransformerElement::isDefaultTransformer)
-  private val isDefaultTransformer = transformer?.isDefaultTransformer == true
   private val hostType = deserializedType.copy(nullable = false)
-  private val readerNullable = customTransformer?.decoderResultNullable == true
+  private val readerNullable = transformer?.decoderResultNullable == true
   val descriptorResultType = hostType.copy(nullable = readerNullable)
   val selectedType = hostType.copy(
     nullable = when {
       !isSqlNullable -> false
-      customTransformer?.decoderInputNullable == true -> readerNullable
+      transformer?.decoderInputNullable == true -> readerNullable
       else -> true
     }
   )
   val descriptorName = when {
-    customTransformer != null -> customTransformer.sqlTypeSelectorName
-    isDefaultTransformer -> "BOOLEAN"
+    transformer != null -> transformer.sqlTypeSelectorName
     else -> sqlStorageType.name
   }
   val nullness = nullnessType(nullable = isSqlNullable)
@@ -45,26 +40,25 @@ internal class ScalarFieldRead(
 
   private fun nullableReadCode(): CodeBlock {
     val raw = rawRead()
-    val nullableRaw = when {
-      sqlStorageType.hasNullableCursorGetter -> raw
-      else -> CodeBlock.of("(if (cursor.isNull(index)) null else %L)", raw)
-    }
+    val rawOrNull = nullableDatabaseValueGetter(
+      storageType = sqlStorageType,
+      index = CodeBlock.of("index")
+    )
     return when {
-      customTransformer == null -> nullableRaw
-      customTransformer.decoderInputNullable -> customTransformer.deserializedValueGetter(nullableRaw)
-      else -> CodeBlock.of(
-        "%L?.let(%L)",
-        nullableRaw,
-        customTransformer.dbValueToObjectMethod.callableReference()
-      )
+      transformer == null -> rawOrNull ?: nullOr(raw)
+      transformer.decoderInputNullable -> transformer.deserializedValueGetter(rawOrNull ?: nullOr(raw))
+      rawOrNull != null -> transformer.nullableDeserializedValueGetter(rawOrNull)
+      else -> nullOr(transformer.deserializedValueGetter(raw))
     }
   }
+
+  private fun nullOr(read: CodeBlock) = CodeBlock.of("(if (statement.isNull(index)) null else %L)", read)
 
   private fun requiredReadCode(): CodeBlock {
     val raw = rawRead()
     val checkedRaw = when {
       checksRequiredNull -> CodeBlock.of(
-        "(if (cursor.isNull(index)) throw %T(%S) else %L)",
+        "(if (statement.isNull(index)) throw %T(%S) else %L)",
         SQL_EXCEPTION,
         """Column "$columnName" was NULL""",
         raw
@@ -72,27 +66,17 @@ internal class ScalarFieldRead(
       else -> raw
     }
     return when {
-      customTransformer == null -> checkedRaw
-      customTransformer.decoderResultNullable -> customTransformer.requiredDeserializedValue(
-        value = customTransformer.deserializedValueGetter(checkedRaw),
+      transformer == null -> checkedRaw
+      transformer.decoderResultNullable -> transformer.requiredDeserializedValue(
+        value = transformer.deserializedValueGetter(checkedRaw),
         propertyName = propertyName
       )
-      else -> customTransformer.deserializedValueGetter(checkedRaw)
+      else -> transformer.deserializedValueGetter(checkedRaw)
     }
   }
 
-  private fun rawRead() = when {
-    isDefaultTransformer -> CodeBlock.of("cursor.getInt(index) != 0")
-    sqlStorageType == BOXED_BYTE_ARRAY && isSqlNullable -> CodeBlock.of("cursor.getBlob(index)?.toTypedArray()")
-    else -> databaseCursorGetter(
-      storageType = sqlStorageType,
-      index = CodeBlock.of("index")
-    )
-  }
+  private fun rawRead() = databaseValueGetter(
+    storageType = sqlStorageType,
+    index = CodeBlock.of("index")
+  )
 }
-
-private val SqlStorageType.hasNullableCursorGetter
-  get() = when (this) {
-    STRING, BYTE_ARRAY, BOXED_BYTE_ARRAY -> true
-    else -> false
-  }

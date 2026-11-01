@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 
@@ -18,19 +18,19 @@ interface GeneratedDatabase {
   val isDebug: Boolean
 
   @InternalSqliteMagicApi
-  fun configureDatabase(db: SupportSQLiteDatabase)
+  fun applySchemaPragmas(connection: SQLiteConnection)
 
   @InternalSqliteMagicApi
-  fun createSchema(db: SupportSQLiteDatabase)
+  fun createSchema(connection: SQLiteConnection)
 
   @InternalSqliteMagicApi
-  fun createTemporarySchema(db: SupportSQLiteDatabase) = Unit
+  fun createTemporarySchema(connection: SQLiteConnection) = Unit
 
   @InternalSqliteMagicApi
-  fun clearData(db: SupportSQLiteDatabase): MutableScatterSet<String>
+  fun clearData(connection: SQLiteConnection): MutableScatterSet<String>
 
   @InternalSqliteMagicApi
-  fun migrateViews(db: SupportSQLiteDatabase)
+  fun migrateViews(connection: SQLiteConnection)
 
   @InternalSqliteMagicApi
   fun getNrOfTables(moduleName: String?): Int

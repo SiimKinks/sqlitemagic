@@ -9,38 +9,38 @@ internal class EntityOperationBuildersTest {
   @Test
   fun `by-column builders execute by the required column`() {
     val recording = newConnection()
-    recording.recordingDatabase.updateResults.addAll(listOf(1, 1, 1, 1, 1))
+    recording.sqliteConnection.updateResults += listOf(1, 1, 1, 1, 1)
     val adapter = TestAdapter()
     val entity = TestEntity()
 
     assertThat(
       adapter
         .updateByColumn(entity)
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute(TestSchema.key)
     ).isTrue()
     assertThat(
       adapter
         .persistByColumn(entity)
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute(TestSchema.key)
     ).isEqualTo(EntityPersistResult.Updated)
     assertThat(
       adapter
         .deleteByColumn(entity)
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute(TestSchema.key)
     ).isEqualTo(1)
     assertThat(
       adapter
         .bulkUpdateByColumn(listOf(entity))
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute(TestSchema.key)
     ).isTrue()
     assertThat(
       adapter
         .bulkPersistByColumn(listOf(entity))
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute(TestSchema.key)
     ).isTrue()
   }
@@ -48,11 +48,11 @@ internal class EntityOperationBuildersTest {
   @Test
   fun `byColumn identifies rows by the physical column of an aliased output`() {
     val connection = newConnection()
-    connection.recordingDatabase.updateResults += 1
+    connection.sqliteConnection.updateResults += 1
 
     TestAdapter()
       .update(TestEntity())
-      .usingConnection(connection.connection)
+      .usingConnection(connection.dbConnection)
       .byColumn(TestSchema.key.AS("book_key"))
       .execute()
 

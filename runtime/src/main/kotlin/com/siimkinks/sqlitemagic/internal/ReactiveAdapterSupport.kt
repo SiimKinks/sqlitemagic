@@ -1,8 +1,6 @@
 package com.siimkinks.sqlitemagic.internal
 
-import android.database.Cursor
 import com.siimkinks.sqlitemagic.CompiledMutation
-import com.siimkinks.sqlitemagic.CompiledRawCursor
 import com.siimkinks.sqlitemagic.CompiledRawFirst
 import com.siimkinks.sqlitemagic.CompiledRawSelect
 import com.siimkinks.sqlitemagic.DbConnection
@@ -63,49 +61,20 @@ object ReactiveAdapterSupport {
   fun <T> plan(query: CompiledRawFirst<T, *>) = query.plan
 
   /**
-   * Read the compiled SELECT statement that runs a raw cursor query.
-   *
-   * @param query Compiled raw query
-   * @return Compiled SELECT statement of [query]
-   */
-  fun plan(query: CompiledRawCursor<*>) = query.plan
-
-  /**
-   * Open a cursor over the result of a query on its connection.
+   * Run a query on its connection and read its result.
    *
    * @param query Query to run
-   * @return Cursor to pass to [map]
-   * @throws IllegalStateException if called inside a transaction
-   */
-  fun openCursor(query: Query<*>) = query.openCursor()
-
-  /**
-   * Read the result of a query from a cursor and close the cursor, unless the result is the cursor itself.
-   *
-   * @param query Query whose result to read
-   * @param cursor Cursor returned by [openCursor]
    * @param isDisposed Whether the result is no longer needed, which stops reading the rows of a list early
    * @return Query result
+   * @throws IllegalStateException if called inside a transaction
    */
-  fun <T> map(
+  fun <T> run(
     query: Query<T>,
-    cursor: Cursor,
     isDisposed: () -> Boolean = NOT_DISPOSED
-  ) = query.map(
-    cursor = cursor,
+  ) = query.run(
+    dbConnection = query.executionConnection(),
     isDisposed = isDisposed
   )
-
-  /**
-   * Release a result of [map] that is not delivered, such as a [Cursor] whose subscriber was disposed.
-   *
-   * @param query Query that produced the result
-   * @param result Result returned by [map]
-   */
-  fun <T> discardResult(
-    query: Query<T>,
-    result: T
-  ) = query.discardResult(result)
 
   /**
    * Define the value of an adapter setting for the connections that a setup builder opens.
@@ -150,7 +119,7 @@ object ReactiveAdapterSupport {
   /**
    * Resolve the connection that a query runs on, as [connection] does, and check that the calling thread can run the
    * query. Adapters that run the query on another thread call this first, so that the calling thread is rejected as
-   * [openCursor] would reject it.
+   * [run] would reject it.
    *
    * @param query Query to run
    * @return Connection of [query]

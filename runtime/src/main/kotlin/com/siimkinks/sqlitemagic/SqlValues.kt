@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import com.siimkinks.sqlitemagic.SqlType.BYTE
 import com.siimkinks.sqlitemagic.SqlType.BYTE_ARRAY
@@ -30,9 +30,7 @@ private fun <W, R, N : SqlNullability, T> valueExpression(
 }
 
 @InternalSqliteMagicApi
-fun <W, R, N : SqlNullability, T> W.asValue(
-  encoding: ParameterEncoding<W, R, N, T>
-): EncodedSqlExpression<W, R, N, T> = valueExpression(
+fun <W, R, N : SqlNullability, T> W.asValue(encoding: ParameterEncoding<W, R, N, T>) = valueExpression(
   value = this,
   encoding = encoding,
   node = ExpressionNode::Bound
@@ -201,7 +199,7 @@ fun Byte.asLiteral() = asLiteral(BYTE)
 /** Inline this value into the SQL as a literal. */
 fun ByteArray.asLiteral() = asLiteral(BYTE_ARRAY)
 
-private val nullRead: (Cursor, Int) -> Nothing? = { _, _ -> null }
+private val nullRead: (SQLiteStatement, Int) -> Nothing? = { _, _ -> null }
 
 /**
  * SQL NULL literal.

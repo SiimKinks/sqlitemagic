@@ -1,14 +1,16 @@
 package com.siimkinks.sqlitemagic.runtime.contract.query
 
-import android.database.sqlite.SQLiteConstraintException
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.TransformerRuntimeEntityTable.Companion.TRANSFORMER_RUNTIME_ENTITY
 import com.siimkinks.sqlitemagic.fixture.model.NullableToken
 import com.siimkinks.sqlitemagic.fixture.model.OwnedToken
-import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
+import com.siimkinks.sqlitemagic.fixture.model.TransformerRuntimeEntity
+import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog.insertRuntimeValue
+import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog.runtimeCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
-import com.siimkinks.sqlitemagic.runtime.support.defaultWritableDatabase
+import com.siimkinks.sqlitemagic.runtime.support.assertConstraintFailure
+import com.siimkinks.sqlitemagic.runtime.support.withDefaultWriter
 import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Assert.assertThrows
 import org.junit.Rule
@@ -20,8 +22,8 @@ internal class NullableDecoderRuntimeTest {
 
   @Test
   fun requiredDecoderNullResultIdentifiesTransformerAndProperty() {
-    TransformerModelCatalog.insertRuntimeValue(
-      TransformerModelCatalog.runtimeCase
+    insertRuntimeValue(
+      runtimeCase
         .newValue(sequence = 1)
         .copy(ownedToken = OwnedToken("reject"))
     )
@@ -43,8 +45,8 @@ internal class NullableDecoderRuntimeTest {
 
   @Test
   fun nullableDecoderNullResultIsAccepted() {
-    val inserted = TransformerModelCatalog.insertRuntimeValue(
-      TransformerModelCatalog.runtimeCase
+    val inserted = insertRuntimeValue(
+      runtimeCase
         .newValue(sequence = 1)
         .copy(nullableToken = NullableToken("reject"))
     )
@@ -59,16 +61,23 @@ internal class NullableDecoderRuntimeTest {
 
   @Test
   fun requiredDecodedColumnRejectsSqlNullWhileNullablePropertyStaysNull() {
-    val inserted = TransformerModelCatalog.insertRuntimeValue(
-      TransformerModelCatalog.runtimeCase
+    val inserted = insertRuntimeValue(
+      runtimeCase
         .newValue(sequence = 1)
         .copy(nullableToken = null)
     )
-    val failure = assertThrows(SQLiteConstraintException::class.java) {
-      defaultWritableDatabase().execSQL(
-        sql = "UPDATE transformer_runtime_entity SET owned_token = NULL WHERE id = ?",
-        bindArgs = arrayOf(checkNotNull(inserted.id))
-      )
+    val failure = assertConstraintFailure {
+      withDefaultWriter { connection ->
+        connection
+          .prepare("UPDATE transformer_runtime_entity SET owned_token = NULL WHERE id = ?")
+          .use { statement ->
+            statement.bindLong(
+              index = 1,
+              value = checkNotNull(inserted.id)
+            )
+            statement.step()
+          }
+      }
     }
 
     assertWithMessage("update")
@@ -89,15 +98,13 @@ internal class NullableDecoderRuntimeTest {
       .observe()
       .runQueryOnce()
       .blockingGet()
-    ReadTerminal.TYPED_CURSOR -> readTypedCursor(
-      cursorSelect = SELECT.FROM(TRANSFORMER_RUNTIME_ENTITY)
-        .toCursor()
-    )
+    ReadTerminal.USE_ROWS -> SELECT.FROM(TRANSFORMER_RUNTIME_ENTITY)
+      .useRows(Sequence<TransformerRuntimeEntity>::toList)
   }
 
   private enum class ReadTerminal {
     EXECUTE,
     OBSERVE,
-    TYPED_CURSOR
+    USE_ROWS
   }
 }

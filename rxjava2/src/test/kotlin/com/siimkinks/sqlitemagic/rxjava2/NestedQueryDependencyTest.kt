@@ -22,8 +22,8 @@ internal class NestedQueryDependencyTest {
           .WHERE(AUTHOR.ID IN (SELECT COLUMN BOOK.AUTHOR FROM BOOK))
       )
 
-    libraryDatabase().use { database ->
-      val connection = database.dbConnection(adapterSettings = querySchedulerSettings())
+    libraryDatabase(adapterSettings = querySchedulerSettings()).use { database ->
+      val connection = database.connection
       val observed = idle
         .usingConnection(connection)
         .observe()

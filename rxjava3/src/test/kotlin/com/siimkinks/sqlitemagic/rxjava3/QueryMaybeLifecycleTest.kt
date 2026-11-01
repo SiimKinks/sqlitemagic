@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.rxjava3
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.Query
@@ -13,8 +12,6 @@ import io.reactivex.rxjava3.plugins.RxJavaPlugins
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.CyclicBarrier
@@ -24,19 +21,16 @@ import java.util.concurrent.atomic.AtomicReference
 
 internal class QueryMaybeLifecycleTest {
   @Test
-  fun `cancellation in onSubscribe prevents acquisition and mapping`() {
-    val observer = object : TestObserver<Cursor>() {
+  fun `cancellation in onSubscribe prevents running the query`() {
+    val observer = object : TestObserver<String>() {
       override fun onSubscribe(disposable: Disposable) {
         super.onSubscribe(disposable)
         dispose()
       }
     }
-    val query = object : Query<Cursor>(mock()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl): Cursor =
-        error("Cancelled query must not acquire a cursor")
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor =
-        error("Cancelled query must not map a cursor")
+    val query = object : Query<String>(mock()) {
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): String =
+        error("Cancelled query must not run")
     }
     query
       .run()
@@ -45,14 +39,11 @@ internal class QueryMaybeLifecycleTest {
   }
 
   @Test
-  fun `execution inside a transaction is rejected before acquiring a cursor`() {
-    val connection = newConnection().connection
-    val query = object : Query<Cursor>(connection) {
-      override fun rawQuery(dbConnection: DbConnectionImpl): Cursor =
-        error("Rejected query must not acquire a cursor")
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor =
-        error("Rejected query must not map a cursor")
+  fun `execution inside a transaction is rejected before running the query`() {
+    val connection = newConnection().dbConnection
+    val query = object : Query<String>(connection) {
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): String =
+        error("Rejected query must not run")
     }
     val transaction = connection.newTransaction()
     val (blocking, observed) = try {
@@ -74,81 +65,37 @@ internal class QueryMaybeLifecycleTest {
   }
 
   @Test
-  fun `cancellation before mapping returns discards exactly once`() = withWorkers { workers ->
-    val cursor = mock<Cursor>()
-    val entered = CountDownLatch(1)
-    val release = CountDownLatch(1)
-    val observer = RecordingObserver()
-    val query = cursorQuery(
-      cursor = cursor,
-      duringMap = {
-        entered.countDown()
-        await(release)
+  fun `run passes disposal to the query and drops the result of a disposed subscription`() {
+    val observer = TestObserver<List<Boolean>>()
+    val seenDisposal = mutableListOf<Boolean>()
+    val query = object : Query<List<Boolean>>(mock()) {
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): List<Boolean> {
+        seenDisposal += isDisposed()
+        observer.dispose()
+        seenDisposal += isDisposed()
+        return seenDisposal.toList()
       }
-    )
-    val execution = workers.submit {
-      query
-        .run()
-        .subscribe(observer)
     }
-    try {
-      await(entered)
-      observer.dispose()
-      verify(cursor, never()).close()
-      release.countDown()
-      execution.get(5, SECONDS)
-      assertThat(observer.outcome).isEqualTo(Outcome())
-      verify(cursor).close()
-    } finally {
-      release.countDown()
-    }
+
+    query
+      .run()
+      .subscribe(observer)
+
+    observer.assertEmpty()
+    assertThat(seenDisposal)
+      .containsExactly(false, true)
+      .inOrder()
   }
 
   @Test
-  fun `cancellation during winning onSuccess leaves cursor owned by subscriber`() = withWorkers { workers ->
-    val cursor = mock<Cursor>()
-    val entered = CountDownLatch(1)
-    val release = CountDownLatch(1)
-    val observer = RecordingObserver {
-      entered.countDown()
-      await(release)
-    }
-    val execution = workers.submit {
-      cursorQuery(cursor)
-        .run()
-        .subscribe(observer)
-    }
-    try {
-      await(entered)
-      observer.dispose()
-      verify(cursor, never()).close()
-      release.countDown()
-      execution.get(5, SECONDS)
-      assertThat(observer.outcome).isEqualTo(Outcome(values = listOf(cursor)))
-      verify(cursor, never()).close()
-    } finally {
-      release.countDown()
-    }
-  }
-
-  @Test
-  fun `simultaneous cancellation and delivery give each cursor exactly one owner`() = withWorkers { workers ->
+  fun `simultaneous cancellation and delivery deliver the result at most once`() = withWorkers { workers ->
     repeat(100) {
-      val cursor = mock<Cursor>()
       val barrier = CyclicBarrier(2)
-      val discarded = AtomicInteger()
       val observer = RecordingObserver()
-      val query = object : Query<Cursor>(mock()) {
-        override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
-
-        override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor {
+      val query = object : Query<String>(mock()) {
+        override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): String {
           barrier.await(5, SECONDS)
-          return cursor
-        }
-
-        override fun discardResult(result: Cursor) {
-          discarded.incrementAndGet()
-          result.close()
+          return "result"
         }
       }
       val execution = workers.submit {
@@ -162,18 +109,7 @@ internal class QueryMaybeLifecycleTest {
       }
       execution.get(5, SECONDS)
       cancellation.get(5, SECONDS)
-      val delivered = observer.values.isNotEmpty()
-      assertThat(observer.outcome to discarded.get()).isEqualTo(
-        when {
-          delivered -> Outcome(values = listOf(cursor)) to 0
-          else -> Outcome() to 1
-        }
-      )
-      if (delivered) {
-        verify(cursor, never()).close()
-        cursor.close()
-      }
-      verify(cursor).close()
+      assertThat(observer.outcome).isAnyOf(Outcome(values = listOf("result")), Outcome())
     }
   }
 
@@ -181,18 +117,12 @@ internal class QueryMaybeLifecycleTest {
   fun `decoded success empty and mapping error preserve terminal behavior`() {
     val failure = IllegalArgumentException("Mapping failed")
     MappingResult.entries.forEach { result ->
-      val cursor = mock<Cursor>()
       val query = object : Query<List<String>?>(mock()) {
-        override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
-
-        override fun map(cursor: Cursor, isDisposed: () -> Boolean): List<String>? =
-          cursor.use {
-            when (result) {
-              MappingResult.SUCCESS -> listOf("decoded")
-              MappingResult.EMPTY -> null
-              MappingResult.ERROR -> throw failure
-            }
-          }
+        override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): List<String>? = when (result) {
+          MappingResult.SUCCESS -> listOf("decoded")
+          MappingResult.EMPTY -> null
+          MappingResult.ERROR -> throw failure
+        }
       }
       val observer = query
         .run()
@@ -206,22 +136,18 @@ internal class QueryMaybeLifecycleTest {
           .assertError(failure)
           .assertNotComplete()
       }
-      verify(cursor).close()
     }
   }
 
   @Test
-  fun `cancelled mapping error is reported to plugins after mapper closes cursor`() = withWorkers { workers ->
-    val cursor = mock<Cursor>()
+  fun `cancelled mapping error is reported to plugins`() = withWorkers { workers ->
     val failure = IllegalArgumentException("Mapping failed after cancellation")
     val entered = CountDownLatch(1)
     val release = CountDownLatch(1)
     val errors = CopyOnWriteArrayList<Throwable>()
     val observer = RecordingObserver()
-    val query = object : Query<Cursor>(mock()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor = cursor.use {
+    val query = object : Query<String>(mock()) {
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): String {
         entered.countDown()
         await(release)
         throw failure
@@ -236,12 +162,10 @@ internal class QueryMaybeLifecycleTest {
       }
       await(entered)
       observer.dispose()
-      verify(cursor, never()).close()
       release.countDown()
       execution.get(5, SECONDS)
       assertThat(errors).containsExactly(failure)
       assertThat(observer.outcome).isEqualTo(Outcome())
-      verify(cursor).close()
     } finally {
       release.countDown()
       RxJavaPlugins.reset()
@@ -249,13 +173,10 @@ internal class QueryMaybeLifecycleTest {
   }
 
   @Test
-  fun `fatal mapping failures escape run and still close the cursor`() {
-    val cursor = mock<Cursor>()
+  fun `fatal mapping failures escape run`() {
     val failure = LinkageError("fatal mapper failure")
-    val query = object : Query<Cursor>(mock()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor = cursor.use { throw failure }
+    val query = object : Query<String>(mock()) {
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): String = throw failure
     }
 
     val thrown = assertThrows(LinkageError::class.java) {
@@ -265,73 +186,33 @@ internal class QueryMaybeLifecycleTest {
     }
 
     assertThat(thrown).isSameInstanceAs(failure)
-    verify(cursor).close()
-  }
-
-  @Test
-  fun `run maps without seeing disposal and discards the result of a disposed subscription`() {
-    val observer = TestObserver<List<Boolean>>()
-    val discarded = mutableListOf<List<Boolean>>()
-    val query = object : Query<List<Boolean>>(mock()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl) = mock<Cursor>()
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): List<Boolean> {
-        observer.dispose()
-        return listOf(isDisposed())
-      }
-
-      override fun discardResult(result: List<Boolean>) {
-        discarded += result
-      }
-    }
-
-    query
-      .run()
-      .subscribe(observer)
-
-    observer.assertEmpty()
-    assertThat(discarded).containsExactly(listOf(false))
   }
 
   @Test
   fun `run preserves Maybe assembly hook`() {
     val assemblies = AtomicInteger()
-    val cursor = mock<Cursor>()
+    val query = object : Query<String>(mock()) {
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean) = "result"
+    }
     RxJavaPlugins.setOnMaybeAssembly {
       assemblies.incrementAndGet()
       it
     }
     try {
-      val result = cursorQuery(cursor).run()
+      val result = query.run()
       assertThat(assemblies.get()).isEqualTo(1)
       result
         .test()
-        .assertResult(cursor)
+        .assertResult("result")
     } finally {
       RxJavaPlugins.reset()
     }
   }
 
-  private fun cursorQuery(
-    cursor: Cursor,
-    duringMap: () -> Unit = {}
-  ) = object : Query<Cursor>(mock()) {
-    override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
-
-    override fun map(cursor: Cursor, isDisposed: () -> Boolean): Cursor {
-      duringMap()
-      return cursor
-    }
-
-    override fun discardResult(result: Cursor) = result.close()
-  }
-
-  private class RecordingObserver(
-    private val duringSuccess: () -> Unit = {}
-  ) : MaybeObserver<Cursor> {
-    val values = CopyOnWriteArrayList<Cursor>()
-    val errors = CopyOnWriteArrayList<Throwable>()
-    val completions = AtomicInteger()
+  private class RecordingObserver : MaybeObserver<String> {
+    private val values = CopyOnWriteArrayList<String>()
+    private val errors = CopyOnWriteArrayList<Throwable>()
+    private val completions = AtomicInteger()
     private val subscription = AtomicReference<Disposable>()
     val outcome
       get() = Outcome(
@@ -342,9 +223,8 @@ internal class QueryMaybeLifecycleTest {
 
     override fun onSubscribe(disposable: Disposable) = subscription.set(disposable)
 
-    override fun onSuccess(result: Cursor) {
+    override fun onSuccess(result: String) {
       values.add(result)
-      duringSuccess()
     }
 
     override fun onError(failure: Throwable) {
@@ -359,7 +239,7 @@ internal class QueryMaybeLifecycleTest {
   }
 
   private data class Outcome(
-    val values: List<Cursor> = emptyList(),
+    val values: List<String> = emptyList(),
     val errors: List<Throwable> = emptyList(),
     val completions: Int = 0
   )
@@ -370,7 +250,6 @@ internal class QueryMaybeLifecycleTest {
     ERROR
   }
 
-  private fun await(latch: CountDownLatch) {
+  private fun await(latch: CountDownLatch) =
     check(latch.await(5, SECONDS)) { "Timed out waiting for query lifecycle boundary" }
-  }
 }

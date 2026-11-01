@@ -20,12 +20,11 @@ ksp = "2.3.12"
 ksp-compile-testing = "0.14.0"
 mockito = "5.24.0"
 mockito-kotlin = "6.4.0"
-project = "2.1.0-SNAPSHOT"
 rx-java2 = "2.2.21"
 rx-java3 = "3.1.12"
 sqlitemagic = "2.1.0-SNAPSHOT"
 sqlite = "2.7.1"
-sqlite-bundled = "2.6.0"
+sqlite-bundled-jvm = "2.6.2"
 test-annotations = "1.11.0"
 truth = "1.4.5"
 
@@ -33,14 +32,13 @@ truth = "1.4.5"
 android-annotations = { module = "androidx.annotation:annotation", version.ref = "test-annotations" }
 android-gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 android-sqlite = { module = "androidx.sqlite:sqlite", version.ref = "sqlite" }
-android-sqlite-android = { module = "androidx.sqlite:sqlite-android", version.ref = "sqlite" }
-android-sqlite-bundled-jvm = { module = "androidx.sqlite:sqlite-bundled-jvm", version.ref = "sqlite-bundled" }
+android-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+android-sqlite-bundled-jvm = { module = "androidx.sqlite:sqlite-bundled-jvm", version.ref = "sqlite-bundled-jvm" }
 android-sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "sqlite" }
 android-test-runner = { module = "androidx.test:runner", version.ref = "android-test-runner" }
 auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "auto-service" }
 auto-service-ksp = { module = "dev.zacsweers.autoservice:auto-service-ksp", version.ref = "auto-service-ksp" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { module = "junit:junit", version.ref = "junit4" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }

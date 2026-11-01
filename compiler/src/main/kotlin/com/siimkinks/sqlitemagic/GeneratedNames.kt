@@ -32,7 +32,7 @@ internal object GeneratedNames {
 
   const val METHOD_AS = "AS"
   const val METHOD_NEW_INSTANCE_WITH_ONLY_ID = "newInstanceWithOnlyId"
-  const val METHOD_OBJECT_FROM_CURSOR_POSITION = "objectFromCursorPosition"
+  const val METHOD_OBJECT_FROM_ROW = "objectFromRow"
   const val METHOD_OBJECT_FROM_SELECTED_POSITIONS = "objectFromSelectedPositions"
   const val METHOD_BIND_TO_UPDATE_STATEMENT = "bindToUpdateStatement"
   const val METHOD_BIND_TO_INSERT_STATEMENT = "bindToInsertStatement"
@@ -56,7 +56,7 @@ internal object GeneratedNames {
   const val METHOD_CLEAR_DATA = "clearData"
   const val METHOD_CLEAR_TABLES = "clearTables"
   const val METHOD_MIGRATE_VIEWS = "migrateViews"
-  const val METHOD_CONFIGURE_DATABASE = "configureDatabase"
+  const val METHOD_APPLY_SCHEMA_PRAGMAS = "applySchemaPragmas"
   const val METHOD_GET_NR_OF_TABLES = "getNrOfTables"
   const val METHOD_CREATE_SCHEMA_TABLES = "createSchemaTables"
   const val METHOD_COLLECT_GENERATED_VIEWS = "collectGeneratedViews"

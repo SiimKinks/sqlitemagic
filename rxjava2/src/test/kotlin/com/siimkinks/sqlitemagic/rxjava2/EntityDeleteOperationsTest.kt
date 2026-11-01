@@ -10,13 +10,13 @@ internal class EntityDeleteOperationsTest {
   @Test
   fun `observed delete table is cold and emits the deleted row count`() {
     val recording = newConnection()
-    recording.recordingDatabase.updateResults += 4
+    recording.sqliteConnection.updateResults += 4
     val terminal = TestAdapter()
       .deleteTable()
-      .usingConnection(recording.connection)
+      .usingConnection(recording.dbConnection)
       .observe()
 
-    assertThat(recording.recordingDatabase.compiledStatements).isEmpty()
+    assertThat(recording.sqliteConnection.compiledStatements).isEmpty()
 
     terminal
       .test()

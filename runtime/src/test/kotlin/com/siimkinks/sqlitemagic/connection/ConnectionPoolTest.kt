@@ -1,7 +1,10 @@
 package com.siimkinks.sqlitemagic.connection
 
 import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.SQLiteException
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
@@ -46,6 +49,39 @@ internal class ConnectionPoolTest {
   }
 
   @Test
+  fun `opening migrates only when the version under the exclusive lock still differs`() {
+    val path = folder.databasePath()
+    pool(fileName = path).use { it.write {} }
+    val bundled = BundledSQLiteDriver()
+    val migratedMeanwhile = object : SQLiteDriver by bundled {
+      override fun open(fileName: String): SQLiteConnection = bundled.open(fileName).let { connection ->
+        object : SQLiteConnection by connection {
+          override fun prepare(sql: String): SQLiteStatement {
+            if (sql == "BEGIN EXCLUSIVE") {
+              bundled
+                .open(fileName)
+                .use { it.execSQL("PRAGMA user_version = 2") }
+            }
+            return connection.prepare(sql)
+          }
+        }
+      }
+    }
+    val schema = RecordingSchema(version = 2)
+
+    val userVersion = pool(
+      fileName = path,
+      driver = migratedMeanwhile,
+      schema = schema
+    ).use { pool -> pool.write { it.connection.long("PRAGMA user_version") } }
+
+    assertThat(schema.events)
+      .containsExactly("configure", "open")
+      .inOrder()
+    assertThat(userVersion).isEqualTo(2L)
+  }
+
+  @Test
   fun `failed upgrade rolls back, keeps the old version and retries on the next access`() {
     val path = folder.databasePath()
     pool(fileName = path).use { it.write {} }
@@ -75,8 +111,12 @@ internal class ConnectionPoolTest {
     }
 
     assertThat(failures).containsExactly("upgrade failed", "upgrade failed")
-    assertThat(failing.events).containsExactly("configure", "upgrade 1->2", "configure", "upgrade 1->2").inOrder()
-    assertThat(state).containsExactly(1L, 0L).inOrder()
+    assertThat(failing.events)
+      .containsExactly("configure", "upgrade 1->2", "configure", "upgrade 1->2")
+      .inOrder()
+    assertThat(state)
+      .containsExactly(1L, 0L)
+      .inOrder()
   }
 
   @Test
@@ -122,7 +162,9 @@ internal class ConnectionPoolTest {
       )
       .inOrder()
     assertThat(synchronousSeenByHook).containsExactly(1L, 1L)
-    assertThat(schema.events).containsExactly("configure", "create", "open", "configure").inOrder()
+    assertThat(schema.events)
+      .containsExactly("configure", "create", "open", "configure")
+      .inOrder()
   }
 
   @Test
@@ -159,12 +201,12 @@ internal class ConnectionPoolTest {
       )
     )
 
-    for (case in cases) {
-      val driver = TrackingDriver(hasConnectionPool = case.hasConnectionPool)
+    for ((label, fileName, readerConnections, hasConnectionPool) in cases) {
+      val driver = TrackingDriver(hasConnectionPool = hasConnectionPool)
       val observation = pool(
-        fileName = case.fileName,
+        fileName = fileName,
         driver = driver,
-        readerConnections = case.readerConnections
+        readerConnections = readerConnections
       ).use { pool ->
         val writer = pool.write { it }
         Observation(
@@ -176,13 +218,13 @@ internal class ConnectionPoolTest {
         )
       }
 
-      assertWithMessage(case.label)
+      assertWithMessage(label)
         .that(observation)
         .isEqualTo(
           Observation(
             maxReaders = 0,
             readUsesWriter = true,
-            journalMode = when (case.fileName) {
+            journalMode = when (fileName) {
               MEMORY_DATABASE -> "memory"
               else -> "delete"
             },
@@ -243,11 +285,37 @@ internal class ConnectionPoolTest {
   }
 
   @Test
+  fun `reads nested in a reader lease see the writes of their thread`() {
+    pool(fileName = folder.databasePath()).use { pool ->
+      val balances = pool.read(requiresWriter = false) { outer ->
+        outer.connection
+          .prepare("SELECT balance FROM account ORDER BY id")
+          .use { rows ->
+            rows.step()
+            val beforeWrite = pool.balance()
+            pool.setBalance(
+              id = 1,
+              balance = 0
+            )
+            listOf(beforeWrite, pool.balance())
+          }
+      }
+
+      assertThat(balances)
+        .containsExactly(100L, 0L)
+        .inOrder()
+    }
+  }
+
+  @Test
   fun `readers see the last committed state while the transaction thread sees its own writes`() {
     pool(fileName = folder.databasePath()).use { pool ->
       withWorkers { workers ->
         pool.beginTransaction()
-        pool.write { it.connection.execSQL("UPDATE account SET balance = 0 WHERE id = 1") }
+        pool.setBalance(
+          id = 1,
+          balance = 0
+        )
         val otherThread = workers
           .submit<Long> { pool.balance() }
           .get(5, SECONDS)
@@ -279,8 +347,12 @@ internal class ConnectionPoolTest {
       }
 
       assertThat(throughWriter).isEqualTo(1L)
-      assertThat(throughReader).hasMessageThat().contains("no such table: scratch")
-      assertThat(writeThroughReader).hasMessageThat().contains("attempt to write a readonly database")
+      assertThat(throughReader)
+        .hasMessageThat()
+        .contains("no such table: scratch")
+      assertThat(writeThroughReader)
+        .hasMessageThat()
+        .contains("attempt to write a readonly database")
     }
   }
 
@@ -369,9 +441,13 @@ internal class ConnectionPoolTest {
     val afterRelease = driver.connections.map(TrackingConnection::closed)
     val reuse = assertThrows(IllegalStateException::class.java) { pool.write {} }
 
-    assertThat(afterClose).containsExactly(true, false, true).inOrder()
+    assertThat(afterClose)
+      .containsExactly(true, false, true)
+      .inOrder()
     assertThat(afterRelease).containsExactly(true, true, true)
-    assertThat(reuse).hasMessageThat().isEqualTo("DB connection closed")
+    assertThat(reuse)
+      .hasMessageThat()
+      .isEqualTo("DB connection closed")
     assertThat(pool.isClosed).isTrue()
   }
 
@@ -395,16 +471,16 @@ internal class ConnectionPoolTest {
     val waiter = thread {
       waiterFailure = runCatching { pool.write {} }.exceptionOrNull()
     }
-    while (waiter.state != Thread.State.TIMED_WAITING) {
-      Thread.yield()
-    }
+    waiter.awaitTimedWaiting()
     pool.close()
     release.countDown()
     holder.join()
     waiter.join()
 
     assertThat(waiterFailure).isInstanceOf(IllegalStateException::class.java)
-    assertThat(waiterFailure).hasMessageThat().isEqualTo("DB connection closed")
+    assertThat(waiterFailure)
+      .hasMessageThat()
+      .isEqualTo("DB connection closed")
     assertThat(driver.connections.map(TrackingConnection::closed)).containsExactly(true)
   }
 
@@ -425,31 +501,13 @@ internal class ConnectionPoolTest {
       val failure = assertThrows(IllegalStateException::class.java) { pool.balance() }
       val retried = pool.balance()
 
-      assertThat(failure).hasMessageThat().isEqualTo("reader configuration failed")
+      assertThat(failure)
+        .hasMessageThat()
+        .isEqualTo("reader configuration failed")
       assertThat(retried).isEqualTo(100L)
-      assertThat(driver.connections.map(TrackingConnection::closed)).containsExactly(false, true, false).inOrder()
-    }
-  }
-
-  private fun <T> whileHeldBy(
-    name: String,
-    hold: (release: () -> Unit) -> Unit,
-    attempt: () -> T
-  ): T {
-    val holding = CountDownLatch(1)
-    val released = CountDownLatch(1)
-    val holder = thread(name = name) {
-      hold {
-        holding.countDown()
-        released.await()
-      }
-    }
-    holding.await()
-    return try {
-      attempt()
-    } finally {
-      released.countDown()
-      holder.join()
+      assertThat(driver.connections.map(TrackingConnection::closed))
+        .containsExactly(false, true, false)
+        .inOrder()
     }
   }
 

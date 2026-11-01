@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic.sample
 
 import android.app.Application
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.annotation.Database
@@ -16,7 +16,7 @@ class SampleApp : Application() {
     super.onCreate()
     SqliteMagic.builder(this)
       .database(SqliteMagicDatabase())
-      .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+      .driver(BundledSQLiteDriver())
       .openDefaultConnection()
   }
 }

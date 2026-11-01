@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.model.scalarFieldProperty
 import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter
+import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter.PartialRead
 import com.siimkinks.sqlitemagic.writer.entityProperties
 import com.squareup.kotlinpoet.PropertySpec
 
@@ -37,7 +38,7 @@ internal class ViewTableWriter(
     ),
     readsRelated = view.hasBlocks,
     relationships = null,
-    partialRead = ReadTableStructureWriter.PartialRead(
+    partialRead = PartialRead(
       entityProperties = entityProperties(
         modelName = view.modelName,
         properties = view.scalarProperties,
@@ -55,7 +56,7 @@ internal class ViewTableWriter(
     when (property) {
       is ViewScalarPropertyElement -> {
         val nullable = enclosingNullable || property.isNullable
-        val decodesNull = property.transformer?.run { !isDefaultTransformer && decoderInputNullable } == true
+        val decodesNull = property.transformer?.decoderInputNullable == true
         listOf(
           scalarFieldProperty(
             ownerType = view.modelClassName,

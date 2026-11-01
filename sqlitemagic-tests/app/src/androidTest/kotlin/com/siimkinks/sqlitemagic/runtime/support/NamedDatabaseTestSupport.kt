@@ -1,10 +1,9 @@
 package com.siimkinks.sqlitemagic.runtime.support
 
 import android.app.Application
-import android.database.Cursor
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteOpenHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.execSQL
 import androidx.test.platform.app.InstrumentationRegistry
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DbConnectionImpl
@@ -15,33 +14,35 @@ import com.siimkinks.sqlitemagic.TestApp
 import com.siimkinks.sqlitemagic.coroutines.dispatchCoroutineQueriesOn
 import com.siimkinks.sqlitemagic.rxjava2.scheduleRxQueriesOn
 import com.siimkinks.sqlitemagic.rxjava3.scheduleRxQueriesOn
+import com.siimkinks.sqlitemagic.testDriver
 import io.reactivex.schedulers.Schedulers
 import kotlinx.coroutines.Dispatchers
+import java.io.File
 import io.reactivex.rxjava3.schedulers.Schedulers as RxJava3Schedulers
 
-internal val DbConnection.readableDatabase get() = (this as DbConnectionImpl).readableDatabase
+internal inline fun <T> DbConnection.withWriter(block: (SQLiteConnection) -> T) =
+  (this as DbConnectionImpl).write { block(it.connection) }
 
-internal fun defaultWritableDatabase() = SqliteMagic
-  .defaultDbConnection
-  .writableDatabase
+internal inline fun <T> withDefaultWriter(block: (SQLiteConnection) -> T) = SqliteMagic
+  .getDefaultConnection()
+  .withWriter(block)
 
 internal fun testApplication() = InstrumentationRegistry
   .getInstrumentation()
   .targetContext
   .applicationContext as TestApp
 
-internal fun reopenDefaultConnection() = testApplication().run { initDb(app = this) }
+internal fun reopenDefaultConnection() = testApplication().initDb()
 
 internal fun openNamedConnection(
   application: Application,
   databaseName: String,
-  database: GeneratedDatabase = SqliteMagicDatabase(),
-  sqliteFactory: SupportSQLiteOpenHelper.Factory = FrameworkSQLiteOpenHelperFactory()
-): DbConnection = SqliteMagic
+  database: GeneratedDatabase = SqliteMagicDatabase()
+) = SqliteMagic
   .builder(application)
   .name(databaseName)
   .database(database)
-  .sqliteFactory(sqliteFactory)
+  .driver(testDriver())
   .scheduleRxQueriesOn(Schedulers.trampoline())
   .scheduleRxQueriesOn(RxJava3Schedulers.trampoline())
   .dispatchCoroutineQueriesOn(Dispatchers.Unconfined)
@@ -60,39 +61,52 @@ internal inline fun withNamedDatabase(
   }
 }
 
-private val emptyDatabaseCallback = object : SupportSQLiteOpenHelper.Callback(1) {
-  override fun onCreate(db: SupportSQLiteDatabase) = Unit
-
-  override fun onUpgrade(
-    db: SupportSQLiteDatabase,
-    oldVersion: Int,
-    newVersion: Int
-  ) = Unit
-}
-
 internal fun withEmptyDatabase(
   databaseName: String,
-  block: (SupportSQLiteDatabase) -> Unit
-) = withNamedDatabase(databaseName = databaseName) { application ->
-  FrameworkSQLiteOpenHelperFactory()
-    .create(
-      SupportSQLiteOpenHelper.Configuration
-        .builder(application)
-        .name(databaseName)
-        .callback(emptyDatabaseCallback)
-        .build()
-    )
-    .use { block(it.writableDatabase) }
+  block: (SQLiteConnection) -> Unit
+) = withNamedDatabase(databaseName = databaseName) {
+  openDatabaseFile(
+    application = it,
+    databaseName = databaseName
+  ).use(block)
 }
 
-internal class PrefixFailingDatabase(
-  private val delegate: SupportSQLiteDatabase,
+internal fun openDatabaseFile(
+  application: Application,
+  databaseName: String
+) = testDriver().open(application.getDatabasePath(databaseName).path)
+
+internal fun seedDatabaseFile(
+  application: Application,
+  databaseName: String,
+  version: Int,
+  statements: List<String>
+) = openDatabaseFile(
+  application = application,
+  databaseName = databaseName
+).use { connection ->
+  statements.forEach(connection::execSQL)
+  connection.execSQL("PRAGMA user_version = $version")
+}
+
+internal fun freshDatabasePath(name: String): String = InstrumentationRegistry
+  .getInstrumentation()
+  .targetContext
+  .getDatabasePath(name)
+  .also { file ->
+    file.parentFile?.mkdirs()
+    listOf("", "-journal", "-wal", "-shm").forEach { File("${file.path}$it").delete() }
+  }
+  .path
+
+internal class PrefixFailingConnection(
+  private val delegate: SQLiteConnection,
   private val sqlPrefix: String,
   private val failure: RuntimeException
-) : SupportSQLiteDatabase by delegate {
-  override fun execSQL(sql: String) = when {
+) : SQLiteConnection by delegate {
+  override fun prepare(sql: String) = when {
     sql.startsWith(sqlPrefix) -> throw failure
-    else -> delegate.execSQL(sql)
+    else -> delegate.prepare(sql)
   }
 }
 
@@ -102,38 +116,78 @@ internal const val SQLITE_TEMP_MASTER = "sqlite_temp_master"
 internal fun schemaObjectNames(
   master: String,
   type: String,
-  database: SupportSQLiteDatabase = SqliteMagic.getDefaultConnection().readableDatabase
-) = database
-  .query("SELECT name FROM $master WHERE type = ?", arrayOf(type))
-  .use(Cursor::readStrings)
+  connection: DbConnection = SqliteMagic.getDefaultConnection()
+) = connection.withWriter {
+  it.schemaObjectNames(
+    master = master,
+    type = type
+  )
+}
+
+internal fun SQLiteConnection.schemaObjectNames(
+  master: String,
+  type: String
+) = readStrings("SELECT name FROM $master WHERE type = ?", type)
 
 internal fun schemaObjectSql(
   master: String,
   type: String,
   name: String,
-  database: SupportSQLiteDatabase = SqliteMagic.getDefaultConnection().readableDatabase
-) = database
-  .query("SELECT sql FROM $master WHERE type = ? AND name = ?", arrayOf(type, name))
-  .use(Cursor::readStrings)
-  .singleOrNull()
+  connection: DbConnection = SqliteMagic.getDefaultConnection()
+) = connection.withWriter {
+  it
+    .readStrings("SELECT sql FROM $master WHERE type = ? AND name = ?", type, name)
+    .singleOrNull()
+}
 
-internal fun Cursor.readStrings() = buildList {
-  while (moveToNext()) {
-    add(getString(0))
+internal fun SQLiteConnection.long(sql: String) = prepare(sql).use { statement ->
+  statement.step()
+  statement.getLong(0)
+}
+
+internal fun SQLiteConnection.userVersion() = long("PRAGMA user_version").toInt()
+
+internal fun SQLiteConnection.text(sql: String) = prepare(sql).use { statement ->
+  statement.step()
+  statement.getText(0)
+}
+
+internal fun SQLiteConnection.readStrings(
+  sql: String,
+  vararg arguments: String
+) = prepare(sql).use { statement ->
+  arguments.forEachIndexed { index, argument ->
+    statement.bindText(
+      index = index + 1,
+      value = argument
+    )
+  }
+  buildList {
+    while (statement.step()) {
+      add(statement.textOrNull(0))
+    }
   }
 }
 
-internal fun Cursor.readRows() = buildList {
-  while (moveToNext()) {
-    add(buildList {
-      repeat(times = columnCount) { columnIndex ->
-        add(
-          when {
-            isNull(columnIndex) -> null
-            else -> getString(columnIndex)
-          }
+internal fun queryRows(
+  sql: String,
+  connection: DbConnection = SqliteMagic.getDefaultConnection()
+) = connection.withWriter { it.readRows(sql) }
+
+internal fun SQLiteConnection.readRows(sql: String) = prepare(sql).use { statement ->
+  buildList {
+    while (statement.step()) {
+      add(
+        List(
+          size = statement.getColumnCount(),
+          init = statement::textOrNull
         )
-      }
-    })
+      )
+    }
   }
+}
+
+private fun SQLiteStatement.textOrNull(index: Int) = when {
+  isNull(index) -> null
+  else -> getText(index)
 }

@@ -4,8 +4,10 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.TransformerRuntimeEntityTable.Companion.TRANSFORMER_RUNTIME_ENTITY
 import com.siimkinks.sqlitemagic.asValue
-import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog.insertRuntimeValue
+import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog.runtimeCase
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
+import com.siimkinks.sqlitemagic.runtime.support.withDefaultWriter
 import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
@@ -16,10 +18,10 @@ internal class TransformerRuntimeTest {
 
   @Test
   fun nullableTransformerRoundTripsThroughExecuteAndOneShotObservation() {
-    val value = TransformerModelCatalog.runtimeCase
+    val value = runtimeCase
       .newValue(sequence = 1)
       .copy(nullableToken = null)
-    val expected = TransformerModelCatalog.insertRuntimeValue(value)
+    val expected = insertRuntimeValue(value)
 
     assertThat(
       SELECT
@@ -37,42 +39,46 @@ internal class TransformerRuntimeTest {
         .blockingGet()
     ).isEqualTo(listOf(expected))
 
-    val nullStorage = SELECT
-      .RAW("SELECT nullable_token FROM transformer_runtime_entity WHERE id = ?", checkNotNull(expected.id))
-      .toCursor()
-      .execute()
-      .use { cursor ->
-        check(cursor.moveToFirst())
-        cursor.isNull(0)
-      }
+    val nullStorage = withDefaultWriter { connection ->
+      connection
+        .prepare("SELECT nullable_token FROM transformer_runtime_entity WHERE id = ?")
+        .use { statement ->
+          statement.bindLong(
+            index = 1,
+            value = checkNotNull(expected.id)
+          )
+          check(statement.step())
+          statement.isNull(0)
+        }
+    }
     assertThat(nullStorage)
       .isTrue()
   }
 
   @Test
   fun transformedStorageAndExternalConstantDispatchArePreserved() {
-    val value = TransformerModelCatalog.runtimeCase
+    val value = runtimeCase
       .newValue(sequence = 1)
-    val expected = TransformerModelCatalog.insertRuntimeValue(value)
+    val expected = insertRuntimeValue(value)
 
-    val storage = SELECT
-      .RAW(
-        "SELECT nullable_token, blob_token, typeof(blob_token) " +
-            "FROM transformer_runtime_entity WHERE id = ?",
-        checkNotNull(expected.id)
-      )
-      .toCursor()
-      .execute()
-      .use { cursor ->
-        check(cursor.moveToFirst())
-        Triple(
-          first = cursor.isNull(0),
-          second = cursor
-            .getBlob(1)
-            .toList(),
-          third = cursor.getString(2)
-        )
-      }
+    val storage = withDefaultWriter { connection ->
+      connection
+        .prepare("SELECT nullable_token, blob_token, typeof(blob_token) FROM transformer_runtime_entity WHERE id = ?")
+        .use { statement ->
+          statement.bindLong(
+            index = 1,
+            value = checkNotNull(expected.id)
+          )
+          check(statement.step())
+          Triple(
+            first = statement.isNull(0),
+            second = statement
+              .getBlob(1)
+              .toList(),
+            third = statement.getText(2)
+          )
+        }
+    }
 
     assertThat(storage)
       .isEqualTo(

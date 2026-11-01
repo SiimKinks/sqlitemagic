@@ -8,6 +8,8 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 * SQL-first [Kotlin](https://kotlinlang.org/) DSL – queries read like SQL while the compiler checks clause order,
   column types and nullability
 * Minimal setup needed
+* Your choice of SQLite engine: the device's SQLite, or a recent SQLite bundled with the app for the same SQL on every
+  Android version
 * Kotlin coroutines and RxJava support for observed queries and one-shot operations, through the
   `sqlitemagic-coroutines`, `sqlitemagic-rxjava3` and `sqlitemagic-rxjava2` adapters
 * Built for Kotlin – data classes, generated extension functions and typed result rows
@@ -71,7 +73,8 @@ plugins {
 }
 
 dependencies {
-  implementation("androidx.sqlite:sqlite-framework:<sqlite version>")
+  // the SQLite driver; see Choose a SQLite Driver. The framework driver uses the same version as the plugin
+  implementation("com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:<latest version>")
   // optional: the RxJava 3 observe() APIs; use the same version as the plugin
   implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava3:<latest version>")
   // optional: the RxJava 2 observe() APIs; use the same version as the plugin
@@ -116,7 +119,7 @@ class App : Application() {
     super.onCreate()
     SqliteMagic.builder(this)
       .database(SqliteMagicDatabase())
-      .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+      .driver(FrameworkSQLiteDriver())
       .openDefaultConnection()
   }
 }
@@ -125,6 +128,95 @@ class App : Application() {
 initialization, but it must happen before a database is accessed. Initialization only configures the default
 connection. The database is opened on first access, which creates the schema or runs migration scripts as needed - no
 other hidden runtime performance costs.
+
+#### Choose a SQLite Driver:
+
+The driver decides which SQLite runs the database. There is no default; pick one:
+
+<table style="width:100%; border-collapse: collapse;" >
+<tr>
+<th>Device SQLite</th>
+<th>Bundled SQLite</th>
+</tr>
+<tr style="background: none">
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```kotlin
+// build.gradle.kts; same version as the plugin
+implementation(
+  "com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:<latest version>"
+)
+
+// Application.onCreate
+SqliteMagic.builder(this)
+  .database(SqliteMagicDatabase())
+  .driver(FrameworkSQLiteDriver())
+  .openDefaultConnection()
+```
+
+</td>
+<td style="padding:0; margin:0; border:none; width:50%;">
+
+```kotlin
+// build.gradle.kts
+implementation(
+  "androidx.sqlite:sqlite-bundled:<sqlite version>"
+)
+
+
+// Application.onCreate
+SqliteMagic.builder(this)
+  .database(SqliteMagicDatabase())
+  .driver(BundledSQLiteDriver())
+  .openDefaultConnection()
+```
+
+</td>
+</tr>
+</table>
+
+`FrameworkSQLiteDriver` runs the SQLite of the device, whose version follows the Android version (SQLite 3.9 on
+API 24). It keeps Android's typed `SQLiteException` subclasses, the `LOCALIZED` and `UNICODE` collations, ICU case
+folding in `lower`, `upper` and `LIKE`, and the Database Inspector, and it adds nothing to the app size. Three limits
+of Android's database APIs remain:
+
+* a row larger than a cursor window, about 2 MB, cannot be read and fails with `SQLiteException`;
+* a statement with a `RETURNING` clause (API 34 and later) runs again for each further cursor window, about 2 MB, of
+  rows it returns, so keep its result small or use the bundled driver;
+* each connection takes the app's default locale when it opens. After the locale changes while the app runs, a
+  connection that opens later sorts `LOCALIZED` text by the new locale and the earlier ones by the old locale until
+  the app restarts. Opening it rewrites the database's locale, which waits for a running transaction and fails with
+  `SQLiteDatabaseLockedException` after a few seconds.
+
+`BundledSQLiteDriver` ships a recent SQLite inside the app, so newer SQL features work on every supported Android
+version. It costs:
+
+* about 1.3 MB per ABI in the installed app;
+* no Database Inspector, and no ICU case folding or Android collations;
+* errors are plain `SQLException`s with SQLite's result code in the message, instead of typed subclasses;
+* once the schema uses SQL the device's SQLite does not understand, only a SQLite that does can open the database.
+
+Never open the database file through Android's own database APIs while the app runs it on a bundled driver: two SQLite
+libraries in one process do not see each other's locks and can corrupt the file. A corrupt database fails with an
+exception and its files are kept.
+
+File databases use one writer and up to four reader connections that open when needed, in WAL journal mode. Reads run
+alongside writes and see the last committed data; the thread that runs a transaction reads its own changes. Reads of
+temporary tables and views and raw SELECTs that declare no tables run on the writer, so raw SQL such as `RETURNING` or
+`last_insert_rowid()` sees the connection that changes the data. A statement waits at most 30 seconds for a connection
+that other threads hold, then fails with `SQLException`. The builder tunes this:
+
+```kotlin
+SqliteMagic.builder(this)
+  .database(SqliteMagicDatabase())
+  .driver(BundledSQLiteDriver())
+  .readerConnections(2) // 0 runs every statement on one connection
+  .connectionPoolTimeout(10.seconds) // Duration.INFINITE waits without a limit
+  .configureConnection { connection -> // runs on every connection that opens
+    connection.execSQL("PRAGMA synchronous = FULL")
+  }
+  .openDefaultConnection()
+```
 
 #### Observe With RxJava:
 
@@ -139,7 +231,7 @@ import com.siimkinks.sqlitemagic.rxjava3.scheduleRxQueriesOn
 
 SqliteMagic.builder(this)
   .database(SqliteMagicDatabase())
-  .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+  .driver(FrameworkSQLiteDriver())
   .scheduleRxQueriesOn(Schedulers.computation())
   .openDefaultConnection()
 ```
@@ -176,7 +268,7 @@ import com.siimkinks.sqlitemagic.coroutines.dispatchCoroutineQueriesOn
 
 SqliteMagic.builder(this)
   .database(SqliteMagicDatabase())
-  .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
+  .driver(FrameworkSQLiteDriver())
   .dispatchCoroutineQueriesOn(Dispatchers.Default)
   .openDefaultConnection()
 ```
@@ -554,7 +646,22 @@ val authorNames = SELECT
 val titles: List<String> = (SELECT COLUMN BOOK.TITLE FROM BOOK).execute()
 val first: Author? = (SELECT FROM AUTHOR).takeFirst().execute()
 val count: Long = (SELECT FROM AUTHOR).count().execute()
+
+// rows read one at a time while the block runs
+val firstTitles = (SELECT COLUMN BOOK.TITLE FROM BOOK ORDER_BY BOOK.TITLE.ASC())
+  .useRows { titles -> titles.take(10).toList() }
+
+// raw SQL whose columns are known only when it runs
+val columnNames = SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
+  buildList {
+    while (rows.step()) {
+      add(rows.read(1, SqlType.STRING))
+    }
+  }
+}
 ```
+
+`useRows` holds a database connection until its block returns, and the rows can be read only inside the block.
 
 There is so much more to querying data like joins, subqueries, compound queries, common table expressions (`WITH`),
 SQL functions, window functions, views, compiled queries with named parameters, raw SQL, RxJava convenience operators,

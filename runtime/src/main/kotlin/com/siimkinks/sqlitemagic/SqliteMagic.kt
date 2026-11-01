@@ -2,12 +2,16 @@ package com.siimkinks.sqlitemagic
 
 import android.app.Application
 import androidx.annotation.CheckResult
-import androidx.sqlite.db.SupportSQLiteOpenHelper
-import androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration
-import androidx.sqlite.db.SupportSQLiteOpenHelper.Factory
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
+import com.siimkinks.sqlitemagic.connection.ConnectionOptions
+import com.siimkinks.sqlitemagic.connection.DEFAULT_POOL_TIMEOUT
+import com.siimkinks.sqlitemagic.connection.DEFAULT_READER_CONNECTIONS
+import com.siimkinks.sqlitemagic.connection.MEMORY_DATABASE
 import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.LogUtil.logInfo
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import kotlin.time.Duration
 
 object SqliteMagic {
   var loggingEnabled = false
@@ -65,7 +69,10 @@ object SqliteMagic {
   ) {
     private var database: GeneratedDatabase? = null
     private var name: String? = null
-    private var sqliteFactory: Factory? = null
+    private var driver: SQLiteDriver? = null
+    private var readerConnections = DEFAULT_READER_CONNECTIONS
+    private var connectionPoolTimeout = DEFAULT_POOL_TIMEOUT
+    private var configureConnection: ((SQLiteConnection) -> Unit)? = null
     private var downgrader: DbDowngrader? = null
     private val adapterSettings = MutableScatterMap<AdapterSettingKey<*>, Any>(initialCapacity = 0)
 
@@ -96,14 +103,75 @@ object SqliteMagic {
     }
 
     /**
-     * Define a Factory class to create instances of [SupportSQLiteOpenHelper].
+     * Define the SQLite driver that opens the database connections.
      *
-     * @param factory The factory to use while creating the open helper.
+     * The driver decides the SQLite engine: for example `BundledSQLiteDriver` for a SQLite bundled with the
+     * application, or `FrameworkSQLiteDriver` from the `sqlitemagic-framework-driver` artifact for the SQLite of the
+     * device.
+     *
+     * @param driver SQLite driver
      * @return Database connection configuration builder
      */
     @CheckResult
-    fun sqliteFactory(factory: Factory) = apply {
-      sqliteFactory = factory
+    fun driver(driver: SQLiteDriver) = apply {
+      this.driver = driver
+    }
+
+    /**
+     * Define how many reader connections can read the database concurrently with the writer connection.
+     *
+     * Reader connections open when needed and use the WAL journal mode. With 0 reader connections one connection
+     * runs every statement and the journal mode is left to [configureConnection]. In-memory databases and drivers
+     * with their own connection pool always use one connection. Defaults to 4.
+     *
+     * @param count Number of reader connections
+     * @return Database connection configuration builder
+     * @throws IllegalArgumentException if [count] is negative
+     */
+    @CheckResult
+    fun readerConnections(count: Int) = apply {
+      require(count >= 0) { "Reader connection count cannot be negative: $count" }
+      readerConnections = count
+    }
+
+    /**
+     * Define how long a statement waits for a database connection that other threads use.
+     *
+     * A statement that waits longer fails with `SQLException`, which names the connection it waited for. Use
+     * [Duration.INFINITE] to wait without a limit. Defaults to 30 seconds.
+     *
+     * @param timeout Longest wait for a connection
+     * @return Database connection configuration builder
+     * @throws IllegalArgumentException if [timeout] is not positive
+     */
+    @CheckResult
+    fun connectionPoolTimeout(timeout: Duration) = apply {
+      require(timeout.isPositive()) { "Connection pool timeout must be positive: $timeout" }
+      connectionPoolTimeout = timeout
+    }
+
+    /**
+     * Configure each database connection when it opens, for example with PRAGMA statements.
+     *
+     * The configuration runs on every connection before the database schema is created or upgraded. It runs after
+     * the library's connection defaults, so its settings take precedence over them. The settings the library needs
+     * are applied after it: `journal_mode = WAL` with reader connections, `query_only` on reader connections and
+     * `foreign_keys = ON` for schemas with cascading deletes.
+     *
+     * Example:
+     * ```
+     * SqliteMagic.builder(application)
+     *     .configureConnection { connection ->
+     *       connection.execSQL("PRAGMA synchronous = FULL")
+     *     }
+     * ```
+     *
+     * @param configure Configuration of a connection
+     * @return Database connection configuration builder
+     */
+    @CheckResult
+    fun configureConnection(configure: (SQLiteConnection) -> Unit) = apply {
+      configureConnection = configure
     }
 
     /**
@@ -151,7 +219,7 @@ object SqliteMagic {
     fun openNewConnection(): DbConnection = openConnection()
 
     private fun openConnection(): DbConnectionImpl {
-      val sqliteFactory = sqliteFactory ?: throw NullPointerException("SQLite Factory cannot be missing")
+      val driver = driver ?: throw NullPointerException("SQLite driver cannot be missing")
       val database = database ?: throw NullPointerException("Generated database cannot be missing")
       val downgrader = downgrader ?: DefaultDbDowngrader(database)
       return try {
@@ -159,22 +227,26 @@ object SqliteMagic {
           name.isNullOrEmpty() -> database.dbName
           else -> name
         }
-        val version = database.dbVersion
-        val dbCallback = DbCallback(
-          context = context,
-          version = version,
-          database = database,
-          downgrader = downgrader
-        )
-        val configuration = Configuration.builder(context)
-          .name(name)
-          .callback(dbCallback)
-          .build()
-        val helper = sqliteFactory.create(configuration)
-        logInfo("Initializing database with [name=$name, version=$version, logging=$loggingEnabled]")
+        logInfo("Initializing database with [name=$name, version=${database.dbVersion}, logging=$loggingEnabled]")
         DbConnectionImpl(
           database = database,
-          dbHelper = helper,
+          schema = DatabaseSchema(
+            resources = { context.assets.open(it.name) },
+            database = database,
+            downgrader = downgrader
+          ),
+          driver = driver,
+          fileName = when (name) {
+            null -> MEMORY_DATABASE
+            else -> context
+              .getDatabasePath(name)
+              .path
+          },
+          options = ConnectionOptions(
+            readerConnections = readerConnections,
+            poolTimeout = connectionPoolTimeout,
+            configureConnection = configureConnection
+          ),
           adapterSettings = MutableScatterMap<AdapterSettingKey<*>, Any>(adapterSettings.size).apply {
             adapterSettings.forEach(::set)
           }

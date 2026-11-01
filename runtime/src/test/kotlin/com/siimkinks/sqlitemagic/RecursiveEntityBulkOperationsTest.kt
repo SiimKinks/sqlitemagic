@@ -9,7 +9,7 @@ internal class RecursiveEntityBulkOperationsTest {
   @Test
   fun `bulk insert publishes one aggregate trigger`() {
     val scenario = RecursiveScenario()
-    scenario.database.insertResults.addAll(listOf(141L, 142L, 151L, 152L))
+    scenario.database.insertResults += listOf(141L, 142L, 151L, 152L)
 
     assertThat(
       scenario.parent
@@ -24,7 +24,7 @@ internal class RecursiveEntityBulkOperationsTest {
   @Test
   fun `bulk insert rolls back the failed graph without publishing a trigger`() {
     val scenario = RecursiveScenario()
-    scenario.database.insertResults.addAll(listOf(181L, 182L, 191L, -1L))
+    scenario.database.insertResults += listOf(181L, 182L, 191L, -1L)
 
     assertThat(
       scenario.parent
@@ -40,6 +40,16 @@ internal class RecursiveEntityBulkOperationsTest {
 
   @Test
   fun `ignored bulk operations isolate each graph transaction`() {
+    data class IgnoredBulkCase(
+      val label: String,
+      val operation: RecursiveBulkOperation,
+      val insertResults: List<Long> = emptyList(),
+      val updateResults: List<Int> = emptyList(),
+      val expectedResult: Boolean,
+      val expectedCommitted: Int,
+      val expectedRolledBack: Int
+    )
+
     listOf(
       IgnoredBulkCase(
         label = "all inserts ignored",
@@ -93,8 +103,8 @@ internal class RecursiveEntityBulkOperationsTest {
       )
     ).forEach { case ->
       val scenario = RecursiveScenario()
-      scenario.database.insertResults.addAll(case.insertResults)
-      scenario.database.updateResults.addAll(case.updateResults)
+      scenario.database.insertResults += case.insertResults
+      scenario.database.updateResults += case.updateResults
 
       assertWithMessage(case.label)
         .that(
@@ -125,21 +135,21 @@ internal class RecursiveEntityBulkOperationsTest {
   private fun executeIgnoredBulkOperation(
     operation: RecursiveBulkOperation,
     adapter: RecursiveParentAdapter,
-    connection: RecordingConnection
+    connection: RecordingDbConnection
   ) = when (operation) {
     RecursiveBulkOperation.INSERT -> adapter
       .bulkInsert(twoParentBulkGraphs())
-      .usingConnection(connection.connection)
+      .usingConnection(connection.dbConnection)
       .conflictAlgorithm(CONFLICT_IGNORE)
       .execute()
     RecursiveBulkOperation.UPDATE -> adapter
       .bulkUpdate(twoParentBulkGraphs())
-      .usingConnection(connection.connection)
+      .usingConnection(connection.dbConnection)
       .conflictAlgorithm(CONFLICT_IGNORE)
       .execute()
     RecursiveBulkOperation.PERSIST -> adapter
       .bulkPersist(twoParentBulkGraphs())
-      .usingConnection(connection.connection)
+      .usingConnection(connection.dbConnection)
       .conflictAlgorithm(CONFLICT_IGNORE)
       .execute()
   }
@@ -150,13 +160,3 @@ private enum class RecursiveBulkOperation {
   UPDATE,
   PERSIST
 }
-
-private data class IgnoredBulkCase(
-  val label: String,
-  val operation: RecursiveBulkOperation,
-  val insertResults: List<Long> = emptyList(),
-  val updateResults: List<Int> = emptyList(),
-  val expectedResult: Boolean,
-  val expectedCommitted: Int,
-  val expectedRolledBack: Int
-)

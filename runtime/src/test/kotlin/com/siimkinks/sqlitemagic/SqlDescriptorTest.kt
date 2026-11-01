@@ -1,13 +1,15 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
-import androidx.sqlite.db.SupportSQLiteProgram
+import androidx.sqlite.SQLITE_DATA_INTEGER
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SqlType.DOUBLE
 import com.siimkinks.sqlitemagic.SqlType.FLOAT
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.NUMBER
+import com.siimkinks.sqlitemagic.SqlType.STRING
+import com.siimkinks.sqlitemagic.internal.NullableValueReads
 import com.siimkinks.sqlitemagic.internal.SqlStorage
 import com.siimkinks.sqlitemagic.internal.identity
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
@@ -15,11 +17,14 @@ import com.siimkinks.sqlitemagic.internal.nullableReadType
 import com.siimkinks.sqlitemagic.internal.requiredReadType
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
+import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 import com.siimkinks.sqlitemagic.internal.sql.appendNativeLiteral
 import com.siimkinks.sqlitemagic.internal.sql.bindNativeValue
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.Mockito.mockingDetails
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -34,14 +39,15 @@ internal class SqlDescriptorTest {
       1.5.asValue().node to NativeValue.Real(1.5),
       "text".asValue().node to NativeValue.Text("text"),
       true.asValue().node to NativeValue.Integer(1L),
-      null.asValue(SqlType.STRING.nullBypassParameterEncoding()).node to NativeValue.Null
+      null.asValue(STRING.nullBypassParameterEncoding()).node to NativeValue.Null
     )
 
     values.forEach { (node, expected) ->
       assertThat(node).isEqualTo(ExpressionNode.Bound(expected))
     }
     val byte = 7.toByte()
-      .asValue().node as ExpressionNode.Bound
+      .asValue()
+      .node as ExpressionNode.Bound
     assertThat((byte.argument as NativeValue.Blob).value).isEqualTo(byteArrayOf(7))
   }
 
@@ -51,7 +57,7 @@ internal class SqlDescriptorTest {
     val expression = bytes.asValue()
     bytes[0] = 9
     val argument = (expression.node as ExpressionNode.Bound).argument as NativeValue.Blob
-    val statement = mock<SupportSQLiteProgram>()
+    val statement = mock<SQLiteStatement>()
     val bound = argumentCaptor<ByteArray>()
 
     bindNativeValue(
@@ -80,13 +86,13 @@ internal class SqlDescriptorTest {
       },
       encodingNullness = Required
     )
-    val cursor = mock<Cursor>()
-    whenever(cursor.isNull(0)).thenReturn(true)
+    val statement = mock<SQLiteStatement>()
+    whenever(statement.isNull(0)).thenReturn(true)
 
     val direct = "NULL".expr(descriptor)
-      .selectRead(cursor, 0)
+      .selectRead(statement, 0)
     val contextual = "NULL".expr(descriptor.nullable)
-      .selectRead(cursor, 0)
+      .selectRead(statement, 0)
     assertThat(direct).isEqualTo("sentinel")
     assertThat(contextual).isNull()
     assertThat(decodes).isEqualTo(1)
@@ -100,47 +106,119 @@ internal class SqlDescriptorTest {
       decode = fun(_: String): String? = null,
       encodingNullness = SqlNullable
     )
-    val cursor = mock<Cursor>()
-    whenever(cursor.getString(0)).thenReturn("present")
+    val statement = mock<SQLiteStatement>()
+    whenever(statement.getText(0)).thenReturn("present")
 
     val actual = "'present'".expr(descriptor)
-      .selectRead(cursor, 0)
+      .selectRead(statement, 0)
     assertThat(actual).isNull()
   }
 
   @Test
-  fun `required raw reader rejects actual NULL while nullable reader bypasses it`() {
-    val cursor = mock<Cursor>()
-    whenever(cursor.isNull(0)).thenReturn(true)
-
-    assertThat(
-      sqlExceptionMessage {
-        "NULL".expr(LONG)
-          .selectRead(cursor, 0)
-      }
-    ).isEqualTo("Required SQL result returned SQL NULL")
-    val actual = "NULL".expr(LONG.nullable)
-      .selectRead(cursor, 0)
-    assertThat(actual).isNull()
-  }
-
-  @Test
-  fun `a transformer descriptor reads required SQL NULL like the built-in types`() {
+  fun `required built-in and transformer readers reject actual NULL while nullable reader bypasses it`() {
     val descriptor = requiredReadType(
       storage = SqlStorage.STRING,
       encode = ::identity,
       decode = ::identity,
       encodingNullness = Required
     )
-    val cursor = mock<Cursor>()
-    whenever(cursor.isNull(0)).thenReturn(true)
+    val statement = mock<SQLiteStatement>()
+    whenever(statement.isNull(0)).thenReturn(true)
 
-    val message = sqlExceptionMessage {
-      "NULL".expr(descriptor)
-        .selectRead(cursor, 0)
+    mapOf<String, () -> Unit>(
+      "LONG" to {
+        "NULL".expr(LONG)
+          .selectRead(statement, 0)
+      },
+      "transformer descriptor" to {
+        "NULL".expr(descriptor)
+          .selectRead(statement, 0)
+      }
+    ).forEach { (label, read) ->
+      assertWithMessage(label)
+        .that(sqlExceptionMessage(read))
+        .isEqualTo("Required SQL result returned SQL NULL")
     }
+    val actual = "NULL".expr(LONG.nullable)
+      .selectRead(statement, 0)
+    assertThat(actual).isNull()
+  }
 
-    assertThat(message).isEqualTo("Required SQL result returned SQL NULL")
+  @Test
+  fun `nullable reads check SQL NULL once and read nullable TEXT in one call`() {
+    data class ReadCase(
+      val label: String,
+      val read: (SQLiteStatement, Int) -> Any?,
+      val expected: Any?,
+      val calls: List<String>
+    )
+
+    val statement = mock<SQLiteStatement>(extraInterfaces = arrayOf(NullableValueReads::class))
+    whenever(statement.getLong(0)).thenReturn(7L)
+    whenever(statement.getColumnType(0)).thenReturn(SQLITE_DATA_INTEGER)
+    whenever((statement as NullableValueReads).getTextOrNull(0)).thenReturn("text")
+    val text = "x".expr(STRING)
+
+    listOf(
+      ReadCase(
+        label = "required LONG expression",
+        read = "x".expr(LONG)
+          .nullable()
+          .selectRead,
+        expected = 7L,
+        calls = listOf("isNull", "getLong")
+      ),
+      ReadCase(
+        label = "required STRING expression",
+        read = text
+          .nullable()
+          .selectRead,
+        expected = "text",
+        calls = listOf("getTextOrNull")
+      ),
+      ReadCase(
+        label = "nullable LONG expression",
+        read = "x".expr(LONG.nullable)
+          .nullable()
+          .selectRead,
+        expected = 7L,
+        calls = listOf("isNull", "getLong")
+      ),
+      ReadCase(
+        label = "selected required STRING expression",
+        read = ScalarSelection(
+          expression = text,
+          read = text.selectRead
+        )
+          .nullable()
+          .createExecutionReader(SqlRenderingContext())
+          .open(),
+        expected = "text",
+        calls = listOf("getTextOrNull")
+      ),
+      ReadCase(
+        label = "nullable CAST AS TEXT",
+        read = CAST("x".expr(STRING.nullable) AS TEXT).selectRead,
+        expected = "text",
+        calls = listOf("getTextOrNull")
+      ),
+      ReadCase(
+        label = "nullable CAST AS NUMERIC",
+        read = CAST("x".expr(LONG.nullable) AS NUMERIC).selectRead,
+        expected = 7L,
+        calls = listOf("getColumnType", "getLong")
+      )
+    ).forEach { case ->
+      clearInvocations(statement)
+      val value = case.read(statement, 0)
+      val calls = mockingDetails(statement)
+        .invocations
+        .map { it.method.name }
+
+      assertWithMessage(case.label)
+        .that(value to calls)
+        .isEqualTo(case.expected to case.calls)
+    }
   }
 
   @Test
@@ -161,7 +239,9 @@ internal class SqlDescriptorTest {
         .asValue(descriptor)
     }
 
-    assertThat(failure).hasMessageThat().isEqualTo("SQL expressions and queries are not host values")
+    assertThat(failure)
+      .hasMessageThat()
+      .isEqualTo("SQL expressions and queries are not host values")
     assertThat(encodes).isEqualTo(0)
   }
 
@@ -232,7 +312,7 @@ internal class SqlDescriptorTest {
     val query = SELECT.COLUMNS(Double.POSITIVE_INFINITY.asLiteral(), Double.NEGATIVE_INFINITY.asLiteral())
 
     assertThat(query.compile().sql).isEqualTo("SELECT 9e999, -9e999")
-    BundledSqliteDatabase().use { database ->
+    TestDatabase().use { database ->
       assertThat(query.rows(database)).isEqualTo(listOf(Row2(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)))
     }
   }
@@ -240,7 +320,7 @@ internal class SqlDescriptorTest {
   @Test
   fun `NUMBER reads INTEGER and REAL results and rejects stored text`() {
     personDatabase().use { database ->
-      val connection = database.dbConnection()
+      val connection = database.connection
       val numbers = SELECT
         .RAW("SELECT age, age / 2.0 FROM person WHERE id = 1")
         .readAs(NUMBER, NUMBER)

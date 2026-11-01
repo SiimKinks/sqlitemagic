@@ -1,9 +1,11 @@
 package com.siimkinks.sqlitemagic.rxjava2
 
-import android.database.Cursor
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.Query
+import com.siimkinks.sqlitemagic.rxjava2.QueryOperatorTerminalContractTest.Terminal.COUNT
+import com.siimkinks.sqlitemagic.rxjava2.QueryOperatorTerminalContractTest.Terminal.LIST
+import com.siimkinks.sqlitemagic.rxjava2.QueryOperatorTerminalContractTest.Terminal.SCALAR
 import io.reactivex.Observable
 import io.reactivex.Observer
 import io.reactivex.disposables.Disposables
@@ -12,8 +14,8 @@ import io.reactivex.subjects.PublishSubject
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 
 @RunWith(Parameterized::class)
@@ -35,7 +37,10 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
         }
         else -> {
           source.onError(failure)
-          observer.assertFailure(failure::equals)
+          observer
+            .assertNoValues()
+            .assertError(failure)
+            .assertNotComplete()
         }
       }
       assertThat(events)
@@ -53,11 +58,8 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
   @Test
   fun `mapping failure disposes upstream before error like map`() {
     val failure = IllegalArgumentException("mapping failed")
-    val cursor = mock<Cursor>()
     val query = object : Query<Any>(mock()) {
-      override fun rawQuery(dbConnection: DbConnectionImpl) = cursor
-
-      override fun map(cursor: Cursor, isDisposed: () -> Boolean): Any = cursor.use { throw failure }
+      override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean): Any = throw failure
     }
     val events = mutableListOf<String>()
     val source = PublishSubject.create<Query<Any>>()
@@ -66,12 +68,17 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
       .executeQuery()
       .record(events)
     source.onNext(query)
-    observer.assertFailure(failure::equals)
+    observer
+      .assertNoValues()
+      .assertError(failure)
+      .assertNotComplete()
     assertThat(source.hasObservers()).isFalse()
     source.onNext(query)
     source.onComplete()
-    observer.assertFailure(failure::equals)
-    verify(cursor).close()
+    observer
+      .assertNoValues()
+      .assertError(failure)
+      .assertNotComplete()
     assertThat(events)
       .containsExactly("upstream finally", "downstream error")
       .inOrder()
@@ -100,7 +107,10 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
         source.observer.onError(lateFailure)
         when {
           complete -> observer.assertResult()
-          else -> observer.assertFailure(failure::equals)
+          else -> observer
+            .assertNoValues()
+            .assertError(failure)
+            .assertNotComplete()
         }
         verifyNoInteractions(ignoredQuery)
         assertThat(source.upstream.isDisposed).isFalse()
@@ -134,9 +144,9 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
 
   @Suppress("UNCHECKED_CAST")
   private fun Observable<Query<Any>>.executeQuery() = when (terminal) {
-    Terminal.SCALAR -> lift(OperatorRunSingleItemQuery())
-    Terminal.LIST -> (this as Observable<Query<List<Any>>>).lift(runListQuery())
-    Terminal.COUNT -> (this as Observable<Query<Long>>).lift(OperatorCountZeroOrNot.countZero)
+    SCALAR -> lift(OperatorRunSingleItemQuery())
+    LIST -> (this as Observable<Query<List<Any>>>).lift(runListQuery())
+    COUNT -> (this as Observable<Query<Long>>).lift(OperatorCountZeroOrNot.countZero)
   }
 
   private fun Observable<*>.record(events: MutableList<String>) =
@@ -162,7 +172,7 @@ internal class QueryOperatorTerminalContractTest(private val terminal: Terminal)
 
   companion object {
     @JvmStatic
-    @Parameterized.Parameters(name = "{0}")
+    @Parameters(name = "{0}")
     fun terminals() = Terminal.entries
   }
 }

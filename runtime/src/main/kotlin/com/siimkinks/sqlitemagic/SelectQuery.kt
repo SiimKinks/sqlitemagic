@@ -2,11 +2,9 @@
 
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.internal.sql.SelectNode
 import com.siimkinks.sqlitemagic.internal.sql.compileCount
-import com.siimkinks.sqlitemagic.internal.sql.compileCursor
 import com.siimkinks.sqlitemagic.internal.sql.compileFirst
 import com.siimkinks.sqlitemagic.internal.sql.compileSelect
 
@@ -14,8 +12,8 @@ import com.siimkinks.sqlitemagic.internal.sql.compileSelect
  * SQL SELECT statement.
  *
  * Execute it with [execute], observe it with a reactive adapter's `observe()`, or compile it once with [compile],
- * [takeFirst], [count] or [toCursor] to execute it many times. Queries are immutable and can be reused. A query can
- * also be used as a subquery and as a source in FROM and JOIN clauses.
+ * [takeFirst] or [count] to execute it many times. Queries are immutable and can be reused. A query can also be
+ * used as a subquery and as a source in FROM and JOIN clauses.
  *
  * @param T Selection return type
  * @param S Selection type
@@ -111,6 +109,25 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
   fun execute() = compile().execute()
 
   /**
+   * Compile and execute this select statement against a database and read its rows inside [block].
+   *
+   * The rows are read lazily, one at a time, while [block] iterates them. They can be iterated once and only inside
+   * [block], on the calling thread. The query holds a database connection until [block] returns, so keep [block]
+   * short. This method runs synchronously in the calling thread.
+   *
+   * Example:
+   * ```
+   * val firstBooks = (SELECT FROM BOOK ORDER_BY BOOK.TITLE.ASC())
+   *     .useRows { books -> books.take(10).toList() }
+   * ```
+   *
+   * @param block Reads the rows of the query
+   * @return Result of [block]
+   * @throws IllegalArgumentException if the query has parameters. Use [compile] and bind their values instead
+   */
+  fun <R> useRows(block: (Sequence<T>) -> R): R = compile().useRows(block)
+
+  /**
    * Compile select builder and instruct it to take only the first element from the result set.
    *
    * Result is immutable object which can be shared across multiple threads without side effects.
@@ -135,15 +152,4 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
    * @return Immutable compiled select statement
    */
   fun count() = compileCount(node)
-
-  /**
-   * Compile select builder and instruct it to return raw [Cursor] when query is executed.
-   *
-   * Result is immutable object which can be shared across multiple threads without side effects.
-   *
-   * NB! This method does not compile the underlying SQL statement against a database.
-   *
-   * @return Immutable compiled select statement
-   */
-  fun toCursor() = compileCursor(node)
 }

@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
-import androidx.sqlite.db.SupportSQLiteStatement
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
 import com.siimkinks.sqlitemagic.internal.EntityAdapter
@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.internal.EntityAdapterMetadata
 import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.LogUtil.logDebug
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutationResults
 
 internal data class OperationConfigurationSnapshot(
   val connection: DbConnectionImpl?,
@@ -44,7 +45,7 @@ internal class OperationContext private constructor(
   val ignoreNullValues get() = configuration.ignoreNullValues
   val bindValues get() = sharedState.bindValues
   private var rememberedRelationshipIds: MutableMap<String, Long>? = null
-  val generatedRelationshipIds get() = rememberedRelationshipIds ?: emptyMap()
+  val generatedRelationshipIds get() = rememberedRelationshipIds.orEmpty()
 
   fun rememberGeneratedId(columnName: String, rowId: Long) {
     val ids = rememberedRelationshipIds ?: HashMap<String, Long>().also { rememberedRelationshipIds = it }
@@ -73,60 +74,82 @@ internal class OperationContext private constructor(
     skipTableTriggers = true
   )
 
-  val customConflict get() = conflictAlgorithm != CONFLICT_NONE && conflictAlgorithm != CONFLICT_ABORT
+  val statementConflictAlgorithm
+    get() = when (conflictAlgorithm) {
+      CONFLICT_ABORT -> CONFLICT_NONE
+      else -> conflictAlgorithm
+    }
 
-  inline fun <T> withInsertStatement(sql: String, block: (SupportSQLiteStatement) -> T): T = withStatement(
-    sql = sql,
-    cached = !customConflict,
-    cachedStatement = { entityDbManager().insertStatement(sql) },
+  inline fun <T> withInsertStatement(
+    template: String,
+    block: (SQLiteStatement, MutationResults) -> T
+  ) = withStatement(
+    sql = { insertSql(template) },
     block = block
   )
 
   inline fun <T> withUpdateStatement(
-    sql: String,
+    template: String,
     default: Boolean,
-    block: (SupportSQLiteStatement) -> T
-  ): T = withStatement(
-    sql = sql,
-    cached = default && !customConflict,
-    cachedStatement = { entityDbManager().updateStatement(sql) },
+    block: (SQLiteStatement, MutationResults) -> T
+  ) = withStatement(
+    sql = {
+      updateSql(
+        template = template,
+        default = default
+      )
+    },
     block = block
   )
 
-  inline fun <T> withStatement(
-    sql: String,
-    cached: Boolean,
-    cachedStatement: () -> SupportSQLiteStatement,
-    block: (SupportSQLiteStatement) -> T
-  ): T = when {
-    cached -> cachedStatement().let { statement ->
-      synchronized(statement) {
-        block(statement)
-      }
-    }
-    inTransaction -> block(transactionStatement(sql))
-    else -> compileStatement(sql).let { statement ->
-      try {
-        block(statement)
-      } finally {
-        statement.closeQuietly()
-      }
+  fun insertSql(template: String) = entitySql().insert(
+    template = template,
+    conflictAlgorithm = statementConflictAlgorithm
+  )
+
+  fun updateSql(template: String, default: Boolean) = when {
+    default -> entitySql().defaultUpdate(
+      template = template,
+      conflictAlgorithm = statementConflictAlgorithm
+    )
+    else -> entitySql().update(
+      template = template,
+      conflictAlgorithm = statementConflictAlgorithm
+    )
+  }
+
+  fun deleteSql(columnName: String, count: Int) = when (count) {
+    1 -> entitySql().deleteOne(
+      tableName = adapter.tableName,
+      columnName = columnName
+    )
+    else -> buildString {
+      append("DELETE FROM ")
+      append(adapter.tableName)
+      append(" WHERE ")
+      append(columnName)
+      append(" IN (")
+      appendPlaceholders(count)
+      append(')')
     }
   }
 
-  val inTransaction get() = sharedState.transactionDepth > 0
+  fun deleteTableSql() = entitySql().deleteTable(adapter.tableName)
 
-  fun transactionStatement(sql: String) = sharedState.statements[sql]
-    ?: compileStatement(sql).also { sharedState.statements[sql] = it }
+  inline fun <T> withStatement(
+    sql: () -> String,
+    block: (SQLiteStatement, MutationResults) -> T
+  ) = connection.write { pooled ->
+    pooled.withStatement(sql()) { statement ->
+      block(statement, pooled.mutations)
+    }
+  }
 
-  fun compileStatement(sql: String) = entityDbManager().compileStatement(
-    sql = sql,
-    conflictAlgorithm = conflictAlgorithm
-  )
+  private val inTransaction get() = sharedState.transactionDepth > 0
 
-  fun entityDbManager() = connection.getEntityDbManager(
+  fun entitySql() = connection.entitySql(
     moduleName = adapter.moduleName,
-    tablePos = adapter.tablePosition
+    tablePosition = adapter.tablePosition
   )
 
   fun sendTableTriggers(adapter: EntityAdapter<*>) {
@@ -145,7 +168,7 @@ internal class OperationContext private constructor(
   inline fun <T> executeMutation(
     adapter: EntityAdapter<*>,
     operation: EntityMutationExecution.() -> T
-  ): T = EntityMutationExecution().let { execution ->
+  ) = EntityMutationExecution().let { execution ->
     notifyingOnFailure(
       notify = {
         if (execution.possibleChanges) {
@@ -171,7 +194,6 @@ internal class OperationContext private constructor(
         result
       } finally {
         transaction.end()
-        sharedState.closeStatements()
       }
     } finally {
       sharedState.transactionDepth--
@@ -187,13 +209,7 @@ internal class OperationContext private constructor(
 
   private class SharedState(bindValuesCapacity: Int) {
     val bindValues = MutableScatterMap<String, Any>(initialCapacity = bindValuesCapacity)
-    val statements = MutableScatterMap<String, SupportSQLiteStatement>(initialCapacity = 0)
     var transactionDepth = 0
-
-    fun closeStatements() {
-      statements.forEachValue(SupportSQLiteStatement::closeQuietly)
-      statements.clear()
-    }
   }
 }
 
@@ -201,17 +217,17 @@ internal class EntityMutationExecution {
   var possibleChanges = false
     private set
 
-  fun executeInsert(statement: SupportSQLiteStatement): Long {
+  fun executeInsert(statement: SQLiteStatement, results: MutationResults): Long {
     possibleChanges = true
-    return statement
-      .executeInsert()
+    return results
+      .executeInsert(statement)
       .also { possibleChanges = it != -1L }
   }
 
-  fun executeUpdateDelete(statement: SupportSQLiteStatement): Int {
+  fun executeUpdateDelete(statement: SQLiteStatement, results: MutationResults): Int {
     possibleChanges = true
-    return statement
-      .executeUpdateDelete()
+    return results
+      .executeUpdateDelete(statement)
       .also { possibleChanges = it > 0 }
   }
 }

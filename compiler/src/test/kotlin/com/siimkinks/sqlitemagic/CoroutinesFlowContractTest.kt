@@ -12,47 +12,38 @@ internal class CoroutinesFlowContractTest {
   fun `every observed shape resolves to its operators and result types`() {
     compileFlowConsumer(
       """
-        fun verify(defaultCursor: Cursor) {
+        fun verify() {
           val rows = SELECT.COLUMN(PERSON.NAME).FROM(PERSON).observe()
           val first = SELECT.COLUMN(PERSON.NAME).FROM(PERSON).takeFirst().observe()
           val firstParent = SELECT.COLUMN(PERSON.PARENT_ID).FROM(PERSON).takeFirst().observe()
           val count = SELECT.COLUMN(PERSON.ID).FROM(PERSON).count().observe()
-          val cursor = SELECT.COLUMN(PERSON.ID).FROM(PERSON).toCursor().observe()
 
           val exactRowsStream: Exact<Flow<Query<List<String?>>>> = rows.exactType()
           val exactFirstStream: Exact<Flow<Query<String?>>> = first.exactType()
           val exactCountStream: Exact<Flow<Query<Long>>> = count.exactType()
-          val exactCursorStream: Exact<Flow<Query<Cursor>>> = cursor.exactType()
           val exactRows: Exact<Flow<List<String?>>> = rows.runQuery().exactType()
           val exactFirst: Exact<Flow<String>> = first.runQuery().exactType()
           val exactFirstOrDefault: Exact<Flow<String>> = first.runQueryOrDefault("none").exactType()
           val exactFirstParent: Exact<Flow<Long>> = firstParent.runQuery().exactType()
           val exactCount: Exact<Flow<Long>> = count.runQuery().exactType()
-          val exactCountOrDefault: Exact<Flow<Long>> = count.runQueryOrDefault(0L).exactType()
           val exactZero: Exact<Flow<Boolean>> = count.isZero().exactType()
           val exactNotZero: Exact<Flow<Boolean>> = count.isNotZero().exactType()
-          val exactCursor: Exact<Flow<Cursor>> = cursor.runQuery().exactType()
-          val exactCursorOrDefault: Exact<Flow<Cursor>> = cursor.runQueryOrDefault(defaultCursor).exactType()
         }
 
         suspend fun verifyOnce(
           rows: Flow<Query<List<String?>>>,
           first: Flow<Query<String?>>,
-          count: Flow<Query<Long>>,
-          cursor: Flow<Query<Cursor>>,
-          defaultCursor: Cursor
+          count: Flow<Query<Long>>
         ) {
           val exactRows: Exact<List<String?>> = rows.runQueryOnce().exactType()
           val exactFirst: Exact<String?> = first.runQueryOnce().exactType()
           val exactFirstOrDefault: Exact<String> = first.runQueryOnceOrDefault("none").exactType()
           val exactCount: Exact<Long?> = count.runQueryOnce().exactType()
-          val exactCountOrDefault: Exact<Long> = count.runQueryOnceOrDefault(0L).exactType()
-          val exactCursor: Exact<Cursor?> = cursor.runQueryOnce().exactType()
-          val exactCursorOrDefault: Exact<Cursor> = cursor.runQueryOnceOrDefault(defaultCursor).exactType()
           val exactRun: Exact<List<String?>> = rows.first().run().exactType()
         }
       """
-    ).isOk()
+    )
+      .isOk()
   }
 
   @ParameterizedTest(name = "{0}")
@@ -67,18 +58,19 @@ internal class CoroutinesFlowContractTest {
         suspend fun verify(
           rows: Flow<Query<List<String?>>>,
           first: Flow<Query<String?>>,
-          firstParent: Flow<Query<Long?>>
+          firstParent: Flow<Query<Long?>>,
+          count: Flow<Query<Long>>
         ) {
           $program
         }
       """
-    ).assertCompilationError(diagnostic)
+    )
+      .assertCompilationError(diagnostic)
   }
 
   private fun compileFlowConsumer(body: String) = compileExpressionConsumer(
     body = body,
     imports = """
-      import android.database.Cursor
       import com.siimkinks.sqlitemagic.Query
       import com.siimkinks.sqlitemagic.coroutines.isNotZero
       import com.siimkinks.sqlitemagic.coroutines.isZero
@@ -104,6 +96,16 @@ internal class CoroutinesFlowContractTest {
       Arguments.of(
         "single-row one-shot default on a list stream",
         "rows.runQueryOnceOrDefault(emptyList<String?>())",
+        "receiver type mismatch"
+      ),
+      Arguments.of(
+        "default on a count stream",
+        "count.runQueryOrDefault(0L)",
+        "receiver type mismatch"
+      ),
+      Arguments.of(
+        "one-shot default on a count stream",
+        "count.runQueryOnceOrDefault(0L)",
         "receiver type mismatch"
       ),
       Arguments.of(

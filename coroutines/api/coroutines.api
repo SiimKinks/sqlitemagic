@@ -27,14 +27,11 @@ public final class com/siimkinks/sqlitemagic/coroutines/QueryDispatcherKt {
 }
 
 public final class com/siimkinks/sqlitemagic/coroutines/QueryFlowsKt {
-	public static final fun await (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun await (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun await (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun await (Lcom/siimkinks/sqlitemagic/RawSelectQuery;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledCount;)Lkotlinx/coroutines/flow/Flow;
-	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledCursor;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledFirst;)Lkotlinx/coroutines/flow/Flow;
-	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledRawCursor;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledSelect;)Lkotlinx/coroutines/flow/Flow;
@@ -48,15 +45,9 @@ public final class com/siimkinks/sqlitemagic/coroutines/QueryOperatorsKt {
 	public static final fun run (Lcom/siimkinks/sqlitemagic/Query;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun runCountQuery (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun runCountQueryOnce (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static final fun runCursorQuery (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
-	public static final fun runCursorQueryOnce (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun runListQuery (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun runListQueryOnce (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static final fun runQueryOnceOrDefault (Lkotlinx/coroutines/flow/Flow;JLkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static final fun runQueryOnceOrDefault (Lkotlinx/coroutines/flow/Flow;Landroid/database/Cursor;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun runQueryOnceOrDefault (Lkotlinx/coroutines/flow/Flow;Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static final fun runQueryOrDefault (Lkotlinx/coroutines/flow/Flow;J)Lkotlinx/coroutines/flow/Flow;
-	public static final fun runQueryOrDefault (Lkotlinx/coroutines/flow/Flow;Landroid/database/Cursor;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun runQueryOrDefault (Lkotlinx/coroutines/flow/Flow;Ljava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun runSingleItemQuery (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun runSingleItemQueryOnce (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;

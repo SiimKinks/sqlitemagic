@@ -199,7 +199,7 @@ internal class CteSelectTest {
             .rows(database),
           listOf(
             compound
-              .usingConnection(database.dbConnection())
+              .usingConnection(database.connection)
               .count()
               .execute()
           )
@@ -261,7 +261,7 @@ internal class CteSelectTest {
         SELECT
           .RAW("SELECT person_id FROM adult_ids ORDER BY person_id")
           .readAs(LONG)
-          .usingConnection(database.dbConnection())
+          .usingConnection(database.connection)
           .execute()
       ).isEqualTo(listOf(1L, 2L))
       assertThat(sqliteErrorMessage { undeclared.rows(database) }).isEqualTo("no such table: cte1")

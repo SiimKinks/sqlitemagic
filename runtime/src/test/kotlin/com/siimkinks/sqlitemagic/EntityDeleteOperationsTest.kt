@@ -6,17 +6,25 @@ import org.junit.Test
 
 internal class EntityDeleteOperationsTest {
   @Test
-  fun `single and bulk delete select identity, count rows, and deliver triggers`() {
+  fun `single and bulk delete select identity, count rows, and deliver triggers without a transaction`() {
     val recording = newConnection()
-    recording.recordingDatabase.updateResults.addAll(listOf(1, 2, 0))
+    recording.sqliteConnection.updateResults += listOf(1, 2, 0)
     val handler = TestAdapter()
 
     assertThat(
-      handler
-        .delete(TestEntity())
-        .usingConnection(recording.connection)
-        .execute()
-    ).isEqualTo(1)
+      recording.transactionResult(
+        handler
+          .delete(TestEntity())
+          .usingConnection(recording.dbConnection)
+          .execute()
+      )
+    ).isEqualTo(
+      TransactionResult(
+        result = 1,
+        committed = 0,
+        rolledBack = 0
+      )
+    )
     assertThat(
       handler
         .bulkDeleteByColumn(
@@ -33,15 +41,23 @@ internal class EntityDeleteOperationsTest {
             )
           )
         )
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute(TestSchema.key)
     ).isEqualTo(2)
     assertThat(
-      handler
-        .bulkDelete(emptyList())
-        .usingConnection(recording.connection)
-        .execute()
-    ).isEqualTo(0)
+      recording.transactionResult(
+        handler
+          .bulkDelete(emptyList())
+          .usingConnection(recording.dbConnection)
+          .execute()
+      )
+    ).isEqualTo(
+      TransactionResult(
+        result = 0,
+        committed = 0,
+        rolledBack = 0
+      )
+    )
     assertThat(recording.statementSql)
       .containsExactly("DELETE FROM books WHERE id IN (?)", "DELETE FROM books WHERE key IN (?,?)")
     assertThat(recording.triggers).containsExactly(setOf("books"), setOf("books"))
@@ -68,11 +84,11 @@ internal class EntityDeleteOperationsTest {
       )
     ).forEach { case ->
       val recording = newConnection()
-      recording.recordingDatabase.updateResults += case.deletedRows
+      recording.sqliteConnection.updateResults += case.deletedRows
 
       val deletedRows = TestAdapter()
         .deleteTable()
-        .usingConnection(recording.connection)
+        .usingConnection(recording.dbConnection)
         .execute()
 
       assertWithMessage(case.label)

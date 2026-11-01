@@ -1,12 +1,9 @@
 package com.siimkinks.sqlitemagic
 
-import android.database.Cursor
-import androidx.sqlite.db.SupportSQLiteProgram
-import androidx.sqlite.db.SupportSQLiteQuery
+import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.QueryObservation
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
-import com.siimkinks.sqlitemagic.internal.sql.bindNativeValues
 
 /**
  * Compiled SQL SELECT statement.
@@ -26,30 +23,31 @@ sealed class SelectPlan<T>(
 
   internal fun execution(): Query<T> = PlanExecution(this)
 
-  internal abstract fun mapRows(cursor: Cursor, isDisposed: () -> Boolean = NOT_DISPOSED): T
-  internal open fun discard(result: T) = Unit
+  internal abstract fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): T
 
-  internal fun boundArguments() = arguments ?: prepared.arguments(emptyList())
+  internal fun boundArguments() = arguments ?: prepared.bind(emptyList())
 
-  internal fun openCursor(dbConnection: DbConnectionImpl, values: List<NativeValue> = boundArguments()): Cursor {
-    val query = object : SupportSQLiteQuery {
-      override val sql get() = prepared.sql
-      override val argCount get() = values.size
-      override fun bindTo(statement: SupportSQLiteProgram) = bindNativeValues(
-        statement = statement,
-        values = values
-      )
-    }
-    return FastCursor
-      .tryCreate(dbConnection.readableDatabase.query(query))
-      .also(prepared::checkReadWidth)
+  internal fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean) = prepared.withStatement(
+    dbConnection = dbConnection,
+    values = boundArguments()
+  ) { statement ->
+    mapRows(
+      statement = statement,
+      isDisposed = isDisposed
+    )
   }
 
-  internal fun executePlan() = mapRows(
-    openCursor(
-      values = boundArguments(),
-      dbConnection = prepared.connection.orDefault()
+  internal fun executePlan() = useStatement { statement ->
+    mapRows(
+      statement = statement,
+      isDisposed = NOT_DISPOSED
     )
+  }
+
+  internal inline fun <R> useStatement(block: (SQLiteStatement) -> R) = prepared.withStatement(
+    values = boundArguments(),
+    dbConnection = prepared.connection.orDefault(),
+    block = block
   )
 
   internal fun observation(): QueryObservation<T> {
@@ -61,14 +59,10 @@ sealed class SelectPlan<T>(
 private class PlanExecution<T>(
   private val plan: SelectPlan<T>
 ) : Query<T>(plan.prepared.connection) {
-  override fun rawQuery(dbConnection: DbConnectionImpl) = plan.openCursor(dbConnection)
-
-  override fun map(cursor: Cursor, isDisposed: () -> Boolean) = plan.mapRows(
-    cursor = cursor,
+  override fun run(dbConnection: DbConnectionImpl, isDisposed: () -> Boolean) = plan.run(
+    dbConnection = dbConnection,
     isDisposed = isDisposed
   )
-
-  override fun discardResult(result: T) = plan.discard(result)
 }
 
 /**
@@ -123,11 +117,36 @@ class CompiledSelect<T> internal constructor(
    */
   fun execute(): List<T> = executePlan()
 
-  override fun mapRows(cursor: Cursor, isDisposed: () -> Boolean): List<T> = cursor.use { rows ->
+  /**
+   * Execute this compiled select statement against a database and read its rows inside [block].
+   *
+   * The rows are read lazily, one at a time, while [block] iterates them. They can be iterated once and only inside
+   * [block], on the calling thread. The query holds a database connection until [block] returns, so keep [block]
+   * short. This method runs synchronously in the calling thread.
+   *
+   * Example:
+   * ```
+   * val firstTitles = (SELECT COLUMN BOOK.TITLE FROM BOOK ORDER_BY BOOK.TITLE.ASC())
+   *     .compile()
+   *     .useRows { titles -> titles.take(10).toList() }
+   * ```
+   *
+   * @param block Reads the rows of the query
+   * @return Result of [block]
+   * @throws IllegalArgumentException if the query has parameters without bound values
+   */
+  fun <R> useRows(block: (Sequence<T>) -> R): R = useStatement { statement ->
+    QueryRows(
+      statement = statement,
+      read = reader.open()
+    ).use(block)
+  }
+
+  override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): List<T> {
     val read = reader.open()
-    buildList(rows.count) {
-      while (!isDisposed() && rows.moveToNext()) {
-        add(read(rows, 0))
+    return buildList {
+      while (!isDisposed() && statement.step()) {
+        add(read(statement, 0))
       }
     }
   }
@@ -175,11 +194,9 @@ class CompiledFirst<T> internal constructor(
    */
   fun execute(): T? = executePlan()
 
-  override fun mapRows(cursor: Cursor, isDisposed: () -> Boolean): T? = cursor.use { rows ->
-    when {
-      rows.moveToNext() -> reader.open()(rows, 0)
-      else -> null
-    }
+  override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): T? = when {
+    statement.step() -> reader.open()(statement, 0)
+    else -> null
   }
 }
 
@@ -220,62 +237,8 @@ class CompiledCount internal constructor(
    */
   fun execute(): Long = executePlan()
 
-  override fun mapRows(cursor: Cursor, isDisposed: () -> Boolean): Long = cursor.use { rows ->
-    rows.moveToNext()
-    rows.getLong(0)
+  override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): Long {
+    statement.step()
+    return statement.getLong(0)
   }
-}
-
-/**
- * Compiled SQL select statement that returns query results in raw [Cursor] objects.
- *
- * This object is immutable and can be shared across multiple threads without side effects.
- *
- * @param T Row type
- */
-class CompiledCursor<T> internal constructor(
-  prepared: PreparedQuery,
-  private val reader: ExecutionReader<T>,
-  arguments: List<NativeValue>? = null
-) : SelectPlan<Cursor>(
-  prepared = prepared,
-  arguments = arguments
-) {
-  /**
-   * Bind values of the query parameters.
-   *
-   * Create parameters with `asParameter`.
-   *
-   * @param assignments Values of all the query parameters
-   * @return Compiled select statement with the bound values
-   * @throws IllegalArgumentException if a parameter value is missing or duplicated, or the query has no such
-   *     parameter
-   */
-  fun bind(vararg assignments: ParameterAssignment) = CompiledCursor(
-    prepared = prepared,
-    reader = reader,
-    arguments = prepared.bind(assignments.asList())
-  )
-
-  /**
-   * Execute this compiled select statement against a database.
-   *
-   * Caller of this method is responsible for **always** closing the returned [Cursor]. This method runs synchronously
-   * in the calling thread.
-   *
-   * @return Cursor over the result set
-   * @throws IllegalArgumentException if the query has parameters without bound values
-   */
-  fun execute(): Cursor = executePlan()
-
-  /**
-   * Read the row at the current cursor position.
-   *
-   * @param cursor Cursor returned by this statement
-   * @return Row
-   */
-  fun getFromCurrentPosition(cursor: Cursor): T = reader.open()(cursor, 0)
-
-  override fun mapRows(cursor: Cursor, isDisposed: () -> Boolean): Cursor = cursor
-  override fun discard(result: Cursor) = result.close()
 }
