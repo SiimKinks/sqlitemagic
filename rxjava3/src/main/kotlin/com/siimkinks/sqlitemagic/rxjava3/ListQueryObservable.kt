@@ -29,7 +29,7 @@ open class ListQueryObservable<R>(
   /** Transform only the first emitted [Query] to a `List<R>`. */
   @CheckResult
   fun runQueryOnce(): Single<List<R>> =
-    take(1)
+    firstQuery(upstream)
       .lift(runListQuery())
       .firstOrError()
 }

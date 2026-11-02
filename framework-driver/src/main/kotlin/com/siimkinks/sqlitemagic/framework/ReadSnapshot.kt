@@ -3,7 +3,10 @@ package com.siimkinks.sqlitemagic.framework
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteStatement as FrameworkProgram
 
-internal class ReadSnapshot(private val db: SQLiteDatabase) {
+internal class ReadSnapshot(
+  private val db: SQLiteDatabase,
+  private val transaction: TransactionState
+) {
   private var holders = 0
 
   fun join() = when {
@@ -15,7 +18,7 @@ internal class ReadSnapshot(private val db: SQLiteDatabase) {
   }
 
   fun begin() = when {
-    db.inTransaction() || !queryOnly() -> false
+    transaction.isOpen || !queryOnly() -> false
     else -> {
       execute(BEGIN_SNAPSHOT)
       holders = 1

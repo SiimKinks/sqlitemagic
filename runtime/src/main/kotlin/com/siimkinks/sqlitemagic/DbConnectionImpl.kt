@@ -49,7 +49,7 @@ internal class DbConnectionImpl(
     ) = pool.yieldIfContended(sleepMillis = sleepUnit.toMillis(sleepAmount))
 
     override fun end() {
-      val transaction = pool.currentTransaction()
+      val transaction = pool.transactionToEnd()
       logDebug { "TXN END $transaction" }
       val committed = notifyingOnFailure(
         notify = {
@@ -62,6 +62,27 @@ internal class DbConnectionImpl(
       if (committed) {
         sendChangedTables(transaction)
       }
+    }
+
+    override fun close() = end()
+  }
+
+  private inner class NestedTransaction(private val level: TransactionLevel) : Transaction {
+    override fun markSuccessful() {
+      logDebug { "TXN SUCCESS $level" }
+      pool.setNestedTransactionSuccessful(level)
+    }
+
+    override fun yieldIfContendedSafely() = pool.yieldIfContended(sleepMillis = 0)
+
+    override fun yieldIfContendedSafely(
+      sleepAmount: Long,
+      sleepUnit: TimeUnit
+    ) = pool.yieldIfContended(sleepMillis = sleepUnit.toMillis(sleepAmount))
+
+    override fun end() {
+      logDebug { "TXN END $level" }
+      pool.endNestedTransaction(level)
     }
 
     override fun close() = end()
@@ -92,9 +113,12 @@ internal class DbConnectionImpl(
 
   @CheckResult
   override fun newTransaction(): Transaction {
-    pool.beginTransaction()
-    logDebug { "TXN BEGIN ${pool.transaction}" }
-    return transactionHandle
+    val nested = pool.beginTransaction()
+    logDebug { "TXN BEGIN ${nested ?: pool.transaction}" }
+    return when (nested) {
+      null -> transactionHandle
+      else -> NestedTransaction(nested)
+    }
   }
 
   override fun clearData() = newTransaction().use { transaction ->
@@ -131,12 +155,9 @@ internal class DbConnectionImpl(
   }[tablePosition]
 
   fun sendTableTrigger(table: String) {
-    when (val transaction = pool.transaction) {
-      null -> {
-        logDebug { "TRIGGER [$table]" }
-        tableObservers.publish(table)
-      }
-      else -> transaction.changedTables.add(table)
+    if (!pool.queueChanges { it.add(table) }) {
+      logDebug { "TRIGGER [$table]" }
+      tableObservers.publish(table)
     }
   }
 
@@ -144,12 +165,9 @@ internal class DbConnectionImpl(
     when (tables.size) {
       0 -> Unit
       1 -> sendTableTrigger(tables[0])
-      else -> when (val transaction = pool.transaction) {
-        null -> {
-          logDebug { "TRIGGER ${tables.contentToString()}" }
-          tableObservers.publish(tables)
-        }
-        else -> transaction.changedTables.addAll(tables)
+      else -> if (!pool.queueChanges { it.addAll(tables) }) {
+        logDebug { "TRIGGER ${tables.contentToString()}" }
+        tableObservers.publish(tables)
       }
     }
   }
@@ -161,12 +179,9 @@ internal class DbConnectionImpl(
   }
 
   private fun sendTableTriggers(tables: ScatterSet<String>) {
-    when (val transaction = pool.transaction) {
-      null -> {
-        logDebug { "TRIGGER $tables" }
-        tableObservers.publish(tables)
-      }
-      else -> transaction.changedTables.addAll(tables)
+    if (!pool.queueChanges { it.addAll(tables) }) {
+      logDebug { "TRIGGER $tables" }
+      tableObservers.publish(tables)
     }
   }
 }

@@ -1540,6 +1540,10 @@ public final class com/siimkinks/sqlitemagic/internal/InsertBuilder : com/siimki
 public abstract interface annotation class com/siimkinks/sqlitemagic/internal/InternalSqliteMagicApi : java/lang/annotation/Annotation {
 }
 
+public final class com/siimkinks/sqlitemagic/internal/LeaseOwner {
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/siimkinks/sqlitemagic/internal/MutableScatterMap : com/siimkinks/sqlitemagic/internal/ScatterMap {
 	public fun <init> ()V
 	public fun <init> (I)V
@@ -1610,6 +1614,9 @@ public final class com/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport {
 	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport;
 	public final fun adapterSetting (Lcom/siimkinks/sqlitemagic/DbConnection;Lcom/siimkinks/sqlitemagic/internal/AdapterSettingKey;)Ljava/lang/Object;
 	public final fun adapterSetting (Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;Lcom/siimkinks/sqlitemagic/internal/AdapterSettingKey;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/SqliteMagic$DatabaseSetupBuilder;
+	public final fun awaitWriter (Lcom/siimkinks/sqlitemagic/internal/WriterWait;Lkotlin/jvm/functions/Function0;)Z
+	public final fun beginWriterCall (Lcom/siimkinks/sqlitemagic/DbConnection;Lcom/siimkinks/sqlitemagic/internal/WriterWait;)Lcom/siimkinks/sqlitemagic/internal/WriterCall;
+	public final fun cancelWriterWait (Lcom/siimkinks/sqlitemagic/internal/WriterWait;)V
 	public final fun connection (Lcom/siimkinks/sqlitemagic/CompiledMutation;)Lcom/siimkinks/sqlitemagic/DbConnection;
 	public final fun connection (Lcom/siimkinks/sqlitemagic/Query;)Lcom/siimkinks/sqlitemagic/DbConnection;
 	public final fun connection (Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;)Lcom/siimkinks/sqlitemagic/DbConnection;
@@ -1628,12 +1635,25 @@ public final class com/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport {
 	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityPersistByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredOperation;
 	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateBuilder;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
 	public final fun deferred (Lcom/siimkinks/sqlitemagic/entity/EntityUpdateByColumnBuilder;Lcom/siimkinks/sqlitemagic/Unique;)Lcom/siimkinks/sqlitemagic/internal/DeferredCompletion;
+	public final fun endWriterCall (Lcom/siimkinks/sqlitemagic/internal/WriterCall;)V
 	public final fun executionConnection (Lcom/siimkinks/sqlitemagic/Query;)Lcom/siimkinks/sqlitemagic/DbConnection;
+	public final fun installLeaseOwner (Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;)Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;
+	public final fun installedTransactionOwner (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;
+	public final fun isClosed (Lcom/siimkinks/sqlitemagic/DbConnection;)Z
 	public final fun observation (Lcom/siimkinks/sqlitemagic/SelectPlan;)Lcom/siimkinks/sqlitemagic/internal/QueryObservation;
 	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawFirst;)Lcom/siimkinks/sqlitemagic/CompiledFirst;
 	public final fun plan (Lcom/siimkinks/sqlitemagic/CompiledRawSelect;)Lcom/siimkinks/sqlitemagic/CompiledSelect;
+	public final fun releaseTransactionOwner (Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;)V
+	public final fun restoreLeaseOwner (Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;)V
+	public final fun resumeTransaction (Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;)V
 	public final fun run (Lcom/siimkinks/sqlitemagic/Query;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
 	public static synthetic fun run$default (Lcom/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport;Lcom/siimkinks/sqlitemagic/Query;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun runInTransaction (Lcom/siimkinks/sqlitemagic/Query;Lkotlin/jvm/functions/Function0;)Ljava/lang/Object;
+	public static synthetic fun runInTransaction$default (Lcom/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport;Lcom/siimkinks/sqlitemagic/Query;Lkotlin/jvm/functions/Function0;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun transactionOwner (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;
+	public final fun writerTimeout (Lcom/siimkinks/sqlitemagic/internal/WriterWait;)Landroid/database/SQLException;
+	public final fun writerWaitTimeout-5sfh64U (Lcom/siimkinks/sqlitemagic/internal/WriterWait;)J
+	public final fun yieldTransaction (Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;)Z
 }
 
 public final class com/siimkinks/sqlitemagic/internal/RelatedEntities {
@@ -1804,6 +1824,12 @@ public final class com/siimkinks/sqlitemagic/internal/UpdateByColumnBuilder : co
 
 public final class com/siimkinks/sqlitemagic/internal/ViewBlock {
 	public fun <init> (Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;)V
+}
+
+public final class com/siimkinks/sqlitemagic/internal/WriterCall {
+}
+
+public final class com/siimkinks/sqlitemagic/internal/WriterWait : java/lang/RuntimeException {
 }
 
 public final class com/siimkinks/sqlitemagic/migration/MigrationException : java/lang/IllegalStateException {

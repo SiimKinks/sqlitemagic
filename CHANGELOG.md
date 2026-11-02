@@ -55,6 +55,9 @@ changes that compile but behave differently.
 * Breaking: Observed count queries no longer offer `runQueryOrDefault` and `runQueryOnceOrDefault`, whose default a
   count never used; use `runQuery()` and `runQueryOnce()`
 * Breaking: Remove `BooleanTransformer`. `Boolean` is a built-in column type, still stored as INTEGER 0 or 1
+* Breaking: The `inTransaction` block can no longer suspend, which left the transaction on another thread, nor
+  `return`, `break` or `continue` out of the enclosing function, which skipped marking the transaction successful and
+  rolled it back. `return@inTransaction` ends the block and commits
 * New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to own
   classes
 * New: Generated migrations warn when they drop tables, columns or rows
@@ -63,6 +66,9 @@ changes that compile but behave differently.
 * New: The `sqlitemagic-coroutines` artifact provides Kotlin coroutine support in
   `com.siimkinks.sqlitemagic.coroutines`: `observe()` returns a `Flow` with the RxJava read operators, one-shot work
   uses suspend `runQueryOnce()`, `Query.run()` and `await()`, and `dispatchCoroutineQueriesOn` sets the dispatcher
+* New: `withTransaction` in `sqlitemagic-coroutines` runs suspending work in one transaction that follows its coroutines
+  across threads, with `yieldIfContended()` to let waiting writers run. Coroutine calls that wait for the writer
+  connection suspend instead of blocking a thread
 * New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
   without publishing the release or raising the database version
 * New: `useRows` reads the rows of a query lazily inside a block, as a `Sequence` of typed rows or, for raw SQL whose

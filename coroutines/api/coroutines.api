@@ -53,3 +53,17 @@ public final class com/siimkinks/sqlitemagic/coroutines/QueryOperatorsKt {
 	public static final fun runSingleItemQueryOnce (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
+public abstract interface class com/siimkinks/sqlitemagic/coroutines/TransactionScope : kotlinx/coroutines/CoroutineScope {
+	public abstract fun yieldIfContended-VtjQ1oo (JLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun yieldIfContended-VtjQ1oo$default (Lcom/siimkinks/sqlitemagic/coroutines/TransactionScope;JLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class com/siimkinks/sqlitemagic/coroutines/TransactionScope$DefaultImpls {
+	public static synthetic fun yieldIfContended-VtjQ1oo$default (Lcom/siimkinks/sqlitemagic/coroutines/TransactionScope;JLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class com/siimkinks/sqlitemagic/coroutines/TransactionsKt {
+	public static final fun withTransaction (Lcom/siimkinks/sqlitemagic/DbConnection;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun withTransaction (Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+

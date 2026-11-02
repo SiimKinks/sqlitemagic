@@ -4,12 +4,19 @@ import android.database.SQLException
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.execSQL
+import com.siimkinks.sqlitemagic.internal.CANCELLED
+import com.siimkinks.sqlitemagic.internal.CLAIMED
+import com.siimkinks.sqlitemagic.internal.GRANTED
+import com.siimkinks.sqlitemagic.internal.LeaseOwner
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
+import com.siimkinks.sqlitemagic.internal.WAITING
+import com.siimkinks.sqlitemagic.internal.WriterCall
+import com.siimkinks.sqlitemagic.internal.WriterWait
 import java.io.Closeable
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.NANOSECONDS
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.getOrSet
 import kotlin.concurrent.withLock
 
 internal class ConnectionPool(
@@ -22,15 +29,25 @@ internal class ConnectionPool(
     fileName == MEMORY_DATABASE || driver.hasConnectionPool -> 0
     else -> options.readerConnections
   }
+  val poolTimeout get() = options.poolTimeout
   private val timeoutNanos = when {
     options.poolTimeout.isInfinite() -> Long.MAX_VALUE
     else -> options.poolTimeout.inWholeNanoseconds
   }
 
-  private val writerLock = ReentrantLock(true)
+  private val writerQueue = ReentrantLock()
+  private var writerLocked = false
+  private val writerWaiters = ArrayDeque<WriterWait>()
 
   @Volatile
-  private var writerHolder: Thread? = null
+  private var queuedWriters = 0
+  private val writerCalls = ThreadLocal<WriterCall?>()
+  private val activeWriterCalls = AtomicInteger()
+
+  @Volatile
+  var writerOwner: LeaseOwner? = null
+    private set
+  private var writerHolds = 0
   private var writer: PooledConnection? = null
 
   @Volatile
@@ -41,128 +58,434 @@ internal class ConnectionPool(
   private val idleReaders = ArrayDeque<PooledConnection>()
   private var openedReaders = 0
 
-  private val threadStates = ThreadLocal<ThreadState>()
+  private val owners = ThreadLocal<LeaseOwner?>()
 
   @Volatile
   var isClosed = false
     private set
 
-  val inTransaction get() = transaction != null
+  val inTransaction get() = threadState().inTransaction
 
   val transaction get() = threadState().transaction
 
   inline fun <T> read(requiresWriter: Boolean, block: (PooledConnection) -> T): T {
-    if (requiresWriter || maxReaders == 0 || holdsWriter()) {
-      return write(block)
+    val owner = readerOwner(requiresWriter)
+    val lease = when (owner) {
+      null -> writeLease()
+      else -> readLease(owner)
     }
-    val state = threadState()
-    val held = state.reader
-    return when {
-      held == null -> {
-        val reader = acquireReader()
-        state.reader = reader
-        try {
-          block(reader)
-        } finally {
-          state.reader = null
-          state.wroteDuringRead = false
-          releaseReader(reader)
-        }
+    try {
+      return block(
+        leasedConnection(
+          owner = owner,
+          lease = lease
+        )
+      )
+    } finally {
+      if (lease and RELEASES != 0) {
+        releaseLease(
+          owner = owner,
+          lease = lease
+        )
       }
-      state.wroteDuringRead -> write(block)
-      else -> block(held)
     }
   }
 
   inline fun <T> write(block: (PooledConnection) -> T): T {
-    val held = reentrantWriter()
-    val connection = held ?: acquireWriter()
+    val lease = writeLease()
     try {
-      return block(connection)
+      return block(heldWriter())
     } finally {
-      if (held == null) {
-        releaseWriter()
+      if (lease != 0) {
+        releaseLease(
+          owner = null,
+          lease = lease
+        )
       }
     }
   }
 
-  fun beginTransaction() {
-    val state = threadState()
-    val current = state.transaction
-    if (current != null) {
-      check(!current.successful) { MARKED_SUCCESSFUL }
-      state.transaction = TransactionLevel(parent = current)
-      return
-    }
-    val connection = acquireWriter()
+  fun readerOwner(requiresWriter: Boolean) = when {
+    requiresWriter || maxReaders == 0 || writerOwner?.thread === Thread.currentThread() -> null
+    else -> threadState()
+  }
+
+  fun readLease(owner: LeaseOwner): Int {
+    val serialized = owner.enterLease()
     try {
-      connection.execute("BEGIN IMMEDIATE")
+      if (owner.yieldedHolds != 0) {
+        resumeYielded(owner)
+      }
+      val lease = when {
+        writerOwner === owner -> {
+          checkOpen()
+          0
+        }
+        owner.reader == null -> {
+          checkUsable(owner)
+          owner.reader = acquireReader()
+          USES_READER or HOLDS_READER
+        }
+        owner.wroteDuringRead -> {
+          acquireWriter(owner)
+          HOLDS_WRITER
+        }
+        else -> USES_READER
+      }
+      return when {
+        serialized -> lease or HOLDS_SERIAL_LEASE
+        else -> lease
+      }
     } catch (failure: Throwable) {
-      releaseWriter()
+      if (serialized) {
+        owner.exitLease()
+      }
       throw failure
     }
-    state.transaction = TransactionLevel(parent = null)
+  }
+
+  fun writeLease(): Int {
+    if (writerOwner?.thread === Thread.currentThread()) {
+      checkOpen()
+      return 0
+    }
+    val owner = threadState()
+    val serialized = owner.enterLease()
+    try {
+      if (owner.yieldedHolds != 0) {
+        resumeYielded(owner)
+      }
+      val lease = when {
+        writerOwner === owner -> {
+          checkOpen()
+          0
+        }
+        else -> {
+          acquireWriter(owner)
+          HOLDS_WRITER
+        }
+      }
+      return when {
+        serialized -> lease or HOLDS_SERIAL_LEASE
+        else -> lease
+      }
+    } catch (failure: Throwable) {
+      if (serialized) {
+        owner.exitLease()
+      }
+      throw failure
+    }
+  }
+
+  fun leasedConnection(owner: LeaseOwner?, lease: Int) = when {
+    lease and USES_READER != 0 -> checkNotNull(owner?.reader)
+    else -> heldWriter()
+  }
+
+  fun releaseLease(owner: LeaseOwner?, lease: Int) {
+    val holder = when {
+      lease and (HOLDS_READER or HOLDS_SERIAL_LEASE) != 0 -> owner ?: threadState()
+      else -> null
+    }
+    try {
+      if (lease and HOLDS_WRITER != 0) {
+        releaseWriter()
+      }
+      if (holder != null && lease and HOLDS_READER != 0) {
+        val reader = checkNotNull(holder.reader)
+        holder.reader = null
+        holder.wroteDuringRead = false
+        releaseReader(reader)
+      }
+    } finally {
+      if (holder != null && lease and HOLDS_SERIAL_LEASE != 0) {
+        holder.exitLease()
+      }
+    }
+  }
+
+  fun beginTransaction(): TransactionLevel? {
+    val owner = threadState()
+    return serialized(owner) {
+      val current = owner.transaction
+      if (current != null) {
+        check(!current.successful) { MARKED_SUCCESSFUL }
+        val level = TransactionLevel(parent = current)
+        if (owner.thread != null) {
+          owner.transaction = level
+          return null
+        }
+        owner.nestedLevels++
+        return level
+      }
+      val connection = acquireWriter(owner)
+      try {
+        connection.execute("BEGIN IMMEDIATE")
+      } catch (failure: Throwable) {
+        releaseWriter()
+        throw failure
+      }
+      owner.transaction = TransactionLevel(parent = null)
+      null
+    }
   }
 
   fun setTransactionSuccessful() {
-    val level = currentTransaction(threadState())
-    check(!level.successful) { MARKED_SUCCESSFUL }
-    level.successful = true
+    val owner = threadState()
+    serialized(owner) {
+      val level = currentTransaction(owner)
+      check(!level.successful) { MARKED_SUCCESSFUL }
+      level.successful = true
+    }
+  }
+
+  fun setNestedTransactionSuccessful(level: TransactionLevel) {
+    serialized(threadState()) {
+      check(!level.ended) { NO_TRANSACTION }
+      check(!level.successful) { MARKED_SUCCESSFUL }
+      level.successful = true
+    }
+  }
+
+  fun endNestedTransaction(level: TransactionLevel): Boolean {
+    val owner = threadState()
+    return serialized(owner) {
+      check(!level.ended) { NO_TRANSACTION }
+      level.ended = true
+      owner.nestedLevels--
+      if (!level.successful) {
+        checkNotNull(level.parent).childFailed = true
+      }
+      level.successful
+    }
   }
 
   fun endTransaction(): Boolean {
-    val state = threadState()
-    val level = currentTransaction(state)
-    val successful = level.successful && !level.childFailed
-    val parent = level.parent
-    state.transaction = parent
-    if (parent != null) {
-      if (!successful) {
-        parent.childFailed = true
-      }
-      return successful
-    }
-    if (level.detached) {
-      return level.committedByYield
-    }
-    val connection = heldWriter()
-    try {
+    val owner = threadState()
+    return serialized(owner) {
+      val level = currentTransaction(owner)
+      val successful = level.successful && !level.childFailed
+      val parent = level.parent
+      owner.transaction = parent
       when {
-        successful -> connection.commit()
-        else -> connection.rollback()
+        parent != null -> {
+          if (!successful) {
+            parent.childFailed = true
+          }
+          successful
+        }
+        level.detached -> level.committedByYield
+        owner.yieldedHolds != 0 -> {
+          owner.yieldedHolds = 0
+          releaseOwnedWriter(owner)
+          level.committedByYield
+        }
+        else -> {
+          val connection = heldWriter()
+          try {
+            when {
+              successful -> connection.commit()
+              else -> connection.rollback()
+            }
+          } finally {
+            releaseWriter()
+          }
+          successful || level.committedByYield
+        }
       }
-    } finally {
-      releaseWriter()
     }
-    return successful || level.committedByYield
+  }
+
+  inline fun queueChanges(add: (MutableScatterSet<String>) -> Unit): Boolean {
+    val owner = threadState()
+    return serialized(owner) {
+      when (val level = owner.transaction) {
+        null -> false
+        else -> {
+          add(level.changedTables)
+          true
+        }
+      }
+    }
   }
 
   fun yieldIfContended(sleepMillis: Long): Boolean {
-    val level = currentTransaction(threadState())
-    check(!level.successful) { MARKED_SUCCESSFUL }
-    check(level.parent == null) { "Cannot perform this operation because a nested transaction is in progress." }
-    check(!level.detached) { NO_TRANSACTION }
-    if (level.childFailed || !writerLock.hasQueuedThreads()) {
-      return false
+    val owner = threadState()
+    return serialized(owner) {
+      val level = currentTransaction(owner)
+      check(!level.successful) { MARKED_SUCCESSFUL }
+      check(level.parent == null && owner.nestedLevels == 0) {
+        "Cannot perform this operation because a nested transaction is in progress."
+      }
+      check(!level.detached) { NO_TRANSACTION }
+      if (level.childFailed || !hasWriterWaiters()) {
+        return false
+      }
+      val holds = yieldWriter(level)
+      if (sleepMillis > 0) {
+        sleepUninterruptibly(sleepMillis)
+      }
+      resumeWriter(
+        owner = owner,
+        level = level,
+        holds = holds
+      )
+      true
     }
-    heldWriter().execute("COMMIT")
-    level.committedByYield = true
-    val holds = writerLock.holdCount
-    writerHolder = null
-    repeat(holds) { writerLock.unlock() }
-    if (sleepMillis > 0) {
-      sleepUninterruptibly(sleepMillis)
-    }
-    val reacquired = try {
-      acquireWriter()
-    } catch (failure: Throwable) {
-      level.detached = true
-      throw failure
-    }
-    repeat(holds - 1) { writerLock.lock() }
-    reacquired.execute("BEGIN IMMEDIATE")
-    return true
   }
+
+  fun shareOwner(): LeaseOwner {
+    val current = owners.get()
+    val joined = when (current?.thread) {
+      null -> current
+      else -> current.borrower
+    }
+    if (joined != null) {
+      serialized(joined) {
+        checkUsable(joined)
+        joined.joins++
+      }
+      return joined
+    }
+    val shared = LeaseOwner(
+      thread = null,
+      pool = this
+    )
+    val adopted = current?.transaction ?: return shared
+    shared.adoptedFrom = current
+    shared.transaction = adopted
+    current.transaction = null
+    current.borrower = shared
+    if (writerOwner === current) {
+      writerOwner = shared
+    }
+    return shared
+  }
+
+  fun installOwner(owner: LeaseOwner): LeaseOwner? = owners
+    .get()
+    .also { owners.set(owner) }
+
+  fun restoreOwner(previous: LeaseOwner?) = owners.set(previous)
+
+  fun installedSharedOwner() = owners
+    .get()
+    ?.takeIf { it.thread == null }
+
+  fun releaseSharedOwner(owner: LeaseOwner) {
+    serialized(owner) {
+      if (owner.joins > 0) {
+        owner.joins--
+        return
+      }
+      owner.ended = true
+      val adoptedFrom = owner.adoptedFrom
+      if (adoptedFrom == null) {
+        releaseOwnedWriter(owner)
+        return
+      }
+      if (!owner.abandoned) {
+        adoptedFrom.transaction = owner.transaction
+        owner.transaction = null
+        if (writerOwner === owner) {
+          writerOwner = adoptedFrom
+        }
+      }
+      adoptedFrom.borrower = null
+      check(!owner.abandoned) { ABANDONED }
+    }
+  }
+
+  fun yieldSharedTransaction(owner: LeaseOwner) = serialized(owner) {
+    val level = owner.transaction
+    when {
+      level == null || level.parent != null || owner.nestedLevels > 0 || level.childFailed || level.detached ||
+          owner.yieldedHolds != 0 || !hasWriterWaiters() -> false
+      else -> {
+        owner.yieldedHolds = yieldWriter(level)
+        owner.yields++
+        true
+      }
+    }
+  }
+
+  fun resumeSharedTransaction(owner: LeaseOwner) = serialized(owner) {
+    if (owner.yieldedHolds != 0) {
+      resumeYielded(owner)
+    }
+  }
+
+  inline fun <T> serialized(owner: LeaseOwner, block: () -> T): T {
+    val entered = owner.enterLease()
+    try {
+      return block()
+    } finally {
+      if (entered) {
+        owner.exitLease()
+      }
+    }
+  }
+
+  fun beginWriterCall(grant: WriterWait?): WriterCall {
+    val transactionOwner = installedSharedOwner()
+    return WriterCall(
+      pool = this,
+      previous = writerCalls.get(),
+      grant = grant,
+      transactionOwner = transactionOwner,
+      yields = transactionOwner?.yields ?: 0
+    ).also {
+      writerCalls.set(it)
+      activeWriterCalls.incrementAndGet()
+    }
+  }
+
+  fun endWriterCall(call: WriterCall) {
+    writerCalls.set(call.previous)
+    activeWriterCalls.decrementAndGet()
+    try {
+      if (call.holdsWriter) {
+        releaseWriter()
+      }
+    } finally {
+      call.grant?.let(::cancelWriterWait)
+    }
+  }
+
+  fun awaitWriter(wait: WriterWait, onGranted: () -> Unit) = writerQueue.withLock {
+    when (wait.state) {
+      WAITING -> {
+        wait.onGranted = onGranted
+        false
+      }
+      else -> true
+    }
+  }
+
+  fun cancelWriterWait(wait: WriterWait) {
+    val release = writerQueue.withLock {
+      when (wait.state) {
+        WAITING -> {
+          removeWriterWait(wait)
+          wait.state = CANCELLED
+          false
+        }
+        GRANTED -> {
+          wait.state = CANCELLED
+          wait.parked
+        }
+        else -> false
+      }
+    }
+    if (release) {
+      if (isClosed) {
+        closeWriter()
+      }
+      unlockWriter()
+    }
+  }
+
+  fun writerTimeout() = timeout(writerAwaited())
 
   override fun close() {
     if (isClosed) {
@@ -179,35 +502,48 @@ internal class ConnectionPool(
         }
     }
     idle.forEach(PooledConnection::close)
-    if (!writerLock.isHeldByCurrentThread && writerLock.tryLock()) {
+    if (!holdsWriter() && tryLockWriter()) {
       try {
         closeWriter()
       } finally {
-        writerLock.unlock()
+        unlockWriter()
       }
     }
   }
 
-  fun threadState() = threadStates.getOrSet(::ThreadState)
+  fun threadState() = owners.get() ?: LeaseOwner(
+    thread = Thread.currentThread(),
+    pool = this
+  ).also(owners::set)
 
-  fun holdsWriter() = writerLock.isHeldByCurrentThread
-
-  fun reentrantWriter(): PooledConnection? {
-    if (!writerLock.isHeldByCurrentThread) {
-      return null
-    }
-    checkOpen()
-    return writer
+  fun holdsWriter(): Boolean {
+    val owner = writerOwner ?: return false
+    return owner.thread === Thread.currentThread() || owners.get() === owner
   }
 
-  fun acquireWriter(): PooledConnection {
+  private fun acquireWriter(owner: LeaseOwner): PooledConnection {
     checkOpen()
-    lockWriter()
-    if (writerLock.holdCount == 1) {
-      writerHolder = Thread.currentThread()
-      val state = threadStates.get()
-      if (state?.reader != null) {
-        state.wroteDuringRead = true
+    when {
+      writerOwner === owner -> writerHolds++
+      else -> {
+        checkUsable(owner)
+        val call = when (activeWriterCalls.get()) {
+          0 -> null
+          else -> writerCalls.get()
+        }
+        lockWriter(
+          owner = owner,
+          call = call
+        )
+        writerOwner = owner
+        writerHolds = 1
+        if (call != null && owner.thread != null && !call.holdsWriter) {
+          call.holdsWriter = true
+          writerHolds = 2
+        }
+        if (owner.reader != null) {
+          owner.wroteDuringRead = true
+        }
       }
     }
     return try {
@@ -219,17 +555,26 @@ internal class ConnectionPool(
     }
   }
 
-  fun releaseWriter() {
-    if (writerLock.holdCount == 1) {
-      writerHolder = null
-      if (isClosed) {
-        closeWriter()
-      }
+  private fun releaseWriter() {
+    if (writerHolds > 1) {
+      writerHolds--
+      return
     }
-    writerLock.unlock()
+    writerHolds = 0
+    writerOwner = null
+    if (isClosed) {
+      closeWriter()
+    }
+    unlockWriter()
   }
 
-  fun acquireReader(): PooledConnection {
+  private fun checkUsable(owner: LeaseOwner) {
+    check(!owner.ended) { "Cannot use a coroutine transaction after it ended." }
+    check(!owner.abandoned) { ABANDONED }
+    check(owner.borrower == null) { LENT }
+  }
+
+  private fun acquireReader(): PooledConnection {
     if (!writerOpened) {
       write {}
     }
@@ -277,7 +622,7 @@ internal class ConnectionPool(
     }
   }
 
-  fun releaseReader(reader: PooledConnection) {
+  private fun releaseReader(reader: PooledConnection) {
     val closeReader = readerLock.withLock {
       when {
         isClosed -> {
@@ -387,43 +732,223 @@ internal class ConnectionPool(
     }
   }
 
-  fun currentTransaction() = currentTransaction(threadState())
+  fun transactionToEnd(): TransactionLevel {
+    val owner = threadState()
+    owner.transaction?.let { return it }
+    owner.borrower?.let(::abandonLoan)
+    return currentTransaction(owner)
+  }
 
-  private fun currentTransaction(state: ThreadState) = checkNotNull(state.transaction) { NO_TRANSACTION }
+  private fun currentTransaction(owner: LeaseOwner) = owner.transaction ?: run {
+    check(owner.borrower == null) { LENT }
+    checkNotNull(owner.transaction) { NO_TRANSACTION }
+  }
 
-  private fun heldWriter() = checkNotNull(writer) { CLOSED }
+  private fun abandonLoan(borrower: LeaseOwner): Nothing {
+    serialized(borrower) {
+      if (!borrower.abandoned) {
+        borrower.abandoned = true
+        borrower.transaction = null
+        if (writerOwner === borrower) {
+          try {
+            heldWriter().rollback()
+          } finally {
+            releaseOwnedWriter(borrower)
+          }
+        }
+      }
+    }
+    error(LENT)
+  }
+
+  private fun releaseOwnedWriter(owner: LeaseOwner) {
+    if (writerOwner === owner) {
+      writerHolds = 1
+      releaseWriter()
+    }
+  }
+
+  private fun resumeYielded(owner: LeaseOwner) {
+    val holds = owner.yieldedHolds
+    owner.yieldedHolds = 0
+    try {
+      resumeWriter(
+        owner = owner,
+        level = currentTransaction(owner),
+        holds = holds
+      )
+    } catch (busy: WriterWait) {
+      owner.yieldedHolds = holds
+      throw busy
+    }
+  }
+
+  fun heldWriter() = checkNotNull(writer) { CLOSED }
 
   private fun closeWriter() {
     writer?.close()
     writer = null
   }
 
-  private fun checkOpen() = check(!isClosed) { CLOSED }
+  fun checkOpen() = check(!isClosed) { CLOSED }
 
-  private fun lockWriter() {
-    if (timeoutNanos == Long.MAX_VALUE) {
-      writerLock.lock()
-      return
+  private fun yieldWriter(level: TransactionLevel): Int {
+    heldWriter().execute("COMMIT")
+    level.committedByYield = true
+    val holds = writerHolds
+    writerHolds = 0
+    writerOwner = null
+    unlockWriter()
+    return holds
+  }
+
+  private fun resumeWriter(
+    owner: LeaseOwner,
+    level: TransactionLevel,
+    holds: Int
+  ) {
+    val reacquired = try {
+      acquireWriter(owner)
+    } catch (failure: Throwable) {
+      if (failure !is WriterWait) {
+        level.detached = true
+      }
+      throw failure
     }
+    writerHolds = holds
+    reacquired.execute("BEGIN IMMEDIATE")
+  }
+
+  private fun tryLockWriter() = writerQueue.withLock {
+    when {
+      writerLocked -> false
+      else -> {
+        writerLocked = true
+        true
+      }
+    }
+  }
+
+  private fun lockWriter(owner: LeaseOwner, call: WriterCall?) {
+    val wait = writerQueue.withLock {
+      if (!writerLocked) {
+        writerLocked = true
+        return
+      }
+      val grant = call?.grant
+      if (grant != null && grant.state == GRANTED && grant.parked) {
+        grant.state = CLAIMED
+        return
+      }
+      val suspends = call != null && when (owner.thread) {
+        null -> call.transactionOwner === owner && call.yields == owner.yields
+        else -> true
+      }
+      WriterWait(
+        pool = this,
+        owner = owner,
+        suspends = suspends
+      ).also(::queueWriterWait)
+    }
+    if (wait.suspends) {
+      throw wait
+    }
+    awaitWriterGrant(wait)
+  }
+
+  private fun awaitWriterGrant(wait: WriterWait) {
     val deadline = System.nanoTime() + timeoutNanos
     var interrupted = false
+    writerQueue.lock()
     try {
-      while (true) {
+      val granted = writerQueue.newCondition()
+      wait.granted = granted
+      while (wait.state != GRANTED) {
+        if (timeoutNanos == Long.MAX_VALUE) {
+          granted.awaitUninterruptibly()
+          continue
+        }
+        val remaining = deadline - System.nanoTime()
+        if (remaining <= 0) {
+          removeWriterWait(wait)
+          wait.state = CANCELLED
+          throw timeout(writerAwaited())
+        }
         try {
-          if (writerLock.tryLock(deadline - System.nanoTime(), NANOSECONDS)) {
-            return
-          }
-          throw timeout("the writer connection, held by ${writerHolder.describe()}")
+          granted.awaitNanos(remaining)
         } catch (_: InterruptedException) {
           interrupted = true
         }
       }
+      wait.state = CLAIMED
     } finally {
+      writerQueue.unlock()
       if (interrupted) {
         Thread.currentThread().interrupt()
       }
     }
   }
+
+  private fun unlockWriter() {
+    val callbacks = writerQueue.withLock {
+      val next = writerWaiters.removeFirstOrNull()
+      if (next == null) {
+        writerLocked = false
+        return
+      }
+      val owner = next.owner
+      next.parked = next.suspends && owner.thread != null
+      writerOwner = when {
+        next.parked -> null
+        else -> owner
+      }
+      writerHolds = 0
+      val granted = grantWriter(next)
+      when (owner.thread) {
+        null -> grantOwnerWaits(
+          owner = owner,
+          granted = granted
+        )
+        else -> listOfNotNull(granted)
+      }.also { queuedWriters = writerWaiters.size }
+    }
+    callbacks.forEach(Function0<Unit>::invoke)
+  }
+
+  private fun grantOwnerWaits(
+    owner: LeaseOwner,
+    granted: (() -> Unit)?
+  ) = buildList {
+    granted?.let(::add)
+    val waits = writerWaiters.iterator()
+    while (waits.hasNext()) {
+      val wait = waits.next()
+      if (wait.owner === owner) {
+        waits.remove()
+        grantWriter(wait)?.let(::add)
+      }
+    }
+  }
+
+  private fun grantWriter(wait: WriterWait): (() -> Unit)? {
+    wait.state = GRANTED
+    wait.granted?.signal()
+    return wait.onGranted.also { wait.onGranted = null }
+  }
+
+  fun hasWriterWaiters() = queuedWriters != 0
+
+  private fun queueWriterWait(wait: WriterWait) {
+    writerWaiters.addLast(wait)
+    queuedWriters = writerWaiters.size
+  }
+
+  private fun removeWriterWait(wait: WriterWait) {
+    writerWaiters.remove(wait)
+    queuedWriters = writerWaiters.size
+  }
+
+  private fun writerAwaited() = "the writer connection, held by ${writerOwner ?: "no thread"}"
 
   private fun timeout(awaited: String) = SQLException("Timed out after ${options.poolTimeout} waiting for $awaited")
 
@@ -445,11 +970,6 @@ internal class ConnectionPool(
     statement.getLong(0).toInt()
   }
 
-  private fun Thread?.describe() = when (this) {
-    null -> "no thread"
-    else -> "thread $name"
-  }
-
   private fun sleepUninterruptibly(millis: Long) {
     val deadline = System.nanoTime() + MILLISECONDS.toNanos(millis)
     var interrupted = false
@@ -469,18 +989,13 @@ internal class ConnectionPool(
     }
   }
 
-  internal class ThreadState {
-    var reader: PooledConnection? = null
-    var wroteDuringRead = false
-    var transaction: TransactionLevel? = null
-  }
-
   internal class TransactionLevel(val parent: TransactionLevel?) {
     val changedTables = MutableScatterSet<String>(initialCapacity = 0)
     var successful = false
     var childFailed = false
     var committedByYield = false
     var detached = false
+    var ended = false
 
     override fun toString(): String {
       val name = "%08x".format(System.identityHashCode(this))
@@ -492,9 +1007,17 @@ internal class ConnectionPool(
   }
 }
 
+private const val USES_READER = 1
+private const val HOLDS_READER = 2
+private const val HOLDS_WRITER = 4
+private const val HOLDS_SERIAL_LEASE = 8
+internal const val RELEASES = HOLDS_READER or HOLDS_WRITER or HOLDS_SERIAL_LEASE
 private const val BUSY_TIMEOUT_MILLIS = 3000
 private const val JOURNAL_SIZE_LIMIT = 524288
 private const val CLOSED = "DB connection closed"
 private const val NO_TRANSACTION = "Cannot perform this operation because there is no current transaction."
+private const val LENT = "Cannot use this transaction while a coroutine transaction started inside it runs. Wait " +
+    "for withTransaction to return, as runBlocking does, before continuing the transaction."
+private const val ABANDONED = "The transaction that this coroutine transaction joined ended before it."
 private const val MARKED_SUCCESSFUL = "Cannot perform this operation because the transaction has already been " +
     "marked successful. The only thing you can do now is call end()."

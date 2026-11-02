@@ -7,9 +7,6 @@ import android.database.Cursor.FIELD_TYPE_INTEGER
 import android.database.Cursor.FIELD_TYPE_NULL
 import android.database.Cursor.FIELD_TYPE_STRING
 import android.database.CursorWindow
-import android.database.DatabaseUtils.STATEMENT_ABORT
-import android.database.DatabaseUtils.STATEMENT_COMMIT
-import android.database.DatabaseUtils.getSqlStatementType
 import android.database.SQLException
 import android.database.sqlite.SQLiteCursor
 import android.database.sqlite.SQLiteDatabase
@@ -25,24 +22,31 @@ import androidx.sqlite.SQLITE_DATA_NULL
 import androidx.sqlite.SQLITE_DATA_TEXT
 import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.NullableValueReads
-import kotlin.text.RegexOption.IGNORE_CASE
 import android.database.sqlite.SQLiteStatement as FrameworkProgram
 
 internal class FrameworkSQLiteStatement(
   private val db: SQLiteDatabase,
   private val sql: String,
   private val idleWindow: IdleCursorWindow,
-  private val readSnapshot: ReadSnapshot
+  private val readSnapshot: ReadSnapshot,
+  private val transaction: TransactionState
 ) : SQLiteStatement, NullableValueReads {
   private val columnNames: Array<String> = db
     .rawQuery(sql, NO_ARGUMENTS)
     .use(Cursor::getColumnNames)
+  private val control = when {
+    columnNames.isEmpty() -> transactionControlOf(sql)
+    else -> TransactionControl.NONE
+  }
   private val program = when {
-    columnNames.isEmpty() -> db.compileStatement(sessionBypassingRollbackTo(sql))
+    columnNames.isEmpty() -> db.compileStatement(
+      sessionBypassing(
+        sql = sql,
+        control = control
+      )
+    )
     else -> null
   }
-  private val endsTransaction = program != null && isTransactionEnd(sql)
-  private var programOutsideSession: FrameworkProgram? = null
   private val bindings = Bindings()
   private val cursorFactory = CursorFactory { _, driver, editTable, query ->
     bindings.bindTo(query)
@@ -129,13 +133,11 @@ internal class FrameworkSQLiteStatement(
   }
 
   override fun step() = when (val compiled = program) {
-    null -> stepRow()
+    null -> transaction.guard { stepRow() }
     else -> {
-      execute(
-        when {
-          endsTransaction && !db.inTransaction() -> outsideSession()
-          else -> compiled
-        }
+      transaction.execute(
+        program = compiled,
+        control = control
       )
       false
     }
@@ -157,40 +159,13 @@ internal class FrameworkSQLiteStatement(
   override fun close() {
     reset()
     program?.close()
-    programOutsideSession?.close()
-    programOutsideSession = null
     rowMutationProgram?.close()
     rowMutationProgram = null
   }
 
-  fun executeInsert() = mutationProgram().executeInsert()
+  fun executeInsert() = transaction.guard { mutationProgram().executeInsert() }
 
-  fun executeUpdateDelete() = mutationProgram().executeUpdateDelete()
-
-  private fun execute(compiled: FrameworkProgram) {
-    try {
-      compiled.execute()
-    } catch (failure: Throwable) {
-      if (!db.inTransaction() && getSqlStatementType(sql) == STATEMENT_COMMIT) {
-        rollbackOutsideSession(failure)
-      }
-      throw failure
-    }
-  }
-
-  private fun outsideSession() = programOutsideSession ?: db
-    .compileStatement("$SESSION_BYPASS$sql")
-    .also { programOutsideSession = it }
-
-  private fun rollbackOutsideSession(failure: Throwable) {
-    try {
-      db
-        .compileStatement(SESSION_BYPASSING_ROLLBACK)
-        .use(FrameworkProgram::execute)
-    } catch (rollbackFailure: Throwable) {
-      failure.addSuppressed(rollbackFailure)
-    }
-  }
+  fun executeUpdateDelete() = transaction.guard { mutationProgram().executeUpdateDelete() }
 
   private fun closeKeepingWindow(opened: SQLiteCursor) {
     val window = opened.window
@@ -323,24 +298,6 @@ private class Bindings {
   }
 }
 
-private fun sessionBypassingRollbackTo(sql: String) = when {
-  getSqlStatementType(sql) == STATEMENT_ABORT && SAVEPOINT_TARGET.containsMatchIn(sql) ->
-    "$SESSION_BYPASS$sql"
-  else -> sql
-}
-
-private fun isTransactionEnd(sql: String) = when (getSqlStatementType(sql)) {
-  STATEMENT_COMMIT -> true
-  STATEMENT_ABORT -> !SAVEPOINT_TARGET.containsMatchIn(sql)
-  else -> false
-}
-
 private val NO_ARGUMENTS = emptyArray<String>()
-private const val SESSION_BYPASS = ";"
-private const val SESSION_BYPASSING_ROLLBACK = "${SESSION_BYPASS}ROLLBACK"
-private val SAVEPOINT_TARGET = Regex(
-  pattern = """\bTO\b""",
-  option = IGNORE_CASE
-)
 private val EMPTY_BLOB = ByteArray(0)
 private const val INITIAL_BINDINGS = 8

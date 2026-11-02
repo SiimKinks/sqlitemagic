@@ -27,6 +27,8 @@ import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.File
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit.SECONDS
 
 internal class FrameworkSQLiteDriverContractTest {
   private val databasePath = freshDatabasePath("framework-driver-contract.db")
@@ -463,6 +465,29 @@ internal class FrameworkSQLiteDriverContractTest {
       .containsExactly(true, false)
       .inOrder()
     assertThat(connection.long("SELECT group_concat(x) FROM item")).isEqualTo(2L)
+  }
+
+  @Test
+  fun aTransactionBelongsToTheConnectionOnEveryThread() {
+    connection.execSQL("CREATE TABLE item(x)")
+    val worker = Executors.newSingleThreadExecutor()
+    val inTransactionOnWorker = try {
+      connection.execSQL("BEGIN IMMEDIATE")
+      worker
+        .submit<Boolean> {
+          connection.execSQL("INSERT INTO item VALUES (1)")
+          connection
+            .inTransaction()
+            .also { connection.execSQL("COMMIT") }
+        }
+        .get(5, SECONDS)
+    } finally {
+      worker.shutdownNow()
+    }
+
+    assertThat(listOf(inTransactionOnWorker, connection.inTransaction(), connection.long("SELECT count(*) FROM item")))
+      .containsExactly(true, false, 1L)
+      .inOrder()
   }
 
   @Test

@@ -26,7 +26,7 @@ open class CountQueryObservable internal constructor(
    */
   @CheckResult
   fun runQueryOnce(): Maybe<Long> =
-    take(1)
+    firstQuery(upstream)
       .lift(emitNotNull())
       .elementAt(0)
 

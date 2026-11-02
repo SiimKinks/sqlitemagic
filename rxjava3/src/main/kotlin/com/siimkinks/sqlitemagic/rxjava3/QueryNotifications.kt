@@ -1,27 +1,23 @@
 package com.siimkinks.sqlitemagic.rxjava3
 
+import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.internal.QueryObservation
+import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
 import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Observer
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.exceptions.Exceptions
+import io.reactivex.rxjava3.plugins.RxJavaPlugins
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class QueryNotifications<T>(
-  private val observation: QueryObservation<T>
+  val observation: QueryObservation<T>
 ) : Observable<Query<T>>() {
   override fun subscribeActual(observer: Observer<in Query<T>>) {
-    val connection = try {
-      observation.connection()
-    } catch (failure: Throwable) {
-      Exceptions.throwIfFatal(failure)
-      observer.onSubscribe(Disposed)
-      observer.onError(failure)
-      return
-    }
+    val connection = observer.connectionOrFail(observation::connection) ?: return
     val subscription = ConflatedSubscription(
       downstream = observer,
       query = observation.query,
@@ -116,6 +112,44 @@ private class ConflatedSubscription<T>(
   }
 
   override fun isDisposed() = disposed
+}
+
+internal fun <T> Observable<Query<T>>.firstQuery(upstream: Observable<Query<T>>): Observable<Query<T>> =
+  when (upstream) {
+    is QueryNotifications -> RxJavaPlugins.onAssembly(FirstQuery(upstream.observation))
+    else -> take(1)
+  }
+
+private class FirstQuery<T>(
+  private val observation: QueryObservation<T>
+) : Observable<Query<T>>() {
+  override fun subscribeActual(observer: Observer<in Query<T>>) {
+    val connection = observer.connectionOrFail { ReactiveAdapterSupport.executionConnection(observation.query) }
+        ?: return
+    val closed = ReactiveAdapterSupport.isClosed(connection)
+    val worker = connection
+      .queryScheduler()
+      .createWorker()
+    observer.onSubscribe(worker)
+    worker.schedule {
+      if (!closed) {
+        observer.onNext(observation.query)
+      }
+      if (!worker.isDisposed) {
+        observer.onComplete()
+        worker.dispose()
+      }
+    }
+  }
+}
+
+private inline fun Observer<*>.connectionOrFail(resolve: () -> DbConnection) = try {
+  resolve()
+} catch (failure: Throwable) {
+  Exceptions.throwIfFatal(failure)
+  onSubscribe(Disposed)
+  onError(failure)
+  null
 }
 
 private object Disposed : Disposable {

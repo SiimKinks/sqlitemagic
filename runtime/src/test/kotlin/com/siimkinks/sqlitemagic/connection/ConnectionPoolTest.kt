@@ -417,6 +417,28 @@ internal class ConnectionPoolTest {
   }
 
   @Test
+  fun `blocked writers get the writer one at a time in the order they asked`() {
+    pool(fileName = folder.databasePath()).use { pool ->
+      pool.write {}
+      val order = mutableListOf<String>()
+      val waiters = whileHeldBy(
+        name = "writer holder",
+        hold = { release -> pool.write { release() } },
+        attempt = {
+          listOf("first", "second", "third").map { name ->
+            thread(name = name) { pool.write { order.add(name) } }.also(Thread::awaitTimedWaiting)
+          }
+        }
+      )
+      waiters.forEach(Thread::join)
+
+      assertThat(order)
+        .containsExactly("first", "second", "third")
+        .inOrder()
+    }
+  }
+
+  @Test
   fun `close releases idle connections now and leased connections on release`() {
     val driver = TrackingDriver()
     val pool = pool(

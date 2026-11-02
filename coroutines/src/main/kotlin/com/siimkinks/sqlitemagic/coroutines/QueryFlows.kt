@@ -19,6 +19,7 @@ import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.BufferOverflow.DROP_LATEST
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -120,11 +121,13 @@ fun <T> CompiledRawSelect<T, DeclaredTables>.observe() = ReactiveAdapterSupport
 /**
  * Execute this query against a database and return its rows.
  *
- * The query runs once, since it does not define the tables it reads. Define them with `observes` to observe it. It
- * runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * The query runs once, since it does not define the tables it reads. Define them with `observes` to observe it. It runs
+ * on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Inside [withTransaction] of its connection, it
+ * runs in the transaction and reads its changes.
  *
  * @return Query result
- * @throws IllegalStateException if called on a thread that has an active transaction
+ * @throws IllegalStateException if called on a thread that has an active transaction outside [withTransaction] of its
+ *     connection
  * @throws NoSuchElementException if the connection is closed
  */
 suspend fun <T> CompiledRawSelect<T, UndeclaredTables>.await() = ReactiveAdapterSupport
@@ -155,11 +158,13 @@ fun <T> CompiledRawFirst<T, DeclaredTables>.observe() = ReactiveAdapterSupport
  * Execute this query against a database and return its first row, or `null` if the query returns no rows, the read
  * value is `null` or the connection is closed.
  *
- * The query runs once, since it does not define the tables it reads. Define them with `observes` to observe it. It
- * runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * The query runs once, since it does not define the tables it reads. Define them with `observes` to observe it. It runs
+ * on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Inside [withTransaction] of its connection, it
+ * runs in the transaction and reads its changes.
  *
  * @return Query result
- * @throws IllegalStateException if called on a thread that has an active transaction
+ * @throws IllegalStateException if called on a thread that has an active transaction outside [withTransaction] of its
+ *     connection
  */
 suspend fun <T> CompiledRawFirst<T, UndeclaredTables>.await() = ReactiveAdapterSupport
   .plan(this)
@@ -186,11 +191,13 @@ fun <T> RawSelectQuery<T, DeclaredTables>.observe() = compile().observe()
 /**
  * Compile and execute this query against a database and return its rows.
  *
- * The query runs once, since it does not define the tables it reads. Define them with `observes` to observe it. It
- * runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ * The query runs once, since it does not define the tables it reads. Define them with `observes` to observe it. It runs
+ * on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Inside [withTransaction] of its connection, it
+ * runs in the transaction and reads its changes.
  *
  * @return Query result
- * @throws IllegalStateException if called on a thread that has an active transaction
+ * @throws IllegalStateException if called on a thread that has an active transaction outside [withTransaction] of its
+ *     connection
  * @throws NoSuchElementException if the connection is closed
  */
 suspend fun <T> RawSelectQuery<T, UndeclaredTables>.await() = compile().await()
@@ -207,15 +214,17 @@ private fun <T> QueryObservation<T>.asFlow() = flow {
   }
 }
 
-internal inline fun QueryObservation<*>.listen(
+internal suspend inline fun QueryObservation<*>.listen(
   connection: DbConnection,
   block: (TableChanges) -> Unit
 ) {
   val changes = TableChanges(observesChanges)
-  val registration = register(
-    connection = connection,
-    observer = changes
-  )
+  val registration = connection.withOwnerOf(currentCoroutineContext()) {
+    register(
+      connection = connection,
+      observer = changes
+    )
+  }
   try {
     if (!changes.isClosed) {
       block(changes)

@@ -9,12 +9,14 @@ import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.closedConnection
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.libraryDatabase
 import com.siimkinks.sqlitemagic.testDbConnection
 import io.reactivex.observers.TestObserver
 import io.reactivex.plugins.RxJavaPlugins
 import io.reactivex.schedulers.Schedulers
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.Mockito.mockConstruction
 import org.mockito.Mockito.mockStatic
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
@@ -293,6 +295,61 @@ internal class QueryNotificationsTest {
       )
     } finally {
       scheduled.shutdownNow()
+    }
+  }
+
+  @Test
+  fun `one-shot reads run their query without listening for table changes`() {
+    libraryDatabase(adapterSettings = querySchedulerSettings()).use { database ->
+      val connection = database.connection
+      val names = SELECT
+        .COLUMN(AUTHOR.NAME)
+        .FROM(AUTHOR)
+        .usingConnection(connection)
+      val authors = SELECT
+        .FROM(AUTHOR)
+        .usingConnection(connection)
+        .count()
+      val expected = listOf(
+        names.execute(),
+        names
+          .takeFirst()
+          .execute(),
+        names
+          .takeFirst()
+          .execute(),
+        authors.execute()
+      )
+
+      val listener = Class.forName("com.siimkinks.sqlitemagic.rxjava2.ConflatedSubscription")
+      val outcome = mockConstruction(listener).use { construction ->
+        listOf(
+          names
+            .observe()
+            .runQueryOnce()
+            .timeout(5, SECONDS)
+            .blockingGet(),
+          names
+            .takeFirst()
+            .observe()
+            .runQueryOnce()
+            .timeout(5, SECONDS)
+            .blockingGet(),
+          names
+            .takeFirst()
+            .observe()
+            .runQueryOnceOrDefault("none")
+            .timeout(5, SECONDS)
+            .blockingGet(),
+          authors
+            .observe()
+            .runQueryOnce()
+            .timeout(5, SECONDS)
+            .blockingGet()
+        ) to construction.constructed().size
+      }
+
+      assertThat(outcome).isEqualTo(expected to 0)
     }
   }
 }

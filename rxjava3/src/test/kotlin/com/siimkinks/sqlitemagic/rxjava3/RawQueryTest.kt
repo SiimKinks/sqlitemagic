@@ -59,7 +59,7 @@ internal class RawQueryTest {
   }
 
   @Test
-  fun `undeclared observation rejects subscription in a transaction`() {
+  fun `undeclared observation rejects a transaction of the subscribing thread`() {
     personDatabase(adapterSettings = querySchedulerSettings()).use { database ->
       val connection = database.connection
       val raw = SELECT
@@ -87,7 +87,7 @@ internal class RawQueryTest {
           .assertNoValues()
           .assertError { failure ->
             failure.javaClass == IllegalStateException::class.java &&
-                failure.message == "Cannot subscribe to observable query in a transaction."
+                failure.message == "Cannot execute observable query in a transaction."
           }
       }
     }

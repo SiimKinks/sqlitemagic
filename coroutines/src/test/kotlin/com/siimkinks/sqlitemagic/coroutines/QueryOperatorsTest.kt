@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.Mockito.mockConstruction
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 
@@ -252,6 +253,52 @@ internal class QueryOperatorsTest {
         job.start()
         job.join()
       }
+    }
+  }
+
+  @Test
+  fun `one-shot operators run their query without listening for table changes`() = runBlocking {
+    libraryDatabase(adapterSettings = dispatcherSettings()).use { database ->
+      val connection = database.connection
+      val names = SELECT
+        .COLUMN(AUTHOR.NAME)
+        .FROM(AUTHOR)
+        .usingConnection(connection)
+      val authors = SELECT
+        .FROM(AUTHOR)
+        .usingConnection(connection)
+        .count()
+      val expected = listOf(
+        names.execute(),
+        names
+          .takeFirst()
+          .execute(),
+        names
+          .takeFirst()
+          .execute(),
+        authors.execute()
+      )
+
+      val outcome = mockConstruction(TableChanges::class.java).use { construction ->
+        listOf(
+          names
+            .observe()
+            .runQueryOnce(),
+          names
+            .takeFirst()
+            .observe()
+            .runQueryOnce(),
+          names
+            .takeFirst()
+            .observe()
+            .runQueryOnceOrDefault("none"),
+          authors
+            .observe()
+            .runQueryOnce()
+        ) to construction.constructed().size
+      }
+
+      assertThat(outcome).isEqualTo(expected to 0)
     }
   }
 }

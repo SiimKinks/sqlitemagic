@@ -80,7 +80,7 @@ internal class RawQueryTest {
         transaction.end()
       }
 
-      assertThat(messages).isEqualTo(List(2) { "Cannot subscribe to observable query in a transaction." })
+      assertThat(messages).isEqualTo(List(2) { "Cannot execute observable query in a transaction." })
     }
   }
 

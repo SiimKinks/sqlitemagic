@@ -44,7 +44,7 @@ open class SingleItemQueryObservable<R>(
    */
   @CheckResult
   fun runQueryOnce(): Maybe<R & Any> =
-    take(1)
+    firstQuery(upstream)
       .lift(emitNotNull())
       .elementAt(0)
 
@@ -58,7 +58,7 @@ open class SingleItemQueryObservable<R>(
    */
   @CheckResult
   fun runQueryOnceOrDefault(defaultValue: R): Single<R & Any> =
-    take(1)
+    firstQuery(upstream)
       .lift(OperatorRunSingleItemQuery(defaultValue))
       .firstOrError()
 }

@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-inline fun inTransaction(block: () -> Unit) {
+inline fun inTransaction(crossinline block: () -> Unit) {
   val transaction = SqliteMagic.newTransaction()
   try {
     block()
@@ -10,7 +10,7 @@ inline fun inTransaction(block: () -> Unit) {
   }
 }
 
-inline fun DbConnection.inTransaction(block: () -> Unit) {
+inline fun DbConnection.inTransaction(crossinline block: () -> Unit) {
   val transaction = newTransaction()
   try {
     block()

@@ -277,10 +277,38 @@ Applied directly to `observe()`, the `runQuery` operators also wait for changes 
 the collector only to deliver the result. The first change made while the collector processes a result starts the next
 query at once, and later changes are combined into one further query, so the earlier of the two results may miss them.
 
-A transaction belongs to the thread that started it, so a suspend call that the dispatcher runs on another thread
-does not take part in a transaction of the calling thread. Reading a query on a thread with an active transaction,
-whether by collecting it, `runQueryOnce()`, `Query.run()` or a raw SELECT's `await()`, fails with
-`IllegalStateException`.
+Run suspending work in one transaction with `withTransaction`. It commits when the block and the coroutines it launched
+complete, and rolls back when they fail or are cancelled. Every call of the connection inside it takes part in it, on
+whatever thread it runs, and one-shot queries read the transaction's own changes:
+
+```kotlin
+import com.siimkinks.sqlitemagic.coroutines.withTransaction
+
+suspend fun renameAuthor(id: Long, lastName: String) = withTransaction {
+  val author = (SELECT FROM AUTHOR WHERE (AUTHOR.ID IS id))
+    .takeFirst()
+    .observe()
+    .runQueryOnce()
+  author
+    ?.copy(lastName = lastName)
+    ?.update()
+    ?.await()
+}
+```
+
+Observers of the changed tables are notified after the commit. Collecting an observed query inside the transaction fails
+with `IllegalStateException`. A `runBlocking` inside the block starts a coroutine outside the transaction, whose calls
+wait for the transaction to end and fail after the pool timeout; give it the block's context with
+`runBlocking(coroutineContext) { … }` to take part in the transaction. A `withTransaction` inside another transaction,
+including one that the calling thread started with `newTransaction()`, runs as its nested transaction; that thread
+waits for it with `runBlocking`. A long transaction can let waiting writers run with `yieldIfContended()`, which
+commits the work so far and continues; it does nothing in a nested transaction. Coroutine calls that wait for the writer
+connection suspend instead of blocking a dispatcher thread.
+
+A transaction started with `newTransaction()` or `inTransaction {}` belongs to the thread that started it, so a suspend
+call that the dispatcher runs on another thread does not take part in it, and the `inTransaction {}` block cannot
+suspend. Reading a query on a thread with such a transaction, whether by collecting it, `runQueryOnce()`, `Query.run()`
+or a raw SELECT's `await()`, fails with `IllegalStateException`.
 
 #### Define Database:
 
