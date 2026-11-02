@@ -1,12 +1,12 @@
 Change Log
 ==========
 
-Version 2.1.0 _(unreleased)_
+Version 3.0.0 _(unreleased)_
 ---------------------------------
 
-SqliteMagic 2.1 rewrites the query DSL and runs the database on an androidx `SQLiteDriver`, so applications choose
+SqliteMagic 3 rewrites the query DSL and runs the database on an androidx `SQLiteDriver`, so applications choose
 between the device's SQLite and a SQLite bundled with the app. The
-[migration guide](.agents/skills/sqlitemagic-dsl-migration/SKILL.md) maps legacy queries and setup to 2.1 and lists the
+[migration guide](.agents/skills/sqlitemagic-dsl-migration/SKILL.md) maps legacy queries and setup to 3.0 and lists the
 changes that compile but behave differently.
 
 * Breaking: Rewrite the query DSL as SQL-first Kotlin, where queries follow SQL clause order and type their columns,
@@ -16,14 +16,14 @@ changes that compile but behave differently.
 * Breaking: Entity insert and persist throw SQLite's exceptions instead of `OperationFailedException`, and a conflicting
   bulk insert or persist throws instead of returning `false`
 * Breaking: Without `queryDeep()`, a related object whose other constructor parameters are nullable is built from its
-  ID, with `null` for those parameters, instead of being queried in full. Such objects can also be referenced with
-  `handleRecursively = false`
+  ID, with `null` for those parameters, instead of being queried in full. Updating or persisting the parent also writes
+  the related object, so writing back such a parent sets the related object's other columns to `NULL` unless it is
+  persisted with `ignoreNullValues()`
 * Breaking: With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version,
   as it does with migration testing, instead of one above the latest release, and fails when that version is already
   released
-* Breaking: RxJava support moves out of the runtime into the `sqlitemagic-rxjava2` artifact, whose version must be
-  the same as the plugin version. Import `observe`, `run` and `scheduleRxQueriesOn` from
-  `com.siimkinks.sqlitemagic.rxjava2`. `run()` emits the non-null result type, and the runtime no longer depends on RxJava
+* Breaking: RxJava support moves out of the runtime into the `sqlitemagic-rxjava2` artifact. Import `observe`, `run`
+  and `scheduleRxQueriesOn` from `com.siimkinks.sqlitemagic.rxjava2`, where `run()` emits the non-null result type
 * Breaking: Observed queries combine the changes made while a notification is being processed into one further
   notification, so a burst of writes no longer queues one query run per write. A write made during an emission emits
   after that emission returns
@@ -31,13 +31,12 @@ changes that compile but behave differently.
   `Single` results, such as `runQueryOnce()` and `observe()` of a raw SELECT without declared tables, fail with
   `NoSuchElementException`
 * Breaking: The database runs on an androidx `SQLiteDriver` set with `driver(...)`, which replaces
-  `sqliteFactory(...)`; SupportSQLite is no longer used. `FrameworkSQLiteDriver` from the new
-  `sqlitemagic-framework-driver` artifact runs the device's SQLite, and `BundledSQLiteDriver` from
-  `androidx.sqlite:sqlite-bundled` runs a SQLite shipped with the app
-* Breaking: Remove the `Cursor` APIs: `toCursor()`, `CompiledCursor`, `CompiledRawCursor`, `CompiledRawReadCursor`,
-  `getFromCurrentPosition` and the adapters' cursor `observe`, `await` and `runQuery` forms. Read rows lazily with
-  `useRows`
-* Breaking: `DbDowngrader.onDowngrade` receives a `SQLiteConnection` instead of a `SupportSQLiteDatabase`
+  `sqliteFactory(...)`. SupportSQLite is no longer used, so `DbDowngrader.onDowngrade` receives a `SQLiteConnection`
+  instead of a `SupportSQLiteDatabase`. `FrameworkSQLiteDriver` from the new `sqlitemagic-framework-driver` artifact
+  runs the device's SQLite, and `BundledSQLiteDriver` from `androidx.sqlite:sqlite-bundled` runs a SQLite shipped with
+  the app
+* Breaking: Remove the `Cursor` APIs: `toCursor()`, `CompiledCursorSelect` with its `getFromCurrentPosition`, and the
+  raw queries that return or observe a `Cursor`. Read rows lazily with `useRows`
 * Breaking: File databases use WAL with up to four reader connections, so a read during another thread's
   transaction returns the last committed data instead of waiting for the transaction to end
 * Breaking: Errors are the driver's exceptions. The framework driver keeps Android's typed `SQLiteException`
@@ -58,17 +57,20 @@ changes that compile but behave differently.
 * Breaking: The `inTransaction` block can no longer suspend, which left the transaction on another thread, nor
   `return`, `break` or `continue` out of the enclosing function, which skipped marking the transaction successful and
   rolled it back. `return@inTransaction` ends the block and commits
-* New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to own
-  classes
+* New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to your
+  own classes
 * New: Generated migrations warn when they drop tables, columns or rows
+* New: A model whose other constructor parameters are nullable can be the target of a `handleRecursively = false`
+  relationship, which 2.0 rejected at compile time
 * New: The `sqlitemagic-rxjava3` artifact provides the RxJava support for RxJava 3, with the same API as
   `sqlitemagic-rxjava2` in `com.siimkinks.sqlitemagic.rxjava3`
 * New: The `sqlitemagic-coroutines` artifact provides Kotlin coroutine support in
-  `com.siimkinks.sqlitemagic.coroutines`: `observe()` returns a `Flow` with the RxJava read operators, one-shot work
-  uses suspend `runQueryOnce()`, `Query.run()` and `await()`, and `dispatchCoroutineQueriesOn` sets the dispatcher
+  `com.siimkinks.sqlitemagic.coroutines`: `observe()` returns a `Flow` with the RxJava adapters' query operators,
+  one-shot work uses suspend `runQueryOnce()`, `Query.run()` and `await()`, and `dispatchCoroutineQueriesOn` sets the
+  dispatcher
 * New: `withTransaction` in `sqlitemagic-coroutines` runs suspending work in one transaction that follows its coroutines
-  across threads, with `yieldIfContended()` to let waiting writers run. Coroutine calls that wait for the writer
-  connection suspend instead of blocking a thread
+  across threads, with `yieldIfContended()` to let waiting writers run. Coroutine calls suspend while they wait for
+  the writer connection
 * New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
   without publishing the release or raising the database version
 * New: `useRows` reads the rows of a query lazily inside a block, as a `Sequence` of typed rows or, for raw SQL whose
