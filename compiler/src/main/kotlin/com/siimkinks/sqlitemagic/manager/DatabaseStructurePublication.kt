@@ -6,7 +6,7 @@ object DatabaseStructurePublication {
   fun load(file: File) = runCatching {
     val bytes = file.readBytes()
     Snapshot(
-      bytes = bytes,
+      sourceBytes = bytes,
       structure = DatabaseStructureJson.read(bytes.decodeToString())
     )
   }.getOrElse {
@@ -14,17 +14,16 @@ object DatabaseStructurePublication {
   }
 
   class Snapshot internal constructor(
-    bytes: ByteArray,
+    private val sourceBytes: ByteArray,
     structure: DatabaseStructure
   ) {
-    private val sourceBytes = bytes.copyOf()
     private val persistentStructure = structure.persistentOnly()
 
     val hasPersistentObjects = with(persistentStructure) {
       tables.isNotEmpty() || indices.isNotEmpty() || views.isNotEmpty()
     }
 
-    fun hasPersistentChanges(other: Snapshot) = persistentStructure != other.persistentStructure
+    fun hasPersistentChanges(other: Snapshot) = !persistentStructure.sameSchemaAs(other.persistentStructure)
 
     fun writeTo(target: File) {
       target.parentFile?.mkdirs()

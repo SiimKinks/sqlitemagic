@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.migration.MigrationResource
 import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
+import com.siimkinks.sqlitemagic.migration.SchemaSqlComparison
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
@@ -135,8 +136,13 @@ abstract class GenerateSqliteMagicMigrationManifest : DefaultTask() {
       )
       if (reference.version == compiled.version) {
         check(
-          snapshot.tableSql.toSet() == compiled.tableSql.toSet() &&
-              snapshot.indexSql.toSet() == compiled.indexSql.toSet()
+          SchemaSqlComparison.sameStatements(
+            first = snapshot.tableSql,
+            second = compiled.tableSql
+          ) && SchemaSqlComparison.sameStatements(
+            first = snapshot.indexSql,
+            second = compiled.indexSql
+          )
         ) {
           "Compiled schema differs from retained release ${reference.version}. " +
               "Advance the database version and generate the manifest again before creating the next migration."

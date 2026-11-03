@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
+import com.siimkinks.sqlitemagic.migration.SchemaSqlComparison
 import java.io.File
 
 internal class ReleaseEvidencePublisher(
@@ -259,7 +260,10 @@ internal class ReleaseEvidencePublisher(
   }
 }
 
-internal fun DatabaseStructure.hasSchemaOf(release: ReleaseSchemaSnapshot) =
-    tables.values.map(TableStructure::schema).toSet() == release.tableSql.toSet() &&
-        indices.values.map(IndexStructure::indexSql).toSet() == release.indexSql.toSet() &&
-        views.keys == release.views.map(MigrationViewSchema::name).toSet()
+internal fun DatabaseStructure.hasSchemaOf(release: ReleaseSchemaSnapshot) = SchemaSqlComparison.sameStatements(
+  first = tables.values.map(TableStructure::schema),
+  second = release.tableSql
+) && SchemaSqlComparison.sameStatements(
+  first = indices.values.map(IndexStructure::indexSql),
+  second = release.indexSql
+) && views.keys == release.views.map(MigrationViewSchema::name).toSet()

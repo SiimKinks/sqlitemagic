@@ -106,7 +106,7 @@ private fun TableChange.description(changed: Boolean): String {
     columnChange(
       verb = "changes",
       columns = copiedColumns
-        .filter { it.previous != it.current }
+        .filterNot { it.previous.sameSchemaAs(it.current) }
         .map(ColumnCopy::current)
     )
   ).ifEmpty { listOf("changes table definition") }

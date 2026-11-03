@@ -16,11 +16,11 @@ import com.siimkinks.sqlitemagic.migration.MigrationStep
 import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
+import com.siimkinks.sqlitemagic.migration.SchemaSqlComparison
 import com.siimkinks.sqlitemagic.migration.testing.InspectedSchema
 import com.siimkinks.sqlitemagic.migration.testing.SQLiteQueries
 import com.siimkinks.sqlitemagic.migration.testing.SchemaComparator
 import com.siimkinks.sqlitemagic.migration.testing.SchemaIntrospector
-import com.siimkinks.sqlitemagic.migration.testing.SchemaSql
 import com.siimkinks.sqlitemagic.migration.testing.createPersistentViews
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
@@ -425,8 +425,13 @@ class SqliteMagicMigrationTestHelper(
           publicationAdvice
     }
     require(
-      current.tableSql.sqlIgnoringIdentifierQuotes() == compiledCurrent.tableSql.sqlIgnoringIdentifierQuotes() &&
-          current.indexSql.sqlIgnoringIdentifierQuotes() == compiledCurrent.indexSql.sqlIgnoringIdentifierQuotes()
+      SchemaSqlComparison.sameStatements(
+        first = current.tableSql,
+        second = compiledCurrent.tableSql
+      ) && SchemaSqlComparison.sameStatements(
+        first = current.indexSql,
+        second = compiledCurrent.indexSql
+      )
     ) {
       "Current release snapshot tables or indices differ from independent compiled release export. " +
           "Advance the database version before publishing schema changes. $publicationAdvice"
@@ -711,8 +716,3 @@ private class TestDatabase(
     }
   }
 }
-
-private fun List<String>.sqlIgnoringIdentifierQuotes() = mapTo(
-  destination = hashSetOf(),
-  transform = SchemaSql::withoutIdentifierQuotes
-)

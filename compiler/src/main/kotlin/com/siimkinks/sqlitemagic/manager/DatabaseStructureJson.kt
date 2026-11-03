@@ -13,9 +13,7 @@ internal object DatabaseStructureJson {
     read(file.readText())
   }.getOrNull()
 
-  fun read(value: String) = json
-    .decodeFromString<DatabaseStructure>(value)
-    .withQuotedIdentifiers()
+  fun read(value: String): DatabaseStructure = json.decodeFromString(value)
 
   fun write(
     file: File,

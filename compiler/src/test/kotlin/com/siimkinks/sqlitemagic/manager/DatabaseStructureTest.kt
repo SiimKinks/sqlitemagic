@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
-import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.index.mockSqliteIdentifier
 import com.siimkinks.sqlitemagic.index.mockSqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.SqliteSchema
@@ -49,88 +48,81 @@ internal class DatabaseStructureTest {
   }
 
   @Test
-  fun `reads evidence of unquoted schema text as the quoted schema text the compiler writes`() {
-    fun table(
-      schema: String,
-      columns: List<Pair<String, String>>
-    ) = TableStructure(
-      name = "order",
-      schema = schema,
-      columns = columns.map { (name, columnSchema) ->
-        ColumnStructure(
-          name = name,
-          schema = columnSchema,
-          onDeleteCascade = "CASCADE" in columnSchema
-        )
-      }
-    )
-
-    val unquotedColumns = listOf(
-      "id" to "id INTEGER PRIMARY KEY",
-      "group" to "group TEXT DEFAULT 'REFERENCES a(b)'",
-      "parent" to "parent INTEGER REFERENCES select(id) ON DELETE CASCADE"
-    )
-    val quotedColumns = listOf(
-      "id" to """"id" INTEGER PRIMARY KEY""",
-      "group" to """"group" TEXT DEFAULT 'REFERENCES a(b)'""",
-      "parent" to """"parent" INTEGER REFERENCES "select"("id") ON DELETE CASCADE"""
-    )
-    val unquotedSchema = "order (id INTEGER PRIMARY KEY, group TEXT DEFAULT 'REFERENCES a(b)', " +
-        "parent INTEGER REFERENCES select(id) ON DELETE CASCADE)"
-    val quotedSchema = """"order" ("id" INTEGER PRIMARY KEY, "group" TEXT DEFAULT 'REFERENCES a(b)', """ +
-        """"parent" INTEGER REFERENCES "select"("id") ON DELETE CASCADE)"""
-    val quoted = table(
-      schema = "CREATE TABLE IF NOT EXISTS $quotedSchema",
-      columns = quotedColumns
-    )
-    val handWritten = table(
-      schema = "CREATE TABLE order (id INTEGER PRIMARY KEY, group TEXT, parent INTEGER)",
-      columns = unquotedColumns
-    )
-    mapOf(
-      "unquoted table" to Pair(
-        first = table(
-          schema = "CREATE TABLE IF NOT EXISTS $unquotedSchema",
-          columns = unquotedColumns
-        ),
-        second = table(
-          schema = "CREATE TABLE IF NOT EXISTS $quotedSchema",
-          columns = quotedColumns
-        )
-      ),
-      "unquoted temporary table without rowid" to Pair(
-        first = table(
-          schema = "CREATE TEMPORARY TABLE IF NOT EXISTS $unquotedSchema WITHOUT ROWID",
-          columns = unquotedColumns
-        ),
-        second = table(
-          schema = "CREATE TEMPORARY TABLE IF NOT EXISTS $quotedSchema WITHOUT ROWID",
-          columns = quotedColumns
-        )
-      ),
-      "quoted table" to (quoted to quoted),
-      "table schema that the compiler did not write" to (handWritten to handWritten)
-    ).forEach { (label, tables) ->
-      val (evidence, expected) = tables
-
-      assertWithMessage(label)
-        .that(
-          DatabaseStructureJson.read(
-            DatabaseStructureJson.write(
-              DatabaseStructure(
-                tables = mapOf("order" to evidence),
-                temporaryTables = mapOf("order" to evidence)
-              )
+  fun `compares schemas ignoring identifier quotes and spacing but not their case or meaning`() {
+    fun structure(
+      columnSchemas: List<String>,
+      create: String = """CREATE TABLE IF NOT EXISTS "order" """,
+      notNullGroup: Boolean = false
+    ) = DatabaseStructure(
+      tables = mapOf(
+        "order" to TableStructure(
+          name = "order",
+          schema = "$create(${columnSchemas.joinToString()})",
+          columns = listOf("id", "group", "parent").zip(columnSchemas) { name, columnSchema ->
+            ColumnStructure(
+              name = name,
+              schema = columnSchema,
+              onDeleteCascade = "CASCADE" in columnSchema,
+              notNull = notNullGroup && name == "group"
             )
-          )
+          }
         )
-        .isEqualTo(
-          DatabaseStructure(
-            tables = mapOf("order" to expected),
-            temporaryTables = mapOf("order" to expected)
+      )
+    )
+
+    val quotedColumns = listOf(
+      """"id" INTEGER PRIMARY KEY""",
+      """"group" TEXT DEFAULT 'References a(b)'""",
+      """"parent" INTEGER REFERENCES "select"("id") ON DELETE CASCADE"""
+    )
+    val cases = mapOf(
+      "unquoted identifiers" to structure(
+        columnSchemas = listOf(
+          "id INTEGER PRIMARY KEY",
+          "group TEXT DEFAULT 'References a(b)'",
+          "parent INTEGER REFERENCES select(id) ON DELETE CASCADE"
+        ),
+        create = "CREATE TABLE IF NOT EXISTS order "
+      ),
+      "other quotes and spacing" to structure(
+        columnSchemas = listOf(
+          "`id`  INTEGER PRIMARY KEY",
+          "[group] TEXT DEFAULT 'References a(b)'",
+          "parent INTEGER REFERENCES [select] ( `id` ) ON DELETE CASCADE"
+        ),
+        create = "CREATE TABLE IF NOT EXISTS [order]"
+      ),
+      "different referenced table case" to structure(
+        columnSchemas = quotedColumns.dropLast(1) + """"parent" INTEGER REFERENCES "Select"("id") ON DELETE CASCADE"""
+      ),
+      "different string literal" to structure(
+        columnSchemas = quotedColumns.map {
+          it.replace(
+            oldValue = "References",
+            newValue = "references"
           )
+        }
+      ),
+      "different referenced table" to structure(
+        columnSchemas = quotedColumns.dropLast(1) + """"parent" INTEGER REFERENCES "other"("id") ON DELETE CASCADE"""
+      ),
+      "different column metadata" to structure(
+        columnSchemas = quotedColumns,
+        notNullGroup = true
+      )
+    )
+
+    assertThat(cases.mapValues { (_, structure) -> structure.sameSchemaAs(structure(columnSchemas = quotedColumns)) })
+      .isEqualTo(
+        mapOf(
+          "unquoted identifiers" to true,
+          "other quotes and spacing" to true,
+          "different referenced table case" to false,
+          "different string literal" to false,
+          "different referenced table" to false,
+          "different column metadata" to false
         )
-    }
+      )
   }
 
   @Test

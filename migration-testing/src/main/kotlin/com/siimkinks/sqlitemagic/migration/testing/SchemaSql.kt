@@ -11,7 +11,6 @@ internal data class SqlToken(
   val word get() = text.sqliteIdentifier()
 }
 
-/** Lexes single schema definitions; quoted contents and numeric spelling are never case folded. */
 internal object SchemaSql {
   fun tokens(sql: String): List<SqlToken> {
     val result = mutableListOf<SqlToken>()
@@ -117,10 +116,10 @@ internal object SchemaSql {
               endIndex = index + 1
             ) in operators
           ) index++
-          if (index < sql.length && sql.substring(
-              startIndex = start,
-              endIndex = index + 1
-            ) == "->>"
+          if (sql.startsWith(
+              prefix = "->>",
+              startIndex = start
+            )
           ) index++
           result += SqlToken(
             sql.substring(
@@ -134,17 +133,6 @@ internal object SchemaSql {
     }
     return result.dropLastWhile { it.isPunctuation(";") }
   }
-
-  fun withoutIdentifierQuotes(sql: String) = tokens(sql).joinToString(separator = " ") { token ->
-    when {
-      !token.quotedIdentifier || token.text.isBareIdentifier() -> token.text
-      else -> """"${token.text.replace(oldValue = "\"", newValue = "\"\"")}""""
-    }
-  }
-
-  private fun String.isBareIdentifier() = isNotEmpty() &&
-      (first().isLetter() || first() == '_') &&
-      all { it.isLetterOrDigit() || it == '_' || it == '$' }
 
   fun canonical(
     tokens: List<SqlToken>,
@@ -209,7 +197,7 @@ internal object SchemaSql {
     val suffix = tokens.drop(closing + 1)
       .map(SqlToken::word)
     requireInspection(
-      condition = suffix.all { it in setOf("without", "rowid", "strict", ",") },
+      condition = suffix.all(tableOptions::contains),
       message = "Unsupported table options: $suffix"
     )
     return split(
@@ -336,6 +324,7 @@ internal object SchemaSql {
     "primary", "not", "unique", "check", "default", "collate", "references", "generated", "as", "constraint"
   )
   private val tableConstraints = setOf("constraint", "primary", "unique", "check", "foreign")
+  private val tableOptions = setOf("without", "rowid", "strict", ",")
   private val identifierIntroducers = setOf("collate", "constraint", "references", "as")
 }
 

@@ -147,7 +147,7 @@ internal object SchemaDiffer {
         IndexTransition(
           previous = previousIndex,
           current = currentIndex,
-          changed = previousIndex.structure != currentIndex.structure
+          changed = !previousIndex.structure.sameSchemaAs(currentIndex.structure)
         )
       }
     }
@@ -240,7 +240,7 @@ private class RenameDetector(
     val changedTableNames = to.tables
       .asSequence()
       .filter { (tableName, table) ->
-        from.tables[tableName]?.let { it != table } == true
+        from.tables[tableName]?.let { !it.sameSchemaAs(table) } == true
       }
       .map { (tableName, _) -> tableName }
       .toCollection(linkedSetOf())

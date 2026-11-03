@@ -283,6 +283,42 @@ internal class MigrationExecutionTest {
     )
   }
 
+  @Test
+  fun `evidence with unquoted identifiers migrates only what changed`() {
+    val evidence = DatabaseStructure(
+      tables = mapOf(
+        "books" to migrationTable(
+          name = "books",
+          columns = listOf(
+            column("id INTEGER PRIMARY KEY"),
+            column("title TEXT")
+          )
+        )
+      )
+    )
+    val bookColumns = listOf(""""id" INTEGER PRIMARY KEY""", """"title" TEXT""")
+    val cases = mapOf(
+      "unchanged table" to structure("books" to bookColumns),
+      "added column" to structure("books" to bookColumns + """"note" TEXT"""),
+      "renamed table" to structure("writers" to bookColumns)
+    )
+
+    assertThat(
+      cases.mapValues { (_, current) ->
+        planSchemaMigration(
+          previous = evidence,
+          current = current
+        ).statements
+      }
+    ).isEqualTo(
+      mapOf(
+        "unchanged table" to emptyList(),
+        "added column" to listOf("""ALTER TABLE "books" ADD COLUMN "note" TEXT"""),
+        "renamed table" to listOf("""ALTER TABLE "books" RENAME TO "writers"""")
+      )
+    )
+  }
+
   private fun migratedDatabase(
     previous: DatabaseStructure,
     current: DatabaseStructure,

@@ -16,9 +16,9 @@ internal object MigrationPlanner {
       val currentReferences = table.structure.normalizedReferencedTableNames()
       currentReferencesByTableName[table.name] = currentReferences
       val previousReferences = diff.transitionByCurrentName[table.name]
+        ?.takeIf { it.changed || it.renamed }
         ?.previous
         ?.structure
-        ?.takeUnless { it == table.structure }
         ?.normalizedReferencedTableNames()
         .orEmpty()
       migrationReferencesByTableName[table.name] = currentReferences + previousReferences
@@ -154,7 +154,7 @@ private fun tableMigrationOperation(
   renamed || from.name != to.name -> TableMigrationOperation.REBUILD
   from.columns.size >= to.columns.size -> TableMigrationOperation.REBUILD
   !(from.columns zip to.columns)
-    .all { (fromColumn, toColumn) -> fromColumn == toColumn } -> TableMigrationOperation.REBUILD
+    .all { (fromColumn, toColumn) -> fromColumn.sameSchemaAs(toColumn) } -> TableMigrationOperation.REBUILD
   !equivalentTableOptionsForMigration(from = from, to = to) -> TableMigrationOperation.REBUILD
   !to.columns
     .asSequence()

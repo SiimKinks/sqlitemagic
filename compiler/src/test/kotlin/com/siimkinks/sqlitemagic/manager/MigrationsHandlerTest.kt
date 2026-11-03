@@ -13,7 +13,7 @@ internal class MigrationsHandlerTest {
   lateinit var temporaryDirectory: Path
 
   @Test
-  fun `reads legacy structures with quoted identifiers and writes compatible table-only JSON`() {
+  fun `reads legacy structures and writes compatible table-only JSON`() {
     @Language("JSON")
     val legacyJson = """
       {
@@ -39,7 +39,7 @@ internal class MigrationsHandlerTest {
       tables = mapOf(
         "books" to TableStructure(
           name = "books",
-          schema = """CREATE TABLE IF NOT EXISTS "books" ("id" INTEGER PRIMARY KEY)""",
+          schema = "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY)",
           columns = listOf(
             ColumnStructure(
               id = true,
@@ -47,7 +47,7 @@ internal class MigrationsHandlerTest {
               name = "id",
               onDeleteCascade = false,
               sqlType = "INTEGER",
-              schema = """"id" INTEGER PRIMARY KEY"""
+              schema = "id INTEGER PRIMARY KEY"
             )
           )
         )
@@ -60,14 +60,14 @@ internal class MigrationsHandlerTest {
       {"tables":{
         "books":{
           "name":"books",
-          "schema":"CREATE TABLE IF NOT EXISTS \"books\" (\"id\" INTEGER PRIMARY KEY)",
+          "schema":"CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY)",
           "columns":[{
             "id":true,
             "autoIncrement":false,
             "name":"id",
             "onDeleteCascade":false,
             "sqlType":"INTEGER",
-            "schema":"\"id\" INTEGER PRIMARY KEY",
+            "schema":"id INTEGER PRIMARY KEY",
             "notNull":false,
             "notNullDefault":null
           }]

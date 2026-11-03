@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
-import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
+import com.siimkinks.sqlitemagic.migration.SchemaSqlComparison
 
 private val unsupportedAppendConstraintPattern = Regex(
   """(?i)\b(PRIMARY\s+KEY|UNIQUE|REFERENCES)\b"""
@@ -11,148 +11,48 @@ private val nonConstantDefaultPattern = Regex(
   """(?i)\bDEFAULT\s+(?:CURRENT_TIME|CURRENT_DATE|CURRENT_TIMESTAMP|\()"""
 )
 private val withoutRowIdPattern = Regex("""(?i)\bWITHOUT\s+ROWID\b""")
-private val bareReferencePattern = Regex("""(?i)\bREFERENCES\s+([\w$]+)\s*\(\s*([\w$]+)\s*\)""")
-private val tableSchemaPrefixes = listOf("CREATE TABLE IF NOT EXISTS", "CREATE TEMPORARY TABLE IF NOT EXISTS")
 private const val normalizedTableName = "__TABLE__"
-
-private data class SqlIdentifierReplacement(
-  val identifier: String,
-  val replacement: String
-)
 
 internal fun normalizeSql(
   schema: String,
   ownTableName: String?,
   renames: Map<String, String>
-): String {
-  val replacements = buildList {
+) = SchemaSqlComparison.key(
+  sql = schema,
+  identifiers = buildMap {
+    putAll(renames.filterKeys(String::isNotEmpty))
     ownTableName
       ?.takeIf(String::isNotEmpty)
-      ?.let { tableName ->
-        add(
-          SqlIdentifierReplacement(
-            identifier = tableName,
-            replacement = normalizedTableName
-          )
-        )
-      }
-    renames.forEach { (identifier, replacement) ->
-      if (identifier.isNotEmpty()) {
-        add(
-          SqlIdentifierReplacement(
-            identifier = identifier,
-            replacement = replacement
-          )
-        )
-      }
-    }
+      ?.let { put(it, normalizedTableName) }
   }
+)
 
-  return when {
-    replacements.isEmpty() -> schema.normalizeSqlWhitespace()
-    schema.canNormalizeSqlInSinglePass(replacements = replacements) -> normalizeSqlSinglePass(
-      schema = schema,
-      replacements = replacements
-    )
-    else -> normalizeSqlSequentially(
-      schema = schema,
-      replacements = replacements
-    )
-  }
-}
+internal fun DatabaseStructure.sameSchemaAs(other: DatabaseStructure) =
+  tables.sameSchemaAs(other = other.tables, same = TableStructure::sameSchemaAs) &&
+      indices.sameSchemaAs(other = other.indices, same = IndexStructure::sameSchemaAs) &&
+      temporaryTables.sameSchemaAs(other = other.temporaryTables, same = TableStructure::sameSchemaAs) &&
+      temporaryIndices.sameSchemaAs(other = other.temporaryIndices, same = IndexStructure::sameSchemaAs) &&
+      views == other.views &&
+      temporaryViews == other.temporaryViews
 
-private fun normalizeSqlSequentially(
-  schema: String,
-  replacements: List<SqlIdentifierReplacement>
-): String {
-  var normalized = schema
-  replacements.forEach { replacement ->
-    normalized = normalized.replaceSqlIdentifier(
-      identifier = replacement.identifier,
-      replacement = replacement.replacement
-    )
-  }
-  return normalized.normalizeSqlWhitespace()
-}
+internal fun TableStructure.sameSchemaAs(other: TableStructure) = name == other.name &&
+    columns.size == other.columns.size &&
+    (columns zip other.columns).all { (column, otherColumn) -> column.sameSchemaAs(otherColumn) } &&
+    schema.sameSqlAs(other.schema)
 
-private fun normalizeSqlSinglePass(
-  schema: String,
-  replacements: List<SqlIdentifierReplacement>
-): String {
-  val result = StringBuilder(schema.length)
-  var whitespacePending = false
-  var index = 0
-  while (index < schema.length) {
-    val character = schema[index]
-    if (character.isWhitespace()) {
-      whitespacePending = true
-      index++
-      continue
-    }
-    if (whitespacePending && result.isNotEmpty()) {
-      result.append(' ')
-    }
-    whitespacePending = false
-    when {
-      character == '\'' -> {
-        val segmentEnd = schema.quotedSqlSegmentEnd(
-          startIndex = index,
-          closing = character
-        ) ?: schema.length
-        result.append(
-          schema.substring(
-            startIndex = index,
-            endIndex = segmentEnd
-          )
-        )
-        index = segmentEnd
-      }
-      character.isSqlIdentifierPart() -> {
-        val tokenStart = index
-        while (index < schema.length && schema[index].isSqlIdentifierPart()) {
-          index++
-        }
-        val token = schema.substring(
-          startIndex = tokenStart,
-          endIndex = index
-        )
-        result.append(
-          token.applySqlIdentifierReplacements(
-            replacements = replacements
-          )
-        )
-      }
-      else -> {
-        result.append(character)
-        index++
-      }
-    }
-  }
-  return result.toString().trim()
-}
+internal fun ColumnStructure.sameSchemaAs(other: ColumnStructure) = copy(schema = other.schema) == other &&
+    schema.sameSqlAs(other.schema)
 
-private fun String.canNormalizeSqlInSinglePass(
-  replacements: List<SqlIdentifierReplacement>
-): Boolean = none { character ->
-  character == '"' || character == '`' || character == '['
-} && replacements.all { replacement ->
-  replacement.identifier.isSimpleSqlIdentifier() &&
-      replacement.replacement.isSimpleSqlIdentifier()
-}
+internal fun IndexStructure.sameSchemaAs(other: IndexStructure) = copy(indexSql = other.indexSql) == other &&
+    indexSql.sameSqlAs(other.indexSql)
 
-private fun String.isSimpleSqlIdentifier() = isNotEmpty() && all(Char::isSqlIdentifierPart)
+private fun <T> Map<String, T>.sameSchemaAs(
+  other: Map<String, T>,
+  same: (T, T) -> Boolean
+) = keys == other.keys && all { (name, value) -> same(value, other.getValue(name)) }
 
-private fun String.applySqlIdentifierReplacements(
-  replacements: List<SqlIdentifierReplacement>
-): String {
-  var normalized = this
-  replacements.forEach { replacement ->
-    if (normalized.equals(other = replacement.identifier, ignoreCase = true)) {
-      normalized = replacement.replacement
-    }
-  }
-  return normalized
-}
+private fun String.sameSqlAs(other: String) = this == other ||
+    SchemaSqlComparison.key(this) == SchemaSqlComparison.key(other)
 
 internal fun String.withoutTableColumns(): String {
   var index = 0
@@ -198,58 +98,6 @@ internal fun String.withoutTableColumns(): String {
   return this
 }
 
-internal fun DatabaseStructure.withQuotedIdentifiers() = copy(
-  tables = tables.mapValues { (_, table) -> table.withQuotedIdentifiers() },
-  temporaryTables = temporaryTables.mapValues { (_, table) -> table.withQuotedIdentifiers() }
-)
-
-private fun TableStructure.withQuotedIdentifiers(): TableStructure {
-  val bareDefinition = " $name (${columns.joinToString(separator = ", ", transform = ColumnStructure::schema)})"
-  val prefix = tableSchemaPrefixes.firstOrNull { schema.startsWith(prefix = "$it$bareDefinition") } ?: return this
-  val quotedColumns = columns.map(ColumnStructure::withQuotedIdentifiers)
-  return copy(
-    schema = buildString {
-      append(prefix)
-      append(' ')
-      append(quoteSqlIdentifier(name))
-      append(" (")
-      quotedColumns.joinTo(buffer = this, separator = ", ", transform = ColumnStructure::schema)
-      append(')')
-      append(schema, prefix.length + bareDefinition.length, schema.length)
-    },
-    columns = quotedColumns
-  )
-}
-
-private fun ColumnStructure.withQuotedIdentifiers() = when {
-  schema.startsWith(prefix = "$name ") -> copy(
-    schema = quoteSqlIdentifier(name) + schema
-      .substring(startIndex = name.length)
-      .withQuotedBareReferences()
-  )
-  else -> this
-}
-
-private fun String.withQuotedBareReferences(): String {
-  val result = StringBuilder(length)
-  var copiedUntil = 0
-  bareReferencePattern
-    .findAll(withoutQuotedSqlSegments())
-    .forEach { match ->
-      match.groups
-        .drop(1)
-        .filterNotNull()
-        .forEach { identifier ->
-          result.append(this, copiedUntil, identifier.range.first)
-          result.append(quoteSqlIdentifier(identifier.value))
-          copiedUntil = identifier.range.last + 1
-        }
-    }
-  return result
-    .append(this, copiedUntil, length)
-    .toString()
-}
-
 internal fun ColumnStructure.requiresValueDuringRebuild(table: TableStructure) = requiresValue ||
     (id && table.isWithoutRowId)
 
@@ -290,36 +138,6 @@ internal fun TableStructure.normalizedReferencedTableNames() = schema
 
 internal fun String.normalizedSqlIdentifier() = SqliteIdentifier(this).normalizedName
 
-private fun String.normalizeSqlWhitespace(): String {
-  val result = StringBuilder(length)
-  var whitespacePending = false
-  var index = 0
-  while (index < length) {
-    val character = this[index]
-    if (character.isWhitespace()) {
-      whitespacePending = true
-      index++
-      continue
-    }
-    if (whitespacePending && result.isNotEmpty()) {
-      result.append(' ')
-    }
-    whitespacePending = false
-    when (val closing = character.sqlClosingQuote()) {
-      null -> {
-        result.append(character)
-        index++
-      }
-      else -> index = appendQuotedSqlSegment(
-        result = result,
-        startIndex = index,
-        closing = closing
-      )
-    }
-  }
-  return result.toString().trim()
-}
-
 private fun String.withoutQuotedSqlSegments(): String {
   val result = StringBuilder(length)
   var index = 0
@@ -357,87 +175,6 @@ private fun String.quotedSqlSegmentEnd(
     }
   }
   return null
-}
-
-private fun String.appendQuotedSqlSegment(
-  result: StringBuilder,
-  startIndex: Int,
-  closing: Char
-): Int {
-  val segmentEnd = quotedSqlSegmentEnd(
-    startIndex = startIndex,
-    closing = closing
-  ) ?: length
-  result.append(
-    substring(
-      startIndex = startIndex,
-      endIndex = segmentEnd
-    )
-  )
-  return segmentEnd
-}
-
-private fun String.replaceSqlIdentifier(
-  identifier: String,
-  replacement: String
-): String {
-  if (identifier.isEmpty()) return this
-  val result = StringBuilder(length)
-  var index = 0
-  while (index < length) {
-    when {
-      this[index] == '\'' -> {
-        val literalEnd = quotedSqlSegmentEnd(
-          startIndex = index,
-          closing = '\''
-        ) ?: length
-        result.append(substring(startIndex = index, endIndex = literalEnd))
-        index = literalEnd
-      }
-      this[index] == '`' || this[index] == '"' || this[index] == '[' -> {
-        val opening = this[index]
-        val closing = when (opening) {
-          '[' -> ']'
-          else -> opening
-        }
-        val segmentEnd = quotedSqlSegmentEnd(
-          startIndex = index,
-          closing = closing
-        )
-        when (segmentEnd) {
-          null -> {
-            result.append(substring(startIndex = index))
-            index = length
-          }
-          else -> {
-            val quotedIdentifier = substring(
-              startIndex = index + 1,
-              endIndex = segmentEnd - 1
-            )
-            result.append(
-              when {
-                quotedIdentifier.equals(other = identifier, ignoreCase = true) -> replacement
-                else -> substring(startIndex = index, endIndex = segmentEnd)
-              }
-            )
-            index = segmentEnd
-          }
-        }
-      }
-      substringMatchesIdentifier(
-        identifier = identifier,
-        startIndex = index
-      ) -> {
-        result.append(replacement)
-        index += identifier.length
-      }
-      else -> {
-        result.append(this[index])
-        index++
-      }
-    }
-  }
-  return result.toString()
 }
 
 private fun String.substringMatchesIdentifier(

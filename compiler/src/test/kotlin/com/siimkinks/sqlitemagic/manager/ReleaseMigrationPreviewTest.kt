@@ -52,12 +52,12 @@ internal class ReleaseMigrationPreviewTest {
         DROP INDEX IF EXISTS main."books_isbn_index"
         ALTER TABLE "tags" RENAME TO "labels"
         ALTER TABLE "books" RENAME TO "books_"
-        CREATE TABLE IF NOT EXISTS "books" ("id" INTEGER PRIMARY KEY, "title" TEXT NOT NULL DEFAULT '', "subtitle" TEXT)
+        CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT '', subtitle TEXT)
         INSERT INTO "books" ("id","title") SELECT "id",IFNULL("title", '') FROM "books_"
         DROP TABLE IF EXISTS "books_"
-        ALTER TABLE "notes" ADD COLUMN "pinned" INTEGER
+        ALTER TABLE "notes" ADD COLUMN pinned INTEGER
         DROP TABLE IF EXISTS "legacy"
-        CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)
+        CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)
         CREATE INDEX IF NOT EXISTS books_title_index ON books (title)
       """.trimIndent()
     )

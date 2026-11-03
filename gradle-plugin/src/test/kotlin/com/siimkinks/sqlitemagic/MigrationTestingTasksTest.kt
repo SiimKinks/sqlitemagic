@@ -271,10 +271,7 @@ internal class MigrationTestingTasksTest {
     task.publish()
 
     assertThat(projectDir.resolve("src/release/assets/2.sql").readText())
-      .isEqualTo(
-        "UPDATE books SET id = id + 2;\n" +
-            """CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n"
-      )
+      .isEqualTo("UPDATE books SET id = id + 2;\nCREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n")
     assertThat(projectDir.resolve("src/paidRelease/assets").exists()).isFalse()
     assertThat(database.resolve("releases/2.struct").readText()).doesNotContain("unrelated_debug_table")
     assertThat(frozen.keys.associateWith(File::readText)).isEqualTo(frozen)
@@ -345,10 +342,9 @@ internal class MigrationTestingTasksTest {
 
           Migration SQL for src/release/assets/2.sql:
             UPDATE books SET id = id + 2;
-            CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)
+            CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)
         """.trimIndent() + "\n",
-        "2.sql" to "UPDATE books SET id = id + 2;\n" +
-            """CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n"
+        "2.sql" to "UPDATE books SET id = id + 2;\nCREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n"
       )
     )
     assertThat(sources.keys.associateWith(File::readText)).isEqualTo(sources)

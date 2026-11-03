@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.runtime.model.catalog.NoIdKeyModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipBackedIdModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ScalarModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.SqlKeywordModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.TransformerModelCatalog
 
 internal object ModelCatalog {
@@ -20,7 +21,8 @@ internal object ModelCatalog {
     NoIdKeyModelCatalog.cases,
     RelationshipBackedIdModelCatalog.cases,
     RelationshipModelCatalog.cases,
-    TransformerModelCatalog.cases
+    TransformerModelCatalog.cases,
+    SqlKeywordModelCatalog.cases
   ).flatten()
 
   val insertCases = allCases

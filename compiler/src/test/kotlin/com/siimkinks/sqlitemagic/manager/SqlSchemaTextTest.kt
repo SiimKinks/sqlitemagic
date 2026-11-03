@@ -212,31 +212,31 @@ internal class SqlSchemaTextTest {
     @JvmStatic
     fun normalizeSqlCases() = listOf(
       Arguments.of(
-        "normalizes identifiers and whitespace while preserving literal contents",
-        "CREATE   TABLE   current   (value TEXT DEFAULT 'current  value')",
+        "normalizes identifiers and whitespace while preserving their case and literal contents",
+        "CREATE   TABLE   Current   (value TEXT DEFAULT 'current  Value')",
         null,
         mapOf("current" to "legacy"),
-        "CREATE TABLE legacy (value TEXT DEFAULT 'current  value')"
+        "CREATE TABLE legacy ( value TEXT DEFAULT 'current  Value' )"
       ),
       Arguments.of(
-        "applies a rename chain in map iteration order",
+        "applies one link of a rename chain",
         "CREATE TABLE current (value TEXT)",
         null,
         mapOf(
           "current" to "middle",
           "middle" to "legacy"
         ),
-        "CREATE TABLE legacy (value TEXT)"
+        "CREATE TABLE middle ( value TEXT )"
       ),
       Arguments.of(
-        "applies only the later link of a rename chain listed in reverse order",
+        "applies one link of a rename chain listed in reverse order",
         "CREATE TABLE current (value TEXT)",
         null,
         mapOf(
           "middle" to "legacy",
           "current" to "middle"
         ),
-        "CREATE TABLE middle (value TEXT)"
+        "CREATE TABLE middle ( value TEXT )"
       ),
       Arguments.of(
         "does not replace an overlapping identifier within a larger identifier",
@@ -246,35 +246,35 @@ internal class SqlSchemaTextTest {
           "new" to "old",
           "new_table" to "renamed"
         ),
-        "CREATE TABLE renamed (old TEXT)"
+        "CREATE TABLE renamed ( old TEXT )"
       ),
       Arguments.of(
         "replaces the own table before applying a matching rename",
         "CREATE TABLE current (parent TEXT REFERENCES current(id) DEFAULT 'current  value')",
         "current",
         mapOf("current" to "legacy"),
-        "CREATE TABLE __TABLE__ (parent TEXT REFERENCES __TABLE__(id) DEFAULT 'current  value')"
+        "CREATE TABLE __TABLE__ ( parent TEXT REFERENCES __TABLE__ ( id ) DEFAULT 'current  value' )"
       ),
       Arguments.of(
-        "preserves quoted identifiers while replacing matching unquoted identifiers",
+        "replaces quoted and unquoted identifiers alike and keeps quotes only where they are needed",
         """CREATE TABLE "current" (value TEXT COLLATE "current value" DEFAULT 'current  value')""",
         null,
         mapOf("current" to "legacy"),
-        """CREATE TABLE legacy (value TEXT COLLATE "current value" DEFAULT 'current  value')"""
+        """CREATE TABLE legacy ( value TEXT COLLATE "current value" DEFAULT 'current  value' )"""
       ),
       Arguments.of(
-        "keeps sequential replacement behavior for non-simple names",
+        "quotes a replacement that is not a bare identifier",
         "CREATE TABLE current (value TEXT)",
         null,
         mapOf("current" to "legacy name"),
-        "CREATE TABLE legacy name (value TEXT)"
+        """CREATE TABLE "legacy name" ( value TEXT )"""
       ),
       Arguments.of(
         "treats dollar signs as part of unquoted identifiers",
         $$"CREATE TABLE foo$bar (value TEXT)",
         null,
         mapOf("foo" to "legacy"),
-        $$"CREATE TABLE foo$bar (value TEXT)"
+        $$"CREATE TABLE foo$bar ( value TEXT )"
       ),
       Arguments.of(
         "preserves an unclosed quoted identifier during normalization",
