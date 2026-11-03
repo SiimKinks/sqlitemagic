@@ -177,7 +177,7 @@ internal class EntityPersistOperationsTest {
         insertResult = null,
         byKey = false,
         expectedResult = EntityPersistResult.Updated,
-        expectedSql = listOf("UPDATE books SET id=id WHERE id=?"),
+        expectedSql = listOf("""UPDATE "books" SET "id"="id" WHERE "id"=?"""),
         expectedBindings = listOf(mapOf(1 to "id-1"))
       ),
       NullOmissionCase(
@@ -187,7 +187,7 @@ internal class EntityPersistOperationsTest {
         insertResult = null,
         byKey = true,
         expectedResult = EntityPersistResult.Updated,
-        expectedSql = listOf("UPDATE books SET key=key WHERE key=?"),
+        expectedSql = listOf("""UPDATE "books" SET "key"="key" WHERE "key"=?"""),
         expectedBindings = listOf(mapOf(1 to "key-1"))
       ),
       NullOmissionCase(
@@ -198,8 +198,8 @@ internal class EntityPersistOperationsTest {
         byKey = false,
         expectedResult = EntityPersistResult.Inserted(9L),
         expectedSql = listOf(
-          "UPDATE books SET id=id WHERE id=?",
-          "INSERT INTO books(id,key) VALUES (?,?)"
+          """UPDATE "books" SET "id"="id" WHERE "id"=?""",
+          """INSERT INTO "books"("id","key") VALUES (?,?)"""
         ),
         expectedBindings = listOf(
           mapOf(1 to "id-1"),
@@ -214,8 +214,8 @@ internal class EntityPersistOperationsTest {
         byKey = false,
         expectedResult = EntityPersistResult.Inserted(10L),
         expectedSql = listOf(
-          "UPDATE books SET id=id WHERE id=?",
-          "INSERT INTO books DEFAULT VALUES"
+          """UPDATE "books" SET "id"="id" WHERE "id"=?""",
+          """INSERT INTO "books" DEFAULT VALUES"""
         ),
         expectedBindings = listOf(
           mapOf(1 to "id-1"),
@@ -272,10 +272,10 @@ internal class EntityPersistOperationsTest {
     ).isEqualTo(EntityPersistResult.Ignored)
     assertThat(connection.statementSql)
       .containsExactly(
-        "UPDATE books SET id=id WHERE id=?",
-        "INSERT INTO books(id,key) VALUES (?,?)",
-        "UPDATE OR IGNORE books SET id=id WHERE id=?",
-        "INSERT OR IGNORE INTO books(id,key) VALUES (?,?)"
+        """UPDATE "books" SET "id"="id" WHERE "id"=?""",
+        """INSERT INTO "books"("id","key") VALUES (?,?)""",
+        """UPDATE OR IGNORE "books" SET "id"="id" WHERE "id"=?""",
+        """INSERT OR IGNORE INTO "books"("id","key") VALUES (?,?)"""
       )
       .inOrder()
     assertThat(entity).isEqualTo(

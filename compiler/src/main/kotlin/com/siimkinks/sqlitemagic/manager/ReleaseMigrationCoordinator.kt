@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.migration.MigrationScriptValidation
-import com.siimkinks.sqlitemagic.migration.MigrationViewSchema
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
 import java.io.File
 
@@ -17,13 +16,12 @@ object ReleaseMigrationCoordinator {
     warn: (String) -> Unit = {}
   ) {
     val releaseStructuresDirectory = databaseDirectory.resolve("releases")
-    val evidencePublisher = compiledRelease?.let { schema ->
-      ReleaseEvidencePublisher(
-        releaseDirectory = releaseStructuresDirectory,
-        assetsDirectory = evidenceAssetsDirectory,
-        compiledRelease = schema
-      ).also(ReleaseEvidencePublisher::validatePublication)
-    }
+    val evidencePublisher = evidencePublisher(
+      databaseDirectory = databaseDirectory,
+      evidenceAssetsDirectory = evidenceAssetsDirectory,
+      compiledRelease = compiledRelease
+    )
+    evidencePublisher?.validatePublication()
     if (evidencePublisher?.adoptsExistingStructure == true) {
       val transaction = FileSnapshotTransaction()
       try {
@@ -47,13 +45,7 @@ object ReleaseMigrationCoordinator {
           "${releaseStructuresDirectory.absolutePath}. Set @Database(version) to ${release.version} or higher " +
           "to publish the next release."
     }
-    compiledRelease?.let { compiled ->
-      check(
-        release.structure.tables.values.map(TableStructure::schema).toSet() == compiled.tableSql.toSet() &&
-            release.structure.indices.values.map(IndexStructure::indexSql).toSet() == compiled.indexSql.toSet() &&
-            release.structure.views.keys == compiled.views.map(MigrationViewSchema::name).toSet()
-      ) { "Compiled selected release differs from current compiler structures" }
-    }
+    compiledRelease?.let(release::checkCompiledRelease)
     val transaction = FileSnapshotTransaction()
     try {
       release.publish(transaction)
@@ -74,8 +66,23 @@ object ReleaseMigrationCoordinator {
     variantName: String,
     databaseVersion: Int,
     currentStructureFiles: List<File>? = null,
+    compiledRelease: ReleaseSchemaSnapshot? = null,
     evidenceAssetsDirectory: File = projectDir.resolve("src/$variantName/assets")
   ): ReleaseMigrationPreview {
+    val evidencePublisher = evidencePublisher(
+      databaseDirectory = databaseDirectory,
+      evidenceAssetsDirectory = evidenceAssetsDirectory,
+      compiledRelease = compiledRelease
+    )
+    evidencePublisher?.validatePreview()
+    if (evidencePublisher?.adoptsExistingStructure == true) {
+      return ReleaseMigrationPreview(
+        version = databaseVersion,
+        report = "Release $databaseVersion preview (adopts retained release $databaseVersion)\n\n" +
+            "Publishing adopts the retained release history and generates no migration.",
+        sql = null
+      )
+    }
     val release = prepareRelease(
       projectDir = projectDir,
       databaseDirectory = databaseDirectory,
@@ -84,6 +91,7 @@ object ReleaseMigrationCoordinator {
       currentStructureFiles = currentStructureFiles,
       evidenceAssetsDirectory = evidenceAssetsDirectory
     )
+    compiledRelease?.let(release::checkCompiledRelease)
     return ReleaseMigrationPreview(
       version = release.version,
       report = release.previewReport(
@@ -91,6 +99,18 @@ object ReleaseMigrationCoordinator {
         databaseVersion = databaseVersion
       ),
       sql = release.sql
+    )
+  }
+
+  private fun evidencePublisher(
+    databaseDirectory: File,
+    evidenceAssetsDirectory: File,
+    compiledRelease: ReleaseSchemaSnapshot?
+  ) = compiledRelease?.let { schema ->
+    ReleaseEvidencePublisher(
+      releaseDirectory = databaseDirectory.resolve("releases"),
+      assetsDirectory = evidenceAssetsDirectory,
+      compiledRelease = schema
     )
   }
 
@@ -168,12 +188,14 @@ object ReleaseMigrationCoordinator {
       .filter { it.extension == "struct" }
       .sortedBy(File::getName)
       .mapNotNull { file ->
-        file.nameWithoutExtension.toIntOrNull()?.let { version ->
-          VersionedFile(
-            file = file,
-            version = version
-          )
-        }
+        file.nameWithoutExtension
+          .toIntOrNull()
+          ?.let { version ->
+            VersionedFile(
+              file = file,
+              version = version
+            )
+          }
       }
       .toList()
     versionedFiles
@@ -201,24 +223,19 @@ object ReleaseMigrationCoordinator {
 
   private fun validateCurrentStructures(structures: List<Pair<String, DatabaseStructure>>) {
     val conflicts = findSchemaIdentityConflicts(structures)
-    if (conflicts.isNotEmpty()) {
-      throw IllegalStateException(
-        conflicts.joinToString(
-          separator = "\n",
-          transform = { conflict ->
-            conflict.run {
-              when {
-                previousOwner.objectKind == objectKind -> "Duplicate ${objectKind.label} '$name' in current " +
-                    "database structure snapshots: ${previousOwner.name} (${previousOwner.source}) and " +
-                    "$name ($source)"
-                else -> "Duplicate SQLite schema identifier '$name' in current database structure snapshots: " +
-                    "${previousOwner.objectKind.label} '${previousOwner.name}' (${previousOwner.source}) and " +
-                    "${objectKind.label} '$name' ($source)"
-              }
-            }
+    check(conflicts.isEmpty()) {
+      conflicts.joinToString(separator = "\n") { conflict ->
+        conflict.run {
+          when {
+            previousOwner.objectKind == objectKind -> "Duplicate ${objectKind.label} '$name' in current " +
+                "database structure snapshots: ${previousOwner.name} (${previousOwner.source}) and " +
+                "$name ($source)"
+            else -> "Duplicate SQLite schema identifier '$name' in current database structure snapshots: " +
+                "${previousOwner.objectKind.label} '${previousOwner.name}' (${previousOwner.source}) and " +
+                "${objectKind.label} '$name' ($source)"
           }
-        )
-      )
+        }
+      }
     }
   }
 
@@ -302,3 +319,7 @@ private data class VersionedFile(
   val file: File,
   val version: Int
 )
+
+private fun PreparedRelease.checkCompiledRelease(compiled: ReleaseSchemaSnapshot) = check(
+  structure.hasSchemaOf(compiled)
+) { "Compiled selected release differs from current compiler structures" }

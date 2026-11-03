@@ -10,6 +10,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
@@ -590,6 +591,410 @@ internal class SharedLeaseOwnerTest {
         heldAfterCall = false
       )
     )
+  }
+
+  @Test
+  fun `a blocking call on the thread of a granted coroutine wait takes the writer and the wait goes first again`() {
+    data class Outcome(
+      val retryWhileTaken: Boolean,
+      val alreadyGrantedAgain: Boolean,
+      val writes: List<String>,
+      val writerHeld: Boolean
+    )
+
+    val worker = Executors.newSingleThreadExecutor()
+    val outcome = pool(fileName = folder.databasePath()).use { pool ->
+      val writes = Collections.synchronizedList(mutableListOf<String>())
+      val holding = CountDownLatch(1)
+      val release = CountDownLatch(1)
+      val holder = thread {
+        pool.write {
+          holding.countDown()
+          release.await()
+        }
+      }
+      holding.await()
+      val workerThread = worker
+        .submit<Thread> { Thread.currentThread() }
+        .get()
+      val wait = worker
+        .submit<Throwable?> {
+          val call = pool.beginWriterCall(grant = null)
+          try {
+            runCatching {
+              pool.setBalance(
+                id = 1,
+                balance = 5
+              )
+            }.exceptionOrNull()
+          } finally {
+            pool.endWriterCall(call)
+          }
+        }
+        .get() as WriterWait
+      val blockingHolds = CountDownLatch(1)
+      val blockingReleases = CountDownLatch(1)
+      val blocking = worker.submit {
+        pool.write {
+          writes += "blocking"
+          blockingHolds.countDown()
+          blockingReleases.await()
+        }
+      }
+      workerThread.awaitTimedWaiting()
+      val granted = CountDownLatch(1)
+      pool.awaitWriter(
+        wait = wait,
+        onGranted = granted::countDown
+      )
+      release.countDown()
+      holder.join()
+      granted.await()
+      blockingHolds.await()
+      val retryWhileTaken = pool
+        .writerCall(grant = wait) {
+          pool.setBalance(
+            id = 1,
+            balance = 5
+          )
+        }
+        .exceptionOrNull() === wait
+      val grantedAgain = CountDownLatch(1)
+      val alreadyGrantedAgain = pool.awaitWriter(
+        wait = wait,
+        onGranted = grantedAgain::countDown
+      )
+      blockingReleases.countDown()
+      blocking.get()
+      grantedAgain.await()
+      pool
+        .writerCall(grant = wait) {
+          pool.setBalance(
+            id = 1,
+            balance = 5
+          )
+          writes += "call"
+        }
+        .getOrThrow()
+      Outcome(
+        retryWhileTaken = retryWhileTaken,
+        alreadyGrantedAgain = alreadyGrantedAgain,
+        writes = writes.toList(),
+        writerHeld = pool.writerOwner != null
+      )
+    }
+    worker.shutdown()
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        retryWhileTaken = true,
+        alreadyGrantedAgain = false,
+        writes = listOf("blocking", "call"),
+        writerHeld = false
+      )
+    )
+  }
+
+  @Test
+  fun `a blocking call of a shared owner that takes a granted coroutine wait's turn grants the owner's waits`() {
+    data class Outcome(
+      val ownerWaitGranted: Boolean,
+      val committed: Boolean,
+      val balances: List<Long>,
+      val writerHeld: Boolean
+    )
+
+    val outcome = pool(fileName = folder.databasePath()).use { pool ->
+      val owner = pool.shareOwner()
+      pool.on(owner) {
+        pool.beginTransaction()
+        pool.setBalance(
+          id = 1,
+          balance = 1
+        )
+      }
+      val waiting = pool
+        .writerCall(grant = null) {
+          pool.setBalance(
+            id = 2,
+            balance = 2
+          )
+        }
+        .exceptionOrNull() as WriterWait
+      check(pool.yieldSharedTransaction(owner))
+      val ownerWait = pool
+        .ownerCall(
+          owner = owner,
+          grant = null
+        ) {
+          pool.setBalance(
+            id = 1,
+            balance = 3
+          )
+        }
+        .exceptionOrNull() as WriterWait
+      val ownerGranted = CountDownLatch(1)
+      pool.awaitWriter(
+        wait = ownerWait,
+        onGranted = ownerGranted::countDown
+      )
+      pool.on(owner) {
+        pool.setBalance(
+          id = 1,
+          balance = 4
+        )
+      }
+      val ownerWaitGranted = ownerGranted.count == 0L
+      pool
+        .ownerCall(
+          owner = owner,
+          grant = ownerWait
+        ) {
+          pool.setBalance(
+            id = 1,
+            balance = 3
+          )
+        }
+        .getOrThrow()
+      val committed = pool.on(owner) {
+        pool.setTransactionSuccessful()
+        pool.endTransaction()
+      }
+      pool.releaseSharedOwner(owner)
+      pool
+        .writerCall(grant = waiting) {
+          pool.setBalance(
+            id = 2,
+            balance = 2
+          )
+        }
+        .getOrThrow()
+      Outcome(
+        ownerWaitGranted = ownerWaitGranted,
+        committed = committed,
+        balances = listOf(pool.balance(id = 1), pool.balance(id = 2)),
+        writerHeld = pool.writerOwner != null
+      )
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        ownerWaitGranted = true,
+        committed = true,
+        balances = listOf(3L, 2L),
+        writerHeld = false
+      )
+    )
+  }
+
+  @Test
+  fun `a call between the end of a shared transaction and its release fails`() {
+    data class Outcome(
+      val committed: Boolean,
+      val call: String?,
+      val writerHeld: Boolean,
+      val balance: Long
+    )
+
+    val outcome = pool(fileName = folder.databasePath()).use { pool ->
+      val owner = pool.shareOwner()
+      pool.on(owner) { pool.beginTransaction() }
+      val committed = pool.on(owner) {
+        pool.setTransactionSuccessful()
+        pool.endTransaction()
+      }
+      val call = runCatching {
+        pool.on(owner) {
+          pool.setBalance(
+            id = 1,
+            balance = 5
+          )
+        }
+      }.exceptionOrNull()
+      pool.releaseSharedOwner(owner)
+      Outcome(
+        committed = committed,
+        call = call?.message,
+        writerHeld = pool.writerOwner != null,
+        balance = pool.balance(id = 1)
+      )
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        committed = true,
+        call = "Cannot use a coroutine transaction after it ended.",
+        writerHeld = false,
+        balance = 100
+      )
+    )
+  }
+
+  @Test
+  fun `a shared transaction does not yield while it reads rows`() {
+    data class Outcome(
+      val yieldedInsideRows: Boolean,
+      val waiterBlockedDuringRows: Boolean,
+      val yieldedAfterRows: Boolean
+    )
+
+    val outcome = pool(fileName = folder.databasePath()).use { pool ->
+      val owner = pool.shareOwner()
+      pool.on(owner) { pool.beginTransaction() }
+      val waiter = thread {
+        pool.setBalance(
+          id = 2,
+          balance = 6
+        )
+      }
+      waiter.awaitTimedWaiting()
+      val yieldedInsideRows = pool.on(owner) {
+        pool.read(
+          requiresWriter = false,
+          rows = true
+        ) { pool.yieldSharedTransaction(owner) }
+      }
+      val waiterBlockedDuringRows = waiter.isAlive
+      val yieldedAfterRows = pool.yieldSharedTransaction(owner)
+      waiter.join()
+      pool.on(owner) { pool.endTransaction() }
+      pool.releaseSharedOwner(owner)
+      Outcome(
+        yieldedInsideRows = yieldedInsideRows,
+        waiterBlockedDuringRows = waiterBlockedDuringRows,
+        yieldedAfterRows = yieldedAfterRows
+      )
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        yieldedInsideRows = false,
+        waiterBlockedDuringRows = true,
+        yieldedAfterRows = true
+      )
+    )
+  }
+
+  @Test
+  fun `close during the cancellation of a granted coroutine wait closes the writer`() {
+    val driver = TrackingDriver()
+    val pool = pool(
+      fileName = folder.databasePath(),
+      driver = driver
+    )
+    val owner = pool.shareOwner()
+    pool.on(owner) { pool.beginTransaction() }
+    val wait = pool
+      .writerCall(grant = null) {
+        pool.setBalance(
+          id = 1,
+          balance = 5
+        )
+      }
+      .exceptionOrNull() as WriterWait
+    pool.on(owner) { pool.endTransaction() }
+    pool.releaseSharedOwner(owner)
+    val start = CountDownLatch(1)
+    val canceller = thread {
+      start.await()
+      pool.cancelWriterWait(wait)
+    }
+    pool.beforeWriterQueueLock(
+      thread = canceller,
+      skippedLocks = 1
+    ) {
+      thread(block = pool::close).join()
+    }
+    start.countDown()
+    canceller.join()
+
+    assertThat(driver.connections.map(TrackingConnection::closed)).containsExactly(true)
+  }
+
+  @Test
+  fun `a call from a context that outlived its transaction fails after waiting through a yield`() {
+    data class Outcome(
+      val waitResolvedOnRelease: Boolean,
+      val retry: String?,
+      val writerHeld: Boolean,
+      val balance: Long
+    )
+
+    val outcome = pool(fileName = folder.databasePath()).use { pool ->
+      val owner = pool.shareOwner()
+      pool.on(owner) { pool.beginTransaction() }
+      val holding = CountDownLatch(1)
+      val release = CountDownLatch(1)
+      val holder = thread {
+        pool.write {
+          holding.countDown()
+          release.await()
+        }
+      }
+      holder.awaitTimedWaiting()
+      check(pool.yieldSharedTransaction(owner))
+      holding.await()
+      val wait = pool
+        .ownerCall(
+          owner = owner,
+          grant = null
+        ) {
+          pool.setBalance(
+            id = 1,
+            balance = 5
+          )
+        }
+        .exceptionOrNull() as WriterWait
+      val resolved = CountDownLatch(1)
+      pool.awaitWriter(
+        wait = wait,
+        onGranted = resolved::countDown
+      )
+      pool.on(owner) { pool.endTransaction() }
+      pool.releaseSharedOwner(owner)
+      val waitResolvedOnRelease = resolved.count == 0L
+      release.countDown()
+      holder.join()
+      val retry = pool
+        .ownerCall(
+          owner = owner,
+          grant = wait
+        ) {
+          pool.setBalance(
+            id = 1,
+            balance = 5
+          )
+        }
+        .exceptionOrNull()
+      Outcome(
+        waitResolvedOnRelease = waitResolvedOnRelease,
+        retry = retry?.message,
+        writerHeld = pool.writerOwner != null,
+        balance = pool.balance(id = 1)
+      )
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        waitResolvedOnRelease = true,
+        retry = "Cannot use a coroutine transaction after it ended.",
+        writerHeld = false,
+        balance = 100
+      )
+    )
+  }
+
+  private fun <T> ConnectionPool.ownerCall(
+    owner: LeaseOwner,
+    grant: WriterWait?,
+    block: () -> T
+  ): Result<T> = on(owner) {
+    val call = beginWriterCall(grant)
+    try {
+      runCatching(block)
+    } finally {
+      endWriterCall(call)
+    }
   }
 
   private fun <T> ConnectionPool.writerCall(grant: WriterWait?, block: () -> T): Result<T> {

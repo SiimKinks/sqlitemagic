@@ -156,7 +156,7 @@ internal class MigrationsPublicationTest {
       ).migrate()
     }
     assertThat(DatabaseStructureJson.read(structureFile))
-      .isEqualTo(previous)
+      .isEqualTo(previous.withQuotedIdentifiers())
   }
 
   @Test
@@ -194,9 +194,9 @@ internal class MigrationsPublicationTest {
       ).migrate()
     }
 
-    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(current)
+    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(current.withQuotedIdentifiers())
     transaction.restore(failure)
-    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(previous)
+    assertThat(DatabaseStructureJson.read(structureFile)).isEqualTo(previous.withQuotedIdentifiers())
     assertThat(migrationFile.isDirectory).isTrue()
   }
 }

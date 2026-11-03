@@ -44,9 +44,13 @@ sealed class SelectPlan<T>(
     )
   }
 
-  internal inline fun <R> useStatement(block: (SQLiteStatement) -> R) = prepared.withStatement(
+  internal inline fun <R> useStatement(
+    rows: Boolean = false,
+    block: (SQLiteStatement) -> R
+  ) = prepared.withStatement(
     values = boundArguments(),
     dbConnection = prepared.connection.orDefault(),
+    rows = rows,
     block = block
   )
 
@@ -135,9 +139,10 @@ class CompiledSelect<T> internal constructor(
    * @return Result of [block]
    * @throws IllegalArgumentException if the query has parameters without bound values
    */
-  fun <R> useRows(block: (Sequence<T>) -> R): R = useStatement { statement ->
+  fun <R> useRows(block: (Sequence<T>) -> R): R = useStatement(rows = true) { statement ->
     QueryRows(
       statement = statement,
+      prepared = prepared,
       read = reader.open()
     ).use(block)
   }
@@ -145,8 +150,10 @@ class CompiledSelect<T> internal constructor(
   override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): List<T> {
     val read = reader.open()
     return buildList {
-      while (!isDisposed() && statement.step()) {
+      var hasRow = !isDisposed() && prepared.firstStep(statement)
+      while (hasRow) {
         add(read(statement, 0))
+        hasRow = !isDisposed() && statement.step()
       }
     }
   }
@@ -195,7 +202,7 @@ class CompiledFirst<T> internal constructor(
   fun execute(): T? = executePlan()
 
   override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): T? = when {
-    statement.step() -> reader.open()(statement, 0)
+    prepared.firstStep(statement) -> reader.open()(statement, 0)
     else -> null
   }
 }

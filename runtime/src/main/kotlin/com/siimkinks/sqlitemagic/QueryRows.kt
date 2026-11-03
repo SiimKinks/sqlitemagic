@@ -7,9 +7,11 @@ import androidx.sqlite.SQLITE_DATA_INTEGER
 import androidx.sqlite.SQLITE_DATA_NULL
 import androidx.sqlite.SQLITE_DATA_TEXT
 import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
 
 internal class QueryRows<T>(
   private val statement: SQLiteStatement,
+  private val prepared: PreparedQuery,
   private val read: (SQLiteStatement, Int) -> T
 ) : Sequence<T> {
   private var open = true
@@ -29,13 +31,18 @@ internal class QueryRows<T>(
   }
 
   private inner class RowIterator : Iterator<T> {
+    private var started = false
     private var stepped = false
     private var hasRow = false
 
     override fun hasNext(): Boolean {
       checkRowsOpen(open)
       if (!stepped) {
-        hasRow = statement.step()
+        hasRow = when {
+          started -> statement.step()
+          else -> prepared.firstStep(statement)
+        }
+        started = true
         stepped = true
       }
       return hasRow
@@ -72,14 +79,17 @@ class RawRows internal constructor(private val statement: SQLiteStatement) {
   private var open = true
   private var done = false
   private var onRow = false
-  private val width = statement.getColumnCount()
+  private var started = false
+  private var pending = false
+  private var firstRow = false
+  private var width = 0
 
   /**
    * Number of columns in each row.
    */
   val columnCount: Int
     get() {
-      checkRowsOpen(open)
+      startedStatement()
       return width
     }
 
@@ -89,8 +99,12 @@ class RawRows internal constructor(private val statement: SQLiteStatement) {
    * @return `true` if the next row can be read, `false` after the last row
    */
   fun step(): Boolean {
-    val statement = checkedStatement()
-    onRow = !done && statement.step()
+    val statement = startedStatement()
+    onRow = when {
+      pending -> firstRow
+      else -> !done && statement.step()
+    }
+    pending = false
     done = !onRow
     return onRow
   }
@@ -101,7 +115,7 @@ class RawRows internal constructor(private val statement: SQLiteStatement) {
    * @param index Position of the column, starting from 0
    * @return Name of the column
    */
-  fun columnName(index: Int): String = checkedStatement().getColumnName(index)
+  fun columnName(index: Int): String = startedStatement().getColumnName(index)
 
   /**
    * Check whether a value of the current row is SQL NULL.
@@ -148,8 +162,14 @@ class RawRows internal constructor(private val statement: SQLiteStatement) {
     open = false
   }
 
-  private fun checkedStatement(): SQLiteStatement {
+  private fun startedStatement(): SQLiteStatement {
     checkRowsOpen(open)
+    if (!started) {
+      started = true
+      pending = true
+      firstRow = statement.step()
+      width = statement.getColumnCount()
+    }
     return statement
   }
 

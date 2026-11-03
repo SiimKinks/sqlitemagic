@@ -22,8 +22,9 @@ changes that compile but behave differently.
 * Breaking: With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version,
   as it does with migration testing, instead of one above the latest release, and fails when that version is already
   released
-* Breaking: RxJava support moves out of the runtime into the `sqlitemagic-rxjava2` artifact. Import `observe`, `run`
-  and `scheduleRxQueriesOn` from `com.siimkinks.sqlitemagic.rxjava2`, where `run()` emits the non-null result type
+* Breaking: RxJava support moves out of the runtime into the `sqlitemagic-rxjava2` artifact. Import `observe`, `run`,
+  `scheduleRxQueriesOn`, `ListQueryObservable`, `SingleItemQueryObservable` and `CountQueryObservable` from
+  `com.siimkinks.sqlitemagic.rxjava2`, where `run()` emits the non-null result type
 * Breaking: Observed queries combine the changes made while a notification is being processed into one further
   notification, so a burst of writes no longer queues one query run per write. A write made during an emission emits
   after that emission returns
@@ -53,6 +54,14 @@ changes that compile but behave differently.
   instead of reading null for a nullable property
 * Breaking: Observed count queries no longer offer `runQueryOrDefault` and `runQueryOnceOrDefault`, whose default a
   count never used; use `runQuery()` and `runQueryOnce()`
+* Breaking: A view's columns are named by their `AS` alias, otherwise by the field's qualified name such as
+  `book.title`, instead of the last segment of the name. Persistent views that 2.0 created keep the old names until a
+  schema upgrade rebuilds them, so raise `@Database(version)` with the upgrade to 3.0. Raw SQL over a view quotes the
+  dotted names, as in `SELECT "book.title" FROM book_card`
+* Breaking: Remove `logWarning`, the one-argument `logError` and `logQueryTime` from `Logger`; query times are no
+  longer logged
+* Breaking: Migration scripts run on the database connection inside the upgrade's transaction, so a script line that
+  begins or ends a transaction, such as `BEGIN` or `COMMIT`, fails the upgrade
 * Breaking: Remove `BooleanTransformer`. `Boolean` is a built-in column type, still stored as INTEGER 0 or 1
 * Breaking: The `inTransaction` block can no longer suspend, which left the transaction on another thread, nor
   `return`, `break` or `continue` out of the enclosing function, which skipped marking the transaction successful and
@@ -78,6 +87,14 @@ changes that compile but behave differently.
   class of each value
 * New: `readerConnections`, `connectionPoolTimeout` and `configureConnection` configure the database connections
 * New: Transformers can store a value as `Boolean`
+* Fix: Tables and columns named after SQL keywords, such as a property `order` or `group`, are created, written and
+  migrated instead of failing with a syntax error
+* Fix: Table rebuilds in generated migrations keep the table's AUTOINCREMENT counter, so the IDs of deleted rows are
+  not used again
+* Fix: A migration that adds `onDeleteCascade` to an existing relationship deletes the rows that reference missing
+  rows, as the cascade would have, and warns about it, instead of failing the upgrade with a foreign key error
+* Fix: When an `inTransaction` block throws and ending the transaction also fails, the block's exception is thrown with
+  the failure to end the transaction suppressed, instead of replacing it
 * Fix: Writes from several threads at once no longer leave observed queries without further updates or make disposing
   them hang, and a write made right after subscribing is no longer missed
 * Fix: An entity write on one thread no longer deadlocks with a transaction on another thread that writes the same

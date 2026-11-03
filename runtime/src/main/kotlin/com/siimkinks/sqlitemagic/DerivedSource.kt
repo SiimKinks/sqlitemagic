@@ -77,15 +77,20 @@ internal abstract class QueryOutputTable<T>(
 
   private fun exportNode(selected: SqlExpression<*, *, *>): ExpressionNode.Field {
     val selection = node.selection
-    val index = selection.exportedValues.indexOfFirst { value ->
-      value === selected || value is KeyedField<*, *, *> && value.field === selected
+    val widenedIndex = selection.widenedIndex(selected)
+    val index = when {
+      widenedIndex >= 0 -> widenedIndex
+      else -> selection.exportedValues.indexOfFirst { value ->
+        value === selected || value is KeyedField<*, *, *> && value.field === selected
+      }
     }
     require(index >= 0) {
       "${label ?: "A $kind"} exports only the values its query selects; use the selected instance"
     }
     return ExpressionNode.Field(
       table = this,
-      name = selection.exportedName(index)
+      name = selection.exportedName(index),
+      widened = widenedIndex >= 0
     )
   }
 
@@ -152,6 +157,10 @@ class QuerySelection<T> internal constructor(
   override fun createExecutionReader(context: SqlRenderingContext) = occurrence.reader(context)
 
   override val exportedValues get() = occurrence.node.selection.exportedValues
+
+  override val mappedWithFunction get() = occurrence.node.selection.mappedWithFunction
+
+  override fun widenedIndex(selected: SqlExpression<*, *, *>) = occurrence.node.selection.widenedIndex(selected)
 
   override fun exportedName(index: Int) = occurrence.node.selection.exportedName(index)
 }

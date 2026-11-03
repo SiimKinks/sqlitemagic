@@ -130,8 +130,13 @@ internal class DbConnectionImpl(
 
   val isClosed get() = tableObservers.isClosed
 
-  inline fun <T> read(requiresWriter: Boolean, block: (PooledConnection) -> T) = pool.read(
+  inline fun <T> read(
+    requiresWriter: Boolean,
+    rows: Boolean = false,
+    block: (PooledConnection) -> T
+  ) = pool.read(
     requiresWriter = requiresWriter,
+    rows = rows,
     block = block
   )
 

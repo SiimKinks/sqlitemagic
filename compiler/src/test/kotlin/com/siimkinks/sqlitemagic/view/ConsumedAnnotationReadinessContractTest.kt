@@ -237,7 +237,7 @@ internal class ConsumedAnnotationReadinessContractTest {
             isView -> it
               .unwrapped()
               .assertContains("columns = listOf(${columnKeys.joinToString { key -> """"$key"""" }})")
-            else -> it.assertContains("CREATE TABLE IF NOT EXISTS consumed_owner", "stored_value TEXT")
+            else -> it.assertContains("""CREATE TABLE IF NOT EXISTS \"consumed_owner\"""", """\"stored_value\" TEXT""")
           }
         }
       }
@@ -490,7 +490,7 @@ internal class ConsumedAnnotationReadinessContractTest {
             isView -> it
               .unwrapped()
               .assertContains("columns = listOf(${columns.joinToString { key -> """"$key"""" }})")
-            else -> it.assertContains("chosen TEXT")
+            else -> it.assertContains("""\"chosen\" TEXT""")
           }
         }
       }
@@ -618,7 +618,7 @@ internal class ConsumedAnnotationReadinessContractTest {
             isView -> it
               .unwrapped()
               .assertContains("columns = listOf(${expected.columns.joinToString { key -> """"$key"""" }})")
-            else -> it.assertContains("base_value TEXT")
+            else -> it.assertContains("""\"base_value\" TEXT""")
           }
         }
       }

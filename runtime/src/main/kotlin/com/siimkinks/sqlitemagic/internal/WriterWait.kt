@@ -27,7 +27,7 @@ class WriterWait internal constructor(
 class WriterCall internal constructor(
   internal val pool: ConnectionPool,
   internal val previous: WriterCall?,
-  internal val grant: WriterWait?,
+  internal var grant: WriterWait?,
   internal val transactionOwner: LeaseOwner?,
   internal val yields: Int
 ) {

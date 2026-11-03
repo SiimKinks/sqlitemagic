@@ -21,10 +21,6 @@ android {
   }
 }
 
-dependencies {
-  implementation(libs.android.sqlite)
-}
-
 sqlitemagic {
   publicKotlinExtensionFunctions = true
   mainModulePath = "app/"

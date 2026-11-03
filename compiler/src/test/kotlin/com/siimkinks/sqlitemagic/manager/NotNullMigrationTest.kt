@@ -66,14 +66,14 @@ internal class NotNullMigrationTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE authors RENAME TO authors_",
+      """ALTER TABLE "authors" RENAME TO "authors_"""",
       "CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '')",
-      "INSERT INTO authors (id,name) SELECT id,IFNULL(name, '') FROM authors_",
-      "DROP TABLE IF EXISTS authors_",
-      "ALTER TABLE genres RENAME TO genres_",
+      """INSERT INTO "authors" ("id","name") SELECT "id",IFNULL("name", '') FROM "authors_"""",
+      """DROP TABLE IF EXISTS "authors_"""",
+      """ALTER TABLE "genres" RENAME TO "genres_"""",
       "CREATE TABLE IF NOT EXISTS genres (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '')",
-      "INSERT INTO genres (id,name) SELECT id,IFNULL(name, '') FROM genres_",
-      "DROP TABLE IF EXISTS genres_"
+      """INSERT INTO "genres" ("id","name") SELECT "id",IFNULL("name", '') FROM "genres_"""",
+      """DROP TABLE IF EXISTS "genres_""""
     ).inOrder()
   }
 
@@ -129,13 +129,13 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM records WHERE author IS NULL OR slug IS NULL",
-          "ALTER TABLE records RENAME TO records_",
+          """DELETE FROM "records" WHERE "author" IS NULL OR "slug" IS NULL""",
+          """ALTER TABLE "records" RENAME TO "records_"""",
           "CREATE TABLE IF NOT EXISTS records (${currentColumns.joinToString(transform = ColumnStructure::schema)})",
-          "INSERT INTO records (id,name,quote,amount,computed,code,note,author,slug) " +
-              "SELECT id,IFNULL(name, ''),IFNULL(quote, 'it''s'),IFNULL(amount, - 1.5),IFNULL(computed, (1 + 2))," +
-              "code,note,author,slug FROM records_",
-          "DROP TABLE IF EXISTS records_"
+          """INSERT INTO "records" ("id","name","quote","amount","computed","code","note","author","slug") """ +
+              """SELECT "id",IFNULL("name", ''),IFNULL("quote", 'it''s'),IFNULL("amount", - 1.5),""" +
+              """IFNULL("computed", (1 + 2)),"code","note","author","slug" FROM "records_"""",
+          """DROP TABLE IF EXISTS "records_""""
         ),
         warnings = listOf(
           "Migration deletes rows of records whose NOT NULL column(s) without a default hold NULL: author, slug. " +
@@ -159,7 +159,7 @@ internal class NotNullMigrationTest {
         ),
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly("ALTER TABLE records ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+    ).containsExactly("""ALTER TABLE "records" ADD COLUMN name TEXT NOT NULL DEFAULT ''""")
   }
 
   @ParameterizedTest(name = "{0}")
@@ -187,10 +187,10 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM records",
-          "ALTER TABLE records RENAME TO records_",
+          """DELETE FROM "records"""",
+          """ALTER TABLE "records" RENAME TO "records_"""",
           "CREATE TABLE IF NOT EXISTS records (id INTEGER PRIMARY KEY, name TEXT DEFAULT '', $column)",
-          "DROP TABLE IF EXISTS records_"
+          """DROP TABLE IF EXISTS "records_""""
         ),
         warnings = listOf(
           "Migration deletes all rows of records because existing rows have no value for its new column(s): " +
@@ -231,15 +231,16 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM parents",
-          "ALTER TABLE parents RENAME TO parents_",
-          "ALTER TABLE children RENAME TO children_",
+          """DELETE FROM "parents"""",
+          """ALTER TABLE "parents" RENAME TO "parents_"""",
+          """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, owner INTEGER NOT NULL)",
           "CREATE TABLE IF NOT EXISTS children " +
               "(id INTEGER PRIMARY KEY, parent INTEGER REFERENCES parents(id) ON DELETE CASCADE)",
-          "INSERT INTO children (id,parent) SELECT id,parent FROM children_",
-          "DROP TABLE IF EXISTS children_",
-          "DROP TABLE IF EXISTS parents_"
+          """INSERT INTO "children" ("id","parent") SELECT "id","parent" FROM "children_" """ +
+              """WHERE "parent" IS NULL OR "parent" IN (SELECT "id" FROM "parents")""",
+          """DROP TABLE IF EXISTS "children_"""",
+          """DROP TABLE IF EXISTS "parents_""""
         ),
         warnings = listOf(
           "Migration deletes all rows of parents because existing rows have no value for its new column(s): " +
@@ -288,21 +289,23 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM parents WHERE name IS NULL",
-          "ALTER TABLE parents RENAME TO parents_",
-          "ALTER TABLE children RENAME TO children_",
-          "ALTER TABLE grandchildren RENAME TO grandchildren_",
+          """DELETE FROM "parents" WHERE "name" IS NULL""",
+          """ALTER TABLE "parents" RENAME TO "parents_"""",
+          """ALTER TABLE "children" RENAME TO "children_"""",
+          """ALTER TABLE "grandchildren" RENAME TO "grandchildren_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)",
-          "INSERT INTO parents (id,name) SELECT id,name FROM parents_",
+          """INSERT INTO "parents" ("id","name") SELECT "id","name" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children " +
               "(id INTEGER PRIMARY KEY, parent INTEGER REFERENCES parents(id) ON DELETE CASCADE)",
-          "INSERT INTO children (id,parent) SELECT id,parent FROM children_",
+          """INSERT INTO "children" ("id","parent") SELECT "id","parent" FROM "children_" """ +
+              """WHERE "parent" IS NULL OR "parent" IN (SELECT "id" FROM "parents")""",
           "CREATE TABLE IF NOT EXISTS grandchildren " +
               "(id INTEGER PRIMARY KEY, child INTEGER REFERENCES children(id) ON DELETE CASCADE)",
-          "INSERT INTO grandchildren (id,child) SELECT id,child FROM grandchildren_",
-          "DROP TABLE IF EXISTS grandchildren_",
-          "DROP TABLE IF EXISTS children_",
-          "DROP TABLE IF EXISTS parents_"
+          """INSERT INTO "grandchildren" ("id","child") SELECT "id","child" FROM "grandchildren_" """ +
+              """WHERE "child" IS NULL OR "child" IN (SELECT "id" FROM "children")""",
+          """DROP TABLE IF EXISTS "grandchildren_"""",
+          """DROP TABLE IF EXISTS "children_"""",
+          """DROP TABLE IF EXISTS "parents_""""
         ),
         warnings = listOf(
           "Migration deletes rows of parents whose NOT NULL column(s) without a default hold NULL: name; ON DELETE " +
@@ -356,14 +359,14 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM parents",
-          "ALTER TABLE parents RENAME TO parents_",
-          "ALTER TABLE children RENAME TO children_",
+          """DELETE FROM "parents"""",
+          """ALTER TABLE "parents" RENAME TO "parents_"""",
+          """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, owner INTEGER NOT NULL)",
           "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent INTEGER DEFAULT NULL)",
-          "INSERT INTO children (id,parent) SELECT id,parent FROM children_",
-          "DROP TABLE IF EXISTS children_",
-          "DROP TABLE IF EXISTS parents_"
+          """INSERT INTO "children" ("id","parent") SELECT "id","parent" FROM "children_"""",
+          """DROP TABLE IF EXISTS "children_"""",
+          """DROP TABLE IF EXISTS "parents_""""
         ),
         warnings = listOf(
           "Migration deletes all rows of parents because existing rows have no value for its new column(s): " +
@@ -424,14 +427,14 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE authors RENAME TO writers_",
+          """ALTER TABLE "authors" RENAME TO "writers_"""",
           "CREATE TABLE IF NOT EXISTS writers (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '')",
-          "INSERT INTO writers (id,name) SELECT id,IFNULL(name, '') FROM writers_",
-          "DROP TABLE IF EXISTS writers_",
-          "ALTER TABLE genres RENAME TO genres_",
+          """INSERT INTO "writers" ("id","name") SELECT "id",IFNULL("name", '') FROM "writers_"""",
+          """DROP TABLE IF EXISTS "writers_"""",
+          """ALTER TABLE "genres" RENAME TO "genres_"""",
           "CREATE TABLE IF NOT EXISTS genres (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '')",
-          "INSERT INTO genres (id,name) SELECT id,IFNULL(name, '') FROM genres_",
-          "DROP TABLE IF EXISTS genres_"
+          """INSERT INTO "genres" ("id","name") SELECT "id",IFNULL("name", '') FROM "genres_"""",
+          """DROP TABLE IF EXISTS "genres_""""
         )
       )
     )
@@ -481,11 +484,11 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE authors RENAME TO authors_",
+          """ALTER TABLE "authors" RENAME TO "authors_"""",
           "CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '')",
-          "INSERT INTO authors (id,name) SELECT id,IFNULL(name, '') FROM authors_",
-          "DROP TABLE IF EXISTS authors_",
-          "DROP TABLE IF EXISTS writers"
+          """INSERT INTO "authors" ("id","name") SELECT "id",IFNULL("name", '') FROM "authors_"""",
+          """DROP TABLE IF EXISTS "authors_"""",
+          """DROP TABLE IF EXISTS "writers""""
         ),
         warnings = listOf(
           "Migration drops table writers with its rows; if it was renamed to authors, edit the migration SQL to " +
@@ -519,10 +522,10 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE records RENAME TO records_",
+          """ALTER TABLE "records" RENAME TO "records_"""",
           "CREATE TABLE IF NOT EXISTS records (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '')",
-          "INSERT INTO records (id) SELECT id FROM records_",
-          "DROP TABLE IF EXISTS records_"
+          """INSERT INTO "records" ("id") SELECT "id" FROM "records_"""",
+          """DROP TABLE IF EXISTS "records_""""
         ),
         warnings = listOf(
           "Migration drops column(s) of records with their data: title. Edit the migration SQL to keep it."
@@ -549,10 +552,10 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM records",
-          "ALTER TABLE records RENAME TO records_",
+          """DELETE FROM "records"""",
+          """ALTER TABLE "records" RENAME TO "records_"""",
           "CREATE TABLE IF NOT EXISTS records (id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE)",
-          "DROP TABLE IF EXISTS records_"
+          """DROP TABLE IF EXISTS "records_""""
         ),
         warnings = listOf(
           "Migration deletes all rows of records because existing rows have no value for its new column(s): " +
@@ -580,11 +583,11 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM items WHERE id IS NULL",
-          "ALTER TABLE items RENAME TO items_",
+          """DELETE FROM "items" WHERE "id" IS NULL""",
+          """ALTER TABLE "items" RENAME TO "items_"""",
           "CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY) WITHOUT ROWID",
-          "INSERT INTO items (id) SELECT id FROM items_",
-          "DROP TABLE IF EXISTS items_"
+          """INSERT INTO "items" ("id") SELECT "id" FROM "items_"""",
+          """DROP TABLE IF EXISTS "items_""""
         ),
         warnings = listOf(
           "Migration deletes rows of items whose NOT NULL column(s) without a default hold NULL: id. Edit the " +
@@ -608,12 +611,12 @@ internal class NotNullMigrationTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE items RENAME TO items_",
+      """ALTER TABLE "items" RENAME TO "items_"""",
       current.tables
         .getValue("items")
         .schema,
-      "INSERT INTO items (id) SELECT id FROM items_",
-      "DROP TABLE IF EXISTS items_"
+      """INSERT INTO "items" ("id") SELECT "id" FROM "items_"""",
+      """DROP TABLE IF EXISTS "items_""""
     ).inOrder()
   }
 

@@ -312,11 +312,12 @@ internal class ScalarFieldContractTest {
   @Test
   fun `declares NOT NULL for columns of non-null properties whatever their encoders return`() {
     GENERATED.adapterSource.assertContainsUnwrapped(
-      "CREATE TABLE IF NOT EXISTS scalar_field_records (id INTEGER PRIMARY KEY, " +
-          "required_text TEXT NOT NULL DEFAULT '', required_blob BLOB NOT NULL DEFAULT X'', " +
-          "optional_text TEXT DEFAULT NULL, token TEXT NOT NULL DEFAULT '', sentinel TEXT DEFAULT NULL, " +
-          "sentinel_required TEXT NOT NULL DEFAULT '', decoded TEXT NOT NULL DEFAULT '', " +
-          "optional_decoded TEXT DEFAULT NULL, optional_boolean INTEGER DEFAULT NULL)"
+      """CREATE TABLE IF NOT EXISTS \"scalar_field_records\" (\"id\" INTEGER PRIMARY KEY, """ +
+          """\"required_text\" TEXT NOT NULL DEFAULT '', \"required_blob\" BLOB NOT NULL DEFAULT X'', """ +
+          """\"optional_text\" TEXT DEFAULT NULL, \"token\" TEXT NOT NULL DEFAULT '', """ +
+          """\"sentinel\" TEXT DEFAULT NULL, \"sentinel_required\" TEXT NOT NULL DEFAULT '', """ +
+          """\"decoded\" TEXT NOT NULL DEFAULT '', \"optional_decoded\" TEXT DEFAULT NULL, """ +
+          """\"optional_boolean\" INTEGER DEFAULT NULL)"""
     )
   }
 

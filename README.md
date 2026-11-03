@@ -24,20 +24,20 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 Getting Started
 -----------------
 
-SqliteMagic 2.x is built for Kotlin Android projects that use KSP. It supports Android API 24 and newer.
+SqliteMagic 3.x is built for Kotlin Android projects that use KSP. It supports Android API 24 and newer.
 
 #### Publish SqliteMagic:
 
-SqliteMagic 2.x is not published to a public repository. Build it from source and install it into your local Maven
+SqliteMagic 3.x is not published to a public repository. Build it from source and install it into your local Maven
 repository:
 
 ```shell
 ./gradlew publishToMavenLocal
 ```
 
-This publishes the Gradle plugin, runtime, annotations, KSP processor and migration testing artifacts as
-`com.siimkinks.sqlitemagic:*:<latest version>`. To share builds through a self-hosted Maven repository such as
-Artifactory or Nexus, add it to `publishing.repositories` in
+This publishes the Gradle plugin, runtime, annotations, KSP processor, migration testing, framework driver, coroutines,
+RxJava 3 and RxJava 2 artifacts as `com.siimkinks.sqlitemagic:*:<latest version>`. To share builds through a
+self-hosted Maven repository such as Artifactory or Nexus, add it to `publishing.repositories` in
 [buildsystem/maven-push.gradle](buildsystem/maven-push.gradle) and run `./gradlew publish`.
 
 #### Add SqliteMagic to Project:
@@ -185,8 +185,7 @@ of Android's database APIs remain:
   rows it returns, so keep its result small or use the bundled driver;
 * each connection takes the app's default locale when it opens. After the locale changes while the app runs, a
   connection that opens later sorts `LOCALIZED` text by the new locale and the earlier ones by the old locale until
-  the app restarts. Opening it rewrites the database's locale, which waits for a running transaction and fails with
-  `SQLiteDatabaseLockedException` after a few seconds.
+  the app restarts.
 
 `BundledSQLiteDriver` ships a recent SQLite inside the app, so newer SQL features work on every supported Android
 version. It costs:
@@ -278,10 +277,14 @@ the collector only to deliver the result. The first change made while the collec
 query at once, and later changes are combined into one further query, so the earlier of the two results may miss them.
 
 Run suspending work in one transaction with `withTransaction`. It commits when the block and the coroutines it launched
-complete, and rolls back when they fail or are cancelled. Every call of the connection inside it takes part in it, on
-whatever thread it runs, and one-shot queries read the transaction's own changes:
+complete, and rolls back when they fail or are cancelled. A cancellation that arrives while the transaction commits
+still throws `CancellationException`, although the transaction committed. Every call of the connection inside it takes
+part in it, on whatever thread it runs, and one-shot queries read the transaction's own changes:
 
 ```kotlin
+import com.siimkinks.sqlitemagic.coroutines.await
+import com.siimkinks.sqlitemagic.coroutines.observe
+import com.siimkinks.sqlitemagic.coroutines.runQueryOnce
 import com.siimkinks.sqlitemagic.coroutines.withTransaction
 
 suspend fun renameAuthor(id: Long, lastName: String) = withTransaction {
@@ -297,9 +300,10 @@ suspend fun renameAuthor(id: Long, lastName: String) = withTransaction {
 ```
 
 Observers of the changed tables are notified after the commit. Collecting an observed query inside the transaction fails
-with `IllegalStateException`. A `runBlocking` inside the block starts a coroutine outside the transaction, whose calls
-wait for the transaction to end and fail after the pool timeout; give it the block's context with
-`runBlocking(coroutineContext) { … }` to take part in the transaction. A `withTransaction` inside another transaction,
+with `IllegalStateException`. Do not call `runBlocking` inside the block: its coroutine runs outside the transaction,
+so its calls wait for the transaction to end and fail after the pool timeout, and given the block's context it can wait
+forever for a dispatcher thread that it blocks. Code in the block that cannot suspend uses the blocking calls, such as
+`execute()`, which take part in the transaction. A `withTransaction` inside another transaction,
 including one that the calling thread started with `newTransaction()`, runs as its nested transaction; that thread
 waits for it with `runBlocking`. A long transaction can let waiting writers run with `yieldIfContended()`, which
 commits the work so far and continues; it does nothing in a nested transaction. Coroutine calls that wait for the writer
@@ -460,7 +464,7 @@ val bulkPersist: Completable = Authors
 </tr>
 </table>
 
-(All database operations trigger RxJava notifications on active queries that listen to table that is being modified)
+(All database operations notify the active observed queries, RxJava or coroutine `Flow`, that read the modified tables)
 
 #### Use Typesafe Operation Builders:
 
@@ -740,8 +744,8 @@ Documentation
 -----------------
 
 - [Sample app](sqlitemagic-sample) – a todo app with tables, a view, reactive queries and migration tests
-- [Migrating from 0.x](.agents/skills/sqlitemagic-dsl-migration/SKILL.md) – 2.x moves code generation to KSP and
-  rewrites the DSL; this guide maps legacy queries to the new DSL and lists behavior changes
+- [Migrating from 2.x or 0.x](.agents/skills/sqlitemagic-dsl-migration/SKILL.md) – 3.x rewrites the query DSL and runs
+  on an androidx `SQLiteDriver`; this guide maps legacy queries and setup to 3.x and lists behavior changes
 - [Wiki](https://github.com/SiimKinks/sqlitemagic/wiki) and [Javadoc](https://siimkinks.github.io/sqlitemagic/javadoc/)
   for 0.x
 

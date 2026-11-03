@@ -110,11 +110,16 @@ internal fun configureMigrationTesting(
     project.tasks
       .withType(SqliteMagicReleaseTask::class.java)
       .configureEach { it.selectedRelease.set(selectedName) }
-    project.tasks
-      .named("migrate${selectedName.taskPart()}Db", PublishSqliteMagicRelease::class.java)
-      .configure { task ->
-        task.compiledSchema.set(selected.export.flatMap(ExportSqliteMagicReleaseSchema::outputFile))
-      }
+    listOf(
+      "migrate${selectedName.taskPart()}Db",
+      "preview${selectedName.taskPart()}DbMigration"
+    ).forEach { taskName ->
+      project.tasks
+        .named(taskName, SqliteMagicReleaseTask::class.java)
+        .configure { task ->
+          task.compiledSchema.set(selected.export.flatMap(ExportSqliteMagicReleaseSchema::outputFile))
+        }
+    }
   }
 }
 

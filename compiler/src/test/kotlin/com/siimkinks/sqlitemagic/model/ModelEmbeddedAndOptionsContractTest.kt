@@ -44,15 +44,15 @@ internal class ModelEmbeddedAndOptionsContractTest {
       )
       .withGeneratedSource("SqliteMagic_Shipment_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "shipping_geo_lat REAL DEFAULT NULL",
-          "shipping_geo_longitude REAL DEFAULT NULL",
-          "shipping_note TEXT DEFAULT NULL",
-          "billing_lat REAL NOT NULL DEFAULT 0.0",
-          "billing_longitude REAL NOT NULL DEFAULT 0.0"
+          """\"shipping_geo_lat\" REAL DEFAULT NULL""",
+          """\"shipping_geo_longitude\" REAL DEFAULT NULL""",
+          """\"shipping_note\" TEXT DEFAULT NULL""",
+          """\"billing_lat\" REAL NOT NULL DEFAULT 0.0""",
+          """\"billing_longitude\" REAL NOT NULL DEFAULT 0.0"""
         )
         generatedSource.assertDoesNotContain(
-          " shipping ",
-          " billing ",
+          """\"shipping\"""",
+          """\"billing\"""",
           "cached_label"
         )
       }
@@ -112,8 +112,8 @@ internal class ModelEmbeddedAndOptionsContractTest {
       .assertGeneratedSources("SqliteMagic_Project_Adapter.kt")
       .withGeneratedSource("SqliteMagic_Project_Adapter.kt") {
         it.assertContains(
-          "meta_owner TEXT",
-          "meta_budget INTEGER"
+          """\"meta_owner\" TEXT""",
+          """\"meta_budget\" INTEGER"""
         )
       }
       .withGeneratedSource("SqliteMagic_Project_Dao.kt") {
@@ -260,13 +260,13 @@ internal class ModelEmbeddedAndOptionsContractTest {
       )
       .withGeneratedSource("SqliteMagic_RequiredEmbeddedKey_Adapter.kt") {
         it.assertContains(
-          "external_value TEXT NOT NULL UNIQUE",
+          """\"external_value\" TEXT NOT NULL UNIQUE""",
           "EntityIdentityAdapter<RequiredEmbeddedKey>",
           "override fun updateStatementSql"
         )
       }
       .withGeneratedSource("SqliteMagic_NullableEmbeddedKey_Adapter.kt") {
-        it.assertContains("external_value TEXT UNIQUE")
+        it.assertContains("""\"external_value\" TEXT UNIQUE""")
       }
       .withGeneratedSource("_RequiredEmbeddedKey.kt") {
         it.assertContains(
@@ -450,7 +450,7 @@ internal class ModelEmbeddedAndOptionsContractTest {
     GENERATED
       .isOk()
       .withGeneratedSource("SqliteMagic_SessionValue_Adapter.kt") {
-        it.assertContains("CREATE TEMPORARY TABLE IF NOT EXISTS session_value")
+        it.assertContains("""CREATE TEMPORARY TABLE IF NOT EXISTS \"session_value\"""")
       }
       .withGeneratedSource("SessionValueTable.kt") { generatedSource ->
         generatedSource.assertContains(": Table<SessionValue>(")
@@ -461,7 +461,7 @@ internal class ModelEmbeddedAndOptionsContractTest {
       }
       .withGeneratedSource("SqliteMagic_CachedAccount_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "CREATE TEMPORARY TABLE IF NOT EXISTS cached_accounts",
+          """CREATE TEMPORARY TABLE IF NOT EXISTS \"cached_accounts\"""",
           "WITHOUT ROWID"
         )
         generatedSource.assertDoesNotContain("AUTOINCREMENT")

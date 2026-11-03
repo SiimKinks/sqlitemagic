@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.devtools.ksp.processing.Dependencies
 import com.siimkinks.sqlitemagic.Environment
@@ -210,7 +212,7 @@ internal class GenClassesManagerContractTest {
           "override val dbName: String? = null",
           "override val submoduleNames: Array<String>?",
           "get() = null",
-          """connection.execSQL("DELETE FROM transformed_values")""",
+          """connection.execSQL("DELETE FROM \"transformed_values\"")""",
           """changedTables.add("transformed_values")"""
         )
         generatedSource.assertContainsUnwrapped(
@@ -322,6 +324,57 @@ internal class GenClassesManagerContractTest {
         "session_owners",
         "session_cache"
       )
+  }
+
+  @Test
+  fun `creates tables whose table, column and referenced table names are SQL keywords`() {
+    compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "KeywordTables.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("order")
+            data class Order(
+              @Id val id: Long?,
+              val group: String?,
+              val index: Int
+            )
+
+            @Table("select")
+            data class Select(
+              @Id val id: Long?,
+              @Column(handleRecursively = true, onDeleteCascade = true) val order: Order
+            )
+          """
+        ),
+        kspOptions = debugMigrationOptions(projectDirectory = temporaryDirectory)
+      )
+      .isOk()
+    val structure = checkNotNull(DatabaseStructureJson.read(temporaryDirectory.resolve("db/latest.struct").toFile()))
+
+    val remainingRows = BundledSQLiteDriver()
+      .open(":memory:")
+      .use { connection ->
+        connection.execSQL("PRAGMA foreign_keys = ON")
+        structure.tables.values.forEach { connection.execSQL(it.schema) }
+        connection.execSQL("""INSERT INTO "order" ("group", "index") VALUES ('a', 1)""")
+        connection.execSQL("""INSERT INTO "select" ("order") VALUES (1)""")
+        connection.execSQL("""DELETE FROM "order"""")
+        connection
+          .prepare("""SELECT COUNT(*) FROM "select"""")
+          .use { statement ->
+            statement.step()
+            statement.getLong(0)
+          }
+      }
+
+    assertThat(remainingRows).isEqualTo(0L)
   }
 
   @Test

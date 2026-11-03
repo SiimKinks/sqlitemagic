@@ -170,7 +170,8 @@ SqliteMagic.builder(app)
 
 - `inTransaction {}` blocks can no longer suspend or `return`/`break`/`continue` out of the enclosing function. A
   legacy `return` inside the block rolled the transaction back silently; replace it with `return@inTransaction`, which
-  commits, or throw to roll back. Move suspend calls out of the block or use the blocking `execute()` forms.
+  commits, or throw to roll back. Move suspend calls out of the block, use the blocking `execute()` forms, or run
+  suspending work in `withTransaction { }` from `sqlitemagic-coroutines`.
 - Replace the `androidx.sqlite:sqlite-framework` dependency with the driver's artifacts. A custom `DbDowngrader`
   receives a `SQLiteConnection` (`connection.execSQL(…)`, `connection.prepare(…)`) instead of a
   `SupportSQLiteDatabase`.

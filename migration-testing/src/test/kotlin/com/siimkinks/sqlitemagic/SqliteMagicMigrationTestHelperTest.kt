@@ -182,7 +182,7 @@ internal class SqliteMagicMigrationTestHelperTest {
         )
         .toByteArray()
       if (label == "explicit empty views") {
-        descriptor.resources[current.name] = (descriptor.text(current.name).dropLast(1) + ",\"views\":{}}")
+        descriptor.resources[current.name] = """${descriptor.text(current.name).dropLast(1)},"views":{}}"""
           .toByteArray()
       }
       SqliteMagicMigrationTestHelper(
@@ -274,7 +274,7 @@ internal class SqliteMagicMigrationTestHelperTest {
                 releaseVariant = "release",
                 baselineVersion = baseline,
                 currentVersion = 3,
-                excludedVersions = (1 until baseline).toList(),
+                excludedVersions = (1..<baseline).toList(),
                 paths = paths,
                 mode = mode,
                 driverImplementation = BundledSQLiteDriver::class.java.name,
@@ -389,6 +389,28 @@ internal class SqliteMagicMigrationTestHelperTest {
         }
         assertThat(failure.message).contains("snapshot")
       }
+  }
+
+  @Test
+  fun `current snapshot matches a compiled release that quotes the same identifiers`() {
+    val descriptor = history()
+    val compiled = MigrationMetadataJson.readSchema(descriptor.text("compiled.json"))
+    descriptor.resources["compiled.json"] = MigrationMetadataJson
+      .writeSchema(
+        compiled.copy(
+          tableSql = listOf(
+            """CREATE TABLE "person"("id" INTEGER PRIMARY KEY, "name" TEXT, "name_length" INTEGER, """ +
+                """"slug" TEXT)"""
+          ),
+          indexSql = listOf("""CREATE INDEX "person_slug" ON "person"("slug")""")
+        )
+      )
+      .toByteArray()
+
+    SqliteMagicMigrationTestHelper(
+      descriptor = descriptor,
+      driver = BundledSQLiteDriver()
+    ).use { it.validateAllMigrations(fromVersion = 3) }
   }
 
   @Test
@@ -646,13 +668,13 @@ internal class SqliteMagicMigrationTestHelperTest {
       val descriptor = history()
       when (label) {
         "missing manifest", "missing SQL" -> descriptor.resources.remove(resource)
-        "corrupt schema" -> descriptor.resources[resource] = "{\"tables\":{\"broken\":{}}}".toByteArray()
+        "corrupt schema" -> descriptor.resources[resource] = """{"tables":{"broken":{}}}""".toByteArray()
         "empty SQL" -> descriptor.resources[resource] = "\n-- no statements\n".toByteArray()
         "invalid UTF8" -> descriptor.resources[resource] = byteArrayOf(0xc3.toByte(), 0x28)
         "missing schema SQL" -> descriptor.resources[resource] = descriptor.text(resource)
           .replace(
-            oldValue = "\"schema\":",
-            newValue = "\"unknown\":"
+            oldValue = """"schema":""",
+            newValue = """"unknown":"""
           )
           .toByteArray()
       }
@@ -930,7 +952,7 @@ internal class SqliteMagicMigrationTestHelperTest {
     val descriptor = history()
     val manifest = MigrationMetadataJson.readManifest(descriptor.text("manifest.json"))
     manifest.schemas.forEach { reference ->
-      descriptor.resources[reference.name] = (descriptor.text(reference.name).substringBefore(",\"views\":") + "}")
+      descriptor.resources[reference.name] = "${descriptor.text(reference.name).substringBefore(""","views":""")}}"
         .toByteArray()
     }
     val current = manifest
@@ -1051,21 +1073,18 @@ internal class SqliteMagicMigrationTestHelperTest {
   }
 
   private fun structure(snapshot: ReleaseSchemaSnapshot): String {
-    fun quoted(value: String) = "\"" + value.replace(
-      oldValue = "\"",
-      newValue = "\\\""
-    ) + "\""
+    fun quoted(value: String) = """"${value.replace(oldValue = "\"", newValue = """\"""")}""""
 
-    val tables = snapshot.tableSql.mapIndexed { index, sql ->
-      "\"table$index\":{\"schema\":${quoted(sql)},\"columns\":[]}"
-    }.joinToString(",")
-    val indices = snapshot.indexSql.mapIndexed { index, sql ->
-      "\"index$index\":{\"indexSql\":${quoted(sql)}}"
-    }.joinToString(",")
-    val views = snapshot.views.joinToString(",") { view ->
-      "${quoted(view.name)}:{\"name\":${quoted(view.name)}}"
+    val tables = snapshot.tableSql
+      .mapIndexed { index, sql -> """"table$index":{"schema":${quoted(sql)},"columns":[]}""" }
+      .joinToString(separator = ",")
+    val indices = snapshot.indexSql
+      .mapIndexed { index, sql -> """"index$index":{"indexSql":${quoted(sql)}}""" }
+      .joinToString(separator = ",")
+    val views = snapshot.views.joinToString(separator = ",") { view ->
+      """${quoted(view.name)}:{"name":${quoted(view.name)}}"""
     }
-    return "{\"tables\":{$tables},\"indices\":{$indices},\"views\":{$views}}"
+    return """{"tables":{$tables},"indices":{$indices},"views":{$views}}"""
   }
 
   private class MemoryDescriptor(

@@ -153,8 +153,8 @@ internal class MetadataReadinessContractTest {
               "columns = listOf(${expected.columns.joinToString { """"$it"""" }})"
             )
             else -> {
-              generated.assertContains("CREATE TABLE IF NOT EXISTS ${expected.name}")
-              expected.columns.forEach { generated.assertContains("$it TEXT") }
+              generated.assertContains("""CREATE TABLE IF NOT EXISTS \"${expected.name}\"""")
+              expected.columns.forEach { generated.assertContains("""\"$it\" TEXT""") }
               if (mappingSurface == "default") {
                 generated.assertContains("DEFAULT 'later'")
               }

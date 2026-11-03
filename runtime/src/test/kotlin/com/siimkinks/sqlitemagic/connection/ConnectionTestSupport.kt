@@ -7,9 +7,11 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.lang.Thread.State.TERMINATED
 import java.lang.Thread.State.TIMED_WAITING
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.time.Duration
 
@@ -134,6 +136,13 @@ internal fun Thread.awaitTimedWaiting() {
   }
 }
 
+internal fun Thread.awaitBlockedOrDone(): Boolean {
+  while (state != TIMED_WAITING && state != TERMINATED) {
+    Thread.yield()
+  }
+  return state == TIMED_WAITING
+}
+
 internal fun <T> whileHeldBy(
   name: String,
   hold: (release: () -> Unit) -> Unit,
@@ -155,3 +164,24 @@ internal fun <T> whileHeldBy(
     holder.join()
   }
 }
+
+internal fun ConnectionPool.beforeWriterQueueLock(
+  thread: Thread,
+  skippedLocks: Int,
+  action: () -> Unit
+) = ConnectionPool::class.java
+  .getDeclaredField("writerQueue")
+  .apply { isAccessible = true }
+  .set(
+    this,
+    object : ReentrantLock() {
+      private var skipped = 0
+
+      override fun lock() {
+        if (Thread.currentThread() === thread && skipped++ == skippedLocks) {
+          action()
+        }
+        super.lock()
+      }
+    }
+  )

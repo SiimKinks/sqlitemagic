@@ -36,6 +36,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
+import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import com.squareup.kotlinpoet.ANY
 import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.ClassName
@@ -404,19 +405,22 @@ private enum class RelationshipOperation(
 private val ColumnElement.identityValueCanBeNull get() = isValueNullable || serializedValueCanBeNull
 
 private fun TableElement.insertSql() = when {
-  columnsForInsert.isEmpty() -> "INSERT%s INTO $tableName DEFAULT VALUES"
+  columnsForInsert.isEmpty() -> "INSERT%s INTO ${quoteSqlIdentifier(tableName)} DEFAULT VALUES"
   else -> {
-    val names = columnsForInsert.joinToString(separator = ", ", transform = ColumnElement::columnName)
+    val names = columnsForInsert.joinToString(separator = ", ", transform = ColumnElement::quotedColumnName)
     val values = columnsForInsert.joinToString(separator = ", ") { "?" }
-    "INSERT%s INTO $tableName ($names) VALUES ($values)"
+    "INSERT%s INTO ${quoteSqlIdentifier(tableName)} ($names) VALUES ($values)"
   }
 }
 
 private fun TableElement.updateSql(identityColumn: ColumnElement): String {
   val columns = allColumns.filterNot { it === identityColumn || it.isId }
+  val identity = identityColumn.quotedColumnName
   val setters = when {
-    columns.isEmpty() -> "${identityColumn.columnName}=${identityColumn.columnName}"
-    else -> columns.joinToString(separator = ", ") { "${it.columnName}=?" }
+    columns.isEmpty() -> "$identity=$identity"
+    else -> columns.joinToString(separator = ", ") { "${it.quotedColumnName}=?" }
   }
-  return "UPDATE%s $tableName SET $setters WHERE ${identityColumn.columnName}=?"
+  return "UPDATE%s ${quoteSqlIdentifier(tableName)} SET $setters WHERE $identity=?"
 }
+
+private val ColumnElement.quotedColumnName get() = quoteSqlIdentifier(columnName)

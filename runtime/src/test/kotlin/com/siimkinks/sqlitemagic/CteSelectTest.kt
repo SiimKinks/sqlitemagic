@@ -221,6 +221,58 @@ internal class CteSelectTest {
   }
 
   @Test
+  fun `a WITH query leading a compound merges into the enclosing WITH after its declarations`() {
+    val adults = SELECT.COLUMN(PERSON.ID)
+      .FROM(PERSON)
+      .WHERE(PERSON.AGE GREATER_THAN 20)
+      .asCte()
+    val adultIds = SELECT
+      .COLUMN(adults[PERSON.ID])
+      .FROM(adults)
+    val owned = SELECT.COLUMN(PET.OWNER)
+      .FROM(PET)
+      .WHERE((PET.NAME IS_NOT "Kit") AND (PET.OWNER IN adultIds))
+      .asCte()
+    val minors = SELECT.COLUMN(PERSON.ID)
+      .FROM(PERSON)
+      .WHERE(PERSON.AGE LESS_THAN 18)
+    val ownedOwners = WITH(owned) { owners ->
+      SELECT
+        .COLUMN(owners[PET.OWNER])
+        .FROM(owners)
+    }
+    val nested = WITH(adults) { _ ->
+      val owners = WITH(owned) { owners ->
+        SELECT
+          .COLUMN(owners[PET.OWNER])
+          .FROM(owners)
+      }
+      (owners UNION minors).ORDER_BY(owned[PET.OWNER].ASC())
+    }
+    val built = WITH(adults) { _ ->
+      (ownedOwners UNION minors).ORDER_BY(owned[PET.OWNER].ASC())
+    }
+    val expected = PlanSnapshot(
+      sql = """WITH "cte1" AS (SELECT "person"."id" AS "person.id" FROM "main"."person" """ +
+          """WHERE "person"."age" > ?), "cte2" AS (SELECT "pet"."owner" AS "pet.owner" FROM "main"."pet" """ +
+          """WHERE ("pet"."name" != ?) AND ("pet"."owner" IN (SELECT "cte1"."person.id" FROM "cte1"))) """ +
+          """SELECT "cte2"."pet.owner" FROM "cte2" UNION SELECT "person"."id" FROM "main"."person" """ +
+          """WHERE "person"."age" < ? ORDER BY "cte2"."pet.owner" ASC""",
+      arguments = listOf(NativeValue.Integer(20L), NativeValue.Text("Kit"), NativeValue.Integer(18L))
+    )
+
+    assertThat(listOf(nested, built).map { snapshot(it.compile()) }).isEqualTo(listOf(expected, expected))
+    petDatabase().use { database ->
+      assertThat(listOf(nested, built).map { it.rows(database) }).isEqualTo(
+        listOf(
+          listOf(1L, 3L, 4L),
+          listOf(1L, 3L, 4L)
+        )
+      )
+    }
+  }
+
+  @Test
   fun `view definitions inline literals and SQLite reports an undeclared CTE`() {
     val view = GeneratedView(
       viewName = "adult_ids",

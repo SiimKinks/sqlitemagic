@@ -2,6 +2,9 @@ package com.siimkinks.sqlitemagic
 
 import android.util.Log
 import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
@@ -583,6 +586,79 @@ internal class DbConnectionImplTest {
         )
         .isEqualTo(case.expected)
     }
+  }
+
+  @Test
+  fun `inTransaction keeps the failure of its block and suppresses a failure to end the transaction`() {
+    data class Outcome(
+      val failure: String?,
+      val suppressed: List<String?>,
+      val nextTransactionFailure: String?
+    )
+
+    data class Case(
+      val failingSql: String,
+      val block: () -> Unit
+    )
+
+    fun driverFailing(failingSql: String): SQLiteDriver {
+      val driver = BundledSQLiteDriver()
+      return object : SQLiteDriver by driver {
+        override fun open(fileName: String): SQLiteConnection {
+          val connection = driver.open(fileName)
+          return object : SQLiteConnection by connection {
+            override fun prepare(sql: String): SQLiteStatement {
+              val statement = connection.prepare(sql)
+              return when (sql) {
+                failingSql -> object : SQLiteStatement by statement {
+                  override fun step() = error("$sql failed")
+                }
+                else -> statement
+              }
+            }
+          }
+        }
+      }
+    }
+
+    val outcomes = mapOf(
+      "the block fails and ROLLBACK fails" to Case(
+        failingSql = "ROLLBACK",
+        block = { error("boom") }
+      ),
+      "the block succeeds and COMMIT fails" to Case(
+        failingSql = "COMMIT",
+        block = {}
+      )
+    ).mapValues { (_, case) ->
+      val connection = testDbConnection(driver = driverFailing(case.failingSql)).also(connections::add)
+      val failure = runCatching { connection.inTransaction { case.block() } }.exceptionOrNull()
+      Outcome(
+        failure = failure?.message,
+        suppressed = failure
+          ?.suppressed
+          .orEmpty()
+          .map(Throwable::message),
+        nextTransactionFailure = runCatching { connection.inTransaction {} }
+          .exceptionOrNull()
+          ?.message
+      )
+    }
+
+    assertThat(outcomes).isEqualTo(
+      mapOf(
+        "the block fails and ROLLBACK fails" to Outcome(
+          failure = "boom",
+          suppressed = listOf("ROLLBACK failed"),
+          nextTransactionFailure = null
+        ),
+        "the block succeeds and COMMIT fails" to Outcome(
+          failure = "COMMIT failed",
+          suppressed = emptyList(),
+          nextTransactionFailure = "COMMIT failed"
+        )
+      )
+    )
   }
 
   private fun bookConnection(fileName: String = MEMORY_DATABASE) = testDbConnection(

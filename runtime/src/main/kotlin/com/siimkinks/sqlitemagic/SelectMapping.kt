@@ -41,7 +41,7 @@ fun <R, N : SqlNullability, T, M> SelectQuery<T, ScalarSelection<R, N, T>>.mapTo
 fun <A, B, M> SelectQuery<Row2<A, B>, RowSelection<Row2<A, B>>>.mapTo(
   transform: (A, B) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read2(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read2(transform)))
 )
 
 /**
@@ -55,7 +55,7 @@ fun <A, B, M> SelectQuery<Row2<A, B>, RowSelection<Row2<A, B>>>.mapTo(
 fun <A, B, C, M> SelectQuery<Row3<A, B, C>, RowSelection<Row3<A, B, C>>>.mapTo(
   transform: (A, B, C) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read3(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read3(transform)))
 )
 
 /**
@@ -69,7 +69,7 @@ fun <A, B, C, M> SelectQuery<Row3<A, B, C>, RowSelection<Row3<A, B, C>>>.mapTo(
 fun <A, B, C, D, M> SelectQuery<Row4<A, B, C, D>, RowSelection<Row4<A, B, C, D>>>.mapTo(
   transform: (A, B, C, D) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read4(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read4(transform)))
 )
 
 /**
@@ -83,7 +83,7 @@ fun <A, B, C, D, M> SelectQuery<Row4<A, B, C, D>, RowSelection<Row4<A, B, C, D>>
 fun <A, B, C, D, E, M> SelectQuery<Row5<A, B, C, D, E>, RowSelection<Row5<A, B, C, D, E>>>.mapTo(
   transform: (A, B, C, D, E) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read5(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read5(transform)))
 )
 
 /**
@@ -97,7 +97,7 @@ fun <A, B, C, D, E, M> SelectQuery<Row5<A, B, C, D, E>, RowSelection<Row5<A, B, 
 fun <A, B, C, D, E, F, M> SelectQuery<Row6<A, B, C, D, E, F>, RowSelection<Row6<A, B, C, D, E, F>>>.mapTo(
   transform: (A, B, C, D, E, F) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read6(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read6(transform)))
 )
 
 /**
@@ -111,7 +111,7 @@ fun <A, B, C, D, E, F, M> SelectQuery<Row6<A, B, C, D, E, F>, RowSelection<Row6<
 fun <A, B, C, D, E, F, G, M> SelectQuery<Row7<A, B, C, D, E, F, G>, RowSelection<Row7<A, B, C, D, E, F, G>>>.mapTo(
   transform: (A, B, C, D, E, F, G) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read7(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read7(transform)))
 )
 
 /**
@@ -125,7 +125,7 @@ fun <A, B, C, D, E, F, G, M> SelectQuery<Row7<A, B, C, D, E, F, G>, RowSelection
 fun <A, B, C, D, E, F, G, H, M> SelectQuery<Row8<A, B, C, D, E, F, G, H>, RowSelection<Row8<A, B, C, D, E, F, G, H>>>.mapTo(
   transform: (A, B, C, D, E, F, G, H) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read8(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read8(transform)))
 )
 
 /**
@@ -139,7 +139,7 @@ fun <A, B, C, D, E, F, G, H, M> SelectQuery<Row8<A, B, C, D, E, F, G, H>, RowSel
 fun <A, B, C, D, E, F, G, H, I, M> SelectQuery<Row9<A, B, C, D, E, F, G, H, I>, RowSelection<Row9<A, B, C, D, E, F, G, H, I>>>.mapTo(
   transform: (A, B, C, D, E, F, G, H, I) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.withReader(node.selection.columnReads.read9(transform)))
+  node.withSelection(node.selection.mapped(node.selection.columnReads.read9(transform)))
 )
 
 /**
@@ -161,7 +161,7 @@ fun <A, B, C, D, E, F, G, H, I, M> SelectQuery<Row9<A, B, C, D, E, F, G, H, I>, 
  */
 @JvmName("mapSelectedRows")
 fun <M> SelectQuery<SelectedRow, RowSelection<SelectedRow>>.mapTo(transform: (SelectedRow) -> M) = SelectQuery(
-  node.withSelection(node.selection.withReader(SelectedOutputs(node.selection.outputs).liveRows(transform)))
+  node.withSelection(node.selection.mapped(SelectedOutputs(node.selection.outputs).liveRows(transform)))
 )
 
 /**

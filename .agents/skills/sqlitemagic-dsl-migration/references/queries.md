@@ -225,8 +225,10 @@ val next = SELECT.COLUMNS(AUTHOR.ID, nextAge).FROM(AUTHOR) AS "next"
 SELECT.COLUMN(next[AUTHOR.ID]).FROM(next).WHERE(next[nextAge] IS 36)
 ```
 
-- A compound's right arm must have the left arm's result type or a subtype; map after compounding,
-  `(ids UNION ids).mapTo(::AuthorId)`. Put an arm that may hold NULL first, or lift its columns with `.nullable()`.
+- A compound's right arm must have the left arm's result type or a subtype. An arm mapped with a function `mapTo`
+  throws `IllegalArgumentException` when the compound is built; map after compounding,
+  `(ids UNION ids).mapTo(::AuthorId)`. `mapTo(table)` arms are allowed. Put an arm that may hold NULL first, or lift
+  its columns with `.nullable()`.
 - A nested query cannot choose a connection; call `usingConnection` on the outermost query only.
 - Correlation follows SQL: a nested query's field of a table it does not itself use refers to the enclosing query.
   Alias the inner occurrence to read another row ([behavior](behavior.md#nested-queries-resolve-names-as-sql-does)).

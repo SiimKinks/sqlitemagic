@@ -107,9 +107,13 @@ internal data class SelectNode<out T, out S : Selection<T>>(
       else -> SelectNode(
         selection = selection,
         compound = Compound(
-          first = this,
+          first = when {
+            with.isEmpty() -> this
+            else -> copy(with = emptyList())
+          },
           arms = listOf(next)
-        )
+        ),
+        with = with
       )
     }
   }

@@ -33,13 +33,13 @@ internal fun databaseStructure(vararg tableNames: String) = DatabaseStructure(
 
 private fun tableStructure(name: String) = TableStructure(
   name = name,
-  schema = "CREATE TABLE IF NOT EXISTS $name (id INTEGER PRIMARY KEY)",
+  schema = """CREATE TABLE IF NOT EXISTS "$name" ("id" INTEGER PRIMARY KEY)""",
   columns = listOf(
     ColumnStructure(
       id = true,
       name = "id",
       sqlType = "INTEGER",
-      schema = "id INTEGER PRIMARY KEY"
+      schema = """"id" INTEGER PRIMARY KEY"""
     )
   )
 )

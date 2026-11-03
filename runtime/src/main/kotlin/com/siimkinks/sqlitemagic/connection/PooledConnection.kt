@@ -7,7 +7,7 @@ import com.siimkinks.sqlitemagic.internal.MutationResults
 internal class PooledConnection(
   val connection: SQLiteConnection,
   driverPoolsConnections: Boolean = false
-) {
+) : AutoCloseable {
   private val readback = when (connection) {
     is MutationResults -> null
     else -> ReadbackMutationResults(connection)
@@ -134,7 +134,7 @@ internal class PooledConnection(
     }
   }
 
-  fun close() {
+  override fun close() {
     statements.values.forEach { it.statement.close(quietly = true) }
     statements.clear()
     readback?.close()

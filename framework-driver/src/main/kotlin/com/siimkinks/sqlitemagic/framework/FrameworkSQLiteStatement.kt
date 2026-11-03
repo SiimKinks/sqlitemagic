@@ -31,9 +31,8 @@ internal class FrameworkSQLiteStatement(
   private val readSnapshot: ReadSnapshot,
   private val transaction: TransactionState
 ) : SQLiteStatement, NullableValueReads {
-  private val columnNames: Array<String> = db
-    .rawQuery(sql, NO_ARGUMENTS)
-    .use(Cursor::getColumnNames)
+  private var columnNames = preparedColumnNames()
+  private val schemaDependentColumns = hasSchemaDependentColumns(sql)
   private val control = when {
     columnNames.isEmpty() -> transactionControlOf(sql)
     else -> TransactionControl.NONE
@@ -213,16 +212,30 @@ internal class FrameworkSQLiteStatement(
 
   private fun openCursor(): SQLiteCursor {
     val opened = db.rawQueryWithFactory(cursorFactory, sql, NO_ARGUMENTS, "") as SQLiteCursor
-    try {
+    val refill = try {
       count = opened.count
       useWindow(opened.window)
+      schemaDependentColumns && filledWithOldColumns(opened)
     } catch (failure: Throwable) {
       opened.close()
       throw failure
     }
+    if (refill) {
+      closeKeepingWindow(opened)
+      return openCursor()
+    }
     position = -1
     return opened
   }
+
+  private fun filledWithOldColumns(opened: SQLiteCursor): Boolean {
+    columnNames = preparedColumnNames()
+    return !columnNames.contentEquals(opened.columnNames)
+  }
+
+  private fun preparedColumnNames(): Array<String> = db
+    .rawQuery(sql, NO_ARGUMENTS)
+    .use(Cursor::getColumnNames)
 
   private fun useWindow(current: CursorWindow) {
     window = current

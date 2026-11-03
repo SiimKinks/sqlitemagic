@@ -44,7 +44,7 @@ internal object SchemaSql {
           )
           index = end + 2
         }
-        character in "'\"`[" -> {
+        character in """'"`[""" -> {
           val closing = when (character) {
             '[' -> ']'
             else -> character
@@ -135,6 +135,17 @@ internal object SchemaSql {
     return result.dropLastWhile { it.isPunctuation(";") }
   }
 
+  fun withoutIdentifierQuotes(sql: String) = tokens(sql).joinToString(separator = " ") { token ->
+    when {
+      !token.quotedIdentifier || token.text.isBareIdentifier() -> token.text
+      else -> """"${token.text.replace(oldValue = "\"", newValue = "\"\"")}""""
+    }
+  }
+
+  private fun String.isBareIdentifier() = isNotEmpty() &&
+      (first().isLetter() || first() == '_') &&
+      all { it.isLetterOrDigit() || it == '_' || it == '$' }
+
   fun canonical(
     tokens: List<SqlToken>,
     identifiers: Set<String>,
@@ -151,29 +162,29 @@ internal object SchemaSql {
       "atom" -> token.word
       else -> token.text
     }
-    "$kind:\"${value.escapeToken()}\""
+    """$kind:"${value.escapeToken()}""""
   }
     .joinToString(separator = " ")
 
   private fun String.escapeToken() = replace(
-    oldValue = "\\",
-    newValue = "\\\\"
+    oldValue = """\""",
+    newValue = """\\"""
   )
     .replace(
       oldValue = "\"",
-      newValue = "\\\""
+      newValue = """\""""
     )
     .replace(
       oldValue = "\n",
-      newValue = "\\n"
+      newValue = """\n"""
     )
     .replace(
       oldValue = "\r",
-      newValue = "\\r"
+      newValue = """\r"""
     )
     .replace(
       oldValue = "\t",
-      newValue = "\\t"
+      newValue = """\t"""
     )
 
   fun tableClauses(
@@ -212,7 +223,7 @@ internal object SchemaSql {
           .takeIf { it >= 0 } ?: clause.size
         val typePositions = when {
           !clause.first().quotedIdentifier && clause.first().word in tableConstraints -> emptySet()
-          else -> (1 until constraint).toSet()
+          else -> (1..<constraint).toSet()
         }
         canonical(
           tokens = clause,
@@ -267,7 +278,7 @@ internal object SchemaSql {
           tokens = tokens,
           opening = index + 2
         )
-        positions += index + 3 until end
+        positions += index + 3..<end
       }
     }
     return positions
@@ -311,7 +322,7 @@ internal object SchemaSql {
     opening: Int
   ): Int {
     var depth = 0
-    for (index in opening until tokens.size) {
+    for (index in opening..<tokens.size) {
       when (tokens[index].text.takeUnless { tokens[index].quotedIdentifier || tokens[index].literal }) {
         "(" -> depth++
         ")" -> if (--depth == 0) return index

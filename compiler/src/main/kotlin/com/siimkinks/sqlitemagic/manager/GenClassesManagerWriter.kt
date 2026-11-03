@@ -32,6 +32,7 @@ import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
+import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -231,7 +232,7 @@ internal class GenClassesManagerWriter(
   )
     .apply {
       tables.forEach { table ->
-        addStatement("connection.%M(%S)", EXEC_SQL, "DELETE FROM ${table.tableName}")
+        addStatement("connection.%M(%S)", EXEC_SQL, "DELETE FROM ${quoteSqlIdentifier(table.tableName)}")
         addStatement("changedTables.add(%S)", table.tableName)
       }
     }

@@ -127,6 +127,54 @@ internal class CompoundSelectTest {
   }
 
   @Test
+  fun `a widened union exports the left arm's instance and selects it only as nullable`() {
+    val pets = SELECT
+      .COLUMN(PET.NAME)
+      .FROM(PET)
+    val people = SELECT
+      .COLUMN(PERSON.NAME)
+      .FROM(PERSON)
+      .WHERE(PERSON.AGE LESS_THAN 40)
+    val names = (pets UNION people) AS "names"
+    val derived = SELECT
+      .COLUMN(names[PET.NAME].nullable())
+      .FROM(names)
+      .ORDER_BY(names[PET.NAME].ASC())
+    val cte = WITH(pets UNION people) { all ->
+      SELECT
+        .COLUMN(all[PET.NAME].nullable())
+        .FROM(all)
+        .ORDER_BY(all[PET.NAME].ASC())
+    }
+    val required = SELECT
+      .COLUMN(names[PET.NAME])
+      .FROM(names)
+
+    assertThat(listOf(derived, cte).map { it.compile().sql }).isEqualTo(
+      listOf(
+        """SELECT "names"."pet.name" FROM (SELECT "pet"."name" AS "pet.name" FROM "main"."pet" UNION """ +
+            """SELECT "person"."name" FROM "main"."person" WHERE "person"."age" < ?) AS "names" """ +
+            """ORDER BY "names"."pet.name" ASC""",
+        """WITH "cte1" AS (SELECT "pet"."name" AS "pet.name" FROM "main"."pet" UNION """ +
+            """SELECT "person"."name" FROM "main"."person" WHERE "person"."age" < ?) """ +
+            """SELECT "cte1"."pet.name" FROM "cte1" ORDER BY "cte1"."pet.name" ASC"""
+      )
+    )
+    assertThat(assertThrows(IllegalArgumentException::class.java, required::compile).message).isEqualTo(
+      "names.pet.name is NOT NULL but a compound with a nullable arm can make it NULL; " +
+          "select the field with .nullable()"
+    )
+    petDatabase().use { database ->
+      assertThat(listOf(derived, cte).map { it.rows(database) }).isEqualTo(
+        listOf(
+          listOf(null, "Ada", "Kit", "Linus", "Rex", "Tom"),
+          listOf(null, "Ada", "Kit", "Linus", "Rex", "Tom")
+        )
+      )
+    }
+  }
+
+  @Test
   fun `entity compounds read through the left arm and read deeply together`() {
     val minors = SELECT FROM PERSON WHERE (PERSON.AGE LESS_THAN 20)
     val firstPerson = SELECT FROM PERSON WHERE (PERSON.ID IS 1L)
@@ -242,6 +290,67 @@ internal class CompoundSelectTest {
   }
 
   @Test
+  fun `an arm mapped with mapTo is rejected and the compound is mapped instead`() {
+    val pets = SELECT
+      .COLUMN(PET.NAME)
+      .FROM(PET)
+    val people = SELECT
+      .COLUMN(PERSON.NAME)
+      .FROM(PERSON)
+    val petRows = SELECT
+      .COLUMNS(PET.OWNER, PET.NAME)
+      .FROM(PET)
+    val mappedCompound = (adults UNION owners).mapTo { it + 1 }
+    val mappedOwners = owners.mapTo { it + 1 }
+    val derivedMapped = SELECT.FROM(mappedOwners AS "m")
+    val cteMapped = WITH(mappedOwners, SELECT::FROM)
+
+    val failures = mapOf<String, () -> Any>(
+      "scalar left arm of UNION" to { adults.mapTo { it + 1 } UNION owners },
+      "scalar right arm of UNION ALL" to { adults UNION_ALL owners.mapTo { it + 1 } },
+      "scalar right arm of INTERSECT" to { adults INTERSECT owners.mapTo(::identity) },
+      "scalar left arm of EXCEPT" to { everyone.mapTo(::identity) EXCEPT owners },
+      "left arm of a nullable UNION" to { pets.mapTo(String::uppercase) UNION people },
+      "right arm of a nullable UNION ALL" to { pets UNION_ALL people.mapTo { it?.uppercase() } },
+      "right arm of a required INTERSECT" to { pets INTERSECT people.mapTo { it?.uppercase() } },
+      "right arm of a required EXCEPT" to { pets EXCEPT people.mapTo { it?.uppercase() } },
+      "row left arm" to { petRows.mapTo { owner, name -> Row2(owner, name) } UNION petRows },
+      "row right arm" to { petRows EXCEPT petRows.mapTo { owner, name -> Row2(owner, name) } },
+      "mapped compound as the left arm" to { mappedCompound UNION everyone },
+      "mapped compound as the right arm" to { everyone INTERSECT mappedCompound },
+      "derived table of a mapped query as the left arm" to { derivedMapped UNION everyone },
+      "derived table of a mapped query as the right arm" to { everyone UNION derivedMapped },
+      "unaliased derived table of a mapped query" to { everyone EXCEPT SELECT.FROM(mappedOwners) },
+      "common table expression of a mapped query" to { cteMapped UNION_ALL everyone }
+    ).mapValues { (_, compound) -> assertThrows(IllegalArgumentException::class.java) { compound() }.message }
+    val authors = SELECT
+      .COLUMNS(AUTHOR.ID, AUTHOR.NAME)
+      .FROM(AUTHOR)
+    val tableArms = (authors.WHERE(AUTHOR.ID IS 1L).mapTo(AUTHOR) UNION authors.mapTo(AUTHOR))
+      .ORDER_BY(AUTHOR.ID.ASC())
+    val mappedAfterwards = (petRows UNION petRows)
+      .ORDER_BY(PET.OWNER.ASC(), PET.NAME.ASC())
+      .mapTo { owner, name -> "$owner:$name" }
+
+    assertThat(failures).isEqualTo(
+      failures.mapValues {
+        "A compound arm cannot be mapped with mapTo; map the compound instead, as in (a UNION b).mapTo { … }"
+      }
+    )
+    libraryDatabase().use { database ->
+      assertThat(tableArms.rows(database)).isEqualTo(
+        authors
+          .ORDER_BY(AUTHOR.ID.ASC())
+          .mapTo(AUTHOR)
+          .rows(database)
+      )
+    }
+    petDatabase().use { database ->
+      assertThat(mappedAfterwards.rows(database)).isEqualTo(listOf("1:Rex", "1:Tom", "2:Kit"))
+    }
+  }
+
+  @Test
   fun `compounds inline literals in view definitions and SQLite owns arm clauses`() {
     val view = GeneratedView(
       viewName = "member_ids",
@@ -274,3 +383,5 @@ internal class CompoundSelectTest {
     }
   }
 }
+
+private fun <T> identity(value: T) = value

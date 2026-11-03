@@ -108,9 +108,9 @@ internal class ViewLifecycleAndRoundsContractTest {
           "views.add(SqliteMagic_MixedLifecycleView_Dao.GENERATED_VIEW)",
           """connection.execSQL("CREATE INDEX IF NOT EXISTS main.""",
           "getNrOfTables(moduleName: String?): Int = 1",
-          "DELETE FROM mixed_lifecycle_rows"
+          """DELETE FROM \"mixed_lifecycle_rows\""""
         )
-        generatedSource.assertDoesNotContain("DELETE FROM mixed_lifecycle_view")
+        generatedSource.assertDoesNotContain("""DELETE FROM \"mixed_lifecycle_view\"""")
       }
   }
 

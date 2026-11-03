@@ -9,13 +9,15 @@ internal class MigrationsHandler(
   private val migrationOutputFile: File,
   private val pendingMigrationStatements: List<String> = emptyList(),
   private val externalTransaction: FileSnapshotTransaction? = null,
+  private val enforcesForeignKeys: Boolean = currentStructure.enforcesForeignKeys,
   private val warn: (String) -> Unit = {}
 ) {
   fun migrate(): Boolean {
     val migration = previousStructure?.let { previous ->
       planSchemaMigration(
         previous = previous,
-        current = currentStructure
+        current = currentStructure,
+        enforcesForeignKeys = enforcesForeignKeys
       )
     }
     MigrationArtifactsPublisher(

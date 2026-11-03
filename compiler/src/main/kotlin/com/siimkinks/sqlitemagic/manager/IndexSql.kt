@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 
 internal fun IndexElement.createSql() = buildString {
   append("CREATE ")
@@ -22,6 +23,3 @@ internal fun IndexElement.createSql() = buildString {
 
 internal fun dropMainSchemaIndexSql(indexName: String) =
   "DROP INDEX IF EXISTS main.${quoteSqlIdentifier(indexName)}"
-
-private fun quoteSqlIdentifier(identifier: String) =
-  "\"${identifier.replace(oldValue = "\"", newValue = "\"\"")}\""

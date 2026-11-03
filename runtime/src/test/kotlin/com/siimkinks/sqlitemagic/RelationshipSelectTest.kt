@@ -198,6 +198,34 @@ internal class RelationshipSelectTest {
   }
 
   @Test
+  fun `default handles resolved to an aliased outer join keep its NULL check`() {
+    val publisher = PUBLISHER AS "p"
+    val required = SELECT.COLUMNS(AUTHOR.NAME, PUBLISHER.ID)
+      .FROM(AUTHOR)
+      .LEFT_JOIN(publisher)
+      .ON(AUTHOR.PUBLISHER IS publisher.ID)
+    val nullable = SELECT.COLUMNS(AUTHOR.NAME, PUBLISHER.ID.nullable())
+      .FROM(AUTHOR)
+      .LEFT_JOIN(publisher)
+      .ON(AUTHOR.PUBLISHER IS publisher.ID)
+      .ORDER_BY(AUTHOR.ID.ASC())
+
+    assertThat(assertThrows(IllegalArgumentException::class.java, required::compile).message)
+      .isEqualTo("publisher.id is NOT NULL but an outer join can leave it NULL; select the field with .nullable()")
+    assertThat(nullable.compile().sql).isEqualTo(
+      """SELECT "author"."name", "p"."id" FROM "main"."author" LEFT JOIN "main"."publisher" AS "p" """ +
+          """ON "author"."publisher" = "p"."id" ORDER BY "author"."id" ASC"""
+    )
+    assertThat(nullable.rowsIn(::libraryDatabase)).isEqualTo(
+      listOf(
+        Row2("Ada", 1L),
+        Row2("Grace", null),
+        Row2("Linus", 2L)
+      )
+    )
+  }
+
+  @Test
   fun `exact user joins supply relationships and other joins stay beside`() {
     val adas = SELECT FROM BOOK INNER_JOIN AUTHOR ON (BOOK.AUTHOR IS AUTHOR.ID) WHERE (AUTHOR.NAME IS "Ada")
     val aliased = AUTHOR AS "a"

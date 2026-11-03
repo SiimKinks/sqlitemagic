@@ -5,7 +5,6 @@ plugins {
 }
 
 apply from: '../buildsystem/maven-push.gradle'
-apply from: '../buildsystem/bintray-push.gradle'
 
 def mockitoAgentConfiguration = configurations.create('mockitoAgent')
 

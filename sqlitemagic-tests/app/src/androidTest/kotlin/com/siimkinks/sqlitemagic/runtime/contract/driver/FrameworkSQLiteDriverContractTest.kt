@@ -152,6 +152,77 @@ internal class FrameworkSQLiteDriverContractTest {
   }
 
   @Test
+  fun reusedStatementsReadColumnsAddedAfterTheyWerePrepared() {
+    connection.execSQL("CREATE TABLE item(id INTEGER PRIMARY KEY)")
+    connection.execSQL("INSERT INTO item VALUES (1)")
+    val rows = listOf("this connection", "another connection").associateWith { alteredBy ->
+      FrameworkSQLiteDriver()
+        .open(databasePath)
+        .use { other ->
+          val (reader, writer) = when (alteredBy) {
+            "this connection" -> connection to connection
+            else -> other to connection
+          }
+          reader
+            .prepare("SELECT * FROM item")
+            .use { statement ->
+              statement.step()
+              statement.reset()
+              writer.execSQL("ALTER TABLE item ADD COLUMN ${alteredBy.substringBefore(' ')} TEXT DEFAULT 'x'")
+              statement.step()
+              List(
+                size = statement.getColumnCount(),
+                init = statement::getColumnName
+              ) to statement.getText(statement.getColumnCount() - 1)
+            }
+        }
+    }
+
+    assertThat(rows).isEqualTo(
+      mapOf(
+        "this connection" to (listOf("id", "this") to "x"),
+        "another connection" to (listOf("id", "this", "another") to "x")
+      )
+    )
+  }
+
+  @Test
+  fun starsOverSubqueriesReadColumnsAddedAfterTheyWerePrepared() {
+    connection.execSQL("CREATE TABLE item(id INTEGER PRIMARY KEY)")
+    connection.execSQL("INSERT INTO item VALUES (1)")
+    val statements = listOf(
+      "SELECT * FROM (SELECT * FROM item)",
+      "SELECT * FROM (SELECT id FROM item) AS s JOIN item AS t ON s.id = t.id",
+      "SELECT 0 UNION ALL SELECT * FROM (SELECT id FROM item LIMIT 1)"
+    ).associateWith(connection::prepare)
+
+    val columns = try {
+      statements.values.forEach { statement ->
+        statement.step()
+        statement.reset()
+      }
+      connection.execSQL("ALTER TABLE item ADD COLUMN note TEXT DEFAULT 'x'")
+      statements.mapValues { (_, statement) ->
+        statement.step()
+        List(
+          size = statement.getColumnCount(),
+          init = statement::getColumnName
+        )
+      }
+    } finally {
+      statements.values.forEach(SQLiteStatement::close)
+    }
+
+    assertThat(columns).isEqualTo(
+      mapOf(
+        "SELECT * FROM (SELECT * FROM item)" to listOf("id", "note"),
+        "SELECT * FROM (SELECT id FROM item) AS s JOIN item AS t ON s.id = t.id" to listOf("id", "id", "note"),
+        "SELECT 0 UNION ALL SELECT * FROM (SELECT id FROM item LIMIT 1)" to listOf("0")
+      )
+    )
+  }
+
+  @Test
   fun resetReexecutesWithBindingsUntilTheyAreCleared() {
     val results = connection
       .prepare("SELECT ?")

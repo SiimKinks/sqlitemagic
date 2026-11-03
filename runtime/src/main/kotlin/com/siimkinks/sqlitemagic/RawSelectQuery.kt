@@ -92,7 +92,8 @@ class RawSelect<O : RawTables> internal constructor(
     val prepared = prepare(readWidth = 0)
     return prepared.withStatement(
       dbConnection = prepared.connection.orDefault(),
-      values = prepared.bind(emptyList())
+      values = prepared.bind(emptyList()),
+      rows = true
     ) { RawRows(it).use(block) }
   }
 

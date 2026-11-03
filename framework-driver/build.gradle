@@ -10,6 +10,9 @@ dependencies {
   api libs.android.sqlite
 
   compileOnly rootProject.ext.androidJar
+
+  testImplementation libs.junit
+  testImplementation libs.truth
 }
 
 kotlin {
@@ -19,6 +22,11 @@ kotlin {
   abiValidation {
     enabled = true
   }
+}
+
+tasks.withType(Test).configureEach {
+  scanForTestClasses = false
+  include '**/*Test.class'
 }
 
 tasks.named('check') {

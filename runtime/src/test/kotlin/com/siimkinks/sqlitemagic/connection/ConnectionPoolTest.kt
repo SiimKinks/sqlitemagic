@@ -5,16 +5,21 @@ import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.SQLiteException
 import androidx.sqlite.SQLiteStatement
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_READONLY
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.internal.ReadOnlyConnections
 import com.siimkinks.sqlitemagic.sqlExceptionMessage
 import com.siimkinks.sqlitemagic.withWorkers
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.lang.ref.WeakReference
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.SECONDS
 import kotlin.concurrent.thread
@@ -357,6 +362,44 @@ internal class ConnectionPoolTest {
   }
 
   @Test
+  fun `readers open read-only through a driver that has read-only connections`() {
+    val bundled = BundledSQLiteDriver()
+    val opened = mutableListOf<String>()
+    val driver = object : SQLiteDriver by bundled, ReadOnlyConnections {
+      override fun open(fileName: String): SQLiteConnection {
+        opened += "open"
+        return bundled.open(fileName)
+      }
+
+      override fun openReadOnly(fileName: String): SQLiteConnection {
+        opened += "openReadOnly"
+        return bundled.open(
+          fileName = fileName,
+          flags = SQLITE_OPEN_READONLY
+        )
+      }
+    }
+
+    val readerWrite = pool(
+      fileName = folder.databasePath(),
+      driver = driver,
+      readerConnections = 1
+    ).use { pool ->
+      pool.read(requiresWriter = false) { pooled ->
+        pooled.connection.execSQL("PRAGMA query_only = 0")
+        runCatching { pooled.connection.execSQL("CREATE TABLE note(id INTEGER)") }
+      }
+    }
+
+    assertThat(opened)
+      .containsExactly("open", "openReadOnly")
+      .inOrder()
+    assertThat(readerWrite.exceptionOrNull())
+      .hasMessageThat()
+      .contains("attempt to write a readonly database")
+  }
+
+  @Test
   fun `waiting longer than the pool timeout fails and names what it waited for`() {
     pool(
       fileName = folder.databasePath(),
@@ -504,6 +547,79 @@ internal class ConnectionPoolTest {
       .hasMessageThat()
       .isEqualTo("DB connection closed")
     assertThat(driver.connections.map(TrackingConnection::closed)).containsExactly(true)
+  }
+
+  @Test
+  fun `close during the last release of the writer closes it`() {
+    val driver = TrackingDriver()
+    val pool = pool(
+      fileName = folder.databasePath(),
+      driver = driver
+    )
+    val holding = CountDownLatch(1)
+    val release = CountDownLatch(1)
+    val holder = thread {
+      pool.write {
+        holding.countDown()
+        release.await()
+      }
+    }
+    holding.await()
+    pool.beforeWriterQueueLock(
+      thread = holder,
+      skippedLocks = 0
+    ) {
+      thread(block = pool::close).join()
+    }
+    release.countDown()
+    holder.join()
+
+    assertThat(driver.connections.map(TrackingConnection::closed)).containsExactly(true)
+  }
+
+  @Test
+  fun `checking for a transaction leaves no state on the thread`() {
+    val previous = pool(fileName = folder.databasePath()).use { pool ->
+      val checks = listOf(pool.inTransaction, pool.transaction)
+      checks to pool.installOwner(pool.shareOwner())
+    }
+
+    assertThat(previous).isEqualTo(listOf(false, null) to null)
+  }
+
+  @Test
+  fun `threads that used a closed pool do not retain it`() {
+    val worker = Executors.newSingleThreadExecutor()
+    try {
+      val closedPool = closedPoolUsedOn(worker)
+      var collections = 0
+      while (closedPool.get() != null && collections < 100) {
+        System.gc()
+        collections++
+      }
+
+      assertThat(closedPool.get()).isNull()
+    } finally {
+      worker.shutdown()
+    }
+  }
+
+  private fun closedPoolUsedOn(worker: ExecutorService): WeakReference<ConnectionPool> {
+    val pool = pool(fileName = folder.databasePath())
+    worker
+      .submit {
+        pool.balance()
+        pool.setBalance(
+          id = 1,
+          balance = 5
+        )
+        pool.beginTransaction()
+        pool.setTransactionSuccessful()
+        pool.endTransaction()
+      }
+      .get()
+    pool.close()
+    return WeakReference(pool)
   }
 
   @Test

@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.APPEND_COLUMNS
 import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.REBUILD
+import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 
 internal object MigrationSqlRenderer {
   fun render(
@@ -23,7 +24,8 @@ internal object MigrationSqlRenderer {
       migrationStatements = migrationStatements
     )
     plan.simpleRenames.forEach { rename ->
-      migrationStatements += "ALTER TABLE ${rename.previousName} RENAME TO ${rename.currentName}"
+      migrationStatements += "ALTER TABLE ${quoteSqlIdentifier(rename.previousName)} " +
+          "RENAME TO ${quoteSqlIdentifier(rename.currentName)}"
     }
     plan.directRebuilds.forEach { change ->
       change.migrate(
@@ -40,7 +42,7 @@ internal object MigrationSqlRenderer {
       migrationStatements = migrationStatements
     )
     plan.removedTables.forEach { table ->
-      migrationStatements += "DROP TABLE IF EXISTS ${table.name}"
+      migrationStatements += "DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}"
     }
     createNewTables(
       names = plan.remainingNewTables,
@@ -61,7 +63,7 @@ internal object MigrationSqlRenderer {
         .asSequence()
         .drop(from.structure.columns.size)
         .forEach { column ->
-          migrationStatements += "ALTER TABLE ${to.structure.name} ADD COLUMN ${column.schema}"
+          migrationStatements += "ALTER TABLE ${quoteSqlIdentifier(to.structure.name)} ADD COLUMN ${column.schema}"
         }
       REBUILD -> {
         rebuild(
@@ -69,7 +71,7 @@ internal object MigrationSqlRenderer {
           renameStatements = migrationStatements,
           creationStatements = migrationStatements
         )
-        migrationStatements += "DROP TABLE IF EXISTS $temporaryTableName"
+        migrationStatements += "DROP TABLE IF EXISTS ${quoteSqlIdentifier(temporaryTableName)}"
       }
     }
   }
@@ -102,7 +104,7 @@ internal object MigrationSqlRenderer {
     tables
       .asReversed()
       .forEach { table ->
-        migrationStatements += "DROP TABLE IF EXISTS ${table.temporaryName}"
+        migrationStatements += "DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.temporaryName)}"
       }
   }
 
@@ -112,27 +114,42 @@ internal object MigrationSqlRenderer {
     creationStatements: MutableList<String>
   ) {
     rowDeletion()?.let(renameStatements::add)
-    renameStatements += "ALTER TABLE ${from.name} RENAME TO $temporaryTableName"
+    renameStatements += "ALTER TABLE ${quoteSqlIdentifier(from.name)} " +
+        "RENAME TO ${quoteSqlIdentifier(temporaryTableName)}"
     creationStatements += to.structure.schema
+    if (to.structure.columns.any(ColumnStructure::autoIncrement)) {
+      creationStatements += "UPDATE main.sqlite_sequence SET name = ${quoteSqlLiteral(to.structure.name)} " +
+          "WHERE name = ${quoteSqlLiteral(temporaryTableName)}"
+    }
     rowCopy(temporaryTableName)?.let(creationStatements::add)
   }
 
   private fun TableChange.rowDeletion() = when {
-    !copiesRows -> "DELETE FROM ${from.name}"
-    nullRowColumns.isNotEmpty() -> "DELETE FROM ${from.name} WHERE " +
-        nullRowColumns.joinToString(separator = " OR ") { "${it.name} IS NULL" }
+    !copiesRows -> "DELETE FROM ${quoteSqlIdentifier(from.name)}"
+    nullRowColumns.isNotEmpty() -> "DELETE FROM ${quoteSqlIdentifier(from.name)} WHERE " +
+        nullRowColumns.joinToString(separator = " OR ") { "${quoteSqlIdentifier(it.name)} IS NULL" }
     else -> null
   }
 
   private fun TableChange.rowCopy(temporaryTableName: String) = when {
     !copiesRows -> null
     else -> {
-      val destinationColumnNames = copiedColumns.joinToString(separator = ",") { it.current.name }
+      val destinationColumnNames = copiedColumns.joinToString(separator = ",") { quoteSqlIdentifier(it.current.name) }
       val sourceValues = copiedColumns.joinToString(
         separator = ",",
         transform = ColumnCopy::sourceValue
       )
-      "INSERT INTO ${to.structure.name} ($destinationColumnNames) SELECT $sourceValues FROM $temporaryTableName"
+      val referenceConditions = copiedColumns.mapNotNull(ColumnCopy::existingReferenceCondition)
+      val referenceFilter = when (referenceConditions.size) {
+        0 -> ""
+        1 -> " WHERE ${referenceConditions.single()}"
+        else -> referenceConditions.joinToString(
+          separator = " AND ",
+          prefix = " WHERE "
+        ) { "($it)" }
+      }
+      "INSERT INTO ${quoteSqlIdentifier(to.structure.name)} ($destinationColumnNames) SELECT $sourceValues " +
+          "FROM ${quoteSqlIdentifier(temporaryTableName)}$referenceFilter"
     }
   }
 
@@ -157,6 +174,8 @@ internal object MigrationSqlRenderer {
     return temporaryName
   }
 }
+
+private fun quoteSqlLiteral(value: String) = "'${value.replace(oldValue = "'", newValue = "''")}'"
 
 private data class RebuildTable(
   val change: TableChange,

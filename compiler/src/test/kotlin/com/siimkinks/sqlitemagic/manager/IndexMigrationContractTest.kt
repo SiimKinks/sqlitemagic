@@ -95,7 +95,7 @@ internal class IndexMigrationContractTest {
       )
     ).containsExactly(
       """DROP INDEX IF EXISTS main."books_lookup"""",
-      "ALTER TABLE books ADD COLUMN title TEXT DEFAULT ''",
+      """ALTER TABLE "books" ADD COLUMN title TEXT DEFAULT ''""",
       """CREATE INDEX IF NOT EXISTS main."books_lookup" ON "books" ("title")"""
     ).inOrder()
   }
@@ -136,7 +136,7 @@ internal class IndexMigrationContractTest {
       )
     ).containsExactly(
       """DROP INDEX IF EXISTS main."books_id"""",
-      "ALTER TABLE books ADD COLUMN title TEXT DEFAULT ''",
+      """ALTER TABLE "books" ADD COLUMN title TEXT DEFAULT ''""",
       """CREATE UNIQUE INDEX IF NOT EXISTS main."books_id" ON "books" ("id")"""
     ).inOrder()
   }
@@ -194,7 +194,7 @@ internal class IndexMigrationContractTest {
       )
     ).containsExactly(
       """DROP INDEX IF EXISTS main."books_lookup"""",
-      "ALTER TABLE books ADD COLUMN status TEXT DEFAULT ''",
+      """ALTER TABLE "books" ADD COLUMN status TEXT DEFAULT ''""",
       """CREATE INDEX IF NOT EXISTS main."books_lookup" ON "books" ("title", "id")"""
     ).inOrder()
   }
@@ -239,7 +239,7 @@ internal class IndexMigrationContractTest {
       )
     ).containsExactly(
       """DROP INDEX IF EXISTS main."shared_lookup"""",
-      "ALTER TABLE books ADD COLUMN title TEXT DEFAULT ''",
+      """ALTER TABLE "books" ADD COLUMN title TEXT DEFAULT ''""",
       "CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)",
       """CREATE INDEX IF NOT EXISTS main."shared_lookup" ON "authors" ("id")"""
     ).inOrder()
@@ -347,7 +347,7 @@ internal class IndexMigrationContractTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE books ADD COLUMN title TEXT DEFAULT ''"
+      """ALTER TABLE "books" ADD COLUMN title TEXT DEFAULT ''"""
     )
   }
 
@@ -403,10 +403,10 @@ internal class IndexMigrationContractTest {
     ).containsExactly(
       """DROP INDEX IF EXISTS main."books_id"""",
       """DROP INDEX IF EXISTS main."books_title"""",
-      "ALTER TABLE books RENAME TO books_",
+      """ALTER TABLE "books" RENAME TO "books_"""",
       "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT DEFAULT 'untitled')",
-      "INSERT INTO books (id,title) SELECT id,title FROM books_",
-      "DROP TABLE IF EXISTS books_",
+      """INSERT INTO "books" ("id","title") SELECT "id","title" FROM "books_"""",
+      """DROP TABLE IF EXISTS "books_"""",
       """CREATE INDEX IF NOT EXISTS main."books_id" ON "books" ("id")""",
       """CREATE INDEX IF NOT EXISTS main."books_title" ON "books" ("title")"""
     ).inOrder()
@@ -487,15 +487,16 @@ internal class IndexMigrationContractTest {
     ).containsExactly(
       """DROP INDEX IF EXISTS main."parents_id"""",
       """DROP INDEX IF EXISTS main."children_parent"""",
-      "ALTER TABLE parents RENAME TO parents_",
-      "ALTER TABLE children RENAME TO children_",
+      """ALTER TABLE "parents" RENAME TO "parents_"""",
+      """ALTER TABLE "children" RENAME TO "children_"""",
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, value TEXT DEFAULT '')",
-      "INSERT INTO parents (id) SELECT id FROM parents_",
+      """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
       "CREATE TABLE IF NOT EXISTS children " +
           "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "DROP TABLE IF EXISTS children_",
-      "DROP TABLE IF EXISTS parents_",
+      """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
+          """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+      """DROP TABLE IF EXISTS "children_"""",
+      """DROP TABLE IF EXISTS "parents_"""",
       """CREATE INDEX IF NOT EXISTS main."parents_id" ON "parents" ("id")""",
       """CREATE INDEX IF NOT EXISTS main."children_parent" ON "children" ("parent_id")"""
     ).inOrder()
@@ -530,7 +531,7 @@ internal class IndexMigrationContractTest {
       )
     ).containsExactly(
       """DROP INDEX IF EXISTS main."books_lookup"""",
-      "ALTER TABLE legacy_books RENAME TO books",
+      """ALTER TABLE "legacy_books" RENAME TO "books"""",
       """CREATE INDEX IF NOT EXISTS main."books_lookup" ON "books" ("id")"""
     ).inOrder()
   }
@@ -571,7 +572,7 @@ internal class IndexMigrationContractTest {
         migrationHappened = true,
         statements = listOf(
           """DROP INDEX IF EXISTS main."books_id"""",
-          "DROP TABLE IF EXISTS books"
+          """DROP TABLE IF EXISTS "books""""
         ),
         warnings = listOf("Migration drops table books with its rows. Edit the migration SQL to keep them.")
       )
@@ -637,7 +638,7 @@ internal class IndexMigrationContractTest {
       )
     ).containsExactly(
       """DROP INDEX IF EXISTS main."book.idx""quoted"""",
-      "ALTER TABLE books ADD COLUMN title TEXT DEFAULT ''"
+      """ALTER TABLE "books" ADD COLUMN title TEXT DEFAULT ''"""
     ).inOrder()
   }
 
@@ -681,10 +682,10 @@ internal class IndexMigrationContractTest {
       )
     ).containsExactly(
       """DROP INDEX IF EXISTS main."books_"""",
-      "ALTER TABLE books RENAME TO books__",
+      """ALTER TABLE "books" RENAME TO "books__"""",
       "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT DEFAULT 'untitled')",
-      "INSERT INTO books (id,title) SELECT id,title FROM books__",
-      "DROP TABLE IF EXISTS books__",
+      """INSERT INTO "books" ("id","title") SELECT "id","title" FROM "books__"""",
+      """DROP TABLE IF EXISTS "books__"""",
       """CREATE INDEX IF NOT EXISTS main."books_" ON "books" ("id")"""
     ).inOrder()
   }

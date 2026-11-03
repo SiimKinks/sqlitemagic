@@ -256,8 +256,11 @@ private fun Project.configureDependencies(sqlitemagic: SqliteMagicPluginExtensio
       add("compileOnly", "com.siimkinks.sqlitemagic:sqlitemagic-annotations:$PLUGIN_VERSION")
       add("implementation", "com.siimkinks.sqlitemagic:sqlitemagic:$PLUGIN_VERSION")
       add("ksp", "com.siimkinks.sqlitemagic:sqlitemagic-compiler:$PLUGIN_VERSION")
-      if (sqlitemagic.migrationTesting.enabled && plugins.hasPlugin(ANDROID_APPLICATION_PLUGIN_ID)) {
-        add("testImplementation", "com.siimkinks.sqlitemagic:sqlitemagic-migration-testing:$PLUGIN_VERSION")
+      when {
+        !plugins.hasPlugin(ANDROID_APPLICATION_PLUGIN_ID) ->
+          add("compileOnly", "com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:$PLUGIN_VERSION")
+        sqlitemagic.migrationTesting.enabled ->
+          add("testImplementation", "com.siimkinks.sqlitemagic:sqlitemagic-migration-testing:$PLUGIN_VERSION")
       }
     }
   }

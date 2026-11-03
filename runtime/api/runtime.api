@@ -1656,6 +1656,10 @@ public final class com/siimkinks/sqlitemagic/internal/ReactiveAdapterSupport {
 	public final fun yieldTransaction (Lcom/siimkinks/sqlitemagic/internal/LeaseOwner;)Z
 }
 
+public abstract interface class com/siimkinks/sqlitemagic/internal/ReadOnlyConnections {
+	public abstract fun openReadOnly (Ljava/lang/String;)Landroidx/sqlite/SQLiteConnection;
+}
+
 public final class com/siimkinks/sqlitemagic/internal/RelatedEntities {
 	public final fun read (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/Object;
 	public final fun readOrNull (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/Object;

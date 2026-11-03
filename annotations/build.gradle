@@ -3,7 +3,6 @@ plugins {
 }
 
 apply from: '../buildsystem/maven-push.gradle'
-apply from: '../buildsystem/bintray-push.gradle'
 
 tasks.withType(Test).configureEach {
   scanForTestClasses = false

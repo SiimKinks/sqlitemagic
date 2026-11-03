@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.framework
 import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteDatabase.CREATE_IF_NECESSARY
+import android.database.sqlite.SQLiteDatabase.OPEN_READONLY
 import android.database.sqlite.SQLiteDatabase.openDatabase
 import android.database.sqlite.SQLiteDatabaseCorruptException
 import android.database.sqlite.SQLiteException
@@ -10,6 +11,8 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
+import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.internal.ReadOnlyConnections
 
 /**
  * [SQLiteDriver] for the SQLite library of the Android framework.
@@ -32,9 +35,20 @@ import androidx.sqlite.SQLiteDriver
  *     .openDefaultConnection()
  * ```
  */
-class FrameworkSQLiteDriver : SQLiteDriver {
-  override fun open(fileName: String): SQLiteConnection = FrameworkSQLiteConnection(
-    openDatabase(fileName, null, CREATE_IF_NECESSARY, KEEP_CORRUPT_DATABASE).apply {
+class FrameworkSQLiteDriver : SQLiteDriver, ReadOnlyConnections {
+  override fun open(fileName: String): SQLiteConnection = open(
+    fileName = fileName,
+    flags = CREATE_IF_NECESSARY
+  )
+
+  @InternalSqliteMagicApi
+  override fun openReadOnly(fileName: String): SQLiteConnection = open(
+    fileName = fileName,
+    flags = OPEN_READONLY
+  )
+
+  private fun open(fileName: String, flags: Int) = FrameworkSQLiteConnection(
+    openDatabase(fileName, null, flags, KEEP_CORRUPT_DATABASE).apply {
       if (SDK_INT >= UPSIDE_DOWN_CAKE) {
         disableWriteAheadLogging()
       }

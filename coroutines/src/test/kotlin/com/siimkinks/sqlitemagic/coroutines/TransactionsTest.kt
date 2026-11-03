@@ -1,5 +1,9 @@
 package com.siimkinks.sqlitemagic.coroutines
 
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.PERSON
@@ -9,20 +13,26 @@ import com.siimkinks.sqlitemagic.SqliteMagic
 import com.siimkinks.sqlitemagic.TestGeneratedDatabase
 import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.inTransaction
+import com.siimkinks.sqlitemagic.internal.TableChangeObserver
 import com.siimkinks.sqlitemagic.recordTriggers
 import com.siimkinks.sqlitemagic.testDbConnection
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CopyableThrowable
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart.UNDISPATCHED
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -32,7 +42,10 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.lang.Thread.State.TIMED_WAITING
+import java.lang.Thread.State.WAITING
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 import kotlin.coroutines.ContinuationInterceptor
@@ -492,17 +505,22 @@ internal class TransactionsTest {
       .inOrder()
   }
 
-  @Test
-  fun `runBlocking given the context of the block takes part in the transaction`() {
-    val connection = personConnection()
-    val ageInside = runBlocking {
-      connection.withTransaction {
-        runBlocking(coroutineContext) {
-          connection
-            .setAge(40)
-            .await()
+  @Test(timeout = 10_000)
+  fun `blocking calls of code that cannot suspend take part in the transaction on a single-thread dispatcher`() {
+    val singleThread = Executors
+      .newSingleThreadExecutor()
+      .asCoroutineDispatcher()
+    val connection = personConnection(queryDispatcher = singleThread)
+    fun setAgeBlocking(age: Int) = connection
+      .setAge(age)
+      .execute()
+
+    val ageInside = singleThread.use {
+      runBlocking {
+        connection.withTransaction {
+          setAgeBlocking(40)
+          connection.age()
         }
-        connection.age()
       }
     }
 
@@ -727,6 +745,71 @@ internal class TransactionsTest {
   }
 
   @Test(timeout = 30_000)
+  fun `a yield waits for the rows block of a child coroutine and then yields`() {
+    data class Outcome(
+      val yielded: Boolean,
+      val writerWaitedForRows: Boolean,
+      val rowsAges: List<Int>,
+      val ages: List<Int?>
+    )
+
+    val connection = personConnection()
+    val outcome = runBlocking {
+      connection.withTransaction {
+        connection
+          .setAge(40)
+          .await()
+        val reading = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val reader = async(Dispatchers.Default) {
+          SELECT
+            .COLUMN(PERSON.AGE)
+            .FROM(PERSON)
+            .usingConnection(connection)
+            .useRows { rows ->
+              reading.complete(Unit)
+              release.await()
+              rows.toList()
+            }
+        }
+        reading.await()
+        val waiter = waitingWriter(
+          connection = connection,
+          id = 2L,
+          age = 90
+        )
+        val yieldingThread = Thread.currentThread()
+        var writerWaitedForRows = false
+        val releaser = thread {
+          while (yieldingThread.state != WAITING) {
+            Thread.yield()
+          }
+          writerWaitedForRows = waiter.isAlive
+          release.countDown()
+        }
+        val yielded = yieldIfContended()
+        waiter.join()
+        releaser.join()
+        Outcome(
+          yielded = yielded,
+          writerWaitedForRows = writerWaitedForRows,
+          rowsAges = reader.await(),
+          ages = listOf(1L, 2L, 3L, 4L).map { connection.age(id = it) }
+        )
+      }
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        yielded = true,
+        writerWaitedForRows = true,
+        rowsAges = listOf(40, 85, 17, 17),
+        ages = listOf(40, 90, 17, 17)
+      )
+    )
+  }
+
+  @Test(timeout = 30_000)
   fun `a call during the sleep of a yield begins the transaction again without holding a dispatcher thread`() {
     data class Outcome(
       val yielded: Boolean,
@@ -846,6 +929,173 @@ internal class TransactionsTest {
     )
   }
 
+  @Test(timeout = 10_000)
+  fun `a blocking call that keeps a waiting coroutine call from resuming on another thread takes the writer`() {
+    val serial = Executors.newSingleThreadExecutor()
+    val threadPerTask = Executor { task ->
+      serial.execute { thread(block = task::run).join() }
+    }.asCoroutineDispatcher()
+    val connection = personConnection(queryDispatcher = threadPerTask)
+    val ages = try {
+      runBlocking {
+        val releaseWriter = connection.holdWriter()
+        val coroutineCall = async {
+          connection
+            .setAge(
+              age = 50,
+              id = 3L
+            )
+            .await()
+        }
+        while (!connection.pool.hasWriterWaiters()) {
+          delay(1.milliseconds)
+        }
+        val blockingThread = CompletableDeferred<Thread>()
+        val blockingCall = async(threadPerTask) {
+          blockingThread.complete(Thread.currentThread())
+          connection
+            .setAge(
+              age = 60,
+              id = 2L
+            )
+            .execute()
+        }
+        val blocking = blockingThread.await()
+        while (blocking.state != TIMED_WAITING) {
+          delay(1.milliseconds)
+        }
+        releaseWriter()
+        blockingCall.await()
+        coroutineCall.await()
+        listOf(connection.age(id = 2L), connection.age(id = 3L))
+      }
+    } finally {
+      serial.shutdown()
+    }
+
+    assertThat(ages)
+      .containsExactly(60, 50)
+      .inOrder()
+  }
+
+  @Test(timeout = 20_000)
+  fun `a blocking call on the thread that a waiting coroutine call continues on takes the writer before it`() {
+    val ages = listOf("a coroutine call resumes", "a withTransaction begins").associateWith { waitingCall ->
+      val singleThread = Executors
+        .newSingleThreadExecutor()
+        .asCoroutineDispatcher()
+      val connection = personConnection(queryDispatcher = singleThread)
+      singleThread.use {
+        runBlocking {
+          val dispatcherThread = withContext(singleThread) { Thread.currentThread() }
+          val releaseWriter = connection.holdWriter()
+          val waiting = async {
+            when (waitingCall) {
+              "a withTransaction begins" -> connection.withTransaction {
+                connection
+                  .setAge(
+                    age = 50,
+                    id = 3L
+                  )
+                  .await()
+              }
+              else -> connection
+                .setAge(
+                  age = 50,
+                  id = 3L
+                )
+                .await()
+            }
+          }
+          while (!connection.pool.hasWriterWaiters()) {
+            delay(1.milliseconds)
+          }
+          val blockingCall = async(singleThread) {
+            connection
+              .setAge(
+                age = 60,
+                id = 2L
+              )
+              .execute()
+          }
+          while (dispatcherThread.state != TIMED_WAITING) {
+            delay(1.milliseconds)
+          }
+          releaseWriter()
+          blockingCall.await()
+          waiting.await()
+          listOf(connection.age(id = 2L), connection.age(id = 3L))
+        }
+      }
+    }
+
+    assertThat(ages).isEqualTo(
+      mapOf(
+        "a coroutine call resumes" to listOf(60, 50),
+        "a withTransaction begins" to listOf(60, 50)
+      )
+    )
+  }
+
+  @Test(timeout = 10_000)
+  fun `a blocking call on the thread that a yielded withTransaction resumes on takes the writer before it`() {
+    val singleThread = Executors
+      .newSingleThreadExecutor()
+      .asCoroutineDispatcher()
+    val connection = personConnection(queryDispatcher = singleThread)
+    val ages = singleThread.use {
+      runBlocking {
+        val dispatcherThread = withContext(singleThread) { Thread.currentThread() }
+        val written = CompletableDeferred<Unit>()
+        val transaction = async {
+          connection.withTransaction {
+            connection
+              .setAge(
+                age = 50,
+                id = 3L
+              )
+              .await()
+            written.complete(Unit)
+            while (!connection.pool.hasWriterWaiters()) {
+              delay(1.milliseconds)
+            }
+            yieldIfContended()
+            connection
+              .setAge(
+                age = 51,
+                id = 3L
+              )
+              .await()
+          }
+        }
+        written.await()
+        val releaseWriter = connection.holdWriter()
+        while (!connection.pool.hasWriterWaiters()) {
+          delay(1.milliseconds)
+        }
+        val blockingCall = async(singleThread) {
+          connection
+            .setAge(
+              age = 60,
+              id = 2L
+            )
+            .execute()
+        }
+        while (dispatcherThread.state != TIMED_WAITING) {
+          delay(1.milliseconds)
+        }
+        releaseWriter()
+        blockingCall.await()
+        transaction.await()
+        listOf(connection.age(id = 2L), connection.age(id = 3L))
+      }
+    }
+
+    assertThat(ages)
+      .containsExactly(60, 51)
+      .inOrder()
+  }
+
   @Test
   fun `the default connection runs withTransaction`() {
     val connection = personConnection()
@@ -891,6 +1141,80 @@ internal class TransactionsTest {
   }
 
   @Test
+  fun `observers that query on the thread that ends the transaction run outside it`() {
+    data class Outcome(
+      val failure: String?,
+      val readsOnNotification: List<String>,
+      val ageAfter: Int?
+    )
+
+    val outcomes = listOf("the transaction commits", "COMMIT fails after a yield").associateWith { case ->
+      var failCommit = false
+      val connection = personConnection(
+        driver = driverRunningBeforeStep(steppedSql = "COMMIT") {
+          if (failCommit) {
+            failCommit = false
+            error("COMMIT failed")
+          }
+        }
+      )
+      val reads = mutableListOf<String>()
+      connection.tableObservers.add(
+        tables = null,
+        observer = object : TableChangeObserver {
+          override fun onTablesChanged(tables: Set<String>) {
+            reads += runCatching { connection.age().toString() }.getOrElse { it.message.toString() }
+          }
+
+          override fun onClosed() = Unit
+        }
+      )
+      val failure = runCatching {
+        runBlocking {
+          connection.withTransaction {
+            connection
+              .setAge(40)
+              .await()
+            if (case == "COMMIT fails after a yield") {
+              val waiter = waitingWriter(
+                connection = connection,
+                id = 2L,
+                age = 90
+              )
+              yieldIfContended()
+              waiter.join()
+              connection
+                .setAge(41)
+                .await()
+              failCommit = true
+            }
+          }
+        }
+      }.exceptionOrNull()
+      Outcome(
+        failure = failure?.message,
+        readsOnNotification = reads,
+        ageAfter = connection.age()
+      )
+    }
+
+    assertThat(outcomes).isEqualTo(
+      mapOf(
+        "the transaction commits" to Outcome(
+          failure = null,
+          readsOnNotification = listOf("40"),
+          ageAfter = 40
+        ),
+        "COMMIT fails after a yield" to Outcome(
+          failure = "COMMIT failed",
+          readsOnNotification = listOf("40", "40"),
+          ageAfter = 40
+        )
+      )
+    )
+  }
+
+  @Test
   fun `closing the connection during a transaction fails its next call and rolls it back`() {
     val connection = personConnection()
 
@@ -913,7 +1237,135 @@ internal class TransactionsTest {
       .inOrder()
   }
 
-  private fun personConnection(queryDispatcher: CoroutineDispatcher = dispatcher) = testDbConnection(
+  @OptIn(ExperimentalCoroutinesApi::class)
+  @Test
+  fun `the failure of the block propagates and a failure to end the transaction is suppressed`() {
+    class BlockFailure : IllegalStateException("boom"), CopyableThrowable<BlockFailure> {
+      override fun createCopy() = null
+    }
+
+    data class Outcome(
+      val failure: String?,
+      val suppressed: List<String?>,
+      val writerOwnerAfter: Any?,
+      val nextTransaction: Any?
+    )
+
+    data class Case(
+      val failingSql: String,
+      val block: () -> Unit
+    )
+
+    val outcomes = mapOf(
+      "the block fails and ROLLBACK fails" to Case(
+        failingSql = "ROLLBACK",
+        block = { throw BlockFailure() }
+      ),
+      "the block succeeds and COMMIT fails" to Case(
+        failingSql = "COMMIT",
+        block = {}
+      )
+    ).mapValues { (_, case) ->
+      val connection = personConnection(
+        driver = driverRunningBeforeStep(steppedSql = case.failingSql) { error("${case.failingSql} failed") }
+      )
+      val failure = runCatching { runBlocking { connection.withTransaction { case.block() } } }.exceptionOrNull()
+      Outcome(
+        failure = failure?.message,
+        suppressed = failure
+          ?.suppressed
+          .orEmpty()
+          .map(Throwable::message),
+        writerOwnerAfter = connection.pool.writerOwner,
+        nextTransaction = runCatching {
+          runBlocking {
+            connection.withTransaction {
+              connection
+                .setAge(41)
+                .await()
+              connection.age()
+            }
+          }
+        }.getOrElse(Throwable::message)
+      )
+    }
+
+    assertThat(outcomes).isEqualTo(
+      mapOf(
+        "the block fails and ROLLBACK fails" to Outcome(
+          failure = "boom",
+          suppressed = listOf("ROLLBACK failed"),
+          writerOwnerAfter = null,
+          nextTransaction = 41
+        ),
+        "the block succeeds and COMMIT fails" to Outcome(
+          failure = "COMMIT failed",
+          suppressed = emptyList(),
+          writerOwnerAfter = null,
+          nextTransaction = "COMMIT failed"
+        )
+      )
+    )
+  }
+
+  @Test
+  fun `a cancellation after the block returns can arrive after the transaction committed`() {
+    data class Outcome(
+      val cancelled: Boolean,
+      val ageAfter: Int?
+    )
+
+    val outcomes = listOf("before the block returns", "while the transaction commits").associateWith { case ->
+      var caller: Job? = null
+      var cancelOnCommit = false
+      val connection = personConnection(
+        driver = driverRunningBeforeStep(steppedSql = "COMMIT") {
+          if (cancelOnCommit) {
+            checkNotNull(caller).cancel()
+          }
+        }
+      )
+      var failure: Throwable? = null
+      runBlocking {
+        launch(Dispatchers.Default) {
+          caller = currentCoroutineContext().job
+          failure = runCatching {
+            connection.withTransaction {
+              connection
+                .setAge(40)
+                .await()
+              when (case) {
+                "before the block returns" -> checkNotNull(caller).cancel()
+                else -> cancelOnCommit = true
+              }
+            }
+          }.exceptionOrNull()
+        }.join()
+      }
+      Outcome(
+        cancelled = failure is CancellationException,
+        ageAfter = connection.age()
+      )
+    }
+
+    assertThat(outcomes).isEqualTo(
+      mapOf(
+        "before the block returns" to Outcome(
+          cancelled = true,
+          ageAfter = 36
+        ),
+        "while the transaction commits" to Outcome(
+          cancelled = true,
+          ageAfter = 40
+        )
+      )
+    )
+  }
+
+  private fun personConnection(
+    queryDispatcher: CoroutineDispatcher = dispatcher,
+    driver: SQLiteDriver = BundledSQLiteDriver()
+  ) = testDbConnection(
     database = TestGeneratedDatabase(
       tableCount = 1,
       schema = listOf(
@@ -923,9 +1375,36 @@ internal class TransactionsTest {
             "(3, NULL, 17, 2, 'db:n', NULL), (4, 'Linus', 17, 4, 'db:l', 1)"
       )
     ),
+    driver = driver,
     fileName = File(folder.root, "person-${connections.size}.db").path,
     adapterSettings = dispatcherSettings(queryDispatcher)
   ).also(connections::add)
+
+  private fun driverRunningBeforeStep(
+    steppedSql: String,
+    beforeStep: () -> Unit
+  ): SQLiteDriver {
+    val driver = BundledSQLiteDriver()
+    return object : SQLiteDriver by driver {
+      override fun open(fileName: String): SQLiteConnection {
+        val connection = driver.open(fileName)
+        return object : SQLiteConnection by connection {
+          override fun prepare(sql: String): SQLiteStatement {
+            val statement = connection.prepare(sql)
+            return when (sql) {
+              steppedSql -> object : SQLiteStatement by statement {
+                override fun step(): Boolean {
+                  beforeStep()
+                  return statement.step()
+                }
+              }
+              else -> statement
+            }
+          }
+        }
+      }
+    }
+  }
 
   private fun DbConnectionImpl.age(id: Long = 1L) = SELECT
     .COLUMN(PERSON.AGE)
@@ -939,6 +1418,22 @@ internal class TransactionsTest {
     .RAW("UPDATE person SET age = ? WHERE id = ?", age, id)
     .notifies(PERSON)
     .usingConnection(this)
+
+  private suspend fun DbConnectionImpl.holdWriter(): () -> Unit {
+    val holding = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    val holder = thread {
+      write {
+        holding.complete(Unit)
+        runBlocking { release.await() }
+      }
+    }
+    holding.await()
+    return {
+      release.complete(Unit)
+      holder.join()
+    }
+  }
 
   private fun waitingWriter(
     connection: DbConnectionImpl,

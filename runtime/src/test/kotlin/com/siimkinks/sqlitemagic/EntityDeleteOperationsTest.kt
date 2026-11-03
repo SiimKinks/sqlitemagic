@@ -59,7 +59,7 @@ internal class EntityDeleteOperationsTest {
       )
     )
     assertThat(recording.statementSql)
-      .containsExactly("DELETE FROM books WHERE id IN (?)", "DELETE FROM books WHERE key IN (?,?)")
+      .containsExactly("""DELETE FROM "books" WHERE "id" IN (?)""", """DELETE FROM "books" WHERE "key" IN (?,?)""")
     assertThat(recording.triggers).containsExactly(setOf("books"), setOf("books"))
   }
 
@@ -96,7 +96,7 @@ internal class EntityDeleteOperationsTest {
         .isEqualTo(case.deletedRows)
       assertWithMessage(case.label)
         .that(recording.statementSql)
-        .containsExactly("DELETE FROM books WHERE 1")
+        .containsExactly("""DELETE FROM "books" WHERE 1""")
       assertWithMessage(case.label)
         .that(recording.triggers)
         .containsExactlyElementsIn(case.expectedTriggers)

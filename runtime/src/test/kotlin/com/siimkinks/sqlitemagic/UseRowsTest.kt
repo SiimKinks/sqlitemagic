@@ -9,9 +9,12 @@ import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
+import com.siimkinks.sqlitemagic.connection.awaitBlockedOrDone
+import com.siimkinks.sqlitemagic.connection.awaitTimedWaiting
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.util.concurrent.TimeUnit.SECONDS
+import kotlin.concurrent.thread
 
 internal class UseRowsTest {
   @Test
@@ -302,5 +305,87 @@ internal class UseRowsTest {
         .hasMessageThat()
         .isEqualTo("block failed")
     }
+  }
+
+  @Test
+  fun `ending a transaction inside a rows block keeps the connection until the block ends`() {
+    data class Outcome(
+      val writerBlockedDuringRows: Boolean,
+      val names: List<String?>,
+      val remaining: Int
+    )
+
+    val outcome = personDatabase().use { database ->
+      val people = (SELECT FROM PERSON ORDER_BY PERSON.ID.ASC()).usingConnection(database.connection)
+      val transaction = database.connection.newTransaction()
+      lateinit var writer: Thread
+      var writerBlocked = false
+      val names = people.useRows { rows ->
+        transaction.markSuccessful()
+        transaction.end()
+        writer = thread { database.execSQL("DELETE FROM person") }
+        writerBlocked = writer.awaitBlockedOrDone()
+        rows
+          .map(Person::name)
+          .toList()
+      }
+      writer.join()
+      Outcome(
+        writerBlockedDuringRows = writerBlocked,
+        names = names,
+        remaining = people.useRows(Sequence<Person>::count)
+      )
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        writerBlockedDuringRows = true,
+        names = people.map(Person::name),
+        remaining = 0
+      )
+    )
+  }
+
+  @Test
+  fun `a transaction does not yield while it reads rows`() {
+    data class Outcome(
+      val yieldedInsideRows: Boolean,
+      val writerBlockedDuringRows: Boolean,
+      val yieldedAfterRows: Boolean,
+      val remaining: Int
+    )
+
+    val outcome = personDatabase().use { database ->
+      val people = (SELECT FROM PERSON).usingConnection(database.connection)
+      val transaction = database.connection.newTransaction()
+      val writer = thread { database.execSQL("DELETE FROM person") }
+      writer.awaitTimedWaiting()
+      var writerBlocked = false
+      val yieldedInsideRows = people.useRows { rows ->
+        rows.first()
+        transaction
+          .yieldIfContendedSafely()
+          .also { writerBlocked = writer.isAlive }
+      }
+      val yieldedAfterRows = transaction.yieldIfContendedSafely()
+      writer.join()
+      transaction.markSuccessful()
+      transaction.end()
+      Outcome(
+        yieldedInsideRows = yieldedInsideRows,
+        writerBlockedDuringRows = writerBlocked,
+        yieldedAfterRows = yieldedAfterRows,
+        remaining = people.useRows(Sequence<Person>::count)
+      )
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        yieldedInsideRows = false,
+        writerBlockedDuringRows = true,
+        yieldedAfterRows = true,
+        remaining = 0
+      )
+    )
   }
 }

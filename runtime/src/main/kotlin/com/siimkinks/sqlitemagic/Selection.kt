@@ -24,6 +24,10 @@ abstract class Selection<out T> internal constructor() {
 
   internal open val exportedValues: List<SqlExpression<*, *, *>> get() = emptyList()
 
+  internal open fun widenedIndex(selected: SqlExpression<*, *, *>) = -1
+
+  internal open val mappedWithFunction get() = false
+
   internal open fun exportedName(index: Int) = derivedOutputName(
     expression = exportedValues[index],
     index = index
@@ -32,17 +36,19 @@ abstract class Selection<out T> internal constructor() {
 
 internal fun SqlRenderingContext.renderOutput(expression: SqlExpression<*, *, *>) {
   if (expression.nullness == Required && !nested) {
-    val output = expression.node
+    expression.node
       .outerJoinNull(this)
-      ?.let {
-        fieldOutputName(
-          table = it.table,
-          name = it.name
+      ?.let { field ->
+        val output = fieldOutputName(
+          table = field.table,
+          name = field.name
         )
+        val cause = when {
+          field.widened -> "a compound with a nullable arm can make it NULL"
+          else -> "an outer join can leave it NULL"
+        }
+        throw IllegalArgumentException("$output is NOT NULL but $cause; select the field with .nullable()")
       }
-    require(output == null) {
-      "$output is NOT NULL but an outer join can leave it NULL; select the field with .nullable()"
-    }
   }
   appendOutput(expression)
 }

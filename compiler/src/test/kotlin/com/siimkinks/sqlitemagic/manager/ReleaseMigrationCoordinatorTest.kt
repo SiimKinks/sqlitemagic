@@ -62,7 +62,7 @@ internal class ReleaseMigrationCoordinatorTest {
       assetsDirectory
         .resolve("4.sql")
         .readText()
-    ).isEqualTo("CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n")
+    ).isEqualTo("""CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n")
   }
 
   @Test
@@ -240,7 +240,7 @@ internal class ReleaseMigrationCoordinatorTest {
       assetsDirectory
         .resolve("7.sql")
         .readText()
-    ).isEqualTo("CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n")
+    ).isEqualTo("""CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n")
   }
 
   @Test

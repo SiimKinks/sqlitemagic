@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.index.mockSqliteIdentifier
 import com.siimkinks.sqlitemagic.index.mockSqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.SqliteSchema
@@ -45,6 +46,91 @@ internal class DatabaseStructureTest {
         DatabaseStructureJson.write(structure)
       )
     ).isEqualTo(structure)
+  }
+
+  @Test
+  fun `reads evidence of unquoted schema text as the quoted schema text the compiler writes`() {
+    fun table(
+      schema: String,
+      columns: List<Pair<String, String>>
+    ) = TableStructure(
+      name = "order",
+      schema = schema,
+      columns = columns.map { (name, columnSchema) ->
+        ColumnStructure(
+          name = name,
+          schema = columnSchema,
+          onDeleteCascade = "CASCADE" in columnSchema
+        )
+      }
+    )
+
+    val unquotedColumns = listOf(
+      "id" to "id INTEGER PRIMARY KEY",
+      "group" to "group TEXT DEFAULT 'REFERENCES a(b)'",
+      "parent" to "parent INTEGER REFERENCES select(id) ON DELETE CASCADE"
+    )
+    val quotedColumns = listOf(
+      "id" to """"id" INTEGER PRIMARY KEY""",
+      "group" to """"group" TEXT DEFAULT 'REFERENCES a(b)'""",
+      "parent" to """"parent" INTEGER REFERENCES "select"("id") ON DELETE CASCADE"""
+    )
+    val unquotedSchema = "order (id INTEGER PRIMARY KEY, group TEXT DEFAULT 'REFERENCES a(b)', " +
+        "parent INTEGER REFERENCES select(id) ON DELETE CASCADE)"
+    val quotedSchema = """"order" ("id" INTEGER PRIMARY KEY, "group" TEXT DEFAULT 'REFERENCES a(b)', """ +
+        """"parent" INTEGER REFERENCES "select"("id") ON DELETE CASCADE)"""
+    val quoted = table(
+      schema = "CREATE TABLE IF NOT EXISTS $quotedSchema",
+      columns = quotedColumns
+    )
+    val handWritten = table(
+      schema = "CREATE TABLE order (id INTEGER PRIMARY KEY, group TEXT, parent INTEGER)",
+      columns = unquotedColumns
+    )
+    mapOf(
+      "unquoted table" to Pair(
+        first = table(
+          schema = "CREATE TABLE IF NOT EXISTS $unquotedSchema",
+          columns = unquotedColumns
+        ),
+        second = table(
+          schema = "CREATE TABLE IF NOT EXISTS $quotedSchema",
+          columns = quotedColumns
+        )
+      ),
+      "unquoted temporary table without rowid" to Pair(
+        first = table(
+          schema = "CREATE TEMPORARY TABLE IF NOT EXISTS $unquotedSchema WITHOUT ROWID",
+          columns = unquotedColumns
+        ),
+        second = table(
+          schema = "CREATE TEMPORARY TABLE IF NOT EXISTS $quotedSchema WITHOUT ROWID",
+          columns = quotedColumns
+        )
+      ),
+      "quoted table" to (quoted to quoted),
+      "table schema that the compiler did not write" to (handWritten to handWritten)
+    ).forEach { (label, tables) ->
+      val (evidence, expected) = tables
+
+      assertWithMessage(label)
+        .that(
+          DatabaseStructureJson.read(
+            DatabaseStructureJson.write(
+              DatabaseStructure(
+                tables = mapOf("order" to evidence),
+                temporaryTables = mapOf("order" to evidence)
+              )
+            )
+          )
+        )
+        .isEqualTo(
+          DatabaseStructure(
+            tables = mapOf("order" to expected),
+            temporaryTables = mapOf("order" to expected)
+          )
+        )
+    }
   }
 
   @Test

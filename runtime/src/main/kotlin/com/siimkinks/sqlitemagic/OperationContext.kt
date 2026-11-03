@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.internal.EntityRecursiveAdapter
 import com.siimkinks.sqlitemagic.internal.LogUtil.logDebug
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutationResults
+import com.siimkinks.sqlitemagic.internal.appendQuotedSqlIdentifier
 
 internal data class OperationConfigurationSnapshot(
   val connection: DbConnectionImpl?,
@@ -125,9 +126,9 @@ internal class OperationContext private constructor(
     )
     else -> buildString {
       append("DELETE FROM ")
-      append(adapter.tableName)
+      appendQuotedSqlIdentifier(adapter.tableName)
       append(" WHERE ")
-      append(columnName)
+      appendQuotedSqlIdentifier(columnName)
       append(" IN (")
       appendPlaceholders(count)
       append(')')

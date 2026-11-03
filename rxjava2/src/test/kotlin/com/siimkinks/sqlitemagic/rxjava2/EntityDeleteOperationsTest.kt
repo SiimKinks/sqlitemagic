@@ -21,7 +21,7 @@ internal class EntityDeleteOperationsTest {
     terminal
       .test()
       .assertResult(4)
-    assertThat(recording.statementSql).containsExactly("DELETE FROM books WHERE 1")
+    assertThat(recording.statementSql).containsExactly("""DELETE FROM "books" WHERE 1""")
     assertThat(recording.triggers).containsExactly(setOf("books"))
   }
 }

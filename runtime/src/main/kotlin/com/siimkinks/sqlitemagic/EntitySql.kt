@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 
 internal class EntitySql {
   private val insertSql = arrayOfNulls<String>(CONFLICT_VALUES.size)
@@ -28,9 +29,11 @@ internal class EntitySql {
       )
 
   fun deleteOne(tableName: String, columnName: String) = deleteOneSql[columnName]
-    ?: "DELETE FROM $tableName WHERE $columnName IN (?)".also { deleteOneSql[columnName] = it }
+    ?: "DELETE FROM ${quoteSqlIdentifier(tableName)} WHERE ${quoteSqlIdentifier(columnName)} IN (?)"
+        .also { deleteOneSql[columnName] = it }
 
-  fun deleteTable(tableName: String) = deleteTableSql ?: "DELETE FROM $tableName WHERE 1".also { deleteTableSql = it }
+  fun deleteTable(tableName: String) = deleteTableSql
+    ?: "DELETE FROM ${quoteSqlIdentifier(tableName)} WHERE 1".also { deleteTableSql = it }
 
   private fun Array<String?>.formatted(template: String, conflictAlgorithm: Int) = this[conflictAlgorithm]
     ?: template

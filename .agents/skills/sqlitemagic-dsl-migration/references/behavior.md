@@ -1,8 +1,8 @@
 # Changes that compile but behave differently
 
-Walk this list for every migrated query and for code around entity operations, views and loggers. Each item says how
-to find affected code and what to do. Items marked **needs a decision** can be ported two ways; ask the user when
-neither the code nor its tests show which result is intended.
+Walk this list for every migrated query and for code around entity operations, views, migrations and loggers. Each
+item says how to find affected code and what to do. Items marked **needs a decision** can be ported two ways; ask the
+user when neither the code nor its tests show which result is intended.
 
 ## Contents
 
@@ -16,6 +16,7 @@ neither the code nor its tests show which result is intended.
 - [Outer-joined values must be lifted](#outer-joined-values-must-be-lifted)
 - [Automatic joins follow one relationship path](#automatic-joins-follow-one-relationship-path)
 - [Entity reads reuse only exact relationship joins](#entity-reads-reuse-only-exact-relationship-joins)
+- [Shallow reads build related objects from their ID](#shallow-reads-build-related-objects-from-their-id)
 - [Partial entities check required properties before SQL](#partial-entities-check-required-properties-before-sql)
 - [Nested queries resolve names as SQL does](#nested-queries-resolve-names-as-sql-does)
 - [Compounds type by the left arm](#compounds-type-by-the-left-arm)
@@ -144,6 +145,18 @@ gets its own automatic join, so every book reads its real author.
   condition.
 - Do: if code relied on the nulled relationship to filter, move the condition to `WHERE`.
 
+## Shallow reads build related objects from their ID
+
+Without `queryDeep()`, legacy queried a related object in full. Now a related object whose other constructor
+parameters are all nullable or have default values is built from its stored ID alone, with `null` or the defaults for
+the rest; other related objects are still queried in full. Updating or persisting the parent also writes the related
+object, so writing back a parent read this way sets the related object's other columns to `NULL`.
+
+- Find: entity queries without `queryDeep()` whose relationships point to such models, code that reads the related
+  object's other properties, and updates or persists of parents read that way.
+- Do: add `queryDeep()` where the related object's values are needed, and persist parents read without it with
+  `ignoreNullValues()`.
+
 ## Partial entities check required properties before SQL
 
 A partial entity (`SELECT.COLUMNS(…).FROM(T).mapTo(T)`, legacy `Select.columns(…)`) that misses a required property
@@ -255,7 +268,7 @@ property. Selected values keep the property's type, as legacy typed them.
 | Errors are the driver's: `FrameworkSQLiteDriver` keeps Android's typed `SQLiteException` subclasses; `BundledSQLiteDriver` throws `SQLException` with the result code in the message | catch `SQLException` |
 | A corrupt database throws and keeps its files; legacy deleted the database and created it again | handle the exception where a fresh database is acceptable |
 | On `FrameworkSQLiteDriver` before API 28, a row larger than the cursor window (about 2 MB) fails with `SQLiteException`; legacy read its values as NULL | keep rows below 2 MB on the framework driver, or use the bundled driver |
-| On `FrameworkSQLiteDriver`, each connection takes the default locale when it opens: after a locale change while the app runs, connections that open later sort `LOCALIZED` text by the new locale, and opening one fails with `SQLiteDatabaseLockedException` if a transaction runs for more than a few seconds | don't rely on `LOCALIZED` order or a fresh connection right after a locale change; restart the app to apply the locale |
+| On `FrameworkSQLiteDriver`, each connection takes the default locale when it opens: after a locale change while the app runs, connections that open later sort `LOCALIZED` text by the new locale and earlier ones by the old locale | don't rely on `LOCALIZED` order right after a locale change; restart the app to apply the locale |
 | A statement waiting longer than `connectionPoolTimeout` (30 s) for a connection held by other threads throws `SQLException` | keep transactions short, or raise the timeout |
 | An empty `IN` list renders `IN ()` instead of a bound `'0'` | none; results are the same |
 | `takeFirst()` keeps explicit `LIMIT`/`OFFSET`; `LIMIT(0).takeFirst()` returns null | none |
@@ -264,5 +277,7 @@ property. Selected values keep the property's type, as legacy typed them.
 | `x AS ""` renders `AS ""`, a column named `""` (legacy dropped the alias) | drop empty aliases |
 | Raw `UPDATE.RAW`/`DELETE.RAW` notify only tables declared with `notifies(…)` | declare tables observed elsewhere |
 | The default downgrade drops the newer version's views as well as tables | none |
+| Migration scripts run inside the upgrade's transaction, so a script line such as `BEGIN` or `COMMIT` fails the upgrade | delete transaction statements from hand-written scripts |
+| With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version instead of one above the latest release, and fails when that version is already released | raise `@Database(version)` before running it |
 | Query execution time is no longer logged | time queries in the caller if needed |
 | Entity result singletons (`EntityInsertResult.Ignored`, …) are data objects (`toString()` is `Ignored`) | none unless code parsed the old text |

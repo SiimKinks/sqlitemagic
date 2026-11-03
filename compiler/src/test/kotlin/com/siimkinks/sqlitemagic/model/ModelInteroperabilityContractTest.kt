@@ -137,7 +137,7 @@ internal class ModelInteroperabilityContractTest {
         "_InteropModel.kt"
       )
       .withGeneratedSource("SqliteMagic_InteropModel_Adapter.kt") {
-        it.assertContains("value TEXT DEFAULT NULL")
+        it.assertContains("""\"value\" TEXT DEFAULT NULL""")
       }
   }
 }

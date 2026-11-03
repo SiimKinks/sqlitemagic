@@ -210,7 +210,9 @@ object ReactiveAdapterSupport {
 
   /**
    * End the use of an owner returned by [transactionOwner]. An owner that continued a transaction of a thread gives
-   * that transaction back to the thread. Calls on threads where an ended owner is still installed fail.
+   * that transaction back to the thread. Ending the outermost level of the owner's transaction removes the owner from
+   * the thread that ends it, so later calls of that thread, such as the queries of observers notified of the commit,
+   * run outside the transaction. Calls on threads where an ended owner is still installed fail.
    *
    * While the owner continues a thread's transaction, the thread cannot use it. If the thread ends it anyway, the
    * transaction rolls back, the owner's calls fail and so does this release.

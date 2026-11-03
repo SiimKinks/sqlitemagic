@@ -9,7 +9,8 @@ internal class SchemaMigration(
 
 internal fun planSchemaMigration(
   previous: DatabaseStructure,
-  current: DatabaseStructure
+  current: DatabaseStructure,
+  enforcesForeignKeys: Boolean = current.enforcesForeignKeys
 ): SchemaMigration {
   val diff = SchemaDiffer.diff(
     from = previous,
@@ -34,7 +35,7 @@ internal fun planSchemaMigration(
         migrationWarnings(
           diff = diff,
           plan = it,
-          enforcesForeignKeys = current.enforcesForeignKeys
+          enforcesForeignKeys = enforcesForeignKeys
         )
       }
       .orEmpty()

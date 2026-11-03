@@ -23,10 +23,10 @@ interface Transaction : Closeable {
   fun markSuccessful()
 
   /**
-   * Temporarily end the transaction to let other threads run. The transaction is assumed successful
-   * so far. Do not call [markSuccessful] first. A new transaction is created when this returns,
-   * but is not marked successful. This assumes no nested transactions ([DbConnection.newTransaction]
-   * has been called only once) and throws if that is not the case.
+   * Temporarily end the transaction to let other threads run. The transaction is assumed successful so far. Do not call
+   * [markSuccessful] first. A new transaction is created when this returns, but is not marked successful. This assumes
+   * no nested transactions ([DbConnection.newTransaction] has been called only once) and throws if that is not the
+   * case. It does not yield while a `useRows` block reads rows on the transaction's connection.
    *
    * @return true if the transaction was yielded
    * @see SQLiteDatabase.yieldIfContendedSafely
@@ -34,10 +34,10 @@ interface Transaction : Closeable {
   fun yieldIfContendedSafely(): Boolean
 
   /**
-   * Temporarily end the transaction to let other threads run. The transaction is assumed successful
-   * so far. Do not call [markSuccessful] first. A new transaction is created when this returns,
-   * but is not marked successful. This assumes no nested transactions ([DbConnection.newTransaction]
-   * has been called only once) and throws if that is not the case.
+   * Temporarily end the transaction to let other threads run. The transaction is assumed successful so far. Do not call
+   * [markSuccessful] first. A new transaction is created when this returns, but is not marked successful. This assumes
+   * no nested transactions ([DbConnection.newTransaction] has been called only once) and throws if that is not the
+   * case. It does not yield while a `useRows` block reads rows on the transaction's connection.
    *
    * @param sleepAmount If greater than zero, sleep this long before restarting a transaction when
    * the lock was yielded, allowing other background threads to make more progress.

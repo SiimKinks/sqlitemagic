@@ -124,6 +124,21 @@ object SqlUtil {
     connection.execSQL("$create IF NOT EXISTS ${quoteSqlIdentifier(view.viewName)} AS ${view.definition.sql}")
   }
 
-  internal fun quoteSqlIdentifier(name: String) =
-    """"${name.replace(oldValue = "\"", newValue = "\"\"")}""""
+  internal fun quoteSqlIdentifier(name: String) = buildString(capacity = name.length + 2) {
+    appendQuotedSqlIdentifier(name)
+  }
+}
+
+internal fun StringBuilder.appendQuotedSqlIdentifier(name: String) = apply {
+  append('"')
+  when {
+    name.indexOf('"') < 0 -> append(name)
+    else -> for (character in name) {
+      if (character == '"') {
+        append('"')
+      }
+      append(character)
+    }
+  }
+  append('"')
 }

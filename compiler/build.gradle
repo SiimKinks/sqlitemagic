@@ -7,7 +7,6 @@ plugins {
 }
 
 apply from: '../buildsystem/maven-push.gradle'
-apply from: '../buildsystem/bintray-push.gradle'
 
 dependencies {
   implementation project(':annotations')
@@ -24,6 +23,8 @@ dependencies {
 
   testImplementation project(':coroutines')
   testImplementation project(':rxjava2')
+  testImplementation libs.android.sqlite
+  testImplementation libs.android.sqlite.bundled.jvm
   testImplementation platform(libs.junit.bom)
   testImplementation libs.junit.jupiter
   testImplementation libs.truth

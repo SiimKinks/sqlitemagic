@@ -28,3 +28,6 @@ internal fun String.camelCaseToSnakeCase() = when {
 internal fun String.generatedFieldName() = camelCaseToSnakeCase()
   .uppercase()
   .replace(oldChar = '.', newChar = '_')
+
+internal fun quoteSqlIdentifier(identifier: String) =
+    """"${identifier.replace(oldValue = "\"", newValue = "\"\"")}""""

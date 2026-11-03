@@ -70,16 +70,16 @@ internal class ModelGenerationContractTest {
       )
       .withGeneratedSource("SqliteMagic_LibraryBook_Adapter.kt") {
         it.assertContains(
-          "CREATE TABLE IF NOT EXISTS library_books (",
-          "book_key TEXT NOT NULL PRIMARY KEY, ",
-          "title_text TEXT NOT NULL DEFAULT 'untitled', ",
-          "rating REAL NOT NULL DEFAULT 0.0, ",
-          "subtitle TEXT DEFAULT NULL, ",
-          "cover BLOB NOT NULL DEFAULT X'')",
+          """CREATE TABLE IF NOT EXISTS \"library_books\" (""",
+          """\"book_key\" TEXT NOT NULL PRIMARY KEY, """,
+          """\"title_text\" TEXT NOT NULL DEFAULT 'untitled', """,
+          """\"rating\" REAL NOT NULL DEFAULT 0.0, """,
+          """\"subtitle\" TEXT DEFAULT NULL, """,
+          """\"cover\" BLOB NOT NULL DEFAULT X'')""",
           "override val moduleName: String? = null",
           """override val tableName: String = "library_books"""",
           "override val insertSql: String =",
-          "INSERT%s INTO library_books",
+          """INSERT%s INTO \"library_books\"""",
           "internal object SqliteMagic_LibraryBook_Adapter",
           "EntityDefaultIdentityAdapter<LibraryBook>",
           "EntityIdentityStatementBinder<LibraryBook> by SqliteMagic_LibraryBook_Dao",
@@ -233,12 +233,12 @@ internal class ModelGenerationContractTest {
       )
       .withGeneratedSource("SqliteMagic_GeneratedIdModel_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          "INSERT%s INTO generated_id_model (value) VALUES (?)",
-          "UPDATE%s generated_id_model SET value=? WHERE id=?",
+          """INSERT%s INTO \"generated_id_model\" (\"value\") VALUES (?)""",
+          """UPDATE%s \"generated_id_model\" SET \"value\"=? WHERE \"id\"=?""",
           "override fun assignGeneratedId(",
           "entity.id = rowId"
         )
-        generatedSource.assertDoesNotContain("INSERT%s INTO generated_id_model (id,")
+        generatedSource.assertDoesNotContain("""INSERT%s INTO \"generated_id_model\" (\"id\",""")
       }
       .withGeneratedSource("SqliteMagic_GeneratedIdModel_Dao.kt") {
         it.assertContains(

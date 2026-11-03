@@ -231,7 +231,11 @@ internal class SqlRenderingContext(
   }
 
   fun addSourceAlias(table: Table<*>, occurrence: Table<*>) {
+    val scope = scope
     scope.positions[table] = scope.positions[occurrence]
+    if (scope.nullExtendedSources?.contains(occurrence) == true) {
+      addNullExtended(table)
+    }
   }
 
   fun hasEnclosingSource(table: Table<*>): Boolean {
@@ -265,7 +269,7 @@ internal class SqlRenderingContext(
   inline fun <T> renderList(items: List<T>, render: (T) -> Unit) = renderList(count = items.size) { render(items[it]) }
 
   inline fun renderList(count: Int, render: (Int) -> Unit) {
-    for (index in 0 until count) {
+    for (index in 0..<count) {
       if (index != 0) {
         sql.append(", ")
       }

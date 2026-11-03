@@ -43,27 +43,27 @@ internal class VariableArgsOperationHelperTest {
 
     val expectedStatements = listOf(
       ExpectedStatement(
-        prefix = "INSERT OR IGNORE INTO books",
+        prefix = """INSERT OR IGNORE INTO "books"""",
         suffix = ") VALUES (?,?)",
         values = mapOf("a" to "first", "b" to "second")
       ),
       ExpectedStatement(
-        prefix = "INSERT OR IGNORE INTO authors",
+        prefix = """INSERT OR IGNORE INTO "authors"""",
         suffix = ") VALUES (?)",
         values = mapOf("a" to "first")
       ),
       ExpectedStatement(
-        prefix = "UPDATE OR IGNORE books",
-        suffix = " WHERE key=?",
+        prefix = """UPDATE OR IGNORE "books"""",
+        suffix = """ WHERE "key"=?""",
         values = mapOf("a" to "first")
       ),
       ExpectedStatement(
-        prefix = "UPDATE OR IGNORE authors",
-        suffix = " WHERE id=?",
+        prefix = """UPDATE OR IGNORE "authors"""",
+        suffix = """ WHERE "id"=?""",
         values = mapOf("a" to "first", "b" to 2L)
       ),
       ExpectedStatement(
-        prefix = "INSERT OR IGNORE INTO books",
+        prefix = """INSERT OR IGNORE INTO "books"""",
         suffix = ") VALUES (?,?)",
         values = mapOf("a" to "first", "b" to 2L)
       )
@@ -100,7 +100,7 @@ internal class VariableArgsOperationHelperTest {
     )
 
     assertThat(connection.sqliteConnection.executions.map(RecordedExecution::sql))
-      .containsExactly("INSERT INTO books(a) VALUES (?)", "UPDATE books SET a=? WHERE id=?")
+      .containsExactly("""INSERT INTO "books"("a") VALUES (?)""", """UPDATE "books" SET "a"=? WHERE "id"=?""")
       .inOrder()
   }
 
@@ -216,7 +216,7 @@ internal class VariableArgsOperationHelperTest {
 
       assertWithMessage(case.label)
         .that(execution.sql)
-        .isEqualTo("UPDATE books SET value=? WHERE id=?")
+        .isEqualTo("""UPDATE "books" SET "value"=? WHERE "id"=?""")
       for (index in 1..2) {
         assertWithMessage("${case.label}: binding $index")
           .that(execution.bindings[index])
@@ -266,7 +266,7 @@ private fun assertBoundColumns(
       .substringBefore(" WHERE ")
       .split(',')
       .map { it.removeSuffix("=?") }
-  }
+  }.map { it.trim('"') }
   assertThat(columns).containsExactlyElementsIn(expected.keys)
   columns.forEachIndexed { index, column ->
     assertWithMessage("${execution.sql}: $column")

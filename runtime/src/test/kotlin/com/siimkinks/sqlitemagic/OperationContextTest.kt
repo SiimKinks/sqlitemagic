@@ -335,9 +335,9 @@ internal class OperationContextTest {
     }
     assertThat(listOf(singleDeletes[0], tableDeletes[0], twoEntityDelete))
       .containsExactly(
-        "DELETE FROM books WHERE id IN (?)",
-        "DELETE FROM books WHERE 1",
-        "DELETE FROM books WHERE id IN (?,?)"
+        """DELETE FROM "books" WHERE "id" IN (?)""",
+        """DELETE FROM "books" WHERE 1""",
+        """DELETE FROM "books" WHERE "id" IN (?,?)"""
       )
       .inOrder()
   }

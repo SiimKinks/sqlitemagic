@@ -4,7 +4,6 @@ plugins {
 }
 
 apply from: '../buildsystem/maven-push.gradle'
-apply from: '../buildsystem/bintray-push.gradle'
 
 def generatedVersionDir = layout.buildDirectory.dir('generated/sources/pluginVersion/main/kotlin')
 def pluginVersion = project.version.toString()

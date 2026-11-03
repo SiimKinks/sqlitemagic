@@ -46,23 +46,28 @@ internal class PreparedQuery(
   inline fun <R> withStatement(
     dbConnection: DbConnectionImpl,
     values: List<NativeValue>,
+    rows: Boolean = false,
     block: (SQLiteStatement) -> R
-  ): R = dbConnection.read(requiresWriter = requiresWriter) { pooled ->
+  ): R = dbConnection.read(
+    requiresWriter = requiresWriter,
+    rows = rows
+  ) { pooled ->
     pooled.withStatement(sql) { statement ->
       bindNativeValues(
         statement = statement,
         values = values
       )
-      checkReadWidth(statement)
       block(statement)
     }
   }
 
-  fun checkReadWidth(statement: SQLiteStatement) {
+  fun firstStep(statement: SQLiteStatement): Boolean {
+    val hasRow = statement.step()
     if (readWidth != 0) {
       val columnCount = statement.getColumnCount()
       check(columnCount == readWidth) { "raw query returned $columnCount columns; readAs reads $readWidth" }
     }
+    return hasRow
   }
 }
 

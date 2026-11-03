@@ -13,7 +13,9 @@ import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
  */
 class ScalarSelection<R, N : SqlNullability, T> internal constructor(
   internal val expression: SqlExpression<R, N, *>,
-  private val read: (SQLiteStatement, Int) -> T
+  private val read: (SQLiteStatement, Int) -> T,
+  private val widenedFrom: SqlExpression<*, *, *>? = null,
+  internal override val mappedWithFunction: Boolean = false
 ) : Selection<T>() {
   override fun render(context: SqlRenderingContext) = context.renderOutput(expression)
 
@@ -23,17 +25,28 @@ class ScalarSelection<R, N : SqlNullability, T> internal constructor(
 
   override val exportedValues get() = listOf(expression)
 
-  internal fun <M> mapped(constructor: (T) -> M) = withReader { statement, index ->
-    constructor(read(statement, index))
+  override fun widenedIndex(selected: SqlExpression<*, *, *>) = when {
+    widenedFrom === selected -> 0
+    else -> -1
   }
+
+  internal fun <M> mapped(constructor: (T) -> M) = ScalarSelection(
+    expression = expression,
+    read = { statement, index -> constructor(read(statement, index)) },
+    widenedFrom = widenedFrom,
+    mappedWithFunction = true
+  )
 
   internal fun nullable() = ScalarSelection(
     expression = expression.nullable(),
-    read = contextualRead(read)
+    read = contextualRead(read),
+    widenedFrom = expression,
+    mappedWithFunction = mappedWithFunction
   )
 
   internal fun <V> withReader(read: (SQLiteStatement, Int) -> V) = ScalarSelection(
     expression = expression,
-    read = read
+    read = read,
+    widenedFrom = widenedFrom
   )
 }

@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSNode
 import com.siimkinks.sqlitemagic.CompilerOptions
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.dbconfig.SubmoduleDatabaseMetadata
 import com.siimkinks.sqlitemagic.index.mockSqliteIdentifier
 import com.siimkinks.sqlitemagic.index.mockSqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.model.ModelCollectionStep
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.io.IOException
 import java.nio.file.Path
@@ -454,19 +456,7 @@ internal class DebugMigrationCoordinatorTest {
 
     DebugMigrationCoordinator(
       configuration = debugMigrationConfiguration(projectDirectory = temporaryDirectory),
-      logger = object : KSPLogger {
-        override fun logging(message: String, symbol: KSNode?) = Unit
-
-        override fun info(message: String, symbol: KSNode?) = Unit
-
-        override fun warn(message: String, symbol: KSNode?) {
-          warnings += message
-        }
-
-        override fun error(message: String, symbol: KSNode?) = Unit
-
-        override fun exception(e: Throwable) = Unit
-      }
+      logger = warningLogger(warnings)
     )
       .handle(
         database = database,
@@ -476,6 +466,86 @@ internal class DebugMigrationCoordinatorTest {
     assertThat(warnings).containsExactly(
       "Migration drops table legacy_items with its rows; if it was renamed to debug_items, edit the migration SQL " +
           "to keep them."
+    )
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = ["feature", "main"])
+  fun `warnings name cascades that other modules may keep enabled`(module: String) {
+    val moduleDirectory = temporaryDirectory.resolve(module)
+    val id = migrationColumn(
+      name = "id",
+      schema = "id INTEGER PRIMARY KEY"
+    )
+
+    fun structure(
+      parentColumns: List<ColumnStructure>,
+      childParent: ColumnStructure
+    ) = DatabaseStructure(
+      tables = mapOf(
+        "parents" to migrationTable(
+          name = "parents",
+          columns = parentColumns
+        ),
+        "children" to migrationTable(
+          name = "children",
+          columns = listOf(id, childParent)
+        )
+      )
+    )
+    DatabaseStructureJson.write(
+      file = moduleDirectory
+        .resolve("db/latest.struct")
+        .toFile(),
+      structure = structure(
+        parentColumns = listOf(id),
+        childParent = migrationColumn(
+          name = "parent",
+          schema = "parent INTEGER REFERENCES parents(id) ON DELETE CASCADE",
+          onDeleteCascade = true
+        )
+      )
+    )
+    val warnings = mutableListOf<String>()
+
+    DebugMigrationCoordinator(
+      configuration = debugMigrationConfiguration(
+        projectDirectory = moduleDirectory,
+        mainModuleDirectory = temporaryDirectory.resolve("main")
+      ),
+      logger = warningLogger(warnings)
+    )
+      .handle(
+        database = when (module) {
+          "main" -> debugMainDatabase.copy(
+            submodules = listOf(
+              SubmoduleDatabaseMetadata(
+                moduleName = "feature",
+                managerQualifiedName = "$PACKAGE.FeatureGeneratedClassesManager"
+              )
+            )
+          )
+          else -> debugMainDatabase.copy(submoduleName = module)
+        },
+        currentStructure = structure(
+          parentColumns = listOf(
+            id,
+            migrationColumn(
+              name = "owner",
+              schema = "owner INTEGER NOT NULL",
+              notNull = true
+            )
+          ),
+          childParent = migrationColumn(
+            name = "parent",
+            schema = "parent INTEGER"
+          )
+        )
+      )
+
+    assertThat(warnings).containsExactly(
+      "Migration deletes all rows of parents because existing rows have no value for its new column(s): owner; " +
+          "ON DELETE CASCADE also deletes their dependent rows in children. Edit the migration SQL to keep them."
     )
   }
 
@@ -971,6 +1041,20 @@ internal class DebugMigrationCoordinatorTest {
       .isEqualTo("stale marker")
     assertThat(blockedTarget.isDirectory())
       .isTrue()
+  }
+
+  private fun warningLogger(warnings: MutableList<String>) = object : KSPLogger {
+    override fun logging(message: String, symbol: KSNode?) = Unit
+
+    override fun info(message: String, symbol: KSNode?) = Unit
+
+    override fun warn(message: String, symbol: KSNode?) {
+      warnings += message
+    }
+
+    override fun error(message: String, symbol: KSNode?) = Unit
+
+    override fun exception(e: Throwable) = Unit
   }
 
   private fun mockView(name: String) = mockViewElement(

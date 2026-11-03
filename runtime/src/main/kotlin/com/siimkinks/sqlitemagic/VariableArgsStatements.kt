@@ -4,6 +4,7 @@ import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
 import com.siimkinks.sqlitemagic.internal.MutationResults
 import com.siimkinks.sqlitemagic.internal.ScatterMap
+import com.siimkinks.sqlitemagic.internal.appendQuotedSqlIdentifier
 
 internal inline fun <T> OperationContext.withBoundInsertStatement(
   tableName: String,
@@ -13,7 +14,7 @@ internal inline fun <T> OperationContext.withBoundInsertStatement(
     append("INSERT")
     append(CONFLICT_VALUES[statementConflictAlgorithm])
     append(" INTO ")
-    append(tableName)
+    appendQuotedSqlIdentifier(tableName)
     when {
       bindValues.isEmpty() -> append(" DEFAULT VALUES")
       else -> {
@@ -41,13 +42,13 @@ internal inline fun <T> OperationContext.withBoundUpdateStatement(
     append("UPDATE")
     append(CONFLICT_VALUES[statementConflictAlgorithm])
     append(' ')
-    append(tableName)
+    appendQuotedSqlIdentifier(tableName)
     append(" SET ")
     when {
       bindValues.isEmpty() -> {
-        append(resolutionColumn)
+        appendQuotedSqlIdentifier(resolutionColumn)
         append('=')
-        append(resolutionColumn)
+        appendQuotedSqlIdentifier(resolutionColumn)
       }
       else -> appendColumns(
         values = bindValues,
@@ -55,7 +56,7 @@ internal inline fun <T> OperationContext.withBoundUpdateStatement(
       )
     }
     append(" WHERE ")
-    append(resolutionColumn)
+    appendQuotedSqlIdentifier(resolutionColumn)
     append("=?")
   }
 ) { statement, results ->
@@ -91,7 +92,7 @@ internal fun StringBuilder.appendColumns(values: ScatterMap<String, Any>, suffix
       append(',')
     }
     first = false
-    append(column)
+    appendQuotedSqlIdentifier(column)
     append(suffix)
   }
 }

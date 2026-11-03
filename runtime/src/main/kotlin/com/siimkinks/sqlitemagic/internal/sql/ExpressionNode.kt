@@ -13,10 +13,14 @@ internal sealed interface ExpressionNode : SqlRenderable {
 
   fun forEachField(action: (Field) -> Unit) = Unit
 
-  class Field(val table: Table<*>, val name: String) : ExpressionNode {
+  class Field(
+    val table: Table<*>,
+    val name: String,
+    val widened: Boolean = false
+  ) : ExpressionNode {
     val quotedName = quoteSqlIdentifier(name)
 
-    override fun outerJoinNull(context: SqlRenderingContext) = takeIf { context.isNullExtended(table) }
+    override fun outerJoinNull(context: SqlRenderingContext) = takeIf { widened || context.isNullExtended(table) }
 
     override fun forEachField(action: (Field) -> Unit) = action(this)
 
@@ -276,7 +280,7 @@ internal sealed interface ExpressionNode : SqlRenderable {
     }
 
     override fun outerJoinNull(context: SqlRenderingContext): Field? {
-      for (index in 1 until branches.size step 2) {
+      for (index in 1..<branches.size step 2) {
         branches[index]
           .outerJoinNull(context)
           ?.let { return it }

@@ -30,7 +30,7 @@ internal class EntityPersistOperationsTest {
     assertThat(connection.statementSql)
       .containsExactly(
         "UPDATE books SET name=? WHERE id=?",
-        "UPDATE books SET id=id WHERE id=?"
+        """UPDATE "books" SET "id"="id" WHERE "id"=?"""
       )
       .inOrder()
   }

@@ -13,7 +13,7 @@ internal class MigrationsHandlerTest {
   lateinit var temporaryDirectory: Path
 
   @Test
-  fun `reads legacy structures and writes compatible table-only JSON`() {
+  fun `reads legacy structures with quoted identifiers and writes compatible table-only JSON`() {
     @Language("JSON")
     val legacyJson = """
       {
@@ -39,7 +39,7 @@ internal class MigrationsHandlerTest {
       tables = mapOf(
         "books" to TableStructure(
           name = "books",
-          schema = "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY)",
+          schema = """CREATE TABLE IF NOT EXISTS "books" ("id" INTEGER PRIMARY KEY)""",
           columns = listOf(
             ColumnStructure(
               id = true,
@@ -47,7 +47,7 @@ internal class MigrationsHandlerTest {
               name = "id",
               onDeleteCascade = false,
               sqlType = "INTEGER",
-              schema = "id INTEGER PRIMARY KEY"
+              schema = """"id" INTEGER PRIMARY KEY"""
             )
           )
         )
@@ -60,14 +60,14 @@ internal class MigrationsHandlerTest {
       {"tables":{
         "books":{
           "name":"books",
-          "schema":"CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY)",
+          "schema":"CREATE TABLE IF NOT EXISTS \"books\" (\"id\" INTEGER PRIMARY KEY)",
           "columns":[{
             "id":true,
             "autoIncrement":false,
             "name":"id",
             "onDeleteCascade":false,
             "sqlType":"INTEGER",
-            "schema":"id INTEGER PRIMARY KEY",
+            "schema":"\"id\" INTEGER PRIMARY KEY",
             "notNull":false,
             "notNullDefault":null
           }]
@@ -127,10 +127,10 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE books RENAME TO books_",
+      """ALTER TABLE "books" RENAME TO "books_"""",
       "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT DEFAULT '') WITHOUT ROWID",
-      "INSERT INTO books (id) SELECT id FROM books_",
-      "DROP TABLE IF EXISTS books_"
+      """INSERT INTO "books" ("id") SELECT "id" FROM "books_"""",
+      """DROP TABLE IF EXISTS "books_""""
     ).inOrder()
   }
 
@@ -213,8 +213,8 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DROP TABLE IF EXISTS legacy_users",
-          "DROP TABLE IF EXISTS archived_users",
+          """DROP TABLE IF EXISTS "legacy_users"""",
+          """DROP TABLE IF EXISTS "archived_users"""",
           "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)"
         ),
         warnings = listOf(
@@ -266,7 +266,7 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DROP TABLE IF EXISTS legacy",
+          """DROP TABLE IF EXISTS "legacy"""",
           "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
           "CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY)"
         ),
@@ -318,10 +318,10 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE books RENAME TO books_",
+      """ALTER TABLE "books" RENAME TO "books_"""",
       "CREATE TABLE IF NOT EXISTS books (title TEXT DEFAULT '', id INTEGER PRIMARY KEY)",
-      "INSERT INTO books (title) SELECT title FROM books_",
-      "DROP TABLE IF EXISTS books_"
+      """INSERT INTO "books" ("title") SELECT "title" FROM "books_"""",
+      """DROP TABLE IF EXISTS "books_""""
     ).inOrder()
   }
 
@@ -364,10 +364,10 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM books",
-          "ALTER TABLE books RENAME TO books_",
+          """DELETE FROM "books"""",
+          """ALTER TABLE "books" RENAME TO "books_"""",
           "CREATE TABLE IF NOT EXISTS books (title TEXT DEFAULT '')",
-          "DROP TABLE IF EXISTS books_"
+          """DROP TABLE IF EXISTS "books_""""
         ),
         warnings = listOf(
           "Migration deletes all rows of books because none of its column(s) remain: legacy_title. Edit the " +
@@ -415,10 +415,10 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE books RENAME TO books_",
+      """ALTER TABLE "books" RENAME TO "books_"""",
       "CREATE TABLE IF NOT EXISTS books (displayName TEXT DEFAULT '')",
-      "INSERT INTO books (displayName) SELECT DisplayName FROM books_",
-      "DROP TABLE IF EXISTS books_"
+      """INSERT INTO "books" ("displayName") SELECT "DisplayName" FROM "books_"""",
+      """DROP TABLE IF EXISTS "books_""""
     ).inOrder()
   }
 
@@ -487,10 +487,10 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE books RENAME TO books__",
+          """ALTER TABLE "books" RENAME TO "books__"""",
           "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          "INSERT INTO books (id) SELECT id FROM books__",
-          "DROP TABLE IF EXISTS books__"
+          """INSERT INTO "books" ("id") SELECT "id" FROM "books__"""",
+          """DROP TABLE IF EXISTS "books__""""
         ),
         warnings = listOf(
           "Migration drops column(s) of books with their data: title. Edit the migration SQL to keep it."
@@ -547,11 +547,11 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE Users RENAME TO users__",
+          """ALTER TABLE "Users" RENAME TO "users__"""",
           "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
-          "INSERT INTO users (id) SELECT id FROM users__",
-          "DROP TABLE IF EXISTS users__",
-          "DROP TABLE IF EXISTS Users_"
+          """INSERT INTO "users" ("id") SELECT "id" FROM "users__"""",
+          """DROP TABLE IF EXISTS "users__"""",
+          """DROP TABLE IF EXISTS "Users_""""
         ),
         warnings = listOf("Migration drops table Users_ with its rows. Edit the migration SQL to keep them.")
       )
@@ -610,20 +610,30 @@ internal class MigrationsHandlerTest {
     )
 
     assertThat(
-      runMigration(
+      runMigrationResult(
         previous = previous,
         current = current,
         temporaryDirectory = temporaryDirectory
       )
-    ).containsExactly(
-      "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY)",
-      "ALTER TABLE children RENAME TO children_",
-      "CREATE TABLE IF NOT EXISTS children " +
-          "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE, " +
-          "label TEXT DEFAULT '')",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "DROP TABLE IF EXISTS children_"
-    ).inOrder()
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY)",
+          """ALTER TABLE "children" RENAME TO "children_"""",
+          "CREATE TABLE IF NOT EXISTS children " +
+              "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE, " +
+              "label TEXT DEFAULT '')",
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
+              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+          """DROP TABLE IF EXISTS "children_""""
+        ),
+        warnings = listOf(
+          "Migration deletes rows of children whose ON DELETE CASCADE column(s) reference missing rows: " +
+              "parent_id. Edit the migration SQL to keep them."
+        )
+      )
+    )
   }
 
   @Test
@@ -709,16 +719,17 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE parents RENAME TO parents_",
-          "ALTER TABLE children RENAME TO children_",
+          """ALTER TABLE "parents" RENAME TO "parents_"""",
+          """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          "INSERT INTO parents (id) SELECT id FROM parents_",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children " +
               "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE, " +
               "label TEXT DEFAULT '')",
-          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-          "DROP TABLE IF EXISTS children_",
-          "DROP TABLE IF EXISTS parents_"
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
+              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+          """DROP TABLE IF EXISTS "children_"""",
+          """DROP TABLE IF EXISTS "parents_""""
         ),
         warnings = listOf(
           "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it.",
@@ -792,8 +803,8 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE legacy_parents RENAME TO parents",
-      "ALTER TABLE legacy_children RENAME TO children"
+      """ALTER TABLE "legacy_parents" RENAME TO "parents"""",
+      """ALTER TABLE "legacy_children" RENAME TO "children""""
     ).inOrder()
   }
 
@@ -835,10 +846,10 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE legacy RENAME TO renamed_",
+      """ALTER TABLE "legacy" RENAME TO "renamed_"""",
       "CREATE TABLE IF NOT EXISTS renamed (id INTEGER PRIMARY KEY) WITHOUT ROWID",
-      "INSERT INTO renamed (id) SELECT id FROM renamed_",
-      "DROP TABLE IF EXISTS renamed_"
+      """INSERT INTO "renamed" ("id") SELECT "id" FROM "renamed_"""",
+      """DROP TABLE IF EXISTS "renamed_""""
     ).inOrder()
   }
 
@@ -889,10 +900,10 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM items",
-          "ALTER TABLE items RENAME TO items_",
+          """DELETE FROM "items"""",
+          """ALTER TABLE "items" RENAME TO "items_"""",
           "CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, value TEXT DEFAULT '') WITHOUT ROWID",
-          "DROP TABLE IF EXISTS items_"
+          """DROP TABLE IF EXISTS "items_""""
         ),
         warnings = listOf(
           "Migration deletes all rows of items because existing rows have no value for its new column(s): id. Edit " +
@@ -952,7 +963,7 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DROP TABLE IF EXISTS notes",
+          """DROP TABLE IF EXISTS "notes"""",
           "CREATE TABLE IF NOT EXISTS tags " +
               "(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL DEFAULT '', color INTEGER NOT NULL DEFAULT 0)"
         ),
@@ -1015,7 +1026,7 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DROP TABLE IF EXISTS legacy_users",
+          """DROP TABLE IF EXISTS "legacy_users"""",
           "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT DEFAULT '', email TEXT DEFAULT '')"
         ),
         warnings = listOf(
@@ -1065,7 +1076,7 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DROP TABLE IF EXISTS legacy_values",
+          """DROP TABLE IF EXISTS "legacy_values"""",
           "CREATE TABLE IF NOT EXISTS values (label TEXT DEFAULT '')"
         ),
         warnings = listOf(
@@ -1114,10 +1125,10 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE legacy RENAME TO renamed_",
+      """ALTER TABLE "legacy" RENAME TO "renamed_"""",
       "CREATE TABLE IF NOT EXISTS renamed (value TEXT DEFAULT 'a b')",
-      "INSERT INTO renamed (value) SELECT value FROM renamed_",
-      "DROP TABLE IF EXISTS renamed_"
+      """INSERT INTO "renamed" ("value") SELECT "value" FROM "renamed_"""",
+      """DROP TABLE IF EXISTS "renamed_""""
     ).inOrder()
   }
 
@@ -1166,10 +1177,10 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE legacy RENAME TO renamed_",
+      """ALTER TABLE "legacy" RENAME TO "renamed_"""",
       "CREATE TABLE IF NOT EXISTS renamed (value TEXT COLLATE $currentCollation)",
-      "INSERT INTO renamed (value) SELECT value FROM renamed_",
-      "DROP TABLE IF EXISTS renamed_"
+      """INSERT INTO "renamed" ("value") SELECT "value" FROM "renamed_"""",
+      """DROP TABLE IF EXISTS "renamed_""""
     ).inOrder()
   }
 
@@ -1214,10 +1225,10 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE parents RENAME TO parents_",
+      """ALTER TABLE "parents" RENAME TO "parents_"""",
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY) WITHOUT ROWID",
-      "INSERT INTO parents (id) SELECT id FROM parents_",
-      "DROP TABLE IF EXISTS parents_"
+      """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
+      """DROP TABLE IF EXISTS "parents_""""
     ).inOrder()
   }
 
@@ -1291,15 +1302,16 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE parents RENAME TO parents_",
-          "ALTER TABLE children RENAME TO children_",
+          """ALTER TABLE "parents" RENAME TO "parents_"""",
+          """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          "INSERT INTO parents (id) SELECT id FROM parents_",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
               "parent_id INTEGER DEFAULT 0 REFERENCES $referencedTableName(id) ON DELETE CASCADE)",
-          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-          "DROP TABLE IF EXISTS children_",
-          "DROP TABLE IF EXISTS parents_"
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
+              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+          """DROP TABLE IF EXISTS "children_"""",
+          """DROP TABLE IF EXISTS "parents_""""
         ),
         warnings = listOf(
           "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it."
@@ -1349,15 +1361,16 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      "ALTER TABLE Users RENAME TO users_",
-      "ALTER TABLE children RENAME TO children_",
+      """ALTER TABLE "Users" RENAME TO "users_"""",
+      """ALTER TABLE "children" RENAME TO "children_"""",
       "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
-      "INSERT INTO users (id) SELECT id FROM users_",
+      """INSERT INTO "users" ("id") SELECT "id" FROM "users_"""",
       "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
           "parent_id INTEGER DEFAULT 0 REFERENCES USERS(id) ON DELETE CASCADE)",
-      "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-      "DROP TABLE IF EXISTS children_",
-      "DROP TABLE IF EXISTS users_"
+      """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
+          """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "USERS")""",
+      """DROP TABLE IF EXISTS "children_"""",
+      """DROP TABLE IF EXISTS "users_""""
     ).inOrder()
   }
 
@@ -1427,14 +1440,14 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE parents RENAME TO parents_",
-          "ALTER TABLE children RENAME TO children_",
+          """ALTER TABLE "parents" RENAME TO "parents_"""",
+          """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          "INSERT INTO parents (id) SELECT id FROM parents_",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0)",
-          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
-          "DROP TABLE IF EXISTS children_",
-          "DROP TABLE IF EXISTS parents_"
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
+          """DROP TABLE IF EXISTS "children_"""",
+          """DROP TABLE IF EXISTS "parents_""""
         ),
         warnings = listOf(
           "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it."
@@ -1446,7 +1459,7 @@ internal class MigrationsHandlerTest {
   @Test
   fun `orders a deep removed foreign-key chain without recursive traversal`() {
     val tableCount = 2_000
-    val tables = (0 until tableCount)
+    val tables = (0..<tableCount)
       .map { index ->
         migrationTable(
           name = "table$index",
@@ -1476,7 +1489,7 @@ internal class MigrationsHandlerTest {
     ).isEqualTo(
       MigrationRun(
         migrationHappened = true,
-        statements = droppedTableNames.map { "DROP TABLE IF EXISTS $it" },
+        statements = droppedTableNames.map { """DROP TABLE IF EXISTS "$it"""" },
         warnings = droppedTableNames.map { tableName ->
           "Migration drops table $tableName with its rows. Edit the migration SQL to keep them."
         }
@@ -1533,11 +1546,11 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM beta",
-          "ALTER TABLE beta RENAME TO beta_",
+          """DELETE FROM "beta"""",
+          """ALTER TABLE "beta" RENAME TO "beta_"""",
           "CREATE TABLE IF NOT EXISTS beta (alpha_id INTEGER PRIMARY KEY)",
-          "DROP TABLE IF EXISTS beta_",
-          "DROP TABLE IF EXISTS alpha",
+          """DROP TABLE IF EXISTS "beta_"""",
+          """DROP TABLE IF EXISTS "alpha"""",
           "CREATE TABLE IF NOT EXISTS gamma (beta_id TEXT PRIMARY KEY)"
         ),
         warnings = listOf(
@@ -1596,14 +1609,14 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "DELETE FROM alpha",
-          "ALTER TABLE alpha RENAME TO alpha_",
+          """DELETE FROM "alpha"""",
+          """ALTER TABLE "alpha" RENAME TO "alpha_"""",
           "CREATE TABLE IF NOT EXISTS alpha (beta_id TEXT PRIMARY KEY)",
-          "DROP TABLE IF EXISTS alpha_",
-          "DELETE FROM beta",
-          "ALTER TABLE beta RENAME TO beta_",
+          """DROP TABLE IF EXISTS "alpha_"""",
+          """DELETE FROM "beta"""",
+          """ALTER TABLE "beta" RENAME TO "beta_"""",
           "CREATE TABLE IF NOT EXISTS beta (alpha_id INTEGER PRIMARY KEY)",
-          "DROP TABLE IF EXISTS beta_"
+          """DROP TABLE IF EXISTS "beta_""""
         ),
         warnings = listOf(
           "Migration deletes all rows of alpha because none of its column(s) remain: alpha_id. Edit the migration " +
@@ -1686,20 +1699,22 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          "ALTER TABLE parents RENAME TO parents_",
-          "ALTER TABLE children RENAME TO children_",
-          "ALTER TABLE grandchildren RENAME TO grandchildren_",
+          """ALTER TABLE "parents" RENAME TO "parents_"""",
+          """ALTER TABLE "children" RENAME TO "children_"""",
+          """ALTER TABLE "grandchildren" RENAME TO "grandchildren_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          "INSERT INTO parents (id) SELECT id FROM parents_",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
               "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
-          "INSERT INTO children (id,parent_id) SELECT id,parent_id FROM children_",
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
+              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
           "CREATE TABLE IF NOT EXISTS grandchildren (id INTEGER PRIMARY KEY, " +
               "child_id INTEGER DEFAULT 0 REFERENCES children(id) ON DELETE CASCADE)",
-          "INSERT INTO grandchildren (id,child_id) SELECT id,child_id FROM grandchildren_",
-          "DROP TABLE IF EXISTS grandchildren_",
-          "DROP TABLE IF EXISTS children_",
-          "DROP TABLE IF EXISTS parents_"
+          """INSERT INTO "grandchildren" ("id","child_id") SELECT "id","child_id" FROM "grandchildren_" """ +
+              """WHERE "child_id" IS NULL OR "child_id" IN (SELECT "id" FROM "children")""",
+          """DROP TABLE IF EXISTS "grandchildren_"""",
+          """DROP TABLE IF EXISTS "children_"""",
+          """DROP TABLE IF EXISTS "parents_""""
         ),
         warnings = listOf(
           "Migration drops column(s) of parents with their data: value. Edit the migration SQL to keep it."

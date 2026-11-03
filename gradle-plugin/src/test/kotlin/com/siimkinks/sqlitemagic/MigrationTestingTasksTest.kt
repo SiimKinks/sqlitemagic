@@ -271,7 +271,10 @@ internal class MigrationTestingTasksTest {
     task.publish()
 
     assertThat(projectDir.resolve("src/release/assets/2.sql").readText())
-      .isEqualTo("UPDATE books SET id = id + 2;\nCREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n")
+      .isEqualTo(
+        "UPDATE books SET id = id + 2;\n" +
+            """CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n"
+      )
     assertThat(projectDir.resolve("src/paidRelease/assets").exists()).isFalse()
     assertThat(database.resolve("releases/2.struct").readText()).doesNotContain("unrelated_debug_table")
     assertThat(frozen.keys.associateWith(File::readText)).isEqualTo(frozen)
@@ -342,9 +345,10 @@ internal class MigrationTestingTasksTest {
 
           Migration SQL for src/release/assets/2.sql:
             UPDATE books SET id = id + 2;
-            CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)
+            CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)
         """.trimIndent() + "\n",
-        "2.sql" to "UPDATE books SET id = id + 2;\nCREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n"
+        "2.sql" to "UPDATE books SET id = id + 2;\n" +
+            """CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n"
       )
     )
     assertThat(sources.keys.associateWith(File::readText)).isEqualTo(sources)
@@ -408,6 +412,63 @@ internal class MigrationTestingTasksTest {
     assertThat(failure.message).contains("different selected release variant")
     assertThat(fixture.sourceBytes().mapValues { it.value.toList() })
       .isEqualTo(before.mapValues { it.value.toList() })
+  }
+
+  @Test
+  fun `preview fails with the release evidence errors of publication but previews an already published version`() {
+    val fixture = fixture()
+    val staged = fixture.projectDir.resolve("build/sqlitemagic/release/structures/latest.struct")
+    check(staged.parentFile.mkdirs())
+    staged.writeText(structureJson("sample"))
+    val stagedVersion = staged.resolveSibling("latest.version")
+    stagedVersion.writeText("3")
+    val compiledSchemaFile = fixture.projectDir.resolve("compiled.schema.json")
+    val releaseInputs: SqliteMagicReleaseTask.() -> Unit = {
+      projectDirectory.set(fixture.projectDir)
+      databaseDirectory.set(fixture.projectDir.resolve("db"))
+      releaseVariant.set("release")
+      assetsBuildType.set("release")
+      currentStructures.from(staged)
+      databaseVersionFile.set(stagedVersion)
+      compiledSchema.set(compiledSchemaFile)
+    }
+    val tasks = fixture.task.project.tasks
+    val migration = tasks
+      .register("migrateReleaseDb", PublishSqliteMagicRelease::class.java)
+      .get()
+      .apply(releaseInputs)
+    val preview = tasks
+      .register("previewReleaseDbMigration", PreviewSqliteMagicReleaseMigration::class.java)
+      .get()
+      .apply(releaseInputs)
+      .apply { outputDirectory.set(fixture.projectDir.resolve("build/migration-preview")) }
+
+    compiledSchemaFile.writeText(MigrationMetadataJson.writeSchema(schema(4).copy(releaseVariant = "otherRelease")))
+    val publication = assertThrows<IllegalStateException>(migration::publish)
+
+    assertThat(assertThrows<IllegalStateException>(preview::preview))
+      .hasMessageThat()
+      .isEqualTo(publication.message)
+
+    compiledSchemaFile.writeText(
+      MigrationMetadataJson.writeSchema(
+        schema(3).copy(tableSql = listOf("""CREATE TABLE IF NOT EXISTS "sample" ("id" INTEGER PRIMARY KEY)"""))
+      )
+    )
+    assertThat(assertThrows<IllegalStateException>(migration::publish))
+      .hasMessageThat()
+      .contains("Release version 3 is already published")
+    preview.preview()
+
+    assertThat(
+      fixture.projectDir
+        .resolve("build/migration-preview/report.txt")
+        .readText()
+        .substringBefore("\n\n")
+    ).isEqualTo(
+      "Release 4 preview (latest release 3)\nDatabase version 3 is not above the latest release; " +
+          "set @Database(version = 4) before publishing this release."
+    )
   }
 
   @Test

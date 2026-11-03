@@ -14,8 +14,10 @@ import java.util.concurrent.locks.ReentrantLock
 @InternalSqliteMagicApi
 class LeaseOwner internal constructor(
   internal val thread: Thread?,
-  internal val pool: ConnectionPool
+  private val sharedPool: ConnectionPool?
 ) {
+  internal val pool get() = checkNotNull(sharedPool)
+
   internal var reader: PooledConnection? = null
   internal var wroteDuringRead = false
   internal var transaction: TransactionLevel? = null

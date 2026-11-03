@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import java.util.Locale
 
 internal enum class TableMigrationOperation {
@@ -112,11 +113,11 @@ internal object MigrationPlanner {
     val rebuiltPreviousTableNames = (directRebuilds + batchedRebuilds)
       .asSequence()
       .filter { it.operation == TableMigrationOperation.REBUILD }
-      .mapTo(linkedSetOf(), transform = { it.from.name })
+      .mapTo(destination = linkedSetOf()) { it.from.name }
     val rebuiltCurrentTableNames = (directRebuilds + batchedRebuilds)
       .asSequence()
       .filter { it.operation == TableMigrationOperation.REBUILD }
-      .mapTo(linkedSetOf(), transform = { it.to.name })
+      .mapTo(destination = linkedSetOf()) { it.to.name }
     val indexTransitionsByName = diff.indexTransitions.associateBy { it.previous.name }
     val indexTransitionsByCurrentName = diff.indexTransitions.associateBy { it.current.name }
     val indexDrops = diff.previousIndices.filterTo(arrayListOf()) { index ->
@@ -213,11 +214,20 @@ internal data class ColumnCopy(
   val current: ColumnStructure,
   private val gainsNotNull: Boolean
 ) {
+  private val defaultsNull get() = gainsNotNull && current.notNullDefault != null
   val deletesNullRows get() = gainsNotNull && current.notNullDefault == null
+  val defaultsNullReference get() = defaultsNull && current.cascadeReference() != null
+  val existingReferenceCondition
+    get() = current
+      .cascadeReference()
+      ?.let { reference ->
+        "$sourceValue IS NULL OR $sourceValue IN " +
+            "(SELECT ${quoteSqlIdentifier(reference.column)} FROM ${quoteSqlIdentifier(reference.table)})"
+      }
   val sourceValue
     get() = when {
-      gainsNotNull && current.notNullDefault != null -> "IFNULL(${previous.name}, ${current.notNullDefault})"
-      else -> previous.name
+      defaultsNull -> "IFNULL(${quoteSqlIdentifier(previous.name)}, ${current.notNullDefault})"
+      else -> quoteSqlIdentifier(previous.name)
     }
 }
 

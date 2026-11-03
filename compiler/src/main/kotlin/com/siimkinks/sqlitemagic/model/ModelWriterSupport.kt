@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.ENTITY_STATEMENT_BINDER
 import com.siimkinks.sqlitemagic.WriterTypes.OPT_IN_INTERNAL_API
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
+import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import com.siimkinks.sqlitemagic.writer.OriginatingFiles
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -39,11 +40,11 @@ internal fun TableElement.schemaSql(
     WITHOUT_ROWID in options -> " WITHOUT ROWID"
     else -> ""
   }
-  return "$createPrefix $tableName ($columns)$suffix"
+  return "$createPrefix ${quoteSqlIdentifier(tableName)} ($columns)$suffix"
 }
 
 internal fun ColumnElement.schemaSql() = buildString {
-  append(columnName)
+  append(quoteSqlIdentifier(columnName))
   append(' ')
   append(sqlStorageType.affinity.name)
   if (declaresNotNull) {
@@ -61,7 +62,13 @@ internal fun ColumnElement.schemaSql() = buildString {
   schemaDefaultValue?.let { append(" DEFAULT $it") }
   relationship
     ?.takeIf(RelationshipElement::onDeleteCascade)
-    ?.let { append(" REFERENCES ${it.referencedTableName}(${it.referencedIdColumnName}) ON DELETE CASCADE") }
+    ?.let { relationship ->
+      append(" REFERENCES ")
+      append(quoteSqlIdentifier(relationship.referencedTableName))
+      append('(')
+      append(quoteSqlIdentifier(relationship.referencedIdColumnName))
+      append(") ON DELETE CASCADE")
+    }
 }
 
 internal fun TableElement.readExpression(column: ColumnElement): CodeBlock {

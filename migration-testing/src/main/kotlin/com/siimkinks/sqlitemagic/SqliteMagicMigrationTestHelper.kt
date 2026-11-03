@@ -20,6 +20,7 @@ import com.siimkinks.sqlitemagic.migration.testing.InspectedSchema
 import com.siimkinks.sqlitemagic.migration.testing.SQLiteQueries
 import com.siimkinks.sqlitemagic.migration.testing.SchemaComparator
 import com.siimkinks.sqlitemagic.migration.testing.SchemaIntrospector
+import com.siimkinks.sqlitemagic.migration.testing.SchemaSql
 import com.siimkinks.sqlitemagic.migration.testing.createPersistentViews
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
@@ -424,8 +425,8 @@ class SqliteMagicMigrationTestHelper(
           publicationAdvice
     }
     require(
-      current.tableSql.toSet() == compiledCurrent.tableSql.toSet() &&
-          current.indexSql.toSet() == compiledCurrent.indexSql.toSet()
+      current.tableSql.sqlIgnoringIdentifierQuotes() == compiledCurrent.tableSql.sqlIgnoringIdentifierQuotes() &&
+          current.indexSql.sqlIgnoringIdentifierQuotes() == compiledCurrent.indexSql.sqlIgnoringIdentifierQuotes()
     ) {
       "Current release snapshot tables or indices differ from independent compiled release export. " +
           "Advance the database version before publishing schema changes. $publicationAdvice"
@@ -710,3 +711,8 @@ private class TestDatabase(
     }
   }
 }
+
+private fun List<String>.sqlIgnoringIdentifierQuotes() = mapTo(
+  destination = hashSetOf(),
+  transform = SchemaSql::withoutIdentifierQuotes
+)

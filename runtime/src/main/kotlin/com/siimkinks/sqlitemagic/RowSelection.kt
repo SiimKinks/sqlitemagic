@@ -11,7 +11,8 @@ import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
  */
 class RowSelection<T> internal constructor(
   internal val outputs: List<SqlExpression<*, *, *>>,
-  private val reader: ExecutionReader<T>
+  private val reader: ExecutionReader<T>,
+  internal override val mappedWithFunction: Boolean = false
 ) : Selection<T>() {
   override fun render(context: SqlRenderingContext) = context.renderList(
     items = outputs,
@@ -26,11 +27,12 @@ class RowSelection<T> internal constructor(
 
   internal val columnReads get() = outputs.map(SqlExpression<*, *, *>::selectRead)
 
-  internal fun <M> withReader(read: (SQLiteStatement, Int) -> M) = withReader(reader = { read })
+  internal fun <M> mapped(read: (SQLiteStatement, Int) -> M) = mapped(reader = { read })
 
-  internal fun <M> withReader(reader: ExecutionReader<M>) = RowSelection(
+  internal fun <M> mapped(reader: ExecutionReader<M>) = RowSelection(
     outputs = outputs,
-    reader = reader
+    reader = reader,
+    mappedWithFunction = true
   )
 }
 

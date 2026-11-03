@@ -19,11 +19,11 @@ internal class GeneratedDatabaseSchemaFailureTest {
   fun `schema creation propagates local and delegated failures`() = listOf(
     FailureCase(
       label = "delegated submodule table",
-      sqlPrefix = "CREATE TABLE IF NOT EXISTS submodule_persistent_value ("
+      sqlPrefix = """CREATE TABLE IF NOT EXISTS "submodule_persistent_value" ("""
     ),
     FailureCase(
       label = "local table",
-      sqlPrefix = "CREATE TABLE IF NOT EXISTS no_id_entity ("
+      sqlPrefix = """CREATE TABLE IF NOT EXISTS "no_id_entity" ("""
     ),
     FailureCase(
       label = "local persistent view",

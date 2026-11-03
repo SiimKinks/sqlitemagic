@@ -193,6 +193,20 @@ abstract class SqliteMagicReleaseTask : DefaultTask() {
   @get:Internal
   abstract val databaseVersionFile: RegularFileProperty
 
+  @get:InputFile
+  @get:PathSensitive(PathSensitivity.NONE)
+  @get:Optional
+  abstract val compiledSchema: RegularFileProperty
+
+  protected fun compiledRelease() = compiledSchema.orNull
+    ?.asFile
+    ?.let(::readSchema)
+    ?.also { captured ->
+      check(captured.releaseVariant == releaseVariant.get()) {
+        "Compiled schema belongs to a different selected release variant"
+      }
+    }
+
   protected fun checkSelectedRelease(action: String) = check(
     selectedRelease.orNull == null || selectedRelease.get() == releaseVariant.get()
   ) { "Only selected migration release '${selectedRelease.get()}' may $action" }
@@ -223,18 +237,10 @@ abstract class SqliteMagicReleaseTask : DefaultTask() {
 
 @DisableCachingByDefault(because = "Explicitly publishes reviewed release evidence into consumer source directories")
 abstract class PublishSqliteMagicRelease : SqliteMagicReleaseTask() {
-  @get:InputFile
-  @get:PathSensitive(PathSensitivity.NONE)
-  @get:Optional
-  abstract val compiledSchema: RegularFileProperty
-
   @TaskAction
   fun publish() {
     checkSelectedRelease("publish authoritative history")
-    val captured = compiledSchema.orNull?.asFile?.let(::readSchema)
-    check(captured == null || captured.releaseVariant == releaseVariant.get()) {
-      "Compiled schema belongs to a different selected release variant"
-    }
+    val compiledRelease = compiledRelease()
     checkGeneratedMetadata()
     ReleaseMigrationCoordinator.migrate(
       projectDir = projectDirectory.get().asFile,
@@ -242,7 +248,7 @@ abstract class PublishSqliteMagicRelease : SqliteMagicReleaseTask() {
       variantName = assetsBuildType.get(),
       databaseVersion = databaseVersion(),
       currentStructureFiles = currentStructureFiles(),
-      compiledRelease = captured,
+      compiledRelease = compiledRelease,
       evidenceAssetsDirectory = evidenceAssetsDirectory(),
       warn = logger::warn
     )
@@ -257,6 +263,7 @@ abstract class PreviewSqliteMagicReleaseMigration : SqliteMagicReleaseTask() {
   @TaskAction
   fun preview() {
     checkSelectedRelease("preview the next release")
+    val compiledRelease = compiledRelease()
     checkGeneratedMetadata()
     val preview = ReleaseMigrationCoordinator.preview(
       projectDir = projectDirectory.get().asFile,
@@ -264,6 +271,7 @@ abstract class PreviewSqliteMagicReleaseMigration : SqliteMagicReleaseTask() {
       variantName = assetsBuildType.get(),
       databaseVersion = databaseVersion(),
       currentStructureFiles = currentStructureFiles(),
+      compiledRelease = compiledRelease,
       evidenceAssetsDirectory = evidenceAssetsDirectory()
     )
     val output = outputDirectory.get().asFile
@@ -314,12 +322,12 @@ private fun kotlinLiteral(value: String) = buildString {
   append('"')
   value.forEach { character ->
     when (character) {
-      '\\' -> append("\\\\")
-      '"' -> append("\\\"")
-      '$' -> append("\\$")
-      '\n' -> append("\\n")
-      '\r' -> append("\\r")
-      '\t' -> append("\\t")
+      '\\' -> append("""\\""")
+      '"' -> append("""\"""")
+      '$' -> append("""\$""")
+      '\n' -> append("""\n""")
+      '\r' -> append("""\r""")
+      '\t' -> append("""\t""")
       else -> append(character)
     }
   }

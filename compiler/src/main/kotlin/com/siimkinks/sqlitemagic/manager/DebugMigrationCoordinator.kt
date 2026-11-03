@@ -134,6 +134,9 @@ internal class DebugMigrationCoordinator(
         migrationOutputFile = migrationFile,
         pendingMigrationStatements = pendingMigrationStatements,
         externalTransaction = transaction,
+        enforcesForeignKeys = currentStructure.enforcesForeignKeys ||
+            database.isSubmodule ||
+            database.submodules.isNotEmpty(),
         warn = logger::warn
       ).migrate()
       val outcome = when (val submoduleName = database.submoduleName) {

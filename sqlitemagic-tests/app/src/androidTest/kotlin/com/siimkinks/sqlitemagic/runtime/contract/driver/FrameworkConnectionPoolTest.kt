@@ -15,6 +15,7 @@ import com.siimkinks.sqlitemagic.runtime.support.long
 import com.siimkinks.sqlitemagic.runtime.support.text
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.SECONDS
@@ -88,6 +89,44 @@ internal class FrameworkConnectionPoolTest {
           .inOrder()
       }
     } finally {
+      workers.shutdownNow()
+    }
+  }
+
+  @Test
+  fun readersOpenWithoutWritingWhileTheWriterHoldsATransactionAfterTheLocaleChanges() {
+    val defaultLocale = Locale.getDefault()
+    val workers = Executors.newSingleThreadExecutor()
+    try {
+      frameworkPool().use { pool ->
+        pool.write {}
+        Locale.setDefault(
+          when (defaultLocale.language) {
+            Locale.GERMAN.language -> Locale.FRANCE
+            else -> Locale.GERMANY
+          }
+        )
+        pool.beginTransaction()
+        pool.write { it.connection.execSQL("UPDATE account SET balance = 0") }
+        val read = workers
+          .submit<List<Long>> {
+            pool.read(requiresWriter = false) { pooled ->
+              listOf(
+                pooled.connection.long("SELECT balance FROM account WHERE id = 1"),
+                pooled.connection.long("SELECT count(*) FROM account ORDER BY 'a' COLLATE LOCALIZED"),
+                pooled.connection.long("SELECT count(*) FROM account ORDER BY 'a' COLLATE UNICODE")
+              )
+            }
+          }
+          .get(10, SECONDS)
+        pool.endTransaction()
+
+        assertThat(read)
+          .containsExactly(100L, 1L, 1L)
+          .inOrder()
+      }
+    } finally {
+      Locale.setDefault(defaultLocale)
       workers.shutdownNow()
     }
   }

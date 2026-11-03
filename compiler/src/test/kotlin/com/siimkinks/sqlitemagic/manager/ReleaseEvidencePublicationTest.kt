@@ -89,7 +89,7 @@ internal class ReleaseEvidencePublicationTest {
     assertThat(assets.resolve("7.sql").readBytes()).isEqualTo(oldSql)
     assertThat(assets.resolve("8.sql").readText()).isEqualTo(
       "-- consumer data migration\nUPDATE books SET id = id + 2;\n" +
-          "CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n"
+          """CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n"
     )
     assertThat(manifest.steps.last()).isEqualTo(
       MigrationStep(
@@ -341,6 +341,142 @@ internal class ReleaseEvidencePublicationTest {
   }
 
   @Test
+  fun `preview fails with the error that publication would fail with`() {
+    mapOf<String, (ReleaseSchemaSnapshot) -> ReleaseSchemaSnapshot>(
+      "missing published compiler baseline" to { published ->
+        releases.resolve("7.struct").delete()
+        published.copy(version = 8)
+      },
+      "other selected release variant" to { published ->
+        published.copy(
+          version = 8,
+          releaseVariant = "freeRelease"
+        )
+      },
+      "compiled release differs from current structures" to { published ->
+        published.copy(
+          version = 8,
+          tableSql = databaseStructure("authors")
+            .tables
+            .values
+            .map(TableStructure::schema)
+        )
+      }
+    ).forEach { (label, breakEvidence) ->
+      directory
+        .listFiles()
+        .orEmpty()
+        .forEach(File::deleteRecursively)
+      writeCurrent(databaseStructure("books"))
+      val compiled = breakEvidence(schema(version = 7).also(::publish))
+      val previewFailure = assertThrows<IllegalStateException>(label) {
+        ReleaseMigrationCoordinator.preview(
+          projectDir = directory,
+          databaseDirectory = database,
+          variantName = "paidRelease",
+          databaseVersion = compiled.version,
+          compiledRelease = compiled
+        )
+      }
+
+      assertWithMessage(label)
+        .that(previewFailure)
+        .hasMessageThat()
+        .isEqualTo(assertThrows<IllegalStateException>(label) { publish(compiled) }.message)
+    }
+  }
+
+  @Test
+  fun `preview shows the next release before the database version is raised`() {
+    data class Outcome(
+      val version: Int,
+      val header: String,
+      val releases: Map<File, String>
+    )
+
+    writeCurrent(databaseStructure("books"))
+    publish(schema(version = 7))
+    val published = releases
+      .listFiles()
+      .orEmpty()
+      .associateWith(File::readText)
+    val current = databaseStructure("books", "authors")
+    writeCurrent(current)
+
+    val preview = ReleaseMigrationCoordinator.preview(
+      projectDir = directory,
+      databaseDirectory = database,
+      variantName = "paidRelease",
+      databaseVersion = 7,
+      compiledRelease = schema(version = 7).copy(
+        tableSql = current
+          .tables
+          .values
+          .map(TableStructure::schema)
+      )
+    )
+
+    assertThat(
+      Outcome(
+        version = preview.version,
+        header = preview.report.substringBefore("\n\n"),
+        releases = releases
+          .listFiles()
+          .orEmpty()
+          .associateWith(File::readText)
+      )
+    ).isEqualTo(
+      Outcome(
+        version = 8,
+        header = "Release 8 preview (latest release 7)\nDatabase version 7 is not above the latest release; " +
+            "set @Database(version = 8) before publishing this release.",
+        releases = published
+      )
+    )
+  }
+
+  @Test
+  fun `preview of a publication that adopts retained history asks for no version raise`() {
+    data class Outcome(
+      val version: Int,
+      val report: String,
+      val sql: String?,
+      val manifestExists: Boolean
+    )
+
+    writeCurrent(databaseStructure("books"))
+    DatabaseStructureJson.write(
+      file = releases.resolve("7.struct"),
+      structure = databaseStructure("books")
+    )
+
+    val preview = ReleaseMigrationCoordinator.preview(
+      projectDir = directory,
+      databaseDirectory = database,
+      variantName = "paidRelease",
+      databaseVersion = 7,
+      compiledRelease = schema(version = 7)
+    )
+
+    assertThat(
+      Outcome(
+        version = preview.version,
+        report = preview.report,
+        sql = preview.sql,
+        manifestExists = releases.resolve("manifest.json").exists()
+      )
+    ).isEqualTo(
+      Outcome(
+        version = 7,
+        report = "Release 7 preview (adopts retained release 7)\n\n" +
+            "Publishing adopts the retained release history and generates no migration.",
+        sql = null,
+        manifestExists = false
+      )
+    )
+  }
+
+  @Test
   fun `initial manifest retains production upgrades predating the testing baseline`() {
     writeCurrent(databaseStructure("books"))
     writeAsset(
@@ -428,7 +564,7 @@ internal class ReleaseEvidencePublicationTest {
 
     assertThat(pending.readText()).isEqualTo("UPDATE books SET id = id + 2;\n")
     assertThat(assets.resolve("8.sql").readText()).isEqualTo(
-      "UPDATE books SET id = id + 2;\nCREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY)\n"
+      "UPDATE books SET id = id + 2;\n" + """CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)""" + "\n"
     )
     assertThat(manifest.steps.last()).isEqualTo(
       MigrationStep(

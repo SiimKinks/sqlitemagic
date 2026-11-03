@@ -34,7 +34,11 @@ internal class ReleaseEvidencePublisher(
 
   val adoptsExistingStructure = previousManifest == null && latestRetainedVersion == compiledRelease.version
 
-  fun validatePublication() {
+  fun validatePublication() = validate(publishesVersion = true)
+
+  fun validatePreview() = validate(publishesVersion = false)
+
+  private fun validate(publishesVersion: Boolean) {
     previousManifest?.let { manifest ->
       check(
         manifest.databaseId == compiledRelease.databaseId &&
@@ -47,21 +51,19 @@ internal class ReleaseEvidencePublisher(
             "Restore the published compiler baseline before creating another release migration."
       }
     }
-    check(adoptsExistingStructure || latestRetainedVersion == null || compiledRelease.version > latestRetainedVersion) {
-      "Release version ${compiledRelease.version} is already published or precedes " +
-          "published version $latestRetainedVersion. " +
-          "Choose a new database version; published release evidence is immutable."
-    }
-    check(adoptsExistingStructure || !schemaFile.exists()) {
-      "Release evidence already exists: ${schemaFile.absolutePath}"
+    if (publishesVersion && !adoptsExistingStructure) {
+      check(latestRetainedVersion == null || compiledRelease.version > latestRetainedVersion) {
+        "Release version ${compiledRelease.version} is already published or precedes " +
+            "published version $latestRetainedVersion. " +
+            "Choose a new database version; published release evidence is immutable."
+      }
+      check(!schemaFile.exists()) { "Release evidence already exists: ${schemaFile.absolutePath}" }
     }
     if (adoptsExistingStructure) {
       val retained = DatabaseStructureJson.read(schemaFile.readText())
-      check(
-        retained.tables.values.map(TableStructure::schema).toSet() == compiledRelease.tableSql.toSet() &&
-            retained.indices.values.map(IndexStructure::indexSql).toSet() == compiledRelease.indexSql.toSet() &&
-            retained.views.keys == compiledRelease.views.map(MigrationViewSchema::name).toSet()
-      ) { "Compiled selected release differs from the retained current .struct; adoption cannot rewrite history" }
+      check(retained.hasSchemaOf(compiledRelease)) {
+        "Compiled selected release differs from the retained current .struct; adoption cannot rewrite history"
+      }
     }
     check(!manifestFile.exists() || manifestFile.isFile) {
       "Release manifest is not a regular file: $manifestFile"
@@ -256,3 +258,8 @@ internal class ReleaseEvidencePublisher(
     else -> checkNotNull(directory.listFiles()) { "Cannot list ${directory.absolutePath}" }.toList()
   }
 }
+
+internal fun DatabaseStructure.hasSchemaOf(release: ReleaseSchemaSnapshot) =
+    tables.values.map(TableStructure::schema).toSet() == release.tableSql.toSet() &&
+        indices.values.map(IndexStructure::indexSql).toSet() == release.indexSql.toSet() &&
+        views.keys == release.views.map(MigrationViewSchema::name).toSet()
