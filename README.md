@@ -760,8 +760,10 @@ Documentation
 -----------------
 
 - [Sample app](sqlitemagic-sample) – a todo app with tables, a view, reactive queries and migration tests
-- [Migrating from 2.x or 0.x](.agents/skills/sqlitemagic-dsl-migration/SKILL.md) – 3.x rewrites the query DSL and runs
-  on an androidx `SQLiteDriver`; this guide maps legacy queries and setup to 3.x and lists behavior changes
+- [Upgrading from 2.x or 0.x](.agents/skills/sqlitemagic-upgrade/SKILL.md) – 3.x rewrites the query DSL and runs
+  on an androidx `SQLiteDriver`; this guide maps legacy setup and queries to 3.x, lists behavior changes and covers the
+  first database release on 3.x. It is also an agent skill: copy the `sqlitemagic-upgrade` directory into your
+  project's skills directory, such as `.claude/skills/`, to let a coding agent do the upgrade
 - [Wiki](https://github.com/SiimKinks/sqlitemagic/wiki) and [Javadoc](https://siimkinks.github.io/sqlitemagic/javadoc/)
   for 0.x
 

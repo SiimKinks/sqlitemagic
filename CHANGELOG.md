@@ -6,8 +6,8 @@ Version 3.0.0 _(unreleased)_
 
 SqliteMagic 3 rewrites the query DSL and runs the database on an androidx `SQLiteDriver`, so applications choose
 between the device's SQLite and a SQLite bundled with the app. The
-[migration guide](.agents/skills/sqlitemagic-dsl-migration/SKILL.md) maps legacy queries and setup to 3.0 and lists the
-changes that compile but behave differently.
+[upgrade guide](.agents/skills/sqlitemagic-upgrade/SKILL.md) maps legacy setup and queries to 3.0, lists the changes
+that compile but behave differently and walks through the first database release on 3.0.
 
 * Breaking: Rewrite the query DSL as SQL-first Kotlin, where queries follow SQL clause order and type their columns,
   results and nullability

@@ -30,6 +30,9 @@ differ. Keep whichever style the call site already uses.
 - Raw arguments are native values bound by storage class: pass `10L`, `true`, `1.5`, not their strings.
 - `SqlType` names the result: `BOOLEAN` for predicates, `LONG`, `STRING`, `DOUBLE`, `BYTE_ARRAY`, `NUMBER`
   (read-only, Long or Double per value), generated transformer types, and `.nullable` forms.
+- A transformer's `SqlType` selector (`SqlType.EXTERNAL_TOKEN`) and its `asValue()` are generated top-level
+  extensions in `com.siimkinks.sqlitemagic`: code in another package imports them
+  (`import com.siimkinks.sqlitemagic.EXTERNAL_TOKEN`, `import com.siimkinks.sqlitemagic.asValue`).
 - A generated field interpolated into raw text renders its quoted qualified name: `"${AUTHOR.NAME} LIKE ?"` becomes
   `"author"."name" LIKE ?`; an aliased occurrence renders its alias.
 - A raw fragment observes the query's own tables by default; `.observes(BOOK)` declares tables its text reads
@@ -52,10 +55,12 @@ differ. Keep whichever style the call site already uses.
 | `p.and(q)`, `or`, `andNot`, `orNot`, `p.not()` | `p AND q`, … | `p AND q`, `p.AND(q)`; `OR`, `AND_NOT`, `OR_NOT`, `!p` |
 
 - An operand must have the receiver's decoded type, and a host value the field's input type (`intValue.toLong()` for
-  a `Long` ID), as in legacy. Legacy matched numeric fields through a shared `Number` type, so the member
-  `AUTHOR.ID.is(AUTHOR.AGE)` (Long with Int) compiled without an import. Comparing numeric expressions of different
-  types (`AUTHOR.ID IS AUTHOR.AGE`, `AUTHOR.ID.IS(intValue.asValue())`) now needs the imported extension,
-  `import com.siimkinks.sqlitemagic.IS` (likewise `GREATER_THAN`, `IN`, `BETWEEN`, …), in fluent form too.
+  a `Long` ID), as in legacy. A relationship field compares with its target's ID type as a member:
+  `TODO_ITEM.LIST IS listId`, `TODO_ITEM.LIST IS TODO_LIST.ID`. Legacy matched numeric fields through a shared
+  `Number` type, so the member `AUTHOR.ID.is(AUTHOR.AGE)` (Long with Int) compiled without an import. Comparing
+  numeric expressions of different types (`AUTHOR.ID IS AUTHOR.AGE`, `AUTHOR.ID.IS(intValue.asValue())`) now needs
+  the imported extension, `import com.siimkinks.sqlitemagic.IS` (likewise `GREATER_THAN`, `IN`, `BETWEEN`, …), in
+  fluent form too.
 - Legacy `column.toExpr()` made a predicate of a Boolean column; a Boolean field is now itself a predicate,
   `WHERE(TODO_ITEM.COMPLETED)`. Compare other fields explicitly.
 - Host values are non-null; compare with NULL through `IS_NULL()`/`IS_NOT_NULL()`.

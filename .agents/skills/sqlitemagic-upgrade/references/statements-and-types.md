@@ -1,7 +1,8 @@
 # Legacy → new statements, views and types
 
-Whole raw SQL, UPDATE/DELETE, views, compiled plans and declared types, setup and row reading, loggers, generated
-code, and what was removed. Query shapes are in [queries.md](queries.md).
+Whole raw SQL, UPDATE/DELETE, views, compiled plans and declared types, row reading, loggers, generated code, and
+what was removed. Query shapes are in [queries.md](queries.md); dependencies, drivers and adapters in
+[setup.md](setup.md).
 
 Examples assume generated `AUTHOR` and `BOOK` tables with `Author` and `Book` models; names are illustrative.
 "Legacy" covers both of the old DSL's forms: Kotlin infix (`SELECT FROM AUTHOR WHERE (…)`) and the Java-style
@@ -14,7 +15,7 @@ differ. Keep whichever style the call site already uses.
 - [UPDATE and DELETE](#update-and-delete)
 - [Views](#views)
 - [Plans, observation and declared types](#plans-observation-and-declared-types)
-- [Setup, drivers and reading rows](#setup-drivers-and-reading-rows)
+- [Reading rows without Cursor](#reading-rows-without-cursor)
 - [Logger, generated code and models](#logger-generated-code-and-models)
 - [Removed without replacement](#removed-without-replacement)
 
@@ -40,12 +41,14 @@ DELETE.RAW("DELETE FROM legacy_log WHERE id = ?", 5L).execute()
 ```
 
 - Arguments go into `RAW` as native values; infix `SELECT RAW "SELECT 1"` remains for text without arguments.
-- `.from(tables)`/`FROM tables` on a raw query becomes `.observes(tables)`. Without it, `observe()` runs once
-  (`Single`/`Maybe`) instead of streaming. Like every `observe()`, the raw one is imported from
-  `com.siimkinks.sqlitemagic.rxjava2`.
-- A raw query without `readAs` has no `execute()`; read its rows with `useRows { rows -> }` (`rows.step()`,
-  `rows.read(index, type)`, `rows.columnType(index)` for `Cursor.getType`), or read typed rows by position with
-  `readAs(…)` (a column count other than `readAs`'s width fails each execution).
+- `.from(tables)`/`FROM tables` on a raw query becomes `.observes(…)`, a dot-call taking the tables as arguments:
+  `FROM arrayOf(A, B)` becomes `.observes(A, B)`, and a collection
+  `.observes(tables.first(), *tables.drop(1).toTypedArray())`. Without it, `observe()` runs once (`Single`/`Maybe`)
+  instead of streaming. Like every `observe()`, the raw one is imported from the adapter's package
+  ([setup](setup.md#reactive-adapters)).
+- A raw query without `readAs` has no `execute()`; read its rows with `useRows { rows -> }`
+  ([Reading rows without Cursor](#reading-rows-without-cursor)), or read typed rows by position with `readAs(…)` (a
+  column count other than `readAs`'s width fails each execution).
 - `UPDATE.RAW`/`DELETE.RAW` declare changed tables with `.notifies(TABLE)`; legacy's string table name is gone. A
   conflict algorithm goes into the text (`UPDATE OR REPLACE …`).
 - A raw condition on a generated table stays typed: `WHERE ("pages < ?" to arrayOf("100"))` becomes
@@ -75,8 +78,10 @@ DELETE.FROM(BOOK).WHERE((BOOK.ID IS_NOT 77L) AND (BOOK.TITLE IS "Foo")).execute(
   `IFNULL`/`COALESCE`, which replaces legacy `toNotNullable()`.
 - Targets are unaliased: `UPDATE TABLE (BOOK AS "b")` is rejected when built. Every SET/WHERE field must belong to the
   target; a correlated subquery aliases its inner occurrence.
+- `usingConnection(…)` comes after the last clause: legacy `Delete.from(T).usingConnection(c).where(…)` becomes
+  `DELETE.FROM(T).WHERE(…).usingConnection(c)`.
 - `compile()` returns `CompiledMutation` (legacy `CompiledUpdate`/`CompiledDelete`); `execute()` is `Int` and
-  `observe()` (imported from `com.siimkinks.sqlitemagic.rxjava2`) a cold `Single<Int>`, as before.
+  `observe()` (imported from the adapter's package) a cold `Single<Int>`, as before.
 
 ## Views
 
@@ -110,7 +115,7 @@ val QUERY = (
 ```
 
 - `@ViewQuery` holds the `SelectQuery` itself; drop `.compile()` (a compiled value fails processing) and any
-  `usingConnection`.
+  `usingConnection`. A Java `@View` model's query is Kotlin DSL now, so convert that view to Kotlin.
 - Values in a definition render as SQL literals, so plain values replace `asColumn(…)` there. Raw expressions in a
   definition write constants into the text: SQLite rejects view parameters.
 - View columns are named by qualified names (`book.title`) or `AS` aliases. The example's view columns change from
@@ -125,7 +130,7 @@ val QUERY = (
 | `CompiledSelect<T, S>` | `CompiledSelect<T>` |
 | `CompiledFirstSelect<T, S>` | `CompiledFirst<T>` |
 | `CompiledCountSelect<S>` | `CompiledCount` |
-| `CompiledCursorSelect<T, S>` | `CompiledSelect<T>` read with `useRows { rows -> }`; see [Setup, drivers and reading rows](#setup-drivers-and-reading-rows) |
+| `CompiledCursorSelect<T, S>` | `CompiledSelect<T>` read with `useRows { rows -> }`; see [Reading rows without Cursor](#reading-rows-without-cursor) |
 | `CompiledRawSelect`, `CompiledObservableRawSelect` | `SELECT.RAW(…).useRows { rows -> }` for run-time columns, or read plans after `readAs` (the new generic `CompiledRawSelect<T, O>` is the list plan after `readAs`, so a legacy annotation fails on type arguments) |
 | `CompiledUpdate`, `CompiledDelete` | `CompiledMutation` |
 | `compiled.takeFirst()`, `compiled.count()` | `query.takeFirst()`, `query.count()`: create each plan from the query |
@@ -133,78 +138,59 @@ val QUERY = (
 | `OrderingTerm` | `Ordering` |
 | `Select.From<…>`, `Select.Where<…>`, … | inferred stage types, or `SelectQuery<T, S>` after final configuration |
 | `NotNullable`, `Nullable` markers | `Required`, `SqlNullable` |
-| `Column<T, R, ET, P, N>`, `NumericColumn<…>`, `UniqueNumericColumn<…>` | generated `Column<…>`/`UniqueColumn<…>` (seven type parameters); let them be inferred |
+| `Column<T, R, ET, P, N>`, `NumericColumn<…>`, `UniqueNumericColumn<…>`, `BooleanColumn<…>`, `UniqueBooleanColumn<…>`, `ComplexColumn<…>`, `ComplexNumericColumn<…>` | generated `Column<…>`/`UniqueColumn<…>` (seven type parameters); let them be inferred |
+| `FunctionColumn<…>`, `RawColumn<…>`, `SelectionColumn<…>` | `SqlExpression<…>`; let it be inferred |
 | `val starter: Select<Select.SelectN> = SELECT` | `val starter = SELECT` |
 | `Query.Mapper` | removed: map with `readAs`/`mapTo`, or read rows with `useRows` |
 
 - `S` in `SelectQuery<T, S>` is the selection: `EntitySelection<Author>`, `ScalarSelection<Long, Required, Long>`
   (decoded type, SQL nullness, result), `RowSelection<Row2<Long, String>>`, `RowSelection<SelectedRow>`. When a type
   must be written, copy the IDE's inferred type rather than reconstructing it.
-- Observation operators are unchanged: `runQuery()`, `runQueryOnce()`, `runQueryOrDefault(…)`, `isZero()`,
-  `isNotZero()`, except that count streams drop `runQueryOrDefault(…)` and `runQueryOnceOrDefault(…)`, whose default a
-  count never used: call `runQuery()` or `runQueryOnce()`. The types `ListQueryObservable`, `SingleItemQueryObservable`
-  and `CountQueryObservable` moved to `com.siimkinks.sqlitemagic.rxjava2`, with `observe()`, `Query.run()` and
-  `scheduleRxQueriesOn`. `run()` returns `Maybe` of the non-null result type.
+- Observation operators are unchanged members of the observed query: `runQuery()`, `runQueryOnce()`,
+  `runQueryOrDefault(…)`, `isZero()`, `isNotZero()` need no import. Their types moved to the adapters, and count
+  streams lost the `OrDefault` forms ([setup](setup.md#reactive-adapters)).
 - New: named parameters, `AUTHOR.NAME.asParameter("name")`, bound per plan with `compiled.bind(name TO "Ada")`.
 
-## Setup, drivers and reading rows
+## Reading rows without Cursor
 
-The database runs on an androidx `SQLiteDriver` instead of a SupportSQLite helper factory:
+Every `Cursor` API is gone. Read rows lazily inside a block instead; the rows are valid only inside it and can be
+iterated once:
 
 ```kotlin
 // legacy
-SqliteMagic.builder(app)
-    .database(SqliteMagicDatabase())
-    .sqliteFactory(FrameworkSQLiteOpenHelperFactory())
-    .openDefaultConnection()
+val compiled = (SELECT FROM BOOK).toCursor()
+val cursor = compiled.execute()
+try {
+  while (cursor.moveToNext()) {
+    show(compiled.getFromCurrentPosition(cursor))
+  }
+} finally {
+  cursor.close()
+}
 
-// new: the device's SQLite, from com.siimkinks.sqlitemagic:sqlitemagic-framework-driver
-SqliteMagic.builder(app)
-    .database(SqliteMagicDatabase())
-    .driver(FrameworkSQLiteDriver())
-    .openDefaultConnection()
+// new
+(SELECT FROM BOOK).useRows { books -> books.forEach(::show) }
 
-// or a SQLite shipped with the app, from androidx.sqlite:sqlite-bundled
-    .driver(BundledSQLiteDriver())
+// raw SQL whose columns are known only when it runs
+SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
+  while (rows.step()) {
+    show(rows.read(1, SqlType.STRING))
+  }
+}
 ```
 
-- `inTransaction {}` blocks can no longer suspend or `return`/`break`/`continue` out of the enclosing function. A
-  legacy `return` inside the block rolled the transaction back silently; replace it with `return@inTransaction`, which
-  commits, or throw to roll back. Move suspend calls out of the block, use the blocking `execute()` forms, or run
-  suspending work in `withTransaction { }` from `sqlitemagic-coroutines`.
-- Replace the `androidx.sqlite:sqlite-framework` dependency with the driver's artifacts. A custom `DbDowngrader`
-  receives a `SQLiteConnection` (`connection.execSQL(…)`, `connection.prepare(…)`) instead of a
-  `SupportSQLiteDatabase`.
-- Every `Cursor` API is gone. Read rows lazily inside a block instead; the rows are valid only inside it and can be
-  iterated once:
+| `Cursor` | raw `useRows { rows -> }` |
+| --- | --- |
+| `moveToNext()` | `rows.step()`, forward only |
+| `getLong(i)`, `getString(i)`, … | `rows.read(i, SqlType.LONG)`, `rows.read(i, SqlType.STRING.nullable)`, … |
+| `isNull(i)`, `getType(i)` | `rows.isNull(i)`, `rows.columnType(i)` |
+| `getColumnCount()`, `getColumnName(i)` | `rows.columnCount`, `rows.columnName(i)` |
+| `getColumnIndex(name)` | none: select the columns in a known order, or search `columnName(i)` once before the loop |
 
-  ```kotlin
-  // legacy
-  val compiled = (SELECT FROM BOOK).toCursor()
-  val cursor = compiled.execute()
-  try {
-    while (cursor.moveToNext()) {
-      show(compiled.getFromCurrentPosition(cursor))
-    }
-  } finally {
-    cursor.close()
-  }
-
-  // new
-  (SELECT FROM BOOK).useRows { books -> books.forEach(::show) }
-
-  // raw SQL whose columns are known only when it runs
-  SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
-    while (rows.step()) {
-      show(rows.read(1, SqlType.STRING))
-    }
-  }
-  ```
-
-  `useRows` exists wherever `execute()` returns a list: on queries, `compile()`d plans and raw queries after
-  `readAs`. Observing a `Cursor` (`observe()` of a `toCursor()` plan or of a raw query, read with `runQuery()`,
-  `runQueryOnce()` and their `OrDefault` forms) has no replacement: observe a list query, or run `useRows` when
-  notified.
+`useRows` exists wherever `execute()` returns a list: on queries, `compile()`d plans and raw queries after
+`readAs`. Observing a `Cursor` (`observe()` of a `toCursor()` plan or of a raw query, read with `runQuery()`,
+`runQueryOnce()` and their `OrDefault` forms) has no replacement: observe a list query, or run `useRows` when
+notified.
 
 ## Logger, generated code and models
 
@@ -216,7 +202,11 @@ SqliteMagic.builder(app)
 - `BooleanTransformer` is removed: `Boolean` is a built-in column type, stored as before. Code that called it converts
   directly (`if (value) 1 else 0`, `value != 0`).
 - Hand-built `Table`/`Column` instances, generated readers and adapters are generated-code API: add
-  `@file:OptIn(InternalSqliteMagicApi::class)`, or better, use generated tables.
+  `@file:OptIn(InternalSqliteMagicApi::class)` (`import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi`), or
+  better, use generated tables. Runtime helpers that generated code used, such as `SqlUtil` and `GeneratedView`, moved
+  to `com.siimkinks.sqlitemagic.internal` or became internal, and `GeneratedDatabase` members need the same opt-in.
+- The runtime's `migration.MigrationDatabase` is gone; `MigrationExecutor` runs on a `SQLiteConnection`. Apps use the
+  generated migrations and the `migration-testing` helper instead ([database-upgrade](database-upgrade.md)).
 - Entity `byColumn(…)` takes the generated unique column of the entity's own table, as before; a unique column of
   another table fails at the call, and a hand-written `Unique` no longer compiles.
 

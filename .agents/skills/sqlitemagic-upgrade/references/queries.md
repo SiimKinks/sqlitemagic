@@ -21,7 +21,8 @@ differ. Keep whichever style the call site already uses.
 
 ## Imports
 
-User code still imports from `com.siimkinks.sqlitemagic`.
+User code still imports from `com.siimkinks.sqlitemagic`. The statement starters `SELECT`, `UPDATE`, `DELETE` and
+`WITH` stay imported.
 
 - Operations of the one type they start or modify are members now, and other legacy top-level names are gone. Delete
   these imports when they no longer resolve ("Unresolved reference"): `FROM`, `WHERE`, `GROUP_BY`, `HAVING`, `LIMIT`,
@@ -35,10 +36,11 @@ User code still imports from `com.siimkinks.sqlitemagic`.
   Remove the imports the compiler or IDE reports as unused.
 - Still imported: Boolean operators `AND`, `OR`, `AND_NOT`, `OR_NOT` and `not` (`!p`); the arithmetic operators
   `plus`, `minus`, `times`, `div`, `rem` and `unaryMinus`, which were legacy members; compounds `UNION`, `UNION_ALL`,
-  `INTERSECT`, `EXCEPT`; `CONCAT`; top-level SQL functions (`COUNT`, `SUM`, `TOTAL`, `AVG`, `MIN`, `MAX`, `GROUP_CONCAT`,
-  `LOWER`, `UPPER`, `LENGTH`, `ABS`, `SUBSTRING`, `TRIM`, `REPLACE`, `FORMAT`, `IFNULL`, `COALESCE`, `NULLIF`,
-  `CAST`, `EXISTS`, `NOT_EXISTS`); and the extensions `queryDeep`, `mapTo`, `readAs`, `asScalar`, `asValue`,
-  `asLiteral` and `expr`; every `observe()` comes from `com.siimkinks.sqlitemagic.rxjava2`.
+  `INTERSECT`, `EXCEPT`; `CONCAT`; top-level SQL functions (`COUNT`, `SUM`, `TOTAL`, `AVG`, `MIN`, `MAX`,
+  `GROUP_CONCAT`, `LOWER`, `UPPER`, `LENGTH`, `ABS`, `SUBSTRING`, `TRIM`, `REPLACE`, `FORMAT`, `IFNULL`, `COALESCE`,
+  `NULLIF`, `CAST`, `EXISTS`, `NOT_EXISTS`); and the extensions `queryDeep`, `mapTo`, `readAs`, `asScalar`, `asValue`,
+  `asLiteral` and `expr`. Every `observe()` and `run()` comes from the reactive adapter's package
+  ([setup](setup.md#reactive-adapters)).
 - Legacy `Select.Companion.count`, `Select.Companion.asColumn` and similar companion imports go away with the calls.
 
 The sample app's view ([Views](statements-and-types.md#views)) changed its imports like this; `IS` and `ORDER_BY`
@@ -82,8 +84,8 @@ query.execute()
 - Final configuration after the last clause: `queryDeep()`, `readAs(…)`, `mapTo(…)`, `usingConnection(…)`. No
   clause follows them. Put `mapTo` after `readAs`: a later `readAs` replaces the whole reader, dropping an earlier
   mapping. `usingConnection` goes before or after the others.
-- Terminals: `execute()`, `useRows { }`, `takeFirst()`, `count()`, `compile()`, and `observe()` from the
-  `sqlitemagic-rxjava2` adapter.
+- Terminals: `execute()`, `useRows { }`, `takeFirst()`, `count()`, `compile()`, and `observe()` from a reactive
+  adapter.
 - `LIMIT`/`OFFSET` take `Int` or `Long`.
 
 ## Entity queries
@@ -228,7 +230,9 @@ SELECT.COLUMN(next[AUTHOR.ID]).FROM(next).WHERE(next[nextAge] IS 36)
 - A compound's right arm must have the left arm's result type or a subtype. An arm mapped with a function `mapTo`
   throws `IllegalArgumentException` when the compound is built; map after compounding,
   `(ids UNION ids).mapTo(::AuthorId)`. `mapTo(table)` arms are allowed. Put an arm that may hold NULL first, or lift
-  its columns with `.nullable()`.
+  its columns with `.nullable()`: a `UNION`/`UNION_ALL` whose right arm can be NULL where the left arm's column is NOT
+  NULL throws `IllegalArgumentException` when built, also for wide rows that compile
+  ([behavior](behavior.md#compounds-type-by-the-left-arm)).
 - A nested query cannot choose a connection; call `usingConnection` on the outermost query only.
 - Correlation follows SQL: a nested query's field of a table it does not itself use refers to the enclosing query.
   Alias the inner occurrence to read another row ([behavior](behavior.md#nested-queries-resolve-names-as-sql-does)).

@@ -1,7 +1,7 @@
 # Changes that compile but behave differently
 
-Walk this list for every migrated query and for code around entity operations, views, migrations and loggers. Each
-item says how to find affected code and what to do.
+Walk this list for every migrated query and for code around entity operations, transactions, views, migrations and
+loggers. Each item says how to find affected code and what to do.
 
 ## Contents
 
@@ -155,6 +155,12 @@ object, so writing back a parent read this way sets the related object's other c
   object's other properties, and updates or persists of parents read that way.
 - Do: add `queryDeep()` where the related object's values are needed, and persist parents read without it with
   `ignoreNullValues()`.
+- A relationship whose stored ID references a missing row reads, in a deep read, as an object holding only the ID
+  where its model allows that, as `null` when the property is nullable, and otherwise throws `SQLException` naming the
+  relationship. Legacy read it from the missing row's NULL columns. Foreign keys are enforced only when some table
+  has an `onDeleteCascade` relationship, so installed data can hold such IDs where rows were deleted directly. Find
+  deep reads of non-null relationships whose targets are deleted independently; delete or repair the dangling rows in
+  the release's migration SQL, or make the property nullable.
 
 ## Partial entities check required properties before SQL
 
@@ -185,10 +191,15 @@ subquery; the same query now reads the updated row's own `count`.
 
 - The right arm's result type must be a subtype of the left's; a `UNION` of scalars whose right arm may be NULL reads
   nullable (`List<String?>`). Legacy typed the compound by the left arm regardless.
+- Rows the compiler cannot check, such as `table.all()` selections, are checked when the compound is built: a
+  `UNION`/`UNION_ALL` column that is NOT NULL in the left arm but nullable in the right one, such as an outer-joined
+  field, throws `IllegalArgumentException` naming the column. Legacy read the NULL into the left arm's non-null type.
 - A right arm with its own `ORDER_BY`, `LIMIT` or `OFFSET` now renders as `SELECT * FROM (…)`, so only that arm is
   limited. Legacy rendered the clauses inline, where SQLite applied them to the whole compound.
-- Find: compounds whose right arm is ordered or limited; code that relied on the whole result being limited.
-- Do: put ORDER BY and LIMIT on the compound itself (`(a UNION b).ORDER_BY(…).LIMIT(1)`) to limit the whole result.
+- Find: compounds whose right arm is ordered, limited or outer-joined; code that relied on the whole result being
+  limited.
+- Do: put ORDER BY and LIMIT on the compound itself (`(a UNION b).ORDER_BY(…).LIMIT(1)`) to limit the whole result;
+  select the named column with `.nullable()` in the left arm.
 
 ## View columns have qualified names
 
@@ -202,11 +213,10 @@ name segment and then to a position.
 - Raw SQL over a view quotes the dotted names (`SELECT "author.name" FROM book_card`), or the definition aliases the
   output (`AUTHOR.NAME AS "name"`).
 - Installed databases keep persistent views created by legacy code, with legacy column names, so reading them fails
-  with "no such column" until a schema upgrade rebuilds them. Persistent views are created with the schema, and every
-  upgrade drops and recreates all of them; temporary views are created on every open. Ship the migration with a
-  database version bump. The runtime needs no SQL script for the new version (each version's script is optional),
-  but the project's release or migration tooling may expect its own entries. Test opening and upgrading a database
-  that legacy code created, reading the view.
+  with "no such column" until a new database version recreates them. Every upgrade drops and recreates all persistent
+  views; temporary views are created on every open. Release the upgrade as
+  [database-upgrade.md](database-upgrade.md#release-the-upgrade) describes, and test reading the view from a database
+  that legacy code created.
 
 ## Entity operations throw SQLite's exceptions
 
@@ -243,13 +253,13 @@ table empty. Afterwards SQLite rejects a NULL written to such a column, includin
 property. Selected values keep the property's type, as legacy typed them.
 
 - Find: raw SQL or other writers that store NULL in columns of non-null properties, `@ObjectToDbValue` functions that
-  can return null for a non-null value, and `DELETE FROM` statements in the generated migration SQL (the build warns
-  "Migration deletes …" for each).
+  can return null for a non-null value, and `DELETE FROM` statements in the migration SQL that
+  `preview<Variant>DbMigration` prints (the build warns "Migration deletes …" for each).
 - Do: declare the property nullable where NULL is meant, or have the encoder return a non-null value; where stored
   NULLs need another value than the default or their rows must survive, replace those values in the release's
   migration SQL before the rebuild statements; where a `DELETE FROM` would discard data that must survive, give the
-  new column a default, make it nullable or replace those statements; advance the database version and run
-  `migrate<Variant>Db`.
+  new column a default, make it nullable or replace those statements; release the new database version as
+  [database-upgrade.md](database-upgrade.md#release-the-upgrade) describes.
 
 ## Smaller behavior changes
 
@@ -268,7 +278,9 @@ property. Selected values keep the property's type, as legacy typed them.
 | Without `scheduleRxQueriesOn`, observed queries look up `Schedulers.io()` when subscribed, so an `RxJavaPlugins` io handler set after setup applies | none |
 | Values inside view definitions render as SQL literals; legacy failed view creation with bound arguments | drop `asColumn` workarounds |
 | `Float`/`Double` NaN is rejected with `IllegalArgumentException` when encoded | handle NaN before building SQL values |
-| A read during another thread's transaction returns the last committed data instead of waiting for the transaction | read inside the transaction, on its thread, to see its changes |
+| A read during another thread's transaction returns the last committed data instead of waiting for the transaction (WAL with reader connections) | read inside the transaction, on its thread, to see its changes |
+| WAL runs with `PRAGMA synchronous = NORMAL`: a transaction committed just before a power loss or system crash can be rolled back; committed data can sit in the `-wal` file | `PRAGMA synchronous = FULL` in `configureConnection` where needed; copy and back up the `-wal` and `-shm` files with the database ([database-upgrade](database-upgrade.md#files-on-disk)) |
+| On `BundledSQLiteDriver`, `lower`, `upper` and `LIKE` fold only ASCII, and the `LOCALIZED` and `UNICODE` collations and Android functions such as `PHONE_NUMBERS_EQUAL` are missing | keep `FrameworkSQLiteDriver` where raw SQL needs them ([setup](setup.md#choose-a-driver)) |
 | Errors are the driver's: `FrameworkSQLiteDriver` keeps Android's typed `SQLiteException` subclasses; `BundledSQLiteDriver` throws `SQLException` with the result code in the message | catch `SQLException` |
 | A corrupt database throws and keeps its files; legacy deleted the database and created it again | handle the exception where a fresh database is acceptable |
 | On `FrameworkSQLiteDriver` before API 28, a row larger than the cursor window (about 2 MB) fails with `SQLiteException`; legacy read its values as NULL | keep rows below 2 MB on the framework driver, or use the bundled driver |
