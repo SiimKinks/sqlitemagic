@@ -18,7 +18,8 @@ import com.siimkinks.sqlitemagic.internal.sql.CompoundOperator
  *
  * @param other Connected SELECT statement to form a compound SELECT
  * @return SQL SELECT statement builder
- * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`
+ * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, or if a value that
+ *     this query selects as NOT NULL is nullable in [other]; select such a value with `.nullable()` in this query
  * @see [SQLite documentation: Compound Select Statements](https://www.sqlite.org/lang_select.html#compound)
  */
 infix fun <T, S : Selection<T>> SelectQuery<T, S>.UNION(other: SelectQuery<out T, *>) = compound(
@@ -67,7 +68,8 @@ infix fun <R, T> SelectQuery<T, ScalarSelection<R, Required, T>>.UNION(
  *
  * @param other Connected SELECT statement to form a compound SELECT
  * @return SQL SELECT statement builder
- * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`
+ * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, or if a value that
+ *     this query selects as NOT NULL is nullable in [other]; select such a value with `.nullable()` in this query
  * @see [SQLite documentation: Compound Select Statements](https://www.sqlite.org/lang_select.html#compound)
  */
 infix fun <T, S : Selection<T>> SelectQuery<T, S>.UNION_ALL(other: SelectQuery<out T, *>) = compound(
@@ -208,9 +210,25 @@ private fun <T, S : Selection<T>> SelectQuery<T, S>.compound(
 ) = SelectCompoundStage(
   node.compound(
     operator = operator,
-    arm = unmappedArm(other)
+    arm = unmappedArm(other).also { arm ->
+      if (operator == CompoundOperator.UNION || operator == CompoundOperator.UNION_ALL) {
+        requireRequiredOutputsStayRequired(arm.selection)
+      }
+    }
   )
 )
+
+private fun SelectQuery<*, *>.requireRequiredOutputsStayRequired(armSelection: Selection<*>) {
+  val selection = node.selection
+  val outputs = selection.exportedValues
+  val armOutputs = armSelection.exportedValues
+  repeat(minOf(outputs.size, armOutputs.size)) { index ->
+    require(outputs[index].nullness != Required || armOutputs[index].nullness != SqlNullable) {
+      "Result column ${index + 1} (${selection.exportedName(index)}) is NOT NULL in the left SELECT but nullable in " +
+          "the connected SELECT; select it with .nullable() in the left SELECT"
+    }
+  }
+}
 
 private fun <R, T> SelectQuery<T, ScalarSelection<R, Required, T>>.nullableCompound(
   operator: CompoundOperator,

@@ -1,8 +1,28 @@
 apply plugin: 'maven-publish'
+apply plugin: 'org.jetbrains.dokka'
 
 java {
   withSourcesJar()
   withJavadocJar()
+}
+
+dokka {
+  dokkaSourceSets.configureEach {
+    perPackageOption {
+      matchingRegex = '.*\\.internal(\\..*)?'
+      suppress = true
+    }
+  }
+}
+
+if (!providers.gradleProperty('sqlitemagic.skipDocs').getOrElse('false').toBoolean()) {
+  tasks.named('javadocJar', Jar) {
+    from(tasks.named('dokkaGeneratePublicationHtml'))
+  }
+}
+
+tasks.named('javadoc') {
+  enabled = false
 }
 
 def publicationName = plugins.hasPlugin('java-gradle-plugin') ? 'pluginMaven' : 'mavenJava'

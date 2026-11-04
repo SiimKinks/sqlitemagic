@@ -82,6 +82,18 @@ internal object MigrationPlanner {
         )
       }
       .toList()
+    val batchedTableNames = batchedRebuilds
+      .asSequence()
+      .flatMap { sequenceOf(it.from.name, it.to.name) }
+      .mapTo(
+        destination = hashSetOf(),
+        transform = String::normalizedSqlIdentifier
+      )
+    val (batchedPrerequisiteNewTables, earlyPrerequisiteNewTables) = prerequisiteNewTables.partition { table ->
+      currentReferencesByTableName
+        .getValue(table.name)
+        .any(batchedTableNames::contains)
+    }
     val removedReferencesByTableName = diff.removedTables.associate { table ->
       table.name to table.structure.normalizedReferencedTableNames()
     }
@@ -134,7 +146,8 @@ internal object MigrationPlanner {
           index.structure.forTable in diff.newTableNames
     }
     return TableMigrationPlan(
-      prerequisiteNewTables = prerequisiteNewTables,
+      prerequisiteNewTables = earlyPrerequisiteNewTables,
+      batchedPrerequisiteNewTables = batchedPrerequisiteNewTables,
       simpleRenames = simpleRenames,
       directRebuilds = directRebuilds,
       batchedRebuilds = batchedRebuilds,
@@ -235,6 +248,7 @@ private val ColumnStructure.lookupName get() = name.lowercase(Locale.ROOT)
 
 internal data class TableMigrationPlan(
   val prerequisiteNewTables: List<TableSnapshot>,
+  val batchedPrerequisiteNewTables: List<TableSnapshot>,
   val simpleRenames: List<TableRename>,
   val directRebuilds: List<TableChange>,
   val batchedRebuilds: List<TableChange>,

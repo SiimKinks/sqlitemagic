@@ -19,6 +19,7 @@ import android.database.sqlite.SQLiteStatement as FrameworkProgram
 internal class TransactionState(private val db: SQLiteDatabase) {
   var isOpen = false
     private set
+  private var openedByBegin = false
 
   fun execute(
     program: FrameworkProgram,
@@ -26,9 +27,18 @@ internal class TransactionState(private val db: SQLiteDatabase) {
   ) {
     guard(control) { program.execute() }
     when (control) {
-      BEGIN, SAVEPOINT -> isOpen = true
-      END -> isOpen = false
-      RELEASE -> isOpen = probe()
+      BEGIN -> {
+        isOpen = true
+        openedByBegin = true
+      }
+      SAVEPOINT -> isOpen = true
+      END -> {
+        isOpen = false
+        openedByBegin = false
+      }
+      RELEASE -> if (!openedByBegin) {
+        isOpen = probe()
+      }
       NONE, ROLLBACK_TO -> Unit
     }
   }
@@ -46,8 +56,11 @@ internal class TransactionState(private val db: SQLiteDatabase) {
   }
 
   fun resync(failure: Throwable) {
+    val begun = openedByBegin
+    openedByBegin = false
     try {
       isOpen = probe()
+      openedByBegin = begun && isOpen
     } catch (probeFailure: Throwable) {
       failure.addSuppressed(probeFailure)
     }

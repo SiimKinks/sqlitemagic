@@ -28,6 +28,10 @@ interface Transaction : Closeable {
    * no nested transactions ([DbConnection.newTransaction] has been called only once) and throws if that is not the
    * case. It does not yield while a `useRows` block reads rows on the transaction's connection.
    *
+   * When the transaction cannot be started again, for example because another process holds the database's write lock,
+   * this throws. Every further statement, nested transaction and yield in the transaction then throws, and [end] keeps
+   * only the work committed by the yield.
+   *
    * @return true if the transaction was yielded
    * @see SQLiteDatabase.yieldIfContendedSafely
    */
@@ -38,6 +42,10 @@ interface Transaction : Closeable {
    * [markSuccessful] first. A new transaction is created when this returns, but is not marked successful. This assumes
    * no nested transactions ([DbConnection.newTransaction] has been called only once) and throws if that is not the
    * case. It does not yield while a `useRows` block reads rows on the transaction's connection.
+   *
+   * When the transaction cannot be started again, for example because another process holds the database's write lock,
+   * this throws. Every further statement, nested transaction and yield in the transaction then throws, and [end] keeps
+   * only the work committed by the yield.
    *
    * @param sleepAmount If greater than zero, sleep this long before restarting a transaction when
    * the lock was yielded, allowing other background threads to make more progress.

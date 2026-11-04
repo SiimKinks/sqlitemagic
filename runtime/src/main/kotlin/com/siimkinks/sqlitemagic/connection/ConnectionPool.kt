@@ -93,6 +93,11 @@ internal class ConnectionPool(
           lease = lease
         )
       )
+    } catch (failure: Throwable) {
+      if (lease and USES_READER == 0) {
+        detectRollback()
+      }
+      throw failure
     } finally {
       if (lease and RELEASES != 0) {
         releaseLease(
@@ -107,6 +112,9 @@ internal class ConnectionPool(
     val lease = writeLease()
     try {
       return block(heldWriter())
+    } catch (failure: Throwable) {
+      detectRollback()
+      throw failure
     } finally {
       if (lease != 0) {
         releaseLease(
@@ -130,7 +138,7 @@ internal class ConnectionPool(
       }
       val lease = when {
         writerOwner === owner -> {
-          checkOpen()
+          checkOwnedWriter(owner)
           0
         }
         owner.reader == null -> {
@@ -157,8 +165,9 @@ internal class ConnectionPool(
   }
 
   fun writeLease(): Int {
-    if (writerOwner?.thread === Thread.currentThread()) {
-      checkOpen()
+    val current = writerOwner
+    if (current?.thread === Thread.currentThread()) {
+      checkOwnedWriter(current)
       return 0
     }
     val owner = threadState()
@@ -169,7 +178,7 @@ internal class ConnectionPool(
       }
       val lease = when {
         writerOwner === owner -> {
-          checkOpen()
+          checkOwnedWriter(owner)
           0
         }
         else -> {
@@ -235,6 +244,8 @@ internal class ConnectionPool(
     return serialized(owner) {
       val current = owner.transaction
       if (current != null) {
+        check(!current.detached) { DETACHED }
+        check(!current.rolledBack) { ROLLED_BACK }
         check(!current.successful) { MARKED_SUCCESSFUL }
         val level = TransactionLevel(parent = current)
         if (owner.thread != null) {
@@ -290,7 +301,7 @@ internal class ConnectionPool(
     val owner = threadState()
     return serialized(owner) {
       val level = currentTransaction(owner)
-      val successful = level.successful && !level.childFailed
+      val successful = level.successful && !level.childFailed && !level.rolledBack
       val parent = level.parent
       owner.transaction = parent
       if (parent == null && owner.thread == null) {
@@ -328,6 +339,66 @@ internal class ConnectionPool(
     }
   }
 
+  fun <T> savepoint(
+    operation: () -> T,
+    keep: (T) -> Boolean
+  ): T {
+    val owner = threadState()
+    return serialized(owner) {
+      val lease = writeLease()
+      try {
+        val connection = heldWriter()
+        connection.execute(SAVEPOINT)
+        val result = try {
+          operation()
+        } catch (failure: Throwable) {
+          detectRollback()
+          if (owner.transaction?.rolledBack != true) {
+            rollbackSavepoint(
+              owner = owner,
+              connection = connection,
+              failure = failure
+            )
+          }
+          throw failure
+        }
+        when {
+          keep(result) -> connection.execute(RELEASE_SAVEPOINT)
+          else -> rollbackSavepoint(
+            owner = owner,
+            connection = connection,
+            failure = null
+          )
+        }
+        result
+      } finally {
+        if (lease != 0) {
+          releaseLease(
+            owner = null,
+            lease = lease
+          )
+        }
+      }
+    }
+  }
+
+  private fun rollbackSavepoint(
+    owner: LeaseOwner,
+    connection: PooledConnection,
+    failure: Throwable?
+  ) {
+    try {
+      connection.execute(ROLLBACK_TO_SAVEPOINT)
+      connection.execute(RELEASE_SAVEPOINT)
+    } catch (rollbackFailure: Throwable) {
+      owner.transaction?.childFailed = true
+      when (failure) {
+        null -> throw rollbackFailure
+        else -> failure.addSuppressed(rollbackFailure)
+      }
+    }
+  }
+
   inline fun queueChanges(add: (MutableScatterSet<String>) -> Unit): Boolean {
     val owner = owners.get() ?: return false
     return serialized(owner) {
@@ -349,7 +420,8 @@ internal class ConnectionPool(
       check(level.parent == null && owner.nestedLevels == 0) {
         "Cannot perform this operation because a nested transaction is in progress."
       }
-      check(!level.detached) { NO_TRANSACTION }
+      check(!level.detached) { DETACHED }
+      check(!level.rolledBack) { ROLLED_BACK }
       if (level.childFailed || writerRows != 0 || !hasWriterWaiters()) {
         return false
       }
@@ -433,7 +505,7 @@ internal class ConnectionPool(
     val level = owner.transaction
     when {
       level == null || level.parent != null || owner.nestedLevels > 0 || level.childFailed || level.detached ||
-          owner.yieldedHolds != 0 || writerRows != 0 || !hasWriterWaiters() -> false
+          level.rolledBack || owner.yieldedHolds != 0 || writerRows != 0 || !hasWriterWaiters() -> false
       else -> {
         owner.yieldedHolds = yieldWriter(level)
         owner.yields++
@@ -600,6 +672,23 @@ internal class ConnectionPool(
     check(!owner.ended) { "Cannot use a coroutine transaction after it ended." }
     check(!owner.abandoned) { ABANDONED }
     check(owner.borrower == null) { LENT }
+    check(owner.transaction?.detached != true) { DETACHED }
+  }
+
+  private fun checkOwnedWriter(owner: LeaseOwner) {
+    checkOpen()
+    check(owner.transaction?.rolledBack != true) { ROLLED_BACK }
+  }
+
+  fun detectRollback() {
+    val level = writerOwner?.transaction
+    if (level == null || level.detached || level.rolledBack || writer?.connection?.inTransaction() != false) {
+      return
+    }
+    generateSequence(
+      seed = level,
+      nextFunction = TransactionLevel::parent
+    ).forEach { it.rolledBack = true }
   }
 
   private fun acquireReader(): PooledConnection {
@@ -859,8 +948,14 @@ internal class ConnectionPool(
       }
       throw failure
     }
+    try {
+      reacquired.execute("BEGIN IMMEDIATE")
+    } catch (failure: Throwable) {
+      level.detached = true
+      releaseOwnedWriter(owner)
+      throw failure
+    }
     writerHolds = holds
-    reacquired.execute("BEGIN IMMEDIATE")
   }
 
   private fun lockWriter(owner: LeaseOwner, call: WriterCall?) {
@@ -1141,6 +1236,7 @@ internal class ConnectionPool(
     var childFailed = false
     var committedByYield = false
     var detached = false
+    var rolledBack = false
     var ended = false
 
     override fun toString(): String {
@@ -1162,10 +1258,17 @@ internal const val RELEASES = HOLDS_READER or HOLDS_WRITER or HOLDS_SERIAL_LEASE
 private const val RESERVATION_GRACE_NANOS = 10_000_000L
 private const val BUSY_TIMEOUT_MILLIS = 3000
 private const val JOURNAL_SIZE_LIMIT = 524288
+private const val SAVEPOINT = "SAVEPOINT sqlitemagic_operation"
+private const val RELEASE_SAVEPOINT = "RELEASE sqlitemagic_operation"
+private const val ROLLBACK_TO_SAVEPOINT = "ROLLBACK TO sqlitemagic_operation"
 private const val CLOSED = "DB connection closed"
 private const val NO_TRANSACTION = "Cannot perform this operation because there is no current transaction."
 private const val LENT = "Cannot use this transaction while a coroutine transaction started inside it runs. Wait " +
     "for withTransaction to return, as runBlocking does, before continuing the transaction."
+private const val DETACHED = "Cannot use this transaction because yieldIfContended could not resume it. End the " +
+    "transaction; it keeps only the parts committed before the yield."
+private const val ROLLED_BACK = "Cannot use this transaction because SQLite rolled it back when a statement " +
+    "failed. End the transaction."
 private const val ABANDONED = "The transaction that this coroutine transaction joined ended before it."
 private const val MARKED_SUCCESSFUL = "Cannot perform this operation because the transaction has already been " +
     "marked successful. The only thing you can do now is call end()."

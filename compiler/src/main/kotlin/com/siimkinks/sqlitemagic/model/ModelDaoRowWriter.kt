@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ID_ONLY
+import com.siimkinks.sqlitemagic.model.ModelConstructionStrategy.MUTABLE_PROPERTIES
 import com.siimkinks.sqlitemagic.writer.ColumnPosition
 import com.siimkinks.sqlitemagic.writer.RowReadNode
 import com.siimkinks.sqlitemagic.writer.RowReadNode.Embedded
@@ -30,7 +31,12 @@ internal fun rowReaders(table: TableElement) = listOf(
         construction = table.construction,
         properties = table.properties,
         positions = positions,
-        columnNode = table::persistedNode
+        columnNode = { column, position, _ ->
+          table.persistedNode(
+            column = column,
+            position = position
+          )
+        }
       )
     }
   ),
@@ -60,13 +66,17 @@ private fun readTree(
   construction: ModelConstruction,
   properties: List<PropertyElement>,
   positions: Map<ColumnElement, ColumnPosition>,
-  columnNode: (ColumnElement, ColumnPosition) -> RowReadNode
+  columnNode: (ColumnElement, ColumnPosition, ModelConstructionStrategy) -> RowReadNode
 ): RowReadTree = RowReadTree(
   type = type,
   construction = construction,
   nodes = properties.map { property ->
     when (property) {
-      is ColumnPropertyElement -> columnNode(property.column, positions.getValue(property.column))
+      is ColumnPropertyElement -> columnNode(
+        property.column,
+        positions.getValue(property.column),
+        construction.strategy
+      )
       is EmbeddedPropertyElement -> Embedded(
         source = property.toRowReadProperty(),
         tree = readTree(
@@ -108,21 +118,27 @@ private fun TableElement.persistedNode(
 
 private fun TableElement.selectedNode(
   column: ColumnElement,
-  position: ColumnPosition
+  position: ColumnPosition,
+  strategy: ModelConstructionStrategy
 ) = when (val relationship = column.relationship) {
   null -> scalarNode(
     column = column,
     position = position
   )
-  else -> Related(
-    source = column.toRowReadProperty(),
-    read = selectedRelationshipValue(
-      column = column,
-      relationship = relationship,
-      position = position,
-      relationshipIndex = relationshipColumns.indexOf(column)
+  else -> {
+    val keepsInitializer = strategy == MUTABLE_PROPERTIES && !column.isNullable && position.mayBeMissing
+    Related(
+      source = column.toRowReadProperty(),
+      read = selectedRelationshipValue(
+        column = column,
+        relationship = relationship,
+        position = position,
+        relationshipIndex = relationshipColumns.indexOf(column),
+        missingAsNull = keepsInitializer
+      ),
+      keepsInitializer = keepsInitializer
     )
-  )
+  }
 }
 
 private fun TableElement.scalarNode(
@@ -179,7 +195,8 @@ private fun selectedRelationshipValue(
   column: ColumnElement,
   relationship: RelationshipElement,
   position: ColumnPosition,
-  relationshipIndex: Int
+  relationshipIndex: Int,
+  missingAsNull: Boolean
 ): CodeBlock {
   val selected = CodeBlock.of(
     "(related.readSelected(statement, %L) as %T?)",
@@ -190,7 +207,8 @@ private fun selectedRelationshipValue(
     ID_ONLY -> storedRelationship(
       column = column,
       relationship = relationship,
-      position = position
+      position = position,
+      missingAsNull = missingAsNull
     )
     DEEP -> CodeBlock.of(
       "%L ?: %L",
@@ -198,11 +216,21 @@ private fun selectedRelationshipValue(
       storedRelationship(
         column = column,
         relationship = relationship,
-        position = position
+        position = position,
+        missingAsNull = missingAsNull
       )
     )
     ALWAYS -> when {
       column.isNullable -> selected
+      missingAsNull -> CodeBlock.of(
+        "%L ?: (if (%L) null else throw %T(if (%L) %S else %S))",
+        selected,
+        position.missingCheck().condition,
+        SQL_EXCEPTION,
+        position.presentNullCheck().condition,
+        column.relationshipNullMessage,
+        column.missingRelationshipMessage
+      )
       else -> CodeBlock.of(
         "%L ?: throw %T(if (%L) %S else %S)",
         selected,
@@ -218,7 +246,8 @@ private fun selectedRelationshipValue(
 private fun storedRelationship(
   column: ColumnElement,
   relationship: RelationshipElement,
-  position: ColumnPosition
+  position: ColumnPosition,
+  missingAsNull: Boolean
 ): CodeBlock {
   val idOnly = idOnlyRelationship(
     column = column,
@@ -227,6 +256,14 @@ private fun storedRelationship(
   )
   return when {
     column.isNullable -> CodeBlock.of("(if (%L) null else %L)", position.nullCheck().condition, idOnly)
+    missingAsNull -> CodeBlock.of(
+      "(if (%L) null else if (%L) throw %T(%S) else %L)",
+      position.missingCheck().condition,
+      position.presentNullCheck().condition,
+      SQL_EXCEPTION,
+      column.relationshipNullMessage,
+      idOnly
+    )
     else -> CodeBlock.of(
       "(if (%L) throw %T(%S) else %L)",
       position.nullCheck().condition,

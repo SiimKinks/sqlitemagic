@@ -202,8 +202,9 @@ SqliteMagic.builder(app)
   ```
 
   `useRows` exists wherever `execute()` returns a list: on queries, `compile()`d plans and raw queries after
-  `readAs`. Reactive cursor forms (`observe()` of a cursor plan, `runCursorQuery`, `runQueryOrDefault(cursor)`) have
-  no replacement: observe a list query, or run `useRows` when notified.
+  `readAs`. Observing a `Cursor` (`observe()` of a `toCursor()` plan or of a raw query, read with `runQuery()`,
+  `runQueryOnce()` and their `OrDefault` forms) has no replacement: observe a list query, or run `useRows` when
+  notified.
 
 ## Logger, generated code and models
 

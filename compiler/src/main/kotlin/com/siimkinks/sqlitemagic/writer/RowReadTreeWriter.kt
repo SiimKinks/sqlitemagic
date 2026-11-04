@@ -77,7 +77,8 @@ internal sealed interface RowReadNode : PropertyMetadata {
 
   data class Related(
     override val source: RowReadProperty,
-    val read: CodeBlock?
+    val read: CodeBlock?,
+    val keepsInitializer: Boolean = false
   ) : RowReadNode, PropertyMetadata by source
 }
 
@@ -210,7 +211,11 @@ private fun mutableAssignment(node: RowReadNode) = when (node) {
   )
   is Related -> node.read?.let { read ->
     when {
-      node.isNullable -> CodeBlock.of("(%L)?.let { this.%N = it }", read, node.access.path.propertyName)
+      node.isNullable || node.keepsInitializer -> CodeBlock.of(
+        "(%L)?.let { this.%N = it }",
+        read,
+        node.access.path.propertyName
+      )
       else -> CodeBlock.of("this.%N = %L", node.access.path.propertyName, read)
     }
   }

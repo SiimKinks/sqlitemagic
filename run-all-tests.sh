@@ -7,14 +7,14 @@ trap 'exit 143' TERM
 
 usage() {
   printf 'Usage: %s [--clean] [--fresh] [all | SUITE ...]\n       %s --help\n' "${0##*/}" "${0##*/}"
-  printf 'No arguments or all runs every suite; otherwise combine any suite selectors.\n'
+  printf 'No arguments or all runs every suite and every ABI check; otherwise combine any suite selectors.\n'
   printf 'Runs use incremental task checks and the Gradle build cache by default.\n'
   printf '  --fresh                   Rerun tasks and disable the build cache for this run\n'
   printf '  compiler                  Compiler JVM tests\n'
-  printf '  runtime                   Runtime JVM tests\n'
-  printf '  rxjava2                   RxJava 2 adapter JVM tests\n'
-  printf '  rxjava3                   RxJava 3 adapter JVM tests\n'
-  printf '  coroutines                Coroutines adapter JVM tests\n'
+  printf '  runtime                   Runtime JVM tests and ABI check\n'
+  printf '  rxjava2                   RxJava 2 adapter JVM tests and ABI check\n'
+  printf '  rxjava3                   RxJava 3 adapter JVM tests and ABI check\n'
+  printf '  coroutines                Coroutines adapter JVM tests and ABI check\n'
   printf '  gradle-plugin             Gradle plugin unit and consumer integration tests\n'
   printf '  gradle-plugin-unit        Gradle plugin unit and task-cache tests, without publication\n'
   printf '  gradle-plugin-integration Gradle plugin consumer integration tests, with publication\n'
@@ -100,7 +100,7 @@ if [ "$fresh_run" -eq 1 ] && [ "$clean_results" -eq 0 ] \
   select_all=1
 fi
 
-run_options=(--continue --console=plain)
+run_options=(--continue --console=plain -Psqlitemagic.skipDocs=true)
 if [ "$fresh_run" -eq 1 ]; then
   run_options+=(--rerun-tasks --no-build-cache)
 else
@@ -113,7 +113,7 @@ root_tasks=()
 nested_tasks=()
 sample_tasks=()
 if [ "$select_all" -eq 1 ]; then
-  root_tasks=(test ":gradle-plugin:integrationTest")
+  root_tasks=(test checkKotlinAbi ":gradle-plugin:integrationTest")
   select_consumer=1
   select_android=1
   select_sample=1
@@ -122,16 +122,16 @@ else
     root_tasks+=(":compiler:test")
   fi
   if [ "$select_runtime" -eq 1 ]; then
-    root_tasks+=(":migration-testing:test" ":runtime:test")
+    root_tasks+=(":migration-testing:test" ":runtime:test" ":runtime:checkKotlinAbi")
   fi
   if [ "$select_rxjava2" -eq 1 ]; then
-    root_tasks+=(":rxjava2:test")
+    root_tasks+=(":rxjava2:test" ":rxjava2:checkKotlinAbi")
   fi
   if [ "$select_rxjava3" -eq 1 ]; then
-    root_tasks+=(":rxjava3:test")
+    root_tasks+=(":rxjava3:test" ":rxjava3:checkKotlinAbi")
   fi
   if [ "$select_coroutines" -eq 1 ]; then
-    root_tasks+=(":coroutines:test")
+    root_tasks+=(":coroutines:test" ":coroutines:checkKotlinAbi")
   fi
   if [ "$select_plugin_unit" -eq 1 ]; then
     root_tasks+=(":gradle-plugin:test")
@@ -359,7 +359,7 @@ fi
 
 printf '\nTest run summary:\n'
 printf '  Publication: %s\n' "$publication_status"
-printf '  Root JVM tests [%s]: %s\n' "${root_tasks[*]-}" "$root_status"
+printf '  Root JVM tests and ABI checks [%s]: %s\n' "${root_tasks[*]-}" "$root_status"
 android_engines=''
 if [ "$select_android" -eq 1 ]; then
   android_engines=' (connected on framework and bundled SQLite)'

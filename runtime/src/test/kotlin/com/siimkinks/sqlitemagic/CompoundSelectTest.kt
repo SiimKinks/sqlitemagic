@@ -127,6 +127,55 @@ internal class CompoundSelectTest {
   }
 
   @Test
+  fun `a wide row union rejects a nullable connected value where the left row reads NOT NULL`() {
+    val petName = PET.NAME.nullable()
+    val withPets = SELECT
+      .COLUMNS(PERSON.all(), PET.NAME)
+      .FROM(PERSON)
+      .INNER_JOIN(PET)
+      .ON(PET.OWNER IS PERSON.ID)
+    val everyone = SELECT
+      .COLUMNS(PERSON.all(), petName)
+      .FROM(PERSON)
+      .LEFT_JOIN(PET)
+      .ON(PET.OWNER IS PERSON.ID)
+
+    val failures = mapOf<String, () -> Any>(
+      "UNION" to { withPets UNION everyone },
+      "UNION ALL" to { withPets UNION_ALL everyone }
+    ).mapValues { (_, compound) ->
+      assertThrows(IllegalArgumentException::class.java) { compound() }.message
+    }
+    val message = "Result column 7 (pet.name) is NOT NULL in the left SELECT but nullable in the connected " +
+        "SELECT; select it with .nullable() in the left SELECT"
+    assertThat(failures).containsExactly(
+      "UNION",
+      message,
+      "UNION ALL",
+      message
+    )
+    petDatabase().use { database ->
+      assertThat(
+        listOf(
+          (everyone UNION withPets)
+            .mapTo { it[petName] }
+            .rows(database)
+            .sortedBy(String?::orEmpty),
+          (withPets INTERSECT everyone)
+            .mapTo { it[PET.NAME] }
+            .rows(database)
+            .sorted()
+        )
+      ).isEqualTo(
+        listOf(
+          listOf(null, null, "Kit", "Rex", "Tom"),
+          listOf("Kit", "Rex", "Tom")
+        )
+      )
+    }
+  }
+
+  @Test
   fun `a widened union exports the left arm's instance and selects it only as nullable`() {
     val pets = SELECT
       .COLUMN(PET.NAME)

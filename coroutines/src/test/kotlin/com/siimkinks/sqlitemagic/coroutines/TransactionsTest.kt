@@ -745,6 +745,70 @@ internal class TransactionsTest {
   }
 
   @Test(timeout = 30_000)
+  fun `after SQLite rolls the transaction back a yield returns false and later calls fail`() {
+    data class Outcome(
+      val rollback: String?,
+      val yielded: Boolean,
+      val laterCall: String?,
+      val failure: String?,
+      val ages: List<Int?>
+    )
+
+    val connection = personConnection()
+    var rollback: String? = null
+    var yielded = true
+    var laterCall: String? = null
+    var waiter: Thread? = null
+    val failure = runCatching {
+      runBlocking {
+        connection.withTransaction {
+          connection
+            .setAge(40)
+            .await()
+          rollback = runCatching {
+            UPDATE
+              .RAW("UPDATE OR ROLLBACK person SET id = 2 WHERE id = 1")
+              .notifies(PERSON)
+              .usingConnection(connection)
+              .await()
+          }.exceptionOrNull()?.message
+          waiter = waitingWriter(
+            connection = connection,
+            id = 2L,
+            age = 90
+          )
+          yielded = yieldIfContended()
+          laterCall = runCatching {
+            connection
+              .setAge(41)
+              .await()
+          }.exceptionOrNull()?.message
+        }
+      }
+    }.exceptionOrNull()
+    waiter?.join()
+
+    assertThat(
+      Outcome(
+        rollback = rollback,
+        yielded = yielded,
+        laterCall = laterCall,
+        failure = failure?.message,
+        ages = listOf(1L, 2L).map { connection.age(id = it) }
+      )
+    ).isEqualTo(
+      Outcome(
+        rollback = "Error code: 1555, message: UNIQUE constraint failed: person.id",
+        yielded = false,
+        laterCall = "Cannot use this transaction because SQLite rolled it back when a statement failed. End the " +
+            "transaction.",
+        failure = null,
+        ages = listOf(36, 90)
+      )
+    )
+  }
+
+  @Test(timeout = 30_000)
   fun `a yield waits for the rows block of a child coroutine and then yields`() {
     data class Outcome(
       val yielded: Boolean,

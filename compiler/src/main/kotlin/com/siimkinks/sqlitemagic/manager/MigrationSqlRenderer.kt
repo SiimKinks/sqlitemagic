@@ -38,6 +38,7 @@ internal object MigrationSqlRenderer {
     }
     migrateDependentTables(
       rebuilds = plan.batchedRebuilds,
+      prerequisiteNewTables = plan.batchedPrerequisiteNewTables,
       usedNames = usedTemporaryNames,
       migrationStatements = migrationStatements
     )
@@ -78,6 +79,7 @@ internal object MigrationSqlRenderer {
 
   private fun migrateDependentTables(
     rebuilds: List<TableChange>,
+    prerequisiteNewTables: List<TableSnapshot>,
     usedNames: MutableSet<String>,
     migrationStatements: MutableList<String>
   ) {
@@ -100,6 +102,10 @@ internal object MigrationSqlRenderer {
         creationStatements = tableCreationStatements
       )
     }
+    createNewTables(
+      names = prerequisiteNewTables,
+      migrationStatements = migrationStatements
+    )
     migrationStatements += tableCreationStatements
     tables
       .asReversed()

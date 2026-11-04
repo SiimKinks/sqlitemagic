@@ -1,6 +1,10 @@
 package com.siimkinks.sqlitemagic.connection
 
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.SQLiteException
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
@@ -69,6 +73,64 @@ internal class ConnectionPoolTransactionTest {
           balance = 200
         )
       )
+  }
+
+  @Test
+  fun `a savepoint inside a transaction undoes only its own writes and leaves the transaction to commit`() {
+    data class Outcome(
+      val failure: String?,
+      val committed: Boolean,
+      val balances: List<Long>
+    )
+
+    val outcomes = listOf("kept", "not kept", "failed").associateWith { case ->
+      pool(fileName = folder.databasePath(name = "savepoint-$case.db")).use { pool ->
+        pool.beginTransaction()
+        pool.setBalance(
+          id = 1,
+          balance = 0
+        )
+        val failure = runCatching {
+          pool.savepoint(
+            operation = {
+              pool.setBalance(
+                id = 2,
+                balance = 7
+              )
+              check(case != "failed") { "operation failed" }
+            },
+            keep = { case == "kept" }
+          )
+        }
+        pool.setTransactionSuccessful()
+        Outcome(
+          failure = failure.exceptionOrNull()?.message,
+          committed = pool.endTransaction(),
+          balances = listOf(pool.balance(id = 1), pool.balance(id = 2))
+        )
+      }
+    }
+
+    assertThat(outcomes).containsExactly(
+      "kept",
+      Outcome(
+        failure = null,
+        committed = true,
+        balances = listOf(0L, 7L)
+      ),
+      "not kept",
+      Outcome(
+        failure = null,
+        committed = true,
+        balances = listOf(0L, 100L)
+      ),
+      "failed",
+      Outcome(
+        failure = "operation failed",
+        committed = true,
+        balances = listOf(0L, 100L)
+      )
+    )
   }
 
   @Test
@@ -223,10 +285,12 @@ internal class ConnectionPoolTransactionTest {
   }
 
   @Test
-  fun `a yield that cannot get the writer back ends without touching the next holder's transaction`() {
+  fun `a yield that cannot get the writer back fails later use and ends without touching the next holder's work`() {
     data class Outcome(
       val yieldFailure: String?,
       val secondYield: String?,
+      val writeAfterYield: String?,
+      val nestedBegin: String?,
       val committed: Boolean,
       val holderCommitted: Boolean?,
       val balances: List<Long>
@@ -260,12 +324,23 @@ internal class ConnectionPoolTransactionTest {
       val secondYield = assertThrows(IllegalStateException::class.java) {
         pool.yieldIfContended(sleepMillis = 0)
       }
+      val writeAfterYield = assertThrows(IllegalStateException::class.java) {
+        pool.setBalance(
+          id = 1,
+          balance = 3
+        )
+      }
+      val nestedBegin = assertThrows(IllegalStateException::class.java) {
+        pool.beginTransaction()
+      }
       val committed = pool.endTransaction()
       release.countDown()
       holder.join()
       Outcome(
         yieldFailure = yieldFailure,
         secondYield = secondYield.message,
+        writeAfterYield = writeAfterYield.message,
+        nestedBegin = nestedBegin.message,
         committed = committed,
         holderCommitted = holderCommitted,
         balances = listOf(pool.balance(id = 1), pool.balance(id = 2))
@@ -275,10 +350,117 @@ internal class ConnectionPoolTransactionTest {
     assertThat(outcome).isEqualTo(
       Outcome(
         yieldFailure = "Timed out after 300ms waiting for the writer connection, held by thread next holder",
-        secondYield = "Cannot perform this operation because there is no current transaction.",
+        secondYield = DETACHED,
+        writeAfterYield = DETACHED,
+        nestedBegin = DETACHED,
         committed = true,
         holderCommitted = true,
         balances = listOf(1L, 2L)
+      )
+    )
+  }
+
+  @Test
+  fun `a yield that cannot begin the transaction again releases the writer and fails later use`() {
+    data class Outcome(
+      val yieldFailure: String?,
+      val writeAfterYield: String?,
+      val readAfterYield: String?,
+      val nestedBegin: String?,
+      val committed: Boolean,
+      val holderCommitted: Boolean?,
+      val nextWriterBalance: Long?,
+      val balances: List<Long>
+    )
+
+    val yielding = Thread.currentThread()
+    var begins = 0
+    val bundled = BundledSQLiteDriver()
+    val driver = object : SQLiteDriver {
+      override fun open(fileName: String): SQLiteConnection {
+        val connection = bundled.open(fileName)
+        return object : SQLiteConnection by connection {
+          override fun prepare(sql: String): SQLiteStatement {
+            val statement = connection.prepare(sql)
+            return object : SQLiteStatement by statement {
+              override fun step(): Boolean {
+                if (sql == "BEGIN IMMEDIATE" && Thread.currentThread() === yielding && ++begins == 2) {
+                  throw SQLiteException("database is locked")
+                }
+                return statement.step()
+              }
+            }
+          }
+        }
+      }
+    }
+    val outcome = pool(
+      fileName = folder.databasePath(),
+      driver = driver,
+      poolTimeout = 300.milliseconds
+    ).use { pool ->
+      pool.beginTransaction()
+      pool.setBalance(
+        id = 1,
+        balance = 1
+      )
+      var holderCommitted: Boolean? = null
+      val holder = thread(name = "next holder") {
+        pool.beginTransaction()
+        pool.setBalance(
+          id = 2,
+          balance = 2
+        )
+        pool.setTransactionSuccessful()
+        holderCommitted = pool.endTransaction()
+      }
+      val yieldFailure = assertThrows(SQLiteException::class.java) {
+        pool.yieldToWaitingWriter()
+      }
+      holder.join()
+      val writeAfterYield = assertThrows(IllegalStateException::class.java) {
+        pool.setBalance(
+          id = 1,
+          balance = 3
+        )
+      }
+      val readAfterYield = assertThrows(IllegalStateException::class.java) {
+        pool.balance(id = 1)
+      }
+      val nestedBegin = assertThrows(IllegalStateException::class.java) {
+        pool.beginTransaction()
+      }
+      val committed = pool.endTransaction()
+      var nextWriterBalance: Long? = null
+      thread(name = "next writer") {
+        pool.setBalance(
+          id = 2,
+          balance = 4
+        )
+        nextWriterBalance = pool.balance(id = 2)
+      }.join()
+      Outcome(
+        yieldFailure = yieldFailure.message,
+        writeAfterYield = writeAfterYield.message,
+        readAfterYield = readAfterYield.message,
+        nestedBegin = nestedBegin.message,
+        committed = committed,
+        holderCommitted = holderCommitted,
+        nextWriterBalance = nextWriterBalance,
+        balances = listOf(pool.balance(id = 1), pool.balance(id = 2))
+      )
+    }
+
+    assertThat(outcome).isEqualTo(
+      Outcome(
+        yieldFailure = "database is locked",
+        writeAfterYield = DETACHED,
+        readAfterYield = DETACHED,
+        nestedBegin = DETACHED,
+        committed = true,
+        holderCommitted = true,
+        nextWriterBalance = 4L,
+        balances = listOf(1L, 4L)
       )
     )
   }
@@ -341,6 +523,83 @@ internal class ConnectionPoolTransactionTest {
   }
 
   @Test
+  fun `a statement that makes SQLite roll the transaction back fails later use of the transaction`() {
+    data class Outcome(
+      val failure: String?,
+      val suppressed: Int,
+      val writeAfterRollback: String?,
+      val readAfterRollback: String?,
+      val nestedBegin: String?,
+      val yieldAfterRollback: String?,
+      val committed: Boolean,
+      val balances: List<Long>
+    )
+
+    val rollingBack = "INSERT OR ROLLBACK INTO account(id, balance) VALUES (2, 0)"
+    listOf<Pair<String, (ConnectionPool) -> Unit>>(
+      "savepoint" to { pool ->
+        pool.savepoint(
+          operation = { pool.heldWriter().connection.execSQL(rollingBack) },
+          keep = { true }
+        )
+      },
+      "write" to { pool -> pool.write { it.connection.execSQL(rollingBack) } },
+      "read on the writer" to { pool -> pool.read(requiresWriter = true) { it.connection.execSQL(rollingBack) } }
+    ).forEach { (label, statement) ->
+      val outcome = pool(fileName = folder.databasePath(name = "$label.db")).use { pool ->
+        pool.beginTransaction()
+        pool.setBalance(
+          id = 1,
+          balance = 1
+        )
+        val failure = assertThrows(SQLiteException::class.java) { statement(pool) }
+        val writeAfterRollback = assertThrows(IllegalStateException::class.java) {
+          pool.setBalance(
+            id = 2,
+            balance = 3
+          )
+        }
+        val readAfterRollback = assertThrows(IllegalStateException::class.java) {
+          pool.balance(id = 1)
+        }
+        val nestedBegin = assertThrows(IllegalStateException::class.java) {
+          pool.beginTransaction()
+        }
+        val yieldAfterRollback = assertThrows(IllegalStateException::class.java) {
+          pool.yieldIfContended(sleepMillis = 0)
+        }
+        pool.setTransactionSuccessful()
+        val committed = pool.endTransaction()
+        Outcome(
+          failure = failure.message,
+          suppressed = failure.suppressed.size,
+          writeAfterRollback = writeAfterRollback.message,
+          readAfterRollback = readAfterRollback.message,
+          nestedBegin = nestedBegin.message,
+          yieldAfterRollback = yieldAfterRollback.message,
+          committed = committed,
+          balances = listOf(pool.balance(id = 1), pool.balance(id = 2))
+        )
+      }
+
+      assertWithMessage(label)
+        .that(outcome)
+        .isEqualTo(
+          Outcome(
+            failure = "Error code: 1555, message: UNIQUE constraint failed: account.id",
+            suppressed = 0,
+            writeAfterRollback = ROLLED_BACK,
+            readAfterRollback = ROLLED_BACK,
+            nestedBegin = ROLLED_BACK,
+            yieldAfterRollback = ROLLED_BACK,
+            committed = false,
+            balances = listOf(100L, 100L)
+          )
+        )
+    }
+  }
+
+  @Test
   fun `a commit that fails on a deferred foreign key rolls the transaction back`() {
     pool(
       fileName = folder.databasePath(),
@@ -384,3 +643,8 @@ internal class ConnectionPoolTransactionTest {
     return false
   }
 }
+
+private const val DETACHED = "Cannot use this transaction because yieldIfContended could not resume it. End the " +
+    "transaction; it keeps only the parts committed before the yield."
+private const val ROLLED_BACK = "Cannot use this transaction because SQLite rolled it back when a statement " +
+    "failed. End the transaction."

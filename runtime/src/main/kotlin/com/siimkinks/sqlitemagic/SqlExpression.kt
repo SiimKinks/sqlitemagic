@@ -58,7 +58,9 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
 
   /**
    * Quoted and qualified name of the column when this expression is a column or a subquery's column, for example
-   * `"author"."id"`, which is used when it is interpolated into raw SQL.
+   * `"author"."id"`, which is used when it is interpolated into raw SQL. A column of a common table expression that
+   * has neither a name nor an alias has no qualifier, since its name is chosen when the query is rendered; name or
+   * alias the common table expression to interpolate qualified columns.
    */
   override fun toString() = node.toString()
 
@@ -938,7 +940,9 @@ internal fun operandNode(value: Any?) = when (value) {
 /**
  * Create SQL expression from raw SQL string.
  *
- * Columns render as their quoted, qualified names when interpolated into the string.
+ * Columns render as their quoted, qualified names when interpolated into the string. Inside a nested query, a table
+ * named like a different table of an enclosing query takes a generated alias that interpolated columns do not use;
+ * alias such a table explicitly to interpolate its columns.
  *
  * Example:
  * ```
@@ -964,8 +968,10 @@ fun <R, N : SqlNullability, T> String.expr(
 /**
  * Create SQL expression from raw SQL string.
  *
- * Columns render as their quoted, qualified names when interpolated into the string. The expression can be
- * compared with Kotlin values, which are converted to SQL with [type].
+ * Columns render as their quoted, qualified names when interpolated into the string. Inside a nested query, a table
+ * named like a different table of an enclosing query takes a generated alias that interpolated columns do not use;
+ * alias such a table explicitly to interpolate its columns. The expression can be compared with Kotlin values, which
+ * are converted to SQL with [type].
  *
  * Example:
  * ```

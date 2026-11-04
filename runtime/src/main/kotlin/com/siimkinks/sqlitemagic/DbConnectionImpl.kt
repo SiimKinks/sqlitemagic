@@ -121,6 +121,27 @@ internal class DbConnectionImpl(
     }
   }
 
+  fun <T> atomically(
+    operation: () -> T,
+    keep: (T) -> Boolean
+  ) = when {
+    pool.inTransaction -> pool.savepoint(
+      operation = operation,
+      keep = keep
+    )
+    else -> newTransaction().let { transaction ->
+      try {
+        operation().also { result ->
+          if (keep(result)) {
+            transaction.markSuccessful()
+          }
+        }
+      } finally {
+        transaction.end()
+      }
+    }
+  }
+
   override fun clearData() = newTransaction().use { transaction ->
     sendTableTriggers(write { pooled -> database.clearData(pooled.connection) })
     transaction.markSuccessful()

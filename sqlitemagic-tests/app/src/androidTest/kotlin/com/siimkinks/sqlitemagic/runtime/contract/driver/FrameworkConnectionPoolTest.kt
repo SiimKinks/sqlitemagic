@@ -208,11 +208,19 @@ internal class FrameworkConnectionPoolTest {
       val failure = assertThrows(SQLiteConstraintException::class.java) {
         pool.write { it.connection.execSQL("INSERT OR ROLLBACK INTO account(id, balance) VALUES (1, 0)") }
       }
+      val writeAfterRollback = assertThrows(IllegalStateException::class.java) {
+        pool.write { it.connection.execSQL("UPDATE account SET balance = 5") }
+      }
       val committed = pool.endTransaction()
 
       assertThat(failure)
         .hasMessageThat()
         .contains("UNIQUE constraint failed: account.id")
+      assertThat(writeAfterRollback)
+        .hasMessageThat()
+        .isEqualTo(
+          "Cannot use this transaction because SQLite rolled it back when a statement failed. End the transaction."
+        )
       assertThat(listOf(committed, pool.inTransaction))
         .containsExactly(false, false)
         .inOrder()

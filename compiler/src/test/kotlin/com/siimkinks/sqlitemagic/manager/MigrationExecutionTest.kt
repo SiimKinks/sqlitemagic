@@ -114,6 +114,43 @@ internal class MigrationExecutionTest {
   }
 
   @Test
+  fun `a new table between rebuilt tables keeps its reference to the rebuilt parent`() {
+    val current = structure(
+      "sections" to listOf("id INTEGER PRIMARY KEY", "title TEXT NOT NULL DEFAULT ''"),
+      "categories" to listOf(
+        "id INTEGER PRIMARY KEY",
+        "section INTEGER REFERENCES sections(id) ON DELETE CASCADE"
+      ),
+      "books" to listOf(
+        "id INTEGER PRIMARY KEY",
+        "category INTEGER REFERENCES categories(id) ON DELETE CASCADE"
+      )
+    )
+
+    migratedDatabase(
+      previous = structure(
+        "sections" to listOf("id INTEGER PRIMARY KEY", "title TEXT"),
+        "books" to listOf("id INTEGER PRIMARY KEY")
+      ),
+      current = current,
+      rows = listOf(
+        "INSERT INTO sections (id) VALUES (1)",
+        "INSERT INTO books (id) VALUES (1)"
+      )
+    ).use { connection ->
+      connection.execSQL("INSERT INTO categories (id, section) VALUES (1, 1)")
+      connection.execSQL("UPDATE books SET category = 1")
+      connection.execSQL("DELETE FROM sections")
+      assertThat(
+        listOf(
+          connection.longs("SELECT COUNT(*) FROM categories"),
+          connection.longs("SELECT COUNT(*) FROM books")
+        )
+      ).isEqualTo(listOf(listOf(0L), listOf(0L)))
+    }
+  }
+
+  @Test
   fun `deletes rows whose new cascading reference points to a missing row`() {
     val previous = structure(
       "authors" to listOf("id INTEGER PRIMARY KEY", "name TEXT"),

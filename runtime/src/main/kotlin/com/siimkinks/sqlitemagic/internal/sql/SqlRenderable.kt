@@ -186,7 +186,7 @@ internal class SqlRenderingContext(
 
   private fun appendDerivedOutputs(occurrence: Table<*>, names: List<String>, target: StringBuilder) {
     val scope = scope
-    val qualifier = occurrence.qualifier(this)
+    val qualifier = renamedSource(occurrence) ?: occurrence.qualifier(this)
     names.forEachIndexed { index, name ->
       if (index != 0) {
         target.append(", ")
@@ -230,6 +230,27 @@ internal class SqlRenderingContext(
     scope.visibleSources = scope.qualifiers.size
   }
 
+  fun addRenamedSource(table: Table<*>, qualifier: String) {
+    addSource(
+      table = table,
+      qualifier = qualifier
+    )
+    val renamed = scope.renamedSources
+      ?: MutableScatterMap<Table<*>, String>(initialCapacity = 1).also { scope.renamedSources = it }
+    renamed[table] = qualifier
+  }
+
+  fun renamedSource(table: Table<*>) = scope.renamedSources?.get(table)
+
+  fun appendSourceAlias(table: Table<*>) {
+    val qualifier = renamedSource(table)
+      ?: table.alias?.let { table.sqlQualifier }
+      ?: return
+    sql
+      .append(" AS ")
+      .append(qualifier)
+  }
+
   fun addSourceAlias(table: Table<*>, occurrence: Table<*>) {
     val scope = scope
     scope.positions[table] = scope.positions[occurrence]
@@ -247,6 +268,43 @@ internal class SqlRenderingContext(
       enclosing = enclosing.enclosing
     }
     return false
+  }
+
+  fun shadowsEnclosingSource(table: Table<*>, qualifier: String): Boolean {
+    var enclosing = scope.enclosing
+    while (enclosing != null) {
+      val position = enclosing.qualifiers.indexOfFirst {
+        it.equals(
+          other = qualifier,
+          ignoreCase = true
+        )
+      }
+      if (position >= 0) {
+        return enclosing.positions.getOrDefault(
+          key = table,
+          defaultValue = -1
+        ) != position
+      }
+      enclosing = enclosing.enclosing
+    }
+    return false
+  }
+
+  fun hasEnclosingName(name: String): Boolean {
+    var enclosing = scope.enclosing ?: return false
+    val qualifier = quoteSqlIdentifier(name)
+    while (true) {
+      val named = enclosing.qualifiers.any {
+        it.equals(
+          other = qualifier,
+          ignoreCase = true
+        )
+      }
+      if (named) {
+        return true
+      }
+      enclosing = enclosing.enclosing ?: return false
+    }
   }
 
   fun addNullExtended(table: Table<*>) {
@@ -459,6 +517,7 @@ private class SourceScope(
   var visibleSources = 0
   var nullExtendedPrefix = 0
   var nullExtendedSources: MutableScatterSet<Table<*>>? = null
+  var renamedSources: MutableScatterMap<Table<*>, String>? = null
   var relatedEntities: RelatedEntities? = null
 
   var pendingDerivedOutputs = -1

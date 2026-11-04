@@ -1,8 +1,7 @@
 # Changes that compile but behave differently
 
 Walk this list for every migrated query and for code around entity operations, views, migrations and loggers. Each
-item says how to find affected code and what to do. Items marked **needs a decision** can be ported two ways; ask the
-user when neither the code nor its tests show which result is intended.
+item says how to find affected code and what to do.
 
 ## Contents
 
@@ -78,7 +77,7 @@ SQLite returns. Unary minus no longer keeps the field's type.
 
 ## Legacy sum was TOTAL
 
-**Needs a decision.** Legacy `Select.sum(x)` rendered SQL `total(x)`: `Double`, 0.0 for no rows, never overflowing.
+Legacy `Select.sum(x)` rendered SQL `total(x)`: `Double`, 0.0 for no rows, never overflowing.
 
 - `TOTAL(x)` keeps that SQL. Its type is `Double?` (conflicting infinities can produce NULL), so add `?: 0.0` or
   `!!` where a `Double` was expected.
@@ -212,8 +211,10 @@ name segment and then to a position.
 ## Entity operations throw SQLite's exceptions
 
 `insert()` and `persist()` wrapped SQLite errors in `OperationFailedException`, and a bulk insert or persist conflict
-returned `false`. Now single and bulk insert, persist, update and delete throw SQLite's exception as it is
-(`SQLiteConstraintException`, an `android.database.SQLException`), roll back bulk work, and `observe()` emits it.
+returned `false`. Now single and bulk insert, persist, update and delete throw the driver's exception as it is, roll
+back bulk work, and `observe()` emits it. The exception is an `android.database.SQLException`: `FrameworkSQLiteDriver`
+throws Android's typed subclasses such as `SQLiteConstraintException`, while `BundledSQLiteDriver` throws a plain
+`SQLException` with SQLite's result code in the message.
 
 - `OperationFailedException` remains only for outcomes SQLite completes without an error: an `update().observe()` that
   changed no row, an insert that wrote no row under a non-ignoring conflict algorithm, a skipped relationship write and
@@ -224,7 +225,8 @@ returned `false`. Now single and bulk insert, persist, update and delete throw S
   `Error while executing db transaction`.
 - Find: `catch (… OperationFailedException …)`, `onError` handlers matching it, and uses of a bulk insert/persist
   `Boolean` result.
-- Do: catch `SQLException` (or the specific constraint exception); treat a bulk conflict as an exception, not `false`.
+- Do: catch `android.database.SQLException`, which every driver throws, and treat a bulk conflict as an exception,
+  not `false`. Catching `SQLiteConstraintException` matches only on `FrameworkSQLiteDriver`.
 
 ## The schema follows Kotlin nullability
 
@@ -256,7 +258,9 @@ property. Selected values keep the property's type, as legacy typed them.
 | Every non-zero stored Boolean reads `true` (legacy generated readers read only 1 as `true`) | none for data the library wrote; store 0 for false |
 | A required scalar read of SQL NULL throws `android.database.SQLException`; legacy scalar reads returned `0`, `0.0` or `null` | select or read nullable where NULL is possible |
 | A failed UPDATE/DELETE that reached SQLite notifies its table, so observers re-run | none |
-| A delete that fails inside a caller's transaction no longer makes that transaction roll back; legacy ran each delete in a nested transaction | after catching the failure, end the transaction without `markSuccessful()` when it must roll back |
+| A bulk entity write, an entity delete or a write of an entity with recursively handled relationships that fails, is ignored or applies nothing inside a caller's transaction no longer makes that transaction roll back; a bulk or recursive write undoes only its own changes in a savepoint, a delete runs without one, and legacy rolled the whole transaction back | after catching the failure or checking the result, end the transaction without `markSuccessful()` when it must roll back |
+| A bulk entity write or a write of an entity with recursively handled relationships after the caller's `markSuccessful()` runs instead of throwing `IllegalStateException`, as a single write already did | don't write between `markSuccessful()` and `end()` |
+| After a statement makes SQLite roll back the whole transaction, such as a `CONFLICT_ROLLBACK` conflict or a trigger's `RAISE(ROLLBACK)`, later statements and nested transactions in it throw `IllegalStateException`; legacy ran later statements outside the transaction, each committing on its own | after catching such a failure, end the transaction instead of continuing it |
 | An entity read of a nullable property passes SQL NULL to a `@DbValueToObject` function that accepts NULL, as column selections do; legacy read null without calling it | return null from the decoder for NULL where the property should read null |
 | Observed queries combine changes made during an emission into one further emission; a write inside an emission emits after that emission returns | don't count emissions as writes; each emission reads the current data |
 | Observing a query on a closed connection completes without emitting; its `Single` results (`runQueryOnce()`, `runQueryOnceOrDefault()`, `observe()` of a raw SELECT without declared tables) fail with `NoSuchElementException` | observe only open connections |
@@ -277,7 +281,7 @@ property. Selected values keep the property's type, as legacy typed them.
 | `x AS ""` renders `AS ""`, a column named `""` (legacy dropped the alias) | drop empty aliases |
 | Raw `UPDATE.RAW`/`DELETE.RAW` notify only tables declared with `notifies(…)` | declare tables observed elsewhere |
 | The default downgrade drops the newer version's views as well as tables | none |
-| Migration scripts run inside the upgrade's transaction, so a script line such as `BEGIN` or `COMMIT` fails the upgrade | delete transaction statements from hand-written scripts |
+| Migration scripts run inside the upgrade's transaction, so a script line starting with `BEGIN`, `COMMIT`, `END`, `ROLLBACK`, `SAVEPOINT` or `RELEASE` fails the upgrade before it runs, balanced savepoints included | delete transaction and savepoint statements from hand-written scripts |
 | With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version instead of one above the latest release, and fails when that version is already released | raise `@Database(version)` before running it |
 | Query execution time is no longer logged | time queries in the caller if needed |
 | Entity result singletons (`EntityInsertResult.Ignored`, …) are data objects (`toString()` is `Ignored`) | none unless code parsed the old text |

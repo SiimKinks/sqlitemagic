@@ -355,7 +355,11 @@ internal class ModelIdentityRelationshipContractTest {
           "val RELATIONSHIP_ID: Column<RelationshipOwner, LeafId?, Required, LeafId, LeafId, SqlNullable, " +
               "LeafId?>",
           "value?.let { it.`value` }",
-          "dbValue?.let { SqliteMagic_LeafId_Dao.newInstanceWithOnlyId(it) }"
+          "dbValue?.let { SqliteMagic_LeafId_Dao.newInstanceWithOnlyId(it) }",
+          "parameterEncoding = RelationshipIdEncodings.RELATIONSHIP_ID.parameterEncoding()",
+          "private object RelationshipIdEncodings {",
+          "val RELATIONSHIP_ID: EncodingType<LeafId?, LeafId?, SqlNullable, SqlNullable> = nullableReadType(",
+          "val RELATIONSHIP_ID_TYPE: Column<RelationshipOwner, String,"
         )
       }
       .withGeneratedSource("RelationshipIdTable.kt") {
@@ -1378,7 +1382,8 @@ internal class ModelIdentityRelationshipContractTest {
               data class RelationshipOwner(
                 @Id val ownerId: String,
                 @Column(handleRecursively = false)
-                val relationshipId: RelationshipId
+                val relationshipId: RelationshipId,
+                val relationshipIdType: String
               )
             """
           ),

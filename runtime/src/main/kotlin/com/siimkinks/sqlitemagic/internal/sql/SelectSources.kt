@@ -43,6 +43,16 @@ private open class UserOccurrence(
   pathName = null
 ) {
   override val name get() = table.referenceName
+
+  var renamedQualifier: String? = null
+
+  fun registerSource(context: SqlRenderingContext) = when (val renamed = renamedQualifier) {
+    null -> context.addSource(table)
+    else -> context.addRenamedSource(
+      table = table,
+      qualifier = renamed
+    )
+  }
 }
 
 private class JoinedOccurrence(
@@ -59,7 +69,7 @@ private class JoinedOccurrence(
     if (kind.nullExtendsPrefix) {
       context.nullExtendPrefix()
     }
-    context.addSource(table)
+    registerSource(context)
     if (kind.nullExtendsJoined) {
       context.addNullExtended(table)
     }
@@ -129,7 +139,7 @@ internal fun prepareSources(node: SelectNode<*, *>, context: SqlRenderingContext
   val planner = RelationshipPlanner(
     root = root,
     joins = node.joins,
-    isEnclosingSource = context::hasEnclosingSource
+    context = context
   )
   planner.joinUnjoinedFields(node)
   context.relatedEntities = when {
@@ -137,10 +147,7 @@ internal fun prepareSources(node: SelectNode<*, *>, context: SqlRenderingContext
     else -> node.selection.planRelatedEntities(planner)
   }
   val joins = planner.orderedJoins()
-  planner.register(
-    context = context,
-    joins = joins
-  )
+  planner.register(joins)
   if (context.root) {
     context.definition?.occurrences?.let(planner::exportOccurrences)
   }
@@ -153,7 +160,7 @@ internal fun prepareSources(node: SelectNode<*, *>, context: SqlRenderingContext
 internal class RelationshipPlanner(
   root: Table<*>,
   joins: List<JoinNode>,
-  private val isEnclosingSource: (Table<*>) -> Boolean
+  private val context: SqlRenderingContext
 ) {
   private val rootOccurrence = UserOccurrence(
     table = root,
@@ -286,8 +293,9 @@ internal class RelationshipPlanner(
     return ordered
   }
 
-  fun register(context: SqlRenderingContext, joins: List<JoinOccurrence>) {
-    context.addSource(rootOccurrence.table)
+  fun register(joins: List<JoinOccurrence>) {
+    users.forEach(::renameShadowingSource)
+    rootOccurrence.registerSource(context)
     joins.forEach { it.register(context) }
     resolvedFields?.forEach { (table, occurrence) ->
       if (occurrence.table !== table) {
@@ -297,6 +305,24 @@ internal class RelationshipPlanner(
         )
       }
     }
+  }
+
+  private fun renameShadowingSource(user: UserOccurrence) {
+    val qualifier = user.table.qualifier(context)
+    val shadows = qualifier.isNotEmpty() && context.shadowsEnclosingSource(
+      table = user.table,
+      qualifier = qualifier
+    )
+    if (!shadows) {
+      return
+    }
+    val usedNames = usedNames()
+    val name = uniqueName(
+      base = user.table.referenceName,
+      usedNames = usedNames
+    )
+    usedNames += name.lowercase()
+    user.renamedQualifier = quoteSqlIdentifier(name)
   }
 
   fun exportOccurrences(destination: MutableScatterMap<String, Array<String?>>) {
@@ -329,7 +355,7 @@ internal class RelationshipPlanner(
 
   private fun collect(field: ExpressionNode.Field) {
     val table = field.table
-    if (!table.isDefaultHandle || isOccurrenceTable(table) || isEnclosingSource(table)) {
+    if (!table.isDefaultHandle || isOccurrenceTable(table) || context.hasEnclosingSource(table)) {
       return
     }
     val readers = readers ?: MutableObjectIntMap<Table<*>>().also { readers = it }
@@ -377,13 +403,10 @@ internal class RelationshipPlanner(
     val pathName = parent.pathName?.let { "${it}_${relationship.columnName}" }
       ?: relationship.columnName
     val firstOccurrence = !isOccurrenceTable(target)
-    val usedNames = usedNames ?: MutableScatterSet<String>(initialCapacity = users.size + 1).also { names ->
-      users.forEach { names += it.table.referenceName.lowercase() }
-      usedNames = names
-    }
+    val usedNames = usedNames()
     val name = uniqueName(
       base = when {
-        firstOccurrence && target.name.lowercase() !in usedNames -> target.name
+        firstOccurrence && !usedNames.isTaken(target.name) -> target.name
         else -> pathName
       },
       usedNames = usedNames
@@ -409,16 +432,24 @@ internal class RelationshipPlanner(
     ).also(automatic::add)
   }
 
+  private fun usedNames() = usedNames ?: MutableScatterSet<String>(initialCapacity = users.size + 1).also { names ->
+    users.forEach { names += it.table.referenceName.lowercase() }
+    usedNames = names
+  }
+
   private fun uniqueName(base: String, usedNames: MutableScatterSet<String>): String {
-    if (base.lowercase() !in usedNames) {
+    if (!usedNames.isTaken(base)) {
       return base
     }
     var suffix = 2
-    while ("${base}_$suffix".lowercase() in usedNames) {
+    while (usedNames.isTaken("${base}_$suffix")) {
       suffix++
     }
     return "${base}_$suffix"
   }
+
+  private fun MutableScatterSet<String>.isTaken(name: String) =
+    name.lowercase() in this || context.hasEnclosingName(name)
 
   private fun exactUserJoin(parent: SourceOccurrence, relationship: TableRelationship): JoinedOccurrence? {
     val targetKey = relationship.target().objectIdentity.normalizedKey

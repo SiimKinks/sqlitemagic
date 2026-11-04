@@ -74,11 +74,7 @@ internal class CteTable<T>(
 
   override fun renderSource(context: SqlRenderingContext) {
     context.sql.append(context.cteName(declaration))
-    if (alias != null) {
-      context.sql
-        .append(" AS ")
-        .append(sqlQualifier)
-    }
+    context.appendSourceAlias(this)
   }
 
   override fun renderOutputs(context: SqlRenderingContext) = context.appendCteOutputs(

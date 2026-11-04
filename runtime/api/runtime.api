@@ -1736,6 +1736,8 @@ public final class com/siimkinks/sqlitemagic/internal/SqlUtil {
 	public final fun clearData (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;I)Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;
 	public final fun createSchema (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;Z)V
 	public final fun migrateViews (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/GeneratedSchema;)V
+	public final fun requireNoTransactionControl (Ljava/lang/String;I)V
+	public static synthetic fun requireNoTransactionControl$default (Lcom/siimkinks/sqlitemagic/internal/SqlUtil;Ljava/lang/String;IILjava/lang/Object;)V
 }
 
 public final class com/siimkinks/sqlitemagic/internal/SqliteIdentifier : com/siimkinks/sqlitemagic/internal/SqliteIdentifierProvider {

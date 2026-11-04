@@ -24,8 +24,13 @@ sealed interface TransactionScope : CoroutineScope {
    * begins when this returns, and the transaction continues as before.
    *
    * Nothing happens and this returns `false` when no other writer waits, when this transaction is nested in another
-   * one, as a [withTransaction] called inside another transaction is, or after a nested transaction failed. A function
-   * that yields therefore stays atomic when its caller runs it inside its own transaction.
+   * one, as a [withTransaction] called inside another transaction is, after a nested transaction failed, or after
+   * SQLite rolled the transaction back when a statement failed. A function that yields therefore stays atomic when its
+   * caller runs it inside its own transaction.
+   *
+   * When the transaction cannot begin again, for example because another process holds the database's write lock, this
+   * throws. Every further statement and nested transaction in the transaction then throws, a further yield returns
+   * `false`, and the transaction keeps only the work committed by the yield.
    *
    * A call of this transaction that a child coroutine is running, such as a `useRows` block, finishes before the
    * transaction ends. A call made before it begins again, such as one from a child coroutine, begins it at once.

@@ -98,6 +98,26 @@ internal class PartialEntityContractTest {
                 name = "seed"
               )
             }
+
+            @Table
+            class Rack {
+              @Id
+              var id: Long? = null
+              var owner: Author = Author(
+                id = 9L,
+                name = "seed"
+              )
+            }
+
+            @Table
+            class Crate {
+              @Id
+              var id: Long? = null
+              var publisher: Publisher = Publisher(
+                id = 3L,
+                name = "seed"
+              )
+            }
           """
         ),
         readDriverSupport(),
@@ -109,11 +129,15 @@ internal class PartialEntityContractTest {
             package fixtures.partial
 
             import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
+            import com.siimkinks.sqlitemagic.CrateTable.Companion.CRATE
+            import com.siimkinks.sqlitemagic.RackTable.Companion.RACK
             import com.siimkinks.sqlitemagic.ShelfTable.Companion.SHELF
             import com.siimkinks.sqlitemagic.SqliteMagic_Author_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_Book_Dao
+            import com.siimkinks.sqlitemagic.SqliteMagic_Crate_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_Draft_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_Profile_Dao
+            import com.siimkinks.sqlitemagic.SqliteMagic_Rack_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_Reader_Dao
             import com.siimkinks.sqlitemagic.SqliteMagic_Shelf_Dao
             import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
@@ -155,6 +179,23 @@ internal class PartialEntityContractTest {
                     related = unjoined(SHELF)
                   )
                 )
+                val racks = listOf(
+                  SqliteMagic_Rack_Dao.objectFromSelectedPositions(
+                    statement = row(10L),
+                    positions = intArrayOf(0, -1),
+                    related = unjoined(RACK)
+                  ),
+                  SqliteMagic_Rack_Dao.objectFromSelectedPositions(
+                    statement = row(10L, 7L),
+                    positions = intArrayOf(0, 1),
+                    related = unjoined(RACK)
+                  )
+                )
+                val crate = SqliteMagic_Crate_Dao.objectFromSelectedPositions(
+                  statement = row(11L),
+                  positions = intArrayOf(0, -1),
+                  related = unjoined(CRATE)
+                )
                 return listOf(
                   SqliteMagic_Author_Dao.objectFromSelectedPositions(
                     statement = row("skipped", "Ada", 7L, 36L),
@@ -175,7 +216,9 @@ internal class PartialEntityContractTest {
                   ).toString(),
                   "Draft(" + draft.id + ", " + draft.title + ", " + draft.note + ")"
                 ) + profiles.map { profile -> "Profile(" + profile.id + ", " + profile.rank + ")" } +
-                    shelves.map { shelf -> "Shelf(" + shelf.id + ", " + shelf.owner + ")" }
+                    shelves.map { shelf -> "Shelf(" + shelf.id + ", " + shelf.owner + ")" } +
+                    racks.map { rack -> "Rack(" + rack.id + ", " + rack.owner + ")" } +
+                    listOf("Crate(" + crate.id + ", " + crate.publisher + ")")
               }
             }
           """
@@ -228,6 +271,28 @@ internal class PartialEntityContractTest {
                 """else "Required recursive relationship \"publisher\" referenced a missing row")"""
           )
       }
+      .withGeneratedSource("SqliteMagic_Rack_Dao.kt") {
+        it
+          .functionBody("objectFromSelectedPositions")
+          .assertContainsUnwrapped(
+            """((related.readSelected(statement, 0) as Author?) ?: (if (columnIndex1 < 0) null else """ +
+                """if (columnIndex1 >= 0 && statement.isNull(columnIndex1)) throw SQLException("Required """ +
+                """recursive relationship \"owner\" had a """ +
+                """NULL ID") else SqliteMagic_Author_Dao.newInstanceWithOnlyId(statement.getLong(columnIndex1))))""" +
+                """?.let { this.owner = it }"""
+          )
+      }
+      .withGeneratedSource("SqliteMagic_Crate_Dao.kt") {
+        it
+          .functionBody("objectFromSelectedPositions")
+          .assertContainsUnwrapped(
+            """((related.readSelected(statement, 0) as Publisher?) ?: (if (columnIndex1 < 0) null else throw """ +
+                """SQLException(if (columnIndex1 >= 0 && statement.isNull(columnIndex1)) "Required recursive """ +
+                """relationship \"publisher\" had a NULL """ +
+                """ID" else "Required recursive relationship \"publisher\" referenced a missing row")))""" +
+                """?.let { this.publisher = it }"""
+          )
+      }
 
     assertThat(
       generated
@@ -246,7 +311,10 @@ internal class PartialEntityContractTest {
           "Profile(6, Rank(label=gold, level=3))",
           "Shelf(8, Author(id=9, name=seed, age=0))",
           "Shelf(8, Author(id=9, name=seed, age=0))",
-          "Shelf(8, Author(id=7, name=null, age=0))"
+          "Shelf(8, Author(id=7, name=null, age=0))",
+          "Rack(10, Author(id=9, name=seed, age=0))",
+          "Rack(10, Author(id=7, name=null, age=0))",
+          "Crate(11, Publisher(id=3, name=seed))"
         )
       )
   }

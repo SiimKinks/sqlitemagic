@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
@@ -115,6 +117,157 @@ internal class SubquerySelectTest {
       )
     }
     assertThat(mapped).isEqualTo(2)
+  }
+
+  @Test
+  fun `automatic joins in a nested query avoid the names of enclosing sources`() {
+    val outer = BOOK AS "author"
+    val query = SELECT
+      .COLUMN(outer.TITLE)
+      .FROM(outer)
+      .WHERE(
+        EXISTS(
+          SELECT COLUMN AUTHOR.NAME FROM BOOK WHERE ((BOOK.ID IS outer.ID) AND (AUTHOR.NAME IS "Ada"))
+        )
+      )
+      .ORDER_BY(outer.ID.ASC())
+
+    assertThat(query.compile().sql).isEqualTo(
+      """SELECT "author"."title" FROM "main"."book" AS "author" WHERE EXISTS (SELECT "author_2"."name" """ +
+          """FROM "main"."book" LEFT JOIN "main"."author" AS "author_2" ON "book"."author" = "author_2"."id" """ +
+          """WHERE ("book"."id" = "author"."id") AND ("author_2"."name" = ?)) ORDER BY "author"."id" ASC"""
+    )
+    libraryDatabaseWithNotes().use { database ->
+      assertThat(query.rows(database)).containsExactly("Dune", "Notes").inOrder()
+    }
+  }
+
+  @Test
+  fun `nested sources named like a different enclosing source take a generated alias`() {
+    data class Case(
+      val label: String,
+      val query: SelectQuery<String, *>,
+      val sql: String,
+      val names: List<String>
+    )
+
+    fun authorsWhereExists(outer: AuthorTable, nested: SelectQuery<*, *>) = SELECT
+      .COLUMN(outer.NAME)
+      .FROM(outer)
+      .WHERE(EXISTS(nested))
+      .ORDER_BY(outer.ID.ASC())
+
+    val book = AUTHOR AS "book"
+    val x = AUTHOR AS "x"
+    val own = AUTHOR AS "own"
+    listOf(
+      Case(
+        label = "root named like the enclosing alias",
+        query = authorsWhereExists(
+          outer = book,
+          nested = SELECT COLUMN BOOK.ID FROM BOOK WHERE ((BOOK.AUTHOR IS book.ID) AND (BOOK.TITLE IS "Emma"))
+        ),
+        sql = """SELECT "book"."name" FROM "main"."author" AS "book" WHERE EXISTS (SELECT "book_2"."id" """ +
+            """FROM "main"."book" AS "book_2" WHERE ("book_2"."author" = "book"."id") AND """ +
+            """("book_2"."title" = ?)) ORDER BY "book"."id" ASC""",
+        names = listOf("Grace")
+      ),
+      Case(
+        label = "root aliased like the enclosing alias",
+        query = (BOOK AS "x").let { nested ->
+          authorsWhereExists(
+            outer = x,
+            nested = SELECT COLUMN nested.ID FROM nested WHERE ((nested.AUTHOR IS x.ID) AND (nested.TITLE IS "Emma"))
+          )
+        },
+        sql = """SELECT "x"."name" FROM "main"."author" AS "x" WHERE EXISTS (SELECT "x_2"."id" """ +
+            """FROM "main"."book" AS "x_2" WHERE ("x_2"."author" = "x"."id") AND ("x_2"."title" = ?)) """ +
+            """ORDER BY "x"."id" ASC""",
+        names = listOf("Grace")
+      ),
+      Case(
+        label = "join named like the enclosing alias",
+        query = authorsWhereExists(
+          outer = book,
+          nested = SELECT
+            .COLUMN(BOOK.ID)
+            .FROM(SERIES)
+            .INNER_JOIN(BOOK)
+            .ON(SERIES.FIRST_BOOK IS BOOK.ID)
+            .WHERE((BOOK.AUTHOR IS book.ID) AND (BOOK.TITLE IS "Kernel"))
+        ),
+        sql = """SELECT "book"."name" FROM "main"."author" AS "book" WHERE EXISTS (SELECT "book_2"."id" """ +
+            """FROM "main"."series" INNER JOIN "main"."book" AS "book_2" ON "series"."first_book" = """ +
+            """"book_2"."id" WHERE ("book_2"."author" = "book"."id") AND ("book_2"."title" = ?)) """ +
+            """ORDER BY "book"."id" ASC""",
+        names = listOf("Linus")
+      ),
+      Case(
+        label = "derived source aliased like the enclosing alias",
+        query = authorsWhereExists(
+          outer = own,
+          nested = SELECT FROM (
+              SELECT COLUMN BOOK.ID FROM BOOK WHERE ((BOOK.AUTHOR IS own.ID) AND (BOOK.TITLE IS "Emma")) AS "own"
+          )
+        ),
+        sql = """SELECT "own"."name" FROM "main"."author" AS "own" WHERE EXISTS (SELECT "own_2"."book.id" FROM """ +
+            """(SELECT "book"."id" AS "book.id" FROM "main"."book" WHERE ("book"."author" = "own"."id") AND """ +
+            """("book"."title" = ?)) AS "own_2") ORDER BY "own"."id" ASC""",
+        names = listOf("Grace")
+      ),
+      Case(
+        label = "common table expression named like the enclosing alias",
+        query = WITH(SELECT COLUMN BOOK.AUTHOR FROM BOOK WHERE (BOOK.TITLE IS "Emma") AS "book") { emma ->
+          authorsWhereExists(
+            outer = book,
+            nested = SELECT FROM emma WHERE (emma[BOOK.AUTHOR] IS book.ID)
+          )
+        },
+        sql = """WITH "book" AS (SELECT "book"."author" AS "book.author" FROM "main"."book" WHERE "book"."title" = """ +
+            """?) SELECT "book"."name" FROM "main"."author" AS "book" WHERE EXISTS (SELECT "book_2"."book.author" """ +
+            """FROM "book" AS "book_2" WHERE "book_2"."book.author" = "book"."id") ORDER BY "book"."id" ASC""",
+        names = listOf("Grace")
+      )
+    ).forEach { case ->
+      assertWithMessage(case.label)
+        .that(case.query.compile().sql to libraryDatabase().use(case.query::rows))
+        .isEqualTo(case.sql to case.names)
+    }
+  }
+
+  @Test
+  fun `raw SQL in a nested query reaches a source named like an enclosing source through an explicit alias`() {
+    val outer = AUTHOR AS "book"
+    val aliased = BOOK AS "emma"
+    val unaliasedQuery = SELECT
+      .COLUMN(outer.NAME)
+      .FROM(outer)
+      .WHERE(
+        EXISTS(
+          SELECT COLUMN BOOK.ID FROM BOOK WHERE ((BOOK.AUTHOR IS outer.ID) AND "${BOOK.TITLE} = 'Emma'".expr(BOOLEAN))
+        )
+      )
+    val aliasedQuery = SELECT
+      .COLUMN(outer.NAME)
+      .FROM(outer)
+      .WHERE(
+        EXISTS(
+          SELECT
+            .COLUMN(aliased.ID)
+            .FROM(aliased)
+            .WHERE((aliased.AUTHOR IS outer.ID) AND "${aliased.TITLE} = 'Emma'".expr(BOOLEAN))
+        )
+      )
+
+    assertThat(listOf(unaliasedQuery.compile().sql, aliasedQuery.compile().sql)).isEqualTo(
+      listOf(
+        """SELECT "book"."name" FROM "main"."author" AS "book" WHERE EXISTS (SELECT "book_2"."id" FROM """ +
+            """"main"."book" AS "book_2" WHERE ("book_2"."author" = "book"."id") AND ("book"."title" = 'Emma'))""",
+        """SELECT "book"."name" FROM "main"."author" AS "book" WHERE EXISTS (SELECT "emma"."id" FROM """ +
+            """"main"."book" AS "emma" WHERE ("emma"."author" = "book"."id") AND ("emma"."title" = 'Emma'))"""
+      )
+    )
+    assertThat(libraryDatabase().use(aliasedQuery::rows)).containsExactly("Grace")
   }
 
   @Test

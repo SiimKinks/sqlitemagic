@@ -40,10 +40,15 @@ internal class ForeignKeyGraph(
     while (pendingReferences.isNotEmpty()) {
       val referencedName = pendingReferences.removeFirst()
       for (dependentName in dependentsByReferencedName[referencedName].orEmpty()) {
-        if (dependentName in excludedTables || !result.add(dependentName)) continue
-
-        hasDependents = true
-        enqueueReferences(dependentName)
+        when (dependentName) {
+          in excludedTables -> enqueueReferences(dependentName)
+          else -> {
+            hasDependents = true
+            if (result.add(dependentName)) {
+              enqueueReferences(dependentName)
+            }
+          }
+        }
       }
     }
     return when {

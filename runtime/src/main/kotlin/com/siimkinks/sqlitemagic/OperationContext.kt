@@ -186,26 +186,13 @@ internal class OperationContext private constructor(
     }
     sharedState.transactionDepth++
     return try {
-      val transaction = connection.newTransaction()
-      try {
-        val result = operation()
-        if (isSuccessful(result)) {
-          transaction.markSuccessful()
-        }
-        result
-      } finally {
-        transaction.end()
-      }
+      connection.atomically(
+        operation = operation,
+        keep = ::isSuccessful
+      )
     } finally {
       sharedState.transactionDepth--
     }
-  }
-
-  private fun <T> isSuccessful(result: T) = when (result) {
-    is Boolean -> result
-    EntityInsertResult.Ignored -> false
-    EntityPersistResult.Ignored -> false
-    else -> true
   }
 
   private class SharedState(bindValuesCapacity: Int) {
@@ -247,6 +234,13 @@ internal fun logUpdateRowsAffected(rowsAffected: Int) = logDebug { "UPDATE rows 
 
 internal fun OperationContext.logPersist(entity: Any?) = logDebug {
   "PERSIST\n  table: ${adapter.tableName}\n  object: $entity"
+}
+
+private fun isSuccessful(result: Any?) = when (result) {
+  is Boolean -> result
+  EntityInsertResult.Ignored -> false
+  EntityPersistResult.Ignored -> false
+  else -> true
 }
 
 internal fun logPersistUpdateFailed() = logDebug { "PERSIST update failed; trying insertion" }

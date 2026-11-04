@@ -2,10 +2,13 @@ package com.siimkinks.sqlitemagic
 
 import android.util.Log
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.internal.LeaseOwner
 import com.siimkinks.sqlitemagic.internal.LogUtil
+import com.siimkinks.sqlitemagic.internal.WriterWait
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mockStatic
+import org.mockito.kotlin.mock
 import java.util.concurrent.CancellationException
 
 internal class LogUtilTest {
@@ -45,18 +48,26 @@ internal class LogUtilTest {
   }
 
   @Test
-  fun `failures are logged and rethrown while cancellations pass unlogged`() {
+  fun `failures are logged and rethrown while cancellations and writer waits pass unlogged`() {
     withLogger(loggingEnabled = true) { logger ->
       val failure = IllegalStateException("boom")
       val cancellation = CancellationException()
+      val writerWait = WriterWait(
+        pool = mock(),
+        owner = LeaseOwner(
+          thread = null,
+          sharedPool = null
+        ),
+        suspends = true
+      )
 
       assertThat(
-        listOf(failure, cancellation).map { exception ->
+        listOf(failure, cancellation, writerWait).map { exception ->
           assertThrows(Exception::class.java) {
             LogUtil.loggingFailure(message = "Operation failed") { throw exception }
           }
         }
-      ).containsExactly(failure, cancellation).inOrder()
+      ).containsExactly(failure, cancellation, writerWait).inOrder()
       assertThat(logger.events).containsExactly(
         LoggedMessage(
           level = LogLevel.ERROR,

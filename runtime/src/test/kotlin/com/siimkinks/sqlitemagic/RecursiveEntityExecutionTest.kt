@@ -143,7 +143,7 @@ internal class RecursiveEntityExecutionTest {
   }
 
   @Test
-  fun `a failed recursive write rolls back the caller's transaction that is marked successful`() {
+  fun `a failed recursive write inside the caller's transaction undoes only its own writes`() {
     val scenario = RecursiveScenario()
     scenario.database.insertResults += listOf(41L, 42L, -1L)
     val transaction = scenario.connection.newTransaction()
@@ -160,8 +160,9 @@ internal class RecursiveEntityExecutionTest {
       .isEqualTo(
         TransactionResult(
           result = emptyList<Set<String>>(),
-          committed = 0,
-          rolledBack = 1
+          committed = 1,
+          rolledBack = 0,
+          rolledBackSavepoints = 1
         )
       )
   }

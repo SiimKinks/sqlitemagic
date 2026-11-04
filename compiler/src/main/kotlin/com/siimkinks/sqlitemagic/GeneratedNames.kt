@@ -8,6 +8,7 @@ internal object GeneratedNames {
   const val CLASS_NAME_GENERATED_CLASSES_MANAGER = "GeneratedClassesManager"
   const val CLASS_MODEL_DAO = "Dao"
   const val CLASS_TABLE_STRUCTURE = "Table"
+  const val CLASS_RELATIONSHIP_ID_ENCODINGS = "RelationshipIdEncodings"
 
   const val PROPERTY_DB_VERSION = "dbVersion"
   const val PROPERTY_DB_NAME = "dbName"

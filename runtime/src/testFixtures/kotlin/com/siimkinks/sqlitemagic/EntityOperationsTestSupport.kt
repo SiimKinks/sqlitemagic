@@ -48,6 +48,8 @@ internal class RecordingSQLiteConnection : SQLiteConnection, MutationResults {
     private set
   var rolledBackTransactions = 0
     private set
+  var rolledBackSavepoints = 0
+    private set
   private var transaction = false
 
   override fun prepare(sql: String): SQLiteStatement = when {
@@ -77,6 +79,8 @@ internal class RecordingSQLiteConnection : SQLiteConnection, MutationResults {
     override fun step(): Boolean {
       when {
         sql.startsWith("BEGIN") -> transaction = true
+        sql.startsWith("SAVEPOINT") || sql.startsWith("RELEASE") -> Unit
+        sql.startsWith("ROLLBACK TO") -> rolledBackSavepoints++
         sql == "COMMIT" -> {
           transaction = false
           successfulTransactions++
@@ -204,7 +208,8 @@ internal class RecordingDbConnection(
   fun <R> transactionResult(result: R) = TransactionResult(
     result = result,
     committed = sqliteConnection.successfulTransactions,
-    rolledBack = sqliteConnection.rolledBackTransactions
+    rolledBack = sqliteConnection.rolledBackTransactions,
+    rolledBackSavepoints = sqliteConnection.rolledBackSavepoints
   )
 }
 
@@ -215,13 +220,14 @@ internal fun newRecursiveConnection() = RecordingDbConnection(
   tableCount = 3
 )
 
-private val TRANSACTION_CONTROL = listOf("BEGIN", "COMMIT", "ROLLBACK")
+private val TRANSACTION_CONTROL = listOf("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE")
 private const val USER_VERSION = "PRAGMA user_version"
 
 internal data class TransactionResult<R>(
   val result: R,
   val committed: Int,
-  val rolledBack: Int
+  val rolledBack: Int,
+  val rolledBackSavepoints: Int = 0
 )
 
 internal fun <T> oneShotIterable(values: Iterable<T>) = object : Iterable<T> {

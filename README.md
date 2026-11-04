@@ -28,10 +28,11 @@ SqliteMagic 3.x is built for Kotlin Android projects that use KSP. It supports A
 
 #### Publish SqliteMagic:
 
-SqliteMagic 3.x is not published to a public repository. Build it from source and install it into your local Maven
-repository:
+SqliteMagic 3.x is not published to a public repository. Build a release from source and install it into your local
+Maven repository. Check out the release's tag, because the branch already carries the next `-SNAPSHOT` version:
 
 ```shell
+git checkout <latest version>
 ./gradlew publishToMavenLocal
 ```
 
@@ -110,6 +111,11 @@ sqlitemagic {
 #### Initialize Library:
 
 ```kotlin
+import com.siimkinks.sqlitemagic.SqliteMagic
+import com.siimkinks.sqlitemagic.SqliteMagicDatabase
+import com.siimkinks.sqlitemagic.annotation.Database
+import com.siimkinks.sqlitemagic.framework.FrameworkSQLiteDriver
+
 @Database(
   name = "library.db",
   version = 1
@@ -147,6 +153,9 @@ implementation(
   "com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:<latest version>"
 )
 
+// Application.kt
+import com.siimkinks.sqlitemagic.framework.FrameworkSQLiteDriver
+
 // Application.onCreate
 SqliteMagic.builder(this)
   .database(SqliteMagicDatabase())
@@ -163,6 +172,8 @@ implementation(
   "androidx.sqlite:sqlite-bundled:<sqlite version>"
 )
 
+// Application.kt
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 
 // Application.onCreate
 SqliteMagic.builder(this)
@@ -203,9 +214,14 @@ File databases use one writer and up to four reader connections that open when n
 alongside writes and see the last committed data; the thread that runs a transaction reads its own changes. Reads of
 temporary tables and views and raw SELECTs that declare no tables run on the writer, so raw SQL such as `RETURNING` or
 `last_insert_rowid()` sees the connection that changes the data. A statement waits at most 30 seconds for a connection
-that other threads hold, then fails with `SQLException`. The builder tunes this:
+that other threads hold, then fails with `SQLException`. A connection waits up to 3 seconds for a file lock held by
+another connection or process (`PRAGMA busy_timeout = 3000`). In WAL mode, connections run with
+`PRAGMA synchronous = NORMAL`, so a transaction committed just before a power loss or system crash can be rolled back,
+while the database stays intact. The builder tunes this, and `configureConnection` runs after these defaults:
 
 ```kotlin
+import androidx.sqlite.execSQL
+
 SqliteMagic.builder(this)
   .database(SqliteMagicDatabase())
   .driver(BundledSQLiteDriver())

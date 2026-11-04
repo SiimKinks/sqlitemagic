@@ -21,6 +21,12 @@ def generateRxJava2Sources = tasks.register('generateRxJava2Sources', Sync) {
 
 kotlin.sourceSets.main.kotlin.srcDir(generateRxJava2Sources)
 
+dokka {
+  dokkaSourceSets.named('main') {
+    suppressGeneratedFiles = false
+  }
+}
+
 dependencies {
   implementation libs.rx.java2
 }

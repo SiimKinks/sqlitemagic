@@ -11,17 +11,56 @@ changes that compile but behave differently.
 
 * Breaking: Rewrite the query DSL as SQL-first Kotlin, where queries follow SQL clause order and type their columns,
   results and nullability
-* Breaking: Columns of non-null properties are `NOT NULL`. The next generated migration rebuilds the affected tables,
-  replacing stored NULLs with the column default or deleting their rows where the column has no default
-* Breaking: Entity insert and persist throw SQLite's exceptions instead of `OperationFailedException`, and a conflicting
-  bulk insert or persist throws instead of returning `false`
 * Breaking: Without `queryDeep()`, a related object whose other constructor parameters are nullable is built from its
   ID, with `null` for those parameters, instead of being queried in full. Updating or persisting the parent also writes
   the related object, so writing back such a parent sets the related object's other columns to `NULL` unless it is
   persisted with `ignoreNullValues()`
+* Breaking: Entity reads pass SQL NULL to a `@DbValueToObject` function that accepts NULL, as column selections do,
+  instead of reading null for a nullable property
+* Breaking: A view's columns are named by their `AS` alias, otherwise by the field's qualified name such as
+  `book.title`, instead of the last segment of the name. Persistent views that 2.0 created keep the old names until a
+  schema upgrade rebuilds them, so raise `@Database(version)` with the upgrade to 3.0. Raw SQL over a view quotes the
+  dotted names, as in `SELECT "book.title" FROM book_card`
+* Breaking: Remove the `Cursor` APIs: `toCursor()`, `CompiledCursorSelect` with its `getFromCurrentPosition`, and the
+  raw queries that return or observe a `Cursor`. Read rows lazily with `useRows`
+* Breaking: Remove `BooleanTransformer`. `Boolean` is a built-in column type, still stored as INTEGER 0 or 1
+* Breaking: Columns of non-null properties are `NOT NULL`. The next generated migration rebuilds the affected tables,
+  replacing stored NULLs with the column default or deleting their rows where the column has no default
+* Breaking: Migration scripts run on the database connection inside the upgrade's transaction, so a script line that
+  begins or ends a transaction or savepoint, such as `BEGIN`, `COMMIT` or `SAVEPOINT`, fails the upgrade before it
+  runs
 * Breaking: With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version,
   as it does with migration testing, instead of one above the latest release, and fails when that version is already
   released
+* Breaking: Entity insert and persist throw SQLite's exceptions instead of `OperationFailedException`, and a conflicting
+  bulk insert or persist throws instead of returning `false`
+* Breaking: Bulk entity writes, entity deletes and the writes of entities with recursively handled relationships no
+  longer make a caller's transaction roll back when they fail, are ignored or apply nothing. Bulk inserts, updates and
+  persists and the writes of entities with recursively handled relationships run in a savepoint that undoes only their
+  own changes, and an entity delete runs without one. A failure is still thrown, so an `inTransaction` block that does
+  not catch it rolls back as before
+* Breaking: After a statement makes SQLite roll back the whole transaction, such as a `CONFLICT_ROLLBACK` conflict or a
+  trigger's `RAISE(ROLLBACK)`, later statements and nested transactions in it throw `IllegalStateException` instead
+  of running outside the transaction, each committing on its own
+* Breaking: The `inTransaction` block can no longer suspend, which left the transaction on another thread, nor
+  `return`, `break` or `continue` out of the enclosing function, which skipped marking the transaction successful and
+  rolled it back. `return@inTransaction` ends the block and commits
+* Breaking: The database runs on an androidx `SQLiteDriver` set with `driver(...)`, which replaces
+  `sqliteFactory(...)`. SupportSQLite is no longer used, so `DbDowngrader.onDowngrade` receives a `SQLiteConnection`
+  instead of a `SupportSQLiteDatabase`. `FrameworkSQLiteDriver` from the new `sqlitemagic-framework-driver` artifact
+  runs the device's SQLite, and `BundledSQLiteDriver` from `androidx.sqlite:sqlite-bundled` runs a SQLite shipped with
+  the app
+* Breaking: Errors are the driver's exceptions. The framework driver keeps Android's typed `SQLiteException`
+  subclasses; the bundled driver throws `SQLException` with SQLite's result code in the message
+* Breaking: File databases use WAL with up to four reader connections, so a read during another thread's
+  transaction returns the last committed data instead of waiting for the transaction to end. They run with
+  `PRAGMA synchronous = NORMAL`, so a transaction committed just before a power loss or system crash can be rolled
+  back, while the database stays intact. Run `PRAGMA synchronous = FULL` in `configureConnection` to keep every
+  committed transaction
+* Breaking: A statement that waits longer than `connectionPoolTimeout` (30 seconds by default) for a connection held by
+  other threads fails with `SQLException` instead of waiting
+* Breaking: A corrupt database fails with an exception and keeps its files, instead of being deleted and created
+  again
 * Breaking: RxJava support moves out of the runtime into the `sqlitemagic-rxjava2` artifact. Import `observe`, `run`,
   `scheduleRxQueriesOn`, `ListQueryObservable`, `SingleItemQueryObservable` and `CountQueryObservable` from
   `com.siimkinks.sqlitemagic.rxjava2`, where `run()` emits the non-null result type
@@ -31,46 +70,22 @@ changes that compile but behave differently.
 * Breaking: Observing a query on a closed connection completes without emitting instead of running the query, so its
   `Single` results, such as `runQueryOnce()` and `observe()` of a raw SELECT without declared tables, fail with
   `NoSuchElementException`
-* Breaking: The database runs on an androidx `SQLiteDriver` set with `driver(...)`, which replaces
-  `sqliteFactory(...)`. SupportSQLite is no longer used, so `DbDowngrader.onDowngrade` receives a `SQLiteConnection`
-  instead of a `SupportSQLiteDatabase`. `FrameworkSQLiteDriver` from the new `sqlitemagic-framework-driver` artifact
-  runs the device's SQLite, and `BundledSQLiteDriver` from `androidx.sqlite:sqlite-bundled` runs a SQLite shipped with
-  the app
-* Breaking: Remove the `Cursor` APIs: `toCursor()`, `CompiledCursorSelect` with its `getFromCurrentPosition`, and the
-  raw queries that return or observe a `Cursor`. Read rows lazily with `useRows`
-* Breaking: File databases use WAL with up to four reader connections, so a read during another thread's
-  transaction returns the last committed data instead of waiting for the transaction to end
-* Breaking: Errors are the driver's exceptions. The framework driver keeps Android's typed `SQLiteException`
-  subclasses; the bundled driver throws `SQLException` with SQLite's result code in the message
-* Breaking: A corrupt database fails with an exception and keeps its files, instead of being deleted and created
-  again
-* Breaking: A statement that waits longer than `connectionPoolTimeout` (30 seconds by default) for a connection held by
-  other threads fails with `SQLException` instead of waiting
-* Breaking: An entity delete no longer runs in a transaction of its own, so a delete that fails inside a caller's
-  transaction no longer makes that transaction roll back. Bulk inserts, updates and persists and the writes of
-  entities with recursively handled relationships still run in a nested transaction whose failure rolls the caller's
-  transaction back
-* Breaking: Entity reads pass SQL NULL to a `@DbValueToObject` function that accepts NULL, as column selections do,
-  instead of reading null for a nullable property
 * Breaking: Observed count queries no longer offer `runQueryOrDefault` and `runQueryOnceOrDefault`, whose default a
   count never used; use `runQuery()` and `runQueryOnce()`
-* Breaking: A view's columns are named by their `AS` alias, otherwise by the field's qualified name such as
-  `book.title`, instead of the last segment of the name. Persistent views that 2.0 created keep the old names until a
-  schema upgrade rebuilds them, so raise `@Database(version)` with the upgrade to 3.0. Raw SQL over a view quotes the
-  dotted names, as in `SELECT "book.title" FROM book_card`
 * Breaking: Remove `logWarning`, the one-argument `logError` and `logQueryTime` from `Logger`; query times are no
   longer logged
-* Breaking: Migration scripts run on the database connection inside the upgrade's transaction, so a script line that
-  begins or ends a transaction, such as `BEGIN` or `COMMIT`, fails the upgrade
-* Breaking: Remove `BooleanTransformer`. `Boolean` is a built-in column type, still stored as INTEGER 0 or 1
-* Breaking: The `inTransaction` block can no longer suspend, which left the transaction on another thread, nor
-  `return`, `break` or `continue` out of the enclosing function, which skipped marking the transaction successful and
-  rolled it back. `return@inTransaction` ends the block and commits
 * New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to your
   own classes
-* New: Generated migrations warn when they drop tables, columns or rows
+* New: `useRows` reads the rows of a query lazily inside a block, as a `Sequence` of typed rows or, for raw SQL whose
+  columns are known only when it runs, as `RawRows` read with the types of `readAs` and `columnType` for the storage
+  class of each value
 * New: A model whose other constructor parameters are nullable can be the target of a `handleRecursively = false`
   relationship, which 2.0 rejected at compile time
+* New: Generated migrations warn when they drop tables, columns or rows
+* New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
+  without publishing the release or raising the database version
+* New: Transformers can store a value as `Boolean`
+* New: `readerConnections`, `connectionPoolTimeout` and `configureConnection` configure the database connections
 * New: The `sqlitemagic-rxjava3` artifact provides the RxJava support for RxJava 3, with the same API as
   `sqlitemagic-rxjava2` in `com.siimkinks.sqlitemagic.rxjava3`
 * New: The `sqlitemagic-coroutines` artifact provides Kotlin coroutine support in
@@ -80,38 +95,33 @@ changes that compile but behave differently.
 * New: `withTransaction` in `sqlitemagic-coroutines` runs suspending work in one transaction that follows its coroutines
   across threads, with `yieldIfContended()` to let waiting writers run. Coroutine calls suspend while they wait for
   the writer connection
-* New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
-  without publishing the release or raising the database version
-* New: `useRows` reads the rows of a query lazily inside a block, as a `Sequence` of typed rows or, for raw SQL whose
-  columns are known only when it runs, as `RawRows` read with the types of `readAs` and `columnType` for the storage
-  class of each value
-* New: `readerConnections`, `connectionPoolTimeout` and `configureConnection` configure the database connections
-* New: Transformers can store a value as `Boolean`
 * Fix: Tables and columns named after SQL keywords, such as a property `order` or `group`, are created, written and
   migrated instead of failing with a syntax error
 * Fix: Table rebuilds in generated migrations keep the table's AUTOINCREMENT counter, so the IDs of deleted rows are
   not used again
 * Fix: A migration that adds `onDeleteCascade` to an existing relationship deletes the rows that reference missing
   rows, as the cascade would have, and warns about it, instead of failing the upgrade with a foreign key error
-* Fix: When an `inTransaction` block throws and ending the transaction also fails, the block's exception is thrown with
-  the failure to end the transaction suppressed, instead of replacing it
-* Fix: Writes from several threads at once no longer leave observed queries without further updates or make disposing
-  them hang, and a write made right after subscribing is no longer missed
-* Fix: An entity write on one thread no longer deadlocks with a transaction on another thread that writes the same
-  table
-* Fix: A query result larger than one cursor window (about 2 MB) is read from one snapshot, so a write committed during
-  the read no longer makes it skip or repeat rows or fail to read a row
-* Fix: On the device's SQLite before API 28, `ROLLBACK TO` a savepoint undoes only the savepoint instead of ending
-  the whole transaction
-* Fix: Persisting an existing entity whose new relationship gets a generated ID stores that ID instead of failing with
-  `OperationFailedException` or storing the relationship's placeholder ID
-* Fix: On the device's SQLite before API 28, a row larger than the cursor window fails with `SQLiteException` instead
-  of reading as NULL values
-* Fix: When `yieldIfContendedSafely` committed part of a transaction and its final commit fails, observers of the
-  tables written before the yield are notified
+* Fix: A migration that creates a table referencing a rebuilt table, which another rebuilt table references, keeps its
+  foreign key to the rebuilt table instead of to the dropped temporary copy
 * Fix: A relationship that references a deleted row reads as an object holding only the stored ID in a deep read, as
   `null` when the property is nullable, and otherwise fails with `SQLException` naming the relationship, instead of
   being read from the missing row's NULL columns
+* Fix: A query result larger than one cursor window (about 2 MB) is read from one snapshot, so a write committed during
+  the read no longer makes it skip or repeat rows or fail to read a row
+* Fix: On the device's SQLite before API 28, a row larger than the cursor window fails with `SQLiteException` instead
+  of reading as NULL values
+* Fix: Persisting an existing entity whose new relationship gets a generated ID stores that ID instead of failing with
+  `OperationFailedException` or storing the relationship's placeholder ID
+* Fix: When an `inTransaction` block throws and ending the transaction also fails, the block's exception is thrown with
+  the failure to end the transaction suppressed, instead of replacing it
+* Fix: An entity write on one thread no longer deadlocks with a transaction on another thread that writes the same
+  table
+* Fix: On the device's SQLite before API 28, `ROLLBACK TO` a savepoint undoes only the savepoint instead of ending
+  the whole transaction
+* Fix: When `yieldIfContendedSafely` committed part of a transaction and its final commit fails, observers of the
+  tables written before the yield are notified
+* Fix: Writes from several threads at once no longer leave observed queries without further updates or make disposing
+  them hang, and a write made right after subscribing is no longer missed
 
 Version 2.0.0 _(2026-10-28)_
 ---------------------------------

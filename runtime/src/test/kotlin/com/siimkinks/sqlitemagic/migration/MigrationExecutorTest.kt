@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.NoRowStatement
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -83,6 +84,52 @@ internal class MigrationExecutorTest {
     assertThat(connection.events)
       .containsExactlyElementsIn(listOf("lookup") + statements)
       .inOrder()
+  }
+
+  @Test
+  fun `transaction control lines fail the script before reaching the connection`() {
+    data class Outcome(
+      val events: List<String>,
+      val physicalLine: Int,
+      val cause: Class<*>?
+    )
+
+    val created = "CREATE TABLE added (value TEXT);"
+    listOf(
+      "COMMIT;",
+      "end transaction;",
+      "ROLLBACK;",
+      "  /* keeps the upgrade */ BEGIN;",
+      "\uFEFFSAVEPOINT step;",
+      "RELEASE step;"
+    ).forEach { line ->
+      val connection = RecordingMigrationConnection()
+      val exception = assertThrows(line, MigrationException::class.java) {
+        MigrationExecutor(
+          resources = { "$created\n$line\n".byteInputStream() },
+          connection = connection
+        )
+          .execute(
+            plan = plan(),
+            createTargetViews = { error("Must not recreate views after failure") }
+          )
+      }
+      assertWithMessage(line)
+        .that(
+          Outcome(
+            events = connection.events,
+            physicalLine = exception.physicalLine,
+            cause = exception.cause?.javaClass
+          )
+        )
+        .isEqualTo(
+          Outcome(
+            events = listOf("lookup", created),
+            physicalLine = 2,
+            cause = IllegalArgumentException::class.java
+          )
+        )
+    }
   }
 
   @Test

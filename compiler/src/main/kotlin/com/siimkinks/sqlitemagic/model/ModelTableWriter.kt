@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_RELATIONSHIP_ID_ENCODINGS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.ENCODING_TYPE
@@ -20,7 +21,6 @@ import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter.PartialRead
 import com.siimkinks.sqlitemagic.writer.databaseValueGetter
 import com.siimkinks.sqlitemagic.writer.entityProperties
 import com.squareup.kotlinpoet.CodeBlock
-import com.squareup.kotlinpoet.KModifier.PRIVATE
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 
@@ -31,15 +31,7 @@ internal class ModelTableWriter(
     readTableStructureWriter(table)
       .write(
         codeGenerator = environment.codeGenerator,
-        originatingFiles = originatingFiles,
-        fileProperties = table.allColumns.mapNotNull { column ->
-          column.relationshipBackedId?.let { relationship ->
-            relationshipBackedIdType(
-              column = column,
-              relationship = relationship
-            )
-          }
-        }
+        originatingFiles = originatingFiles
       )
   }
 
@@ -71,7 +63,15 @@ internal class ModelTableWriter(
         partialRequirements = table.partialRequirements
       ),
       readsRelated = table.hasRecursiveRelationships
-    )
+    ),
+    relationshipIdEncodings = table.allColumns.mapNotNull { column ->
+      column.relationshipBackedId?.let { relationship ->
+        relationshipBackedIdEncoding(
+          column = column,
+          relationship = relationship
+        )
+      }
+    }
   )
 
   private fun columnProperty(
@@ -164,8 +164,9 @@ internal class ModelTableWriter(
             namedArgument("nullness", "%T", nullness),
             namedArgument(
               "parameterEncoding",
-              "%N.%M()",
-              column.relationshipBackedIdTypeName,
+              "%T.%N.%M()",
+              table.generationNames.tableClassName.nestedClass(CLASS_RELATIONSHIP_ID_ENCODINGS),
+              column.fieldName,
               PARAMETER_ENCODING_FACTORY
             ),
             requiredRead
@@ -175,14 +176,13 @@ internal class ModelTableWriter(
       .build()
   }
 
-  private fun relationshipBackedIdType(column: ColumnElement, relationship: RelationshipElement): PropertySpec {
+  private fun relationshipBackedIdEncoding(column: ColumnElement, relationship: RelationshipElement): PropertySpec {
     val idType = relationship.nullableIdType
     return PropertySpec
       .builder(
-        name = column.relationshipBackedIdTypeName,
+        name = column.fieldName,
         type = ENCODING_TYPE.parameterizedBy(idType, idType, SQL_NULLABLE, SQL_NULLABLE)
       )
-      .addModifiers(PRIVATE)
       .initializer(
         callCode(
           callee = CodeBlock.of("%M", NULLABLE_READ_TYPE),
@@ -225,8 +225,6 @@ private fun relationships(columns: List<ColumnElement>) = callCode(
     )
   }
 )
-
-private val ColumnElement.relationshipBackedIdTypeName get() = "${fieldName}_TYPE"
 
 private val ColumnElement.fieldClass
   get() = when {

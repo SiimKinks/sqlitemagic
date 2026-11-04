@@ -129,9 +129,9 @@ internal class SchemaOptionRuntimeTest {
       type = "table",
       name = SchemaOptionModelCatalog.libraryBookTableName
     )
-    assertThat(schema).contains("CREATE TABLE library_books")
-    assertThat(schema).contains("book_key TEXT NOT NULL PRIMARY KEY")
-    assertThat(schema).contains("title_text TEXT DEFAULT 'untitled'")
+    assertThat(schema).isEqualTo(
+      """CREATE TABLE "library_books" ("book_key" TEXT NOT NULL PRIMARY KEY, "title_text" TEXT DEFAULT 'untitled')"""
+    )
 
     insertedPersistResult(
       result = LibraryBook(

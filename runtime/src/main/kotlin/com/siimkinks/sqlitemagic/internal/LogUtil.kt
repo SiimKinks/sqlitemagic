@@ -30,6 +30,8 @@ internal object LogUtil {
     block()
   } catch (exception: CancellationException) {
     throw exception
+  } catch (wait: WriterWait) {
+    throw wait
   } catch (exception: Exception) {
     logError(exception) { message }
     throw exception

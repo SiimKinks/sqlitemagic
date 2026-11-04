@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.writer
 
 import com.google.devtools.ksp.processing.CodeGenerator
+import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_RELATIONSHIP_ID_ENCODINGS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_ROW
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_SELECTED_POSITIONS
@@ -43,7 +44,8 @@ internal class ReadTableStructureWriter(
   private val columns: List<PropertySpec>,
   private val readsRelated: Boolean,
   private val relationships: CodeBlock?,
-  private val partialRead: PartialRead?
+  private val partialRead: PartialRead?,
+  private val relationshipIdEncodings: List<PropertySpec> = emptyList()
 ) {
   class PartialRead(
     val entityProperties: CodeBlock,
@@ -54,11 +56,9 @@ internal class ReadTableStructureWriter(
 
   fun write(
     codeGenerator: CodeGenerator,
-    originatingFiles: OriginatingFiles,
-    fileProperties: List<PropertySpec> = emptyList()
+    originatingFiles: OriginatingFiles
   ) = FileSpec
     .builder(className)
-    .apply { fileProperties.forEach(::addProperty) }
     .addType(
       TypeSpec
         .classBuilder(className)
@@ -145,6 +145,17 @@ internal class ReadTableStructureWriter(
             .addStatement("return %T(%N)", className, VARIABLE_ALIAS)
             .build()
         )
+        .apply {
+          if (relationshipIdEncodings.isNotEmpty()) {
+            addType(
+              TypeSpec
+                .objectBuilder(CLASS_RELATIONSHIP_ID_ENCODINGS)
+                .addModifiers(PRIVATE)
+                .addProperties(relationshipIdEncodings)
+                .build()
+            )
+          }
+        }
         .addType(
           TypeSpec
             .companionObjectBuilder()

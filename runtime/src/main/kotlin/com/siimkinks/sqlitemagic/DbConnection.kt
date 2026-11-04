@@ -21,6 +21,10 @@ interface DbConnection : Closeable {
    * or any nested transaction is unsuccessful, the entire transaction rolls back when the outermost
    * transaction ends.
    *
+   * A statement that makes SQLite roll back the whole transaction, such as an `OR ROLLBACK` conflict, ends it. Every
+   * further statement, nested transaction and yield in it then throws, and [Transaction.end] keeps only the work that
+   * yields committed before.
+   *
    * Transactions queue query notifications until they have been applied.
    *
    * Use [use] to end the transaction automatically:

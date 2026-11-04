@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
+import com.siimkinks.sqlitemagic.internal.SqlUtil.requireNoTransactionControl
 import java.io.FileNotFoundException
 import java.io.InputStreamReader
 import java.nio.charset.CodingErrorAction
@@ -147,6 +148,7 @@ class MigrationExecutor(
               lineNumber = index + 1
               if (line.isNotBlank() && !line.isSqlComment()) {
                 try {
+                  requireNoTransactionControl(line)
                   connection.execSQL(line)
                 } catch (exception: Exception) {
                   throw failure(
