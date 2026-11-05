@@ -118,7 +118,11 @@ internal class DerivedTable<T>(
       body = node
     )
     context.sql.append(')')
-    context.appendSourceAlias(this)
+    if (alias != null) {
+      context.sql
+        .append(" AS ")
+        .append(sqlQualifier)
+    }
   }
 
   override fun renderOutputs(context: SqlRenderingContext) = context.deferDerivedOutputs()

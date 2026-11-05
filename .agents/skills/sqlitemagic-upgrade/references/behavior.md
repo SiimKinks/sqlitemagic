@@ -293,7 +293,7 @@ property. Selected values keep the property's type, as legacy typed them.
 | `x AS ""` renders `AS ""`, a column named `""` (legacy dropped the alias) | drop empty aliases |
 | Raw `UPDATE.RAW`/`DELETE.RAW` notify only tables declared with `notifies(…)` | declare tables observed elsewhere |
 | The default downgrade drops the newer version's views as well as tables | none |
-| Migration scripts run inside the upgrade's transaction, so a script line starting with `BEGIN`, `COMMIT`, `END`, `ROLLBACK`, `SAVEPOINT` or `RELEASE` fails the upgrade before it runs, balanced savepoints included | delete transaction and savepoint statements from hand-written scripts |
+| Migration scripts run inside the upgrade's transaction, so a script line with `COMMIT`, `END` or `ROLLBACK` fails the upgrade before it runs and SQLite fails a `BEGIN` line; `SAVEPOINT`, `RELEASE` and `ROLLBACK TO` still work | delete `BEGIN`, `COMMIT`, `END` and `ROLLBACK` lines from hand-written scripts |
 | With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version instead of one above the latest release, and fails when that version is already released | raise `@Database(version)` before running it |
 | Query execution time is no longer logged | time queries in the caller if needed |
 | Entity result singletons (`EntityInsertResult.Ignored`, …) are data objects (`toString()` is `Ignored`) | none unless code parsed the old text |

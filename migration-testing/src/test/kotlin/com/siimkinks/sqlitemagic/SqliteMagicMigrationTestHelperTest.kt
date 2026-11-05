@@ -839,7 +839,7 @@ internal class SqliteMagicMigrationTestHelperTest {
   }
 
   @Test
-  fun `transaction controls fail selected history preflight before any native database opens`() {
+  fun `transaction ends fail selected history preflight before any native database opens`() {
     val descriptor = history()
     descriptor.resources["2.sql"] = "\nUPDATE person SET name=upper(name)\nCOMMIT;\n".toByteArray()
     descriptor.resources["3.sql"] = "BROKEN_SQL\n".toByteArray()
@@ -861,7 +861,7 @@ internal class SqliteMagicMigrationTestHelperTest {
       .mapNotNull(Throwable::message)
       .joinToString("\n")
     assertThat(context).contains("2.sql at physical line 3")
-    assertThat(context).contains("Unsupported migration transaction control")
+    assertThat(context).contains("ends the upgrade's transaction")
   }
 
   @Test

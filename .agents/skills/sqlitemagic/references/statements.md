@@ -114,6 +114,7 @@ val columns = SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
 - Without `readAs`, read rows inside `useRows { rows -> }`: `rows.step()` advances (forward only),
   `rows.read(index, SqlType.X)`, `rows.isNull(index)`, `rows.columnType(index)`, `rows.columnCount`,
   `rows.columnName(index)`. Rows exist only inside the block.
+- A connection keeps the columns of `*` that it first prepared: name the columns of a table altered at runtime.
 - Raw SQL names tables and columns itself. Interpolate generated fields for typo-proof names only in typed raw
   fragments ([expressions.md](expressions.md#raw-fragments-and-functions)); in whole raw statements write plain SQL.
 - Reading a view through raw SQL quotes its dotted column names: `SELECT "author.name" FROM book_card`

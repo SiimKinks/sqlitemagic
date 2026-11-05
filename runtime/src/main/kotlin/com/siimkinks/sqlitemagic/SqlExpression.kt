@@ -940,9 +940,7 @@ internal fun operandNode(value: Any?) = when (value) {
 /**
  * Create SQL expression from raw SQL string.
  *
- * Columns render as their quoted, qualified names when interpolated into the string. Inside a nested query, a table
- * named like a different table of an enclosing query takes a generated alias that interpolated columns do not use;
- * alias such a table explicitly to interpolate its columns.
+ * Columns render as their quoted, qualified names when interpolated into the string.
  *
  * Example:
  * ```
@@ -968,10 +966,8 @@ fun <R, N : SqlNullability, T> String.expr(
 /**
  * Create SQL expression from raw SQL string.
  *
- * Columns render as their quoted, qualified names when interpolated into the string. Inside a nested query, a table
- * named like a different table of an enclosing query takes a generated alias that interpolated columns do not use;
- * alias such a table explicitly to interpolate its columns. The expression can be compared with Kotlin values, which
- * are converted to SQL with [type].
+ * Columns render as their quoted, qualified names when interpolated into the string. The expression can be compared
+ * with Kotlin values, which are converted to SQL with [type].
  *
  * Example:
  * ```

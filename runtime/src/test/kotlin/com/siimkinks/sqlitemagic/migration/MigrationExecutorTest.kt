@@ -87,7 +87,7 @@ internal class MigrationExecutorTest {
   }
 
   @Test
-  fun `transaction control lines fail the script before reaching the connection`() {
+  fun `lines ending the upgrade's transaction fail the script before reaching the connection`() {
     data class Outcome(
       val events: List<String>,
       val physicalLine: Int,
@@ -99,9 +99,9 @@ internal class MigrationExecutorTest {
       "COMMIT;",
       "end transaction;",
       "ROLLBACK;",
-      "  /* keeps the upgrade */ BEGIN;",
-      "\uFEFFSAVEPOINT step;",
-      "RELEASE step;"
+      "  /* keeps the upgrade */ COMMIT;",
+      "\uFEFFrollback transaction;",
+      "ROLLBACK /* TO step */;"
     ).forEach { line ->
       val connection = RecordingMigrationConnection()
       val exception = assertThrows(line, MigrationException::class.java) {
@@ -130,6 +130,36 @@ internal class MigrationExecutorTest {
           )
         )
     }
+  }
+
+  @Test
+  fun `savepoint lines and other statements named like transaction control reach the connection`() {
+    val statements = listOf(
+      "BEGIN;",
+      "SAVEPOINT step;",
+      "ROLLBACK TO step;",
+      "rollback transaction /* step */ to savepoint step;",
+      "RELEASE step;",
+      "UPDATE sample SET value = 'COMMIT';",
+      "COMMITMENT;",
+      "ENDõ;"
+    )
+    val connection = RecordingMigrationConnection()
+    MigrationExecutor(
+      resources = {
+        statements
+          .joinToString("\n")
+          .byteInputStream()
+      },
+      connection = connection
+    )
+      .execute(
+        plan = plan(),
+        createTargetViews = {}
+      )
+    assertThat(connection.events)
+      .containsExactlyElementsIn(listOf("lookup") + statements)
+      .inOrder()
   }
 
   @Test

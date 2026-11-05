@@ -3,7 +3,6 @@ package com.siimkinks.sqlitemagic.migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
-import com.siimkinks.sqlitemagic.internal.SqlUtil.requireNoTransactionControl
 import java.io.FileNotFoundException
 import java.io.InputStreamReader
 import java.nio.charset.CodingErrorAction
@@ -148,7 +147,12 @@ class MigrationExecutor(
               lineNumber = index + 1
               if (line.isNotBlank() && !line.isSqlComment()) {
                 try {
-                  requireNoTransactionControl(line)
+                  require(
+                    !TRANSACTION_END.matchesAt(
+                      input = line,
+                      index = 0
+                    )
+                  ) { "Migration statement ends the upgrade's transaction, which the migration caller owns" }
                   connection.execSQL(line)
                 } catch (exception: Exception) {
                   throw failure(
@@ -172,3 +176,8 @@ class MigrationExecutor(
 
   private fun String.isSqlComment() = trimStart().startsWith("--")
 }
+
+private const val GAP = """(?:\s|/\*.*?\*/)"""
+private val TRANSACTION_END = Regex(
+  """(?i)(?:$GAP|\uFEFF)*(?:COMMIT|END|ROLLBACK(?!$GAP+(?:TRANSACTION$GAP+)?TO\b))(?![\w$\x{80}-\x{10FFFF}])"""
+)

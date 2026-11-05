@@ -66,8 +66,8 @@ Other variants' release tasks fail while migration testing is on (the default in
 ## Editing migration scripts
 
 - A script is one SQL statement per line; blank lines and `--` comments are allowed.
-- The upgrade's transaction wraps every script: lines with `BEGIN`, `COMMIT`, `END`, `ROLLBACK`, `SAVEPOINT` or
-  `RELEASE` fail it.
+- The upgrade's transaction wraps every script: lines with `BEGIN`, `COMMIT`, `END` or `ROLLBACK` fail it, while
+  `SAVEPOINT`, `RELEASE` and `ROLLBACK TO` work.
 - Put data fixes where they apply: `UPDATE … SET column = … WHERE column IS NULL` before the rebuild statements that
   would delete or default those rows, backfills after the column exists.
 - Models cannot declare triggers or virtual (full-text) tables, and release scripts run only on upgrades, never on a

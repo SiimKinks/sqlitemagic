@@ -1,8 +1,5 @@
 package com.siimkinks.sqlitemagic.migration
 
-import com.siimkinks.sqlitemagic.internal.SqlUtil.requireNoTransactionControl
-
-/** Checks physical statements and caller-owned transactions; SQLite owns other SQL grammar and semantics. */
 internal fun validateSqlLine(sql: String) {
   var quote: Char? = null
   var blockComment = false
@@ -55,10 +52,14 @@ internal fun validateSqlLine(sql: String) {
         require(parentheses >= 0) { "Unmatched closing parenthesis in SQL statement" }
       }
       else -> {
-        if (!hasToken) requireNoTransactionControl(
-          sql = sql,
-          start = index
-        )
+        if (!hasToken) {
+          require(
+            !TRANSACTION_END.matchesAt(
+              input = sql,
+              index = index
+            )
+          ) { "Migration statement ends the upgrade's transaction, which the migration caller owns" }
+        }
         hasToken = true
       }
     }
@@ -68,3 +69,8 @@ internal fun validateSqlLine(sql: String) {
     "SQL statement must be complete on one physical line"
   }
 }
+
+private const val GAP = """(?:\s|/\*.*?\*/)"""
+private val TRANSACTION_END = Regex(
+  """(?i)(?:COMMIT|END|ROLLBACK(?!$GAP+(?:TRANSACTION$GAP+)?TO\b))(?![\w$\x{80}-\x{10FFFF}])"""
+)

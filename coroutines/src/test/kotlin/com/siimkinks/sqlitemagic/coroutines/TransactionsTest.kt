@@ -45,7 +45,6 @@ import java.lang.Thread.State.TIMED_WAITING
 import java.lang.Thread.State.WAITING
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 import kotlin.coroutines.ContinuationInterceptor
@@ -993,173 +992,6 @@ internal class TransactionsTest {
     )
   }
 
-  @Test(timeout = 10_000)
-  fun `a blocking call that keeps a waiting coroutine call from resuming on another thread takes the writer`() {
-    val serial = Executors.newSingleThreadExecutor()
-    val threadPerTask = Executor { task ->
-      serial.execute { thread(block = task::run).join() }
-    }.asCoroutineDispatcher()
-    val connection = personConnection(queryDispatcher = threadPerTask)
-    val ages = try {
-      runBlocking {
-        val releaseWriter = connection.holdWriter()
-        val coroutineCall = async {
-          connection
-            .setAge(
-              age = 50,
-              id = 3L
-            )
-            .await()
-        }
-        while (!connection.pool.hasWriterWaiters()) {
-          delay(1.milliseconds)
-        }
-        val blockingThread = CompletableDeferred<Thread>()
-        val blockingCall = async(threadPerTask) {
-          blockingThread.complete(Thread.currentThread())
-          connection
-            .setAge(
-              age = 60,
-              id = 2L
-            )
-            .execute()
-        }
-        val blocking = blockingThread.await()
-        while (blocking.state != TIMED_WAITING) {
-          delay(1.milliseconds)
-        }
-        releaseWriter()
-        blockingCall.await()
-        coroutineCall.await()
-        listOf(connection.age(id = 2L), connection.age(id = 3L))
-      }
-    } finally {
-      serial.shutdown()
-    }
-
-    assertThat(ages)
-      .containsExactly(60, 50)
-      .inOrder()
-  }
-
-  @Test(timeout = 20_000)
-  fun `a blocking call on the thread that a waiting coroutine call continues on takes the writer before it`() {
-    val ages = listOf("a coroutine call resumes", "a withTransaction begins").associateWith { waitingCall ->
-      val singleThread = Executors
-        .newSingleThreadExecutor()
-        .asCoroutineDispatcher()
-      val connection = personConnection(queryDispatcher = singleThread)
-      singleThread.use {
-        runBlocking {
-          val dispatcherThread = withContext(singleThread) { Thread.currentThread() }
-          val releaseWriter = connection.holdWriter()
-          val waiting = async {
-            when (waitingCall) {
-              "a withTransaction begins" -> connection.withTransaction {
-                connection
-                  .setAge(
-                    age = 50,
-                    id = 3L
-                  )
-                  .await()
-              }
-              else -> connection
-                .setAge(
-                  age = 50,
-                  id = 3L
-                )
-                .await()
-            }
-          }
-          while (!connection.pool.hasWriterWaiters()) {
-            delay(1.milliseconds)
-          }
-          val blockingCall = async(singleThread) {
-            connection
-              .setAge(
-                age = 60,
-                id = 2L
-              )
-              .execute()
-          }
-          while (dispatcherThread.state != TIMED_WAITING) {
-            delay(1.milliseconds)
-          }
-          releaseWriter()
-          blockingCall.await()
-          waiting.await()
-          listOf(connection.age(id = 2L), connection.age(id = 3L))
-        }
-      }
-    }
-
-    assertThat(ages).isEqualTo(
-      mapOf(
-        "a coroutine call resumes" to listOf(60, 50),
-        "a withTransaction begins" to listOf(60, 50)
-      )
-    )
-  }
-
-  @Test(timeout = 10_000)
-  fun `a blocking call on the thread that a yielded withTransaction resumes on takes the writer before it`() {
-    val singleThread = Executors
-      .newSingleThreadExecutor()
-      .asCoroutineDispatcher()
-    val connection = personConnection(queryDispatcher = singleThread)
-    val ages = singleThread.use {
-      runBlocking {
-        val dispatcherThread = withContext(singleThread) { Thread.currentThread() }
-        val written = CompletableDeferred<Unit>()
-        val transaction = async {
-          connection.withTransaction {
-            connection
-              .setAge(
-                age = 50,
-                id = 3L
-              )
-              .await()
-            written.complete(Unit)
-            while (!connection.pool.hasWriterWaiters()) {
-              delay(1.milliseconds)
-            }
-            yieldIfContended()
-            connection
-              .setAge(
-                age = 51,
-                id = 3L
-              )
-              .await()
-          }
-        }
-        written.await()
-        val releaseWriter = connection.holdWriter()
-        while (!connection.pool.hasWriterWaiters()) {
-          delay(1.milliseconds)
-        }
-        val blockingCall = async(singleThread) {
-          connection
-            .setAge(
-              age = 60,
-              id = 2L
-            )
-            .execute()
-        }
-        while (dispatcherThread.state != TIMED_WAITING) {
-          delay(1.milliseconds)
-        }
-        releaseWriter()
-        blockingCall.await()
-        transaction.await()
-        listOf(connection.age(id = 2L), connection.age(id = 3L))
-      }
-    }
-
-    assertThat(ages)
-      .containsExactly(60, 51)
-      .inOrder()
-  }
-
   @Test
   fun `the default connection runs withTransaction`() {
     val connection = personConnection()
@@ -1482,22 +1314,6 @@ internal class TransactionsTest {
     .RAW("UPDATE person SET age = ? WHERE id = ?", age, id)
     .notifies(PERSON)
     .usingConnection(this)
-
-  private suspend fun DbConnectionImpl.holdWriter(): () -> Unit {
-    val holding = CompletableDeferred<Unit>()
-    val release = CompletableDeferred<Unit>()
-    val holder = thread {
-      write {
-        holding.complete(Unit)
-        runBlocking { release.await() }
-      }
-    }
-    holding.await()
-    return {
-      release.complete(Unit)
-      holder.join()
-    }
-  }
 
   private fun waitingWriter(
     connection: DbConnectionImpl,

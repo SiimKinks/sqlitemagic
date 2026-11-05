@@ -18,7 +18,8 @@ object Select {
    * Create raw SQL SELECT statement.
    *
    * Read the results with `readAs`, or with `useRows` when the columns are known only when the query runs. Define
-   * the tables that the query reads with `observes`, otherwise `observe` runs the query only once.
+   * the tables that the query reads with `observes`, otherwise `observe` runs the query only once. A connection
+   * keeps the columns of `*` that it first prepared, so name the columns of a table that the app alters at runtime.
    *
    * Example:
    * ```
@@ -44,7 +45,8 @@ object Select {
    * Create raw SQL SELECT statement.
    *
    * Read the results with `readAs`, or with `useRows` when the columns are known only when the query runs. Define
-   * the tables that the query reads with `observes`, otherwise `observe` runs the query only once.
+   * the tables that the query reads with `observes`, otherwise `observe` runs the query only once. A connection
+   * keeps the columns of `*` that it first prepared, so name the columns of a table that the app alters at runtime.
    *
    * Example:
    * ```

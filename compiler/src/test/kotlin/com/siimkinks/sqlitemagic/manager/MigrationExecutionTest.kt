@@ -356,15 +356,6 @@ internal class MigrationExecutionTest {
         rows = categoryRows,
         ids = mapOf("categories" to listOf(1L, 2L, 3L))
       ),
-      "self reference chain deeper than the trigger depth limit" to ReferenceCase(
-        previous = structure("categories" to categories + "note TEXT"),
-        current = structure("categories" to categories),
-        rows = listOf(
-          "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1500) " +
-              "INSERT INTO categories (id, parent) SELECT i, NULLIF(i - 1, 0) FROM n"
-        ),
-        ids = mapOf("categories" to (1L..1500L).toList())
-      ),
       "child declared before its parent that drops a column" to ReferenceCase(
         previous = structure(
           "comments" to comments,
@@ -519,7 +510,7 @@ internal class MigrationExecutionTest {
   }
 
   @Test
-  fun `rebuilds copy parents first and index the columns of references that cannot be ordered`() {
+  fun `rebuilds copy parents first`() {
     val categories = listOf(
       "id INTEGER PRIMARY KEY",
       "parent INTEGER REFERENCES categories(id) ON DELETE CASCADE"
@@ -558,13 +549,9 @@ internal class MigrationExecutionTest {
           "PRAGMA defer_foreign_keys = ON",
           """ALTER TABLE "categories" RENAME TO "categories_"""",
           """CREATE TABLE IF NOT EXISTS "categories" (${categories.joinToString()})""",
-          """CREATE INDEX main."categories_parent_" ON "categories" ("parent")""",
           """INSERT INTO "categories" ("id","parent") SELECT "id","parent" FROM "categories_"""",
           """DELETE FROM "categories" WHERE "parent" IS NOT NULL """ +
               """AND "parent" NOT IN (SELECT "id" FROM "categories")""",
-          """DROP INDEX IF EXISTS main."categories_parent_"""",
-          """UPDATE "categories_" SET "parent" = "id"""",
-          """CREATE INDEX main."categories_parent__" ON "categories_" ("parent")""",
           """DROP TABLE IF EXISTS "categories_""""
         )
       )

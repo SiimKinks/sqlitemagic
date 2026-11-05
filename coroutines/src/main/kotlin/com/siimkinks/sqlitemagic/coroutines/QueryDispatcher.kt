@@ -29,6 +29,8 @@ internal val QUERY_DISPATCHER = AdapterSettingKey<CoroutineDispatcher>()
  *
  * A coroutine call that waits for the writer connection, such as a write while another writer or a [withTransaction]
  * transaction holds it, suspends in turn with the blocking writers instead of holding a thread of this dispatcher.
+ * It resumes on this dispatcher once granted, so do not run blocking writes on this dispatcher's threads outside
+ * [withTransaction]: with all of them blocked, they wait for a writer that the suspended call cannot release.
  *
  * A transaction started with [withTransaction] follows its coroutines to this dispatcher. A transaction started with
  * `newTransaction()` or `inTransaction {}` belongs to the thread that started it, so a call that this dispatcher runs

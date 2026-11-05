@@ -52,21 +52,18 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
 
   internal open fun qualifier(context: SqlRenderingContext) = sqlQualifier
 
-  private val sqlName = "${quoteSqlIdentifier(objectIdentity.schema.qualifier)}.${quoteSqlIdentifier(name)}"
-
-  internal val sqlSource = when (alias) {
-    null -> sqlName
-    else -> "$sqlName AS ${quoteSqlIdentifier(alias)}"
+  internal val sqlSource = buildString {
+    append(quoteSqlIdentifier(objectIdentity.schema.qualifier))
+    append('.')
+    append(quoteSqlIdentifier(name))
+    if (alias != null) {
+      append(" AS ")
+      append(quoteSqlIdentifier(alias))
+    }
   }
 
   internal open fun renderSource(context: SqlRenderingContext) {
-    when (val renamed = context.renamedSource(this)) {
-      null -> context.sql.append(sqlSource)
-      else -> context.sql
-        .append(sqlName)
-        .append(" AS ")
-        .append(renamed)
-    }
+    context.sql.append(sqlSource)
     addDependencies(context.dependencies)
   }
 

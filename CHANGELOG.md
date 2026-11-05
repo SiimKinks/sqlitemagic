@@ -31,8 +31,8 @@ that compile but behave differently and walks through the first database release
   after its parent. The next generated migration rebuilds the table and deletes the rows that reference missing rows,
   with a warning
 * Breaking: Migration scripts run on the database connection inside the upgrade's transaction, so a script line that
-  begins or ends a transaction or savepoint, such as `BEGIN`, `COMMIT` or `SAVEPOINT`, fails the upgrade before it
-  runs
+  ends a transaction, such as `COMMIT`, `END` or `ROLLBACK`, fails the upgrade before it runs, and SQLite fails a
+  `BEGIN` line. Savepoints still work
 * Breaking: With migration testing disabled, `migrate<Variant>Db` publishes the release under the `@Database` version,
   as it does with migration testing, instead of one above the latest release, and fails when that version is already
   released

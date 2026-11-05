@@ -77,6 +77,8 @@ class BookRepository {
 - Import `observe`, the operators and `await` from `com.siimkinks.sqlitemagic.coroutines`.
 - Queries run on the dispatcher set with `dispatchCoroutineQueriesOn` (default `Dispatchers.IO`); collectors receive
   results in their own context. Do not add `flowOn(Dispatchers.IO)` or `withContext(Dispatchers.IO)` around them.
+- Do not run blocking writes (`execute()`, blocking transactions) on that dispatcher's threads outside `withTransaction`:
+  a coroutine write waiting for the writer resumes there, so a single-thread or exhausted dispatcher deadlocks.
 - Apply `runQuery` directly to `observe()`; transform the result flow afterwards (`map`, `distinctUntilChanged`,
   `stateIn`).
 - `withTransaction { }` runs suspending work in one transaction; inside it `await()`, `runQueryOnce()` and blocking

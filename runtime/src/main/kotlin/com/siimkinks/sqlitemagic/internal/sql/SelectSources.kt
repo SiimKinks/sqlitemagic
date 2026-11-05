@@ -43,16 +43,6 @@ private open class UserOccurrence(
   pathName = null
 ) {
   override val name get() = table.referenceName
-
-  var renamedQualifier: String? = null
-
-  fun registerSource(context: SqlRenderingContext) = when (val renamed = renamedQualifier) {
-    null -> context.addSource(table)
-    else -> context.addRenamedSource(
-      table = table,
-      qualifier = renamed
-    )
-  }
 }
 
 private class JoinedOccurrence(
@@ -69,7 +59,7 @@ private class JoinedOccurrence(
     if (kind.nullExtendsPrefix) {
       context.nullExtendPrefix()
     }
-    registerSource(context)
+    context.addSource(table)
     if (kind.nullExtendsJoined) {
       context.addNullExtended(table)
     }
@@ -294,8 +284,7 @@ internal class RelationshipPlanner(
   }
 
   fun register(joins: List<JoinOccurrence>) {
-    users.forEach(::renameShadowingSource)
-    rootOccurrence.registerSource(context)
+    context.addSource(rootOccurrence.table)
     joins.forEach { it.register(context) }
     resolvedFields?.forEach { (table, occurrence) ->
       if (occurrence.table !== table) {
@@ -305,24 +294,6 @@ internal class RelationshipPlanner(
         )
       }
     }
-  }
-
-  private fun renameShadowingSource(user: UserOccurrence) {
-    val qualifier = user.table.qualifier(context)
-    val shadows = qualifier.isNotEmpty() && context.shadowsEnclosingSource(
-      table = user.table,
-      qualifier = qualifier
-    )
-    if (!shadows) {
-      return
-    }
-    val usedNames = usedNames()
-    val name = uniqueName(
-      base = user.table.referenceName,
-      usedNames = usedNames
-    )
-    usedNames += name.lowercase()
-    user.renamedQualifier = quoteSqlIdentifier(name)
   }
 
   fun exportOccurrences(destination: MutableScatterMap<String, Array<String?>>) {
@@ -403,7 +374,10 @@ internal class RelationshipPlanner(
     val pathName = parent.pathName?.let { "${it}_${relationship.columnName}" }
       ?: relationship.columnName
     val firstOccurrence = !isOccurrenceTable(target)
-    val usedNames = usedNames()
+    val usedNames = usedNames ?: MutableScatterSet<String>(initialCapacity = users.size + 1).also { names ->
+      users.forEach { names += it.table.referenceName.lowercase() }
+      usedNames = names
+    }
     val name = uniqueName(
       base = when {
         firstOccurrence && !usedNames.isTaken(target.name) -> target.name
@@ -430,11 +404,6 @@ internal class RelationshipPlanner(
         else -> table.sqlSource
       }
     ).also(automatic::add)
-  }
-
-  private fun usedNames() = usedNames ?: MutableScatterSet<String>(initialCapacity = users.size + 1).also { names ->
-    users.forEach { names += it.table.referenceName.lowercase() }
-    usedNames = names
   }
 
   private fun uniqueName(base: String, usedNames: MutableScatterSet<String>): String {

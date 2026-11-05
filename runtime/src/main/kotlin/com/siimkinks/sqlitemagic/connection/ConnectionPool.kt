@@ -39,8 +39,6 @@ internal class ConnectionPool(
   private val writerQueue = ReentrantLock()
   private var writerLocked = false
   private val writerWaiters = ArrayDeque<WriterWait>()
-  private var reserved: WriterWait? = null
-  private var reservedAt = 0L
   private var writerRows = 0
 
   @Volatile
@@ -577,9 +575,6 @@ internal class ConnectionPool(
         }
         GRANTED -> {
           wait.state = CANCELLED
-          if (reserved === wait) {
-            reserved = null
-          }
           wait.parked
         }
         else -> false
@@ -959,42 +954,20 @@ internal class ConnectionPool(
   }
 
   private fun lockWriter(owner: LeaseOwner, call: WriterCall?) {
-    var callbacks = emptyList<() -> Unit>()
     val wait = writerQueue.withLock {
       if (!writerLocked) {
         writerLocked = true
         return
       }
       val grant = call?.grant
-      when {
-        grant?.state == GRANTED && grant.parked -> {
-          grant.state = CLAIMED
-          reserved = null
-          if (owner.thread == null) {
-            callbacks = buildList {
-              resolveOwnerWaits(
-                owner = owner,
-                state = GRANTED,
-                callbacks = this
-              )
-              queuedWriters = writerWaiters.size
-            }
-          }
-          null
-        }
-        grant?.state == WAITING -> {
-          call.grant = null
-          grant
-        }
-        else -> queueWriterWait(
-          owner = owner,
-          call = call
-        )
+      if (grant?.state == GRANTED && grant.parked) {
+        grant.state = CLAIMED
+        return
       }
-    }
-    if (wait == null) {
-      callbacks.forEach(Function0<Unit>::invoke)
-      return
+      queueWriterWait(
+        owner = owner,
+        call = call
+      )
     }
     if (wait.suspends) {
       throw wait
@@ -1005,42 +978,23 @@ internal class ConnectionPool(
   private fun awaitWriterGrant(wait: WriterWait) {
     val deadline = System.nanoTime() + timeoutNanos
     var interrupted = false
-    var callbacks = emptyList<() -> Unit>()
     writerQueue.lock()
     try {
       val granted = writerQueue.newCondition()
       wait.granted = granted
       while (wait.state != GRANTED) {
-        val now = System.nanoTime()
-        val takeIn = reservationDelay(
-          wait = wait,
-          now = now
-        )
-        if (takeIn == 0L) {
-          callbacks = takeReservation(wait)
-          break
-        }
-        val remaining = when (timeoutNanos) {
-          Long.MAX_VALUE -> Long.MAX_VALUE
-          else -> deadline - now
-        }
-        if (remaining <= 0) {
-          removeWriterWait(wait)
-          wait.state = CANCELLED
-          if (reserved != null) {
-            firstBlockingWait()
-              ?.granted
-              ?.signal()
-          }
-          throw timeout(writerAwaited())
-        }
-        val nanos = minOf(remaining, takeIn)
-        if (nanos == Long.MAX_VALUE) {
+        if (timeoutNanos == Long.MAX_VALUE) {
           granted.awaitUninterruptibly()
           continue
         }
+        val remaining = deadline - System.nanoTime()
+        if (remaining <= 0) {
+          removeWriterWait(wait)
+          wait.state = CANCELLED
+          throw timeout(writerAwaited())
+        }
         try {
-          granted.awaitNanos(nanos)
+          granted.awaitNanos(remaining)
         } catch (_: InterruptedException) {
           interrupted = true
         }
@@ -1052,7 +1006,6 @@ internal class ConnectionPool(
         Thread.currentThread().interrupt()
       }
     }
-    callbacks.forEach(Function0<Unit>::invoke)
   }
 
   private fun unlockWriter() {
@@ -1066,7 +1019,7 @@ internal class ConnectionPool(
         return
       }
       val owner = next.owner
-      next.parked = next.suspends
+      next.parked = next.suspends && owner.thread != null
       writerOwner = when {
         next.parked -> null
         else -> owner
@@ -1077,19 +1030,8 @@ internal class ConnectionPool(
           wait = next,
           state = GRANTED
         )?.let(::add)
-        when {
-          next.parked -> {
-            reserved = next
-            reservedAt = System.nanoTime()
-            writerWaiters
-              .firstOrNull { !it.suspends && it.owner === owner }
-              ?.granted
-              ?.signal()
-            firstBlockingWait()
-              ?.granted
-              ?.signal()
-          }
-          owner.thread == null -> resolveOwnerWaits(
+        if (owner.thread == null) {
+          resolveOwnerWaits(
             owner = owner,
             state = GRANTED,
             callbacks = this
@@ -1100,34 +1042,6 @@ internal class ConnectionPool(
     }
     callbacks.forEach(Function0<Unit>::invoke)
   }
-
-  private fun reservationDelay(wait: WriterWait, now: Long): Long {
-    val taken = reserved ?: return Long.MAX_VALUE
-    return when {
-      taken.owner === wait.owner -> 0L
-      firstBlockingWait() !== wait -> Long.MAX_VALUE
-      else -> maxOf(0L, reservedAt + RESERVATION_GRACE_NANOS - now)
-    }
-  }
-
-  private fun takeReservation(wait: WriterWait) = buildList {
-    val taken = checkNotNull(reserved)
-    reserved = null
-    taken.state = WAITING
-    taken.parked = false
-    writerWaiters.remove(wait)
-    writerWaiters.addFirst(taken)
-    if (wait.owner.thread == null) {
-      resolveOwnerWaits(
-        owner = wait.owner,
-        state = GRANTED,
-        callbacks = this
-      )
-    }
-    queuedWriters = writerWaiters.size
-  }
-
-  private fun firstBlockingWait() = writerWaiters.firstOrNull { !it.suspends }
 
   private fun failWriterWaits(owner: LeaseOwner) {
     val callbacks = writerQueue.withLock {
@@ -1255,7 +1169,6 @@ private const val HOLDS_WRITER = 4
 private const val HOLDS_SERIAL_LEASE = 8
 private const val WRITER_ROWS = 16
 internal const val RELEASES = HOLDS_READER or HOLDS_WRITER or HOLDS_SERIAL_LEASE
-private const val RESERVATION_GRACE_NANOS = 10_000_000L
 private const val BUSY_TIMEOUT_MILLIS = 3000
 private const val JOURNAL_SIZE_LIMIT = 524288
 private const val SAVEPOINT = "SAVEPOINT sqlitemagic_operation"

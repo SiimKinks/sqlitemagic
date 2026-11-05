@@ -57,17 +57,16 @@ internal class PreparedQuery(
         statement = statement,
         values = values
       )
+      checkReadWidth(statement)
       block(statement)
     }
   }
 
-  fun firstStep(statement: SQLiteStatement): Boolean {
-    val hasRow = statement.step()
+  fun checkReadWidth(statement: SQLiteStatement) {
     if (readWidth != 0) {
       val columnCount = statement.getColumnCount()
       check(columnCount == readWidth) { "raw query returned $columnCount columns; readAs reads $readWidth" }
     }
-    return hasRow
   }
 }
 

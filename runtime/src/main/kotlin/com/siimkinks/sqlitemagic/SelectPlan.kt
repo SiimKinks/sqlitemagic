@@ -142,7 +142,6 @@ class CompiledSelect<T> internal constructor(
   fun <R> useRows(block: (Sequence<T>) -> R): R = useStatement(rows = true) { statement ->
     QueryRows(
       statement = statement,
-      prepared = prepared,
       read = reader.open()
     ).use(block)
   }
@@ -150,10 +149,8 @@ class CompiledSelect<T> internal constructor(
   override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): List<T> {
     val read = reader.open()
     return buildList {
-      var hasRow = !isDisposed() && prepared.firstStep(statement)
-      while (hasRow) {
+      while (!isDisposed() && statement.step()) {
         add(read(statement, 0))
-        hasRow = !isDisposed() && statement.step()
       }
     }
   }
@@ -202,7 +199,7 @@ class CompiledFirst<T> internal constructor(
   fun execute(): T? = executePlan()
 
   override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): T? = when {
-    prepared.firstStep(statement) -> reader.open()(statement, 0)
+    statement.step() -> reader.open()(statement, 0)
     else -> null
   }
 }

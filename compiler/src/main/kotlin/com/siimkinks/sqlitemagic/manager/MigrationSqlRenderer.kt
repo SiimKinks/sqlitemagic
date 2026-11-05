@@ -36,7 +36,6 @@ internal object MigrationSqlRenderer {
           tableName = change.to.structure.name,
           usedNames = usedTemporaryNames
         ),
-        usedNames = usedTemporaryNames,
         migrationStatements = migrationStatements
       )
     }
@@ -61,7 +60,6 @@ internal object MigrationSqlRenderer {
 
   private fun TableChange.migrate(
     temporaryTableName: String,
-    usedNames: MutableSet<String>,
     migrationStatements: MutableList<String>
   ) {
     when (operation) {
@@ -79,7 +77,6 @@ internal object MigrationSqlRenderer {
           )
         ),
         prerequisiteNewTables = emptyList(),
-        usedNames = usedNames,
         migrationStatements = migrationStatements
       )
     }
@@ -103,7 +100,6 @@ internal object MigrationSqlRenderer {
         )
       },
       prerequisiteNewTables = prerequisiteNewTables,
-      usedNames = usedNames,
       migrationStatements = migrationStatements
     )
   }
@@ -111,11 +107,8 @@ internal object MigrationSqlRenderer {
   private fun rebuild(
     tables: List<RebuildTable>,
     prerequisiteNewTables: List<TableSnapshot>,
-    usedNames: MutableSet<String>,
     migrationStatements: MutableList<String>
   ) {
-    val currentPositions = tables.positionsByTableName { it.to.structure.name }
-    val previousPositions = tables.positionsByTableName { it.from.name }
     tables.forEach { (change, temporaryName) ->
       change
         .rowDeletion()
@@ -135,26 +128,6 @@ internal object MigrationSqlRenderer {
             "WHERE name = ${quoteSqlLiteral(temporaryName)}"
       }
     }
-    val copyIndexNames = tables.flatMapIndexed { position, (change) ->
-      change
-        .unorderedReferences(
-          columns = change.to.structure.columns,
-          position = position,
-          positions = currentPositions
-        )
-        .map { (column) ->
-          temporaryTableName(
-            tableName = "${change.to.structure.name}_${column.name}",
-            usedNames = usedNames
-          ).also { indexName ->
-            migrationStatements += createIndexSql(
-              indexName = indexName,
-              tableName = change.to.structure.name,
-              columnName = column.name
-            )
-          }
-        }
-    }
     tables.forEach { (change, temporaryName) ->
       change
         .rowCopy(temporaryName)
@@ -165,66 +138,11 @@ internal object MigrationSqlRenderer {
         .missingReferenceDeletion()
         ?.let(migrationStatements::add)
     }
-    copyIndexNames.forEach { indexName ->
-      migrationStatements += dropMainSchemaIndexSql(indexName)
-    }
-    tables.forEachIndexed { position, (change, temporaryName) ->
-      change
-        .unorderedReferences(
-          columns = change.from.structure.columns,
-          position = position,
-          positions = previousPositions
-        )
-        .forEach { (column, reference) ->
-          change
-            .detachment(
-              column = column,
-              reference = reference,
-              temporaryTableName = temporaryName
-            )
-            ?.let(migrationStatements::add)
-          migrationStatements += createIndexSql(
-            indexName = temporaryTableName(
-              tableName = "${change.from.name}_${column.name}",
-              usedNames = usedNames
-            ),
-            tableName = temporaryName,
-            columnName = column.name
-          )
-        }
-    }
     tables
       .asReversed()
       .forEach { table ->
         migrationStatements += "DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.temporaryName)}"
       }
-  }
-
-  private fun TableChange.unorderedReferences(
-    columns: List<ColumnStructure>,
-    position: Int,
-    positions: Map<String, Int>
-  ) = columns
-    .takeIf { copiesRows }
-    .orEmpty()
-    .mapNotNull { column ->
-      column
-        .cascadeReference()
-        ?.takeIf { reference -> positions[reference.table.normalizedSqlIdentifier()]?.let { it >= position } == true }
-        ?.let { reference -> column to reference }
-    }
-
-  private fun TableChange.detachment(
-    column: ColumnStructure,
-    reference: ColumnReference,
-    temporaryTableName: String
-  ) = when {
-    reference.table.normalizedSqlIdentifier() == from.name.normalizedSqlIdentifier() ->
-      quoteSqlIdentifier(reference.column)
-    column.isNotNullIn(from.structure) -> null
-    else -> "NULL"
-  }?.let { value ->
-    "UPDATE ${quoteSqlIdentifier(temporaryTableName)} SET ${quoteSqlIdentifier(column.name)} = $value"
   }
 
   private fun TableChange.rowDeletion() = when {
@@ -278,16 +196,6 @@ internal object MigrationSqlRenderer {
     return temporaryName
   }
 }
-
-private fun List<RebuildTable>.positionsByTableName(name: (TableChange) -> String) = withIndex()
-  .associate { (position, table) -> name(table.change).normalizedSqlIdentifier() to position }
-
-private fun createIndexSql(
-  indexName: String,
-  tableName: String,
-  columnName: String
-) = "CREATE INDEX main.${quoteSqlIdentifier(indexName)} ON ${quoteSqlIdentifier(tableName)} " +
-    "(${quoteSqlIdentifier(columnName)})"
 
 private fun quoteSqlLiteral(value: String) = "'${value.replace(oldValue = "'", newValue = "''")}'"
 

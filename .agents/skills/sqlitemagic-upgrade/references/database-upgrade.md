@@ -53,8 +53,8 @@ needs the published release for debug builds too.
 4. Where stored NULLs need another value than the column default, or rows the script deletes must survive, edit the
    generated script: put `UPDATE … SET column = … WHERE column IS NULL` statements before the rebuild statements, or
    replace the `DELETE FROM` statements. Settle each data-dropping statement with the user; the build only warns.
-5. Hand-written migration scripts run inside the upgrade's transaction: remove `BEGIN`, `COMMIT`, `END`, `ROLLBACK`,
-   `SAVEPOINT` and `RELEASE` lines, which now fail the upgrade.
+5. Hand-written migration scripts run inside the upgrade's transaction: remove `BEGIN`, `COMMIT`, `END` and `ROLLBACK`
+   lines, which now fail the upgrade. Savepoints still work.
 
 The `migration-testing` helper's API is unchanged. Data-migration tests that pass `toVersion` move it to the new
 version, or omit it to migrate to the current one. JVM migration tests
