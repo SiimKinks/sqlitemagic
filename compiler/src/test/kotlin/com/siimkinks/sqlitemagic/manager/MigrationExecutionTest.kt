@@ -321,6 +321,288 @@ internal class MigrationExecutionTest {
   }
 
   @Test
+  fun `rebuilds keep valid rows whatever order cascading references point in`() {
+    val categories = listOf(
+      "id INTEGER PRIMARY KEY",
+      "parent INTEGER REFERENCES categories(id) ON DELETE CASCADE",
+      "name TEXT"
+    )
+    val categoryRows = listOf("INSERT INTO categories (id, parent) VALUES (1, NULL), (2, 1), (3, 2)")
+    val comments = listOf(
+      "id INTEGER PRIMARY KEY",
+      "post INTEGER REFERENCES posts(id) ON DELETE CASCADE"
+    )
+    val posts = listOf("id INTEGER PRIMARY KEY", "title TEXT")
+    val commentRows = listOf(
+      "INSERT INTO posts (id) VALUES (1), (2)",
+      "INSERT INTO comments (id, post) VALUES (1, 1), (2, 2), (3, NULL)"
+    )
+    mapOf(
+      "self reference gained" to ReferenceCase(
+        previous = structure("categories" to listOf("id INTEGER PRIMARY KEY", "parent INTEGER", "name TEXT")),
+        current = structure("categories" to categories),
+        rows = listOf("INSERT INTO categories (id, parent) VALUES (1, NULL), (2, 1), (3, 2), (4, 9), (5, 4)"),
+        ids = mapOf("categories" to listOf(1L, 2L, 3L))
+      ),
+      "self reference rebuilt for NOT NULL" to ReferenceCase(
+        previous = structure("categories" to categories),
+        current = structure("categories" to categories.dropLast(1) + "name TEXT NOT NULL DEFAULT ''"),
+        rows = categoryRows,
+        ids = mapOf("categories" to listOf(1L, 2L, 3L))
+      ),
+      "self reference dropping a column" to ReferenceCase(
+        previous = structure("categories" to categories + "note TEXT"),
+        current = structure("categories" to categories),
+        rows = categoryRows,
+        ids = mapOf("categories" to listOf(1L, 2L, 3L))
+      ),
+      "self reference chain deeper than the trigger depth limit" to ReferenceCase(
+        previous = structure("categories" to categories + "note TEXT"),
+        current = structure("categories" to categories),
+        rows = listOf(
+          "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1500) " +
+              "INSERT INTO categories (id, parent) SELECT i, NULLIF(i - 1, 0) FROM n"
+        ),
+        ids = mapOf("categories" to (1L..1500L).toList())
+      ),
+      "child declared before its parent that drops a column" to ReferenceCase(
+        previous = structure(
+          "comments" to comments,
+          "posts" to posts + "note TEXT"
+        ),
+        current = structure(
+          "comments" to comments,
+          "posts" to posts
+        ),
+        rows = commentRows,
+        ids = mapOf(
+          "comments" to listOf(1L, 2L, 3L),
+          "posts" to listOf(1L, 2L)
+        )
+      ),
+      "child declared before its parent, both gaining constraints" to ReferenceCase(
+        previous = structure(
+          "comments" to listOf("id INTEGER PRIMARY KEY", "post INTEGER"),
+          "posts" to posts
+        ),
+        current = structure(
+          "comments" to comments,
+          "posts" to listOf("id INTEGER PRIMARY KEY", "title TEXT NOT NULL DEFAULT ''")
+        ),
+        rows = commentRows + "INSERT INTO comments (id, post) VALUES (4, 9)",
+        ids = mapOf(
+          "comments" to listOf(1L, 2L, 3L),
+          "posts" to listOf(1L, 2L)
+        )
+      ),
+      "two tables referencing each other" to ReferenceCase(
+        previous = structure(
+          "authors" to listOf(
+            "id INTEGER PRIMARY KEY",
+            "favorite INTEGER REFERENCES books(id) ON DELETE CASCADE",
+            "note TEXT"
+          ),
+          "books" to listOf(
+            "id INTEGER PRIMARY KEY",
+            "author INTEGER REFERENCES authors(id) ON DELETE CASCADE"
+          )
+        ),
+        current = structure(
+          "authors" to listOf(
+            "id INTEGER PRIMARY KEY",
+            "favorite INTEGER REFERENCES books(id) ON DELETE CASCADE"
+          ),
+          "books" to listOf(
+            "id INTEGER PRIMARY KEY",
+            "author INTEGER REFERENCES authors(id) ON DELETE CASCADE"
+          )
+        ),
+        rows = listOf(
+          "INSERT INTO authors (id) VALUES (1), (2)",
+          "INSERT INTO books (id, author) VALUES (1, 1), (2, 2)",
+          "UPDATE authors SET favorite = 1 WHERE id = 1"
+        ),
+        ids = mapOf(
+          "authors" to listOf(1L, 2L),
+          "books" to listOf(1L, 2L)
+        )
+      )
+    ).forEach { (label, case) ->
+      migratedDatabase(
+        previous = case.previous,
+        current = case.current,
+        rows = case.rows
+      ).use { connection ->
+        assertWithMessage(label)
+          .that(
+            case.ids.keys.associateWith { table ->
+              connection.longs("SELECT id FROM ${quoteSqlIdentifier(table)} ORDER BY id")
+            }
+          )
+          .isEqualTo(case.ids)
+        assertWithMessage(label)
+          .that(connection.longs("SELECT COUNT(*) FROM pragma_foreign_key_check"))
+          .containsExactly(0L)
+      }
+    }
+  }
+
+  @Test
+  fun `warns about rows deleted for a gained self reference and their dependents`() {
+    val categories = listOf(
+      "id INTEGER PRIMARY KEY",
+      "parent INTEGER REFERENCES categories(id) ON DELETE CASCADE",
+      "name TEXT"
+    )
+
+    assertThat(
+      mapOf(
+        "reference gained" to SchemaChange(
+          previous = structure("categories" to listOf("id INTEGER PRIMARY KEY", "parent INTEGER", "name TEXT")),
+          current = structure("categories" to categories)
+        ),
+        "column dropped" to SchemaChange(
+          previous = structure("categories" to categories + "note TEXT"),
+          current = structure("categories" to categories)
+        ),
+        "NULL rows deleted" to SchemaChange(
+          previous = structure("categories" to categories),
+          current = structure("categories" to categories.dropLast(1) + "name TEXT NOT NULL")
+        )
+      ).mapValues { (_, change) -> change.plan().warnings }
+    ).isEqualTo(
+      mapOf(
+        "reference gained" to listOf(
+          "Migration deletes rows of categories whose ON DELETE CASCADE column(s) reference missing rows: parent. " +
+              "Edit the migration SQL to keep them."
+        ),
+        "column dropped" to listOf(
+          "Migration drops column(s) of categories with their data: note. Edit the migration SQL to keep it."
+        ),
+        "NULL rows deleted" to listOf(
+          "Migration deletes rows of categories whose NOT NULL column(s) without a default hold NULL: name; " +
+              "ON DELETE CASCADE also deletes their dependent rows in categories. Edit the migration SQL to keep them."
+        )
+      )
+    )
+  }
+
+  @Test
+  fun `appending a column to a referenced table alters only that table`() {
+    val categories = listOf(
+      "id INTEGER PRIMARY KEY",
+      "parent INTEGER REFERENCES categories(id) ON DELETE CASCADE"
+    )
+    val posts = listOf("id INTEGER PRIMARY KEY")
+    val comments = listOf(
+      "id INTEGER PRIMARY KEY",
+      "post INTEGER REFERENCES posts(id) ON DELETE CASCADE"
+    )
+
+    assertThat(
+      mapOf(
+        "self-referencing table" to SchemaChange(
+          previous = structure("categories" to categories),
+          current = structure("categories" to categories + "note TEXT")
+        ),
+        "parent table" to SchemaChange(
+          previous = structure("comments" to comments, "posts" to posts),
+          current = structure("comments" to comments, "posts" to posts + "note TEXT")
+        )
+      ).mapValues { (_, change) -> change.plan().statements }
+    ).isEqualTo(
+      mapOf(
+        "self-referencing table" to listOf("""ALTER TABLE "categories" ADD COLUMN note TEXT"""),
+        "parent table" to listOf("""ALTER TABLE "posts" ADD COLUMN note TEXT""")
+      )
+    )
+  }
+
+  @Test
+  fun `rebuilds copy parents first and index the columns of references that cannot be ordered`() {
+    val categories = listOf(
+      "id INTEGER PRIMARY KEY",
+      "parent INTEGER REFERENCES categories(id) ON DELETE CASCADE"
+    )
+    val comments = listOf(
+      "id INTEGER PRIMARY KEY",
+      "post INTEGER REFERENCES posts(id) ON DELETE CASCADE"
+    )
+
+    assertThat(
+      mapOf(
+        "child declared before its parent" to SchemaChange(
+          previous = structure("comments" to comments, "posts" to listOf("id INTEGER PRIMARY KEY", "note TEXT")),
+          current = structure("comments" to comments, "posts" to listOf("id INTEGER PRIMARY KEY"))
+        ),
+        "self-referencing table" to SchemaChange(
+          previous = structure("categories" to categories + "note TEXT"),
+          current = structure("categories" to categories)
+        )
+      ).mapValues { (_, change) -> change.plan().statements }
+    ).isEqualTo(
+      mapOf(
+        "child declared before its parent" to listOf(
+          "PRAGMA defer_foreign_keys = ON",
+          """ALTER TABLE "posts" RENAME TO "posts_"""",
+          """ALTER TABLE "comments" RENAME TO "comments_"""",
+          """CREATE TABLE IF NOT EXISTS "posts" (id INTEGER PRIMARY KEY)""",
+          """CREATE TABLE IF NOT EXISTS "comments" (${comments.joinToString()})""",
+          """INSERT INTO "posts" ("id") SELECT "id" FROM "posts_"""",
+          """INSERT INTO "comments" ("id","post") SELECT "id","post" FROM "comments_"""",
+          """DELETE FROM "comments" WHERE "post" IS NOT NULL AND "post" NOT IN (SELECT "id" FROM "posts")""",
+          """DROP TABLE IF EXISTS "comments_"""",
+          """DROP TABLE IF EXISTS "posts_""""
+        ),
+        "self-referencing table" to listOf(
+          "PRAGMA defer_foreign_keys = ON",
+          """ALTER TABLE "categories" RENAME TO "categories_"""",
+          """CREATE TABLE IF NOT EXISTS "categories" (${categories.joinToString()})""",
+          """CREATE INDEX main."categories_parent_" ON "categories" ("parent")""",
+          """INSERT INTO "categories" ("id","parent") SELECT "id","parent" FROM "categories_"""",
+          """DELETE FROM "categories" WHERE "parent" IS NOT NULL """ +
+              """AND "parent" NOT IN (SELECT "id" FROM "categories")""",
+          """DROP INDEX IF EXISTS main."categories_parent_"""",
+          """UPDATE "categories_" SET "parent" = "id"""",
+          """CREATE INDEX main."categories_parent__" ON "categories_" ("parent")""",
+          """DROP TABLE IF EXISTS "categories_""""
+        )
+      )
+    )
+  }
+
+  @Test
+  fun `rebuilt tables own their recreated indexes`() {
+    val categories = listOf(
+      "id INTEGER PRIMARY KEY",
+      "parent INTEGER REFERENCES categories(id) ON DELETE CASCADE"
+    )
+    val indices = mapOf(
+      "categories_parent" to IndexStructure(
+        name = "categories_parent",
+        indexSql = "CREATE INDEX IF NOT EXISTS main.categories_parent ON categories (parent)",
+        forTable = "categories"
+      )
+    )
+
+    migratedDatabase(
+      previous = structure("categories" to categories + "note TEXT").copy(indices = indices),
+      current = structure("categories" to categories).copy(indices = indices),
+      rows = listOf("INSERT INTO categories (id, parent) VALUES (1, NULL), (2, 1)")
+    ).use { connection ->
+      assertThat(
+        connection.prepare("SELECT tbl_name, name FROM sqlite_master WHERE type = 'index'").use { statement ->
+          buildList {
+            while (statement.step()) {
+              add(statement.getText(0) to statement.getText(1))
+            }
+          }
+        }
+      ).containsExactly("categories" to "categories_parent")
+    }
+  }
+
+  @Test
   fun `evidence with unquoted identifiers migrates only what changed`() {
     val evidence = DatabaseStructure(
       tables = mapOf(
@@ -363,6 +645,7 @@ internal class MigrationExecutionTest {
   ): SQLiteConnection {
     val connection = BundledSQLiteDriver().open(":memory:")
     previous.tables.values.forEach { connection.execSQL(it.schema) }
+    previous.indices.values.forEach { connection.execSQL(it.indexSql) }
     rows.forEach(connection::execSQL)
     if (current.enforcesForeignKeys) {
       connection.execSQL("PRAGMA foreign_keys = ON")
@@ -413,6 +696,23 @@ internal class MigrationExecutionTest {
       )
       .substringBefore(' ')
       .takeIf { "NOT NULL" in schema && it.isNotEmpty() }
+  )
+
+  private data class SchemaChange(
+    val previous: DatabaseStructure,
+    val current: DatabaseStructure
+  ) {
+    fun plan() = planSchemaMigration(
+      previous = previous,
+      current = current
+    )
+  }
+
+  private data class ReferenceCase(
+    val previous: DatabaseStructure,
+    val current: DatabaseStructure,
+    val rows: List<String>,
+    val ids: Map<String, List<Long>>
   )
 
   private data class CounterCase(

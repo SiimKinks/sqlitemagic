@@ -181,6 +181,7 @@ internal class TableSeedResolver(
         relationship != null || tableSeed.isInUniqueIndex(seed) -> null
         else -> storageType.defaultValue
       },
+      hasExplicitDefault = seed.explicitDefaultValue != null,
       transformer = seed.transformer,
       relationship = relationship,
       id = id,
@@ -304,7 +305,7 @@ internal class TableSeedResolver(
       referencedIdTransformer = targetId.transformer,
       referencedIdIsNullable = targetId.isValueNullable || targetId.serializedValueCanBeNull,
       isHandledRecursively = source.isHandledRecursively,
-      onDeleteCascade = source.isHandledRecursively && source.onDeleteCascade,
+      onDeleteCascade = source.onDeleteCascade,
       canConstructWithOnlyId = canConstructWithOnlyId,
       needsGeneratedId = targetId.id?.run { isAutoIncrement && !canAssignGeneratedId } == true,
       referencedTableNames = GenerationNames(targetArtifactStem),
@@ -326,10 +327,7 @@ internal class TableSeedResolver(
             "${source.diagnosticPath}; $targetName",
         symbol = source.roundElement.sourceDeclaration
       )
-      sourceIsTemporary &&
-          !targetIsTemporary &&
-          source.isHandledRecursively &&
-          source.onDeleteCascade -> reporter.error(
+      sourceIsTemporary && !targetIsTemporary && source.onDeleteCascade -> reporter.error(
         message = "Cross-schema relationships cannot use onDeleteCascade: ${source.diagnosticPath}; $targetName",
         symbol = source.roundElement.sourceDeclaration
       )

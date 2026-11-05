@@ -25,8 +25,9 @@ import kotlin.annotation.AnnotationTarget.FIELD
  *     retrieved. The referenced type must be defined with [Table] and declare an [Id].
  *
  * @property onDeleteCascade Whether an `ON DELETE CASCADE` foreign-key action should be added to
- *     the table definition for a related model. This option takes effect only when
- *     [handleRecursively] is `true`.
+ *     the table definition for a related model, and turns on foreign-key enforcement for the database. The
+ *     referenced row must then exist whenever this row is written; with [handleRecursively] `false`, the caller
+ *     writes it first.
  *
  * @property belongsToIndex Name of the composite index to which this column belongs.
  */

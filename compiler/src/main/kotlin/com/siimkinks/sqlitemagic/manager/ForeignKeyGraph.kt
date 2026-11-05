@@ -62,58 +62,29 @@ internal class ForeignKeyGraph(
     pendingReferences.addLast(tableName.normalizedSqlIdentifier())
     while (pendingReferences.isNotEmpty()) {
       for (dependentName in dependentsByReferencedName[pendingReferences.removeFirst()].orEmpty()) {
-        if (dependentName != tableName && add(dependentName)) {
+        if (add(dependentName)) {
           pendingReferences.addLast(dependentName.normalizedSqlIdentifier())
         }
       }
     }
   }
 
-  fun orderDependentsFirst(tableNamesToOrder: Set<String>): List<String> {
+  fun orderReferencesFirst(tableNamesToOrder: Iterable<String>): List<String> {
+    val tableNamesByNormalizedName = tableNamesToOrder.associateBy(String::normalizedSqlIdentifier)
     val result = linkedSetOf<String>()
     val visiting = hashSetOf<String>()
 
-    fun addWithDependents(tableName: String) {
-      val pending = ArrayDeque<RemovedTableVisit>()
-      pending.addLast(
-        RemovedTableVisit(
-          tableName = tableName,
-          expanded = false
-        )
-      )
-      while (pending.isNotEmpty()) {
-        val visit = pending.removeLast()
-        if (visit.expanded) {
-          visiting -= visit.tableName
-          result += visit.tableName
-          continue
-        }
-        if (visit.tableName in result || !visiting.add(visit.tableName)) continue
-
-        pending.addLast(
-          RemovedTableVisit(
-            tableName = visit.tableName,
-            expanded = true
-          )
-        )
-        dependentsByReferencedName[visit.tableName.normalizedSqlIdentifier()]
-          .orEmpty()
-          .asReversed()
-          .forEach { dependentTableName ->
-            pending.addLast(
-              RemovedTableVisit(
-                tableName = dependentTableName,
-                expanded = false
-              )
-            )
-          }
-      }
+    fun visit(tableName: String) {
+      if (tableName in result || !visiting.add(tableName)) return
+      referencesByTableName
+        .getValue(tableName)
+        .mapNotNull(tableNamesByNormalizedName::get)
+        .forEach(::visit)
+      visiting -= tableName
+      result += tableName
     }
 
-    tableNamesToOrder
-      .asSequence()
-      .filterNot(result::contains)
-      .forEach(::addWithDependents)
+    tableNamesToOrder.forEach(::visit)
     return result.toList()
   }
 
@@ -130,8 +101,3 @@ internal class ForeignKeyGraph(
     }
   }
 }
-
-private data class RemovedTableVisit(
-  val tableName: String,
-  val expanded: Boolean
-)

@@ -537,22 +537,18 @@ internal class ModelIdentityRelationshipContractTest {
   }
 
   @Test
-  fun `does not emit foreign keys or transitive delete triggers for shallow relationships`() {
+  fun `emits the cascade foreign key but no transitive delete triggers for shallow relationships`() {
     GENERATED
       .isOk()
       .assertGeneratedSources("SqliteMagic_ShallowChild_Adapter.kt")
       .withGeneratedSource("SqliteMagic_ShallowChild_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(
-          """\"parent\" TEXT NOT NULL)""",
+          """\"parent\" TEXT NOT NULL REFERENCES \"shallow_parent\"(\"id\") ON DELETE CASCADE)""",
           "EntityDefaultIdentityAdapter<ShallowChild>",
           "EntityIdentityStatementBinder<ShallowChild> by SqliteMagic_ShallowChild_Dao",
           "override fun identity("
         )
-        generatedSource.assertDoesNotContain(
-          """REFERENCES \"shallow_parent\"(\"id\")""",
-          "ON DELETE CASCADE",
-          "triggerTableNames"
-        )
+        generatedSource.assertDoesNotContain("triggerTableNames")
       }
   }
 
@@ -594,8 +590,9 @@ internal class ModelIdentityRelationshipContractTest {
       )
   }
 
-  @Test
-  fun `rejects cascade relationships across persistent and temporary tables`() {
+  @ParameterizedTest(name = "handleRecursively = {0}")
+  @ValueSource(booleans = [true, false])
+  fun `rejects cascade relationships across persistent and temporary tables`(handleRecursively: Boolean) {
     compiler
       .compile(
         SourceFile.kotlin(
@@ -614,7 +611,11 @@ internal class ModelIdentityRelationshipContractTest {
             @Table(value = "temporary_entries", options = [TEMPORARY])
             data class TemporaryEntry(
               @Id val id: String,
-              @Column(onDeleteCascade = true) val owner: PersistentOwner
+              @Column(
+                handleRecursively = $handleRecursively,
+                onDeleteCascade = true
+              )
+              val owner: PersistentOwner
             )
           """
         )

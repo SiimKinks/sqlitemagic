@@ -162,6 +162,95 @@ internal class NotNullMigrationTest {
     ).containsExactly("""ALTER TABLE "records" ADD COLUMN name TEXT NOT NULL DEFAULT ''""")
   }
 
+  @Test
+  fun `warns when an appended transformed column fills existing rows with its implicit default`() {
+    assertThat(
+      runMigrationResult(
+        previous = recordsStructure(plainColumn("id INTEGER PRIMARY KEY")),
+        current = recordsStructure(
+          plainColumn("id INTEGER PRIMARY KEY"),
+          notNullColumn(
+            schema = "status TEXT NOT NULL DEFAULT ''",
+            default = "''"
+          ).copy(transformedImplicitDefault = true)
+        ),
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf("""ALTER TABLE "records" ADD COLUMN status TEXT NOT NULL DEFAULT ''"""),
+        warnings = listOf(
+          "Migration fills existing rows of records with the implicit default of transformed column(s): " +
+              "status (''). Set @Column(defaultValue) to a value their transformer decodes, " +
+              "or edit the migration SQL."
+        )
+      )
+    )
+  }
+
+  @Test
+  fun `warns when a transformed column gaining NOT NULL fills NULLs with its implicit default`() {
+    assertThat(
+      runMigrationResult(
+        previous = recordsStructure(
+          plainColumn("id INTEGER PRIMARY KEY"),
+          plainColumn("status TEXT DEFAULT NULL")
+        ),
+        current = recordsStructure(
+          plainColumn("id INTEGER PRIMARY KEY"),
+          notNullColumn(
+            schema = "status TEXT NOT NULL DEFAULT ''",
+            default = "''"
+          ).copy(transformedImplicitDefault = true)
+        ),
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          """ALTER TABLE "records" RENAME TO "records_"""",
+          "CREATE TABLE IF NOT EXISTS records (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT '')",
+          """INSERT INTO "records" ("id","status") SELECT "id",IFNULL("status", '') FROM "records_"""",
+          """DROP TABLE IF EXISTS "records_""""
+        ),
+        warnings = listOf(
+          "Migration fills existing rows of records with the implicit default of transformed column(s): " +
+              "status (''). Set @Column(defaultValue) to a value their transformer decodes, " +
+              "or edit the migration SQL."
+        )
+      )
+    )
+  }
+
+  @Test
+  fun `does not migrate when only the transformed implicit default flag differs`() {
+    val status = notNullColumn(
+      schema = "status TEXT NOT NULL DEFAULT ''",
+      default = "''"
+    )
+
+    assertThat(
+      runMigrationResult(
+        previous = recordsStructure(
+          plainColumn("id INTEGER PRIMARY KEY"),
+          status
+        ),
+        current = recordsStructure(
+          plainColumn("id INTEGER PRIMARY KEY"),
+          status.copy(transformedImplicitDefault = true)
+        ),
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = false,
+        statements = emptyList()
+      )
+    )
+  }
+
   @ParameterizedTest(name = "{0}")
   @ValueSource(
     strings = [
@@ -231,14 +320,16 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
+          "PRAGMA defer_foreign_keys = ON",
           """DELETE FROM "parents"""",
           """ALTER TABLE "parents" RENAME TO "parents_"""",
           """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, owner INTEGER NOT NULL)",
           "CREATE TABLE IF NOT EXISTS children " +
               "(id INTEGER PRIMARY KEY, parent INTEGER REFERENCES parents(id) ON DELETE CASCADE)",
-          """INSERT INTO "children" ("id","parent") SELECT "id","parent" FROM "children_" """ +
-              """WHERE "parent" IS NULL OR "parent" IN (SELECT "id" FROM "parents")""",
+          """INSERT INTO "children" ("id","parent") SELECT "id","parent" FROM "children_"""",
+          """DELETE FROM "children" WHERE "parent" IS NOT NULL """ +
+              """AND "parent" NOT IN (SELECT "id" FROM "parents")""",
           """DROP TABLE IF EXISTS "children_"""",
           """DROP TABLE IF EXISTS "parents_""""
         ),
@@ -289,20 +380,23 @@ internal class NotNullMigrationTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
+          "PRAGMA defer_foreign_keys = ON",
           """DELETE FROM "parents" WHERE "name" IS NULL""",
           """ALTER TABLE "parents" RENAME TO "parents_"""",
           """ALTER TABLE "children" RENAME TO "children_"""",
           """ALTER TABLE "grandchildren" RENAME TO "grandchildren_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)",
-          """INSERT INTO "parents" ("id","name") SELECT "id","name" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children " +
               "(id INTEGER PRIMARY KEY, parent INTEGER REFERENCES parents(id) ON DELETE CASCADE)",
-          """INSERT INTO "children" ("id","parent") SELECT "id","parent" FROM "children_" """ +
-              """WHERE "parent" IS NULL OR "parent" IN (SELECT "id" FROM "parents")""",
           "CREATE TABLE IF NOT EXISTS grandchildren " +
               "(id INTEGER PRIMARY KEY, child INTEGER REFERENCES children(id) ON DELETE CASCADE)",
-          """INSERT INTO "grandchildren" ("id","child") SELECT "id","child" FROM "grandchildren_" """ +
-              """WHERE "child" IS NULL OR "child" IN (SELECT "id" FROM "children")""",
+          """INSERT INTO "parents" ("id","name") SELECT "id","name" FROM "parents_"""",
+          """INSERT INTO "children" ("id","parent") SELECT "id","parent" FROM "children_"""",
+          """INSERT INTO "grandchildren" ("id","child") SELECT "id","child" FROM "grandchildren_"""",
+          """DELETE FROM "children" WHERE "parent" IS NOT NULL """ +
+              """AND "parent" NOT IN (SELECT "id" FROM "parents")""",
+          """DELETE FROM "grandchildren" WHERE "child" IS NOT NULL """ +
+              """AND "child" NOT IN (SELECT "id" FROM "children")""",
           """DROP TABLE IF EXISTS "grandchildren_"""",
           """DROP TABLE IF EXISTS "children_"""",
           """DROP TABLE IF EXISTS "parents_""""

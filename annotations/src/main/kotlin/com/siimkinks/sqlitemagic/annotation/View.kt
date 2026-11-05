@@ -26,7 +26,8 @@ import kotlin.annotation.AnnotationTarget.CLASS
  * }
  * ```
  *
- * Each view must declare [ViewColumn] mappings from the view query to its columns.
+ * A property maps the view column named after it in snake case; [ViewColumn] names another column and is required
+ * for qualified names such as `author.name`.
  *
  * @property value View name. Defaults to the lower-cased class name with camel case replaced by `_`.
  * @property options SQLite view definition options. See [ViewOption].

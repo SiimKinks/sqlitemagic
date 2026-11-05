@@ -49,7 +49,6 @@ internal class ReleaseMigrationPreviewTest {
 
       Migration SQL for src/release/assets/5.sql:
         UPDATE books SET title = '' WHERE title IS NULL;
-        DROP INDEX IF EXISTS main."books_isbn_index"
         ALTER TABLE "tags" RENAME TO "labels"
         ALTER TABLE "books" RENAME TO "books_"
         CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT '', subtitle TEXT)

@@ -223,6 +223,60 @@ internal class GenClassesManagerContractTest {
   }
 
   @Test
+  fun `flags only non-null transformed columns with an implicit default in the schema snapshot`() {
+    compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "Books.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+            enum class Status { DRAFT, PUBLISHED }
+
+            object StatusTransformers {
+              @ObjectToDbValue
+              fun toDatabaseValue(value: Status): String = value.name
+
+              @DbValueToObject
+              fun fromDatabaseValue(value: String): Status = Status.valueOf(value)
+            }
+
+            @Table("books")
+            data class Book(
+              @Id val id: Long? = null,
+              val title: String,
+              val status: Status,
+              @Column(defaultValue = "'DRAFT'")
+              val reviewStatus: Status,
+              val archivedStatus: Status?
+            )
+          """
+        )
+      )
+      .isOk()
+      .apply {
+        val table = environment
+          .generatedDatabaseElement()
+          .tables
+          .single()
+
+        assertThat(
+          TableStructure
+            .from(table)
+            .columns
+            .filter(ColumnStructure::transformedImplicitDefault)
+            .map(ColumnStructure::name)
+        ).containsExactly("status")
+      }
+  }
+
+  @Test
   fun `generates public submodule aggregation and module-aware adapters`() {
     val submodule = compiler
       .compile(

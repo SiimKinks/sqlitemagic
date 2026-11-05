@@ -20,6 +20,7 @@ internal fun mockColumnElement(
   isModelPathNullable = isNullable,
   defaultValue = checkNotNull((relationship?.referencedIdSerializedType ?: deserializedType).sqlStorageType)
     .defaultValue,
+  hasExplicitDefault = false,
   transformer = null,
   relationship = relationship,
   id = id,

@@ -15,7 +15,15 @@ temporary databases, or an app that has never shipped).
 
 - Columns of non-null properties become `NOT NULL`. The generated migration rebuilds each affected table once, fills
   stored NULLs with the column's default and deletes the rows it cannot fill
-  ([behavior](behavior.md#the-schema-follows-kotlin-nullability)).
+  ([behavior](behavior.md#the-schema-follows-kotlin-nullability)). For a transformed property without
+  `@Column(defaultValue)` that default is the storage type's implicit default (such as `''` or `0`), which its decoder
+  may reject on every read; the build warns (`Migration fills existing rows …`), so give such a column a
+  `defaultValue` its decoder accepts.
+- `@Column(handleRecursively = false, onDeleteCascade = true)`, which 2.x ignored, now adds the `ON DELETE CASCADE`
+  foreign key and turns on foreign-key enforcement. The migration rebuilds the table and deletes rows whose reference
+  points to a missing row (`Migration deletes rows of … reference missing rows`); afterwards, writing a child before
+  its parent throws. Repair dangling references in the release SQL where the rows must stay, or drop
+  `onDeleteCascade` to keep the 2.x schema.
 - View columns are named by `AS` alias or qualified name (`book.title`). Every upgrade drops and recreates the
   persistent views, so they get the new names only with a new database version
   ([behavior](behavior.md#view-columns-have-qualified-names)).

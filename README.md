@@ -719,22 +719,25 @@ together.**
 #### Migrate Database:
 
 Debug databases migrate automatically when the schema changes. When releasing a new database version, raise
-`@Database(version)` and run `./gradlew migrateReleaseDb` (or `migrate<Variant>Db` for other release variants). It
-records the release schema in `db/releases` and generates its migration script into `src/release/assets`; commit both.
+`@Database(version)` and run `./gradlew migrateReleaseDb` (`migrateFreeReleaseDb` with flavors). In application
+modules only the selected migration release variant can run it: the first release variant, or the one set with
+`sqlitemagic { migrationTesting { releaseVariant = "paidRelease" } }`. It records the release schema in
+`db/releases` and generates its migration script into `src/release/assets`; commit both.
 
 To see what the next release would contain, run `./gradlew previewReleaseDbMigration` (or
 `preview<Variant>DbMigration`) at any time, without raising the version first. It prints the schema changes since the
 latest release, the migration warnings and the migration SQL, and saves them in
 `build/sqlitemagic/release/migration-preview` without publishing anything.
 
-Builds also keep the current schema in `db/` and write debug migration scripts into `src/debug/assets`. These are local
-build state, so keep them out of version control:
+Builds also keep the current schema in `db/` and write debug migration scripts into `src/debug/assets` (or the debug
+variant's directory, such as `src/freeDebug/assets`). These are local build state, so keep them out of version control:
 
 ```gitignore
 **/db/latest*.struct
 **/db/latest_*.version
 **/db/*.changed
 **/src/debug/assets/*.sql
+**/src/*Debug/assets/*.sql
 ```
 
 Application modules also get generated JVM migration test support. Add a JVM SQLite driver, such as
@@ -760,6 +763,11 @@ Documentation
 -----------------
 
 - [Sample app](sqlitemagic-sample) – a todo app with tables, a view, reactive queries and migration tests
+- [Using SqliteMagic](.agents/skills/sqlitemagic/SKILL.md) – a guide to every feature of 3.x and how to use it
+  idiomatically and efficiently: models, entity operations, the query DSL, raw SQL, views, coroutines and RxJava,
+  transactions, migrations and performance. It is also an agent skill: copy the `sqlitemagic` directory into your
+  project's skills directory, such as `.claude/skills/`, so a coding agent writes SqliteMagic code the way it is meant
+  to be written
 - [Upgrading from 2.x or 0.x](.agents/skills/sqlitemagic-upgrade/SKILL.md) – 3.x rewrites the query DSL and runs
   on an androidx `SQLiteDriver`; this guide maps legacy setup and queries to 3.x, lists behavior changes and covers the
   first database release on 3.x. It is also an agent skill: copy the `sqlitemagic-upgrade` directory into your

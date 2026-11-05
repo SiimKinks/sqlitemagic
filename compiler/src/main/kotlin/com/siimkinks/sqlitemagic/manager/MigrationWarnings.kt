@@ -71,6 +71,7 @@ private fun TableChange.dataLossWarnings(
       condition = "NULL in NOT NULL ON DELETE CASCADE column(s) becomes a default that references a missing row",
       cascadeSuffix = cascadeSuffix
     ),
+    implicitDefaultWarning(),
     droppedColumns
       .takeIf(List<ColumnStructure>::isNotEmpty)
       ?.let { columns ->
@@ -89,6 +90,14 @@ private fun TableChange.rowDeletionWarning(
   ?.let {
     "Migration deletes rows of ${from.name} whose $condition: ${it.columnNames()}$cascadeSuffix. " +
         "Edit the migration SQL to keep them."
+  }
+
+private fun TableChange.implicitDefaultWarning() = transformedImplicitDefaultColumns
+  .takeIf(List<ColumnStructure>::isNotEmpty)
+  ?.let { columns ->
+    "Migration fills existing rows of ${from.name} with the implicit default of transformed column(s): " +
+        "${columns.joinToString { "${it.name} (${it.notNullDefault})" }}. " +
+        "Set @Column(defaultValue) to a value their transformer decodes, or edit the migration SQL."
   }
 
 private fun ColumnCopy.gainsReference(previousTableNames: Map<String, String>): Boolean {

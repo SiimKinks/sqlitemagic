@@ -7,8 +7,12 @@ import com.siimkinks.sqlitemagic.model.ColumnElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.model.schemaSql
 import com.siimkinks.sqlitemagic.view.ViewElement
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.EncodeDefault.Mode.NEVER
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class ColumnStructure(
   val id: Boolean = false,
@@ -18,12 +22,15 @@ internal data class ColumnStructure(
   val sqlType: String = "",
   val schema: String = "",
   val notNull: Boolean = false,
-  val notNullDefault: String? = null
+  val notNullDefault: String? = null,
+  @EncodeDefault(NEVER)
+  val transformedImplicitDefault: Boolean = false
 ) {
   val requiresValue get() = notNull && notNullDefault == null
 
   companion object {
     fun from(column: ColumnElement) = with(column) {
+      val notNullDefault = schemaDefaultValue?.takeIf { declaresNotNull && !it.equals("NULL", ignoreCase = true) }
       ColumnStructure(
         id = isId,
         autoIncrement = id?.isAutoIncrement == true,
@@ -32,7 +39,8 @@ internal data class ColumnStructure(
         sqlType = sqlStorageType.affinity.name,
         schema = schemaSql(),
         notNull = declaresNotNull,
-        notNullDefault = schemaDefaultValue?.takeIf { declaresNotNull && !it.equals("NULL", ignoreCase = true) }
+        notNullDefault = notNullDefault,
+        transformedImplicitDefault = notNullDefault != null && transformer != null && !hasExplicitDefault
       )
     }
   }

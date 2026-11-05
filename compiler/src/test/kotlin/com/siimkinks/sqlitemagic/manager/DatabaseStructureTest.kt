@@ -48,6 +48,28 @@ internal class DatabaseStructureTest {
   }
 
   @Test
+  fun `writes the transformed implicit default flag only when it is set`() {
+    val structure = DatabaseStructure(
+      tables = mapOf(
+        "books" to TableStructure(
+          name = "books",
+          columns = listOf(
+            ColumnStructure(name = "title"),
+            ColumnStructure(
+              name = "status",
+              transformedImplicitDefault = true
+            )
+          )
+        )
+      )
+    )
+    val json = DatabaseStructureJson.write(structure)
+
+    assertThat(json.split("transformedImplicitDefault").size - 1 to DatabaseStructureJson.read(json))
+      .isEqualTo(1 to structure)
+  }
+
+  @Test
   fun `compares schemas ignoring identifier quotes and spacing but not their case or meaning`() {
     fun structure(
       columnSchemas: List<String>,

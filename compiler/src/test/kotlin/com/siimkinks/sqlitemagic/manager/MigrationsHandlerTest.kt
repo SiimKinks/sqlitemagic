@@ -213,15 +213,15 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
-          """DROP TABLE IF EXISTS "legacy_users"""",
           """DROP TABLE IF EXISTS "archived_users"""",
+          """DROP TABLE IF EXISTS "legacy_users"""",
           "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)"
         ),
         warnings = listOf(
-          "Migration drops table legacy_users with its rows; if it was renamed to users, edit the migration SQL to " +
-              "keep them.",
           "Migration drops table archived_users with its rows; if it was renamed to users, edit the migration SQL " +
-              "to keep them."
+              "to keep them.",
+          "Migration drops table legacy_users with its rows; if it was renamed to users, edit the migration SQL to " +
+              "keep them."
         )
       )
     )
@@ -619,13 +619,15 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
+          "PRAGMA defer_foreign_keys = ON",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY)",
           """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS children " +
               "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE, " +
               "label TEXT DEFAULT '')",
-          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
-              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
+          """DELETE FROM "children" WHERE "parent_id" IS NOT NULL """ +
+              """AND "parent_id" NOT IN (SELECT "id" FROM "parents")""",
           """DROP TABLE IF EXISTS "children_""""
         ),
         warnings = listOf(
@@ -719,15 +721,17 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
+          "PRAGMA defer_foreign_keys = ON",
           """ALTER TABLE "parents" RENAME TO "parents_"""",
           """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children " +
               "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE, " +
               "label TEXT DEFAULT '')",
-          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
-              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
+          """DELETE FROM "children" WHERE "parent_id" IS NOT NULL """ +
+              """AND "parent_id" NOT IN (SELECT "id" FROM "parents")""",
           """DROP TABLE IF EXISTS "children_"""",
           """DROP TABLE IF EXISTS "parents_""""
         ),
@@ -1302,14 +1306,16 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
+          "PRAGMA defer_foreign_keys = ON",
           """ALTER TABLE "parents" RENAME TO "parents_"""",
           """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
               "parent_id INTEGER DEFAULT 0 REFERENCES $referencedTableName(id) ON DELETE CASCADE)",
-          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
-              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
+          """DELETE FROM "children" WHERE "parent_id" IS NOT NULL """ +
+              """AND "parent_id" NOT IN (SELECT "id" FROM "parents")""",
           """DROP TABLE IF EXISTS "children_"""",
           """DROP TABLE IF EXISTS "parents_""""
         ),
@@ -1361,14 +1367,16 @@ internal class MigrationsHandlerTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
+      "PRAGMA defer_foreign_keys = ON",
       """ALTER TABLE "Users" RENAME TO "users_"""",
       """ALTER TABLE "children" RENAME TO "children_"""",
       "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)",
-      """INSERT INTO "users" ("id") SELECT "id" FROM "users_"""",
       "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
           "parent_id INTEGER DEFAULT 0 REFERENCES USERS(id) ON DELETE CASCADE)",
-      """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
-          """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "USERS")""",
+      """INSERT INTO "users" ("id") SELECT "id" FROM "users_"""",
+      """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
+      """DELETE FROM "children" WHERE "parent_id" IS NOT NULL """ +
+          """AND "parent_id" NOT IN (SELECT "id" FROM "USERS")""",
       """DROP TABLE IF EXISTS "children_"""",
       """DROP TABLE IF EXISTS "users_""""
     ).inOrder()
@@ -1443,8 +1451,8 @@ internal class MigrationsHandlerTest {
           """ALTER TABLE "parents" RENAME TO "parents_"""",
           """ALTER TABLE "children" RENAME TO "children_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0)",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
           """DROP TABLE IF EXISTS "children_"""",
           """DROP TABLE IF EXISTS "parents_""""
@@ -1699,19 +1707,22 @@ internal class MigrationsHandlerTest {
       MigrationRun(
         migrationHappened = true,
         statements = listOf(
+          "PRAGMA defer_foreign_keys = ON",
           """ALTER TABLE "parents" RENAME TO "parents_"""",
           """ALTER TABLE "children" RENAME TO "children_"""",
           """ALTER TABLE "grandchildren" RENAME TO "grandchildren_"""",
           "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, label TEXT DEFAULT '')",
-          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
           "CREATE TABLE IF NOT EXISTS children (id INTEGER PRIMARY KEY, " +
               "parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
-          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
-              """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
           "CREATE TABLE IF NOT EXISTS grandchildren (id INTEGER PRIMARY KEY, " +
               "child_id INTEGER DEFAULT 0 REFERENCES children(id) ON DELETE CASCADE)",
-          """INSERT INTO "grandchildren" ("id","child_id") SELECT "id","child_id" FROM "grandchildren_" """ +
-              """WHERE "child_id" IS NULL OR "child_id" IN (SELECT "id" FROM "children")""",
+          """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
+          """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
+          """INSERT INTO "grandchildren" ("id","child_id") SELECT "id","child_id" FROM "grandchildren_"""",
+          """DELETE FROM "children" WHERE "parent_id" IS NOT NULL """ +
+              """AND "parent_id" NOT IN (SELECT "id" FROM "parents")""",
+          """DELETE FROM "grandchildren" WHERE "child_id" IS NOT NULL """ +
+              """AND "child_id" NOT IN (SELECT "id" FROM "children")""",
           """DROP TABLE IF EXISTS "grandchildren_"""",
           """DROP TABLE IF EXISTS "children_"""",
           """DROP TABLE IF EXISTS "parents_""""

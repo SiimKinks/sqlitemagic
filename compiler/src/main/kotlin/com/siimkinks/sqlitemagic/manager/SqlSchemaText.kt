@@ -40,7 +40,10 @@ internal fun TableStructure.sameSchemaAs(other: TableStructure) = name == other.
     (columns zip other.columns).all { (column, otherColumn) -> column.sameSchemaAs(otherColumn) } &&
     schema.sameSqlAs(other.schema)
 
-internal fun ColumnStructure.sameSchemaAs(other: ColumnStructure) = copy(schema = other.schema) == other &&
+internal fun ColumnStructure.sameSchemaAs(other: ColumnStructure) = copy(
+  schema = other.schema,
+  transformedImplicitDefault = other.transformedImplicitDefault
+) == other &&
     schema.sameSqlAs(other.schema)
 
 internal fun IndexStructure.sameSchemaAs(other: IndexStructure) = copy(indexSql = other.indexSql) == other &&

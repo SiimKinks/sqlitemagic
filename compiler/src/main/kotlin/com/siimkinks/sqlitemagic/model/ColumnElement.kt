@@ -65,6 +65,7 @@ internal data class ColumnElement(
   val isValueNullable: Boolean,
   val isModelPathNullable: Boolean,
   val defaultValue: String?,
+  val hasExplicitDefault: Boolean,
   val transformer: TransformerElement?,
   val relationship: RelationshipElement?,
   val id: IdElement?,

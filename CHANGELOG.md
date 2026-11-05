@@ -26,6 +26,10 @@ that compile but behave differently and walks through the first database release
 * Breaking: Remove `BooleanTransformer`. `Boolean` is a built-in column type, still stored as INTEGER 0 or 1
 * Breaking: Columns of non-null properties are `NOT NULL`. The next generated migration rebuilds the affected tables,
   replacing stored NULLs with the column default or deleting their rows where the column has no default
+* Breaking: `onDeleteCascade` applies to `handleRecursively = false` relationships too, which 2.0 silently ignored. The
+  column references its parent with `ON DELETE CASCADE` and foreign keys are enforced, so a child must be written
+  after its parent. The next generated migration rebuilds the table and deletes the rows that reference missing rows,
+  with a warning
 * Breaking: Migration scripts run on the database connection inside the upgrade's transaction, so a script line that
   begins or ends a transaction or savepoint, such as `BEGIN`, `COMMIT` or `SAVEPOINT`, fails the upgrade before it
   runs
@@ -81,7 +85,9 @@ that compile but behave differently and walks through the first database release
   class of each value
 * New: A model whose other constructor parameters are nullable can be the target of a `handleRecursively = false`
   relationship, which 2.0 rejected at compile time
-* New: Generated migrations warn when they drop tables, columns or rows
+* New: Generated migrations warn when they drop tables, columns or rows, and when they fill existing rows of a
+  transformed column with the storage type's implicit default (such as `''` or `0`), which the transformer may not
+  decode
 * New: `preview<Variant>DbMigration` prints the next release's schema changes, migration warnings and migration SQL
   without publishing the release or raising the database version
 * New: Transformers can store a value as `Boolean`

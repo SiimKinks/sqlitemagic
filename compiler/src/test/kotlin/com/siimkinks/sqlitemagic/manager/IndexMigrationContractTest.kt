@@ -401,8 +401,6 @@ internal class IndexMigrationContractTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      """DROP INDEX IF EXISTS main."books_id"""",
-      """DROP INDEX IF EXISTS main."books_title"""",
       """ALTER TABLE "books" RENAME TO "books_"""",
       "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT DEFAULT 'untitled')",
       """INSERT INTO "books" ("id","title") SELECT "id","title" FROM "books_"""",
@@ -416,7 +414,16 @@ internal class IndexMigrationContractTest {
   fun `recreates every desired index after a cascading dependency rebuild`() {
     val previous = DatabaseStructure(
       tables = mapOf(
-        "parents" to persistentTable(name = "parents"),
+        "parents" to persistentTable(
+          name = "parents",
+          columns = listOf(
+            idColumn(),
+            migrationColumn(
+              name = "value",
+              schema = "value TEXT"
+            )
+          )
+        ),
         "children" to persistentTable(
           name = "children",
           columns = listOf(
@@ -485,16 +492,16 @@ internal class IndexMigrationContractTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      """DROP INDEX IF EXISTS main."parents_id"""",
-      """DROP INDEX IF EXISTS main."children_parent"""",
+      "PRAGMA defer_foreign_keys = ON",
       """ALTER TABLE "parents" RENAME TO "parents_"""",
       """ALTER TABLE "children" RENAME TO "children_"""",
       "CREATE TABLE IF NOT EXISTS parents (id INTEGER PRIMARY KEY, value TEXT DEFAULT '')",
-      """INSERT INTO "parents" ("id") SELECT "id" FROM "parents_"""",
       "CREATE TABLE IF NOT EXISTS children " +
           "(id INTEGER PRIMARY KEY, parent_id INTEGER DEFAULT 0 REFERENCES parents(id) ON DELETE CASCADE)",
-      """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_" """ +
-          """WHERE "parent_id" IS NULL OR "parent_id" IN (SELECT "id" FROM "parents")""",
+      """INSERT INTO "parents" ("id","value") SELECT "id","value" FROM "parents_"""",
+      """INSERT INTO "children" ("id","parent_id") SELECT "id","parent_id" FROM "children_"""",
+      """DELETE FROM "children" WHERE "parent_id" IS NOT NULL """ +
+          """AND "parent_id" NOT IN (SELECT "id" FROM "parents")""",
       """DROP TABLE IF EXISTS "children_"""",
       """DROP TABLE IF EXISTS "parents_"""",
       """CREATE INDEX IF NOT EXISTS main."parents_id" ON "parents" ("id")""",
@@ -681,7 +688,6 @@ internal class IndexMigrationContractTest {
         temporaryDirectory = temporaryDirectory
       )
     ).containsExactly(
-      """DROP INDEX IF EXISTS main."books_"""",
       """ALTER TABLE "books" RENAME TO "books__"""",
       "CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, title TEXT DEFAULT 'untitled')",
       """INSERT INTO "books" ("id","title") SELECT "id","title" FROM "books__"""",

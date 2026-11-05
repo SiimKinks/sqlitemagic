@@ -2,15 +2,12 @@
 name: sqlitemagic-upgrade
 description: >-
   Upgrade an Android app or library from SqliteMagic 2.x or 0.x to SqliteMagic 3: dependencies and setup
-  (sqliteFactory → driver(...), sqlitemagic-framework-driver or BundledSQLiteDriver, the sqlitemagic-rxjava2,
-  sqlitemagic-rxjava3 and sqlitemagic-coroutines adapters, removed Cursor APIs, inTransaction rules), the rewritten
-  SQL-first query DSL (legacy Select.from/column/columns, Update.table, Delete.from, asColumn, Expr, lowercase
-  predicates such as is/greaterThan/isNull, toColumn/toTable, WITH_ARGS, @ViewQuery with compile() → SELECT FROM …,
-  SELECT.COLUMNS, UPDATE TABLE …, typed expressions, mapTo, asScalar), changes that still compile but alter results,
-  exceptions or transactions, and the first 3.x release of installed databases (NOT NULL table rebuilds, renamed view
-  columns, WAL). Use when upgrading an app, module, sample, test or snippet, porting legacy queries, or fixing compile
-  errors and behavior differences after the upgrade, even if the request only says "bump SqliteMagic" or "update the
-  queries". Not for later schema migrations of an app already on 3.x, nor for changing or testing SqliteMagic itself.
+  (sqliteFactory → driver(...), the framework or bundled driver, the RxJava and coroutines adapters), porting
+  legacy queries (Select.from, Update.table, Delete.from, is/greaterThan, @ViewQuery) to the SQL-first DSL,
+  changes that still compile but alter results, exceptions or transactions, and the first 3.x release of installed
+  databases. Use when upgrading an app, module, sample, test or snippet, or fixing compile errors and behavior
+  differences after the upgrade, even if the request only says "bump SqliteMagic" or "update the queries". Not for
+  later schema migrations of an app already on 3.x (use sqlitemagic), nor for changing or testing SqliteMagic itself.
 ---
 
 # Upgrading to SqliteMagic 3

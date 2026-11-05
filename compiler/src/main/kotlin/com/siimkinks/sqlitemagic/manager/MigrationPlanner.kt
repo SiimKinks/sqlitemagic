@@ -27,14 +27,19 @@ internal object MigrationPlanner {
       tableNames = diff.currentTables.map(TableSnapshot::name),
       referencesByTableName = migrationReferencesByTableName
     )
-    val changedTableNames = diff.changedTransitions
-      .mapTo(
-        destination = linkedSetOf(),
-        transform = { it.current.name }
+    val operationsByTableName = diff.changedTransitions.associate { transition ->
+      transition.current.name to tableMigrationOperation(
+        from = transition.previous.structure,
+        to = transition.current.structure,
+        renamed = transition.renamed
       )
+    }
+    val changedTableNames = operationsByTableName.keys
     val dependentRebuildTables = dependencyGraph.dependentRebuildClosure(
       previousNamesByCurrentName = diff.renamedTables,
-      changedTables = changedTableNames,
+      changedTables = operationsByTableName
+        .filterValues(TableMigrationOperation.REBUILD::equals)
+        .keys,
       excludedTables = diff.newTableNames
     )
     val rebuildTables = dependentRebuildTables.ifEmpty { changedTableNames }
@@ -63,25 +68,24 @@ internal object MigrationPlanner {
         TableChange(
           from = transition.previous,
           to = transition.current,
-          operation = tableMigrationOperation(
-            from = transition.previous.structure,
-            to = transition.current.structure,
-            renamed = transition.renamed
-          )
+          operation = operationsByTableName.getValue(transition.current.name)
         )
       }
       .toList()
-    val batchedRebuilds = diff.currentTables
-      .asSequence()
-      .filter { it.name in dependentRebuildTables }
-      .map { table ->
+    val currentTablesByName = diff.currentTables.associateBy(TableSnapshot::name)
+    val batchedRebuilds = dependencyGraph
+      .orderReferencesFirst(
+        tableNamesToOrder = diff.currentTables
+          .map(TableSnapshot::name)
+          .filter(dependentRebuildTables::contains)
+      )
+      .map { tableName ->
         TableChange(
-          from = diff.transitionByCurrentName.getValue(table.name).previous,
-          to = table,
+          from = diff.transitionByCurrentName.getValue(tableName).previous,
+          to = currentTablesByName.getValue(tableName),
           operation = TableMigrationOperation.REBUILD
         )
       }
-      .toList()
     val batchedTableNames = batchedRebuilds
       .asSequence()
       .flatMap { sequenceOf(it.from.name, it.to.name) }
@@ -101,9 +105,9 @@ internal object MigrationPlanner {
       tableNames = diff.removedTableNames,
       referencesByTableName = removedReferencesByTableName
     )
-    val orderedRemovedTableNames = removedTableGraph.orderDependentsFirst(
-      tableNamesToOrder = diff.removedTableNames
-    )
+    val orderedRemovedTableNames = removedTableGraph
+      .orderReferencesFirst(tableNamesToOrder = diff.removedTableNames)
+      .asReversed()
     val removedTablesByName = diff.removedTables.associateBy(TableSnapshot::name)
     val remainingNewTables = diff.currentTables.filter { table ->
       table.name in diff.newTableNames && table.name !in prerequisiteNewTableNames
@@ -134,9 +138,7 @@ internal object MigrationPlanner {
     val indexTransitionsByCurrentName = diff.indexTransitions.associateBy { it.current.name }
     val indexDrops = diff.previousIndices.filterTo(arrayListOf()) { index ->
       val transition = indexTransitionsByName[index.name]
-      transition == null ||
-          transition.changed ||
-          index.structure.forTable in rebuiltPreviousTableNames
+      index.structure.forTable !in rebuiltPreviousTableNames && (transition == null || transition.changed)
     }
     val indexCreates = diff.currentIndices.filterTo(arrayListOf()) { index ->
       val transition = indexTransitionsByCurrentName[index.name]
@@ -217,9 +219,15 @@ internal data class TableChange(
   val addedColumns = to.structure.columns.filterNot { it.lookupName in previousColumnNames }
   val columnsWithoutValue = addedColumns.filter { it.requiresValueDuringRebuild(table = to.structure) }
   val copiesRows get() = copiedColumns.isNotEmpty() && columnsWithoutValue.isEmpty()
+  val missingReferenceConditions = copiedColumns.mapNotNull(ColumnCopy::missingReferenceCondition)
+  val copiesMissingReferences get() = copiesRows && missingReferenceConditions.isNotEmpty()
   val nullRowColumns = copiedColumns
     .filter(ColumnCopy::deletesNullRows)
     .map(ColumnCopy::previous)
+  val transformedImplicitDefaultColumns = addedColumns.filter(ColumnStructure::transformedImplicitDefault) +
+      copiedColumns
+        .filter(ColumnCopy::defaultsNullWithTransformedImplicitDefault)
+        .map(ColumnCopy::current)
 }
 
 internal data class ColumnCopy(
@@ -229,12 +237,14 @@ internal data class ColumnCopy(
 ) {
   private val defaultsNull get() = gainsNotNull && current.notNullDefault != null
   val deletesNullRows get() = gainsNotNull && current.notNullDefault == null
+  val defaultsNullWithTransformedImplicitDefault get() = defaultsNull && current.transformedImplicitDefault
   val defaultsNullReference get() = defaultsNull && current.cascadeReference() != null
-  val existingReferenceCondition
+  val missingReferenceCondition
     get() = current
       .cascadeReference()
       ?.let { reference ->
-        "$sourceValue IS NULL OR $sourceValue IN " +
+        val column = quoteSqlIdentifier(current.name)
+        "$column IS NOT NULL AND $column NOT IN " +
             "(SELECT ${quoteSqlIdentifier(reference.column)} FROM ${quoteSqlIdentifier(reference.table)})"
       }
   val sourceValue
