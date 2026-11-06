@@ -1,5 +1,9 @@
-SqliteMagic
-=======
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg">
+    <img alt="SqliteMagic" src=".github/assets/logo-light.svg" width="426">
+  </picture>
+</h1>
 
 Simple yet powerful SQLite database layer for Android that makes database handling feel like magic.
 
