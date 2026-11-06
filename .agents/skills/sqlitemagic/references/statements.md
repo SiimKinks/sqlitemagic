@@ -72,6 +72,7 @@ DELETE
 
 - Statements are immutable values like queries; `@CheckResult` makes lint flag a discarded one.
 - A successful statement that changed rows notifies observers of its table (after the commit inside a transaction).
+  `DELETE` and `UPDATE.OR(CONFLICT_REPLACE)` also notify the tables their deletes cascade into.
 - One statement that changes many rows beats a loop of entity operations: one round trip, one notification.
 
 ## Raw SELECT
@@ -132,8 +133,8 @@ DELETE.RAW("DELETE FROM book WHERE author = ? AND pages < ?", authorId, 10)
   .execute()
 ```
 
-- `.notifies(TABLE, …)` names the generated tables the statement changes; undeclared changes notify nothing. Tables
-  without generated code cannot be observed.
+- `.notifies(TABLE, …)` names the generated tables the statement changes, including the ones its deletes cascade
+  into; undeclared changes notify nothing. Tables without generated code cannot be observed.
 - A conflict clause goes into the text (`UPDATE OR IGNORE …`). There is no raw INSERT; rows are inserted through
   entity operations.
 - Terminals as for typed statements: `execute()`, `compile()`, `usingConnection`, `await()`, `observe()`.

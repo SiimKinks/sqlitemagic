@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import androidx.sqlite.SQLiteConnection
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 
 interface GeneratedDatabase {
@@ -28,6 +29,9 @@ interface GeneratedDatabase {
 
   @InternalSqliteMagicApi
   fun clearData(connection: SQLiteConnection): MutableScatterSet<String>
+
+  @InternalSqliteMagicApi
+  fun collectCascadeTables(cascadeTables: MutableScatterMap<String, Array<String>>) = Unit
 
   @InternalSqliteMagicApi
   fun migrateViews(connection: SQLiteConnection)

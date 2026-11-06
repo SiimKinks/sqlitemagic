@@ -78,6 +78,7 @@ internal class MutationStatement(val node: MutationNode<*>) : MutationQuery {
     renderable = node,
     connection = node.connection,
     tables = arrayOf(node.head.table.name),
+    deletedTable = node.head.deletedTable,
     parameterValues = node.parameterValues
   )
 }

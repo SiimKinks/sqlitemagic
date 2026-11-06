@@ -24,7 +24,8 @@ internal class TestGeneratedDatabase(
   private val tableCount: Int,
   private val submoduleTableCounts: Map<String, Int> = emptyMap(),
   private val schema: List<String> = emptyList(),
-  private val temporarySchema: List<String> = emptyList()
+  private val temporarySchema: List<String> = emptyList(),
+  private val cascadeTables: Map<String, Array<String>> = emptyMap()
 ) : GeneratedDatabase {
   override fun applySchemaPragmas(connection: SQLiteConnection) = Unit
 
@@ -33,6 +34,9 @@ internal class TestGeneratedDatabase(
   override fun createTemporarySchema(connection: SQLiteConnection) = temporarySchema.forEach(connection::execSQL)
 
   override fun clearData(connection: SQLiteConnection) = MutableScatterSet<String>()
+
+  override fun collectCascadeTables(cascadeTables: MutableScatterMap<String, Array<String>>) =
+    this.cascadeTables.forEach { (table, tables) -> cascadeTables[table] = tables }
 
   override fun migrateViews(connection: SQLiteConnection) = Unit
 

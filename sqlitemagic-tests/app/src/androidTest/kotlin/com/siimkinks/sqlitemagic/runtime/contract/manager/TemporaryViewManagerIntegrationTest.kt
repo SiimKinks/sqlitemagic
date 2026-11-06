@@ -24,6 +24,7 @@ import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.internal.GeneratedSchema
 import com.siimkinks.sqlitemagic.internal.GeneratedView
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.SqlUtil.createSchema
 import com.siimkinks.sqlitemagic.runtime.fixture.submodule.SubmoduleSessionValue
@@ -346,6 +347,8 @@ internal class TemporaryViewManagerIntegrationTest {
         override fun createSchemaIndexes(connection: SQLiteConnection, temporary: Boolean) = Unit
 
         override fun clearTables(connection: SQLiteConnection, changedTables: MutableScatterSet<String>) = Unit
+
+        override fun collectCascadeTables(cascadeTables: MutableScatterMap<String, Array<String>>) = Unit
       }
 
       val failure = assertThrows(IllegalArgumentException::class.java) {

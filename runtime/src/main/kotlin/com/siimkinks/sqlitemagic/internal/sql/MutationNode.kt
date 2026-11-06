@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
+import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.CompiledMutation
 import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
@@ -65,6 +66,7 @@ internal fun MutationNode<UpdateHead>.withAssignment(
 
 internal sealed interface MutationHead : SqlRenderable {
   val table: Table<*>
+  val deletedTable: String?
 }
 
 internal class UpdateHead(
@@ -72,6 +74,12 @@ internal class UpdateHead(
   private val conflictAlgorithm: Int,
   private val assignments: List<ColumnAssignment>
 ) : MutationHead {
+  override val deletedTable
+    get() = when (conflictAlgorithm) {
+      CONFLICT_REPLACE -> table.name
+      else -> null
+    }
+
   override fun render(context: SqlRenderingContext) {
     context.sql
       .append("UPDATE")
@@ -95,6 +103,8 @@ internal class UpdateHead(
 }
 
 internal class DeleteHead(override val table: Table<*>) : MutationHead {
+  override val deletedTable get() = table.name
+
   override fun render(context: SqlRenderingContext) {
     context.sql
       .append("DELETE FROM ")
@@ -113,6 +123,7 @@ internal fun compileMutation(
   renderable: SqlRenderable,
   connection: DbConnectionImpl?,
   tables: Array<out String>,
+  deletedTable: String? = null,
   parameterValues: List<ParameterAssignment> = emptyList()
 ) = prepareQuery(
   renderable = renderable,
@@ -122,6 +133,7 @@ internal fun compileMutation(
     CompiledMutation(
       prepared = prepared,
       arguments = prepared.bind(parameterValues),
-      tables = tables
+      tables = tables,
+      deletedTable = deletedTable
     )
   }

@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.connection.TrackingDriver
 import com.siimkinks.sqlitemagic.connection.long
 import com.siimkinks.sqlitemagic.internal.GeneratedSchema
 import com.siimkinks.sqlitemagic.internal.GeneratedView
+import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.SqlUtil.clearData
 import com.siimkinks.sqlitemagic.internal.SqlUtil.createSchema
@@ -53,6 +54,8 @@ internal class SchemaCreationTest {
       connection.execSQL("DELETE FROM person")
       changedTables.add("person")
     }
+
+    override fun collectCascadeTables(cascadeTables: MutableScatterMap<String, Array<String>>) = Unit
   }
 
   @Test

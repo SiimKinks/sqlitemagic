@@ -329,10 +329,67 @@ internal class GenClassesManagerContractTest {
           "FeatureGeneratedClassesManager.collectGeneratedViews(views = views)",
           "FeatureGeneratedClassesManager.createSchemaIndexes(connection = connection, temporary = temporary)",
           "FeatureGeneratedClassesManager.clearTables(connection = connection, changedTables = changedTables)",
+          "FeatureGeneratedClassesManager.collectCascadeTables(cascadeTables = cascadeTables)",
           CREATE_TEMPORARY_SCHEMA_DELEGATION,
           "override val submoduleNames: Array<String>?",
           """get() = arrayOf("Feature")""",
           """"Feature" -> FeatureGeneratedClassesManager.getNrOfTables(moduleName)"""
+        )
+      }
+  }
+
+  @Test
+  fun `maps each table to the tables its deletes cascade into`() {
+    compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "CascadingTables.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Column
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+
+            @Table("authors")
+            data class Author(@Id val id: Long?)
+
+            @Table("books")
+            data class Book(
+              @Id val id: Long?,
+              @Column(handleRecursively = false, onDeleteCascade = true) val author: Author
+            )
+
+            @Table("chapters")
+            data class Chapter(
+              @Id val id: Long?,
+              @Column(onDeleteCascade = true) val book: Book
+            )
+
+            @Table("reviews")
+            data class Review(
+              @Id val id: Long?,
+              val book: Book
+            )
+
+            @Table("folders")
+            data class Folder(
+              @Id val id: Long?,
+              @Column(handleRecursively = false, onDeleteCascade = true) val parent: Folder?
+            )
+          """
+        )
+      )
+      .isOk()
+      .withGeneratedSource("SqliteMagicDatabase.kt") { generatedSource ->
+        assertThat(
+          generatedSource
+            .functionBody("collectCascadeTables")
+            .unwrapped()
+        ).isEqualTo(
+          "cascadeTables: MutableScatterMap<String, Array<String>>) { " +
+              """cascadeTables["authors"] = arrayOf("authors", "books", "chapters") """ +
+              """cascadeTables["books"] = arrayOf("books", "chapters") } """
         )
       }
   }

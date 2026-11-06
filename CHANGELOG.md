@@ -128,6 +128,10 @@ that compile but behave differently and walks through the first database release
   tables written before the yield are notified
 * Fix: Writes from several threads at once no longer leave observed queries without further updates or make disposing
   them hang, and a write made right after subscribing is no longer missed
+* Fix: Rows that `ON DELETE CASCADE` deletes notify the observers of their tables. Entity deletes, `deleteTable()`,
+  `DELETE FROM` statements and writes with `CONFLICT_REPLACE`, which deletes the conflicting row, re-run the observed
+  queries over the tables the delete cascades into. Deleting an entity no longer re-runs the observed queries over the
+  tables its relationships only reference
 
 Version 2.0.0 _(2026-10-28)_
 ---------------------------------

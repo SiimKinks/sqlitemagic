@@ -11,4 +11,6 @@ interface GeneratedSchema {
   fun createSchemaIndexes(connection: SQLiteConnection, temporary: Boolean)
 
   fun clearTables(connection: SQLiteConnection, changedTables: MutableScatterSet<String>)
+
+  fun collectCascadeTables(cascadeTables: MutableScatterMap<String, Array<String>>)
 }

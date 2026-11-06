@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_ABORT
 import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
+import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
 import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.entity.EntityPersistResult
@@ -153,27 +154,45 @@ internal class OperationContext private constructor(
     tablePosition = adapter.tablePosition
   )
 
-  fun sendTableTriggers(adapter: EntityAdapter<*>) {
+  fun sendTableTriggers(
+    adapter: EntityAdapter<*>,
+    deletes: Boolean = false
+  ) {
     if (!skipTableTriggers) {
-      publishTableTriggers(adapter)
+      publishTableTriggers(
+        adapter = adapter,
+        deletes = deletes
+      )
     }
   }
 
-  fun publishTableTriggers(adapter: EntityAdapter<*>) {
-    when (adapter) {
-      is EntityRecursiveAdapter<*> -> connection.sendTableTriggers(adapter.triggerTableNames)
+  fun publishTableTriggers(
+    adapter: EntityAdapter<*>,
+    deletes: Boolean = false
+  ) {
+    when {
+      deletes -> connection.sendDeleteTriggers(adapter.tableName)
+      adapter is EntityRecursiveAdapter<*> -> when (conflictAlgorithm) {
+        CONFLICT_REPLACE -> connection.sendReplaceTriggers(adapter.triggerTableNames)
+        else -> connection.sendTableTriggers(adapter.triggerTableNames)
+      }
+      conflictAlgorithm == CONFLICT_REPLACE -> connection.sendDeleteTriggers(adapter.tableName)
       else -> connection.sendTableTrigger(adapter.tableName)
     }
   }
 
   inline fun <T> executeMutation(
     adapter: EntityAdapter<*>,
+    deletes: Boolean = false,
     operation: EntityMutationExecution.() -> T
   ) = EntityMutationExecution().let { execution ->
     notifyingOnFailure(
       notify = {
         if (execution.possibleChanges) {
-          publishTableTriggers(adapter)
+          publishTableTriggers(
+            adapter = adapter,
+            deletes = deletes
+          )
         }
       },
       block = { execution.operation() }

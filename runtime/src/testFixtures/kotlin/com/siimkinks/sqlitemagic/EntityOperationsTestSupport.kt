@@ -192,10 +192,14 @@ internal abstract class NoRowStatement : SQLiteStatement {
 
 internal class RecordingDbConnection(
   val sqliteConnection: RecordingSQLiteConnection,
-  tableCount: Int = 1
+  tableCount: Int = 1,
+  cascadeTables: Map<String, Array<String>> = emptyMap()
 ) {
   val dbConnection = testDbConnection(
-    database = TestGeneratedDatabase(tableCount),
+    database = TestGeneratedDatabase(
+      tableCount = tableCount,
+      cascadeTables = cascadeTables
+    ),
     driver = SingleConnectionDriver(sqliteConnection)
   )
   private val recordedTriggers = dbConnection.recordTriggers()

@@ -61,8 +61,8 @@ Every DSL declaration has KDoc; when the reference and the IDE disagree about a 
   BLOB) and surfaces SQLite's own errors. It does not emulate missing features: on the device's SQLite, a feature newer
   than the device's SQLite version fails when the statement is prepared.
 - **Change notification is built in.** Every write through the library notifies the observed queries that read the
-  changed tables, after the transaction commits (except rows deleted by `ON DELETE CASCADE`). Raw SQL declares what it
-  reads (`observes`) and changes (`notifies`).
+  changed tables, including the tables an `ON DELETE CASCADE` deletes from, after the transaction commits. Raw SQL
+  declares what it reads (`observes`) and changes (`notifies`).
 
 ## Example schema
 

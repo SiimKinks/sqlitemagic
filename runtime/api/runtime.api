@@ -296,6 +296,7 @@ public final class com/siimkinks/sqlitemagic/FrameBound {
 public abstract interface class com/siimkinks/sqlitemagic/GeneratedDatabase {
 	public abstract fun applySchemaPragmas (Landroidx/sqlite/SQLiteConnection;)V
 	public abstract fun clearData (Landroidx/sqlite/SQLiteConnection;)Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;
+	public fun collectCascadeTables (Lcom/siimkinks/sqlitemagic/internal/MutableScatterMap;)V
 	public abstract fun createSchema (Landroidx/sqlite/SQLiteConnection;)V
 	public fun createTemporarySchema (Landroidx/sqlite/SQLiteConnection;)V
 	public abstract fun getDbName ()Ljava/lang/String;
@@ -307,6 +308,7 @@ public abstract interface class com/siimkinks/sqlitemagic/GeneratedDatabase {
 }
 
 public final class com/siimkinks/sqlitemagic/GeneratedDatabase$DefaultImpls {
+	public static fun collectCascadeTables (Lcom/siimkinks/sqlitemagic/GeneratedDatabase;Lcom/siimkinks/sqlitemagic/internal/MutableScatterMap;)V
 	public static fun createTemporarySchema (Lcom/siimkinks/sqlitemagic/GeneratedDatabase;Landroidx/sqlite/SQLiteConnection;)V
 }
 
@@ -1522,6 +1524,7 @@ public final class com/siimkinks/sqlitemagic/internal/GeneratedEncodingsKt {
 
 public abstract interface class com/siimkinks/sqlitemagic/internal/GeneratedSchema {
 	public abstract fun clearTables (Landroidx/sqlite/SQLiteConnection;Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;)V
+	public abstract fun collectCascadeTables (Lcom/siimkinks/sqlitemagic/internal/MutableScatterMap;)V
 	public abstract fun collectGeneratedViews (Ljava/util/List;)V
 	public abstract fun createSchemaIndexes (Landroidx/sqlite/SQLiteConnection;Z)V
 	public abstract fun createSchemaTables (Landroidx/sqlite/SQLiteConnection;Z)V

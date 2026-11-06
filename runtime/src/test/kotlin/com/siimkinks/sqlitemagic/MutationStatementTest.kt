@@ -26,6 +26,12 @@ internal class MutationStatementTest {
     val triggers: List<Set<String>>
   )
 
+  private data class FailureCase(
+    val label: String,
+    val query: MutationQuery,
+    val expectedTables: Set<String>
+  )
+
   private fun outcome(
     query: MutationQuery,
     database: TestDatabase = personDatabase()
@@ -486,5 +492,59 @@ internal class MutationStatementTest {
 
     assertThat(actual).isSameInstanceAs(failure)
     assertThat(actual.suppressed.toList()).containsExactly(deliveryFailure)
+  }
+
+  @Test
+  fun `a native failure notifies the tables its deletes cascade into`() {
+    listOf(
+      FailureCase(
+        label = "DELETE FROM",
+        query = DELETE.FROM(PERSON),
+        expectedTables = setOf("person", "pets")
+      ),
+      FailureCase(
+        label = "UPDATE OR REPLACE",
+        query = UPDATE
+          .OR(CONFLICT_REPLACE)
+          .TABLE(PERSON)
+          .SET(PERSON.NAME, "Ada"),
+        expectedTables = setOf("person", "pets")
+      ),
+      FailureCase(
+        label = "UPDATE",
+        query = UPDATE
+          .TABLE(PERSON)
+          .SET(PERSON.NAME, "Ada"),
+        expectedTables = setOf("person")
+      )
+    ).forEach { (label, query, expectedTables) ->
+      val recording = RecordingSQLiteConnection()
+      val failure = IllegalStateException("constraint failed")
+      val connection = testDbConnection(
+        database = TestGeneratedDatabase(
+          tableCount = 1,
+          cascadeTables = mapOf("person" to arrayOf("person", "pets"))
+        ),
+        driver = SingleConnectionDriver(
+          object : SQLiteConnection by recording, MutationResults by recording {
+            override fun executeUpdateDelete(statement: SQLiteStatement) = throw failure
+          }
+        )
+      )
+      val recorder = connection.recordTriggers()
+
+      val actual = assertThrows(IllegalStateException::class.java) {
+        query
+          .usingConnection(connection)
+          .execute()
+      }
+
+      assertWithMessage(label)
+        .that(actual)
+        .isSameInstanceAs(failure)
+      assertWithMessage(label)
+        .that(recorder.triggers)
+        .containsExactly(expectedTables)
+    }
   }
 }

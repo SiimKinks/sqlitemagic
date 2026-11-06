@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.internal.AdapterSettingKey
 import com.siimkinks.sqlitemagic.internal.LogUtil.logDebug
 import com.siimkinks.sqlitemagic.internal.LogUtil.logInfo
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
+import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.ScatterSet
 import java.util.concurrent.TimeUnit
@@ -87,6 +88,8 @@ internal class DbConnectionImpl(
 
     override fun close() = end()
   }
+
+  private val cascadeTables = MutableScatterMap<String, Array<String>>().also(database::collectCascadeTables)
 
   private val submoduleEntitySql = database.submoduleNames?.let(::createSubmoduleEntitySql)
   private val mainEntitySql = createEntitySql("")
@@ -195,6 +198,29 @@ internal class DbConnectionImpl(
         logDebug { "TRIGGER ${tables.contentToString()}" }
         tableObservers.publish(tables)
       }
+    }
+  }
+
+  fun sendDeleteTriggers(table: String) = when (val tables = cascadeTables[table]) {
+    null -> sendTableTrigger(table)
+    else -> sendTableTriggers(tables)
+  }
+
+  fun sendReplaceTriggers(tables: Array<out String>) {
+    when {
+      tables.none(cascadeTables::containsKey) -> sendTableTriggers(tables)
+      else -> if (!pool.queueChanges { it.addReplacedTables(tables) }) {
+        val changedTables = MutableScatterSet<String>().apply { addReplacedTables(tables) }
+        logDebug { "TRIGGER $changedTables" }
+        tableObservers.publish(changedTables)
+      }
+    }
+  }
+
+  private fun MutableScatterSet<String>.addReplacedTables(tables: Array<out String>) = tables.forEach { table ->
+    when (val cascade = cascadeTables[table]) {
+      null -> add(table)
+      else -> addAll(cascade)
     }
   }
 

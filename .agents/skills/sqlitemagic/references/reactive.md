@@ -21,9 +21,9 @@ already uses; the RxJava 2 and 3 adapters have the same API in `com.siimkinks.sq
   writes made while it was delivered, but the last emission reflects the final data. Never count emissions as writes.
 - Notifications come from writes through the library: entity operations, statements, raw statements' `notifies`,
   `clearData()`. Writes by other processes or undeclared raw SQL are not seen.
-- Rows that `ON DELETE CASCADE` deletes in other tables do not notify observers of those tables: a query over a child
-  table that does not read the parent table (by a join or a joined relationship) does not re-run when deleting its
-  parent removes its rows.
+- A delete through an entity operation or a `DELETE` statement also notifies the tables that `ON DELETE CASCADE`
+  reaches from the deleted table, and so does such a write with `CONFLICT_REPLACE`, which deletes the row it replaces:
+  a query over a child table re-runs when deleting its parent removes its rows.
 - Writes inside a transaction notify after it commits, and not at all if it rolls back, unless it yielded
   (`yieldIfContended…`), which commits the earlier work.
 - An observed query on a closed connection completes without emitting. One-shot forms with a nullable or `Maybe`

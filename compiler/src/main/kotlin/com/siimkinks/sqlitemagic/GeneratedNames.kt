@@ -62,4 +62,5 @@ internal object GeneratedNames {
   const val METHOD_CREATE_SCHEMA_TABLES = "createSchemaTables"
   const val METHOD_COLLECT_GENERATED_VIEWS = "collectGeneratedViews"
   const val METHOD_CREATE_SCHEMA_INDEXES = "createSchemaIndexes"
+  const val METHOD_COLLECT_CASCADE_TABLES = "collectCascadeTables"
 }

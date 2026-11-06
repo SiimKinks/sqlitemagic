@@ -7,6 +7,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_SCHEMA
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_APPLY_SCHEMA_PRAGMAS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CLEAR_DATA
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CLEAR_TABLES
+import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLLECT_CASCADE_TABLES
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_COLLECT_GENERATED_VIEWS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_CREATE_SCHEMA_INDEXES
@@ -18,6 +19,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_DB_NAME
 import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_DB_VERSION
 import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_IS_DEBUG
 import com.siimkinks.sqlitemagic.GeneratedNames.PROPERTY_SUBMODULE_NAMES
+import com.siimkinks.sqlitemagic.WriterTypes.CASCADE_TABLES_MAP
 import com.siimkinks.sqlitemagic.WriterTypes.EXEC_SQL
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_DATABASE
 import com.siimkinks.sqlitemagic.WriterTypes.GENERATED_SCHEMA
@@ -29,6 +31,8 @@ import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_SCATTER_SET
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.model.ColumnElement
+import com.siimkinks.sqlitemagic.model.RelationshipElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
@@ -71,6 +75,7 @@ internal class GenClassesManagerWriter(
         .addFunction(collectGeneratedViews())
         .addFunction(createSchemaIndexes(orderedTables.sortedIndexes(indices)))
         .addFunction(clearTables())
+        .addFunction(collectCascadeTables())
         .apply {
           if (!isSubmodule) {
             addFunction(
@@ -238,6 +243,24 @@ internal class GenClassesManagerWriter(
     }
     .build()
 
+  private fun GeneratedDatabaseElement.collectCascadeTables() = schemaPartFunction(
+    name = METHOD_COLLECT_CASCADE_TABLES,
+    parameters = listOf(ParameterSpec(name = "cascadeTables", type = CASCADE_TABLES_MAP))
+  )
+    .apply {
+      cascadeTableNames(tables).forEach { (tableName, tableNames) ->
+        addStatement(
+          "cascadeTables[%S] = %L",
+          tableName,
+          callCode(
+            callee = CodeBlock.of("arrayOf"),
+            arguments = tableNames.map { CodeBlock.of("%S", it) }
+          )
+        )
+      }
+    }
+    .build()
+
   private fun GeneratedDatabaseElement.getNrOfTables() = databaseFunction(METHOD_GET_NR_OF_TABLES)
     .addParameter(name = "moduleName", type = STRING.copy(nullable = true))
     .returns(INT)
@@ -333,6 +356,35 @@ internal class GenClassesManagerWriter(
         )
       }
     }
+}
+
+private fun cascadeTableNames(tables: List<TableElement>): Map<String, Set<String>> {
+  val dependentsByTableName = buildMap<String, MutableList<String>> {
+    tables.forEach { table ->
+      table.allColumns
+        .mapNotNull(ColumnElement::relationship)
+        .filter(RelationshipElement::onDeleteCascade)
+        .forEach { relationship ->
+          getOrPut(
+            key = relationship.referencedTableName,
+            defaultValue = ::arrayListOf
+          ).add(table.tableName)
+        }
+    }
+  }
+  return tables
+    .associate { table ->
+      val tableNames = linkedSetOf(table.tableName)
+      val pending = ArrayDeque(tableNames)
+      while (pending.isNotEmpty()) {
+        dependentsByTableName[pending.removeFirst()]
+          .orEmpty()
+          .filter(tableNames::add)
+          .forEach(pending::addLast)
+      }
+      table.tableName to tableNames
+    }
+    .filterValues { it.size > 1 }
 }
 
 private val CONNECTION_PARAMETER = ParameterSpec(name = "connection", type = SQLITE_CONNECTION)

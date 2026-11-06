@@ -142,6 +142,9 @@ internal object WriterTypes {
   val STRING_SCATTER_SET = MutableScatterSet::class
     .asClassName()
     .parameterizedBy(STRING)
+  val CASCADE_TABLES_MAP = MutableScatterMap::class
+    .asClassName()
+    .parameterizedBy(STRING, STRING_ARRAY)
 
   val SQLITE_STATEMENT = ClassName("androidx.sqlite", "SQLiteStatement")
   val SQLITE_CONNECTION = ClassName("androidx.sqlite", "SQLiteConnection")

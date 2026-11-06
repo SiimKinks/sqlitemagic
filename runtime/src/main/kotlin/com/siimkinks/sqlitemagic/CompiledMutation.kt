@@ -10,7 +10,8 @@ import com.siimkinks.sqlitemagic.internal.sql.bindNativeValues
 class CompiledMutation internal constructor(
   private val prepared: PreparedQuery,
   internal val arguments: List<NativeValue>,
-  private val tables: Array<out String>
+  private val tables: Array<out String>,
+  private val deletedTable: String?
 ) {
   /**
    * SQL of this statement.
@@ -33,15 +34,20 @@ class CompiledMutation internal constructor(
           values = arguments
         )
         notifyingOnFailure(
-          notify = { connection.sendTableTriggers(tables) },
+          notify = { connection.sendChangedTables() },
           block = { pooled.mutations.executeUpdateDelete(statement) }
         )
       }
     }
     if (affected > 0) {
-      connection.sendTableTriggers(tables)
+      connection.sendChangedTables()
     }
     return affected
+  }
+
+  private fun DbConnectionImpl.sendChangedTables() = when (deletedTable) {
+    null -> sendTableTriggers(tables)
+    else -> sendDeleteTriggers(deletedTable)
   }
 
   internal fun resolveConnection() = prepared.connection.orDefault()

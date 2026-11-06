@@ -14,6 +14,7 @@ internal object DeleteExecutors {
     else -> context
       .executeMutation(
         adapter = adapter,
+        deletes = true,
         operation = {
           context.withStatement(
             sql = {
@@ -41,7 +42,10 @@ internal object DeleteExecutors {
       )
       .also { deletedRowCount ->
         if (deletedRowCount > 0) {
-          context.sendTableTriggers(adapter)
+          context.sendTableTriggers(
+            adapter = adapter,
+            deletes = true
+          )
         }
       }
   }
@@ -52,6 +56,7 @@ internal object DeleteExecutors {
   ) = context
     .executeMutation(
       adapter = adapter,
+      deletes = true,
       operation = {
         context.withStatement(
           sql = context::deleteTableSql,
@@ -61,7 +66,10 @@ internal object DeleteExecutors {
     )
     .also { deletedRowCount ->
       if (deletedRowCount > 0) {
-        context.sendTableTriggers(adapter)
+        context.sendTableTriggers(
+          adapter = adapter,
+          deletes = true
+        )
       }
     }
 }

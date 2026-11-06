@@ -20,7 +20,10 @@ internal class EntityMutationInvalidationTest {
   fun `native failures invalidate single entity writes and table deletion`() {
     (MutationOperation.entries - MutationOperation.BULK_INSERT).forEach { operation ->
       val failure = IllegalStateException("SQL failed")
-      val fixture = MutationFailureFixture(nativeFailure = failure)
+      val fixture = MutationFailureFixture(
+        nativeFailure = failure,
+        cascadeTables = mapOf("books" to arrayOf("books", "chapters"))
+      )
       val actual = assertThrows(Exception::class.java) {
         fixture.execute(operation)
       }
@@ -29,7 +32,12 @@ internal class EntityMutationInvalidationTest {
         .isSameInstanceAs(failure)
       assertWithMessage(operation.name)
         .that(fixture.triggers)
-        .containsExactly(setOf("books"))
+        .containsExactly(
+          when (operation) {
+            MutationOperation.DELETE, MutationOperation.DELETE_TABLE -> setOf("books", "chapters")
+            else -> setOf("books")
+          }
+        )
     }
   }
 
@@ -292,10 +300,15 @@ private class MutationFailureFixture(
   bindFailure: RuntimeException? = null,
   idFailure: RuntimeException? = null,
   compileFailure: RuntimeException? = null,
-  zeroResult: Boolean = false
+  zeroResult: Boolean = false,
+  cascadeTables: Map<String, Array<String>> = emptyMap()
 ) {
   val recording = RecordingSQLiteConnection()
   val connection = testDbConnection(
+    database = TestGeneratedDatabase(
+      tableCount = 1,
+      cascadeTables = cascadeTables
+    ),
     driver = SingleConnectionDriver(
       object : SQLiteConnection by recording, MutationResults by recording {
         override fun prepare(sql: String) = when (val statement = recording.prepare(sql)) {
