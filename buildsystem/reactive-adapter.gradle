@@ -34,7 +34,7 @@ tasks.named('check') {
 }
 
 tasks.named('compileTestKotlin') {
-  friendPaths.from(provider { runtimeProject.tasks.named('jar').get().outputs.files })
+  friendPaths.from(provider { runtimeProject.sourceSets.main.output.classesDirs })
   friendPaths.from(provider { runtimeProject.sourceSets.testFixtures.output.classesDirs })
 }
 

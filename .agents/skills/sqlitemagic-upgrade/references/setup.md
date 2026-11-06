@@ -32,12 +32,11 @@ dependencies {
 }
 ```
 
-- The module that builds the `SqliteMagic` setup declares its driver. Library modules with models get the framework
-  driver as `compileOnly` from the plugin and need no driver of their own.
+- The module that builds the `SqliteMagic` setup declares its driver. Library modules with models need no driver of
+  their own: the runtime brings `androidx.sqlite` for the generated code; a JVM test driver such as
+  `androidx.sqlite:sqlite-bundled-jvm` keeps its own version.
 - Remove `androidx.sqlite:sqlite-framework`, which only served `sqliteFactory(…)`.
 - The toolchain is the one 2.0 needed: minimum Android API 24 and a Kotlin compiler that reads Kotlin 2.4 metadata.
-  `sqlitemagic-framework-driver` brings the `androidx.sqlite` it needs; a JVM test driver such as
-  `androidx.sqlite:sqlite-bundled-jvm` keeps its own version.
 - The adapters bring neither RxJava nor coroutines: a module that uses their types keeps declaring RxJava or
   `kotlinx-coroutines-core`, as before. A module that declared RxJava only for the runtime's signatures can drop it.
 

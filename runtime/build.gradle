@@ -1,5 +1,5 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'java-test-fixtures'
   alias(libs.plugins.kotlin.jvm)
 }
@@ -13,7 +13,7 @@ dependencies {
 
   implementation rootProject.ext.androidJar
   implementation libs.android.annotations
-  implementation libs.android.sqlite
+  api libs.android.sqlite
 
   testFixturesImplementation rootProject.ext.androidJar
   testFixturesImplementation libs.android.sqlite

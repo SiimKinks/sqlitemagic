@@ -38,7 +38,7 @@ dependencies {
 ```
 
 - The adapters do not bring kotlinx-coroutines or RxJava: a module that uses their types declares them itself.
-- Library modules that only hold models need no driver; the plugin gives them the framework driver as `compileOnly`.
+- Library modules that only hold models need no driver: the runtime brings `androidx.sqlite` for the generated code.
 - SqliteMagic 3 is published from source to Maven local or a self-hosted repository (see the README); keep
   `mavenLocal()` or that repository in both `pluginManagement` and `dependencyResolutionManagement`.
 

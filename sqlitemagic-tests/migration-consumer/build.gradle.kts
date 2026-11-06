@@ -60,7 +60,6 @@ androidComponents {
 
 dependencies {
   implementation(project(":migration-consumer-feature"))
-  implementation(libs.android.sqlite)
 
   testImplementation(libs.android.sqlite.bundled.jvm)
   testImplementation(platform(libs.junit.bom))

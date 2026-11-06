@@ -277,13 +277,37 @@ internal class MigrationTestingConsumerIntegrationTest {
     }
     assertThat(releaseHashes(application)).isEqualTo(frozen)
 
+    project
+      .resolve("submodule/build.gradle.kts")
+      .appendText(
+        """
+
+tasks.register("inspectLibraryCompileClasspath") {
+  doLast {
+    println("CONSUMER_LIBRARY_COMPILE_BEGIN")
+    configurations.getByName("releaseCompileClasspath").incoming.resolutionResult.allComponents
+        .map { it.id.displayName }
+        .sorted()
+        .forEach(::println)
+    println("CONSUMER_LIBRARY_COMPILE_END")
+  }
+}
+"""
+      )
     val runtimeDependencies = run(
       project = project,
-      arguments = listOf(":app:inspectMigrationConsumerRuntimeDependencies")
+      arguments = listOf(
+        ":app:inspectMigrationConsumerRuntimeDependencies",
+        ":submodule:inspectLibraryCompileClasspath"
+      )
     )
     assertThat(runtimeDependencies.output).contains("CONSUMER_APP_TEST_HELPER=true")
     assertThat(runtimeDependencies.output).contains("CONSUMER_LIBRARY_TEST_HELPER=false")
     assertThat(runtimeDependencies.output).contains("CONSUMER_LIBRARY_PREPARE=false")
+    val libraryCompileNames = runtimeDependencies.output.substringAfter("CONSUMER_LIBRARY_COMPILE_BEGIN")
+      .substringBefore("CONSUMER_LIBRARY_COMPILE_END")
+    assertThat(libraryCompileNames).contains("androidx.sqlite:sqlite:")
+    assertThat(libraryCompileNames).doesNotContain("sqlitemagic-framework-driver")
     val dependencyNames = runtimeDependencies.output.substringAfter("CONSUMER_RUNTIME_BEGIN")
       .substringBefore("CONSUMER_RUNTIME_END")
     assertThat(dependencyNames).contains("com.siimkinks.sqlitemagic:sqlitemagic:")
