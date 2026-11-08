@@ -54,10 +54,9 @@ object SqlType {
    * It can only be used for reading values.
    */
   val NUMBER = ReadType(
-    nonNullRead = ::readNumber,
-    selectRead = ::readNumber,
-    readNullness = Required,
-    storageNullableRead = ::readNumberOrNull
+    nonNullRead = NUMBER_READ,
+    selectRead = NUMBER_READ,
+    readNullness = Required
   )
 }
 
@@ -66,10 +65,14 @@ private fun <T : Any> builtinType(storage: Storage<T>) = EncodingType<T, T, Requ
   nonNullRead = storage.read,
   selectRead = requiredReader(
     read = storage.read,
-    nullableRead = storage.nullableRead
+    checkedRead = storage.requiredRead
   ),
-  readNullness = Required,
-  storageNullableRead = storage.nullableRead
+  readNullness = Required
+)
+
+private val NUMBER_READ = NullAwareRead(
+  read = ::readNumber,
+  orNull = ::readNumberOrNull
 )
 
 private fun readNumber(statement: SQLiteStatement, index: Int) = readNumberOrNull(

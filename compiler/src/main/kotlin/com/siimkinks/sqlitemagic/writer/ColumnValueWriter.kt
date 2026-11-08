@@ -12,6 +12,10 @@ import com.siimkinks.sqlitemagic.SqlStorageType.LONG
 import com.siimkinks.sqlitemagic.SqlStorageType.SHORT
 import com.siimkinks.sqlitemagic.SqlStorageType.STRING
 import com.siimkinks.sqlitemagic.WriterTypes.GET_BLOB_OR_NULL
+import com.siimkinks.sqlitemagic.WriterTypes.GET_REQUIRED_BLOB
+import com.siimkinks.sqlitemagic.WriterTypes.GET_REQUIRED_DOUBLE
+import com.siimkinks.sqlitemagic.WriterTypes.GET_REQUIRED_LONG
+import com.siimkinks.sqlitemagic.WriterTypes.GET_REQUIRED_TEXT
 import com.siimkinks.sqlitemagic.WriterTypes.GET_TEXT_OR_NULL
 import com.squareup.kotlinpoet.CodeBlock
 
@@ -39,4 +43,21 @@ internal fun nullableDatabaseValueGetter(
   BOXED_BYTE_ARRAY -> CodeBlock.of("statement.%M(%L)?.toTypedArray()", GET_BLOB_OR_NULL, index)
   STRING -> CodeBlock.of("statement.%M(%L)", GET_TEXT_OR_NULL, index)
   else -> null
+}
+
+internal fun requiredDatabaseValueGetter(
+  storageType: SqlStorageType,
+  index: CodeBlock,
+  nullMessage: String
+) = when (storageType) {
+  BYTE_ARRAY -> CodeBlock.of("statement.%M(%L, %S)", GET_REQUIRED_BLOB, index, nullMessage)
+  BOXED_BYTE_ARRAY -> CodeBlock.of("statement.%M(%L, %S).toTypedArray()", GET_REQUIRED_BLOB, index, nullMessage)
+  BYTE -> CodeBlock.of("statement.%M(%L, %S)[0]", GET_REQUIRED_BLOB, index, nullMessage)
+  BOOLEAN -> CodeBlock.of("(statement.%M(%L, %S) != 0L)", GET_REQUIRED_LONG, index, nullMessage)
+  DOUBLE -> CodeBlock.of("statement.%M(%L, %S)", GET_REQUIRED_DOUBLE, index, nullMessage)
+  FLOAT -> CodeBlock.of("statement.%M(%L, %S).toFloat()", GET_REQUIRED_DOUBLE, index, nullMessage)
+  INT -> CodeBlock.of("statement.%M(%L, %S).toInt()", GET_REQUIRED_LONG, index, nullMessage)
+  LONG -> CodeBlock.of("statement.%M(%L, %S)", GET_REQUIRED_LONG, index, nullMessage)
+  SHORT -> CodeBlock.of("statement.%M(%L, %S).toShort()", GET_REQUIRED_LONG, index, nullMessage)
+  STRING -> CodeBlock.of("statement.%M(%L, %S)", GET_REQUIRED_TEXT, index, nullMessage)
 }

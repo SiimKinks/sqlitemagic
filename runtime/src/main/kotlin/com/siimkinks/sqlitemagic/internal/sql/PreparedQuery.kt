@@ -19,18 +19,17 @@ internal class ParameterIdentity<W>(
 internal class PreparedQuery(
   val sql: String,
   val bindings: List<QueryBinding>,
-  parameters: ScatterSet<ParameterIdentity<*>>,
+  parameters: ScatterSet<ParameterIdentity<*>>?,
   val dependencies: QueryDependencies,
   val connection: DbConnectionImpl?,
   private val readWidth: Int
 ) {
   val requiresWriter = dependencies.readsTemporaryObjects || !dependencies.declaresSources
 
-  private val parameterSlots = when {
-    parameters.isEmpty() -> null
-    else -> ParameterSlots(
+  private val parameterSlots = parameters?.let {
+    ParameterSlots(
       bindings = bindings,
-      parameterCount = parameters.size
+      parameterCount = it.size
     )
   }
 

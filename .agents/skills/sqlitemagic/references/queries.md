@@ -305,7 +305,7 @@ val names = ((SELECT COLUMN AUTHOR.NAME FROM AUTHOR) UNION (SELECT COLUMN AUTHOR
 | --- | --- | --- |
 | `execute()` | runs and reads every row into a `List` | blocking; compiles the query on every call |
 | `takeFirst()` | a plan for the first row; `.execute()` returns `T?` | adds `LIMIT 1` unless the query has a LIMIT |
-| `count()` | a plan for `SELECT count(*) FROM (query)`; `.execute()` returns `Long` | counts the final rows, DISTINCT, GROUP BY and LIMIT included; skips joins only entity reads need |
+| `count()` | a plan for `SELECT count(*) FROM (query)` (flat `SELECT count(*) FROM … WHERE …` for a plain, unordered entity query); `.execute()` returns `Long` | counts the final rows, DISTINCT, GROUP BY and LIMIT included; skips joins only entity reads need |
 | `useRows { rows -> }` | runs and hands a lazy `Sequence` to the block | rows valid only inside the block, iterable once, connection held until it returns |
 | `compile()` | a reusable plan, `CompiledSelect<T>` | thread-safe; `execute()`, `useRows`, `bind`, `observe()` |
 | adapter `observe()` | a stream re-run when read tables change | [reactive.md](reactive.md) |

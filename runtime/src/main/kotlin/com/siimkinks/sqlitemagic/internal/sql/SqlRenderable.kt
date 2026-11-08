@@ -32,7 +32,8 @@ internal class SqlRenderingContext(
 ) {
   val sql = StringBuilder(256)
   val bindings = mutableListOf<QueryBinding>()
-  val parameters = MutableScatterSet<ParameterIdentity<*>>()
+  var parameters: MutableScatterSet<ParameterIdentity<*>>? = null
+    private set
   val dependencies = QueryDependencies.Builder(collectDirectSources = definition != null)
   private var scope = SourceScope(
     enclosing = null,
@@ -358,6 +359,8 @@ internal class SqlRenderingContext(
     definition.occurrences[sourceName.lowercase()]?.let { definition.occurrences[field.key.lowercase()] = it }
   }
 
+  val namesFieldOutputs get() = scope.kind == DERIVED || (definition != null && scope.kind == ROOT)
+
   fun nameFieldOutput(table: Table<*>, name: String) {
     val scope = scope
     when (scope.kind) {
@@ -415,7 +418,8 @@ internal class SqlRenderingContext(
     }
     sql.append('?')
     bindings += parameter
-    parameters.add(parameter)
+    val identities = parameters ?: MutableScatterSet<ParameterIdentity<*>>().also { parameters = it }
+    identities.add(parameter)
   }
 
   fun appendLiteral(argument: NativeValue) = appendNativeLiteral(

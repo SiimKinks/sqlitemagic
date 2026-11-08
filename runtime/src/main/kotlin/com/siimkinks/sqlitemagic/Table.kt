@@ -15,6 +15,7 @@ import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.TableRelationship
+import com.siimkinks.sqlitemagic.internal.sql.QualifiedColumns
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 
 /**
@@ -110,6 +111,21 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
   )
 
   internal fun selectedEntityFields() = checkNotNull(entityFields) { "$name has no generated entity reader" }
+
+  private var renderedFields: QualifiedColumns? = null
+
+  internal fun renderedFields(qualifier: String): String {
+    val cached = renderedFields
+    if (cached != null && cached.qualifier == qualifier) {
+      return cached.sql
+    }
+    val rendered = QualifiedColumns(
+      qualifier = qualifier,
+      quotedNames = selectedEntityFields().map(Column<T, *, *, *, *, *, *>::quotedName)
+    )
+    renderedFields = rendered
+    return rendered.sql
+  }
 
   /**
    * All columns of this table.

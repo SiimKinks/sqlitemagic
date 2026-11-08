@@ -115,6 +115,10 @@ There is no default driver. Keep the project's choice; for a new project:
   (3.30), `RIGHT`/`FULL` joins (3.39), row values (3.15) or `RETURNING` (3.35). On the framework driver those fail on
   older devices when the statement is prepared; the library does not check versions or fall back.
 - Choose framework when locale-aware text handling, minimal APK size or the Database Inspector matter.
+- On the framework driver, each process's first open of a WAL database logs
+  `E/SQLiteLog: (5) statement aborts … [PRAGMA journal_mode=…]` and
+  `W/SQLiteConnection: Could not change the database journal mode …`. The driver keeps the file in WAL on purpose;
+  they need no fix.
 - Switching an installed app from framework to bundled is safe for the file; once the schema uses SQL the device's
   SQLite lacks, only a SQLite that has it can open the file.
 - With the bundled driver, never open the same file through Android's database APIs (`SQLiteDatabase`,
@@ -132,6 +136,8 @@ File databases run in WAL mode with one writer connection and up to four reader 
 - `PRAGMA busy_timeout = 3000` for locks held by other connections or processes.
 - `PRAGMA synchronous = NORMAL`, set together with WAL: a commit just before power loss can roll back, the file
   stays intact.
+- `PRAGMA wal_autocheckpoint = 1000`, SQLite's default, also set together with WAL (the framework would set 100): a
+  commit checkpoints the WAL into the database once it holds about 4 MB.
 - Foreign keys are enforced (`PRAGMA foreign_keys = ON`) when any relationship uses `onDeleteCascade`, recursively
   handled or not.
 - The database is a set of files: `<name>`, `<name>-wal`, `<name>-shm`. Backups and copies must include all three, or
@@ -145,7 +151,7 @@ import androidx.sqlite.execSQL
 SqliteMagic.builder(this)
   .database(SqliteMagicDatabase())
   .driver(BundledSQLiteDriver())
-  .readerConnections(2)                 // 0: one connection, no WAL or NORMAL; both left to configureConnection
+  .readerConnections(2)                 // 0: one connection, no WAL defaults; left to configureConnection
   .connectionPoolTimeout(10.seconds)    // Duration.INFINITE waits without limit
   .configureConnection { connection ->
     connection.execSQL("PRAGMA synchronous = FULL")

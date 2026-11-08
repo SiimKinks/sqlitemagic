@@ -66,6 +66,10 @@ class EntitySelection<M> internal constructor(
 
   private fun renderViewColumns(context: SqlRenderingContext, view: ViewDefinition) {
     val qualifier = context.qualifier(table)
+    if (!context.namesFieldOutputs) {
+      context.sql.append(view.renderedColumns(qualifier))
+      return
+    }
     context.renderList(count = view.columnNames.size) { index ->
       context.sql
         .append(qualifier)
@@ -99,7 +103,11 @@ fun <T> SelectQuery<T, EntitySelection<T>>.queryDeep() = SelectQuery(
     .withDeepArms()
 )
 
-private fun renderFields(context: SqlRenderingContext, table: Table<*>) =
+private fun renderFields(context: SqlRenderingContext, table: Table<*>) {
+  if (!context.namesFieldOutputs) {
+    context.sql.append(table.renderedFields(context.qualifier(table)))
+    return
+  }
   context.renderList(items = table.selectedEntityFields()) { field ->
     field.node.render(context)
     context.nameFieldOutput(
@@ -107,3 +115,4 @@ private fun renderFields(context: SqlRenderingContext, table: Table<*>) =
       name = field.name
     )
   }
+}

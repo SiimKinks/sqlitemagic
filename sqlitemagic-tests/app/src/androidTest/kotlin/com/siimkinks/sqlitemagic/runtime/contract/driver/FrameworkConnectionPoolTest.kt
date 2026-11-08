@@ -61,8 +61,8 @@ internal class FrameworkConnectionPoolTest {
 
     assertThat(settings)
       .containsExactly(
-        listOf(3000L, 1L, 524288L, 0L),
-        listOf(3000L, 1L, 524288L, 1L)
+        listOf(3000L, 1L, 524288L, 1000L, 0L),
+        listOf(3000L, 1L, 524288L, 1000L, 1L)
       )
       .inOrder()
   }
@@ -243,6 +243,7 @@ internal class FrameworkConnectionPoolTest {
     long("PRAGMA busy_timeout"),
     long("PRAGMA synchronous"),
     long("PRAGMA journal_size_limit"),
+    long("PRAGMA wal_autocheckpoint"),
     long("PRAGMA query_only")
   )
 }

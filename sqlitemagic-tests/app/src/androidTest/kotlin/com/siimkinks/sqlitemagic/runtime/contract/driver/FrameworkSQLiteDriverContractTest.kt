@@ -16,6 +16,7 @@ import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.framework.FrameworkSQLiteDriver
+import com.siimkinks.sqlitemagic.internal.CursorWindowReads
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
 import com.siimkinks.sqlitemagic.internal.MutationResults
 import com.siimkinks.sqlitemagic.runtime.support.assertSqliteRejects
@@ -193,6 +194,29 @@ internal class FrameworkSQLiteDriverContractTest {
       }
 
     assertThat(ids).isEqualTo((1L..5_000L).toList())
+  }
+
+  @Test
+  fun rowCountIsTheNumberOfRowsOfTheCurrentExecution() {
+    insertNotes()
+
+    val counts = connection
+      .prepare("SELECT id, body FROM note WHERE id <= ? ORDER BY id")
+      .use { statement ->
+        listOf(5_000L, 3L).map { last ->
+          statement.reset()
+          statement.bindLong(
+            index = 1,
+            value = last
+          )
+          statement.step()
+          (statement as CursorWindowReads).rowCount
+        }
+      }
+
+    assertThat(counts)
+      .containsExactly(5_000, 3)
+      .inOrder()
   }
 
   @Test
@@ -570,6 +594,24 @@ internal class FrameworkSQLiteDriverContractTest {
     val reads = List(3) { connection.long("SELECT count(*) FROM scratch") to connection.long("PRAGMA query_only") }
 
     assertThat(reads).containsExactly(1L to 1L, 1L to 1L, 1L to 1L)
+  }
+
+  @Test
+  fun aWalDatabaseKeepsItsJournalModeWhenItOpensAgain() {
+    val path = freshDatabasePath("framework-driver-reopened-wal.db")
+    FrameworkSQLiteDriver()
+      .open(path)
+      .use { first ->
+        first.text("PRAGMA journal_mode = WAL")
+        first.execSQL("CREATE TABLE item(x)")
+        first.execSQL("INSERT INTO item VALUES (1)")
+      }
+
+    val reopened = FrameworkSQLiteDriver()
+      .open(path)
+      .use { it.text("PRAGMA journal_mode") to it.long("SELECT count(*) FROM item") }
+
+    assertThat(reopened).isEqualTo("wal" to 1L)
   }
 
   @Test

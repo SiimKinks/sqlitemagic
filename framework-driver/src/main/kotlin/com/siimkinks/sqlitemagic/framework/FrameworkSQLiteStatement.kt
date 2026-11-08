@@ -21,7 +21,7 @@ import androidx.sqlite.SQLITE_DATA_INTEGER
 import androidx.sqlite.SQLITE_DATA_NULL
 import androidx.sqlite.SQLITE_DATA_TEXT
 import androidx.sqlite.SQLiteStatement
-import com.siimkinks.sqlitemagic.internal.NullableValueReads
+import com.siimkinks.sqlitemagic.internal.CursorWindowReads
 import android.database.sqlite.SQLiteStatement as FrameworkProgram
 
 internal class FrameworkSQLiteStatement(
@@ -30,7 +30,7 @@ internal class FrameworkSQLiteStatement(
   private val idleWindow: IdleCursorWindow,
   private val readSnapshot: ReadSnapshot,
   private val transaction: TransactionState
-) : SQLiteStatement, NullableValueReads {
+) : SQLiteStatement, CursorWindowReads {
   private val columnNames: Array<String> = db
     .rawQuery(sql, NO_ARGUMENTS)
     .use(Cursor::getColumnNames)
@@ -117,6 +117,8 @@ internal class FrameworkSQLiteStatement(
   override fun getTextOrNull(index: Int): String? = window.getString(position, index)
 
   override fun isNull(index: Int) = window.getType(position, index) == FIELD_TYPE_NULL
+
+  override val rowCount get() = count
 
   override fun getColumnCount() = columnNames.size
 

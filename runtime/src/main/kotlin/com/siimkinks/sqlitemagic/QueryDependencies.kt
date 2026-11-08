@@ -25,7 +25,7 @@ internal class QueryDependencies private constructor(
   }
 
   class Builder(
-    initialCapacity: Int = 0,
+    private val initialCapacity: Int = 0,
     collectDirectSources: Boolean = true
   ) {
     private val directSources = when {
@@ -36,7 +36,8 @@ internal class QueryDependencies private constructor(
       collectDirectSources -> MutableScatterSet<SqliteSchemaKey>(initialCapacity)
       else -> null
     }
-    private val observedTableNames = MutableOrderedScatterSet<String>(initialCapacity = initialCapacity)
+    private var firstObservedTable: String? = null
+    private var observedTableNames: MutableOrderedScatterSet<String>? = null
     private var declaresSources = false
     private var readsTemporaryObjects = false
 
@@ -47,11 +48,11 @@ internal class QueryDependencies private constructor(
       }
       addDirectSource(source)
       if (source.kind == TABLE) {
-        observedTableNames += source.name
+        addObservedTable(source.name)
       }
     }
 
-    fun addObservedTables(names: Array<out String>) = names.forEach(observedTableNames::add)
+    fun addObservedTables(names: Array<out String>) = names.forEach(::addObservedTable)
 
     fun merge(dependencies: QueryDependencies) {
       declaresSources = declaresSources || dependencies.declaresSources
@@ -62,10 +63,26 @@ internal class QueryDependencies private constructor(
 
     fun build() = QueryDependencies(
       directSources = directSources.orEmpty(),
-      observedTables = observedTableNames.toTypedArray(),
+      observedTables = observedTableNames?.toTypedArray() ?: firstObservedTable?.let(::arrayOf) ?: NO_TABLES,
       declaresSources = declaresSources,
       readsTemporaryObjects = readsTemporaryObjects
     )
+
+    private fun addObservedTable(name: String) {
+      val first = firstObservedTable
+      when {
+        first == null -> firstObservedTable = name
+        first == name -> Unit
+        else -> (observedTableNames ?: startObservedTableNames(first)).add(name)
+      }
+    }
+
+    private fun startObservedTableNames(first: String) = MutableOrderedScatterSet<String>(
+      initialCapacity = initialCapacity
+    ).also { names ->
+      names += first
+      observedTableNames = names
+    }
 
     private fun addDirectSource(source: SqliteQuerySource) {
       if (directSourceKeys?.add(source.identity.normalizedKey) == true) {
@@ -74,3 +91,5 @@ internal class QueryDependencies private constructor(
     }
   }
 }
+
+private val NO_TABLES = emptyArray<String>()

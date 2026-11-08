@@ -9,8 +9,12 @@ import com.siimkinks.sqlitemagic.SqlType.FLOAT
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.NUMBER
 import com.siimkinks.sqlitemagic.SqlType.STRING
-import com.siimkinks.sqlitemagic.internal.NullableValueReads
+import com.siimkinks.sqlitemagic.internal.CursorWindowReads
 import com.siimkinks.sqlitemagic.internal.SqlStorage
+import com.siimkinks.sqlitemagic.internal.getRequiredBlob
+import com.siimkinks.sqlitemagic.internal.getRequiredDouble
+import com.siimkinks.sqlitemagic.internal.getRequiredLong
+import com.siimkinks.sqlitemagic.internal.getRequiredText
 import com.siimkinks.sqlitemagic.internal.identity
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
 import com.siimkinks.sqlitemagic.internal.nullableReadType
@@ -23,6 +27,7 @@ import com.siimkinks.sqlitemagic.internal.sql.bindNativeValue
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mockingDetails
+import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.clearInvocations
 import org.mockito.kotlin.eq
@@ -153,10 +158,11 @@ internal class SqlDescriptorTest {
       val calls: List<String>
     )
 
-    val statement = mock<SQLiteStatement>(extraInterfaces = arrayOf(NullableValueReads::class))
+    val statement = mock<SQLiteStatement>(extraInterfaces = arrayOf(CursorWindowReads::class))
     whenever(statement.getLong(0)).thenReturn(7L)
     whenever(statement.getColumnType(0)).thenReturn(SQLITE_DATA_INTEGER)
-    whenever((statement as NullableValueReads).getTextOrNull(0)).thenReturn("text")
+    whenever(statement.getText(0)).thenReturn("raw")
+    whenever((statement as CursorWindowReads).getTextOrNull(0)).thenReturn("text")
     val text = "x".expr(STRING)
 
     listOf(
@@ -197,6 +203,65 @@ internal class SqlDescriptorTest {
         calls = listOf("getTextOrNull")
       ),
       ReadCase(
+        label = "NULLIF of a STRING expression",
+        read = NULLIF(text, "y").selectRead,
+        expected = "text",
+        calls = listOf("getTextOrNull")
+      ),
+      ReadCase(
+        label = "MAX of a STRING expression",
+        read = MAX(text).selectRead,
+        expected = "text",
+        calls = listOf("getTextOrNull")
+      ),
+      ReadCase(
+        label = "nullable form of a required transformer over TEXT",
+        read = requiredReadType(
+          storage = SqlStorage.STRING,
+          encode = ::identity,
+          decode = String::uppercase,
+          encodingNullness = Required
+        )
+          .nullable
+          .selectRead,
+        expected = "TEXT",
+        calls = listOf("getTextOrNull")
+      ),
+      ReadCase(
+        label = "nullable form of a required transformer over INTEGER",
+        read = requiredReadType(
+          storage = SqlStorage.LONG,
+          encode = ::identity,
+          decode = Long::toString,
+          encodingNullness = Required
+        )
+          .nullable
+          .selectRead,
+        expected = "7",
+        calls = listOf("isNull", "getLong")
+      ),
+      ReadCase(
+        label = "nullable form of a nullable-input transformer checks SQL NULL before decoding",
+        read = nullableReadType(
+          storage = SqlStorage.STRING,
+          encode = ::identity,
+          decode = { value: String? -> value?.uppercase() },
+          encodingNullness = SqlNullable
+        )
+          .nullable
+          .selectRead,
+        expected = "RAW",
+        calls = listOf("isNull", "getText")
+      ),
+      ReadCase(
+        label = "nullable NUMBER expression",
+        read = "x".expr(NUMBER)
+          .nullable()
+          .selectRead,
+        expected = 7L,
+        calls = listOf("getColumnType", "getLong")
+      ),
+      ReadCase(
         label = "nullable CAST AS TEXT",
         read = CAST("x".expr(STRING.nullable) AS TEXT).selectRead,
         expected = "text",
@@ -211,14 +276,99 @@ internal class SqlDescriptorTest {
     ).forEach { case ->
       clearInvocations(statement)
       val value = case.read(statement, 0)
-      val calls = mockingDetails(statement)
-        .invocations
-        .map { it.method.name }
 
       assertWithMessage(case.label)
-        .that(value to calls)
+        .that(value to statement.callNames())
         .isEqualTo(case.expected to case.calls)
     }
+  }
+
+  @Test
+  fun `required reads make one call for every value except a numeric zero and report the given message for NULL`() {
+    data class ReadCase(
+      val label: String,
+      val read: (SQLiteStatement) -> Any,
+      val value: Any,
+      val presentCalls: List<String>,
+      val nullCalls: List<String>
+    )
+
+    val message = "column was NULL"
+    val cases = listOf(
+      ReadCase(
+        label = "non-zero INTEGER",
+        read = {
+          it.getRequiredLong(
+            index = 0,
+            nullMessage = message
+          )
+        },
+        value = 7L,
+        presentCalls = listOf("getLong"),
+        nullCalls = listOf("getLong", "isNull")
+      ),
+      ReadCase(
+        label = "non-zero REAL",
+        read = {
+          it.getRequiredDouble(
+            index = 1,
+            nullMessage = message
+          )
+        },
+        value = 0.5,
+        presentCalls = listOf("getDouble"),
+        nullCalls = listOf("getDouble", "isNull")
+      ),
+      ReadCase(
+        label = "TEXT",
+        read = {
+          it.getRequiredText(
+            index = 2,
+            nullMessage = message
+          )
+        },
+        value = "text",
+        presentCalls = listOf("getTextOrNull"),
+        nullCalls = listOf("getTextOrNull")
+      ),
+      ReadCase(
+        label = "BLOB",
+        read = {
+          it
+              .getRequiredBlob(
+                index = 3,
+                nullMessage = message
+              )
+              .toList()
+        },
+        value = listOf<Byte>(1),
+        presentCalls = listOf("getBlobOrNull"),
+        nullCalls = listOf("getBlobOrNull")
+      )
+    )
+    val present = mock<SQLiteStatement>(extraInterfaces = arrayOf(CursorWindowReads::class))
+    whenever(present.getLong(0)).thenReturn(7L)
+    whenever(present.getDouble(1)).thenReturn(0.5)
+    whenever((present as CursorWindowReads).getTextOrNull(2)).thenReturn("text")
+    whenever((present as CursorWindowReads).getBlobOrNull(3)).thenReturn(byteArrayOf(1))
+    val sqlNull = mock<SQLiteStatement>(extraInterfaces = arrayOf(CursorWindowReads::class))
+    whenever(sqlNull.isNull(any())).thenReturn(true)
+
+    cases.forEach { case ->
+      clearInvocations(present, sqlNull)
+      val value = case.read(present)
+      val failure = sqlExceptionMessage { case.read(sqlNull) }
+
+      assertWithMessage(case.label)
+        .that(listOf(value, present.callNames(), failure, sqlNull.callNames()))
+        .isEqualTo(listOf(case.value, case.presentCalls, message, case.nullCalls))
+    }
+    val zero = mock<SQLiteStatement>()
+    val zeroRead = zero.getRequiredLong(
+      index = 0,
+      nullMessage = message
+    )
+    assertThat(zeroRead to zero.callNames()).isEqualTo(0L to listOf("getLong", "isNull"))
   }
 
   @Test
@@ -338,3 +488,7 @@ internal class SqlDescriptorTest {
     }
   }
 }
+
+private fun SQLiteStatement.callNames() = mockingDetails(this)
+  .invocations
+  .map { it.method.name }

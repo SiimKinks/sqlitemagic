@@ -67,6 +67,8 @@ internal class ColumnPosition(
   fun nullCheck() = nullChecks.nullCheck(this)
 
   fun presentNullCheck() = nullChecks.presentNullCheck(this)
+
+  fun sharesNullCheck() = nullChecks.isShared(this)
 }
 
 internal class ColumnCheck(
@@ -159,6 +161,8 @@ internal class ColumnNullChecks {
     )
     else -> ColumnCheck(condition = cached)
   }
+
+  fun isShared(position: ColumnPosition) = cachedValue(position) != null
 
   private fun presentNull(code: CodeBlock, mayBeMissing: Boolean) = when {
     mayBeMissing -> ColumnCheck(

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.CursorWindowReads
 import com.siimkinks.sqlitemagic.internal.QueryObservation
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
@@ -147,12 +148,15 @@ class CompiledSelect<T> internal constructor(
   }
 
   override fun mapRows(statement: SQLiteStatement, isDisposed: () -> Boolean): List<T> {
-    val read = reader.open()
-    return buildList {
-      while (!isDisposed() && statement.step()) {
-        add(read(statement, 0))
-      }
+    if (isDisposed() || !statement.step()) {
+      return emptyList()
     }
+    val read = reader.open()
+    val rows = ArrayList<T>((statement as? CursorWindowReads)?.rowCount ?: DEFAULT_ROW_CAPACITY)
+    do {
+      rows.add(read(statement, 0))
+    } while (!isDisposed() && statement.step())
+    return rows
   }
 }
 
@@ -246,3 +250,5 @@ class CompiledCount internal constructor(
     return statement.getLong(0)
   }
 }
+
+private const val DEFAULT_ROW_CAPACITY = 10

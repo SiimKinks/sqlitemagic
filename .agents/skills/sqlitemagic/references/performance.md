@@ -86,11 +86,15 @@ asks. Apply these in order of impact.
 - Reads run in parallel on up to four reader connections; one writer serializes writes. Long transactions block other
   writers, so batch work into short transactions or call `yieldIfContended()`/`yieldIfContendedSafely()` in long
   imports (`yieldIfContendedSafely()` throws in a nested transaction, see [transactions.md](transactions.md)).
-- Lower `readerConnections` only to save memory in apps that rarely read concurrently. `0` also leaves out WAL and
-  `synchronous = NORMAL`: the driver's journal mode and synchronous setting apply (usually a rollback journal and
-  `FULL`, a sync per commit) unless `configureConnection` sets them.
+- Lower `readerConnections` only to save memory in apps that rarely read concurrently. `0` leaves journal mode,
+  `synchronous` and `wal_autocheckpoint` to the driver and `configureConnection`: a new file gets the driver's rollback
+  journal and `FULL`, a sync per commit; a file already in WAL stays in WAL on both drivers unless `configureConnection`
+  sets `PRAGMA journal_mode`.
 - With reader connections the library sets `PRAGMA synchronous = NORMAL`, the fast setting that keeps a WAL database
   intact: a commit writes to the WAL without a sync. `FULL` costs a sync per commit.
+- With reader connections the library also sets SQLite's default `PRAGMA wal_autocheckpoint = 1000` (the framework
+  driver would checkpoint every 100 pages, about 400 KB). Bulk writes checkpoint less often, and each checkpoint
+  takes longer.
 
 ## Measure
 

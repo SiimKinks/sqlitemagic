@@ -177,7 +177,7 @@ internal class ViewProjectionContractTest {
           """columns = listOf("details_marker")""",
           """blocks = listOf(ViewBlock(key = "details_inner", target = InnerViewTable.INNER_VIEW))""",
           "details = NestedDetails(`inner` = related.read(statement, 0) as InnerView",
-          "marker = if (statement.isNull(startIndex)) throw SQLException("
+          "marker = statement.getRequiredText(startIndex, "
         )
       }
   }

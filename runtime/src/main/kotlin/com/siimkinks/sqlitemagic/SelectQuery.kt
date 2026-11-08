@@ -145,7 +145,8 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
    *
    * Result is immutable object which can be shared across multiple threads without side effects.
    *
-   * Resulting SQL will be "SELECT count(*) FROM (SELECT ...)".
+   * Resulting SQL will be "SELECT count(*) FROM (SELECT ...)", or "SELECT count(*) FROM ..." when the query selects all
+   * columns of a table or view without DISTINCT, GROUP BY, HAVING, a compound, ORDER BY, LIMIT or OFFSET.
    *
    * NB! This method does not compile the underlying SQL statement against a database.
    *

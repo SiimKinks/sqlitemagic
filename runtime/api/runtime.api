@@ -1431,6 +1431,21 @@ public final class com/siimkinks/sqlitemagic/internal/BulkUpdateByColumnBuilder 
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
 }
 
+public abstract interface class com/siimkinks/sqlitemagic/internal/CursorWindowReads {
+	public abstract fun getBlobOrNull (I)[B
+	public abstract fun getRowCount ()I
+	public abstract fun getTextOrNull (I)Ljava/lang/String;
+}
+
+public final class com/siimkinks/sqlitemagic/internal/CursorWindowReadsKt {
+	public static final fun getBlobOrNull (Landroidx/sqlite/SQLiteStatement;I)[B
+	public static final fun getRequiredBlob (Landroidx/sqlite/SQLiteStatement;ILjava/lang/String;)[B
+	public static final fun getRequiredDouble (Landroidx/sqlite/SQLiteStatement;ILjava/lang/String;)D
+	public static final fun getRequiredLong (Landroidx/sqlite/SQLiteStatement;ILjava/lang/String;)J
+	public static final fun getRequiredText (Landroidx/sqlite/SQLiteStatement;ILjava/lang/String;)Ljava/lang/String;
+	public static final fun getTextOrNull (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/String;
+}
+
 public abstract class com/siimkinks/sqlitemagic/internal/DefaultIdentityBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityOperationByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityDefaultIdentityAdapter;)V
 	public fun byColumn (Lcom/siimkinks/sqlitemagic/Unique;)Ljava/lang/Object;
@@ -1574,16 +1589,6 @@ public class com/siimkinks/sqlitemagic/internal/MutableScatterSet : com/siimkink
 public abstract interface class com/siimkinks/sqlitemagic/internal/MutationResults {
 	public abstract fun executeInsert (Landroidx/sqlite/SQLiteStatement;)J
 	public abstract fun executeUpdateDelete (Landroidx/sqlite/SQLiteStatement;)I
-}
-
-public abstract interface class com/siimkinks/sqlitemagic/internal/NullableValueReads {
-	public abstract fun getBlobOrNull (I)[B
-	public abstract fun getTextOrNull (I)Ljava/lang/String;
-}
-
-public final class com/siimkinks/sqlitemagic/internal/NullableValueReadsKt {
-	public static final fun getBlobOrNull (Landroidx/sqlite/SQLiteStatement;I)[B
-	public static final fun getTextOrNull (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/String;
 }
 
 public abstract class com/siimkinks/sqlitemagic/internal/OperationBuilder {

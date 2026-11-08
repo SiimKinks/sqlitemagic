@@ -36,8 +36,8 @@ internal class ViewGenerationContractTest {
           "val AUTHOR_NAME:",
           "Column<AuthorSummary, String, Required, String, String, Required, String>",
           """name = "author.name"""",
-          """selectedRead = { statement, index -> (if (statement.isNull(index)) throw """ +
-              """SQLException("Column \"author.name\" was NULL") else statement.getText(index)) }""",
+          """selectedRead = { statement, index -> statement.getRequiredText(index, """ +
+              """"Column \"author.name\" was NULL") }""",
           "val RATING: Column<AuthorSummary, Int, SqlNullable, Int?, Int?, SqlNullable, Int?>",
           """name = "rating"""",
           "SqliteMagic_AuthorSummary_Dao.objectFromRow(statement, startIndex)",
@@ -55,8 +55,7 @@ internal class ViewGenerationContractTest {
           "query = { AuthorSummary.query }",
           """columns = listOf("author.name", "rating")""",
           "fun objectFromRow(statement: SQLiteStatement, startIndex: Int): AuthorSummary",
-          """Column \"author.name\" was NULL""",
-          "statement.getText(startIndex)",
+          """statement.getRequiredText(startIndex, "Column \"author.name\" was NULL")""",
           "rating = if (statement.isNull(startIndex + 1)) null else statement.getInt(startIndex + 1)"
         )
         generatedSource.assertContainsInOrder(
@@ -95,8 +94,7 @@ internal class ViewGenerationContractTest {
       .withGeneratedSource("SqliteMagic_EmailView_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "fun objectFromRow(",
-          "email = if (statement.isNull(startIndex)) throw SQLException(",
-          "else EmailTransformer.stringToEmail(statement.getText(startIndex))"
+          "email = EmailTransformer.stringToEmail(statement.getRequiredText(startIndex, "
         )
         assertThat(
           Regex("""EmailTransformer\.stringToEmail\(""")
@@ -114,8 +112,7 @@ internal class ViewGenerationContractTest {
       .assertGeneratedSources("SqliteMagic_FlagView_Dao.kt")
       .withGeneratedSource("SqliteMagic_FlagView_Dao.kt") { generatedSource ->
         generatedSource.assertContainsUnwrapped(
-          """enabled = if (statement.isNull(startIndex)) throw SQLException("Column \"enabled\" was NULL") """ +
-              "else statement.getBoolean(startIndex)",
+          """enabled = (statement.getRequiredLong(startIndex, "Column \"enabled\" was NULL") != 0L)""",
           "archived = if (statement.isNull(startIndex + 1)) null else statement.getBoolean(startIndex + 1)"
         )
         generatedSource.assertDoesNotContain("BooleanTransformer")
@@ -130,7 +127,7 @@ internal class ViewGenerationContractTest {
       .withGeneratedSource("SqliteMagic_MutableAuthorSummary_Dao.kt") { generatedSource ->
         generatedSource.assertContains(
           "MutableAuthorSummary().apply",
-          "this.name = if (statement.isNull(startIndex)) throw SQLException(",
+          "this.name = statement.getRequiredText(startIndex, ",
           "if (!statement.isNull(startIndex + 1)) this.rating = statement.getInt(startIndex + 1)",
           "(related.readOrNull(statement, 0) as Author?)?.let { this.author = it }"
         )

@@ -49,30 +49,93 @@ internal class RelationshipSelectTest {
 
   @Test
   fun `counts read no values so they join no relationships and take outer-joined fields`() {
-    val deep = (SELECT FROM BOOK).queryDeep()
-    val titles = SELECT.COLUMN(BOOK.TITLE)
-      .FROM(AUTHOR)
-      .LEFT_JOIN(BOOK)
-      .ON(AUTHOR.ID IS BOOK.AUTHOR)
+    data class Case(
+      val label: String,
+      val query: SelectQuery<*, *>,
+      val sql: String,
+      val count: Long
+    )
 
-    assertThat(observedSnapshot(deep.count())).isEqualTo(
-      ObservedPlanSnapshot(
-        sql = """SELECT count(*) FROM (SELECT $bookFields FROM "main"."book")""",
-        arguments = emptyList(),
-        sources = listOf("book")
+    val authorJoin = """LEFT JOIN "main"."author" ON "book"."author" = "author"."id""""
+    val cases = listOf(
+      Case(
+        label = "entity",
+        query = SELECT.FROM(BOOK),
+        sql = """SELECT count(*) FROM "main"."book"""",
+        count = 3L
+      ),
+      Case(
+        label = "deep entity",
+        query = SELECT
+          .FROM(BOOK)
+          .queryDeep(),
+        sql = """SELECT count(*) FROM "main"."book"""",
+        count = 3L
+      ),
+      Case(
+        label = "entity ordered by result position",
+        query = SELECT
+          .FROM(BOOK)
+          .ORDER_BY("2".expr(SqlType.LONG).DESC()),
+        sql = """SELECT count(*) FROM (SELECT $bookFields FROM "main"."book" ORDER BY 2 DESC)""",
+        count = 3L
+      ),
+      Case(
+        label = "entity filtered through an automatic join",
+        query = SELECT
+          .FROM(BOOK)
+          .WHERE(AUTHOR.NAME IS "Ada"),
+        sql = """SELECT count(*) FROM "main"."book" $authorJoin WHERE "author"."name" = ?""",
+        count = 1L
+      ),
+      Case(
+        label = "entity with joined rows",
+        query = SELECT
+          .FROM(AUTHOR)
+          .LEFT_JOIN(BOOK)
+          .ON(AUTHOR.ID IS BOOK.AUTHOR),
+        sql = """SELECT count(*) FROM "main"."author" LEFT JOIN "main"."book" ON "author"."id" = "book"."author"""",
+        count = 4L
+      ),
+      Case(
+        label = "limited entity",
+        query = SELECT
+          .FROM(BOOK)
+          .LIMIT(2),
+        sql = """SELECT count(*) FROM (SELECT $bookFields FROM "main"."book" LIMIT 2)""",
+        count = 2L
+      ),
+      Case(
+        label = "outer-joined column",
+        query = SELECT.COLUMN(BOOK.TITLE)
+          .FROM(AUTHOR)
+          .LEFT_JOIN(BOOK)
+          .ON(AUTHOR.ID IS BOOK.AUTHOR),
+        sql = """SELECT count(*) FROM (SELECT "book"."title" FROM "main"."author" """ +
+            """LEFT JOIN "main"."book" ON "author"."id" = "book"."author")""",
+        count = 4L
       )
     )
-    assertThat(
-      libraryDatabase().use { database ->
-        database.execSQL("INSERT INTO author VALUES (4, 'Mary', NULL)")
-        listOf(deep, titles).map { query ->
-          query
-            .usingConnection(database.connection)
-            .count()
-            .execute()
-        }
+
+    val counts = libraryDatabase().use { database ->
+      database.execSQL("INSERT INTO author VALUES (4, 'Mary', NULL)")
+      cases.map { case ->
+        val count = case.query
+          .usingConnection(database.connection)
+          .count()
+        case.label to (count.sql to count.execute())
       }
-    ).isEqualTo(listOf(3L, 4L))
+    }
+
+    assertThat(counts).isEqualTo(cases.map { it.label to (it.sql to it.count) })
+    assertThat(
+      observedSnapshot(
+        SELECT
+          .FROM(BOOK)
+          .queryDeep()
+          .count()
+      ).sources
+    ).isEqualTo(listOf("book"))
   }
 
   @Test

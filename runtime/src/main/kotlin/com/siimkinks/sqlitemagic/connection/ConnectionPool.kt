@@ -796,6 +796,7 @@ internal class ConnectionPool(
     connection.execSQL("PRAGMA busy_timeout = $BUSY_TIMEOUT_MILLIS")
     if (maxReaders > 0) {
       connection.execSQL("PRAGMA synchronous = NORMAL")
+      connection.execSQL("PRAGMA wal_autocheckpoint = $WAL_AUTOCHECKPOINT_PAGES")
     }
     connection.execSQL("PRAGMA journal_size_limit = $JOURNAL_SIZE_LIMIT")
     options.configureConnection?.invoke(connection)
@@ -1171,6 +1172,7 @@ private const val WRITER_ROWS = 16
 internal const val RELEASES = HOLDS_READER or HOLDS_WRITER or HOLDS_SERIAL_LEASE
 private const val BUSY_TIMEOUT_MILLIS = 3000
 private const val JOURNAL_SIZE_LIMIT = 524288
+private const val WAL_AUTOCHECKPOINT_PAGES = 1000
 private const val SAVEPOINT = "SAVEPOINT sqlitemagic_operation"
 private const val RELEASE_SAVEPOINT = "RELEASE sqlitemagic_operation"
 private const val ROLLBACK_TO_SAVEPOINT = "ROLLBACK TO sqlitemagic_operation"

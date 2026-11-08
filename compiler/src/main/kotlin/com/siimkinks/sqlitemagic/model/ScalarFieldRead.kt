@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.SqlStorageType
-import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.WriterTypes.nullnessType
 import com.siimkinks.sqlitemagic.transformer.TransformerElement
 import com.siimkinks.sqlitemagic.writer.databaseValueGetter
 import com.siimkinks.sqlitemagic.writer.nullableDatabaseValueGetter
+import com.siimkinks.sqlitemagic.writer.requiredDatabaseValueGetter
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.TypeName
 
@@ -55,15 +55,13 @@ internal class ScalarFieldRead(
   private fun nullOr(read: CodeBlock) = CodeBlock.of("(if (statement.isNull(index)) null else %L)", read)
 
   private fun requiredReadCode(): CodeBlock {
-    val raw = rawRead()
     val checkedRaw = when {
-      checksRequiredNull -> CodeBlock.of(
-        "(if (statement.isNull(index)) throw %T(%S) else %L)",
-        SQL_EXCEPTION,
-        """Column "$columnName" was NULL""",
-        raw
+      checksRequiredNull -> requiredDatabaseValueGetter(
+        storageType = sqlStorageType,
+        index = CodeBlock.of("index"),
+        nullMessage = """Column "$columnName" was NULL"""
       )
-      else -> raw
+      else -> rawRead()
     }
     return when {
       transformer == null -> checkedRaw

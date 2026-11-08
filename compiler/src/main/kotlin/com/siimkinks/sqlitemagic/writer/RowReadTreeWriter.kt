@@ -263,10 +263,18 @@ private fun scalarValue(
   guarded: Boolean
 ): CodeBlock {
   val required = !node.isNullable && node.requiresPresentValue
-  val databaseValue = databaseValueGetter(
-    storageType = node.storageType,
-    index = node.position.code
-  )
+  val readChecksNull = required && !guarded && !node.position.mayBeMissing && !node.position.sharesNullCheck()
+  val databaseValue = when {
+    readChecksNull -> requiredDatabaseValueGetter(
+      storageType = node.storageType,
+      index = node.position.code,
+      nullMessage = node.nullMessage
+    )
+    else -> databaseValueGetter(
+      storageType = node.storageType,
+      index = node.position.code
+    )
+  }
   val databaseValueOrNull = nullableDatabaseValueGetter(
     storageType = node.storageType,
     index = node.position.code
@@ -316,7 +324,7 @@ private fun scalarValue(
       node.position.nullCheck().condition,
       value
     )
-    required -> requiredValue(
+    required && !readChecksNull -> requiredValue(
       position = node.position,
       value = value,
       missingMessage = node.missingMessage,
