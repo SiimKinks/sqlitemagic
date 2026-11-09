@@ -2,7 +2,7 @@ public class com/siimkinks/sqlitemagic/rxjava2/CountQueryObservable : io/reactiv
 	public final fun isNotZero ()Lio/reactivex/Observable;
 	public final fun isZero ()Lio/reactivex/Observable;
 	public final fun runQuery ()Lio/reactivex/Observable;
-	public final fun runQueryOnce ()Lio/reactivex/Maybe;
+	public final fun runQueryOnce ()Lio/reactivex/Single;
 	protected fun subscribeActual (Lio/reactivex/Observer;)V
 }
 

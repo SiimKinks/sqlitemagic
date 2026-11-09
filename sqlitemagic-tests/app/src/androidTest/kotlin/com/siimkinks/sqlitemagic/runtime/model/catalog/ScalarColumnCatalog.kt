@@ -386,6 +386,7 @@ internal object ScalarColumnCatalog {
           .count()
           .observe()
           .runQueryOnce()
+          .toMaybe()
       }
     ),
     CountQueryCase(

@@ -27,7 +27,8 @@ already uses; the RxJava 2 and 3 adapters have the same API in `com.siimkinks.sq
 - Writes inside a transaction notify after it commits, and not at all if it rolls back, unless it yielded
   (`yieldIfContended…`), which commits the earlier work.
 - An observed query on a closed connection completes without emitting. One-shot forms with a nullable or `Maybe`
-  result then return `null` or complete empty; the `List` and `…OrDefault` forms fail with `NoSuchElementException`.
+  result then return `null` or complete empty; the list, count and `…OrDefault` forms fail with
+  `NoSuchElementException`.
 
 ## Coroutines
 
@@ -71,7 +72,7 @@ class BookRepository {
 | --- | --- | --- | --- |
 | query, `compile()` plan, raw query with `observes` | `Flow<Query<List<T>>>` | `runQuery(): Flow<List<T>>` | `runQueryOnce(): List<T>` |
 | `takeFirst()` plan | `Flow<Query<T?>>` | `runQuery(): Flow<T>` (skips `null`), `runQueryOrDefault(d)` | `runQueryOnce(): T?`, `runQueryOnceOrDefault(d)` |
-| `count()` plan | `Flow<Query<Long>>` | `runQuery()`, `isZero()`, `isNotZero()` | `runQueryOnce(): Long?` |
+| `count()` plan | `Flow<Query<Long>>` | `runQuery()`, `isZero()`, `isNotZero()` | `runQueryOnce(): Long` |
 | entity operations, UPDATE/DELETE, raw statements, raw SELECT without `observes` | — | — | `await()` |
 
 - Import `observe`, the operators and `await` from `com.siimkinks.sqlitemagic.coroutines`.
@@ -112,7 +113,7 @@ fun save(book: Book): Completable = book
 | --- | --- | --- |
 | query, `compile()` plan, raw query with `observes` | `ListQueryObservable<T>` | `runQuery(): Observable<List<T>>`, `runQueryOnce(): Single<List<T>>` |
 | `takeFirst()` plan | `SingleItemQueryObservable<T>` | `runQuery()` (skips `null`), `runQueryOrDefault(d)`, `runQueryOnce(): Maybe<T>`, `runQueryOnceOrDefault(d): Single<T>` |
-| `count()` plan | `CountQueryObservable` | `runQuery()`, `runQueryOnce(): Maybe<Long>`, `isZero()`, `isNotZero()` |
+| `count()` plan | `CountQueryObservable` | `runQuery()`, `runQueryOnce(): Single<Long>`, `isZero()`, `isNotZero()` |
 | raw SELECT without `observes` | `Single` (list) or `Maybe` (first row), run once | — |
 | entity operations | `Single<…>` or `Completable` ([table](entity-operations.md#async-forms)) | — |
 | UPDATE/DELETE, raw statements, `CompiledMutation` | `Single<Int>` | — |

@@ -45,7 +45,7 @@ fun <T> Flow<Query<List<T>>>.runQuery(): Flow<List<T>> = runEach(::identity)
  * @throws NoSuchElementException if the upstream completes without emitting, as it does on a closed connection
  */
 @JvmName("runListQueryOnce")
-suspend fun <T> Flow<Query<List<T>>>.runQueryOnce(): List<T> = runFirst { throw NoSuchElementException(NO_QUERY) }
+suspend fun <T> Flow<Query<List<T>>>.runQueryOnce(): List<T> = runFirst(::noQuery)
 
 /**
  * Run each emitted [Query] which returns a single row and emit its result.
@@ -92,8 +92,7 @@ suspend fun <T : Any> Flow<Query<T?>>.runQueryOnce(): T? = runFirst { null }
  * @return Query result
  * @throws NoSuchElementException if the upstream completes without emitting, as it does on a closed connection
  */
-suspend fun <T : Any> Flow<Query<T?>>.runQueryOnceOrDefault(defaultValue: T): T =
-  runFirst { throw NoSuchElementException(NO_QUERY) } ?: defaultValue
+suspend fun <T : Any> Flow<Query<T?>>.runQueryOnceOrDefault(defaultValue: T): T = runFirst(::noQuery) ?: defaultValue
 
 /**
  * Run each emitted count [Query] and emit its result.
@@ -112,10 +111,11 @@ fun Flow<Query<Long>>.runQuery(): Flow<Long> = runEach(::identity)
  * The query runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn]. Applied directly to an
  * `observe()` flow inside [withTransaction] of its connection, it runs in the transaction and reads its changes.
  *
- * @return Query result, or `null` if the upstream completes without emitting, as it does on a closed connection
+ * @return Query result
+ * @throws NoSuchElementException if the upstream completes without emitting, as it does on a closed connection
  */
 @JvmName("runCountQueryOnce")
-suspend fun Flow<Query<Long>>.runQueryOnce(): Long? = runFirst { null }
+suspend fun Flow<Query<Long>>.runQueryOnce(): Long = runFirst(::noQuery)
 
 /**
  * Run each emitted count [Query] and emit whether the count is zero.
@@ -232,7 +232,7 @@ private class QueryResults<T, R : Any>(
 
 private fun <T> identity(value: T) = value
 
-private const val NO_QUERY = "Expected at least one element"
+private fun noQuery(): Nothing = throw NoSuchElementException("Expected at least one element")
 
 private suspend inline fun <T> Flow<Query<out T>>.runFirst(absent: () -> T): T = when (this) {
   is QueryChanges -> observation.query.runOnce { connection ->

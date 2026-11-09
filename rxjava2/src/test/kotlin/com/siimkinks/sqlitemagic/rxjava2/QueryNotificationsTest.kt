@@ -179,6 +179,15 @@ internal class QueryNotificationsTest {
           .runQueryOnce()
           .test()
       },
+      "count runQueryOnce" to { connection ->
+        SELECT
+          .FROM(AUTHOR)
+          .usingConnection(connection)
+          .count()
+          .observe()
+          .runQueryOnce()
+          .test()
+      },
       "undeclared raw rows" to { connection ->
         SELECT
           .RAW("SELECT name FROM author")

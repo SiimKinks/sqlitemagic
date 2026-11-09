@@ -148,7 +148,8 @@ val QUERY = (
   must be written, copy the IDE's inferred type rather than reconstructing it.
 - Observation operators are unchanged members of the observed query: `runQuery()`, `runQueryOnce()`,
   `runQueryOrDefault(…)`, `isZero()`, `isNotZero()` need no import. Their types moved to the adapters, and count
-  streams lost the `OrDefault` forms ([setup](setup.md#reactive-adapters)).
+  streams lost the `OrDefault` forms and their `runQueryOnce()` returns `Single<Long>`
+  ([setup](setup.md#reactive-adapters)).
 - New: named parameters, `AUTHOR.NAME.asParameter("name")`, bound per plan with `compiled.bind(name TO "Ada")`.
 
 ## Reading rows without Cursor

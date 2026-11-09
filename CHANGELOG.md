@@ -78,7 +78,8 @@ that compile but behave differently and walks through the first database release
   `Single` results, such as `runQueryOnce()` and `observe()` of a raw SELECT without declared tables, fail with
   `NoSuchElementException`
 * Breaking: Observed count queries no longer offer `runQueryOrDefault` and `runQueryOnceOrDefault`, whose default a
-  count never used; use `runQuery()` and `runQueryOnce()`
+  count never used; use `runQuery()` and `runQueryOnce()`. A count's `runQueryOnce()` returns `Single<Long>` instead of
+  `Maybe<Long>`
 * Breaking: Remove `logWarning`, the one-argument `logError` and `logQueryTime` from `Logger`; query times are no
   longer logged
 * New: Common table expressions, window functions, typed `Row2`–`Row9` results and `mapTo` for mapping rows to your

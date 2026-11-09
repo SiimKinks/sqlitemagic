@@ -38,7 +38,7 @@ internal class CoroutinesFlowContractTest {
           val exactRows: Exact<List<String?>> = rows.runQueryOnce().exactType()
           val exactFirst: Exact<String?> = first.runQueryOnce().exactType()
           val exactFirstOrDefault: Exact<String> = first.runQueryOnceOrDefault("none").exactType()
-          val exactCount: Exact<Long?> = count.runQueryOnce().exactType()
+          val exactCount: Exact<Long> = count.runQueryOnce().exactType()
           val exactRun: Exact<List<String?>> = rows.first().run().exactType()
         }
       """

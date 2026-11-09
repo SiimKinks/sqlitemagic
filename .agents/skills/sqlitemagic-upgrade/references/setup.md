@@ -98,7 +98,9 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
   `runQueryOnce()`, `isZero()`, …) are members and need no import; with coroutines, import them from
   `com.siimkinks.sqlitemagic.coroutines` along with `observe` and `await`.
 - `run()` returns `Maybe` of the non-null result type. Count streams drop `runQueryOrDefault(…)` and
-  `runQueryOnceOrDefault(…)`, whose default a count never used: call `runQuery()` or `runQueryOnce()`.
+  `runQueryOnceOrDefault(…)`, whose default a count never used: call `runQuery()` or `runQueryOnce()`. A count's
+  `runQueryOnce()` returns `Single<Long>` instead of `Maybe<Long>`: drop a `toSingle()` or `defaultIfEmpty(…)` after
+  it.
 - Keep the project's reactive library: RxJava 2 code takes `rxjava2`. Moving to RxJava 3 or coroutines is a separate
   change.
 - A file that uses two adapters imports one of them with an alias.

@@ -73,7 +73,7 @@ internal object CoroutinesAdapter : ReactiveAdapter {
 
   override fun runQueryOnce(query: CompiledCount) = query
     .observe()
-    .let { queries -> flow { queries.runQueryOnce()?.let { emit(it) } } }
+    .let { queries -> flow { emit(queries.runQueryOnce()) } }
     .stream()
 
   override fun <T : Any> runQueryOnceOrDefault(

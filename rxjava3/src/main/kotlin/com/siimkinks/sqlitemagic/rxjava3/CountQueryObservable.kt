@@ -5,9 +5,9 @@ import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.rxjava3.OperatorCountZeroOrNot.Companion.countNotZero
 import com.siimkinks.sqlitemagic.rxjava3.OperatorCountZeroOrNot.Companion.countZero
 import com.siimkinks.sqlitemagic.rxjava3.OperatorRunSingleItemQuery.Companion.emitNotNull
-import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Observer
+import io.reactivex.rxjava3.core.Single
 
 /** An [Observable] of [Query] which offers count query specific convenience operators. */
 open class CountQueryObservable internal constructor(
@@ -22,13 +22,14 @@ open class CountQueryObservable internal constructor(
   /**
    * Runs only the first emitted [Query] and propagates its count to downstream.
    *
-   * The result is empty if the upstream completes without emitting, as it does on a closed connection.
+   * The result fails with [NoSuchElementException] if the upstream completes without emitting, as it does on a closed
+   * connection.
    */
   @CheckResult
-  fun runQueryOnce(): Maybe<Long> =
+  fun runQueryOnce(): Single<Long> =
     firstQuery(upstream)
       .lift(emitNotNull())
-      .elementAt(0)
+      .firstOrError()
 
   /**
    * Runs each emitted [Query] and propagates `true` to downstream if

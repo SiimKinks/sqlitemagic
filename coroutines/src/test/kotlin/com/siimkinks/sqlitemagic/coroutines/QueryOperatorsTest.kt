@@ -132,22 +132,20 @@ internal class QueryOperatorsTest {
             .takeFirst()
             .observe()
             .runQueryOnceOrDefault("none")
+        },
+        {
+          names
+            .count()
+            .observe()
+            .runQueryOnce()
         }
       ).map { call -> runCatching { call() }.exceptionOrNull()?.javaClass }
-      val missing = listOf(
-        names
-          .takeFirst()
-          .observe()
-          .runQueryOnce(),
-        names
-          .count()
-          .observe()
-          .runQueryOnce()
-      )
+      val missing = names
+        .takeFirst()
+        .observe()
+        .runQueryOnce()
 
-      assertThat(failures to missing).isEqualTo(
-        List(2) { NoSuchElementException::class.java } to listOf(null, null)
-      )
+      assertThat(failures to missing).isEqualTo(List(3) { NoSuchElementException::class.java } to null)
     }
 
   @Test
