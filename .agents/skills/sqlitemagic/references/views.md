@@ -59,6 +59,9 @@ data class AuthorSummary(
 - A property whose type is a `@Table` (or `@View`) model reads a whole block: select `AUTHOR.all() AS "author"` and
   annotate `@ViewColumn("author") val author: Author`. Its relationships are built from the columns the definition
   joins for them, or from their IDs where the model allows. A nullable block reads `null` when all its columns are NULL.
+- A block from the NULL-extended side of an outer join is selected lifted, into a nullable property: with
+  `.LEFT_JOIN(BOOK)`, select `BOOK.all().nullable() AS "book"` and declare `@ViewColumn("book") val book: Book?`. Plain
+  `BOOK.all()` there fails when the view is created. Lift the blocks a nullable block's relationships join too.
 - Properties of `@Embedded` values map by their snake-case names with the embedded prefix.
 - Raw SQL over a view quotes dotted names: `SELECT "author.name", book_count FROM author_summary`.
 

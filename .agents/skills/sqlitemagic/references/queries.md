@@ -110,7 +110,8 @@ val titles: List<String> = (SELECT COLUMN BOOK.TITLE FROM BOOK).execute()
   selected read `null`. Partial entities are for reading; write them back only with
   `persist().ignoreNullValues()` or prefer a DTO.
 - Wide selections (any `table.all()`, or more than nine values) read `SelectedRow`; read a value with
-  `row[expression]`, using the exact instance that was selected:
+  `row[expression]`, using the exact instance that was selected (a not nullable column of `table.all().nullable()` is
+  read with its `.nullable()`, as in `row[BOOK.TITLE.nullable()]`):
 
   ```kotlin
   data class AuthorWithCount(val author: Author, val bookCount: Long)
@@ -203,9 +204,9 @@ val lines = SELECT
   `val` and use that value for the source and its fields; a second `AUTHOR AS "editor"` is a different occurrence, and
   mixing them is rejected. Parenthesize an inline alias in infix form: `SELECT FROM (BOOK AS "b")`.
 - **Outer joins and NULL.** A field from the NULL-extended side of an outer join (the joined table of a `LEFT_JOIN`)
-  that is `NOT NULL` in the schema must be selected lifted, `editor.NAME.nullable()`, which reads `String?`. Without
-  the lift the query is rejected before SQL, naming the field. Filters such as `WHERE (BOOK.ID.IS_NULL())` need no
-  lift, and neither does `count()`.
+  that is `NOT NULL` in the schema must be selected lifted, `editor.NAME.nullable()`, which reads `String?`, and
+  `editor.all().nullable()` lifts all columns of the table. Without the lift the query is rejected before SQL, naming
+  the field. Filters such as `WHERE (BOOK.ID.IS_NULL())` need no lift, and neither does `count()`.
 - **Automatic joins.** A field of a table the query does not join (`AUTHOR.NAME` in a query over `BOOK`) joins it
   automatically with a `LEFT JOIN` when exactly one relationship path leads there. With several (here: `author` and
   `editor`), the query is rejected before SQL, naming the paths; join the one you mean explicitly, as above. With no
@@ -242,7 +243,8 @@ val authorsWithLatest = SELECT.COLUMNS(AUTHOR.NAME, latestTitle).FROM(AUTHOR)
 - Correlation follows SQL: a field of a table that the nested query does not use itself refers to the enclosing
   query's row (`AUTHOR.ID` above). To read another row of a table the outer query also uses, alias the inner one.
 - A query used as a source is a derived table: `val totals = query AS "totals"` (the alias is optional for one use).
-  Read its outputs with `totals[selectedExpression]`, passing the instance the inner query selected:
+  Read its outputs with `totals[selectedExpression]`, passing the instance the inner query selected (a not nullable
+  column of `table.all().nullable()` is passed with its `.nullable()`, as in `totals[BOOK.TITLE.nullable()]`):
 
   ```kotlin
   val pageTotal = TOTAL(BOOK.PAGES) AS "page_total"

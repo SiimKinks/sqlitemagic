@@ -115,10 +115,12 @@ whose Kotlin type is non-null but which an outer join can make NULL now fails be
 lift. The same applies to fields reached through a nullable relationship by an automatic join, and to RIGHT/FULL joins.
 
 - Find: `LEFT_JOIN`/`leftJoin`/`LEFT_OUTER_JOIN`, `NATURAL_LEFT_JOIN` and automatically joined fields of nullable
-  relationships, in selections, `mapTo` constructors and view definitions. These compile; only running the query
-  (or its test) shows the rejection.
-- Do: select `BOOK.TITLE.nullable()` and accept `String?`. Filters such as `WHERE (BOOK.ID.IS_NULL())` need nothing.
-  A query's `count()` reads no values and needs no lift.
+  relationships, in selections, `mapTo` constructors and view definitions, including `all()` of the joined table. These
+  compile; only running the query (or its test) shows the rejection.
+- Do: select `BOOK.TITLE.nullable()` and accept `String?`. For all columns of a table, select `BOOK.all().nullable()`:
+  a view definition reads `BOOK.all().nullable() AS "book"` into `@ViewColumn("book") val book: Book?`, and a selected
+  row or a subquery reads a NOT NULL column of it with its `.nullable()`, as in `row[BOOK.TITLE.nullable()]`. Filters
+  such as `WHERE (BOOK.ID.IS_NULL())` need nothing. A query's `count()` reads no values and needs no lift.
 
 ## Automatic joins follow one relationship path
 

@@ -80,12 +80,15 @@ internal abstract class QueryOutputTable<T>(
     val widenedIndex = selection.widenedIndex(selected)
     val index = when {
       widenedIndex >= 0 -> widenedIndex
-      else -> selection.exportedValues.indexOfFirst { value ->
-        value === selected || value is KeyedField<*, *, *> && value.field === selected
-      }
+      else -> selection.exportedValues.indexOfExport(selected)
     }
     require(index >= 0) {
-      "${label ?: "A $kind"} exports only the values its query selects; use the selected instance"
+      val name = label ?: "A $kind"
+      when {
+        selection.exportedValues.indexOfExport(selected.nullable()) >= 0 ->
+          "$name exports $selected as nullable; read it with .nullable()"
+        else -> "$name exports only the values its query selects; use the selected instance"
+      }
     }
     return ExpressionNode.Field(
       table = this,
@@ -95,6 +98,10 @@ internal abstract class QueryOutputTable<T>(
   }
 
   override fun toString() = label ?: "the $kind"
+}
+
+private fun List<SqlExpression<*, *, *>>.indexOfExport(selected: SqlExpression<*, *, *>) = indexOfFirst { value ->
+  value === selected || value is KeyedField<*, *, *> && value.field === selected
 }
 
 internal class DerivedTable<T>(

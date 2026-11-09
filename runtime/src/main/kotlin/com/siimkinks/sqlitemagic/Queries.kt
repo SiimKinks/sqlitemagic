@@ -721,20 +721,22 @@ private fun <T> rowProjection(
   )
 )
 
-private fun wideProjection(outputs: Array<out SqlOutput>) = SelectedOutputs(
-  buildList(outputs.size) {
-    outputs.forEach { output ->
-      when (output) {
-        is SqlExpression<*, *, *> -> add(output)
-        is TableFields -> addAll(output.fields)
-      }
+private fun wideProjection(outputs: Array<out SqlOutput>) = buildList<SqlExpression<*, *, *>>(outputs.size) {
+  outputs.forEach { output ->
+    when (output) {
+      is SqlExpression<*, *, *> -> add(output)
+      is TableFields -> addAll(output.fields)
     }
   }
-)
-  .let { selected ->
-    rowProjection(
-      outputs = selected.expressions,
-      read = selected::ownedRow
+}
+  .let { expressions ->
+    SelectProjectionStage(
+      SelectNode(
+        RowSelection(
+          outputs = expressions,
+          reader = OwnedRowsReader(expressions)
+        )
+      )
     )
   }
 

@@ -17,18 +17,14 @@ sealed interface SqlOutput
  */
 class TableFields internal constructor(
   private val columns: List<Column<*, *, *, *, *, *, *>>,
-  key: String? = null
+  private val key: String? = null,
+  private val lifted: Boolean = false
 ) : SqlOutput {
-  internal val fields: List<SqlExpression<*, *, *>> = when (key) {
-    null -> columns
-    else -> columns.map { column ->
-      KeyedField(
-        field = column,
-        name = column.name,
-        key = key
-      )
+  internal val fields: List<SqlExpression<*, *, *>>
+    get() = when {
+      key == null && !lifted -> columns
+      else -> columns.map(::output)
     }
-  }
 
   /**
    * Create an alias for these columns in a view definition.
@@ -45,8 +41,48 @@ class TableFields internal constructor(
    */
   infix fun AS(key: String) = TableFields(
     columns = columns,
-    key = key
+    key = key,
+    lifted = lifted
   )
+
+  /**
+   * Convert these columns to nullable columns.
+   *
+   * The SQL stays the same. Use it for selecting all columns of a table that an outer join can leave NULL. In a view
+   * definition they fill a nullable model property, which is `null` when all its columns are NULL. In a selected row
+   * or a subquery, read a not nullable column with its `nullable()`, for example `row[BOOK.TITLE.nullable()]`.
+   *
+   * Example:
+   * ```
+   * SELECT
+   *     .COLUMNS(AUTHOR.all() AS "author", BOOK.all().nullable() AS "book")
+   *     .FROM(AUTHOR)
+   *     .LEFT_JOIN(BOOK)
+   *     .ON(AUTHOR.ID IS BOOK.AUTHOR)
+   * ```
+   *
+   * @return Nullable columns
+   */
+  fun nullable() = TableFields(
+    columns = columns,
+    key = key,
+    lifted = true
+  )
+
+  private fun output(column: Column<*, *, *, *, *, *, *>): SqlExpression<*, *, *> {
+    val field = when {
+      lifted && column.nullness == Required -> column.nullable()
+      else -> column
+    }
+    return when (key) {
+      null -> field
+      else -> KeyedField(
+        field = field,
+        name = column.name,
+        key = key
+      )
+    }
+  }
 }
 
 internal class KeyedField<R, N : SqlNullability, T>(
@@ -71,16 +107,14 @@ sealed class SelectedRow(
    * Get the value of a selected expression.
    *
    * @param expression Selected expression or a column of selected `all()` columns. It must be the same instance that
-   *     is selected
+   *     is selected. A not nullable column of selected `all().nullable()` columns is read with its `nullable()`
    * @return Value of the expression
    * @throws IllegalArgumentException if [expression] is not selected
    */
   abstract operator fun <T> get(expression: SqlExpression<*, *, T>): T
 }
 
-internal class SelectedOutputs(
-  val expressions: List<SqlExpression<*, *, *>>
-) {
+internal class SelectedOutputs(expressions: List<SqlExpression<*, *, *>>) {
   private val positions = MutableObjectIntMap<SqlExpression<*, *, *>>(initialCapacity = expressions.size)
     .apply {
       expressions.forEachIndexed { index, expression ->
@@ -93,8 +127,6 @@ internal class SelectedOutputs(
       }
     }
 
-  private val readers = Array(expressions.size) { expressions[it].selectRead }
-
   fun position(expression: SqlExpression<*, *, *>) = positions
     .getOrDefault(
       key = expression,
@@ -102,18 +134,42 @@ internal class SelectedOutputs(
     )
     .also {
       require(it >= 0) {
-        "$expression was not selected"
+        when {
+          positions.containsKey(expression.nullable()) ->
+            "$expression is selected as nullable; read it with .nullable()"
+          else -> "$expression was not selected"
+        }
       }
     }
+}
 
-  fun ownedRow(statement: SQLiteStatement, startIndex: Int): SelectedRow = OwnedSelectedRow(
-    outputs = this,
+internal class OwnedRowsReader(
+  private val expressions: List<SqlExpression<*, *, *>>
+) : ExecutionReader<SelectedRow> {
+  private var read: OwnedRowRead? = null
+
+  override fun open(): (SQLiteStatement, Int) -> SelectedRow = read ?: OwnedRowRead(expressions).also { read = it }
+}
+
+private class OwnedRowRead(expressions: List<SqlExpression<*, *, *>>) : (SQLiteStatement, Int) -> SelectedRow {
+  private val outputs = SelectedOutputs(expressions)
+  private val readers = Array(expressions.size) { expressions[it].selectRead }
+
+  override fun invoke(statement: SQLiteStatement, startIndex: Int): SelectedRow = OwnedSelectedRow(
+    outputs = outputs,
     values = Array(readers.size) { readers[it](statement, startIndex + it) }
   )
+}
 
-  fun <M> liveRows(mapper: (SelectedRow) -> M): ExecutionReader<M> = ExecutionReader {
-    val row = LiveSelectedRow(this)
-    return@ExecutionReader { statement, startIndex ->
+internal class LiveRowsReader<M>(
+  private val expressions: List<SqlExpression<*, *, *>>,
+  private val mapper: (SelectedRow) -> M
+) : ExecutionReader<M> {
+  private var outputs: SelectedOutputs? = null
+
+  override fun open(): (SQLiteStatement, Int) -> M {
+    val row = LiveSelectedRow(outputs ?: SelectedOutputs(expressions).also { outputs = it })
+    return { statement, startIndex ->
       mapper(
         row.moveTo(
           statement = statement,

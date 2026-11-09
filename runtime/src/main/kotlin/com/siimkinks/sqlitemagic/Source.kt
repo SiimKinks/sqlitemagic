@@ -23,7 +23,8 @@ sealed class QueryOutputSource<T> : Source {
    * SELECT COLUMN published[BOOK.TITLE] FROM published
    * ```
    *
-   * @param selected Column or expression selected by the query. It must be the same instance that is selected
+   * @param selected Column or expression selected by the query. It must be the same instance that is selected. A not
+   *     nullable column of selected `all().nullable()` columns is referenced with its `nullable()`
    * @return Column of this source
    * @throws IllegalArgumentException if the query does not select [selected]
    */
@@ -39,7 +40,8 @@ sealed class QueryOutputSource<T> : Source {
    * SELECT COLUMN published[BOOK.TITLE] FROM published
    * ```
    *
-   * @param selected Column or expression selected by the query. It must be the same instance that is selected
+   * @param selected Column or expression selected by the query. It must be the same instance that is selected. A not
+   *     nullable column of selected `all().nullable()` columns is referenced with its `nullable()`
    * @return Column of this source
    * @throws IllegalArgumentException if the query does not select [selected]
    */

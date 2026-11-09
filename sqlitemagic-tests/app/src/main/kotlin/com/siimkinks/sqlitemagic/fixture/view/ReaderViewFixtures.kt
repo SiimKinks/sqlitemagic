@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic.fixture.view
 
+import com.siimkinks.sqlitemagic.ReaderNoIdProjectionTable.Companion.READER_NO_ID_PROJECTION
+import com.siimkinks.sqlitemagic.ReaderRelationshipAuthorTable.Companion.READER_RELATIONSHIP_AUTHOR
 import com.siimkinks.sqlitemagic.ReaderRelationshipBookTable.Companion.READER_RELATIONSHIP_BOOK
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
@@ -113,6 +115,41 @@ data class ReaderNullableRelationshipTrailingScalarView(
   companion object {
     @ViewQuery
     val query = READER_RELATIONSHIP_QUERY
+  }
+}
+
+@View
+data class ReaderOuterJoinedBlockView(
+  @ViewColumn("author") val author: ReaderRelationshipAuthor,
+  @ViewColumn("row") val row: ReaderNoIdProjection?
+) {
+  companion object {
+    @ViewQuery
+    val query = SELECT
+      .COLUMNS(READER_RELATIONSHIP_AUTHOR.all() AS "author", READER_NO_ID_PROJECTION.all().nullable() AS "row")
+      .FROM(READER_RELATIONSHIP_AUTHOR)
+      .LEFT_JOIN(READER_NO_ID_PROJECTION)
+      .ON(READER_RELATIONSHIP_AUTHOR.NAME IS READER_NO_ID_PROJECTION.CODE)
+  }
+}
+
+@View
+data class ReaderOuterJoinedRelationshipBlockView(
+  @ViewColumn("owner") val owner: ReaderRelationshipAuthor,
+  @ViewColumn("book") val book: ReaderRelationshipBook?
+) {
+  companion object {
+    private val book = READER_RELATIONSHIP_BOOK AS "book"
+    private val bookAuthor = READER_RELATIONSHIP_AUTHOR AS "book_author"
+
+    @ViewQuery
+    val query = SELECT
+      .COLUMNS(READER_RELATIONSHIP_AUTHOR.all() AS "owner", book.all().nullable(), bookAuthor.all().nullable())
+      .FROM(READER_RELATIONSHIP_AUTHOR)
+      .LEFT_JOIN(book)
+      .ON(book.AUTHOR IS READER_RELATIONSHIP_AUTHOR.ID)
+      .LEFT_JOIN(bookAuthor)
+      .ON(book.AUTHOR IS bookAuthor.ID)
   }
 }
 

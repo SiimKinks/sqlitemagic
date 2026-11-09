@@ -92,6 +92,8 @@ public class com/siimkinks/sqlitemagic/Column : com/siimkinks/sqlitemagic/Encoda
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqlExpression;
 	public fun asParameter (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqlParameter;
+	public fun nullable ()Lcom/siimkinks/sqlitemagic/NullableEncodableExpression;
+	public synthetic fun nullable ()Lcom/siimkinks/sqlitemagic/SqlExpression;
 }
 
 public final class com/siimkinks/sqlitemagic/CompiledCount : com/siimkinks/sqlitemagic/SelectPlan {
@@ -1118,6 +1120,7 @@ public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/Source 
 
 public final class com/siimkinks/sqlitemagic/TableFields : com/siimkinks/sqlitemagic/SqlOutput {
 	public final fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/TableFields;
+	public final fun nullable ()Lcom/siimkinks/sqlitemagic/TableFields;
 }
 
 public final class com/siimkinks/sqlitemagic/TextFunctionsKt {

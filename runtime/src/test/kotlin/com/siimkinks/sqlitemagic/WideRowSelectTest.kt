@@ -7,10 +7,27 @@ import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.EntityProperty
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.internal.SqlStorage
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
+import com.siimkinks.sqlitemagic.internal.nullableReadType
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import org.junit.Assert.assertThrows
 import org.junit.Test
+
+private val decodedNickname = nullableReadType(
+  storage = SqlStorage.STRING,
+  encode = { value: String -> value },
+  decode = { value -> value ?: "none" },
+  encodingNullness = SqlNullable
+).let { type ->
+  Column(
+    table = PET,
+    name = "nickname",
+    nullness = SqlNullable,
+    parameterEncoding = type.parameterEncoding(),
+    selectedRead = type.selectRead
+  )
+}
 
 private data class Place(
   val city: String,
@@ -109,6 +126,211 @@ internal class WideRowSelectTest {
     assertThat(error)
       .hasMessageThat()
       .isEqualTo(""""publisher"."name" was not selected""")
+  }
+
+  @Test
+  fun `nullable field lists read the unmatched rows of an outer join as null`() {
+    val query = SELECT
+      .COLUMNS(PERSON.ID, PET.all().nullable())
+      .FROM(PERSON)
+      .LEFT_JOIN(PET)
+      .ON(PERSON.ID IS PET.OWNER)
+      .ORDER_BY(PERSON.ID.ASC(), PET.ID.ASC())
+    val expected = listOf(
+      listOf(1L, 1L, "Rex", null),
+      listOf(1L, 2L, "Tom", "Tommy"),
+      listOf(2L, 3L, "Kit", null),
+      listOf(3L, null, null, null),
+      listOf(4L, null, null, null)
+    )
+    val read = { row: SelectedRow ->
+      listOf(row[PERSON.ID], row[PET.ID.nullable()], row[PET.NAME.nullable()], row[PET.NICKNAME])
+    }
+    val rows = query.rowsIn(::petDatabase)
+
+    assertThat(
+      listOf(
+        rows.map(read),
+        query
+          .mapTo(read)
+          .rowsIn(::petDatabase)
+      )
+    ).isEqualTo(listOf(expected, expected))
+    val error = assertThrows(IllegalArgumentException::class.java) { rows.first()[PET.NAME] }
+    assertThat(error)
+      .hasMessageThat()
+      .isEqualTo(""""pet"."name" is selected as nullable; read it with .nullable()""")
+  }
+
+  @Test
+  fun `nullable field lists keep their alias in either order and plain ones reject an outer join`() {
+    val aliasLast = SELECT
+      .COLUMNS(PET.all().nullable() AS "animal")
+      .FROM(PERSON)
+      .LEFT_JOIN(PET)
+      .ON(PERSON.ID IS PET.OWNER)
+    val aliasFirst = SELECT
+      .COLUMNS((PET.all() AS "animal").nullable())
+      .FROM(PERSON)
+      .LEFT_JOIN(PET)
+      .ON(PERSON.ID IS PET.OWNER)
+    val plain = SELECT
+      .COLUMNS(PET.all() AS "animal")
+      .FROM(PERSON)
+      .LEFT_JOIN(PET)
+      .ON(PERSON.ID IS PET.OWNER)
+
+    assertThat(listOf(aliasLast, aliasFirst).map { it.compile().sql }).isEqualTo(
+      List(size = 2) {
+        """SELECT "pet"."id" AS "animal.id", "pet"."owner" AS "animal.owner", "pet"."name" AS "animal.name", """ +
+            """"pet"."nickname" AS "animal.nickname" FROM "main"."person" """ +
+            """LEFT JOIN "main"."pet" ON "person"."id" = "pet"."owner""""
+      }
+    )
+    assertThat(assertThrows(IllegalArgumentException::class.java, plain::compile))
+      .hasMessageThat()
+      .isEqualTo("pet.id is NOT NULL but an outer join can leave it NULL; select the field with .nullable()")
+  }
+
+  @Test
+  fun `a subquery exports the columns of a nullable field list`() {
+    val pets = SELECT
+      .COLUMNS(PERSON.ID, PET.all().nullable())
+      .FROM(PERSON)
+      .LEFT_JOIN(PET)
+      .ON(PERSON.ID IS PET.OWNER) AS "pets"
+
+    assertThat(
+      SELECT
+        .COLUMNS(pets[PET.NAME.nullable()], pets[PET.NICKNAME])
+        .FROM(pets)
+        .ORDER_BY(pets[PERSON.ID].ASC(), pets[PET.ID.nullable()].ASC())
+        .rowsIn(::petDatabase)
+    ).isEqualTo(
+      listOf(
+        Row2("Rex", null),
+        Row2("Tom", "Tommy"),
+        Row2("Kit", null),
+        Row2(null, null),
+        Row2(null, null)
+      )
+    )
+    assertThat(assertThrows(IllegalArgumentException::class.java) { pets[PET.NAME] })
+      .hasMessageThat()
+      .isEqualTo("""pets exports "pet"."name" as nullable; read it with .nullable()""")
+  }
+
+  @Test
+  fun `a subquery exports each aliased output of one expression by its own name`() {
+    val name = PET.NAME.nullable()
+    val first = name AS "first"
+    val second = name AS "second"
+    val pets = SELECT
+      .COLUMNS(first, second)
+      .FROM(PET) AS "pets"
+
+    assertThat(
+      SELECT
+        .COLUMNS(pets[first], pets[second])
+        .FROM(pets)
+        .compile()
+        .sql
+    ).isEqualTo(
+      """SELECT "pets"."first", "pets"."second" FROM """ +
+          """(SELECT "pet"."name" AS "first", "pet"."name" AS "second" FROM "main"."pet") AS "pets""""
+    )
+  }
+
+  @Test
+  fun `owned and live rows read a decoded column and its lift alike`() {
+    val query = SELECT
+      .COLUMNS(decodedNickname, decodedNickname.nullable(), PET.all())
+      .FROM(PET)
+      .ORDER_BY(PET.ID.ASC())
+    val read = { row: SelectedRow -> listOf(row[decodedNickname], row[decodedNickname.nullable()]) }
+    val expected = listOf(
+      listOf("none", null),
+      listOf("Tommy", "Tommy"),
+      listOf("none", null)
+    )
+
+    assertThat(
+      listOf(
+        query
+          .rowsIn(::petDatabase)
+          .map(read),
+        query
+          .mapTo(read)
+          .rowsIn(::petDatabase)
+      )
+    ).isEqualTo(listOf(expected, expected))
+  }
+
+  @Test
+  fun `owned and live rows find a value only by its selected instance`() {
+    data class Case(
+      val label: String,
+      val selected: SqlExpression<*, *, *>,
+      val read: SqlExpression<*, *, *>,
+      val failure: String
+    )
+
+    val cases = listOf(
+      Case(
+        label = "a nullable column read with nullable()",
+        selected = decodedNickname,
+        read = decodedNickname.nullable(),
+        failure = "was not selected"
+      ),
+      Case(
+        label = "a lifted nullable column read without nullable()",
+        selected = decodedNickname.nullable(),
+        read = decodedNickname,
+        failure = "is selected as nullable; read it with .nullable()"
+      ),
+      Case(
+        label = "a raw expression of the same SQL and another type",
+        selected = "upper(name)".expr(STRING.nullable),
+        read = "upper(name)".expr(LONG.nullable),
+        failure = "was not selected"
+      ),
+      Case(
+        label = "a raw expression created again",
+        selected = "upper(name)".expr(STRING.nullable),
+        read = "upper(name)".expr(STRING.nullable),
+        failure = "was not selected"
+      ),
+      Case(
+        label = "a computed lift created again",
+        selected = (PET.ID + 1L).nullable(),
+        read = (PET.ID + 1L).nullable(),
+        failure = "was not selected"
+      )
+    )
+
+    assertThat(
+      cases.map { case ->
+        val query = SELECT
+          .COLUMNS(case.selected, PET.all())
+          .FROM(PET)
+        case.label to listOf(
+          assertThrows(IllegalArgumentException::class.java) {
+            query
+              .rowsIn(::petDatabase)
+              .first()[case.read]
+          },
+          assertThrows(IllegalArgumentException::class.java) {
+            query
+              .mapTo { row -> row[case.read] }
+              .rowsIn(::petDatabase)
+          }
+        ).map(IllegalArgumentException::message)
+      }
+    ).isEqualTo(
+      cases.map { case ->
+        case.label to List(size = 2) { "${case.read} ${case.failure}" }
+      }
+    )
   }
 
   @Test

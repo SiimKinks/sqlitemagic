@@ -11,6 +11,9 @@ that compile but behave differently and walks through the first database release
 
 * Breaking: Rewrite the query DSL as SQL-first Kotlin, where queries follow SQL clause order and type their columns,
   results and nullability
+* Breaking: A NOT NULL column selected through an outer join, which 2.0 typed as non-null and read as NULL, fails before
+  SQL runs until it is selected as nullable: `BOOK.TITLE.nullable()` for one column, `BOOK.all().nullable()` for all
+  columns of a table, which a view definition reads into a nullable property
 * Breaking: Without `queryDeep()`, a related object whose other constructor parameters are nullable is built from its
   ID, with `null` for those parameters, instead of being queried in full. Updating or persisting the parent also writes
   the related object, so writing back such a parent sets the related object's other columns to `NULL` unless it is

@@ -196,8 +196,9 @@ SELECT FROM AUTHOR INNER_JOIN peer USING peer.ID        // several: USING arrayO
   `AS "b"` aliases the query `SELECT FROM BOOK` as a derived source.
 - `AUTHOR.ID.inTable(alias)` becomes the alias's own field: `val peer = AUTHOR AS "peer"`, then `peer.ID`.
 - A NOT NULL field selected from the NULL-extended side of an outer join needs `.nullable()`:
-  `SELECT.COLUMN(BOOK.TITLE.nullable()).FROM(AUTHOR).LEFT_JOIN(BOOK).ON(…)` reads `String?`. Without it the query
-  is rejected before SQL runs ([behavior](behavior.md#outer-joined-values-must-be-lifted)).
+  `SELECT.COLUMN(BOOK.TITLE.nullable()).FROM(AUTHOR).LEFT_JOIN(BOOK).ON(…)` reads `String?`, and
+  `BOOK.all().nullable()` lifts all columns of the table. Without it the query is rejected before SQL runs
+  ([behavior](behavior.md#outer-joined-values-must-be-lifted)).
 - A selected field of an unjoined table joins automatically only when exactly one relationship path reaches it;
   otherwise join the intended path explicitly through an alias value: `val editor = AUTHOR AS "editor"`, then
   `LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)`.

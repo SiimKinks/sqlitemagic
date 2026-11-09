@@ -37,6 +37,22 @@ open class Column<P, R, N : SqlNullability, T, W, PN : SqlNullability, PT> @Inte
 ), ParameterSource<W, R, PN, PT>, ReadContract<R, N, T> {
   internal val quotedName get() = (node as ExpressionNode.Field).quotedName
 
+  @Volatile
+  private var lift: NullableEncodableExpression<W, R, T>? = null
+
+  /**
+   * Convert this column to nullable column.
+   *
+   * The SQL stays the same and SQL NULL values are read as `null`. Use it for selecting a column that an outer join can
+   * leave NULL, for example `BOOK.TITLE.nullable()` after `LEFT_JOIN(BOOK)`. Every call returns the same instance, so
+   * a selected row reads the value with another call, as in `row[BOOK.TITLE.nullable()]`.
+   *
+   * @return Nullable column
+   */
+  override fun nullable() = lift ?: synchronized(this) {
+    lift ?: super.nullable().also { lift = it }
+  }
+
   /**
    * Create an alias for this column.
    *

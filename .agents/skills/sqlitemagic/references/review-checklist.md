@@ -14,7 +14,8 @@ Walk this over SqliteMagic code you wrote or review. Each item names what to loo
 - [ ] **NULL comparisons.** No `x IS null`-style intent: use `IS_NULL()`/`IS_NOT_NULL()`. `x IS_NOT v` excludes rows
   where `x` is NULL; add `OR (x.IS_NULL())` when they should match.
 - [ ] **Outer joins.** Non-null fields read through `LEFT_JOIN` (or nullable relationships) are selected with
-  `.nullable()`, and the DTO parameter is nullable; `COUNT(x)` rather than `COUNT()` counts matches of a `LEFT_JOIN`.
+  `.nullable()` (a whole table with `all().nullable()`), and the DTO parameter is nullable; `COUNT(x)` rather than
+  `COUNT()` counts matches of a `LEFT_JOIN`.
 - [ ] **Ambiguous automatic joins.** A field of a table reached by several relationships (`book.author`,
   `book.editor`) is joined explicitly through an alias.
 - [ ] **Aliases and computed values are created once** in a `val` and reused, not re-created at each use.

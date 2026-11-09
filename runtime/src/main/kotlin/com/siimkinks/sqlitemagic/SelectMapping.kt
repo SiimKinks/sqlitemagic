@@ -161,7 +161,14 @@ fun <A, B, C, D, E, F, G, H, I, M> SelectQuery<Row9<A, B, C, D, E, F, G, H, I>, 
  */
 @JvmName("mapSelectedRows")
 fun <M> SelectQuery<SelectedRow, RowSelection<SelectedRow>>.mapTo(transform: (SelectedRow) -> M) = SelectQuery(
-  node.withSelection(node.selection.mapped(SelectedOutputs(node.selection.outputs).liveRows(transform)))
+  node.withSelection(
+    node.selection.mapped(
+      LiveRowsReader(
+        expressions = node.selection.outputs,
+        mapper = transform
+      )
+    )
+  )
 )
 
 /**

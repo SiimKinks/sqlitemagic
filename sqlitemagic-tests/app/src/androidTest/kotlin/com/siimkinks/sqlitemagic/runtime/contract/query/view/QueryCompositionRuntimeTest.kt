@@ -11,10 +11,18 @@ import com.siimkinks.sqlitemagic.PunctuationIdentifierViewTable.Companion.PUNCTU
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorViewTable.Companion.QUERY_COMPOSITION_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.QuotedIdentifierViewTable.Companion.QUOTED_IDENTIFIER_VIEW
+import com.siimkinks.sqlitemagic.ReaderOuterJoinedBlockViewTable.Companion.READER_OUTER_JOINED_BLOCK_VIEW
+import com.siimkinks.sqlitemagic.ReaderOuterJoinedRelationshipBlockViewTable.Companion.READER_OUTER_JOINED_RELATIONSHIP_BLOCK_VIEW
+import com.siimkinks.sqlitemagic.ReaderRelationshipAuthorTable.Companion.READER_RELATIONSHIP_AUTHOR
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SpacedIdentifierViewTable.Companion.SPACED_IDENTIFIER_VIEW
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthor
 import com.siimkinks.sqlitemagic.fixture.view.QueryCompositionAuthorView
+import com.siimkinks.sqlitemagic.fixture.view.ReaderNoIdProjection
+import com.siimkinks.sqlitemagic.fixture.view.ReaderOuterJoinedBlockView
+import com.siimkinks.sqlitemagic.fixture.view.ReaderOuterJoinedRelationshipBlockView
+import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipAuthor
+import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipBook
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.mapTo
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
@@ -126,6 +134,76 @@ internal class QueryCompositionRuntimeTest {
         .execute()
     ).containsExactlyElementsIn(expectedAuthors)
       .inOrder()
+  }
+
+  @Test
+  fun nullableFieldListsReadOuterJoinedBlocksOfViews() {
+    val bookId = checkNotNull(
+      insertedResult(
+        result = ReaderRelationshipBook(
+          id = 0L,
+          author = ReaderRelationshipAuthor(
+            id = 0L,
+            name = "Ada"
+          )
+        )
+          .insert()
+          .execute(),
+        modelName = "ReaderRelationshipBook"
+      ).rowId
+    )
+    val ada = (SELECT FROM READER_RELATIONSHIP_AUTHOR)
+      .execute()
+      .single()
+    val graceId = checkNotNull(
+      insertedResult(
+        result = ReaderRelationshipAuthor(
+          id = 0L,
+          name = "Grace"
+        )
+          .insert()
+          .execute(),
+        modelName = "ReaderRelationshipAuthor"
+      ).rowId
+    )
+    val grace = ReaderRelationshipAuthor(
+      id = graceId,
+      name = "Grace"
+    )
+    val projection = ReaderNoIdProjection(
+      code = "Ada",
+      count = 3
+    )
+    insertedResult(
+      result = projection
+        .insert()
+        .execute(),
+      modelName = "ReaderNoIdProjection"
+    )
+
+    assertThat((SELECT FROM READER_OUTER_JOINED_BLOCK_VIEW).execute()).containsExactly(
+      ReaderOuterJoinedBlockView(
+        author = ada,
+        row = projection
+      ),
+      ReaderOuterJoinedBlockView(
+        author = grace,
+        row = null
+      )
+    )
+    assertThat((SELECT FROM READER_OUTER_JOINED_RELATIONSHIP_BLOCK_VIEW).execute()).containsExactly(
+      ReaderOuterJoinedRelationshipBlockView(
+        owner = ada,
+        book = ReaderRelationshipBook(
+          id = bookId,
+          author = ada
+        )
+      ),
+      ReaderOuterJoinedRelationshipBlockView(
+        owner = grace,
+        book = null
+      )
+    )
   }
 
   @Test

@@ -3,6 +3,8 @@ package com.siimkinks.sqlitemagic.view
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.EntityWithRelationshipTable.Companion.ENTITY_WITH_RELATIONSHIP
 import com.siimkinks.sqlitemagic.ReaderNestedSpansViewTable.Companion.READER_NESTED_SPANS_VIEW
+import com.siimkinks.sqlitemagic.ReaderOuterJoinedBlockViewTable.Companion.READER_OUTER_JOINED_BLOCK_VIEW
+import com.siimkinks.sqlitemagic.ReaderOuterJoinedRelationshipBlockViewTable.Companion.READER_OUTER_JOINED_RELATIONSHIP_BLOCK_VIEW
 import com.siimkinks.sqlitemagic.ReviewRelationshipCompositionViewTable.Companion.REVIEW_RELATIONSHIP_COMPOSITION_VIEW
 import com.siimkinks.sqlitemagic.ReviewStarAuthorViewTable.Companion.REVIEW_STAR_AUTHOR_VIEW
 import com.siimkinks.sqlitemagic.SELECT
@@ -12,6 +14,9 @@ import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
 import com.siimkinks.sqlitemagic.fixture.view.ReaderNestedNameView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderNestedSpansView
+import com.siimkinks.sqlitemagic.fixture.view.ReaderNoIdProjection
+import com.siimkinks.sqlitemagic.fixture.view.ReaderOuterJoinedBlockView
+import com.siimkinks.sqlitemagic.fixture.view.ReaderOuterJoinedRelationshipBlockView
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipAuthor
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipBook
 import com.siimkinks.sqlitemagic.fixture.view.ReaderRelationshipTrailingScalarView
@@ -29,6 +34,64 @@ internal class GeneratedViewCompositionTest {
       statement = statementOf(*values),
       isDisposed = { false }
     )
+
+  @Test
+  fun `nullable field lists fill nullable blocks of an outer join definition`() {
+    val ada = ReaderRelationshipAuthor(
+      id = 7L,
+      name = "Ada"
+    )
+    val flat = SELECT FROM READER_OUTER_JOINED_BLOCK_VIEW
+    val related = SELECT FROM READER_OUTER_JOINED_RELATIONSHIP_BLOCK_VIEW
+
+    assertThat(
+      listOf(
+        flat.readRow(7L, "Ada", null, null),
+        flat.readRow(7L, "Ada", "Ada", 3L)
+      )
+    ).isEqualTo(
+      listOf(
+        ReaderOuterJoinedBlockView(
+          author = ada,
+          row = null
+        ),
+        ReaderOuterJoinedBlockView(
+          author = ada,
+          row = ReaderNoIdProjection(
+            code = "Ada",
+            count = 3
+          )
+        )
+      )
+    )
+    assertThat(
+      listOf(
+        related.readRow(7L, "Ada", null, null, null, null),
+        related.readRow(7L, "Ada", 1L, 7L, 7L, "Ada")
+      )
+    ).isEqualTo(
+      listOf(
+        ReaderOuterJoinedRelationshipBlockView(
+          owner = ada,
+          book = null
+        ),
+        ReaderOuterJoinedRelationshipBlockView(
+          owner = ada,
+          book = ReaderRelationshipBook(
+            id = 1L,
+            author = ada
+          )
+        )
+      )
+    )
+    assertThat(READER_OUTER_JOINED_BLOCK_VIEW.viewDefinition?.sql).isEqualTo(
+      """SELECT "reader_relationship_author"."id" AS "author.id", """ +
+          """"reader_relationship_author"."name" AS "author.name", """ +
+          """"reader_no_id_projection"."code" AS "row.code", "reader_no_id_projection"."count" AS "row.count" """ +
+          """FROM "main"."reader_relationship_author" LEFT JOIN "main"."reader_no_id_projection" """ +
+          """ON "reader_relationship_author"."name" = "reader_no_id_projection"."code""""
+    )
+  }
 
   @Test
   fun `view field lists map partial views at zero and nonzero positions and wide rows read aliased views`() {
