@@ -2,7 +2,7 @@
 agp = "9.5.1"
 kotlin = "2.4.21"
 ksp = "2.3.13"
-sqlitemagic = "3.0.0"
+sqlitemagic = "3.0.1-SNAPSHOT"
 compose-bom = "2026.09.00"
 activity = "1.13.0"
 rx-java3 = "3.1.12"
