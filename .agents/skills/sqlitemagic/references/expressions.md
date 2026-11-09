@@ -234,7 +234,16 @@ val hasColon = INSTR(BOOK.TITLE, ":") GREATER_THAN 0L
   `STRING`, `DOUBLE`, `BYTE_ARRAY`, `NUMBER` (read-only, `Long` or `Double` per value), generated
   `SqlType.<TRANSFORMED>`, and `.nullable` of each.
 - Interpolating a generated field renders its quoted, qualified name (`"${BOOK.TITLE}"` → `"book"."title"`, or the
-  alias of an aliased occurrence). Never interpolate values.
+  alias of an aliased occurrence). A computed expression without values renders as a parenthesized operand
+  (`"${BOOK.ID + BOOK.AUTHOR} * 2"` → `("book"."id" + "book"."author") * 2`); its tables are not observed, so declare
+  an interpolated subquery's with `.observes(…)`. An expression holding values or parameters renders `{…}` after its
+  SQL (`("book"."id" + ?) {value}`), which SQLite rejects when prepared; pass it as a typed operand or bind the values
+  as raw arguments instead. Never interpolate values.
+- An interpolated subquery renders on its own: it has no automatic joins, so a field of a table it does not join refers
+  to the enclosing query; join explicitly. To read a common table expression from it, name it with `query AS "name"`.
+  An alias does not name it, and without a name the text fails with `no such table: {cte1}`.
+- `row[expression]` of an unselected expression fails naming it with the same text:
+  `("book"."id" + ?) {value} was not selected`. Bound values are never written out.
 - A raw fragment is assumed to read only the query's own tables. Declare others with `.observes(TABLE, …)` so observed
   queries re-run when they change.
 - `scalarFunction(name).readAs(type)` declares an SQLite built-in the DSL does not wrap (`round`, `instr`, `date`,

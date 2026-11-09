@@ -61,8 +61,20 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
    * `"author"."id"`, which is used when it is interpolated into raw SQL. A column of a common table expression that
    * has neither a name nor an alias has no qualifier, since its name is chosen when the query is rendered; name or
    * alias the common table expression to interpolate qualified columns.
+   *
+   * Any other expression renders its SQL as an operand, for example `("book"."id" + "book"."author")`, which is also
+   * used when it is interpolated into raw SQL. Interpolated text records no dependencies, so declare the tables of an
+   * interpolated subquery with [RawSqlExpression.observes]. Values and parameters bind separately and are not part of
+   * the text: their placeholders are followed by the parameter names, or `value` for other values, in braces, for
+   * example `("book"."id" + ?) {value}`. SQLite rejects the braces, so such an expression fails to prepare when it is
+   * interpolated.
+   *
+   * A subquery renders on its own, without its enclosing query. It renders no automatic joins: a field of a table it
+   * does not join refers to the enclosing query, so join explicitly to interpolate it. To read a common table
+   * expression from an interpolated subquery, name it with `query AS "name"`; an alias does not name it, and without a
+   * name it renders as `"{cte1}"`, which fails with "no such table".
    */
-  override fun toString() = node.toString()
+  override fun toString() = node.description()
 
   /**
    * Create an alias for this expression.

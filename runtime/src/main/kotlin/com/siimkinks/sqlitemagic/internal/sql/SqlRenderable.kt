@@ -28,7 +28,8 @@ internal interface SqlRenderable {
  * A context rendering a view [definition] writes values as literals and rejects parameters.
  */
 internal class SqlRenderingContext(
-  val definition: DefinitionFacts? = null
+  val definition: DefinitionFacts? = null,
+  private val describing: Boolean = false
 ) {
   val sql = StringBuilder(256)
   val bindings = mutableListOf<QueryBinding>()
@@ -153,7 +154,10 @@ internal class SqlRenderingContext(
     var name: String
     do {
       lastCteNumber++
-      name = "cte$lastCteNumber"
+      name = when {
+        describing -> "{cte$lastCteNumber}"
+        else -> "cte$lastCteNumber"
+      }
     } while (reservedCteNames?.contains(name) == true)
     return name
   }
@@ -247,7 +251,7 @@ internal class SqlRenderingContext(
       }
       enclosing = enclosing.enclosing
     }
-    return false
+    return describing
   }
 
   fun hasEnclosingName(name: String): Boolean {
@@ -311,12 +315,19 @@ internal class SqlRenderingContext(
         defaultValue = -1
       )
       if (position >= 0) {
-        require(position < current.visibleSources) { MISSING_OCCURRENCE }
-        return current.qualifiers[position]
+        return when {
+          position < current.visibleSources -> current.qualifiers[position]
+          else -> missingOccurrenceQualifier(table)
+        }
       }
       current = current.enclosing
     }
-    throw IllegalArgumentException(MISSING_OCCURRENCE)
+    return missingOccurrenceQualifier(table)
+  }
+
+  private fun missingOccurrenceQualifier(table: Table<*>) = when {
+    describing -> table.sqlQualifier
+    else -> throw IllegalArgumentException(MISSING_OCCURRENCE)
   }
 
   fun nameOutput(expression: SqlExpression<*, *, *>) {

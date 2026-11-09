@@ -13,6 +13,31 @@ internal sealed interface ExpressionNode : SqlRenderable {
 
   fun forEachField(action: (Field) -> Unit) = Unit
 
+  fun description(): String {
+    val context = SqlRenderingContext(describing = true)
+    try {
+      renderOperand(context)
+    } catch (_: IllegalArgumentException) {
+      context.sql.append(" {invalid}")
+    }
+    if (context.bindings.isNotEmpty()) {
+      context.bindings
+        .map { binding ->
+          when (binding) {
+            is NativeValue -> "value"
+            is ParameterIdentity<*> -> binding.name
+          }
+        }
+        .distinct()
+        .joinTo(
+          buffer = context.sql,
+          prefix = " {",
+          postfix = "}"
+        )
+    }
+    return context.sql.toString()
+  }
+
   class Field(
     val table: Table<*>,
     val name: String,
@@ -33,6 +58,8 @@ internal sealed interface ExpressionNode : SqlRenderable {
       }
       context.sql.append(quotedName)
     }
+
+    override fun description() = toString()
 
     override fun toString() = when {
       table.sqlQualifier.isEmpty() -> quotedName
