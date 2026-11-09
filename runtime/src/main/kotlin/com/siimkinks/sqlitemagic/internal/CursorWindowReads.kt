@@ -60,6 +60,22 @@ fun SQLiteStatement.getBlobOrNull(index: Int) = when {
 }
 
 /**
+ * Read an INTEGER value of the current row. Only a zero or SQL NULL costs a further SQL NULL check, which suits columns
+ * that rarely hold either.
+ *
+ * @param index Position of the column, starting from 0
+ * @return Value of the column, or `null` for SQL NULL
+ */
+@InternalSqliteMagicApi
+fun SQLiteStatement.getLongOrNull(index: Int): Long? {
+  val value = getLong(index)
+  return when {
+    value == 0L && isNull(index) -> null
+    else -> value
+  }
+}
+
+/**
  * Read an INTEGER value of a required column of the current row. Only a zero costs a further SQL NULL check.
  *
  * @param index Position of the column, starting from 0

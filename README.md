@@ -153,9 +153,7 @@ The driver decides which SQLite runs the database. There is no default; pick one
 
 ```kotlin
 // build.gradle.kts; same version as the plugin
-implementation(
-  "com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:<latest version>"
-)
+implementation("com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:<latest version>")
 
 // Application.kt
 import com.siimkinks.sqlitemagic.framework.FrameworkSQLiteDriver
@@ -172,9 +170,7 @@ SqliteMagic.builder(this)
 
 ```kotlin
 // build.gradle.kts
-implementation(
-  "androidx.sqlite:sqlite-bundled:<sqlite version>"
-)
+implementation("androidx.sqlite:sqlite-bundled:<sqlite version>")
 
 // Application.kt
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_NEW_INSTANCE_WITH_ONLY_ID
+import com.siimkinks.sqlitemagic.SqlStorageType
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
@@ -151,6 +152,7 @@ private fun TableElement.scalarNode(
   transformer = column.transformer,
   isSqlNullable = column.isSqlNullable,
   requiresPresentValue = column.isModelPathNullable && column.transformer?.decoderInputNullable != true,
+  isLongKey = column.isNotNullKey && column.sqlStorageType == SqlStorageType.LONG && column.transformer == null,
   missingMessage = """Selected columns did not contain table "$tableName" required column "${column.columnName}"""",
   nullMessage = """Column "${column.columnName}" was NULL"""
 )

@@ -155,6 +155,7 @@ internal object WriterTypes {
   val NULLABLE_READ_TYPE = MemberName(PACKAGE_INTERNAL, "nullableReadType")
   val GET_TEXT_OR_NULL = MemberName(PACKAGE_INTERNAL, "getTextOrNull", isExtension = true)
   val GET_BLOB_OR_NULL = MemberName(PACKAGE_INTERNAL, "getBlobOrNull", isExtension = true)
+  val GET_LONG_OR_NULL = MemberName(PACKAGE_INTERNAL, "getLongOrNull", isExtension = true)
   val GET_REQUIRED_LONG = MemberName(PACKAGE_INTERNAL, "getRequiredLong", isExtension = true)
   val GET_REQUIRED_DOUBLE = MemberName(PACKAGE_INTERNAL, "getRequiredDouble", isExtension = true)
   val GET_REQUIRED_TEXT = MemberName(PACKAGE_INTERNAL, "getRequiredText", isExtension = true)

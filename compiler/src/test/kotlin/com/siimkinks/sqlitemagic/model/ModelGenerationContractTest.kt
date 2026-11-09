@@ -207,6 +207,71 @@ internal class ModelGenerationContractTest {
   }
 
   @Test
+  fun `reads only plain nullable Long keys value first`() {
+    compiler
+      .compile(
+        SourceFile.kotlin(
+          name = "NullableKeys.kt",
+          contents = """
+            package $PACKAGE
+
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.transformer.DbValueToObject
+            import com.siimkinks.sqlitemagic.annotation.transformer.ObjectToDbValue
+
+            data class KeyToken(val value: Long)
+
+            @ObjectToDbValue
+            fun keyTokenToDb(token: KeyToken): Long = token.value
+
+            @DbValueToObject
+            fun keyTokenFromDb(value: Long): KeyToken = KeyToken(value)
+
+            @Table
+            data class LongKey(
+              @Id val id: Long? = null,
+              val count: Long?
+            )
+
+            @Table
+            data class IntKey(
+              @Id(autoIncrement = false) val id: Int?
+            )
+
+            @Table
+            data class TokenKey(
+              @Id(autoIncrement = false) val id: KeyToken?
+            )
+
+            @Table
+            class MutableLongKey {
+              @Id var id: Long? = null
+            }
+          """
+        )
+      )
+      .isOk()
+      .withGeneratedSource("SqliteMagic_LongKey_Dao.kt") {
+        it.assertContains(
+          "id = statement.getLongOrNull(startIndex)",
+          "count = if (statement.isNull(startIndex + 1)) null else statement.getLong(startIndex + 1)"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_IntKey_Dao.kt") {
+        it.assertContains("id = if (statement.isNull(startIndex)) null else statement.getInt(startIndex)")
+      }
+      .withGeneratedSource("SqliteMagic_TokenKey_Dao.kt") {
+        it.assertContains(
+          "id = if (statement.isNull(startIndex)) null else keyTokenFromDb(statement.getLong(startIndex))"
+        )
+      }
+      .withGeneratedSource("SqliteMagic_MutableLongKey_Dao.kt") {
+        it.assertContains("if (!statement.isNull(startIndex)) this.id = statement.getLong(startIndex)")
+      }
+  }
+
+  @Test
   fun `excludes auto-increment IDs from inserts and binds them for updates`() {
     compiler
       .compile(

@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.internal.CursorWindowReads
 import com.siimkinks.sqlitemagic.internal.SqlStorage
 import com.siimkinks.sqlitemagic.internal.getRequiredBlob
 import com.siimkinks.sqlitemagic.internal.getRequiredDouble
+import com.siimkinks.sqlitemagic.internal.getLongOrNull
 import com.siimkinks.sqlitemagic.internal.getRequiredLong
 import com.siimkinks.sqlitemagic.internal.getRequiredText
 import com.siimkinks.sqlitemagic.internal.identity
@@ -369,6 +370,52 @@ internal class SqlDescriptorTest {
       nullMessage = message
     )
     assertThat(zeroRead to zero.callNames()).isEqualTo(0L to listOf("getLong", "isNull"))
+  }
+
+  @Test
+  fun `nullable key reads check SQL NULL only for a zero`() {
+    data class ReadCase(
+      val label: String,
+      val stored: Long,
+      val isSqlNull: Boolean,
+      val expected: Long?,
+      val calls: List<String>
+    )
+
+    val cases = listOf(
+      ReadCase(
+        label = "non-zero value",
+        stored = 7L,
+        isSqlNull = false,
+        expected = 7L,
+        calls = listOf("getLong")
+      ),
+      ReadCase(
+        label = "zero",
+        stored = 0L,
+        isSqlNull = false,
+        expected = 0L,
+        calls = listOf("getLong", "isNull")
+      ),
+      ReadCase(
+        label = "SQL NULL",
+        stored = 0L,
+        isSqlNull = true,
+        expected = null,
+        calls = listOf("getLong", "isNull")
+      )
+    )
+
+    cases.forEach { case ->
+      val statement = mock<SQLiteStatement>()
+      whenever(statement.getLong(0)).thenReturn(case.stored)
+      whenever(statement.isNull(0)).thenReturn(case.isSqlNull)
+      val value = statement.getLongOrNull(0)
+
+      assertWithMessage(case.label)
+        .that(value to statement.callNames())
+        .isEqualTo(case.expected to case.calls)
+    }
   }
 
   @Test

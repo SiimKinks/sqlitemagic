@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.writer
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_ROW
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_SELECTED_POSITIONS
 import com.siimkinks.sqlitemagic.SqlStorageType
+import com.siimkinks.sqlitemagic.WriterTypes.GET_LONG_OR_NULL
 import com.siimkinks.sqlitemagic.WriterTypes.RELATED_ENTITIES
 import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_STATEMENT
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_EXCEPTION
@@ -55,6 +56,7 @@ internal sealed interface RowReadNode : PropertyMetadata {
     val transformer: TransformerElement?,
     val isSqlNullable: Boolean,
     val requiresPresentValue: Boolean,
+    val isLongKey: Boolean,
     val missingMessage: String,
     val nullMessage: String
   ) : RowReadNode, PropertyMetadata by source {
@@ -275,10 +277,13 @@ private fun scalarValue(
       index = node.position.code
     )
   }
-  val databaseValueOrNull = nullableDatabaseValueGetter(
-    storageType = node.storageType,
-    index = node.position.code
-  )
+  val databaseValueOrNull = when {
+    node.isLongKey -> CodeBlock.of("statement.%M(%L)", GET_LONG_OR_NULL, node.position.code)
+    else -> nullableDatabaseValueGetter(
+      storageType = node.storageType,
+      index = node.position.code
+    )
+  }
   val input = when {
     node.decodesSqlNull && !required -> when {
       databaseValueOrNull != null && !node.position.mayBeMissing -> databaseValueOrNull

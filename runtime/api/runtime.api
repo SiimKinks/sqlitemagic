@@ -1439,6 +1439,7 @@ public abstract interface class com/siimkinks/sqlitemagic/internal/CursorWindowR
 
 public final class com/siimkinks/sqlitemagic/internal/CursorWindowReadsKt {
 	public static final fun getBlobOrNull (Landroidx/sqlite/SQLiteStatement;I)[B
+	public static final fun getLongOrNull (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/Long;
 	public static final fun getRequiredBlob (Landroidx/sqlite/SQLiteStatement;ILjava/lang/String;)[B
 	public static final fun getRequiredDouble (Landroidx/sqlite/SQLiteStatement;ILjava/lang/String;)D
 	public static final fun getRequiredLong (Landroidx/sqlite/SQLiteStatement;ILjava/lang/String;)J
