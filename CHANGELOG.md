@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-Version 3.0.0 _(unreleased)_
+Version 3.0.0 _(2026-11-09)_
 ---------------------------------
 
 SqliteMagic 3 rewrites the query DSL and runs the database on an androidx `SQLiteDriver`, so applications choose
