@@ -7,10 +7,11 @@ import androidx.sqlite.SQLITE_DATA_INTEGER
 import androidx.sqlite.SQLITE_DATA_NULL
 import androidx.sqlite.SQLITE_DATA_TEXT
 import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.ValueRead
 
 internal class QueryRows<T>(
   private val statement: SQLiteStatement,
-  private val read: (SQLiteStatement, Int) -> T
+  private val read: ValueRead<T>
 ) : Sequence<T> {
   private var open = true
   private var iterated = false

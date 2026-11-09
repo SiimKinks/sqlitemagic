@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.SqlType.BOOLEAN
 import com.siimkinks.sqlitemagic.SqlType.BYTE
 import com.siimkinks.sqlitemagic.SqlType.BYTE_ARRAY
@@ -12,6 +11,7 @@ import com.siimkinks.sqlitemagic.SqlType.SHORT
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.InternalSqliteMagicApi
 import com.siimkinks.sqlitemagic.internal.ParameterEncoding
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
@@ -199,7 +199,7 @@ fun Byte.asLiteral() = asLiteral(BYTE)
 /** Inline this value into the SQL as a literal. */
 fun ByteArray.asLiteral() = asLiteral(BYTE_ARRAY)
 
-private val nullRead: (SQLiteStatement, Int) -> Nothing? = { _, _ -> null }
+private val nullRead = ValueRead { _, _ -> null }
 
 /**
  * SQL NULL literal.

@@ -1,10 +1,10 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.EntityProperty
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ID_ONLY
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
 import com.siimkinks.sqlitemagic.internal.sql.SourceOccurrence
@@ -62,7 +62,7 @@ class PartialEntitySelection<M> internal constructor(
       "mapTo(${table.name}) needs a FROM"
     }
     val positions = related.positions
-    val read = { statement: SQLiteStatement, _: Int ->
+    val read = ValueRead { statement, _ ->
       table.readPartialEntityAt(
         statement = statement,
         positions = positions,

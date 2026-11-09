@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
@@ -68,5 +68,5 @@ internal fun SqlRenderingContext.appendOutput(expression: SqlExpression<*, *, *>
 }
 
 internal fun interface ExecutionReader<out T> {
-  fun open(): (SQLiteStatement, Int) -> T
+  fun open(): ValueRead<T>
 }

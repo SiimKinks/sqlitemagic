@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 
@@ -12,7 +12,7 @@ import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 class RowSelection<T> internal constructor(
   internal val outputs: List<SqlExpression<*, *, *>>,
   private val reader: ExecutionReader<T>,
-  internal override val mappedWithFunction: Boolean = false
+  override val mappedWithFunction: Boolean = false
 ) : Selection<T>() {
   override fun render(context: SqlRenderingContext) = context.renderList(
     items = outputs,
@@ -27,7 +27,7 @@ class RowSelection<T> internal constructor(
 
   internal val columnReads get() = outputs.map(SqlExpression<*, *, *>::selectRead)
 
-  internal fun <M> mapped(read: (SQLiteStatement, Int) -> M) = mapped(reader = { read })
+  internal fun <M> mapped(read: ValueRead<M>) = mapped(reader = { read })
 
   internal fun <M> mapped(reader: ExecutionReader<M>) = RowSelection(
     outputs = outputs,
@@ -41,13 +41,13 @@ internal fun List<SqlExpression<*, *, *>>.forEachField(action: (ExpressionNode.F
 }
 
 @Suppress("UNCHECKED_CAST")
-private fun <V> List<(SQLiteStatement, Int) -> Any?>.read(index: Int) = this[index] as (SQLiteStatement, Int) -> V
+private fun <V> List<ValueRead<Any?>>.read(index: Int) = this[index] as ValueRead<V>
 
 internal fun <A, B, M> read2(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
   create: (A, B) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1)
@@ -55,11 +55,11 @@ internal fun <A, B, M> read2(
 }
 
 internal fun <A, B, C, M> read3(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
-  readC: (SQLiteStatement, Int) -> C,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
+  readC: ValueRead<C>,
   create: (A, B, C) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1),
@@ -68,12 +68,12 @@ internal fun <A, B, C, M> read3(
 }
 
 internal fun <A, B, C, D, M> read4(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
-  readC: (SQLiteStatement, Int) -> C,
-  readD: (SQLiteStatement, Int) -> D,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
+  readC: ValueRead<C>,
+  readD: ValueRead<D>,
   create: (A, B, C, D) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1),
@@ -83,13 +83,13 @@ internal fun <A, B, C, D, M> read4(
 }
 
 internal fun <A, B, C, D, E, M> read5(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
-  readC: (SQLiteStatement, Int) -> C,
-  readD: (SQLiteStatement, Int) -> D,
-  readE: (SQLiteStatement, Int) -> E,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
+  readC: ValueRead<C>,
+  readD: ValueRead<D>,
+  readE: ValueRead<E>,
   create: (A, B, C, D, E) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1),
@@ -100,14 +100,14 @@ internal fun <A, B, C, D, E, M> read5(
 }
 
 internal fun <A, B, C, D, E, F, M> read6(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
-  readC: (SQLiteStatement, Int) -> C,
-  readD: (SQLiteStatement, Int) -> D,
-  readE: (SQLiteStatement, Int) -> E,
-  readF: (SQLiteStatement, Int) -> F,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
+  readC: ValueRead<C>,
+  readD: ValueRead<D>,
+  readE: ValueRead<E>,
+  readF: ValueRead<F>,
   create: (A, B, C, D, E, F) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1),
@@ -119,15 +119,15 @@ internal fun <A, B, C, D, E, F, M> read6(
 }
 
 internal fun <A, B, C, D, E, F, G, M> read7(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
-  readC: (SQLiteStatement, Int) -> C,
-  readD: (SQLiteStatement, Int) -> D,
-  readE: (SQLiteStatement, Int) -> E,
-  readF: (SQLiteStatement, Int) -> F,
-  readG: (SQLiteStatement, Int) -> G,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
+  readC: ValueRead<C>,
+  readD: ValueRead<D>,
+  readE: ValueRead<E>,
+  readF: ValueRead<F>,
+  readG: ValueRead<G>,
   create: (A, B, C, D, E, F, G) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1),
@@ -140,16 +140,16 @@ internal fun <A, B, C, D, E, F, G, M> read7(
 }
 
 internal fun <A, B, C, D, E, F, G, H, M> read8(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
-  readC: (SQLiteStatement, Int) -> C,
-  readD: (SQLiteStatement, Int) -> D,
-  readE: (SQLiteStatement, Int) -> E,
-  readF: (SQLiteStatement, Int) -> F,
-  readG: (SQLiteStatement, Int) -> G,
-  readH: (SQLiteStatement, Int) -> H,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
+  readC: ValueRead<C>,
+  readD: ValueRead<D>,
+  readE: ValueRead<E>,
+  readF: ValueRead<F>,
+  readG: ValueRead<G>,
+  readH: ValueRead<H>,
   create: (A, B, C, D, E, F, G, H) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1),
@@ -163,17 +163,17 @@ internal fun <A, B, C, D, E, F, G, H, M> read8(
 }
 
 internal fun <A, B, C, D, E, F, G, H, I, M> read9(
-  readA: (SQLiteStatement, Int) -> A,
-  readB: (SQLiteStatement, Int) -> B,
-  readC: (SQLiteStatement, Int) -> C,
-  readD: (SQLiteStatement, Int) -> D,
-  readE: (SQLiteStatement, Int) -> E,
-  readF: (SQLiteStatement, Int) -> F,
-  readG: (SQLiteStatement, Int) -> G,
-  readH: (SQLiteStatement, Int) -> H,
-  readI: (SQLiteStatement, Int) -> I,
+  readA: ValueRead<A>,
+  readB: ValueRead<B>,
+  readC: ValueRead<C>,
+  readD: ValueRead<D>,
+  readE: ValueRead<E>,
+  readF: ValueRead<F>,
+  readG: ValueRead<G>,
+  readH: ValueRead<H>,
+  readI: ValueRead<I>,
   create: (A, B, C, D, E, F, G, H, I) -> M
-): (SQLiteStatement, Int) -> M = { statement, startIndex ->
+) = ValueRead { statement, startIndex ->
   create(
     readA(statement, startIndex),
     readB(statement, startIndex + 1),
@@ -187,7 +187,7 @@ internal fun <A, B, C, D, E, F, G, H, I, M> read9(
   )
 }
 
-internal fun <A, B, M> List<(SQLiteStatement, Int) -> Any?>.read2(
+internal fun <A, B, M> List<ValueRead<Any?>>.read2(
   create: (A, B) -> M
 ) = read2(
   readA = read(index = 0),
@@ -195,7 +195,7 @@ internal fun <A, B, M> List<(SQLiteStatement, Int) -> Any?>.read2(
   create = create
 )
 
-internal fun <A, B, C, M> List<(SQLiteStatement, Int) -> Any?>.read3(
+internal fun <A, B, C, M> List<ValueRead<Any?>>.read3(
   create: (A, B, C) -> M
 ) = read3(
   readA = read(index = 0),
@@ -204,7 +204,7 @@ internal fun <A, B, C, M> List<(SQLiteStatement, Int) -> Any?>.read3(
   create = create
 )
 
-internal fun <A, B, C, D, M> List<(SQLiteStatement, Int) -> Any?>.read4(
+internal fun <A, B, C, D, M> List<ValueRead<Any?>>.read4(
   create: (A, B, C, D) -> M
 ) = read4(
   readA = read(index = 0),
@@ -214,7 +214,7 @@ internal fun <A, B, C, D, M> List<(SQLiteStatement, Int) -> Any?>.read4(
   create = create
 )
 
-internal fun <A, B, C, D, E, M> List<(SQLiteStatement, Int) -> Any?>.read5(
+internal fun <A, B, C, D, E, M> List<ValueRead<Any?>>.read5(
   create: (A, B, C, D, E) -> M
 ) = read5(
   readA = read(index = 0),
@@ -225,7 +225,7 @@ internal fun <A, B, C, D, E, M> List<(SQLiteStatement, Int) -> Any?>.read5(
   create = create
 )
 
-internal fun <A, B, C, D, E, F, M> List<(SQLiteStatement, Int) -> Any?>.read6(
+internal fun <A, B, C, D, E, F, M> List<ValueRead<Any?>>.read6(
   create: (A, B, C, D, E, F) -> M
 ) = read6(
   readA = read(index = 0),
@@ -237,7 +237,7 @@ internal fun <A, B, C, D, E, F, M> List<(SQLiteStatement, Int) -> Any?>.read6(
   create = create
 )
 
-internal fun <A, B, C, D, E, F, G, M> List<(SQLiteStatement, Int) -> Any?>.read7(
+internal fun <A, B, C, D, E, F, G, M> List<ValueRead<Any?>>.read7(
   create: (A, B, C, D, E, F, G) -> M
 ) = read7(
   readA = read(index = 0),
@@ -250,7 +250,7 @@ internal fun <A, B, C, D, E, F, G, M> List<(SQLiteStatement, Int) -> Any?>.read7
   create = create
 )
 
-internal fun <A, B, C, D, E, F, G, H, M> List<(SQLiteStatement, Int) -> Any?>.read8(
+internal fun <A, B, C, D, E, F, G, H, M> List<ValueRead<Any?>>.read8(
   create: (A, B, C, D, E, F, G, H) -> M
 ) = read8(
   readA = read(index = 0),
@@ -264,7 +264,7 @@ internal fun <A, B, C, D, E, F, G, H, M> List<(SQLiteStatement, Int) -> Any?>.re
   create = create
 )
 
-internal fun <A, B, C, D, E, F, G, H, I, M> List<(SQLiteStatement, Int) -> Any?>.read9(
+internal fun <A, B, C, D, E, F, G, H, I, M> List<ValueRead<Any?>>.read9(
   create: (A, B, C, D, E, F, G, H, I) -> M
 ) = read9(
   readA = read(index = 0),

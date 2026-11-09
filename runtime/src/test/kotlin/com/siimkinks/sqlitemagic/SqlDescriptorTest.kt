@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.SqlType.NUMBER
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.CursorWindowReads
 import com.siimkinks.sqlitemagic.internal.SqlStorage
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.getRequiredBlob
 import com.siimkinks.sqlitemagic.internal.getRequiredDouble
 import com.siimkinks.sqlitemagic.internal.getLongOrNull
@@ -154,7 +155,7 @@ internal class SqlDescriptorTest {
   fun `nullable reads check SQL NULL once and read nullable TEXT in one call`() {
     data class ReadCase(
       val label: String,
-      val read: (SQLiteStatement, Int) -> Any?,
+      val read: ValueRead<Any?>,
       val expected: Any?,
       val calls: List<String>
     )

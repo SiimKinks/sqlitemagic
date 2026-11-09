@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic
 import android.database.SQLException
 import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.ParameterEncoding
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 
 /**
@@ -36,7 +37,7 @@ internal val <T> ReadContract<*, *, T>.columnRead
     is Column<*, *, *, *, *, *, *> -> when (nullness) {
       Required -> requiredReader(selectRead)
       SqlNullable -> selectRead
-    } as (SQLiteStatement, Int) -> T
+    } as ValueRead<T>
   }
 
 @Suppress("UNCHECKED_CAST")
@@ -58,8 +59,8 @@ internal fun <T> ReadContract<*, *, T>.readValue(statement: SQLiteStatement, ind
  * @param T Return type (when the value is selected)
  */
 open class ReadType<out R, out N : SqlNullability, out T> internal constructor(
-  internal val nonNullRead: (SQLiteStatement, Int) -> R,
-  internal val selectRead: (SQLiteStatement, Int) -> T,
+  internal val nonNullRead: ValueRead<R>,
+  internal val selectRead: ValueRead<T>,
   internal val readNullness: N
 ) : ReadContract<R, N, T> {
   /** A racing first use may build an equal immutable copy; final fields make either safe to publish. */
@@ -88,8 +89,8 @@ open class ReadType<out R, out N : SqlNullability, out T> internal constructor(
  */
 open class EncodableReadType<W, out R, out N : SqlNullability, out T> internal constructor(
   internal val encode: (W) -> NativeValue,
-  nonNullRead: (SQLiteStatement, Int) -> R,
-  selectRead: (SQLiteStatement, Int) -> T,
+  nonNullRead: ValueRead<R>,
+  selectRead: ValueRead<T>,
   readNullness: N
 ) : ReadType<R, N, T>(
   nonNullRead = nonNullRead,
@@ -121,8 +122,8 @@ open class EncodableReadType<W, out R, out N : SqlNullability, out T> internal c
  */
 class EncodingType<W, out R, out E : SqlNullability, out N : SqlNullability> internal constructor(
   encode: (W) -> NativeValue,
-  nonNullRead: (SQLiteStatement, Int) -> R,
-  selectRead: (SQLiteStatement, Int) -> R,
+  nonNullRead: ValueRead<R>,
+  selectRead: ValueRead<R>,
   readNullness: N
 ) : EncodableReadType<W, R, N, R>(
   encode = encode,
@@ -161,19 +162,19 @@ internal const val REQUIRED_SQL_NULL = "Required SQL result returned SQL NULL"
 internal fun requiredSqlNull() = SQLException(REQUIRED_SQL_NULL)
 
 internal fun <T> requiredReader(
-  read: (SQLiteStatement, Int) -> T,
-  checkedRead: (SQLiteStatement, Int) -> T = { statement, index ->
+  read: ValueRead<T>,
+  checkedRead: ValueRead<T> = ValueRead { statement, index ->
     when {
       statement.isNull(index) -> throw requiredSqlNull()
       else -> read(statement, index)
     }
   }
-): (SQLiteStatement, Int) -> T = RequiredRead(
+): ValueRead<T> = RequiredRead(
   read = read,
   checkedRead = checkedRead
 )
 
-internal fun <R> contextualRead(read: (SQLiteStatement, Int) -> R): (SQLiteStatement, Int) -> R? = when (read) {
+internal fun <R> contextualRead(read: ValueRead<R>): ValueRead<R?> = when (read) {
   is NullAwareRead<R> -> read.orNull
   is RequiredRead<R> -> contextualRead(read.read)
   is NullableRead<*> -> read
@@ -181,20 +182,16 @@ internal fun <R> contextualRead(read: (SQLiteStatement, Int) -> R): (SQLiteState
 }
 
 internal class NullAwareRead<T>(
-  private val read: (SQLiteStatement, Int) -> T,
-  val orNull: (SQLiteStatement, Int) -> T?
-) : (SQLiteStatement, Int) -> T {
-  override fun invoke(statement: SQLiteStatement, index: Int) = read(statement, index)
-}
+  read: ValueRead<T>,
+  val orNull: ValueRead<T?>
+) : ValueRead<T> by read
 
 private class RequiredRead<T>(
-  val read: (SQLiteStatement, Int) -> T,
-  private val checkedRead: (SQLiteStatement, Int) -> T
-) : (SQLiteStatement, Int) -> T {
-  override fun invoke(statement: SQLiteStatement, index: Int) = checkedRead(statement, index)
-}
+  val read: ValueRead<T>,
+  checkedRead: ValueRead<T>
+) : ValueRead<T> by checkedRead
 
-private class NullableRead<T>(private val read: (SQLiteStatement, Int) -> T) : (SQLiteStatement, Int) -> T? {
+private class NullableRead<T>(private val read: ValueRead<T>) : ValueRead<T?> {
   override fun invoke(statement: SQLiteStatement, index: Int) = when {
     statement.isNull(index) -> null
     else -> read(statement, index)

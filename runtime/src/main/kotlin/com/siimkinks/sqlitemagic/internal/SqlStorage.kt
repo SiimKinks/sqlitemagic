@@ -8,9 +8,9 @@ import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 @InternalSqliteMagicApi
 class Storage<S : Any> internal constructor(
   internal val encode: (S) -> NativeValue,
-  read: (SQLiteStatement, Int) -> S,
-  internal val requiredRead: (SQLiteStatement, Int) -> S,
-  internal val nullableRead: ((SQLiteStatement, Int) -> S?)? = null
+  read: ValueRead<S>,
+  internal val requiredRead: ValueRead<S>,
+  internal val nullableRead: ValueRead<S?>? = null
 ) {
   internal val read = when (nullableRead) {
     null -> read

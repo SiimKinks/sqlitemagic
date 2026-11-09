@@ -1,12 +1,12 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
-import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.CompiledCount
 import com.siimkinks.sqlitemagic.CompiledFirst
 import com.siimkinks.sqlitemagic.CompiledSelect
 import com.siimkinks.sqlitemagic.EntitySelection
 import com.siimkinks.sqlitemagic.ExecutionReader
 import com.siimkinks.sqlitemagic.Selection
+import com.siimkinks.sqlitemagic.internal.SqlStorage
 
 internal fun <T> compileSelect(node: SelectNode<T, *>) = node.compile(::CompiledSelect)
 
@@ -62,5 +62,5 @@ private object CountRows : Selection<Long>() {
     context.sql.append("count(*)")
   }
 
-  override fun createExecutionReader(context: SqlRenderingContext) = ExecutionReader { SQLiteStatement::getLong }
+  override fun createExecutionReader(context: SqlRenderingContext) = ExecutionReader { SqlStorage.LONG.read }
 }

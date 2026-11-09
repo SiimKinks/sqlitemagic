@@ -3,7 +3,7 @@
 package com.siimkinks.sqlitemagic
 
 import androidx.annotation.CheckResult
-import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.SelectNode
 import com.siimkinks.sqlitemagic.internal.sql.nativeValue
@@ -711,7 +711,7 @@ object SelectDistinct {
 
 private fun <T> rowProjection(
   outputs: List<SqlExpression<*, *, *>>,
-  read: (SQLiteStatement, Int) -> T
+  read: ValueRead<T>
 ) = SelectProjectionStage(
   SelectNode(
     RowSelection(
@@ -721,7 +721,7 @@ private fun <T> rowProjection(
   )
 )
 
-private fun wideProjection(outputs: Array<out SqlOutput>) = buildList<SqlExpression<*, *, *>>(outputs.size) {
+private fun wideProjection(outputs: Array<out SqlOutput>) = buildList(outputs.size) {
   outputs.forEach { output ->
     when (output) {
       is SqlExpression<*, *, *> -> add(output)

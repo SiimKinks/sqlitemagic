@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import android.database.SQLException
 import androidx.annotation.CheckResult
-import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.prepareQuery
 
@@ -356,8 +356,8 @@ class RawSelect<O : RawTables> internal constructor(
   )
 
   private inline fun <T> readColumns(
-    vararg reads: (SQLiteStatement, Int) -> Any?,
-    read: (List<(SQLiteStatement, Int) -> Any?>) -> (SQLiteStatement, Int) -> T
+    vararg reads: ValueRead<Any?>,
+    read: (List<ValueRead<Any?>>) -> ValueRead<T>
   ): RawSelectQuery<T, O> {
     val columns = reads.asList()
     return RawSelectQuery(
@@ -378,8 +378,8 @@ class RawSelect<O : RawTables> internal constructor(
  */
 open class RawSelectQuery<T, O : RawTables> internal constructor(
   internal val select: RawSelect<O>,
-  internal val columns: List<(SQLiteStatement, Int) -> Any?>,
-  internal val read: (SQLiteStatement, Int) -> T
+  internal val columns: List<ValueRead<Any?>>,
+  internal val read: ValueRead<T>
 ) {
   private val reader = ExecutionReader { read }
 
@@ -483,7 +483,7 @@ open class RawSelectQuery<T, O : RawTables> internal constructor(
     )
   )
 
-  internal fun <M> mapped(read: (SQLiteStatement, Int) -> M) = RawSelectQuery(
+  internal fun <M> mapped(read: ValueRead<M>) = RawSelectQuery(
     select = select,
     columns = columns,
     read = read
@@ -502,7 +502,7 @@ open class RawSelectQuery<T, O : RawTables> internal constructor(
  */
 class RawColumnQuery<T, O : RawTables> internal constructor(
   select: RawSelect<O>,
-  read: (SQLiteStatement, Int) -> T
+  read: ValueRead<T>
 ) : RawSelectQuery<T, O>(
   select = select,
   columns = listOf(read),

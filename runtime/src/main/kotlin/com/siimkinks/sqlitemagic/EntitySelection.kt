@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.ViewDefinition
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
@@ -47,7 +47,7 @@ class EntitySelection<M> internal constructor(
         children = blocks
       )
     }
-    val read = { statement: SQLiteStatement, startIndex: Int ->
+    val read = ValueRead { statement, startIndex ->
       table.readEntityAt(
         statement = statement,
         startIndex = startIndex,

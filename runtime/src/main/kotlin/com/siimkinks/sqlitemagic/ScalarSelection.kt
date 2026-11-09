@@ -1,6 +1,6 @@
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 
@@ -13,9 +13,9 @@ import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
  */
 class ScalarSelection<R, N : SqlNullability, T> internal constructor(
   internal val expression: SqlExpression<R, N, *>,
-  private val read: (SQLiteStatement, Int) -> T,
+  private val read: ValueRead<T>,
   private val widenedFrom: SqlExpression<*, *, *>? = null,
-  internal override val mappedWithFunction: Boolean = false
+  override val mappedWithFunction: Boolean = false
 ) : Selection<T>() {
   override fun render(context: SqlRenderingContext) = context.renderOutput(expression)
 
@@ -44,7 +44,7 @@ class ScalarSelection<R, N : SqlNullability, T> internal constructor(
     mappedWithFunction = mappedWithFunction
   )
 
-  internal fun <V> withReader(read: (SQLiteStatement, Int) -> V) = ScalarSelection(
+  internal fun <V> withReader(read: ValueRead<V>) = ScalarSelection(
     expression = expression,
     read = read,
     widenedFrom = widenedFrom

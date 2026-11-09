@@ -6,12 +6,12 @@ import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.CompiledCount
 import com.siimkinks.sqlitemagic.CompiledFirst
 import com.siimkinks.sqlitemagic.DbConnectionImpl
-import com.siimkinks.sqlitemagic.ExecutionReader
 import com.siimkinks.sqlitemagic.Query
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.emptyPrepared
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.listQuery
 import com.siimkinks.sqlitemagic.planQuery
 import com.siimkinks.sqlitemagic.rowStatement
@@ -302,7 +302,7 @@ internal class QueryObservableContractTest {
           connection = mock(),
           plan = CompiledFirst<String?>(
             prepared = emptyPrepared(),
-            reader = ExecutionReader { { _, _ -> throw failure } }
+            reader = { ValueRead { _, _ -> throw failure } }
           ),
           statement = statement
         )

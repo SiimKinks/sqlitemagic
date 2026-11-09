@@ -4,6 +4,7 @@ package com.siimkinks.sqlitemagic
 
 import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
+import com.siimkinks.sqlitemagic.internal.ValueRead
 
 /**
  * Selected value in multiple columns selection: an expression or a list of table columns.
@@ -148,16 +149,16 @@ internal class OwnedRowsReader(
 ) : ExecutionReader<SelectedRow> {
   private var read: OwnedRowRead? = null
 
-  override fun open(): (SQLiteStatement, Int) -> SelectedRow = read ?: OwnedRowRead(expressions).also { read = it }
+  override fun open(): ValueRead<SelectedRow> = read ?: OwnedRowRead(expressions).also { read = it }
 }
 
-private class OwnedRowRead(expressions: List<SqlExpression<*, *, *>>) : (SQLiteStatement, Int) -> SelectedRow {
+private class OwnedRowRead(expressions: List<SqlExpression<*, *, *>>) : ValueRead<SelectedRow> {
   private val outputs = SelectedOutputs(expressions)
   private val readers = Array(expressions.size) { expressions[it].selectRead }
 
-  override fun invoke(statement: SQLiteStatement, startIndex: Int): SelectedRow = OwnedSelectedRow(
+  override fun invoke(statement: SQLiteStatement, index: Int): SelectedRow = OwnedSelectedRow(
     outputs = outputs,
-    values = Array(readers.size) { readers[it](statement, startIndex + it) }
+    values = Array(readers.size) { readers[it](statement, index + it) }
   )
 }
 
@@ -167,9 +168,9 @@ internal class LiveRowsReader<M>(
 ) : ExecutionReader<M> {
   private var outputs: SelectedOutputs? = null
 
-  override fun open(): (SQLiteStatement, Int) -> M {
+  override fun open(): ValueRead<M> {
     val row = LiveSelectedRow(outputs ?: SelectedOutputs(expressions).also { outputs = it })
-    return { statement, startIndex ->
+    return ValueRead { statement, startIndex ->
       mapper(
         row.moveTo(
           statement = statement,

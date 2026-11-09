@@ -86,8 +86,8 @@ public final class com/siimkinks/sqlitemagic/Collation {
 }
 
 public class com/siimkinks/sqlitemagic/Column : com/siimkinks/sqlitemagic/EncodableSqlExpression, com/siimkinks/sqlitemagic/ParameterSource, com/siimkinks/sqlitemagic/ReadContract {
-	public fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lkotlin/jvm/functions/Function2;Ljava/lang/String;)V
-	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lkotlin/jvm/functions/Function2;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;Ljava/lang/String;)V
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Column;
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqlExpression;
@@ -1181,8 +1181,8 @@ public abstract interface class com/siimkinks/sqlitemagic/Unique {
 }
 
 public final class com/siimkinks/sqlitemagic/UniqueColumn : com/siimkinks/sqlitemagic/Column, com/siimkinks/sqlitemagic/Unique {
-	public fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lkotlin/jvm/functions/Function2;Ljava/lang/String;)V
-	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lkotlin/jvm/functions/Function2;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;Ljava/lang/String;)V
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Column;
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqlExpression;
@@ -1836,6 +1836,10 @@ public final class com/siimkinks/sqlitemagic/internal/UpdateBuilder : com/siimki
 public final class com/siimkinks/sqlitemagic/internal/UpdateByColumnBuilder : com/siimkinks/sqlitemagic/internal/OperationBuilder, com/siimkinks/sqlitemagic/entity/EntityUpdateByColumnBuilder {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/internal/EntityIdentityAdapter;Ljava/lang/Object;)V
 	public fun execute (Lcom/siimkinks/sqlitemagic/Unique;)Z
+}
+
+public abstract interface class com/siimkinks/sqlitemagic/internal/ValueRead {
+	public abstract fun invoke (Landroidx/sqlite/SQLiteStatement;I)Ljava/lang/Object;
 }
 
 public final class com/siimkinks/sqlitemagic/internal/ViewBlock {

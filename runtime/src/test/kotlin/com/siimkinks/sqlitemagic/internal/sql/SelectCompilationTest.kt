@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.PlanSnapshot
 import com.siimkinks.sqlitemagic.SelectPlan
 import com.siimkinks.sqlitemagic.Selection
 import com.siimkinks.sqlitemagic.asValue
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.snapshot
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -239,7 +240,7 @@ internal class SelectCompilationTest {
 
   private class RecordingSelection<T>(
     private val output: SqlRenderable,
-    private val reader: (SQLiteStatement, Int) -> T,
+    private val reader: ValueRead<T>,
     private val failure: String? = null
   ) : Selection<T>() {
     val events = mutableListOf<String>()

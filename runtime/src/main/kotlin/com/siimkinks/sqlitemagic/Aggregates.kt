@@ -2,7 +2,7 @@
 
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.identity
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
@@ -43,8 +43,8 @@ fun <E : SqlExpression<*, *, *>> DISTINCT(value: E) = Distinct(value)
 class AggregateSqlExpression<W, out R, out N : SqlNullability, out T> internal constructor(
   private val aggregate: ExpressionNode.Aggregate,
   nullness: N,
-  nonNullRead: (SQLiteStatement, Int) -> R,
-  selectRead: (SQLiteStatement, Int) -> T,
+  nonNullRead: ValueRead<R>,
+  selectRead: ValueRead<T>,
   encode: (W) -> NativeValue
 ) : WindowableSqlExpression<W, R, N, T>(
   node = aggregate,
@@ -87,8 +87,8 @@ class AggregateSqlExpression<W, out R, out N : SqlNullability, out T> internal c
 open class WindowableSqlExpression<W, out R, out N : SqlNullability, out T> internal constructor(
   node: ExpressionNode,
   nullness: N,
-  nonNullRead: (SQLiteStatement, Int) -> R,
-  selectRead: (SQLiteStatement, Int) -> T,
+  nonNullRead: ValueRead<R>,
+  selectRead: ValueRead<T>,
   encode: (W) -> NativeValue
 ) : EncodableSqlExpression<W, R, N, T>(
   node = node,

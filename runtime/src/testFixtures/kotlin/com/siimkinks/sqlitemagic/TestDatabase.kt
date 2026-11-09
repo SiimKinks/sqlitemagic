@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.ScatterMap
 import com.siimkinks.sqlitemagic.internal.SqlUtil
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderable
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 import com.siimkinks.sqlitemagic.internal.sql.prepareQuery
@@ -213,7 +214,7 @@ internal fun listQuery(
   connection = connection,
   plan = CompiledSelect(
     prepared = emptyPrepared(),
-    reader = { { rows, _ -> mapper(rows) } }
+    reader = { ValueRead { rows, _ -> mapper(rows) } }
   ),
   statement = statement,
   beforeRead = beforeRead

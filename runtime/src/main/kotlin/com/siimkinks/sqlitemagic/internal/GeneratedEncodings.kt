@@ -1,6 +1,5 @@
 package com.siimkinks.sqlitemagic.internal
 
-import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.EncodingType
 import com.siimkinks.sqlitemagic.NullAwareRead
 import com.siimkinks.sqlitemagic.Required
@@ -12,8 +11,8 @@ import com.siimkinks.sqlitemagic.requiredReader
 @InternalSqliteMagicApi
 class ParameterEncoding<in W, out R, out N : SqlNullability, out T> internal constructor(
   internal val encode: (W) -> NativeValue,
-  internal val nonNullRead: (SQLiteStatement, Int) -> R,
-  internal val selectRead: (SQLiteStatement, Int) -> T,
+  internal val nonNullRead: ValueRead<R>,
+  internal val selectRead: ValueRead<T>,
   internal val nullness: N
 )
 
@@ -62,7 +61,7 @@ fun <W, R, S : Any, E : SqlNullability> nullableReadType(
     decode(storage.read(statement, index))
   },
   selectRead = when (val readOrNull = storage.nullableRead) {
-    null -> { statement, index ->
+    null -> ValueRead { statement, index ->
       decode(
         when {
           statement.isNull(index) -> null
@@ -70,13 +69,13 @@ fun <W, R, S : Any, E : SqlNullability> nullableReadType(
         }
       )
     }
-    else -> { statement, index -> decode(readOrNull(statement, index)) }
+    else -> ValueRead { statement, index -> decode(readOrNull(statement, index)) }
   },
   readNullness = SqlNullable
 )
 
-private fun <S : Any, R> Storage<S>.decodedRead(decode: (S) -> R): (SQLiteStatement, Int) -> R {
-  val decoded = { statement: SQLiteStatement, index: Int -> decode(read(statement, index)) }
+private fun <S : Any, R> Storage<S>.decodedRead(decode: (S) -> R): ValueRead<R> {
+  val decoded = ValueRead { statement, index -> decode(read(statement, index)) }
   return when (val readOrNull = nullableRead) {
     null -> decoded
     else -> NullAwareRead(

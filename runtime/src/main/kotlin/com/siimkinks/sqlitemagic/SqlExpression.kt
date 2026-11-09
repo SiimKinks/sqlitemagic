@@ -2,7 +2,6 @@
 
 package com.siimkinks.sqlitemagic
 
-import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.OrderingDirection.ASC
 import com.siimkinks.sqlitemagic.OrderingDirection.DESC
 import com.siimkinks.sqlitemagic.QueryDependencies.Companion.NONE
@@ -18,6 +17,7 @@ import com.siimkinks.sqlitemagic.SqlOperator.NOT_GLOB
 import com.siimkinks.sqlitemagic.SqlOperator.NOT_LIKE
 import com.siimkinks.sqlitemagic.internal.ParameterEncoding
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
+import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
@@ -38,8 +38,8 @@ sealed interface SqlOperand
 open class SqlExpression<out R, out N : SqlNullability, out T> internal constructor(
   internal val node: ExpressionNode,
   internal val nullness: N,
-  internal val nonNullRead: (SQLiteStatement, Int) -> R,
-  internal val selectRead: (SQLiteStatement, Int) -> T,
+  internal val nonNullRead: ValueRead<R>,
+  internal val selectRead: ValueRead<T>,
   internal val outputAlias: String? = null
 ) : SqlOperand, SqlOutput {
   internal constructor(
@@ -543,8 +543,8 @@ internal fun <C> nullableNativeResult(
 open class EncodableSqlExpression<W, out R, out N : SqlNullability, out T> internal constructor(
   node: ExpressionNode,
   nullness: N,
-  nonNullRead: (SQLiteStatement, Int) -> R,
-  selectRead: (SQLiteStatement, Int) -> T,
+  nonNullRead: ValueRead<R>,
+  selectRead: ValueRead<T>,
   internal val encode: (W) -> NativeValue,
   outputAlias: String? = null
 ) : SqlExpression<R, N, T>(
@@ -840,8 +840,8 @@ class EncodedSqlExpression<W, R, N : SqlNullability, T> internal constructor(
  */
 class RawSqlExpression<out R, out N : SqlNullability, out T> internal constructor(
   private val raw: ExpressionNode.Raw,
-  nonNullRead: (SQLiteStatement, Int) -> R,
-  selectRead: (SQLiteStatement, Int) -> T,
+  nonNullRead: ValueRead<R>,
+  selectRead: ValueRead<T>,
   nullness: N
 ) : SqlExpression<R, N, T>(
   node = raw,
@@ -884,8 +884,8 @@ class RawSqlExpression<out R, out N : SqlNullability, out T> internal constructo
  */
 class EncodableRawSqlExpression<W, out R, out N : SqlNullability, out T> internal constructor(
   private val raw: ExpressionNode.Raw,
-  nonNullRead: (SQLiteStatement, Int) -> R,
-  selectRead: (SQLiteStatement, Int) -> T,
+  nonNullRead: ValueRead<R>,
+  selectRead: ValueRead<T>,
   nullness: N,
   encode: (W) -> NativeValue
 ) : EncodableSqlExpression<W, R, N, T>(
