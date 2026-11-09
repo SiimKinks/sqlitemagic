@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.internal.sql
 
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.Table
-import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 
 internal enum class JoinKind(
   val sql: String,
@@ -82,13 +81,12 @@ internal sealed interface JoinConstraint : SqlRenderable {
   }
 
   class Using(private val columns: List<Column<*, *, *, *, *, *, *>>) : JoinConstraint {
-    private val quotedNames = Array(columns.size) { quoteSqlIdentifier(columns[it].name) }
-
     override fun render(context: SqlRenderingContext) {
       context.sql.append(" USING (")
       context.renderList(count = columns.size) { index ->
-        context.requireOccurrence(columns[index].table)
-        context.sql.append(quotedNames[index])
+        val column = columns[index]
+        context.requireOccurrence(column.table)
+        context.sql.append(column.quotedName)
       }
       context.sql.append(')')
     }
