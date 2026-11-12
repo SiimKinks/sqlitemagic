@@ -6,15 +6,19 @@ import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.COUNT
 import com.siimkinks.sqlitemagic.INSERT
 import com.siimkinks.sqlitemagic.ImmutableValueWithFieldsTable.Companion.IMMUTABLE_VALUE_WITH_FIELDS
+import com.siimkinks.sqlitemagic.InsertedRow
 import com.siimkinks.sqlitemagic.MutationQuery
 import com.siimkinks.sqlitemagic.Row2
 import com.siimkinks.sqlitemagic.Row3
 import com.siimkinks.sqlitemagic.SELECT
+import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
+import com.siimkinks.sqlitemagic.SqlType.FLOAT
 import com.siimkinks.sqlitemagic.SqlType.INT
 import com.siimkinks.sqlitemagic.asScalar
 import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
+import com.siimkinks.sqlitemagic.fixture.model.ScalarStorageEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
 import com.siimkinks.sqlitemagic.plus
 import com.siimkinks.sqlitemagic.readAs
@@ -26,6 +30,20 @@ import com.siimkinks.sqlitemagic.runtime.support.supportsSqlite
 import com.siimkinks.sqlitemagic.rxjava2.observe
 import org.junit.Rule
 import org.junit.Test
+
+private fun InsertedRow<ScalarStorageEntity>.assign(entity: ScalarStorageEntity) {
+  this[SCALAR_STORAGE_ENTITY.ID] = entity.id
+  this[SCALAR_STORAGE_ENTITY.LONG_VALUE] = entity.longValue
+  this[SCALAR_STORAGE_ENTITY.NULLABLE_LONG] = entity.nullableLong
+  this[SCALAR_STORAGE_ENTITY.FLOAT_VALUE] = entity.floatValue
+  this[SCALAR_STORAGE_ENTITY.NULLABLE_FLOAT] = entity.nullableFloat
+  this[SCALAR_STORAGE_ENTITY.BYTE_VALUE] = entity.byteValue
+  this[SCALAR_STORAGE_ENTITY.NULLABLE_BYTE] = entity.nullableByte
+  this[SCALAR_STORAGE_ENTITY.BYTE_ARRAY] = entity.byteArray
+  this[SCALAR_STORAGE_ENTITY.NULLABLE_BYTE_ARRAY] = entity.nullableByteArray
+  this[SCALAR_STORAGE_ENTITY.BOXED_BYTE_ARRAY] = entity.boxedByteArray
+  this[SCALAR_STORAGE_ENTITY.NULLABLE_BOXED_BYTE_ARRAY] = entity.nullableBoxedByteArray
+}
 
 internal class QueryBuilderInsertTest {
   @get:Rule
@@ -150,6 +168,111 @@ internal class QueryBuilderInsertTest {
             aShort = 0,
             transformableObject = TransformableObject(43)
           )
+        )
+      )
+  }
+
+  @Test
+  fun executeWideRows() {
+    val sparse = ScalarStorageEntity(
+      id = 1L,
+      longValue = 10L,
+      nullableLong = null,
+      floatValue = 1.25f,
+      nullableFloat = null,
+      byteValue = 1,
+      nullableByte = null,
+      byteArray = byteArrayOf(1),
+      nullableByteArray = null,
+      boxedByteArray = arrayOf(1),
+      nullableBoxedByteArray = null
+    )
+    val full = ScalarStorageEntity(
+      id = 2L,
+      longValue = Long.MAX_VALUE,
+      nullableLong = 20L,
+      floatValue = -0.5f,
+      nullableFloat = 0.75f,
+      byteValue = Byte.MIN_VALUE,
+      nullableByte = Byte.MAX_VALUE,
+      byteArray = byteArrayOf(2, 3),
+      nullableByteArray = byteArrayOf(),
+      boxedByteArray = arrayOf(4),
+      nullableBoxedByteArray = arrayOf(5, 6)
+    )
+    val columns = arrayOf(
+      SCALAR_STORAGE_ENTITY.ID,
+      SCALAR_STORAGE_ENTITY.LONG_VALUE,
+      SCALAR_STORAGE_ENTITY.NULLABLE_LONG,
+      SCALAR_STORAGE_ENTITY.FLOAT_VALUE,
+      SCALAR_STORAGE_ENTITY.NULLABLE_FLOAT,
+      SCALAR_STORAGE_ENTITY.BYTE_VALUE,
+      SCALAR_STORAGE_ENTITY.NULLABLE_BYTE,
+      SCALAR_STORAGE_ENTITY.BYTE_ARRAY,
+      SCALAR_STORAGE_ENTITY.NULLABLE_BYTE_ARRAY,
+      SCALAR_STORAGE_ENTITY.BOXED_BYTE_ARRAY,
+      SCALAR_STORAGE_ENTITY.NULLABLE_BOXED_BYTE_ARRAY
+    )
+    val sparseLong = SELECT
+      .COLUMN(SCALAR_STORAGE_ENTITY.LONG_VALUE)
+      .FROM(SCALAR_STORAGE_ENTITY)
+      .WHERE(SCALAR_STORAGE_ENTITY.ID IS 1L)
+      .asScalar()
+
+    val counts = listOf(
+      INSERT
+        .INTO(SCALAR_STORAGE_ENTITY)
+        .COLUMNS(
+          SCALAR_STORAGE_ENTITY.ID,
+          SCALAR_STORAGE_ENTITY.LONG_VALUE,
+          SCALAR_STORAGE_ENTITY.NULLABLE_LONG,
+          SCALAR_STORAGE_ENTITY.FLOAT_VALUE,
+          SCALAR_STORAGE_ENTITY.NULLABLE_FLOAT,
+          SCALAR_STORAGE_ENTITY.BYTE_VALUE,
+          SCALAR_STORAGE_ENTITY.NULLABLE_BYTE,
+          SCALAR_STORAGE_ENTITY.BYTE_ARRAY,
+          SCALAR_STORAGE_ENTITY.NULLABLE_BYTE_ARRAY,
+          SCALAR_STORAGE_ENTITY.BOXED_BYTE_ARRAY,
+          SCALAR_STORAGE_ENTITY.NULLABLE_BOXED_BYTE_ARRAY
+        )
+        .VALUES { it.assign(sparse) },
+      INSERT.INTO(SCALAR_STORAGE_ENTITY).COLUMNS(*columns) VALUES {
+        it.assign(full)
+        it[SCALAR_STORAGE_ENTITY.NULLABLE_LONG] = sparseLong
+        it[SCALAR_STORAGE_ENTITY.FLOAT_VALUE] = (1.5.asValue() + 1.0).readAs(FLOAT)
+      },
+      INSERT
+        .INTO(SCALAR_STORAGE_ENTITY)
+        .COLUMNS(*columns)
+        .VALUES(listOf(sparse.copy(id = 3L), full.copy(id = 4L)), InsertedRow<ScalarStorageEntity>::assign)
+        .VALUES(emptyList(), InsertedRow<ScalarStorageEntity>::assign),
+      INSERT
+        .INTO(SCALAR_STORAGE_ENTITY)
+        .COLUMNS(*columns)
+        .VALUES(emptyList(), InsertedRow<ScalarStorageEntity>::assign),
+      INSERT
+        .OR(CONFLICT_IGNORE)
+        .INTO(SCALAR_STORAGE_ENTITY)
+        .COLUMNS(*columns)
+        .VALUES { it.assign(full.copy(id = 1L)) }
+    ).map(MutationQuery::execute)
+
+    assertThat(counts).isEqualTo(listOf(1, 1, 2, 0, 0))
+    assertThat(
+      SELECT
+        .FROM(SCALAR_STORAGE_ENTITY)
+        .ORDER_BY(SCALAR_STORAGE_ENTITY.ID.ASC())
+        .execute()
+    )
+      .isEqualTo(
+        listOf(
+          sparse,
+          full.copy(
+            nullableLong = 10L,
+            floatValue = 2.5f
+          ),
+          sparse.copy(id = 3L),
+          full.copy(id = 4L)
         )
       )
   }

@@ -35,9 +35,36 @@ INSERT
   .INTO(AUTHOR)
   .DEFAULT_VALUES()
   .execute()
+
+// More than nine columns: each row assigns the listed columns by name
+fun InsertedRow<Event>.fill(tap: Tap) {
+  this[EVENT.KIND] = "tap"
+  this[EVENT.SCREEN] = tap.screen
+  this[EVENT.AT] = tap.at
+  this[EVENT.USER] = tap.userId
+  this[EVENT.X] = tap.x
+  this[EVENT.Y] = tap.y
+  this[EVENT.OS] = "android"
+  this[EVENT.OS_VERSION] = tap.osVersion
+  this[EVENT.APP_VERSION] = tap.appVersion
+  this[EVENT.LOCALE] = tap.locale
+}
+
+INSERT
+  .INTO(EVENT)
+  .COLUMNS(
+    EVENT.KIND, EVENT.SCREEN, EVENT.AT, EVENT.USER, EVENT.X,
+    EVENT.Y, EVENT.OS, EVENT.OS_VERSION, EVENT.APP_VERSION, EVENT.LOCALE
+  )
+  .VALUES {
+    it.fill(tap)
+    it[EVENT.USER] = SELECT.COLUMN(AUTHOR.ID).FROM(AUTHOR).WHERE(AUTHOR.NAME IS "Ada").asScalar()
+  }
+  .VALUES(queuedTaps, InsertedRow<Event>::fill)
+  .execute()
 ```
 
-- `COLUMNS` lists one to nine columns of the target table; the others take their SQL defaults
+- `COLUMNS` lists the columns of the target table; the others take their SQL defaults
   ([models.md](models.md#columns-nullability-and-defaults)), so a partial row needs no whole object. A required
   relationship, a `@Unique` column and a column of a unique index have no implicit default: leaving one out fails with
   `NOT NULL constraint failed`. A column of another table does not compile; one of an aliased copy makes `COLUMNS`
@@ -53,6 +80,12 @@ INSERT
   adds no rows; a statement whose rows all come from empty lists returns 0, notifies nothing and runs no SQL, so
   callers need no emptiness check. Each value binds one variable: below SQLite 3.32.0 (the framework driver before
   API 31) more than 999 variables fail with `too many SQL variables`, so split very large lists yourself.
+- One to nine columns take their row values by position, typed per column. More than nine columns (or a spread
+  array, `COLUMNS(*columns)`) take rows that assign every listed column by name: `VALUES { it[EVENT.KIND] = "tap" }`
+  adds one row, and `VALUES(list) { row, element -> … }` one row per element, as list rows above. A row can mix
+  host values and expressions, each assignment by the rules above, and assigning a column again keeps the last
+  value. A row that leaves a listed column without a value or assigns an unlisted one makes `VALUES` throw
+  `IllegalArgumentException`.
 - Values cannot read the target table: a field in `VALUES` outside a subquery throws `IllegalArgumentException`.
 - Conflict algorithm in SQL order: `INSERT OR CONFLICT_IGNORE INTO AUTHOR …`, `INSERT.OR(CONFLICT_REPLACE).INTO(…)`.
   The count is SQLite's `changes()`: ignored rows count nothing, and an `INSERT OR REPLACE` counts the inserted row,
@@ -197,7 +230,7 @@ DELETE.RAW("DELETE FROM book WHERE author = ? AND pages < ?", authorId, 10)
 
 | Need | Use |
 | --- | --- |
-| `INSERT … SELECT`, INSERT into more than nine columns | raw INSERT, or entity `insert()` for whole objects |
+| `INSERT … SELECT` | raw INSERT, or entity `insert()` for whole objects |
 | Native UPSERT (`ON CONFLICT DO UPDATE`), `RETURNING` | entity `persist()`; read back with a query |
 | Recursive CTE, reading a `PRAGMA` | raw SELECT |
 | `ATTACH`, setting a `PRAGMA` | `configureConnection`, which runs on every connection; a raw statement reaches one connection only |

@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
 import com.siimkinks.sqlitemagic.SqlExpression
 import com.siimkinks.sqlitemagic.Table
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.requireHostValue
 
 internal class InsertHead(
@@ -19,9 +20,9 @@ internal class InsertHead(
       else -> null
     }
 
-  override val cache get() = rows.none { it is ListedRows<*> }
+  override val cache get() = rows.all { it is ValuesRow }
 
-  override val skipped get() = columns.isNotEmpty() && rows.all { it.count == 0 }
+  override val skipped get() = rows.isNotEmpty() && rows.all { it.count == 0 }
 
   override fun render(context: SqlRenderingContext) {
     context.sql
@@ -30,7 +31,7 @@ internal class InsertHead(
       .append(" INTO ")
       .append(table.sqlSource)
     when {
-      columns.isEmpty() -> context.sql.append(" DEFAULT VALUES")
+      rows.isEmpty() -> context.sql.append(" DEFAULT VALUES")
       else -> {
         context.sql.append(" (")
         context.renderList(columns.size) { context.sql.append(columns[it].quotedName) }
@@ -84,7 +85,7 @@ internal class InsertHead(
   )
 
   fun hostRow(values: Array<out Any?>) = ValuesRow(
-    List(values.size) { index -> ExpressionNode.Bound(columns[index].encodeHost(values[index])) }
+    Array(values.size) { index -> columns[index].encodeHost(values[index]) }
   )
 
   fun <T> listedRows(rows: List<T>, component: (T, Int) -> Any?) = ListedRows(
@@ -94,17 +95,63 @@ internal class InsertHead(
   )
 }
 
+internal class InsertedColumns(
+  private val table: Table<*>,
+  private val columns: Array<out Column<*, *, *, *, *, *, *>>
+) {
+  private val positions = MutableObjectIntMap<Column<*, *, *, *, *, *, *>>(initialCapacity = columns.size).apply {
+    columns.forEachIndexed { index, column ->
+      if (!containsKey(column)) {
+        this[column] = index
+      }
+    }
+  }
+
+  val size get() = columns.size
+
+  operator fun get(index: Int) = columns[index]
+
+  fun position(column: Column<*, *, *, *, *, *, *>) = positions
+    .getOrDefault(
+      key = column,
+      defaultValue = -1
+    )
+    .also {
+      require(it >= 0) {
+        when {
+          column.table !== table ->
+            "INSERT column ${column.name} must be a field of the inserted ${table.name} occurrence"
+          else -> "INSERT column ${column.name} is not listed in COLUMNS"
+        }
+      }
+    }
+}
+
 internal sealed interface InsertRows : SqlRenderable {
   val count: Int
 }
 
-internal class ValuesRow(private val values: List<ExpressionNode>) : InsertRows {
+internal class ValuesRow(private val values: Array<Any?>) : InsertRows {
   override val count get() = 1
 
-  override fun render(context: SqlRenderingContext) {
-    context.sql.append('(')
-    context.renderList(values) { it.render(context) }
-    context.sql.append(')')
+  override fun render(context: SqlRenderingContext) = context.renderValues(
+    values = values,
+    offset = 0,
+    width = values.size
+  )
+}
+
+internal class BuiltRows(
+  private val values: Array<Any?>,
+  private val width: Int,
+  override val count: Int
+) : InsertRows {
+  override fun render(context: SqlRenderingContext) = context.renderList(count) { row ->
+    context.renderValues(
+      values = values,
+      offset = row * width,
+      width = width
+    )
   }
 }
 
@@ -125,11 +172,14 @@ internal class ListedRows<T>(
 internal fun MutationNode<InsertHead>.withColumns(vararg columns: Column<*, *, *, *, *, *, *>) =
   copy(head = head.withColumns(columns))
 
+internal fun MutationNode<InsertHead>.withColumnArray(columns: Array<out Column<*, *, *, *, *, *, *>>) =
+  copy(head = head.withColumns(columns))
+
 internal fun MutationNode<InsertHead>.withHostRow(vararg values: Any?) =
   copy(head = head.withRows(head.hostRow(values)))
 
 internal fun MutationNode<InsertHead>.withExpressionRow(vararg values: SqlExpression<*, *, *>) =
-  copy(head = head.withRows(ValuesRow(values.map(SqlExpression<*, *, *>::node))))
+  copy(head = head.withRows(ValuesRow(Array(values.size) { values[it].node })))
 
 internal fun <T> MutationNode<InsertHead>.withListedRows(rows: List<T>, component: (T, Int) -> Any?) = copy(
   head = head.withRows(
@@ -139,6 +189,30 @@ internal fun <T> MutationNode<InsertHead>.withListedRows(rows: List<T>, componen
     )
   )
 )
+
+internal fun MutationNode<InsertHead>.withBuiltRow(values: Array<Any?>) =
+  copy(head = head.withRows(ValuesRow(values)))
+
+internal fun MutationNode<InsertHead>.withBuiltRows(values: Array<Any?>, width: Int, count: Int) = copy(
+  head = head.withRows(
+    BuiltRows(
+      values = values,
+      width = width,
+      count = count
+    )
+  )
+)
+
+private fun SqlRenderingContext.renderValues(values: Array<Any?>, offset: Int, width: Int) {
+  sql.append('(')
+  renderList(width) { index ->
+    when (val value = values[offset + index]) {
+      is NativeValue -> bind(value)
+      else -> (value as ExpressionNode).render(this)
+    }
+  }
+  sql.append(')')
+}
 
 @Suppress("UNCHECKED_CAST")
 private fun Column<*, *, *, *, *, *, *>.encodeHost(value: Any?): NativeValue {

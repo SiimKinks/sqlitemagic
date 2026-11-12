@@ -4,7 +4,11 @@ package com.siimkinks.sqlitemagic
 
 import androidx.annotation.CheckResult
 import com.siimkinks.sqlitemagic.internal.sql.InsertHead
+import com.siimkinks.sqlitemagic.internal.sql.InsertedColumns
 import com.siimkinks.sqlitemagic.internal.sql.MutationNode
+import com.siimkinks.sqlitemagic.internal.sql.withBuiltRow
+import com.siimkinks.sqlitemagic.internal.sql.withBuiltRows
+import com.siimkinks.sqlitemagic.internal.sql.withColumnArray
 import com.siimkinks.sqlitemagic.internal.sql.withColumns
 import com.siimkinks.sqlitemagic.internal.sql.withExpressionRow
 import com.siimkinks.sqlitemagic.internal.sql.withHostRow
@@ -283,6 +287,39 @@ class InsertIntoStage<P> internal constructor(
     ninth: Column<P, R9, *, *, W9, *, *>
   ) = InsertColumns9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(
     node.withColumns(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)
+  )
+
+  /**
+   * Define the columns to insert values into, for statements with more than nine columns.
+   *
+   * Columns that the statement does not list take their default values. Rows assign values to the columns by
+   * name, for example `it[EVENT.KIND] = "tap"`, instead of by position.
+   *
+   * Example:
+   * ```
+   * INSERT
+   *     .INTO(EVENT)
+   *     .COLUMNS(EVENT.KIND, EVENT.AT, EVENT.USER, …, EVENT.OS_VERSION)
+   *     .VALUES {
+   *       it[EVENT.KIND] = "tap"
+   *       it[EVENT.USER] = currentUser.asScalar()
+   *       …
+   *     }
+   * ```
+   *
+   * @param columns The columns to insert values into. These params must be annotation processor generated column
+   *     objects of the inserted table
+   * @return SQL INSERT statement builder
+   * @throws IllegalArgumentException if a column is not a column of the inserted table, for example a column of an
+   *     aliased table
+   */
+  @CheckResult
+  fun COLUMNS(vararg columns: Column<P, *, *, *, *, *, *>) = InsertColumnsStage<P>(
+    node = node.withColumnArray(columns),
+    columns = InsertedColumns(
+      table = node.head.table,
+      columns = columns
+    )
   )
 
   /**
@@ -1427,6 +1464,123 @@ class InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, 
   node: MutationNode<InsertHead>
 ) : InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node),
   MutationQuery by MutationStatement(node)
+
+/**
+ * Builder for SQL INSERT statement that inserts rows of the columns listed with `COLUMNS(vararg columns)`.
+ *
+ * @param P Inserted table model type
+ */
+sealed class InsertRowsStage<P>(
+  internal val node: MutationNode<InsertHead>,
+  internal val columns: InsertedColumns
+) {
+  /**
+   * Add a row.
+   *
+   * [row] assigns a value to every listed column, for example `it[EVENT.KIND] = "tap"`. Values are converted to SQL
+   * in the same way as the columns' other values, including the columns' transformers.
+   *
+   * Example:
+   * ```
+   * INSERT
+   *     .INTO(EVENT)
+   *     .COLUMNS(EVENT.KIND, EVENT.AT, EVENT.USER, …, EVENT.OS_VERSION)
+   *     .VALUES {
+   *       it[EVENT.KIND] = "tap"
+   *       it[EVENT.USER] = currentUser.asScalar()
+   *       …
+   *     }
+   * ```
+   *
+   * @param row Assigns the values of the row
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [row] assigns a column that the statement does not list, or leaves a listed
+   *     column without a value
+   */
+  @CheckResult
+  infix fun VALUES(row: (InsertedRow<P>) -> Unit) = InsertValuesStage<P>(
+    node = InsertedRow<P>(
+      columns = columns,
+      count = 1
+    ).let { builder ->
+      row(builder)
+      builder.next()
+      node.withBuiltRow(builder.values)
+    },
+    columns = columns
+  )
+
+  /**
+   * Add a row for each element of a list.
+   *
+   * [row] assigns a value to every listed column for an element, for example `row[EVENT.KIND] = event.kind`. Values
+   * are converted to SQL in the same way as the columns' other values, including the columns' transformers. An empty
+   * list adds no rows, and a statement whose rows all come from empty lists inserts nothing without running any SQL.
+   * Each value binds a variable, and SQLite before 3.32.0 rejects more than 999 variables in one statement.
+   * Statements with list rows are prepared without the connection's statement cache.
+   *
+   * Example:
+   * ```
+   * INSERT
+   *     .INTO(EVENT)
+   *     .COLUMNS(EVENT.KIND, EVENT.AT, EVENT.USER, …, EVENT.OS_VERSION)
+   *     .VALUES(events) { row, event ->
+   *       row[EVENT.KIND] = event.kind
+   *       …
+   *     }
+   * ```
+   *
+   * @param rows Elements to add rows for
+   * @param row Assigns the values of the row of an element
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [row] assigns a column that the statement does not list, or leaves a listed
+   *     column without a value
+   */
+  @CheckResult
+  fun <T> VALUES(rows: List<T>, row: (InsertedRow<P>, T) -> Unit) = InsertValuesStage<P>(
+    node = InsertedRow<P>(
+      columns = columns,
+      count = rows.size
+    ).let { builder ->
+      rows.forEach { element ->
+        row(builder, element)
+        builder.next()
+      }
+      node.withBuiltRows(
+        values = builder.values,
+        width = columns.size,
+        count = rows.size
+      )
+    },
+    columns = columns
+  )
+}
+
+/**
+ * Builder for SQL INSERT statement.
+ *
+ * @param P Inserted table model type
+ */
+class InsertColumnsStage<P> internal constructor(
+  node: MutationNode<InsertHead>,
+  columns: InsertedColumns
+) : InsertRowsStage<P>(
+  node = node,
+  columns = columns
+)
+
+/**
+ * SQL INSERT statement, which can take more rows.
+ *
+ * @param P Inserted table model type
+ */
+class InsertValuesStage<P> internal constructor(
+  node: MutationNode<InsertHead>,
+  columns: InsertedColumns
+) : InsertRowsStage<P>(
+  node = node,
+  columns = columns
+), MutationQuery by MutationStatement(node)
 
 private val ROW1_VALUES: (Row1<*>, Int) -> Any? = { row, _ -> row.first }
 

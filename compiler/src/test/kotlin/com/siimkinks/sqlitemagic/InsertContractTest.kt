@@ -125,6 +125,69 @@ internal class InsertContractTest {
   }
 
   @Test
+  fun `wide INSERT statements infer their stages, row assignments and terminals`() {
+    compileInsertConsumer(
+      """
+        fun verify(connection: DbConnection, names: List<String?>) {
+          val columns = INSERT
+              .INTO(PERSON)
+              .COLUMNS($WIDE_COLUMNS)
+          val spread = INSERT
+              .OR(CONFLICT_REPLACE)
+              .INTO(PERSON)
+              .COLUMNS(*arrayOf(PERSON.NAME, PERSON.AGE))
+          val scalar = SELECT
+              .COLUMN(PERSON.AGE)
+              .FROM(PERSON)
+              .WHERE(PERSON.ID IS 1L)
+              .asScalar()
+          val parentId = PERSON.PARENT_ID.asParameter("parent")
+          val row = columns.VALUES {
+            it[PERSON.ID] = 1L
+            it[PERSON.NAME] = null
+            it[PERSON.AGE] = 36
+            it[PERSON.PARENT_ID] = null
+            it[PERSON.TOKEN] = Token("a")
+            it[PERSON.DECODED] = null
+            it[PERSON.ID] = PERSON.PARENT_ID.asParameter("id")
+            it[PERSON.AGE] = scalar
+            it[PERSON.AGE] = (36.asValue() + 1).readAs(SqlType.INT)
+            it[PERSON.PARENT_ID] = parentId
+            it[PERSON.TOKEN] = "?".expr(TOKEN_TYPE, "db:t")
+            val rowType = it.exactType()
+            val exactRow: Exact<InsertedRow<Person>> = rowType
+          }
+          val infix = spread VALUES { it[PERSON.NAME] = "Ada" } VALUES { it[PERSON.AGE] = 36 }
+          val listed = spread.VALUES(names) { row, name ->
+            row[PERSON.NAME] = name
+            row[PERSON.AGE] = 36
+          }
+          val affected = row
+              .bind(parentId TO null)
+              .usingConnection(connection)
+              .execute()
+          val observed = listed.observe()
+
+          val columnsType = columns.exactType()
+          val spreadType = spread.exactType()
+          val rowType = row.exactType()
+          val infixType = infix.exactType()
+          val listedType = listed.exactType()
+          val affectedType = affected.exactType()
+          val observedType = observed.exactType()
+          val exactColumns: Exact<InsertColumnsStage<Person>> = columnsType
+          val exactSpread: Exact<InsertColumnsStage<Person>> = spreadType
+          val exactRow: Exact<InsertValuesStage<Person>> = rowType
+          val exactInfix: Exact<InsertValuesStage<Person>> = infixType
+          val exactListed: Exact<InsertValuesStage<Person>> = listedType
+          val exactAffected: Exact<Int> = affectedType
+          val exactObserved: Exact<Single<Int>> = observedType
+        }
+      """
+    ).isOk()
+  }
+
+  @Test
   fun `expression readAs keeps nullability and reads the given type`() {
     compileInsertConsumer(
       """
@@ -171,11 +234,14 @@ internal class InsertContractTest {
       import com.siimkinks.sqlitemagic.CompiledMutation
       import com.siimkinks.sqlitemagic.INSERT
       import com.siimkinks.sqlitemagic.InsertColumns1Stage
+      import com.siimkinks.sqlitemagic.InsertColumnsStage
       import com.siimkinks.sqlitemagic.InsertIntoStage
       import com.siimkinks.sqlitemagic.InsertValues1Stage
       import com.siimkinks.sqlitemagic.InsertValues2Stage
       import com.siimkinks.sqlitemagic.InsertValues3Stage
       import com.siimkinks.sqlitemagic.InsertValues4Stage
+      import com.siimkinks.sqlitemagic.InsertValuesStage
+      import com.siimkinks.sqlitemagic.InsertedRow
       import com.siimkinks.sqlitemagic.MutationQuery
       import com.siimkinks.sqlitemagic.RawMutationQuery
       import com.siimkinks.sqlitemagic.Row1
@@ -188,6 +254,9 @@ internal class InsertContractTest {
   )
 
   companion object {
+    private const val WIDE_COLUMNS = "PERSON.ID, PERSON.NAME, PERSON.AGE, PERSON.PARENT_ID, PERSON.TOKEN, " +
+        "PERSON.DECODED, PERSON.ID, PERSON.NAME, PERSON.AGE, PERSON.PARENT_ID"
+
     @JvmStatic
     fun invalidPrograms() = listOf(
       Arguments.of(
@@ -259,6 +328,45 @@ internal class InsertContractTest {
         "VALUES after DEFAULT VALUES",
         """(INSERT INTO PERSON).DEFAULT_VALUES().VALUES("Ada")""",
         "Unresolved reference 'VALUES' on receiver of type 'MutationQuery'"
+      ),
+      Arguments.of(
+        "wide columns of another table",
+        "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS, PET.NAME)",
+        "actual type is 'Column<Pet, String, Required, String, String, Required, String>', but " +
+            "'Column<Person, *, *, *, *, *, *>' was expected"
+      ),
+      Arguments.of(
+        "wide row column of another table",
+        """INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).VALUES { it[PET.NAME] = "Rex" }""",
+        "actual type is 'Column<Pet, String, Required, String, String, Required, String>', but " +
+            "'Column<Person, uninferred R (of fun <R> set), *, *, *, *, *>' was expected"
+      ),
+      Arguments.of(
+        "wide host value of another type",
+        """INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).VALUES { it[PERSON.AGE] = "36" }""",
+        "actual type is 'String', but 'Int' was expected"
+      ),
+      Arguments.of(
+        "wide expression of another value type",
+        """INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).VALUES { it[PERSON.AGE] = PERSON.NAME.asParameter("n") }""",
+        "actual type is 'SqlParameter<String?, String, SqlNullable, String?>', but " +
+            "'SqlExpression<uninferred R (of fun <R> set), *, *>' was expected"
+      ),
+      Arguments.of(
+        "wide wider number without readAs",
+        "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).VALUES { it[PERSON.AGE] = 36.asValue() + 1 }",
+        "actual type is 'EncodableSqlExpression<Number, Number, Required, Number>', but " +
+            "'SqlExpression<uninferred R (of fun <R> set), *, *>' was expected"
+      ),
+      Arguments.of(
+        "wide null into NOT NULL",
+        "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).VALUES { it[PERSON.AGE] = null }",
+        "Null cannot be a value of a non-null type 'uninferred W (of fun <W> set)'"
+      ),
+      Arguments.of(
+        "execute before wide VALUES",
+        "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).execute()",
+        "Unresolved reference 'execute' on receiver of type 'InsertColumnsStage<Person>'"
       ),
       Arguments.of(
         "raw table name",
