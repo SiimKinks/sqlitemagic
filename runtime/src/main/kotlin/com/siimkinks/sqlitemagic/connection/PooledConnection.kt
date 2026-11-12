@@ -22,8 +22,15 @@ internal class PooledConnection(
   }
   private val statements = LinkedHashMap<String, CachedStatement>(16, 0.75f, true)
 
-  inline fun <T> withStatement(sql: String, block: (SQLiteStatement) -> T): T {
-    val cached = acquireStatement(sql)
+  inline fun <T> withStatement(
+    sql: String,
+    cache: Boolean = true,
+    block: (SQLiteStatement) -> T
+  ): T {
+    val cached = acquireStatement(
+      sql = sql,
+      cache = cache
+    )
     val result = try {
       block(cached.statement)
     } catch (failure: Throwable) {
@@ -42,7 +49,13 @@ internal class PooledConnection(
     return result
   }
 
-  fun acquireStatement(sql: String): CachedStatement {
+  fun acquireStatement(sql: String, cache: Boolean): CachedStatement {
+    if (!cache) {
+      return CachedStatement(
+        statement = connection.prepare(sql),
+        transient = true
+      )
+    }
     val cached = statements[sql]
     return when {
       cached == null -> CachedStatement(

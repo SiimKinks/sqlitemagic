@@ -45,6 +45,8 @@ internal class SqlRenderingContext(
   private var reservedCteNames: MutableScatterSet<String>? = null
   private var lastCteNumber = 0
 
+  var insertingValues = false
+
   val nested get() = scope.kind == NESTED
 
   val root get() = scope.kind == ROOT
@@ -327,6 +329,7 @@ internal class SqlRenderingContext(
 
   private fun missingOccurrenceQualifier(table: Table<*>) = when {
     describing -> table.sqlQualifier
+    insertingValues && root -> throw IllegalArgumentException(INSERT_VALUES_FIELD)
     else -> throw IllegalArgumentException(MISSING_OCCURRENCE)
   }
 
@@ -457,6 +460,8 @@ internal class DefinitionFacts(val viewName: String) {
 }
 
 private const val MISSING_OCCURRENCE = "A field requires the exact table occurrence of its FROM, UPDATE or DELETE"
+
+private const val INSERT_VALUES_FIELD = "INSERT VALUES cannot read a field outside a subquery"
 
 internal fun derivedOutputName(expression: SqlExpression<*, *, *>, index: Int) = expression.outputAlias
   ?: (expression.node as? ExpressionNode.Field)?.let { field ->

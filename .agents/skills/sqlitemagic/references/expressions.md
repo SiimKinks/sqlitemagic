@@ -106,7 +106,9 @@ val exactHalf = CAST(BOOK.PAGES AS REAL) / 2.0    // Number?: REAL division
   result, as `exactHalf` does.
 - A field takes right-hand plain numbers of its own type (`BOOK.PAGES + 1`, not `+ 1.5`); use `asValue()` for another
   type (`BOOK.PAGES + 1.5.asValue()`) and for a number on the left (`100.asValue() - BOOK.PAGES`).
-- Read a fixed type by converting in Kotlin (`toLong()`), or with `readAs(SqlType.LONG)` on a one-value query.
+- Read a fixed type by converting in Kotlin (`toLong()`), with `readAs(SqlType.LONG)` on a one-value query, or with
+  `readAs` on the expression itself: `(BOOK.PAGES + 1).readAs(SqlType.INT)` reads `Int`, keeps the SQL and the
+  nullability, and fits where an `Int` expression is needed, such as an INSERT row.
 - `SET (BOOK.PAGES to BOOK.PAGES + 1)` accepts any numeric expression for a numeric column, a non-null one for a
   `NOT NULL` column: wrap a nullable one (`/`, `%`) in `IFNULL`.
 

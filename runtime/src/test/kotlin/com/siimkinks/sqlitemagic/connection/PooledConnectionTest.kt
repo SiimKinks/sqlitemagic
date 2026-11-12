@@ -65,6 +65,25 @@ internal class PooledConnectionTest {
   }
 
   @Test
+  fun `an uncached statement is closed after use and leaves the cache order unchanged`() {
+    for (index in 1..STATEMENT_CACHE_SIZE) {
+      pooled.step("SELECT $index")
+    }
+    val uncached = pooled.withStatement(
+      sql = "SELECT 1",
+      cache = false
+    ) { statement ->
+      statement.step()
+      statement.getLong(0)
+    }
+    pooled.step("SELECT 0")
+
+    assertThat(uncached).isEqualTo(1L)
+    assertThat(connection.statements.filter(TrackingStatement::closed))
+      .containsExactly(connection.statements[0], connection.statements[STATEMENT_CACHE_SIZE])
+  }
+
+  @Test
   fun `a statement prepared while every cached statement is in use stays open`() {
     fun nested(depth: Int): Long = pooled.withStatement("SELECT $depth") { statement ->
       when {

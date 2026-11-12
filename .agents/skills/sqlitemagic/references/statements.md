@@ -1,16 +1,64 @@
-# UPDATE, DELETE and raw SQL
+# INSERT, UPDATE, DELETE and raw SQL
 
-Statements that change rows chosen by a condition, and whole raw SQL for what the DSL does not express. Saving whole
-objects is in [entity-operations.md](entity-operations.md).
+Statements that insert rows of chosen columns or change rows chosen by a condition, and whole raw SQL for what the DSL
+does not express. Saving whole objects is in [entity-operations.md](entity-operations.md).
 
 ## Contents
 
+- [INSERT](#insert)
 - [UPDATE](#update)
 - [DELETE](#delete)
 - [Statement terminals](#statement-terminals)
 - [Raw SELECT](#raw-select)
-- [Raw UPDATE and DELETE](#raw-update-and-delete)
+- [Raw INSERT, UPDATE and DELETE](#raw-insert-update-and-delete)
 - [What has no DSL](#what-has-no-dsl)
+
+## INSERT
+
+```kotlin
+(INSERT INTO AUTHOR COLUMNS AUTHOR.NAME VALUES "Ada").execute()
+
+val inserted: Int = INSERT
+  .INTO(BOOK)
+  .COLUMNS(BOOK.TITLE, BOOK.PAGES, BOOK.AUTHOR)
+  .VALUES("Dune", 412, authorId)
+  .VALUES("Emma", 474, authorId)
+  .execute()
+
+INSERT
+  .INTO(BOOK)
+  .COLUMNS(BOOK.TITLE, BOOK.PAGES, BOOK.AUTHOR)
+  .VALUES(drafts.map { Row3(it.title, it.pages, authorId) })
+  .execute()
+
+INSERT
+  .INTO(AUTHOR)
+  .DEFAULT_VALUES()
+  .execute()
+```
+
+- `COLUMNS` lists one to nine columns of the target table; the others take their SQL defaults
+  ([models.md](models.md#columns-nullability-and-defaults)), so a partial row needs no whole object. A required
+  relationship, a `@Unique` column and a column of a unique index have no implicit default: leaving one out fails with
+  `NOT NULL constraint failed`. A column of another table does not compile; one of an aliased copy makes `COLUMNS`
+  throw `IllegalArgumentException`.
+- Each `VALUES` call adds one row, and all rows go into one statement: `VALUES (?, ?), (?, ?)`. A row takes either
+  host values of the columns' input types, encoded through their transformers as `SET` does (`null` writes NULL to a
+  nullable column), or expressions only. Mix the two by turning host values into expressions with `asValue()`.
+- An expression row takes each column's value type with any nullability: a parameter, a function, `asValue()`, or a
+  scalar subquery (`query.asScalar()`, which is always nullable). A NULL into a `NOT NULL` column fails with SQLite's
+  `NOT NULL constraint failed`. A wider number, such as `COUNT()` or arithmetic, states its read type with
+  `readAs(SqlType.INT)`, which leaves the SQL unchanged.
+- A list of rows uses `Row1`…`Row9`, one value per column: `VALUES(names.map(::Row1))` for one column. An empty list
+  adds no rows; a statement whose rows all come from empty lists returns 0, notifies nothing and runs no SQL, so
+  callers need no emptiness check. Each value binds one variable: below SQLite 3.32.0 (the framework driver before
+  API 31) more than 999 variables fail with `too many SQL variables`, so split very large lists yourself.
+- Values cannot read the target table: a field in `VALUES` outside a subquery throws `IllegalArgumentException`.
+- Conflict algorithm in SQL order: `INSERT OR CONFLICT_IGNORE INTO AUTHOR …`, `INSERT.OR(CONFLICT_REPLACE).INTO(…)`.
+  The count is SQLite's `changes()`: ignored rows count nothing, and an `INSERT OR REPLACE` counts the inserted row,
+  not the one it deleted.
+- `DEFAULT_VALUES()` inserts one row of defaults.
+- No INSERT statement reads back the new row IDs; when the ID matters, use entity `insert()`, which returns it.
 
 ## UPDATE
 
@@ -63,7 +111,7 @@ DELETE
 
 | Terminal | Result |
 | --- | --- |
-| `execute()` | affected row count, `Int` (blocking) |
+| `execute()` | inserted, updated or deleted row count, `Int` (blocking) |
 | `compile()` | `CompiledMutation`, `execute()` repeatedly |
 | `bind(param TO value, …)` | the statement with parameter values, before `compile`/`execute` |
 | `usingConnection(connection)` | after the last clause |
@@ -72,8 +120,11 @@ DELETE
 
 - Statements are immutable values like queries; `@CheckResult` makes lint flag a discarded one.
 - A successful statement that changed rows notifies observers of its table (after the commit inside a transaction).
-  `DELETE` and `UPDATE.OR(CONFLICT_REPLACE)` also notify the tables their deletes cascade into.
+  `DELETE`, `UPDATE.OR(CONFLICT_REPLACE)` and `INSERT.OR(CONFLICT_REPLACE)` also notify the tables their deletes
+  cascade into. A statement that fails after it starts running notifies too, since some rows may have changed.
 - One statement that changes many rows beats a loop of entity operations: one round trip, one notification.
+- A statement with list rows is prepared for each run, since every list size is its own SQL; other statements reuse
+  the connection's prepared statement.
 
 ## Raw SELECT
 
@@ -121,9 +172,13 @@ val columns = SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
 - Reading a view through raw SQL quotes its dotted column names: `SELECT "author.name" FROM book_card`
   ([views.md](views.md#columns-and-names)).
 
-## Raw UPDATE and DELETE
+## Raw INSERT, UPDATE and DELETE
 
 ```kotlin
+INSERT.RAW("INSERT INTO book (title, pages, author) VALUES (?, ?, ?)", "Dune", 412, authorId)
+  .notifies(BOOK)
+  .execute()
+
 UPDATE.RAW("UPDATE book SET pages = pages + ? WHERE author = ?", 10, authorId)
   .notifies(BOOK)
   .execute()
@@ -135,15 +190,14 @@ DELETE.RAW("DELETE FROM book WHERE author = ? AND pages < ?", authorId, 10)
 
 - `.notifies(TABLE, …)` names the generated tables the statement changes, including the ones its deletes cascade
   into; undeclared changes notify nothing. Tables without generated code cannot be observed.
-- A conflict clause goes into the text (`UPDATE OR IGNORE …`). There is no raw INSERT; rows are inserted through
-  entity operations.
+- A conflict clause goes into the text (`UPDATE OR IGNORE …`).
 - Terminals as for typed statements: `execute()`, `compile()`, `usingConnection`, `await()`, `observe()`.
 
 ## What has no DSL
 
 | Need | Use |
 | --- | --- |
-| Insert rows | entity `insert()`/bulk insert; no INSERT statement or `INSERT … SELECT` |
+| `INSERT … SELECT`, INSERT into more than nine columns | raw INSERT, or entity `insert()` for whole objects |
 | Native UPSERT (`ON CONFLICT DO UPDATE`), `RETURNING` | entity `persist()`; read back with a query |
 | Recursive CTE, reading a `PRAGMA` | raw SELECT |
 | `ATTACH`, setting a `PRAGMA` | `configureConnection`, which runs on every connection; a raw statement reaches one connection only |

@@ -5,7 +5,7 @@ import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.compileMutation
 
 /**
- * Raw SQL UPDATE or DELETE statement.
+ * Raw SQL statement that changes rows, such as INSERT, UPDATE or DELETE.
  *
  * Statements are immutable and can be reused.
  */
@@ -68,7 +68,7 @@ class RawMutationQuery internal constructor(
    *
    * This method runs synchronously in the calling thread.
    *
-   * @return Number of updated or deleted rows
+   * @return Number of inserted, updated or deleted rows
    */
   fun execute(): Int = compile().execute()
 }

@@ -18,7 +18,6 @@ internal data class MutationNode<H : MutationHead>(
   val parameterValues: List<ParameterAssignment> = emptyList()
 ) : SqlRenderable {
   override fun render(context: SqlRenderingContext) {
-    context.addSource(head.table)
     head.render(context)
     if (where != null) {
       context.sql.append(" WHERE ")
@@ -38,6 +37,17 @@ internal data class MutationNode<H : MutationHead>(
     )
 
     fun delete(table: Table<*>) = MutationNode(head = DeleteHead(mutationTarget(table)))
+
+    fun insert(table: Table<*>, conflictAlgorithm: Int) = MutationNode(
+      head = InsertHead(
+        table = table.also {
+          require(it.alias == null) { "INSERT targets cannot be aliased; use ${it.name} itself" }
+        },
+        conflictAlgorithm = conflictAlgorithm,
+        columns = emptyArray(),
+        rows = emptyList()
+      )
+    )
 
     private fun mutationTarget(table: Table<*>) = table.also {
       require(it.alias == null) {
@@ -67,6 +77,8 @@ internal fun MutationNode<UpdateHead>.withAssignment(
 internal sealed interface MutationHead : SqlRenderable {
   val table: Table<*>
   val deletedTable: String?
+  val cache get() = true
+  val skipped get() = false
 }
 
 internal class UpdateHead(
@@ -81,6 +93,7 @@ internal class UpdateHead(
     }
 
   override fun render(context: SqlRenderingContext) {
+    context.addSource(table)
     context.sql
       .append("UPDATE")
       .append(CONFLICT_VALUES[conflictAlgorithm])
@@ -106,6 +119,7 @@ internal class DeleteHead(override val table: Table<*>) : MutationHead {
   override val deletedTable get() = table.name
 
   override fun render(context: SqlRenderingContext) {
+    context.addSource(table)
     context.sql
       .append("DELETE FROM ")
       .append(table.sqlSource)
@@ -124,7 +138,9 @@ internal fun compileMutation(
   connection: DbConnectionImpl?,
   tables: Array<out String>,
   deletedTable: String? = null,
-  parameterValues: List<ParameterAssignment> = emptyList()
+  parameterValues: List<ParameterAssignment> = emptyList(),
+  cache: Boolean = true,
+  skipped: Boolean = false
 ) = prepareQuery(
   renderable = renderable,
   connection = connection
@@ -134,6 +150,8 @@ internal fun compileMutation(
       prepared = prepared,
       arguments = prepared.bind(parameterValues),
       tables = tables,
-      deletedTable = deletedTable
+      deletedTable = deletedTable,
+      cache = cache,
+      skipped = skipped
     )
   }

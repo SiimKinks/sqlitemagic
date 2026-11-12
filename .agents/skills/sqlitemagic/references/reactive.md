@@ -73,7 +73,7 @@ class BookRepository {
 | query, `compile()` plan, raw query with `observes` | `Flow<Query<List<T>>>` | `runQuery(): Flow<List<T>>` | `runQueryOnce(): List<T>` |
 | `takeFirst()` plan | `Flow<Query<T?>>` | `runQuery(): Flow<T>` (skips `null`), `runQueryOrDefault(d)` | `runQueryOnce(): T?`, `runQueryOnceOrDefault(d)` |
 | `count()` plan | `Flow<Query<Long>>` | `runQuery()`, `isZero()`, `isNotZero()` | `runQueryOnce(): Long` |
-| entity operations, UPDATE/DELETE, raw statements, raw SELECT without `observes` | — | — | `await()` |
+| entity operations, INSERT/UPDATE/DELETE, raw statements, raw SELECT without `observes` | — | — | `await()` |
 
 - Import `observe`, the operators and `await` from `com.siimkinks.sqlitemagic.coroutines`.
 - Queries run on the dispatcher set with `dispatchCoroutineQueriesOn` (default `Dispatchers.IO`); collectors receive
@@ -116,7 +116,7 @@ fun save(book: Book): Completable = book
 | `count()` plan | `CountQueryObservable` | `runQuery()`, `runQueryOnce(): Single<Long>`, `isZero()`, `isNotZero()` |
 | raw SELECT without `observes` | `Single` (list) or `Maybe` (first row), run once | — |
 | entity operations | `Single<…>` or `Completable` ([table](entity-operations.md#async-forms)) | — |
-| UPDATE/DELETE, raw statements, `CompiledMutation` | `Single<Int>` | — |
+| INSERT/UPDATE/DELETE, raw statements, `CompiledMutation` | `Single<Int>` | — |
 
 - Import `observe` (and `run`, `scheduleRxQueriesOn`) from `com.siimkinks.sqlitemagic.rxjava3` or `.rxjava2`; the
   operators are members. A file using both adapters imports one with an alias.

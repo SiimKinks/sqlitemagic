@@ -8,27 +8,28 @@ import io.reactivex.rxjava3.core.Single
 
 /**
  * Compile this statement and create a [Single] that when subscribed to executes this statement against a database
- * and emits nr of updated or deleted records to downstream only once.
+ * and emits nr of inserted, updated or deleted records to downstream only once.
  *
  * @return Deferred [Single] that when subscribed to executes the statement and emits its result to downstream
  * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
- *     parameter, or the WHERE clause uses a column of another table outside a subquery
+ *     parameter, or the statement uses a column outside a subquery that it cannot read: a column of another
+ *     table in UPDATE or DELETE, or any column in INSERT VALUES
  */
 @CheckResult
 fun MutationQuery.observe(): Single<Int> = compile().observe()
 
 /**
  * Create a [Single] that when subscribed to executes this compiled statement against a database and emits nr of
- * updated or deleted records to downstream only once.
+ * inserted, updated or deleted records to downstream only once.
  *
  * @return Deferred [Single] that when subscribed to executes the statement and emits its result to downstream
  */
 @CheckResult
-fun CompiledMutation.observe(): Single<Int> = Single.fromCallable(::execute)
+fun CompiledMutation.observe(): Single<Int> = Single.fromCallable(this::execute)
 
 /**
  * Compile this statement and create a [Single] that when subscribed to executes this statement against a database
- * and emits nr of updated or deleted records to downstream only once.
+ * and emits nr of inserted, updated or deleted records to downstream only once.
  *
  * @return Deferred [Single] that when subscribed to executes the statement and emits its result to downstream
  */

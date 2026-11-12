@@ -5,13 +5,15 @@ import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
 import com.siimkinks.sqlitemagic.internal.sql.bindNativeValues
 
 /**
- * Compiled SQL UPDATE or DELETE statement.
+ * Compiled SQL statement that changes rows: INSERT, UPDATE or DELETE.
  */
 class CompiledMutation internal constructor(
   private val prepared: PreparedQuery,
   internal val arguments: List<NativeValue>,
   private val tables: Array<out String>,
-  private val deletedTable: String?
+  private val deletedTable: String?,
+  private val cache: Boolean,
+  private val skipped: Boolean
 ) {
   /**
    * SQL of this statement.
@@ -23,12 +25,18 @@ class CompiledMutation internal constructor(
    *
    * This method runs synchronously in the calling thread.
    *
-   * @return Number of updated or deleted rows
+   * @return Number of inserted, updated or deleted rows
    */
   fun execute(): Int {
+    if (skipped) {
+      return 0
+    }
     val connection = resolveConnection()
     val affected = connection.write { pooled ->
-      pooled.withStatement(prepared.sql) { statement ->
+      pooled.withStatement(
+        sql = prepared.sql,
+        cache = cache
+      ) { statement ->
         bindNativeValues(
           statement = statement,
           values = arguments

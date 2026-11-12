@@ -161,8 +161,8 @@ object ReactiveAdapterSupport {
   fun connection(operation: DeferredOperation<*>): DbConnection = operation.connection.orDefault()
 
   /**
-   * Resolve the connection that a compiled UPDATE or DELETE statement runs on: the one it was configured with, or
-   * else the current default connection.
+   * Resolve the connection that a compiled INSERT, UPDATE or DELETE statement runs on: the one it was configured
+   * with, or else the current default connection.
    *
    * @param mutation Compiled statement
    * @return Connection of [mutation]

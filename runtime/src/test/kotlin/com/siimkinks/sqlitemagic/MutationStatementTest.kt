@@ -516,6 +516,20 @@ internal class MutationStatementTest {
           .TABLE(PERSON)
           .SET(PERSON.NAME, "Ada"),
         expectedTables = setOf("person")
+      ),
+      FailureCase(
+        label = "INSERT OR REPLACE",
+        query = INSERT
+          .OR(CONFLICT_REPLACE)
+          .INTO(PERSON)
+          .COLUMNS(PERSON.NAME)
+          .VALUES(listOf(Row1("Ada"))),
+        expectedTables = setOf("person", "pets")
+      ),
+      FailureCase(
+        label = "INSERT",
+        query = INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada",
+        expectedTables = setOf("person")
       )
     ).forEach { (label, query, expectedTables) ->
       val recording = RecordingSQLiteConnection()

@@ -7,7 +7,7 @@ import com.siimkinks.sqlitemagic.internal.sql.MutationNode
 import com.siimkinks.sqlitemagic.internal.sql.compileMutation
 
 /**
- * SQL UPDATE or DELETE statement.
+ * SQL statement that changes rows: INSERT, UPDATE or DELETE.
  *
  * Statements are immutable and can be reused.
  */
@@ -48,7 +48,8 @@ sealed interface MutationQuery {
    *
    * @return Immutable compiled statement
    * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
-   *     parameter, or the WHERE clause uses a column of another table outside a subquery
+   *     parameter, or the statement uses a column outside a subquery that it cannot read: a column of another
+   *     table in UPDATE or DELETE, or any column in INSERT VALUES
    */
   @CheckResult
   fun compile(): CompiledMutation
@@ -58,9 +59,10 @@ sealed interface MutationQuery {
    *
    * This method runs synchronously in the calling thread.
    *
-   * @return Number of updated or deleted rows
+   * @return Number of inserted, updated or deleted rows
    * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
-   *     parameter, or the WHERE clause uses a column of another table outside a subquery
+   *     parameter, or the statement uses a column outside a subquery that it cannot read: a column of another
+   *     table in UPDATE or DELETE, or any column in INSERT VALUES
    */
   fun execute(): Int = compile().execute()
 }
@@ -79,7 +81,9 @@ internal class MutationStatement(val node: MutationNode<*>) : MutationQuery {
     connection = node.connection,
     tables = arrayOf(node.head.table.name),
     deletedTable = node.head.deletedTable,
-    parameterValues = node.parameterValues
+    parameterValues = node.parameterValues,
+    cache = node.head.cache,
+    skipped = node.head.skipped
   )
 }
 

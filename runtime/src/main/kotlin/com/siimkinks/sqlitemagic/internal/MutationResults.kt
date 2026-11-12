@@ -20,7 +20,7 @@ interface MutationResults {
   fun executeInsert(statement: SQLiteStatement): Long
 
   /**
-   * Execute an UPDATE or DELETE statement prepared on this connection.
+   * Execute an INSERT, UPDATE or DELETE statement prepared on this connection.
    *
    * @param statement Statement prepared on this connection, with its values bound
    * @return Number of changed rows

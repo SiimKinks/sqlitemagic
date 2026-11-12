@@ -4,10 +4,10 @@ description: >-
   Write, extend and review Android code that uses SqliteMagic 3, the KSP-generated SQLite layer with a SQL-first
   Kotlin DSL: setup and drivers, @Table models, relationships, transformers and views, entity operations (insert,
   update, persist, delete), queries (SELECT FROM, SELECT.COLUMNS, joins, subqueries, aggregates, compiled queries),
-  UPDATE and DELETE statements, raw SQL, observing queries with coroutines or RxJava, transactions and migrations.
-  Use whenever code imports com.siimkinks.sqlitemagic or a task adds a table, column, query, repository, database
-  screen or migration in a SqliteMagic project, even if the request only says "store this", "query the db" or "make
-  it reactive". Not for upgrading from SqliteMagic 2.x or 0.x (use sqlitemagic-upgrade), nor for changing
+  INSERT, UPDATE and DELETE statements, raw SQL, observing queries with coroutines or RxJava, transactions and
+  migrations. Use whenever code imports com.siimkinks.sqlitemagic or a task adds a table, column, query, repository,
+  database screen or migration in a SqliteMagic project, even if the request only says "store this", "query the db"
+  or "make it reactive". Not for upgrading from SqliteMagic 2.x or 0.x (use sqlitemagic-upgrade), nor for changing
   SqliteMagic itself.
 ---
 
@@ -29,7 +29,7 @@ Read the reference a task needs, not all of them up front:
 | Saving and deleting objects: insert, update, persist, delete, bulk operations, results, conflicts | [entity-operations.md](references/entity-operations.md) |
 | Reading data: SELECT shapes, result types, clauses, joins, aliases, mapping, subqueries, CTEs, compounds, terminals, parameters | [queries.md](references/queries.md) |
 | Building values and predicates: comparisons, NULL, arithmetic, aggregates, windows, text helpers, CASE/COALESCE, CAST, raw fragments, functions | [expressions.md](references/expressions.md) |
-| UPDATE and DELETE statements and whole raw SQL | [statements.md](references/statements.md) |
+| INSERT, UPDATE and DELETE statements and whole raw SQL | [statements.md](references/statements.md) |
 | SQLite views from a DSL query | [views.md](references/views.md) |
 | Observing queries and one-shot async work with coroutines or RxJava | [reactive.md](references/reactive.md) |
 | Transactions, threads, connections and errors | [transactions.md](references/transactions.md) |
@@ -151,9 +151,9 @@ must join the path it means; [queries.md](references/queries.md#joins-and-aliase
    result a fallback with `IFNULL`/`COALESCE` in SQL or `?:` in Kotlin, compare with NULL through `IS_NULL()`. No `!!`
    on database results; use `checkNotNull(…)` with a message when a value must exist.
 9. **Stay in the DSL; drop to raw SQL deliberately.** Raw fragments (`"…".expr(SqlType.BOOLEAN, args)`), raw
-   statements (`SELECT.RAW`, `UPDATE.RAW`, `DELETE.RAW`) and declared functions (`scalarFunction`) cover what the DSL
-   lacks. Bind arguments, interpolate generated fields (`"${BOOK.TITLE}"` renders the quoted column) and declare
-   `observes`/`notifies`.
+   statements (`SELECT.RAW`, `INSERT.RAW`, `UPDATE.RAW`, `DELETE.RAW`) and declared functions (`scalarFunction`)
+   cover what the DSL lacks. Bind arguments, interpolate generated fields (`"${BOOK.TITLE}"` renders the quoted
+   column) and declare `observes`/`notifies`.
 10. **Do database work off the main thread.** Use the coroutine adapter's `observe()`/`await()`/`withTransaction`, or
     the RxJava adapter's `observe()` with `subscribeOn(Schedulers.io())` for writes; blocking `execute()` belongs in
     background code, transactions and tests.
@@ -166,8 +166,8 @@ must join the path it means; [queries.md](references/queries.md#joins-and-aliase
 
 ## Imports
 
-Everything a user writes comes from `com.siimkinks.sqlitemagic`: statement starters (`SELECT`, `UPDATE`, `DELETE`,
-`WITH`), top-level functions and operators (`AND`, `OR`, `COUNT`, `IFNULL`, `CASE`, `EXISTS`, …), extensions
+Everything a user writes comes from `com.siimkinks.sqlitemagic`: statement starters (`SELECT`, `INSERT`, `UPDATE`,
+`DELETE`, `WITH`), top-level functions and operators (`AND`, `OR`, `COUNT`, `IFNULL`, `CASE`, `EXISTS`, …), extensions
 (`queryDeep`, `mapTo`, `readAs`, `asScalar`, `asValue`, `asLiteral`, `expr`), the generated entity operations
 (`com.siimkinks.sqlitemagic.insert`, `…persist`) and the generated table objects (`…AuthorTable.Companion.AUTHOR`).
 Methods of a query, field or expression (`WHERE`, `ORDER_BY`, `IS`, `ASC()`, `nullable()`) are members and need no

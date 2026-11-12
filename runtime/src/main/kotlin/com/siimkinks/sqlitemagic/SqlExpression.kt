@@ -1004,6 +1004,108 @@ fun <W, R, N : SqlNullability, T> String.expr(
   encode = type.encode
 )
 
+/**
+ * Define how the values of this expression are read.
+ *
+ * The SQL stays the same. Use it to read a number as a narrower type, for example to insert `COUNT()` or arithmetic
+ * into an `Int` column.
+ *
+ * Example:
+ * ```
+ * (BOOK.PAGES + 1).readAs(SqlType.INT)
+ * ```
+ *
+ * @param type Type that reads the values
+ * @return Expression with the values read as [type]
+ */
+@JvmName("requiredReadAs")
+fun <R, N : SqlNullability, T> SqlExpression<*, Required, *>.readAs(type: ReadType<R, N, T>) = SqlExpression(
+  node = node,
+  nullness = type.readNullness,
+  nonNullRead = type.nonNullRead,
+  selectRead = type.selectRead,
+  outputAlias = outputAlias
+)
+
+/**
+ * Define how the values of this expression are read.
+ *
+ * The SQL stays the same and SQL NULL values are read as `null`. Use it to read a number as a narrower type, for
+ * example to insert `SUM(…)` into an `Int` column.
+ *
+ * Example:
+ * ```
+ * SUM(BOOK.PAGES).readAs(SqlType.INT)
+ * ```
+ *
+ * @param type Type that reads the values
+ * @return Expression with the values read as [type]
+ */
+@JvmName("nullableReadAs")
+fun <R> SqlExpression<*, SqlNullable, *>.readAs(type: ReadType<R, *, *>) = type.nullable.let { nullable ->
+  SqlExpression(
+    node = node,
+    nullness = SqlNullable,
+    nonNullRead = nullable.nonNullRead,
+    selectRead = nullable.selectRead,
+    outputAlias = outputAlias
+  )
+}
+
+/**
+ * Define how the values of this expression are read.
+ *
+ * The SQL stays the same. The expression can be compared with values of [type]. Use it to read a number as a narrower
+ * type, for example to insert `COUNT()` or arithmetic into an `Int` column.
+ *
+ * Example:
+ * ```
+ * (BOOK.PAGES + 1).readAs(SqlType.INT) GREATER_THAN 400
+ * ```
+ *
+ * @param type Type that reads the values
+ * @return Expression with the values read as [type]
+ */
+@JvmName("requiredEncodableReadAs")
+fun <W, R, N : SqlNullability, T> SqlExpression<*, Required, *>.readAs(
+  type: EncodableReadType<W, R, N, T>
+) = EncodableSqlExpression(
+  node = node,
+  nullness = type.readNullness,
+  nonNullRead = type.nonNullRead,
+  selectRead = type.selectRead,
+  encode = type.encode,
+  outputAlias = outputAlias
+)
+
+/**
+ * Define how the values of this expression are read.
+ *
+ * The SQL stays the same and SQL NULL values are read as `null`. The expression can be compared with values of
+ * [type]. Use it to read a number as a narrower type, for example to insert `SUM(…)` into an `Int` column.
+ *
+ * Example:
+ * ```
+ * SUM(BOOK.PAGES).readAs(SqlType.INT) GREATER_THAN 400
+ * ```
+ *
+ * @param type Type that reads the values
+ * @return Expression with the values read as [type]
+ */
+@JvmName("nullableEncodableReadAs")
+fun <W, R> SqlExpression<*, SqlNullable, *>.readAs(
+  type: EncodableReadType<W, R, *, *>
+) = type.nullable.let { nullable ->
+  EncodableSqlExpression(
+    node = node,
+    nullness = SqlNullable,
+    nonNullRead = nullable.nonNullRead,
+    selectRead = nullable.selectRead,
+    encode = nullable.encode,
+    outputAlias = outputAlias
+  )
+}
+
 private fun String.rawNode(arguments: Array<out Any?>) = ExpressionNode.Raw(
   sql = this,
   arguments = arguments.map(::nativeValue),

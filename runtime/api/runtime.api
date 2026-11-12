@@ -326,6 +326,184 @@ public final class com/siimkinks/sqlitemagic/GroupClause$DefaultImpls {
 	public static fun GROUP_BY (Lcom/siimkinks/sqlitemagic/GroupClause;[Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectGroupStage;
 }
 
+public final class com/siimkinks/sqlitemagic/Insert {
+	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/Insert;
+	public final fun INTO (Lcom/siimkinks/sqlitemagic/Table;)Lcom/siimkinks/sqlitemagic/InsertIntoStage;
+	public final fun OR (I)Lcom/siimkinks/sqlitemagic/InsertConflictStage;
+	public final fun RAW (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/RawMutationQuery;
+	public final fun RAW (Ljava/lang/String;[Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/RawMutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns1Stage : com/siimkinks/sqlitemagic/InsertRows1Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns2Stage : com/siimkinks/sqlitemagic/InsertRows2Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns3Stage : com/siimkinks/sqlitemagic/InsertRows3Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns4Stage : com/siimkinks/sqlitemagic/InsertRows4Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns5Stage : com/siimkinks/sqlitemagic/InsertRows5Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns6Stage : com/siimkinks/sqlitemagic/InsertRows6Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns7Stage : com/siimkinks/sqlitemagic/InsertRows7Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns8Stage : com/siimkinks/sqlitemagic/InsertRows8Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertColumns9Stage : com/siimkinks/sqlitemagic/InsertRows9Stage {
+}
+
+public final class com/siimkinks/sqlitemagic/InsertConflictStage {
+	public final fun INTO (Lcom/siimkinks/sqlitemagic/Table;)Lcom/siimkinks/sqlitemagic/InsertIntoStage;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertIntoStage {
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns1Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns2Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns3Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns4Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns5Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns6Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns7Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns8Stage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/InsertColumns9Stage;
+	public final fun DEFAULT_VALUES ()Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows1Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues1Stage;
+	public final fun VALUES (Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues1Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues1Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows2Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues2Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues2Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues2Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows3Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues3Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues3Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues3Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows4Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues4Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues4Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues4Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows5Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues5Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues5Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues5Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows6Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues6Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues6Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues6Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows7Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues7Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues7Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues7Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows8Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues8Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues8Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues8Stage;
+}
+
+public abstract class com/siimkinks/sqlitemagic/InsertRows9Stage {
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/internal/sql/MutationNode;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun VALUES (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/InsertValues9Stage;
+	public final fun VALUES (Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/InsertValues9Stage;
+	public final fun VALUES (Ljava/util/List;)Lcom/siimkinks/sqlitemagic/InsertValues9Stage;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues1Stage : com/siimkinks/sqlitemagic/InsertRows1Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues2Stage : com/siimkinks/sqlitemagic/InsertRows2Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues3Stage : com/siimkinks/sqlitemagic/InsertRows3Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues4Stage : com/siimkinks/sqlitemagic/InsertRows4Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues5Stage : com/siimkinks/sqlitemagic/InsertRows5Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues6Stage : com/siimkinks/sqlitemagic/InsertRows6Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues7Stage : com/siimkinks/sqlitemagic/InsertRows7Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues8Stage : com/siimkinks/sqlitemagic/InsertRows8Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/InsertValues9Stage : com/siimkinks/sqlitemagic/InsertRows9Stage, com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
 public abstract interface class com/siimkinks/sqlitemagic/JoinClause : com/siimkinks/sqlitemagic/ClauseHost {
 	public fun CROSS_JOIN (Lcom/siimkinks/sqlitemagic/Source;)Lcom/siimkinks/sqlitemagic/SelectJoinStage;
 	public fun FULL_JOIN (Lcom/siimkinks/sqlitemagic/Source;)Lcom/siimkinks/sqlitemagic/SelectJoinStage;
@@ -384,6 +562,7 @@ public final class com/siimkinks/sqlitemagic/MutationQuery$DefaultImpls {
 
 public final class com/siimkinks/sqlitemagic/MutationsKt {
 	public static final fun getDELETE ()Lcom/siimkinks/sqlitemagic/Delete;
+	public static final fun getINSERT ()Lcom/siimkinks/sqlitemagic/Insert;
 	public static final fun getUPDATE ()Lcom/siimkinks/sqlitemagic/Update;
 	public static final fun setNullableNumber (Lcom/siimkinks/sqlitemagic/UpdateTableStage;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
 	public static final fun setNullableNumberPair (Lcom/siimkinks/sqlitemagic/UpdateTableStage;Lkotlin/Pair;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
@@ -558,6 +737,17 @@ public class com/siimkinks/sqlitemagic/ReadType : com/siimkinks/sqlitemagic/Read
 public final class com/siimkinks/sqlitemagic/Required : com/siimkinks/sqlitemagic/SqlNullability {
 	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/Required;
 	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/siimkinks/sqlitemagic/Row1 {
+	public fun <init> (Ljava/lang/Object;)V
+	public final fun component1 ()Ljava/lang/Object;
+	public final fun copy (Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/Row1;
+	public static synthetic fun copy$default (Lcom/siimkinks/sqlitemagic/Row1;Ljava/lang/Object;ILjava/lang/Object;)Lcom/siimkinks/sqlitemagic/Row1;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFirst ()Ljava/lang/Object;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -1002,6 +1192,10 @@ public class com/siimkinks/sqlitemagic/SqlExpression : com/siimkinks/sqlitemagic
 public final class com/siimkinks/sqlitemagic/SqlExpressionKt {
 	public static final fun expr (Ljava/lang/String;Lcom/siimkinks/sqlitemagic/EncodableReadType;[Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/EncodableRawSqlExpression;
 	public static final fun expr (Ljava/lang/String;Lcom/siimkinks/sqlitemagic/ReadType;[Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/RawSqlExpression;
+	public static final fun nullableEncodableReadAs (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/EncodableReadType;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
+	public static final fun nullableReadAs (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/ReadType;)Lcom/siimkinks/sqlitemagic/SqlExpression;
+	public static final fun requiredEncodableReadAs (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/EncodableReadType;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
+	public static final fun requiredReadAs (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/ReadType;)Lcom/siimkinks/sqlitemagic/SqlExpression;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/SqlNullability {

@@ -70,8 +70,9 @@ data class Author(
 - A `NOT NULL` column has an implicit SQL default: `''`, `0`, `0.0`, `X''` (blob), `X'00'` (Byte), `0` for `false`.
   `@Column(defaultValue = "…")` sets another, as SQL text: `"1"`, `"'unknown'"` (quote text). An expression default
   (`CURRENT_TIMESTAMP`) is valid; adding such a column rebuilds the table instead of `ADD COLUMN`.
-  The SQL default matters for migrations (it fills the column for existing rows) and for raw INSERTs; Kotlin default
-  values apply only when constructing objects, never in migrations. Keep the two consistent:
+  The SQL default matters for migrations (it fills the column for existing rows) and for inserts that leave the
+  column out: INSERT statements, raw INSERTs and `ignoreNullValues()` inserts. Kotlin default values apply only when
+  constructing objects, never in migrations. Keep the two consistent:
 
   ```kotlin
   @Column(defaultValue = "1")
