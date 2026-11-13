@@ -47,6 +47,23 @@ public final class com/siimkinks/sqlitemagic/ArithmeticKt {
 	public static final fun unaryMinus (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 }
 
+public abstract class com/siimkinks/sqlitemagic/AssignmentStage {
+	public final fun SET (Lcom/siimkinks/sqlitemagic/Column;Ljava/lang/Object;)Ljava/lang/Object;
+	public final fun SET_NULL (Lcom/siimkinks/sqlitemagic/Column;)Ljava/lang/Object;
+	public final fun setNullableExpression (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Ljava/lang/Object;
+	public final fun setNullableExpressionPair (Lkotlin/Pair;)Ljava/lang/Object;
+	public final fun setRequiredExpression (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Ljava/lang/Object;
+	public final fun setRequiredExpressionPair (Lkotlin/Pair;)Ljava/lang/Object;
+	public final fun setValue (Lkotlin/Pair;)Ljava/lang/Object;
+}
+
+public final class com/siimkinks/sqlitemagic/AssignmentStageKt {
+	public static final fun setNullableNumber (Lcom/siimkinks/sqlitemagic/AssignmentStage;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Ljava/lang/Object;
+	public static final fun setNullableNumberPair (Lcom/siimkinks/sqlitemagic/AssignmentStage;Lkotlin/Pair;)Ljava/lang/Object;
+	public static final fun setRequiredNumber (Lcom/siimkinks/sqlitemagic/AssignmentStage;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Ljava/lang/Object;
+	public static final fun setRequiredNumberPair (Lcom/siimkinks/sqlitemagic/AssignmentStage;Lkotlin/Pair;)Ljava/lang/Object;
+}
+
 public final class com/siimkinks/sqlitemagic/Case {
 	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/Case;
 	public final fun WHEN (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SearchedCaseWhen;
@@ -694,10 +711,6 @@ public final class com/siimkinks/sqlitemagic/MutationsKt {
 	public static final fun getDELETE ()Lcom/siimkinks/sqlitemagic/Delete;
 	public static final fun getINSERT ()Lcom/siimkinks/sqlitemagic/Insert;
 	public static final fun getUPDATE ()Lcom/siimkinks/sqlitemagic/Update;
-	public static final fun setNullableNumber (Lcom/siimkinks/sqlitemagic/UpdateTableStage;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public static final fun setNullableNumberPair (Lcom/siimkinks/sqlitemagic/UpdateTableStage;Lkotlin/Pair;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public static final fun setRequiredNumber (Lcom/siimkinks/sqlitemagic/UpdateTableStage;Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public static final fun setRequiredNumberPair (Lcom/siimkinks/sqlitemagic/UpdateTableStage;Lkotlin/Pair;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
 }
 
 public final class com/siimkinks/sqlitemagic/NullableEncodableExpression : com/siimkinks/sqlitemagic/EncodableSqlExpression {
@@ -1540,14 +1553,8 @@ public final class com/siimkinks/sqlitemagic/UpdateSetStage : com/siimkinks/sqli
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/UpdateTableStage {
-	public final fun SET (Lcom/siimkinks/sqlitemagic/Column;Ljava/lang/Object;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public final fun SET_NULL (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public final fun setNullableExpression (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public final fun setNullableExpressionPair (Lkotlin/Pair;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public final fun setRequiredExpression (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public final fun setRequiredExpressionPair (Lkotlin/Pair;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
-	public final fun setValue (Lkotlin/Pair;)Lcom/siimkinks/sqlitemagic/UpdateSetStage;
+public class com/siimkinks/sqlitemagic/UpdateTableStage : com/siimkinks/sqlitemagic/AssignmentStage {
+	public synthetic fun assign$com_siimkinks_sqlitemagic_runtime (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/internal/sql/ExpressionNode;)Ljava/lang/Object;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/WhereClause : com/siimkinks/sqlitemagic/ClauseHost {

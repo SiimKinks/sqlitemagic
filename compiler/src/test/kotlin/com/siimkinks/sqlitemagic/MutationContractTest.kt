@@ -86,6 +86,64 @@ internal class MutationContractTest {
     ).isOk()
   }
 
+  @Test
+  fun `UPDATE SET overloads return the UPDATE SET stage, fluent and infix`() {
+    compileMutationConsumer(
+      """
+        fun verify(name: String?) {
+          val target = UPDATE TABLE PERSON
+          val hostValue = target.SET(PERSON.NAME, name)
+          val hostValuePair = target SET (PERSON.NAME to name)
+          val required = target.SET(PERSON.AGE, PERSON.AGE + 1)
+          val requiredPair = target SET (PERSON.AGE to PERSON.AGE + 1)
+          val nullable = target.SET(PERSON.NAME, PERSON.NAME)
+          val nullablePair = target SET (PERSON.NAME to PERSON.NAME)
+          val requiredNumber = target.SET(PERSON.ID, PERSON.AGE)
+          val requiredNumberPair = target SET (PERSON.ID to PERSON.AGE)
+          val nullableNumber = target.SET(PERSON.PARENT_ID, PERSON.AGE / 2)
+          val nullableNumberPair = target SET (PERSON.PARENT_ID to PERSON.AGE / 2)
+          val nulled = target.SET_NULL(PERSON.PARENT_ID)
+          val nulledInfix = target SET_NULL PERSON.PARENT_ID
+          val chained = hostValue
+              .SET(PERSON.AGE, PERSON.AGE + 1)
+              .SET(PERSON.ID, PERSON.AGE)
+              .SET_NULL(PERSON.PARENT_ID)
+          val chainedInfix = hostValue SET (PERSON.ID to PERSON.AGE) SET_NULL PERSON.PARENT_ID
+          val widenedStage: UpdateTableStage<Person> = chained
+
+          val hostValueType = hostValue.exactType()
+          val hostValuePairType = hostValuePair.exactType()
+          val requiredType = required.exactType()
+          val requiredPairType = requiredPair.exactType()
+          val nullableType = nullable.exactType()
+          val nullablePairType = nullablePair.exactType()
+          val requiredNumberType = requiredNumber.exactType()
+          val requiredNumberPairType = requiredNumberPair.exactType()
+          val nullableNumberType = nullableNumber.exactType()
+          val nullableNumberPairType = nullableNumberPair.exactType()
+          val nulledType = nulled.exactType()
+          val nulledInfixType = nulledInfix.exactType()
+          val chainedType = chained.exactType()
+          val chainedInfixType = chainedInfix.exactType()
+          val exactHostValue: Exact<UpdateSetStage<Person>> = hostValueType
+          val exactHostValuePair: Exact<UpdateSetStage<Person>> = hostValuePairType
+          val exactRequired: Exact<UpdateSetStage<Person>> = requiredType
+          val exactRequiredPair: Exact<UpdateSetStage<Person>> = requiredPairType
+          val exactNullable: Exact<UpdateSetStage<Person>> = nullableType
+          val exactNullablePair: Exact<UpdateSetStage<Person>> = nullablePairType
+          val exactRequiredNumber: Exact<UpdateSetStage<Person>> = requiredNumberType
+          val exactRequiredNumberPair: Exact<UpdateSetStage<Person>> = requiredNumberPairType
+          val exactNullableNumber: Exact<UpdateSetStage<Person>> = nullableNumberType
+          val exactNullableNumberPair: Exact<UpdateSetStage<Person>> = nullableNumberPairType
+          val exactNulled: Exact<UpdateSetStage<Person>> = nulledType
+          val exactNulledInfix: Exact<UpdateSetStage<Person>> = nulledInfixType
+          val exactChained: Exact<UpdateSetStage<Person>> = chainedType
+          val exactChainedInfix: Exact<UpdateSetStage<Person>> = chainedInfixType
+        }
+      """
+    ).isOk()
+  }
+
   @ParameterizedTest(name = "{0}")
   @MethodSource("invalidPrograms")
   fun `UPDATE and DELETE outside their contracts do not compile`(
@@ -108,6 +166,7 @@ internal class MutationContractTest {
     imports = """
       import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
       import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
+      import com.siimkinks.sqlitemagic.AssignmentStage
       import com.siimkinks.sqlitemagic.CompiledMutation
       import com.siimkinks.sqlitemagic.DELETE
       import com.siimkinks.sqlitemagic.DeleteFromStage
@@ -147,7 +206,12 @@ internal class MutationContractTest {
       Arguments.of(
         "SET after WHERE",
         "((UPDATE TABLE PERSON SET (PERSON.AGE to 1)) WHERE predicate) SET (PERSON.AGE to 2)",
-        "Candidate 'fun <P> UpdateTableStage<P>.SET("
+        "Candidate 'fun <P, S> AssignmentStage<P, S>.SET("
+      ),
+      Arguments.of(
+        "assignment stage subclass",
+        "object : AssignmentStage<Person, Int>() {}",
+        "Anonymous object cannot extend a sealed class"
       ),
       Arguments.of(
         "second UPDATE WHERE",
