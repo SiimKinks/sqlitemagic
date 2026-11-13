@@ -153,7 +153,7 @@ internal object InsertExecutors {
         statement = statement,
         results = results
       ) > 0 -> 0L
-      else -> -1L
+      else -> null
     }
     else -> execution.executeInsert(
       statement = statement,
@@ -164,10 +164,10 @@ internal object InsertExecutors {
   private fun <M> complete(
     adapter: EntityAdapter<M>,
     entity: M,
-    rowId: Long,
+    rowId: Long?,
     logOperation: Boolean
-  ): Long {
-    if (rowId != -1L && !adapter.withoutRowId) {
+  ): Long? {
+    if (rowId != null && !adapter.withoutRowId) {
       (adapter as? EntityGeneratedIdAdapter<M>)?.assignGeneratedId(
         entity = entity,
         rowId = rowId
@@ -181,12 +181,12 @@ internal object InsertExecutors {
 
   inline fun mapResult(
     adapter: EntityAdapter<*>,
-    rowId: Long,
+    rowId: Long?,
     conflictAlgorithm: Int,
     failureMessage: () -> String
   ) = when (rowId) {
-    -1L if conflictAlgorithm == CONFLICT_IGNORE -> Ignored
-    -1L -> throw OperationFailedException(failureMessage())
+    null if conflictAlgorithm == CONFLICT_IGNORE -> Ignored
+    null -> throw OperationFailedException(failureMessage())
     else -> Inserted(
       when {
         adapter.withoutRowId -> null

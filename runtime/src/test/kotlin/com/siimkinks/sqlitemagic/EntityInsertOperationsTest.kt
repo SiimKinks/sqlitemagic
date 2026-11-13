@@ -92,7 +92,7 @@ internal class EntityInsertOperationsTest {
       val recording = newConnection()
       when {
         case.withoutRowId -> recording.sqliteConnection.updateResults += 0
-        else -> recording.sqliteConnection.insertResults += -1L
+        else -> recording.sqliteConnection.insertResults += null
       }
       val entity = TestEntity(generatedRowId = 7L)
       val operation = TestAdapter(withoutRowId = case.withoutRowId)

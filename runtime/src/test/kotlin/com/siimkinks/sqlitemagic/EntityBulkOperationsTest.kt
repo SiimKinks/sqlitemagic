@@ -45,7 +45,7 @@ internal class EntityBulkOperationsTest {
       BulkCase(
         label = "partial ignored insert",
         operation = { connection ->
-          connection.sqliteConnection.insertResults += listOf(-1L, 5L)
+          connection.sqliteConnection.insertResults += listOf(null, 5L)
           TestAdapter()
             .bulkInsert(twoEntities())
             .usingConnection(connection.dbConnection)
@@ -59,7 +59,7 @@ internal class EntityBulkOperationsTest {
       BulkCase(
         label = "all ignored insert",
         operation = { connection ->
-          connection.sqliteConnection.insertResults += listOf(-1L, -1L)
+          connection.sqliteConnection.insertResults += listOf(null, null)
           TestAdapter()
             .bulkInsert(twoEntities())
             .usingConnection(connection.dbConnection)
@@ -73,7 +73,7 @@ internal class EntityBulkOperationsTest {
       BulkCase(
         label = "non-ignored insert failure",
         operation = { connection ->
-          connection.sqliteConnection.insertResults += listOf(5L, -1L)
+          connection.sqliteConnection.insertResults += listOf(5L, null)
           TestAdapter()
             .bulkInsert(twoEntities())
             .usingConnection(connection.dbConnection)
@@ -158,7 +158,7 @@ internal class EntityBulkOperationsTest {
         label = "partially ignored persist",
         operation = { connection ->
           connection.sqliteConnection.updateResults += listOf(0, 0)
-          connection.sqliteConnection.insertResults += listOf(-1L, 7L)
+          connection.sqliteConnection.insertResults += listOf(null, 7L)
           TestAdapter()
             .bulkPersist(twoEntities())
             .usingConnection(connection.dbConnection)
@@ -173,7 +173,7 @@ internal class EntityBulkOperationsTest {
         label = "all ignored persist",
         operation = { connection ->
           connection.sqliteConnection.updateResults += listOf(0, 0)
-          connection.sqliteConnection.insertResults += listOf(-1L, -1L)
+          connection.sqliteConnection.insertResults += listOf(null, null)
           TestAdapter()
             .bulkPersist(twoEntities())
             .usingConnection(connection.dbConnection)
@@ -188,7 +188,7 @@ internal class EntityBulkOperationsTest {
         label = "non-ignored persist failure",
         operation = { connection ->
           connection.sqliteConnection.updateResults += 0
-          connection.sqliteConnection.insertResults += -1L
+          connection.sqliteConnection.insertResults += null
           TestAdapter()
             .bulkPersist(listOf(TestEntity()))
             .usingConnection(connection.dbConnection)

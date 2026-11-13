@@ -29,7 +29,7 @@ internal class RecursiveEntityReactiveOperationsTest {
   @Test
   fun `observed failed insert emits operation failed and rolls back`() {
     val scenario = RecursiveScenario()
-    scenario.database.insertResults.addAll(listOf(231L, -1L))
+    scenario.database.insertResults.addAll(listOf(231L, null))
 
     scenario.parent
       .insert(parentWithChild())

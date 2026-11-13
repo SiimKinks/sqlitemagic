@@ -7,17 +7,7 @@ import com.siimkinks.sqlitemagic.internal.MutationResults
 internal class ReadbackMutationResults(private val connection: SQLiteConnection) : MutationResults {
   private var readback: SQLiteStatement? = null
 
-  override fun executeInsert(statement: SQLiteStatement): Long {
-    statement.stepToEnd()
-    return readResults { results ->
-      when (results.getLong(0)) {
-        0L -> -1L
-        else -> results.getLong(1)
-      }
-    }
-  }
-
-  override fun executeInsertRowId(statement: SQLiteStatement): Long? {
+  override fun executeInsert(statement: SQLiteStatement): Long? {
     statement.stepToEnd()
     return readResults { results ->
       when (results.getLong(0)) {
@@ -59,8 +49,6 @@ internal class PinnedMutationResults(
   private val results: MutationResults
 ) : MutationResults {
   override fun executeInsert(statement: SQLiteStatement) = pinned { results.executeInsert(statement) }
-
-  override fun executeInsertRowId(statement: SQLiteStatement) = pinned { results.executeInsertRowId(statement) }
 
   override fun executeUpdateDelete(statement: SQLiteStatement) = pinned { results.executeUpdateDelete(statement) }
 

@@ -224,11 +224,11 @@ internal class EntityMutationExecution {
   var possibleChanges = false
     private set
 
-  fun executeInsert(statement: SQLiteStatement, results: MutationResults): Long {
+  fun executeInsert(statement: SQLiteStatement, results: MutationResults): Long? {
     possibleChanges = true
     return results
       .executeInsert(statement)
-      .also { possibleChanges = it != -1L }
+      .also { possibleChanges = it != null }
   }
 
   fun executeUpdateDelete(statement: SQLiteStatement, results: MutationResults): Int {
@@ -243,7 +243,7 @@ internal fun OperationContext.logInsert(entity: Any?) = logDebug {
   "INSERT\n  table: ${adapter.tableName}\n  object: $entity"
 }
 
-internal fun logInsertId(rowId: Long) = logDebug { "INSERT id: $rowId" }
+internal fun logInsertId(rowId: Long?) = logDebug { "INSERT id: $rowId" }
 
 internal fun OperationContext.logUpdate(entity: Any?) = logDebug {
   "UPDATE\n  table: ${adapter.tableName}\n  object: $entity"

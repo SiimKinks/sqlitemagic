@@ -15,7 +15,7 @@ internal class RecursiveEntityExecutionTest {
   fun `writes each adapter in operation order in one transaction`() {
     data class Case(
       val label: String,
-      val insertResults: List<Long> = emptyList(),
+      val insertResults: List<Long?> = emptyList(),
       val updateResults: List<Int> = emptyList(),
       val operation: (RecursiveScenario) -> Any,
       val expectedResult: Any,
@@ -145,7 +145,7 @@ internal class RecursiveEntityExecutionTest {
   @Test
   fun `a failed recursive write inside the caller's transaction undoes only its own writes`() {
     val scenario = RecursiveScenario()
-    scenario.database.insertResults += listOf(41L, 42L, -1L)
+    scenario.database.insertResults += listOf(41L, 42L, null)
     val transaction = scenario.connection.newTransaction()
     assertThrows(OperationFailedException::class.java) {
       scenario.parent

@@ -26,7 +26,7 @@ internal class EntityOperationBuildersTest {
   @Test
   fun `observed terminal snapshots connection conflict and selected identity`() {
     val initialConnection = newConnection()
-    initialConnection.sqliteConnection.insertResults += -1L
+    initialConnection.sqliteConnection.insertResults += null
     val laterConnection = newConnection()
     laterConnection.sqliteConnection.insertResults += 7L
     val insertBuilder = TestAdapter()

@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+Version 3.1.0 _(unreleased)_
+---------------------------------
+
+* Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead
+  of failing with `OperationFailedException`, or returning `Ignored` under `CONFLICT_IGNORE`
+
 Version 3.0.0 _(2026-11-09)_
 ---------------------------------
 

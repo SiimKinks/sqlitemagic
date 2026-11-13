@@ -24,7 +24,7 @@ internal class RecursiveEntityBulkOperationsTest {
   @Test
   fun `bulk insert rolls back the failed graph without publishing a trigger`() {
     val scenario = RecursiveScenario()
-    scenario.database.insertResults += listOf(181L, 182L, 191L, -1L)
+    scenario.database.insertResults += listOf(181L, 182L, 191L, null)
 
     assertThat(
       scenario.parent
@@ -43,7 +43,7 @@ internal class RecursiveEntityBulkOperationsTest {
     data class IgnoredBulkCase(
       val label: String,
       val operation: RecursiveBulkOperation,
-      val insertResults: List<Long> = emptyList(),
+      val insertResults: List<Long?> = emptyList(),
       val updateResults: List<Int> = emptyList(),
       val expectedResult: Boolean,
       val expectedCommitted: Int,
@@ -54,7 +54,7 @@ internal class RecursiveEntityBulkOperationsTest {
       IgnoredBulkCase(
         label = "all inserts ignored",
         operation = RecursiveBulkOperation.INSERT,
-        insertResults = listOf(161L, -1L, 171L, -1L),
+        insertResults = listOf(161L, null, 171L, null),
         expectedResult = false,
         expectedCommitted = 0,
         expectedRolledBack = 2
@@ -62,7 +62,7 @@ internal class RecursiveEntityBulkOperationsTest {
       IgnoredBulkCase(
         label = "one insert ignored",
         operation = RecursiveBulkOperation.INSERT,
-        insertResults = listOf(181L, -1L, 191L, 192L),
+        insertResults = listOf(181L, null, 191L, 192L),
         expectedResult = true,
         expectedCommitted = 1,
         expectedRolledBack = 1
@@ -86,7 +86,7 @@ internal class RecursiveEntityBulkOperationsTest {
       IgnoredBulkCase(
         label = "all persists ignored",
         operation = RecursiveBulkOperation.PERSIST,
-        insertResults = listOf(-1L, -1L),
+        insertResults = listOf(null, null),
         updateResults = listOf(0, 0, 0, 0),
         expectedResult = false,
         expectedCommitted = 0,
@@ -95,7 +95,7 @@ internal class RecursiveEntityBulkOperationsTest {
       IgnoredBulkCase(
         label = "one persist ignored",
         operation = RecursiveBulkOperation.PERSIST,
-        insertResults = listOf(301L, -1L, 311L, 312L),
+        insertResults = listOf(301L, null, 311L, 312L),
         updateResults = listOf(0, 0, 0, 0),
         expectedResult = true,
         expectedCommitted = 1,

@@ -1905,8 +1905,7 @@ public class com/siimkinks/sqlitemagic/internal/MutableScatterSet : com/siimkink
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/internal/MutationResults {
-	public abstract fun executeInsert (Landroidx/sqlite/SQLiteStatement;)J
-	public abstract fun executeInsertRowId (Landroidx/sqlite/SQLiteStatement;)Ljava/lang/Long;
+	public abstract fun executeInsert (Landroidx/sqlite/SQLiteStatement;)Ljava/lang/Long;
 	public abstract fun executeUpdateDelete (Landroidx/sqlite/SQLiteStatement;)I
 }
 

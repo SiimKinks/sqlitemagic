@@ -142,7 +142,7 @@ internal class EntityBulkOperationsTest {
     listOf(
       NonEmptyBulkCase(
         label = "bulk insert default conflict",
-        configure = { it.insertResults += -1L },
+        configure = { it.insertResults += null },
         operation = { input ->
           TestAdapter()
             .bulkInsert(input.entities)
@@ -154,7 +154,7 @@ internal class EntityBulkOperationsTest {
       ),
       NonEmptyBulkCase(
         label = "bulk insert ignored conflict",
-        configure = { it.insertResults += -1L },
+        configure = { it.insertResults += null },
         operation = { input ->
           TestAdapter()
             .bulkInsert(input.entities)
@@ -192,7 +192,7 @@ internal class EntityBulkOperationsTest {
         label = "bulk persist default conflict",
         configure = {
           it.updateResults += 0
-          it.insertResults += -1L
+          it.insertResults += null
         },
         operation = { input ->
           TestAdapter()
@@ -207,7 +207,7 @@ internal class EntityBulkOperationsTest {
         label = "bulk persist ignored conflict",
         configure = {
           it.updateResults += 0
-          it.insertResults += -1L
+          it.insertResults += null
         },
         operation = { input ->
           TestAdapter()

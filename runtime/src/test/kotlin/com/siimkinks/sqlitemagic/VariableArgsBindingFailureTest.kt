@@ -78,7 +78,7 @@ internal class VariableArgsBindingFailureTest(
     assertThat(statement.closeCalls).isEqualTo(0)
   }
 
-  private fun execute(fixture: BindingFixture): Any {
+  private fun execute(fixture: BindingFixture): Any? {
     val context = OperationContext(
       adapter = TestAdapter(),
       configuration = OperationConfigurationSnapshot(

@@ -64,7 +64,7 @@ internal class FrameworkSQLiteDriverContractTest {
           value = byteArrayOf(1, 2, 3)
         )
         statement.bindNull(5)
-        mutations.executeInsert(statement)
+        checkNotNull(mutations.executeInsert(statement))
       }
 
     val row = connection
@@ -390,6 +390,7 @@ internal class FrameworkSQLiteDriverContractTest {
     val results = listOf(
       "insert" to insert("INSERT INTO tag(name) VALUES ('second')"),
       "ignored insert" to insert("INSERT OR IGNORE INTO tag(name) VALUES ('second')"),
+      "insert of row ID -1" to insert("INSERT INTO tag(id, name) VALUES (-1, 'third')"),
       "update" to updateDelete("UPDATE tag SET name = name || '!'"),
       "update without match" to updateDelete("UPDATE tag SET name = 'none' WHERE id = 99"),
       "common table expression delete" to updateDelete(
@@ -400,8 +401,9 @@ internal class FrameworkSQLiteDriverContractTest {
     assertThat(results)
       .containsExactly(
         "insert" to 8L,
-        "ignored insert" to -1L,
-        "update" to 2L,
+        "ignored insert" to null,
+        "insert of row ID -1" to -1L,
+        "update" to 3L,
         "update without match" to 0L,
         "common table expression delete" to 1L
       )

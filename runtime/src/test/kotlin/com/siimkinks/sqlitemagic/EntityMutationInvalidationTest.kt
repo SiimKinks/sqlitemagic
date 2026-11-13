@@ -332,10 +332,10 @@ private class MutationFailureFixture(
           else -> statement
         }
 
-        override fun executeInsert(statement: SQLiteStatement): Long {
+        override fun executeInsert(statement: SQLiteStatement): Long? {
           nativeFailure?.let { throw it }
           return when {
-            zeroResult -> -1L
+            zeroResult -> null
             else -> 1L
           }
         }

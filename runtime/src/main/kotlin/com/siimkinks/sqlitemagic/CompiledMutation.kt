@@ -38,7 +38,7 @@ class CompiledMutation internal constructor(
   }
 
   internal fun executeRowId() = execute(
-    run = MutationResults::executeInsertRowId,
+    run = MutationResults::executeInsert,
     changed = { it != null }
   )
 

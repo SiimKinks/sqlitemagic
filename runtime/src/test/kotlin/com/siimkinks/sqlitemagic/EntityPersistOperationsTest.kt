@@ -16,7 +16,7 @@ internal class EntityPersistOperationsTest {
       val label: String,
       val withoutRowId: Boolean,
       val updateResults: List<Int>,
-      val insertResult: Long?,
+      val insertResults: List<Long?>,
       val conflictAlgorithm: Int,
       val expectedResult: EntityPersistResult?,
       val expectedGeneratedRowId: Long?,
@@ -27,7 +27,7 @@ internal class EntityPersistOperationsTest {
         label = "updated",
         withoutRowId = false,
         updateResults = listOf(1),
-        insertResult = null,
+        insertResults = emptyList(),
         conflictAlgorithm = CONFLICT_NONE,
         expectedResult = EntityPersistResult.Updated,
         expectedGeneratedRowId = 5L,
@@ -37,7 +37,7 @@ internal class EntityPersistOperationsTest {
         label = "inserted",
         withoutRowId = false,
         updateResults = listOf(0),
-        insertResult = 7L,
+        insertResults = listOf(7L),
         conflictAlgorithm = CONFLICT_NONE,
         expectedResult = EntityPersistResult.Inserted(7L),
         expectedGeneratedRowId = 7L,
@@ -47,7 +47,7 @@ internal class EntityPersistOperationsTest {
         label = "ignored",
         withoutRowId = false,
         updateResults = listOf(0),
-        insertResult = -1L,
+        insertResults = listOf(null),
         conflictAlgorithm = CONFLICT_IGNORE,
         expectedResult = EntityPersistResult.Ignored,
         expectedGeneratedRowId = 5L,
@@ -57,7 +57,7 @@ internal class EntityPersistOperationsTest {
         label = "failure",
         withoutRowId = false,
         updateResults = listOf(0),
-        insertResult = -1L,
+        insertResults = listOf(null),
         conflictAlgorithm = CONFLICT_NONE,
         expectedResult = null,
         expectedGeneratedRowId = 5L,
@@ -67,7 +67,7 @@ internal class EntityPersistOperationsTest {
         label = "without rowid inserted",
         withoutRowId = true,
         updateResults = listOf(0, 1),
-        insertResult = null,
+        insertResults = emptyList(),
         conflictAlgorithm = CONFLICT_NONE,
         expectedResult = EntityPersistResult.Inserted(null),
         expectedGeneratedRowId = 5L,
@@ -77,7 +77,7 @@ internal class EntityPersistOperationsTest {
         label = "without rowid ignored",
         withoutRowId = true,
         updateResults = listOf(0, 0),
-        insertResult = null,
+        insertResults = emptyList(),
         conflictAlgorithm = CONFLICT_IGNORE,
         expectedResult = EntityPersistResult.Ignored,
         expectedGeneratedRowId = 5L,
@@ -87,7 +87,7 @@ internal class EntityPersistOperationsTest {
         label = "without rowid failure",
         withoutRowId = true,
         updateResults = listOf(0, 0),
-        insertResult = null,
+        insertResults = emptyList(),
         conflictAlgorithm = CONFLICT_NONE,
         expectedResult = null,
         expectedGeneratedRowId = 5L,
@@ -96,7 +96,7 @@ internal class EntityPersistOperationsTest {
     ).forEach { case ->
       val connection = newConnection()
       connection.sqliteConnection.updateResults += case.updateResults
-      case.insertResult?.let(connection.sqliteConnection.insertResults::add)
+      connection.sqliteConnection.insertResults += case.insertResults
       val entity = TestEntity(generatedRowId = 5L)
       val operation = TestAdapter(withoutRowId = case.withoutRowId)
         .persist(entity)
@@ -257,7 +257,7 @@ internal class EntityPersistOperationsTest {
   fun `reused persist builder rebuilds variable statement when conflict changes`() {
     val connection = newConnection()
     connection.sqliteConnection.updateResults += listOf(0, 0)
-    connection.sqliteConnection.insertResults += listOf(7L, -1L)
+    connection.sqliteConnection.insertResults += listOf(7L, null)
     val entity = TestEntity(name = null)
     val builder = TestAdapter()
       .persist(entity)

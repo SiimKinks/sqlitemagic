@@ -32,12 +32,9 @@ internal class FrameworkSQLiteConnection(private val db: SQLiteDatabase) : SQLit
     db.close()
   }
 
-  override fun executeInsert(statement: SQLiteStatement) = (statement as FrameworkSQLiteStatement).executeInsert()
-
-  override fun executeInsertRowId(statement: SQLiteStatement) = when (val rowId = executeInsert(statement)) {
-    -1L -> rowId.takeIf { changes() > 0L }
-    else -> rowId
-  }
+  override fun executeInsert(statement: SQLiteStatement) = (statement as FrameworkSQLiteStatement)
+    .executeInsert()
+    .takeIf { it != -1L || changes() > 0L }
 
   override fun executeUpdateDelete(statement: SQLiteStatement) =
     (statement as FrameworkSQLiteStatement).executeUpdateDelete()

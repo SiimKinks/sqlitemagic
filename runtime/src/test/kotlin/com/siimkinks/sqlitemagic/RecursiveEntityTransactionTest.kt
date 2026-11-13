@@ -14,7 +14,7 @@ internal class RecursiveEntityTransactionTest {
     data class Case(
       val label: String,
       val updateResults: List<Int> = emptyList(),
-      val insertResults: List<Long> = emptyList(),
+      val insertResults: List<Long?> = emptyList(),
       val operation: (RecursiveScenario) -> Any,
       val expectedResult: Any?
     )
@@ -22,7 +22,7 @@ internal class RecursiveEntityTransactionTest {
     listOf(
       Case(
         label = "ignored child insert",
-        insertResults = listOf(121L, -1L),
+        insertResults = listOf(121L, null),
         operation = { scenario ->
           scenario.parent
             .insert(recursiveGraph())
@@ -34,7 +34,7 @@ internal class RecursiveEntityTransactionTest {
       ),
       Case(
         label = "failed child insert",
-        insertResults = listOf(131L, -1L),
+        insertResults = listOf(131L, null),
         operation = { scenario ->
           scenario.parent
             .insert(recursiveGraph())
@@ -45,7 +45,7 @@ internal class RecursiveEntityTransactionTest {
       ),
       Case(
         label = "ignored parent insert after its relationships",
-        insertResults = listOf(241L, 242L, -1L),
+        insertResults = listOf(241L, 242L, null),
         operation = { scenario ->
           scenario.parent
             .insert(recursiveGraph())
@@ -70,7 +70,7 @@ internal class RecursiveEntityTransactionTest {
       Case(
         label = "ignored parent persist after its relationships",
         updateResults = listOf(0, 0),
-        insertResults = listOf(201L, -1L),
+        insertResults = listOf(201L, null),
         operation = { scenario ->
           scenario.parent
             .persist(parentWithChild())
@@ -83,7 +83,7 @@ internal class RecursiveEntityTransactionTest {
       Case(
         label = "ignored null omitting parent persist after its relationships",
         updateResults = listOf(0, 0),
-        insertResults = listOf(321L, -1L),
+        insertResults = listOf(321L, null),
         operation = { scenario ->
           scenario.parent
             .persist(parentWithChild())

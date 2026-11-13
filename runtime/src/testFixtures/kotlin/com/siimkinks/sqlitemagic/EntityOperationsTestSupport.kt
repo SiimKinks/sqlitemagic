@@ -42,7 +42,7 @@ internal class RecordingSQLiteConnection : SQLiteConnection, MutationResults {
     field = mutableListOf()
   val executions: List<RecordedExecution>
     field = mutableListOf()
-  val insertResults = ArrayDeque<Long>()
+  val insertResults = ArrayDeque<Long?>()
   val updateResults = ArrayDeque<Int>()
   var successfulTransactions = 0
     private set
@@ -63,12 +63,13 @@ internal class RecordingSQLiteConnection : SQLiteConnection, MutationResults {
 
   override fun inTransaction() = transaction
 
-  override fun executeInsert(statement: SQLiteStatement): Long {
+  override fun executeInsert(statement: SQLiteStatement): Long? {
     statement.step()
-    return insertResults.removeFirstOrNull() ?: 1L
+    return when {
+      insertResults.isEmpty() -> 1L
+      else -> insertResults.removeFirst()
+    }
   }
-
-  override fun executeInsertRowId(statement: SQLiteStatement) = executeInsert(statement).takeIf { it != -1L }
 
   override fun executeUpdateDelete(statement: SQLiteStatement): Int {
     statement.step()
