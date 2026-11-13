@@ -126,7 +126,9 @@ internal class CteContractTest {
                   .FROM(rows)
             }
             val rowQueryType = rowQuery.exactType()
-            val exactRows: Exact<SelectQuery<Row2<Long, String>, RowSelection<Row2<Long, String>>>> = rowQueryType
+            val exactRows:
+                Exact<SelectQuery<Row2<Long, String>, RowSelection<Row2<Long, String>, Row2<Long, String>>>> =
+                rowQueryType
             val results: List<List<Any?>> = listOf(
               compound.execute(),
               selfJoin.execute(),

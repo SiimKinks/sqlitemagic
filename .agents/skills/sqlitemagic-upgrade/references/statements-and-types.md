@@ -144,8 +144,9 @@ val QUERY = (
 | `Query.Mapper` | removed: map with `readAs`/`mapTo`, or read rows with `useRows` |
 
 - `S` in `SelectQuery<T, S>` is the selection: `EntitySelection<Author>`, `ScalarSelection<Long, Required, Long>`
-  (decoded type, SQL nullness, result), `RowSelection<Row2<Long, String>>`, `RowSelection<SelectedRow>`. When a type
-  must be written, copy the IDE's inferred type rather than reconstructing it.
+  (decoded type, SQL nullness, result), `RowSelection<Row2<Long, String>, Row2<Long, String?>>` (decoded types,
+  result), `RowSelection<SelectedRow, SelectedRow>`. When a type must be written, copy the IDE's inferred type rather
+  than reconstructing it.
 - Observation operators are unchanged members of the observed query: `runQuery()`, `runQueryOnce()`,
   `runQueryOrDefault(…)`, `isZero()`, `isNotZero()` need no import. Their types moved to the adapters, and count
   streams lost the `OrDefault` forms and their `runQueryOnce()` returns `Single<Long>`

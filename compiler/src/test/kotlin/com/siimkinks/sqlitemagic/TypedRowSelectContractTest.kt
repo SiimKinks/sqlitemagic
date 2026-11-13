@@ -27,8 +27,8 @@ internal class TypedRowSelectContractTest {
           "None of the following candidates is applicable",
       "swapped parameter types | val invalid = pair.mapTo(::Swapped) | None of the following candidates is applicable",
       "entity query | val invalid = SELECT.FROM(table).mapTo(::Single) | " +
-          "SelectQuery<Row2<A, B>, RowSelection<Row2<A, B>>>.mapTo(transform: (A, B) -> M): " +
-          "SelectQuery<M, RowSelection<M>>' is inapplicable because of a receiver type mismatch"
+          "SelectQuery<Row2<A, B>, RowSelection<R, Row2<A, B>>>.mapTo(transform: (A, B) -> M): " +
+          "SelectQuery<M, RowSelection<R, M>>' is inapplicable because of a receiver type mismatch"
     ]
   )
   fun `typed rows outside their contracts do not compile`(
@@ -105,6 +105,8 @@ internal class TypedRowSelectContractTest {
             class Sentinel
             class NullableDecoded
 
+            typealias PairRows = RowSelection<Row2<Long, String>, Row2<Long, String?>>
+
             fun verify(
               table: Table<Any>,
               connection: DbConnection,
@@ -154,40 +156,40 @@ internal class TypedRowSelectContractTest {
               val offsetType = offset.exactType()
               val connectedType = connected.exactType()
               val exactSourceFree:
-                  Exact<SelectProjectionStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> = sourceFreeType
+                  Exact<SelectProjectionStage<Row2<Long, String?>, PairRows>> = sourceFreeType
               val exactProjection:
-                  Exact<SelectProjectionStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> = projectionType
-              val exactProjectionFirst: Exact<SelectFromStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+                  Exact<SelectProjectionStage<Row2<Long, String?>, PairRows>> = projectionType
+              val exactProjectionFirst: Exact<SelectFromStage<Row2<Long, String?>, PairRows>> =
                   projectionFirstType
               val exactPolicies:
                   Exact<SelectProjectionStage<
                       Row2<Sentinel, NullableDecoded?>,
-                      RowSelection<Row2<Sentinel, NullableDecoded?>>
+                      RowSelection<Row2<Sentinel, NullableDecoded?>, Row2<Sentinel, NullableDecoded?>>
                   >> =
                   policiesType
               val exactReversedPolicies:
                   Exact<SelectFromStage<
                       Row2<NullableDecoded?, Sentinel>,
-                      RowSelection<Row2<NullableDecoded?, Sentinel>>
+                      RowSelection<Row2<NullableDecoded?, Sentinel>, Row2<NullableDecoded?, Sentinel>>
                   >> =
                   reversedPoliciesType
-              val exactDistinct: Exact<SelectProjectionStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+              val exactDistinct: Exact<SelectProjectionStage<Row2<Long, String?>, PairRows>> =
                   distinctType
               val exactAttachedDistinct:
-                  Exact<SelectFromStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> = attachedDistinctType
-              val exactFiltered: Exact<SelectWhereStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+                  Exact<SelectFromStage<Row2<Long, String?>, PairRows>> = attachedDistinctType
+              val exactFiltered: Exact<SelectWhereStage<Row2<Long, String?>, PairRows>> =
                   filteredType
-              val exactGrouped: Exact<SelectGroupStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+              val exactGrouped: Exact<SelectGroupStage<Row2<Long, String?>, PairRows>> =
                   groupedType
-              val exactHaving: Exact<SelectHavingStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+              val exactHaving: Exact<SelectHavingStage<Row2<Long, String?>, PairRows>> =
                   havingType
-              val exactOrdered: Exact<SelectOrderStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+              val exactOrdered: Exact<SelectOrderStage<Row2<Long, String?>, PairRows>> =
                   orderedType
-              val exactLimited: Exact<SelectLimitStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+              val exactLimited: Exact<SelectLimitStage<Row2<Long, String?>, PairRows>> =
                   limitedType
-              val exactOffset: Exact<SelectOffsetStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+              val exactOffset: Exact<SelectOffsetStage<Row2<Long, String?>, PairRows>> =
                   offsetType
-              val exactConnected: Exact<SelectQuery<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+              val exactConnected: Exact<SelectQuery<Row2<Long, String?>, PairRows>> =
                   connectedType
               val compiledType = compiled.exactType()
               val exactCompiled: Exact<CompiledSelect<Row2<Long, String?>>> = compiledType
@@ -234,6 +236,14 @@ internal class TypedRowSelectContractTest {
             typealias R8 = Row8<Long, String?, Sentinel, NullableDecoded?, Long, String?, Sentinel, NullableDecoded?>
             typealias R9 =
                 Row9<Long, String?, Sentinel, NullableDecoded?, Long, String?, Sentinel, NullableDecoded?, Long>
+            typealias V3 = Row3<Long, String, Sentinel>
+            typealias V4 = Row4<Long, String, Sentinel, NullableDecoded?>
+            typealias V5 = Row5<Long, String, Sentinel, NullableDecoded?, Long>
+            typealias V6 = Row6<Long, String, Sentinel, NullableDecoded?, Long, String>
+            typealias V7 = Row7<Long, String, Sentinel, NullableDecoded?, Long, String, Sentinel>
+            typealias V8 = Row8<Long, String, Sentinel, NullableDecoded?, Long, String, Sentinel, NullableDecoded?>
+            typealias V9 =
+                Row9<Long, String, Sentinel, NullableDecoded?, Long, String, Sentinel, NullableDecoded?, Long>
 
             fun verify(
               table: Table<Any>,
@@ -248,45 +258,45 @@ internal class TypedRowSelectContractTest {
               val distinct3 = SELECT
                   .DISTINCT(required, nullable, sentinel)
               val row3Type = row3.exactType()
-              val exactRow3: Exact<SelectFromStage<R3, RowSelection<R3>>> = row3Type
+              val exactRow3: Exact<SelectFromStage<R3, RowSelection<V3, R3>>> = row3Type
               val distinct3Type = distinct3.exactType()
-              val exactDistinct3: Exact<SelectProjectionStage<R3, RowSelection<R3>>> = distinct3Type
+              val exactDistinct3: Exact<SelectProjectionStage<R3, RowSelection<V3, R3>>> = distinct3Type
               val row4 = SELECT
                   .COLUMNS(required, nullable, sentinel, nullableDecoder)
                   .FROM(table)
               val distinct4 = SELECT
                   .DISTINCT(required, nullable, sentinel, nullableDecoder)
               val row4Type = row4.exactType()
-              val exactRow4: Exact<SelectFromStage<R4, RowSelection<R4>>> = row4Type
+              val exactRow4: Exact<SelectFromStage<R4, RowSelection<V4, R4>>> = row4Type
               val distinct4Type = distinct4.exactType()
-              val exactDistinct4: Exact<SelectProjectionStage<R4, RowSelection<R4>>> = distinct4Type
+              val exactDistinct4: Exact<SelectProjectionStage<R4, RowSelection<V4, R4>>> = distinct4Type
               val row5 = SELECT
                   .COLUMNS(required, nullable, sentinel, nullableDecoder, required)
                   .FROM(table)
               val distinct5 = SELECT
                   .DISTINCT(required, nullable, sentinel, nullableDecoder, required)
               val row5Type = row5.exactType()
-              val exactRow5: Exact<SelectFromStage<R5, RowSelection<R5>>> = row5Type
+              val exactRow5: Exact<SelectFromStage<R5, RowSelection<V5, R5>>> = row5Type
               val distinct5Type = distinct5.exactType()
-              val exactDistinct5: Exact<SelectProjectionStage<R5, RowSelection<R5>>> = distinct5Type
+              val exactDistinct5: Exact<SelectProjectionStage<R5, RowSelection<V5, R5>>> = distinct5Type
               val row6 = SELECT
                   .COLUMNS(required, nullable, sentinel, nullableDecoder, required, nullable)
                   .FROM(table)
               val distinct6 = SELECT
                   .DISTINCT(required, nullable, sentinel, nullableDecoder, required, nullable)
               val row6Type = row6.exactType()
-              val exactRow6: Exact<SelectFromStage<R6, RowSelection<R6>>> = row6Type
+              val exactRow6: Exact<SelectFromStage<R6, RowSelection<V6, R6>>> = row6Type
               val distinct6Type = distinct6.exactType()
-              val exactDistinct6: Exact<SelectProjectionStage<R6, RowSelection<R6>>> = distinct6Type
+              val exactDistinct6: Exact<SelectProjectionStage<R6, RowSelection<V6, R6>>> = distinct6Type
               val row7 = SELECT
                   .COLUMNS(required, nullable, sentinel, nullableDecoder, required, nullable, sentinel)
                   .FROM(table)
               val distinct7 = SELECT
                   .DISTINCT(required, nullable, sentinel, nullableDecoder, required, nullable, sentinel)
               val row7Type = row7.exactType()
-              val exactRow7: Exact<SelectFromStage<R7, RowSelection<R7>>> = row7Type
+              val exactRow7: Exact<SelectFromStage<R7, RowSelection<V7, R7>>> = row7Type
               val distinct7Type = distinct7.exactType()
-              val exactDistinct7: Exact<SelectProjectionStage<R7, RowSelection<R7>>> = distinct7Type
+              val exactDistinct7: Exact<SelectProjectionStage<R7, RowSelection<V7, R7>>> = distinct7Type
               val row8 = SELECT
                   .COLUMNS(required, nullable, sentinel, nullableDecoder, required, nullable, sentinel, nullableDecoder)
                   .FROM(table)
@@ -302,9 +312,9 @@ internal class TypedRowSelectContractTest {
                     nullableDecoder
                   )
               val row8Type = row8.exactType()
-              val exactRow8: Exact<SelectFromStage<R8, RowSelection<R8>>> = row8Type
+              val exactRow8: Exact<SelectFromStage<R8, RowSelection<V8, R8>>> = row8Type
               val distinct8Type = distinct8.exactType()
-              val exactDistinct8: Exact<SelectProjectionStage<R8, RowSelection<R8>>> = distinct8Type
+              val exactDistinct8: Exact<SelectProjectionStage<R8, RowSelection<V8, R8>>> = distinct8Type
               val row9 = SELECT
                   .COLUMNS(
                     required,
@@ -331,9 +341,9 @@ internal class TypedRowSelectContractTest {
                     required
                   )
               val row9Type = row9.exactType()
-              val exactRow9: Exact<SelectFromStage<R9, RowSelection<R9>>> = row9Type
+              val exactRow9: Exact<SelectFromStage<R9, RowSelection<V9, R9>>> = row9Type
               val distinct9Type = distinct9.exactType()
-              val exactDistinct9: Exact<SelectProjectionStage<R9, RowSelection<R9>>> = distinct9Type
+              val exactDistinct9: Exact<SelectProjectionStage<R9, RowSelection<V9, R9>>> = distinct9Type
               val (first, second, third, fourth, fifth, sixth, seventh, eighth, ninth) = R9(
                 1L,
                 null,
@@ -357,6 +367,9 @@ internal class TypedRowSelectContractTest {
             import com.siimkinks.sqlitemagic.CompiledSelect
             import com.siimkinks.sqlitemagic.DbConnection
             import com.siimkinks.sqlitemagic.Required
+            import com.siimkinks.sqlitemagic.Row2
+            import com.siimkinks.sqlitemagic.Row3
+            import com.siimkinks.sqlitemagic.Row9
             import com.siimkinks.sqlitemagic.RowSelection
             import com.siimkinks.sqlitemagic.SELECT
             import com.siimkinks.sqlitemagic.ScalarSelection
@@ -372,6 +385,10 @@ internal class TypedRowSelectContractTest {
 
             class Sentinel
             class NullableDecoded
+
+            typealias PolicyValues = Row3<Sentinel, NullableDecoded?, String>
+            typealias WideValues =
+                Row9<Long, String, Sentinel, NullableDecoded?, Long, String, Sentinel, NullableDecoded?, Long>
 
             data class AuthorId(val value: Long)
             data class Policies(val sentinel: Sentinel, val decoded: NullableDecoded?, val name: String?)
@@ -440,14 +457,14 @@ internal class TypedRowSelectContractTest {
               val exactReadIds: Exact<SelectQuery<AuthorId, ScalarSelection<Long, Required, AuthorId>>> =
                   readIdsType
               val policiesType = policies.exactType()
-              val exactPolicies: Exact<SelectQuery<Policies, RowSelection<Policies>>> = policiesType
+              val exactPolicies: Exact<SelectQuery<Policies, RowSelection<PolicyValues, Policies>>> = policiesType
               val connectedFirstType = connectedFirst.exactType()
-              val exactConnectedFirst: Exact<SelectQuery<Policies, RowSelection<Policies>>> =
+              val exactConnectedFirst: Exact<SelectQuery<Policies, RowSelection<PolicyValues, Policies>>> =
                   connectedFirstType
               val wideType = wide.exactType()
-              val exactWide: Exact<SelectQuery<Wide, RowSelection<Wide>>> = wideType
+              val exactWide: Exact<SelectQuery<Wide, RowSelection<WideValues, Wide>>> = wideType
               val lambdaType = lambda.exactType()
-              val exactLambda: Exact<SelectQuery<String, RowSelection<String>>> = lambdaType
+              val exactLambda: Exact<SelectQuery<String, RowSelection<Row2<Long, String>, String>>> = lambdaType
               val compiledType = policies.compile().exactType()
               val exactCompiled: Exact<CompiledSelect<Policies>> = compiledType
               val firstType = wide.takeFirst().exactType()

@@ -16,11 +16,14 @@ import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORA
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.SqlType.FLOAT
 import com.siimkinks.sqlitemagic.SqlType.INT
+import com.siimkinks.sqlitemagic.UNION_ALL
+import com.siimkinks.sqlitemagic.WITH
 import com.siimkinks.sqlitemagic.asScalar
 import com.siimkinks.sqlitemagic.asValue
 import com.siimkinks.sqlitemagic.fixture.model.ImmutableValueWithFields
 import com.siimkinks.sqlitemagic.fixture.model.ScalarStorageEntity
 import com.siimkinks.sqlitemagic.fixture.model.TransformableObject
+import com.siimkinks.sqlitemagic.mapTo
 import com.siimkinks.sqlitemagic.plus
 import com.siimkinks.sqlitemagic.readAs
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
@@ -85,7 +88,8 @@ internal class QueryBuilderInsertTest {
         .COLUMNS(SIMPLE_MUTABLE_ENTITY.ID, SIMPLE_MUTABLE_ENTITY.VALUE)
         .VALUES(100L, "replaced"),
       INSERT INTO SIMPLE_MUTABLE_ENTITY COLUMNS SIMPLE_MUTABLE_ENTITY.VALUE VALUES emptyList()
-    ).map(MutationQuery::execute)
+    )
+      .map(MutationQuery::execute)
 
     assertThat(counts).isEqualTo(listOf(1, 1, 2, 2, 1, 0, 1, 0))
     assertThat(
@@ -256,7 +260,8 @@ internal class QueryBuilderInsertTest {
         .INTO(SCALAR_STORAGE_ENTITY)
         .COLUMNS(*columns)
         .VALUES { it.assign(full.copy(id = 1L)) }
-    ).map(MutationQuery::execute)
+    )
+      .map(MutationQuery::execute)
 
     assertThat(counts).isEqualTo(listOf(1, 1, 2, 0, 0))
     assertThat(
@@ -352,7 +357,8 @@ internal class QueryBuilderInsertTest {
           .INTO(SIMPLE_MUTABLE_ENTITY)
           .COLUMNS(SIMPLE_MUTABLE_ENTITY.ID, SIMPLE_MUTABLE_ENTITY.VALUE)
           .VALUES(1L, "ignored")
-      ).map(MutationQuery::execute)
+      )
+        .map(MutationQuery::execute)
 
       assertThat(counts).isEqualTo(listOf(1, 0, 0))
       observer.assertValuesOnly(emptyList(), listOf("first"))
@@ -405,5 +411,186 @@ internal class QueryBuilderInsertTest {
     } finally {
       observer.dispose()
     }
+  }
+
+  @Test
+  fun insertSelectInsertsTheRowsOfTypedQueries() {
+    val target = INSERT
+      .INTO(SIMPLE_MUTABLE_ENTITY)
+      .COLUMNS(SIMPLE_MUTABLE_ENTITY.VALUE, SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN)
+    val a = checkNotNull(
+      target
+        .VALUES("a", true)
+        .readRowId()
+        .execute()
+    )
+    val b = checkNotNull(
+      target
+        .VALUES("b", false)
+        .readRowId()
+        .execute()
+    )
+    val rows = SELECT
+      .COLUMNS(SIMPLE_MUTABLE_ENTITY.VALUE, SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN)
+      .FROM(SIMPLE_MUTABLE_ENTITY)
+    val first = rows.WHERE(SIMPLE_MUTABLE_ENTITY.ID IS a) AS "first"
+    val flagged = SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN.asParameter("flagged")
+
+    val counts = listOf(
+      INSERT INTO SIMPLE_MUTABLE_ENTITY COLUMNS SIMPLE_MUTABLE_ENTITY.VALUE SELECT (
+        SELECT COLUMN SIMPLE_MUTABLE_ENTITY.VALUE FROM SIMPLE_MUTABLE_ENTITY WHERE (SIMPLE_MUTABLE_ENTITY.ID IS a)
+      ),
+      target SELECT (rows.WHERE(SIMPLE_MUTABLE_ENTITY.ID IS b) UNION_ALL rows.WHERE(SIMPLE_MUTABLE_ENTITY.ID IS a)),
+      target.SELECT(
+        SELECT
+          .COLUMNS(first[SIMPLE_MUTABLE_ENTITY.VALUE], first[SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN])
+          .FROM(first)
+      ),
+      target.SELECT(
+        WITH(rows.WHERE(SIMPLE_MUTABLE_ENTITY.ID IS b)) { second ->
+          SELECT
+            .COLUMNS(second[SIMPLE_MUTABLE_ENTITY.VALUE], second[SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN])
+            .FROM(second)
+        }
+      ),
+      target
+        .SELECT(
+          rows
+            .WHERE(SIMPLE_MUTABLE_ENTITY.PRIMITIVE_BOOLEAN IS flagged)
+            .mapTo { value, flag -> "$value $flag" }
+        )
+        .bind(flagged TO true)
+    )
+      .map(MutationQuery::execute)
+
+    assertThat(counts).isEqualTo(listOf(1, 2, 1, 1, 3))
+    assertThat(
+      rows
+        .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
+        .execute()
+    )
+      .isEqualTo(
+        listOf(
+          Row2("a", true),
+          Row2("b", false),
+          Row2("a", false),
+          Row2("b", false),
+          Row2("a", true),
+          Row2("a", true),
+          Row2("b", false),
+          Row2("a", true),
+          Row2("a", true),
+          Row2("a", true)
+        )
+      )
+  }
+
+  @Test
+  fun wideInsertSelectTakesAnyQueryAndLeavesTheColumnCountToSqlite() {
+    val stored = ScalarStorageEntity(
+      id = 1L,
+      longValue = 10L,
+      nullableLong = null,
+      floatValue = 1.25f,
+      nullableFloat = 0.5f,
+      byteValue = 1,
+      nullableByte = null,
+      byteArray = byteArrayOf(1),
+      nullableByteArray = null,
+      boxedByteArray = arrayOf(1),
+      nullableBoxedByteArray = arrayOf(2)
+    )
+    val copied = arrayOf(
+      SCALAR_STORAGE_ENTITY.LONG_VALUE,
+      SCALAR_STORAGE_ENTITY.NULLABLE_LONG,
+      SCALAR_STORAGE_ENTITY.FLOAT_VALUE,
+      SCALAR_STORAGE_ENTITY.NULLABLE_FLOAT,
+      SCALAR_STORAGE_ENTITY.BYTE_VALUE,
+      SCALAR_STORAGE_ENTITY.NULLABLE_BYTE,
+      SCALAR_STORAGE_ENTITY.BYTE_ARRAY,
+      SCALAR_STORAGE_ENTITY.NULLABLE_BYTE_ARRAY,
+      SCALAR_STORAGE_ENTITY.BOXED_BYTE_ARRAY,
+      SCALAR_STORAGE_ENTITY.NULLABLE_BOXED_BYTE_ARRAY
+    )
+    INSERT
+      .INTO(SCALAR_STORAGE_ENTITY)
+      .COLUMNS(SCALAR_STORAGE_ENTITY.ID, *copied)
+      .VALUES { it.assign(stored) }
+      .execute()
+
+    val copy = INSERT
+      .INTO(SCALAR_STORAGE_ENTITY)
+      .COLUMNS(*copied)
+      .SELECT(
+        SELECT
+          .COLUMNS(*copied)
+          .FROM(SCALAR_STORAGE_ENTITY)
+      )
+
+    assertThat(copy.execute()).isEqualTo(1)
+    assertSqliteRejects(containing = "2 values for 10 columns") {
+      INSERT
+        .INTO(SCALAR_STORAGE_ENTITY)
+        .COLUMNS(*copied)
+        .SELECT(
+          SELECT
+            .COLUMNS(SCALAR_STORAGE_ENTITY.LONG_VALUE, SCALAR_STORAGE_ENTITY.FLOAT_VALUE)
+            .FROM(SCALAR_STORAGE_ENTITY)
+        )
+        .execute()
+    }
+    assertThat(
+      SELECT
+        .FROM(SCALAR_STORAGE_ENTITY)
+        .ORDER_BY(SCALAR_STORAGE_ENTITY.ID.ASC())
+        .execute()
+        .map { it.copy(id = null) }
+    )
+      .isEqualTo(List(2) { stored.copy(id = null) })
+  }
+
+  @Test
+  fun insertSelectPublishesOnlyWhenRowsAreInsertedAndLeavesNotNullToSqlite() {
+    val copy = INSERT INTO SIMPLE_MUTABLE_ENTITY COLUMNS SIMPLE_MUTABLE_ENTITY.VALUE SELECT (
+      SELECT COLUMN IMMUTABLE_VALUE_WITH_FIELDS.STRING_VALUE FROM IMMUTABLE_VALUE_WITH_FIELDS
+    )
+    val observer = SELECT
+      .COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
+      .FROM(SIMPLE_MUTABLE_ENTITY)
+      .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
+      .observe()
+      .runQuery()
+      .test()
+      .assertValuesOnly(emptyList())
+    try {
+      val empty = copy.execute()
+      (INSERT INTO IMMUTABLE_VALUE_WITH_FIELDS COLUMNS IMMUTABLE_VALUE_WITH_FIELDS.STRING_VALUE VALUES "copied")
+        .execute()
+      val copied = copy.execute()
+
+      assertThat(listOf(empty, copied)).isEqualTo(listOf(0, 1))
+      observer.assertValuesOnly(emptyList(), listOf("copied"))
+    } finally {
+      observer.dispose()
+    }
+    INSERT
+      .INTO(SIMPLE_MUTABLE_ENTITY)
+      .DEFAULT_VALUES()
+      .execute()
+    assertSqliteRejects(containing = "NOT NULL constraint failed") {
+      (
+        INSERT INTO IMMUTABLE_VALUE_WITH_FIELDS COLUMNS IMMUTABLE_VALUE_WITH_FIELDS.STRING_VALUE SELECT (
+          SELECT COLUMN SIMPLE_MUTABLE_ENTITY.VALUE FROM SIMPLE_MUTABLE_ENTITY
+        )
+      )
+        .execute()
+    }
+    assertThat(
+      SELECT
+        .COLUMN(IMMUTABLE_VALUE_WITH_FIELDS.STRING_VALUE)
+        .FROM(IMMUTABLE_VALUE_WITH_FIELDS)
+        .execute()
+    )
+      .isEqualTo(listOf("copied"))
   }
 }

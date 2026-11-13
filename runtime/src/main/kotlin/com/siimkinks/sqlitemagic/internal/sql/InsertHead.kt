@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.internal.sql
 import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
+import com.siimkinks.sqlitemagic.SelectQuery
 import com.siimkinks.sqlitemagic.SqlExpression
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
@@ -12,7 +13,8 @@ internal class InsertHead(
   override val table: Table<*>,
   private val conflictAlgorithm: Int,
   private val columns: Array<out Column<*, *, *, *, *, *, *>>,
-  private val rows: List<InsertRows>
+  private val rows: List<InsertRows>,
+  private val select: SelectNode<*, *>? = null
 ) : MutationHead {
   override val deletedTable
     get() = when (conflictAlgorithm) {
@@ -31,12 +33,18 @@ internal class InsertHead(
       .append(" INTO ")
       .append(table.sqlSource)
     when {
-      rows.isEmpty() -> context.sql.append(" DEFAULT VALUES")
+      rows.isEmpty() && select == null -> context.sql.append(" DEFAULT VALUES")
       else -> {
         context.sql.append(" (")
         context.renderList(columns.size) { context.sql.append(columns[it].quotedName) }
         context.sql.append(')')
-        renderRows(context)
+        when (select) {
+          null -> renderRows(context)
+          else -> {
+            context.sql.append(' ')
+            context.renderNested { select.render(context) }
+          }
+        }
       }
     }
   }
@@ -82,6 +90,14 @@ internal class InsertHead(
     conflictAlgorithm = conflictAlgorithm,
     columns = columns,
     rows = rows + added
+  )
+
+  fun withSelect(select: SelectNode<*, *>) = InsertHead(
+    table = table,
+    conflictAlgorithm = conflictAlgorithm,
+    columns = columns,
+    rows = rows,
+    select = select
   )
 
   fun hostRow(values: Array<out Any?>) = ValuesRow(
@@ -174,6 +190,9 @@ internal fun MutationNode<InsertHead>.withColumns(vararg columns: Column<*, *, *
 
 internal fun MutationNode<InsertHead>.withColumnArray(columns: Array<out Column<*, *, *, *, *, *, *>>) =
   copy(head = head.withColumns(columns))
+
+internal fun MutationNode<InsertHead>.withSelect(query: SelectQuery<*, *>) =
+  copy(head = head.withSelect(query.nestedNode()))
 
 internal fun MutationNode<InsertHead>.withHostRow(vararg values: Any?) =
   copy(head = head.withRows(head.hostRow(values)))

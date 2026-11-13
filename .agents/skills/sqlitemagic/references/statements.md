@@ -36,6 +36,18 @@ INSERT
   .DEFAULT_VALUES()
   .execute()
 
+// The rows of a query: one selected value per listed column, in order
+val archived: Int = INSERT
+  .INTO(ARCHIVED_BOOK)
+  .COLUMNS(ARCHIVED_BOOK.TITLE, ARCHIVED_BOOK.PAGES)
+  .SELECT(
+    SELECT
+      .COLUMNS(BOOK.TITLE, BOOK.PAGES)
+      .FROM(BOOK)
+      .WHERE(BOOK.PAGES GREATER_THAN 1000)
+  )
+  .execute()
+
 // The new row's ID instead of the count: one VALUES row or DEFAULT_VALUES()
 val bookId: Long? = INSERT
   .OR(CONFLICT_IGNORE)
@@ -100,6 +112,18 @@ INSERT
   The count is SQLite's `changes()`: ignored rows count nothing, and an `INSERT OR REPLACE` counts the inserted row,
   not the one it deleted.
 - `DEFAULT_VALUES()` inserts one row of defaults.
+- `SELECT(query)` after `COLUMNS` inserts the rows of a query, which selects one value per listed column in column
+  order: `SELECT.COLUMN(…)` for one column, `SELECT.COLUMNS(…)` for more. Each selected expression follows the
+  expression-row rules above: the column's value type with any nullability, and `readAs` for a wider number
+  (`SELECT.COLUMN(COUNT().readAs(SqlType.INT))`). A query of another column count or value type does not compile. The
+  types come from the selected expressions, so `mapTo` and `readAs` on the query change nothing: a query that reads
+  DTOs elsewhere inserts as is. More than nine columns (or a spread array) take any query, such as a
+  `SELECT.COLUMNS(…)` of as many columns; SQLite reports a different column count (`2 values for 10 columns`) and
+  the selected types are not checked.
+- The query may be a compound, read a subquery in `FROM`, or start with `WITH`. Only its SQL is used: bind its
+  parameters on the INSERT with `bind`, and choose the connection on the INSERT; a query with `usingConnection` makes
+  `SELECT` throw `IllegalArgumentException`. The count and notifications are as for `VALUES` rows; no rows selected
+  count 0 and notify nothing. Neither `VALUES` nor `readRowId()` follows `SELECT(query)`.
 - `readRowId()` turns a statement that inserts one row into one that returns the new row's ID, `Long?`, instead of
   the count: `null` when nothing was inserted, such as a row `CONFLICT_IGNORE` ignored. For an auto-increment `Long`
   ID it is the new ID. It is offered after a single `VALUES` row (typed, expression or wide `VALUES { … }`) and after
@@ -244,7 +268,6 @@ DELETE.RAW("DELETE FROM book WHERE author = ? AND pages < ?", authorId, 10)
 
 | Need | Use |
 | --- | --- |
-| `INSERT … SELECT` | raw INSERT, or entity `insert()` for whole objects |
 | Native UPSERT (`ON CONFLICT DO UPDATE`), `RETURNING` | entity `persist()`; read back with a query |
 | Recursive CTE, reading a `PRAGMA` | raw SELECT |
 | `ATTACH`, setting a `PRAGMA` | `configureConnection`, which runs on every connection; a raw statement reaches one connection only |

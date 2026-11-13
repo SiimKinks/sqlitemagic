@@ -100,10 +100,10 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>
-  ) = rowProjection(
+  fun <RA, A, RB, B> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>
+  ) = rowProjection<Row2<RA, RB>, _>(
     outputs = listOf(first, second),
     read = read2(
       readA = first.selectRead,
@@ -123,11 +123,11 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>
-  ) = rowProjection(
+  fun <RA, A, RB, B, RC, C> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>
+  ) = rowProjection<Row3<RA, RB, RC>, _>(
     outputs = listOf(first, second, third),
     read = read3(
       readA = first.selectRead,
@@ -149,12 +149,12 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>
-  ) = rowProjection(
+  fun <RA, A, RB, B, RC, C, RD, D> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>
+  ) = rowProjection<Row4<RA, RB, RC, RD>, _>(
     outputs = listOf(first, second, third, fourth),
     read = read4(
       readA = first.selectRead,
@@ -178,13 +178,13 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>
-  ) = rowProjection(
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>
+  ) = rowProjection<Row5<RA, RB, RC, RD, RE>, _>(
     outputs = listOf(first, second, third, fourth, fifth),
     read = read5(
       readA = first.selectRead,
@@ -210,14 +210,14 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>
-  ) = rowProjection(
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>
+  ) = rowProjection<Row6<RA, RB, RC, RD, RE, RF>, _>(
     outputs = listOf(first, second, third, fourth, fifth, sixth),
     read = read6(
       readA = first.selectRead,
@@ -245,15 +245,15 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F, G> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>,
-    seventh: SqlExpression<*, *, G>
-  ) = rowProjection(
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F, RG, G> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>,
+    seventh: SqlExpression<RG, *, G>
+  ) = rowProjection<Row7<RA, RB, RC, RD, RE, RF, RG>, _>(
     outputs = listOf(first, second, third, fourth, fifth, sixth, seventh),
     read = read7(
       readA = first.selectRead,
@@ -283,16 +283,16 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F, G, H> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>,
-    seventh: SqlExpression<*, *, G>,
-    eighth: SqlExpression<*, *, H>
-  ) = rowProjection(
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F, RG, G, RH, H> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>,
+    seventh: SqlExpression<RG, *, G>,
+    eighth: SqlExpression<RH, *, H>
+  ) = rowProjection<Row8<RA, RB, RC, RD, RE, RF, RG, RH>, _>(
     outputs = listOf(first, second, third, fourth, fifth, sixth, seventh, eighth),
     read = read8(
       readA = first.selectRead,
@@ -324,17 +324,17 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F, G, H, I> COLUMNS(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>,
-    seventh: SqlExpression<*, *, G>,
-    eighth: SqlExpression<*, *, H>,
-    ninth: SqlExpression<*, *, I>
-  ) = rowProjection(
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F, RG, G, RH, H, RI, I> COLUMNS(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>,
+    seventh: SqlExpression<RG, *, G>,
+    eighth: SqlExpression<RH, *, H>,
+    ninth: SqlExpression<RI, *, I>
+  ) = rowProjection<Row9<RA, RB, RC, RD, RE, RF, RG, RH, RI>, _>(
     outputs = listOf(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth),
     read = read9(
       readA = first.selectRead,
@@ -456,9 +456,9 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>
+  fun <RA, A, RB, B> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>
   ) = COLUMNS(first, second).distinct()
 
   /**
@@ -474,10 +474,10 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>
+  fun <RA, A, RB, B, RC, C> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>
   ) = COLUMNS(first, second, third).distinct()
 
   /**
@@ -494,11 +494,11 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>
+  fun <RA, A, RB, B, RC, C, RD, D> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>
   ) = COLUMNS(first, second, third, fourth).distinct()
 
   /**
@@ -516,12 +516,12 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>
   ) = COLUMNS(first, second, third, fourth, fifth).distinct()
 
   /**
@@ -540,13 +540,13 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>
   ) = COLUMNS(first, second, third, fourth, fifth, sixth).distinct()
 
   /**
@@ -566,14 +566,14 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F, G> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>,
-    seventh: SqlExpression<*, *, G>
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F, RG, G> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>,
+    seventh: SqlExpression<RG, *, G>
   ) = COLUMNS(first, second, third, fourth, fifth, sixth, seventh).distinct()
 
   /**
@@ -594,15 +594,15 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F, G, H> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>,
-    seventh: SqlExpression<*, *, G>,
-    eighth: SqlExpression<*, *, H>
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F, RG, G, RH, H> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>,
+    seventh: SqlExpression<RG, *, G>,
+    eighth: SqlExpression<RH, *, H>
   ) = COLUMNS(first, second, third, fourth, fifth, sixth, seventh, eighth).distinct()
 
   /**
@@ -624,16 +624,16 @@ object Select {
    * @return SQL SELECT statement builder
    */
   @CheckResult
-  fun <A, B, C, D, E, F, G, H, I> DISTINCT(
-    first: SqlExpression<*, *, A>,
-    second: SqlExpression<*, *, B>,
-    third: SqlExpression<*, *, C>,
-    fourth: SqlExpression<*, *, D>,
-    fifth: SqlExpression<*, *, E>,
-    sixth: SqlExpression<*, *, F>,
-    seventh: SqlExpression<*, *, G>,
-    eighth: SqlExpression<*, *, H>,
-    ninth: SqlExpression<*, *, I>
+  fun <RA, A, RB, B, RC, C, RD, D, RE, E, RF, F, RG, G, RH, H, RI, I> DISTINCT(
+    first: SqlExpression<RA, *, A>,
+    second: SqlExpression<RB, *, B>,
+    third: SqlExpression<RC, *, C>,
+    fourth: SqlExpression<RD, *, D>,
+    fifth: SqlExpression<RE, *, E>,
+    sixth: SqlExpression<RF, *, F>,
+    seventh: SqlExpression<RG, *, G>,
+    eighth: SqlExpression<RH, *, H>,
+    ninth: SqlExpression<RI, *, I>
   ) = COLUMNS(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth).distinct()
 
   /**
@@ -709,12 +709,12 @@ object SelectDistinct {
   infix fun <M> FROM(source: QueryOutputSource<M>) = Select.FROM(source).distinct()
 }
 
-private fun <T> rowProjection(
+private fun <R, T> rowProjection(
   outputs: List<SqlExpression<*, *, *>>,
   read: ValueRead<T>
 ) = SelectProjectionStage(
   SelectNode(
-    RowSelection(
+    RowSelection<R, T>(
       outputs = outputs,
       reader = { read }
     )
@@ -732,7 +732,7 @@ private fun wideProjection(outputs: Array<out SqlOutput>) = buildList(outputs.si
   .let { expressions ->
     SelectProjectionStage(
       SelectNode(
-        RowSelection(
+        RowSelection<SelectedRow, SelectedRow>(
           outputs = expressions,
           reader = OwnedRowsReader(expressions)
         )

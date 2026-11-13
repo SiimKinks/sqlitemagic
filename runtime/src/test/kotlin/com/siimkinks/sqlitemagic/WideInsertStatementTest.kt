@@ -656,4 +656,71 @@ internal class WideInsertStatementTest {
       assertThat(connection.events()).isEqualTo(listOf(swipe.copy(id = -1L), tap))
     }
   }
+
+  @Test
+  fun `wide INSERT SELECT takes any query and leaves its column count to SQLite`() {
+    val copy = INSERT
+      .INTO(EVENT)
+      .COLUMNS(*listed)
+      .SELECT(
+        SELECT
+          .COLUMNS(*listed)
+          .FROM(EVENT)
+          .WHERE(EVENT.KIND IS "tap")
+      )
+    val infixCopy = INSERT
+      .INTO(EVENT)
+      .COLUMNS(*listed) SELECT SELECT
+      .COLUMNS(*listed)
+      .FROM(EVENT)
+      .WHERE(EVENT.KIND IS "tap")
+      .mapTo { row -> row[EVENT.AT] }
+    val mismatched = INSERT
+      .INTO(EVENT)
+      .COLUMNS(*listed)
+      .SELECT(
+        SELECT
+          .COLUMNS(EVENT.KIND, EVENT.AT)
+          .FROM(EVENT)
+      )
+    val copied = """SELECT "event"."kind", "event"."at", "event"."user_id", "event"."token", "event"."screen", """ +
+        """"event"."x", "event"."y", "event"."flag", "event"."os", "event"."os_version" FROM "main"."event" """ +
+        """WHERE "event"."kind" = ?"""
+
+    assertThat(listOf(copy, infixCopy).map { snapshot(it.compile()) })
+      .isEqualTo(
+        List(2) {
+          PlanSnapshot(
+            sql = """INSERT INTO "main"."event" $WIDE_COLUMNS $copied""",
+            arguments = listOf(NativeValue.Text("tap"))
+          )
+        }
+      )
+    eventDatabase().use { database ->
+      val connection = database.connection
+      val recorder = connection.recordTriggers()
+      val seeded = INSERT
+        .INTO(EVENT)
+        .COLUMNS(*listed)
+        .VALUES(listOf(tap, swipe), InsertedRow<Event>::assign)
+        .usingConnection(connection)
+        .execute()
+      val affected = listOf(copy, infixCopy).map {
+        it
+          .usingConnection(connection)
+          .execute()
+      }
+      val failure = sqliteErrorMessage {
+        mismatched
+          .usingConnection(connection)
+          .execute()
+      }
+
+      assertThat(listOf(seeded) + affected).isEqualTo(listOf(2, 1, 2))
+      assertThat(failure).isEqualTo("2 values for 10 columns")
+      assertThat(recorder.triggers).isEqualTo(List(3) { setOf("event") })
+      assertThat(connection.events())
+        .isEqualTo(listOf(tap, swipe, tap.copy(id = 3L), tap.copy(id = 4L), tap.copy(id = 5L)))
+    }
+  }
 }

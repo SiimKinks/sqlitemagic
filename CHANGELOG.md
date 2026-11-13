@@ -4,6 +4,10 @@ Change Log
 Version 3.1.0 _(unreleased)_
 ---------------------------------
 
+* Breaking: `RowSelection` takes the selected expressions' value types as its first type argument, as in
+  `RowSelection<Row2<Long, String>, Row2<Long, String?>>`. Code that writes the type out, or passes explicit type
+  arguments to `SELECT.COLUMNS` or `SELECT.DISTINCT`, needs the new arguments; inferred queries and `mapTo` calls are
+  unchanged
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead
   of failing with `OperationFailedException`, or returning `Ignored` under `CONFLICT_IGNORE`
 

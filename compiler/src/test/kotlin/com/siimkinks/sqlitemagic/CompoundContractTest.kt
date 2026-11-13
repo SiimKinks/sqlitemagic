@@ -94,10 +94,12 @@ internal class CompoundContractTest {
             val exactChained: Exact<SelectCompoundStage<String?, ScalarSelection<String, SqlNullable, String?>>> =
                 chainedType
             val rowsType = rows.exactType()
-            val exactRows: Exact<SelectCompoundStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+            val exactRows:
+                Exact<SelectCompoundStage<Row2<Long, String?>, RowSelection<Row2<Long, String>, Row2<Long, String?>>>> =
                 rowsType
             val liftedRowsType = liftedRows.exactType()
-            val exactLiftedRows: Exact<SelectCompoundStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+            val exactLiftedRows:
+                Exact<SelectCompoundStage<Row2<Long, String?>, RowSelection<Row2<Long, String>, Row2<Long, String?>>>> =
                 liftedRowsType
             val entitiesType = entities.exactType()
             val exactEntities: Exact<SelectCompoundStage<Person, EntitySelection<Person>>> = entitiesType
@@ -127,14 +129,15 @@ internal class CompoundContractTest {
     delimiter = '|',
     value = [
       "row arm with a nullable column on the right | val invalid = petRows UNION personRows | " +
-          "actual type is 'SelectFromStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>', " +
+          "actual type is 'SelectFromStage<Row2<Long, String?>, " +
+          "RowSelection<Row2<Long, String>, Row2<Long, String?>>>', " +
           "but 'SelectQuery<out Row2<Long, String>, *>' was expected",
       "arms of different value types | val invalid = ids UNION pets | " +
           "actual type is 'SelectFromStage<String, ScalarSelection<String, Required, String>>'",
       "required scalar arm before a nullable one of another type | val invalid = ids UNION people | " +
           "actual type is 'SelectFromStage<String?, ScalarSelection<String, SqlNullable, String?>>'",
       "scalar and row arms | val invalid = pets UNION petRows | " +
-          "actual type is 'SelectFromStage<Row2<Long, String>, RowSelection<Row2<Long, String>>>'",
+          "actual type is 'SelectFromStage<Row2<Long, String>, RowSelection<Row2<Long, String>, Row2<Long, String>>>'",
       "WHERE after a compound | val invalid = (people UNION pets).WHERE(personId IS 1L) | " +
           "Unresolved reference 'WHERE' on receiver of type 'SelectCompoundStage",
       "OFFSET without LIMIT | val invalid = (people UNION pets).OFFSET(1) | " +

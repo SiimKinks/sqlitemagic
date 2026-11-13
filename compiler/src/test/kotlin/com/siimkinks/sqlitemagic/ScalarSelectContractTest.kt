@@ -269,7 +269,9 @@ internal class ScalarSelectContractTest {
           val fluentEntitiesType = fluentEntities.exactType()
           val exactInfix: Exact<SelectProjectionStage<Long, ScalarSelection<Long, Required, Long>>> = infixType
           val exactFluent: Exact<SelectFromStage<Long, ScalarSelection<Long, Required, Long>>> = fluentType
-          val exactRows: Exact<SelectProjectionStage<Row2<Long, String>, RowSelection<Row2<Long, String>>>> = rowsType
+          val exactRows:
+              Exact<SelectProjectionStage<Row2<Long, String>, RowSelection<Row2<Long, String>, Row2<Long, String>>>> =
+              rowsType
           val exactEntities: Exact<SelectFromStage<Any, EntitySelection<Any>>> = entitiesType
           val exactFluentEntities: Exact<SelectFromStage<Any, EntitySelection<Any>>> = fluentEntitiesType
         }

@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.internal.sql.withColumns
 import com.siimkinks.sqlitemagic.internal.sql.withExpressionRow
 import com.siimkinks.sqlitemagic.internal.sql.withHostRow
 import com.siimkinks.sqlitemagic.internal.sql.withListedRows
+import com.siimkinks.sqlitemagic.internal.sql.withSelect
 
 /**
  * Builder for SQL INSERT statement.
@@ -444,6 +445,27 @@ class InsertColumns1Stage<P, R1, W1> internal constructor(
   @CheckResult
   override infix fun VALUES(first: SqlExpression<R1?, *, *>) =
       InsertSingleRow1Stage<P, R1, W1>(node.withExpressionRow(first))
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects one value for the column. The selected expression has the value type of the column, with any
+   * nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The value is typed by the
+   * selected expression, regardless of `mapTo` or `readAs` of the query. The statement uses only the SQL and the
+   * parameters of the query, so bind its parameters on this statement.
+   *
+   * Example:
+   * ```
+   * INSERT INTO ARCHIVED_BOOK COLUMNS ARCHIVED_BOOK.TITLE SELECT (SELECT COLUMN BOOK.TITLE FROM BOOK)
+   * ```
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out ScalarSelection<out R1?, *, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -584,6 +606,35 @@ class InsertColumns2Stage<P, R1, W1, R2, W2> internal constructor(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>
   ) = InsertSingleRow2Stage<P, R1, W1, R2, W2>(node.withExpressionRow(first, second))
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * Example:
+   * ```
+   * INSERT
+   *     .INTO(ARCHIVED_BOOK)
+   *     .COLUMNS(ARCHIVED_BOOK.TITLE, ARCHIVED_BOOK.PAGES)
+   *     .SELECT(
+   *       SELECT
+   *           .COLUMNS(BOOK.TITLE, BOOK.PAGES)
+   *           .FROM(BOOK)
+   *           .WHERE(BOOK.PAGES GREATER_THAN 1000)
+   *     )
+   * ```
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row2<R1?, R2?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -720,6 +771,22 @@ class InsertColumns3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>
   ) = InsertSingleRow3Stage<P, R1, W1, R2, W2, R3, W3>(node.withExpressionRow(first, second, third))
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row3<R1?, R2?, R3?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -872,6 +939,22 @@ class InsertColumns4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructo
     third: SqlExpression<R3?, *, *>,
     fourth: SqlExpression<R4?, *, *>
   ) = InsertSingleRow4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node.withExpressionRow(first, second, third, fourth))
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row4<R1?, R2?, R3?, R4?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -1046,6 +1129,22 @@ class InsertColumns5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal co
   ) = InsertSingleRow5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
     node.withExpressionRow(first, second, third, fourth, fifth)
   )
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row5<R1?, R2?, R3?, R4?, R5?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -1234,6 +1333,22 @@ class InsertColumns6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> int
   ) = InsertSingleRow6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth)
   )
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row6<R1?, R2?, R3?, R4?, R5?, R6?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -1436,6 +1551,22 @@ class InsertColumns7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
   ) = InsertSingleRow7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh)
   )
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row7<R1?, R2?, R3?, R4?, R5?, R6?, R7?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -1653,6 +1784,22 @@ class InsertColumns8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
   ) = InsertSingleRow8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh, eighth)
   )
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row8<R1?, R2?, R3?, R4?, R5?, R6?, R7?, R8?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -1885,6 +2032,22 @@ class InsertColumns9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
   ) = InsertSingleRow9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)
   )
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. Each selected expression has the value type of its
+   * column, with any nullability: NULL inserted into a NOT NULL column fails with SQLite's constraint error. The
+   * values are typed by the selected expressions, regardless of `mapTo` of the query. The statement uses only the
+   * SQL and the parameters of the query, so bind its parameters on this statement.
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row9<R1?, R2?, R3?, R4?, R5?, R6?, R7?, R8?, R9?>, *>>) =
+      InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -2065,6 +2228,28 @@ class InsertColumnsStage<P> internal constructor(
     node = builtRow(row),
     columns = columns
   )
+
+  /**
+   * Insert the rows of a query.
+   *
+   * The query selects a value for each column, in column order. SQLite rejects a query that selects another number
+   * of columns, and the types of the selected values are not checked. The statement uses only the SQL and the
+   * parameters of the query, so bind its parameters on this statement.
+   *
+   * Example:
+   * ```
+   * INSERT
+   *     .INTO(ARCHIVED_BOOK)
+   *     .COLUMNS(ARCHIVED_BOOK.ID, …)
+   *     .SELECT(SELECT.COLUMNS(BOOK.ID, …).FROM(BOOK))
+   * ```
+   *
+   * @param query Query whose rows to insert
+   * @return SQL INSERT statement
+   * @throws IllegalArgumentException if [query] uses a connection
+   */
+  @CheckResult
+  infix fun SELECT(query: SelectQuery<*, *>) = InsertSelectStage<P>(node.withSelect(query))
 }
 
 /**
@@ -2103,6 +2288,15 @@ class InsertSingleRowStage<P> internal constructor(
   @CheckResult
   fun readRowId() = node.rowIdInsert()
 }
+
+/**
+ * SQL INSERT statement that inserts the rows of a query.
+ *
+ * @param P Inserted table model type
+ */
+class InsertSelectStage<P> internal constructor(
+  node: MutationNode<InsertHead>
+) : MutationQuery by MutationStatement(node)
 
 private val ROW1_VALUES: (Row1<*>, Int) -> Any? = { row, _ -> row.first }
 

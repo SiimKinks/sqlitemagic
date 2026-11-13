@@ -7,9 +7,11 @@ import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 /**
  * Selection of multiple columns.
  *
+ * @param R Kotlin types of the selected expression values as [Row2]–[Row9], regardless of `mapTo`, or [SelectedRow]
+ *     for the columns of `COLUMNS(vararg outputs)`
  * @param T Row type
  */
-class RowSelection<T> internal constructor(
+class RowSelection<R, T> internal constructor(
   internal val outputs: List<SqlExpression<*, *, *>>,
   private val reader: ExecutionReader<T>,
   override val mappedWithFunction: Boolean = false
@@ -29,7 +31,7 @@ class RowSelection<T> internal constructor(
 
   internal fun <M> mapped(read: ValueRead<M>) = mapped(reader = { read })
 
-  internal fun <M> mapped(reader: ExecutionReader<M>) = RowSelection(
+  internal fun <M> mapped(reader: ExecutionReader<M>) = RowSelection<R, M>(
     outputs = outputs,
     reader = reader,
     mappedWithFunction = true

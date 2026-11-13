@@ -73,16 +73,24 @@ internal class WideRowSelectContractTest {
             val fieldsType = fields.exactType()
             val exactFields: Exact<TableFields> = fieldsType
             val wideType = wide.exactType()
-            val exactWide: Exact<SelectFromStage<SelectedRow, RowSelection<SelectedRow>>> = wideType
+            val exactWide: Exact<SelectFromStage<SelectedRow, RowSelection<SelectedRow, SelectedRow>>> = wideType
             val singleType = single.exactType()
-            val exactSingle: Exact<SelectProjectionStage<SelectedRow, RowSelection<SelectedRow>>> = singleType
+            val exactSingle:
+                Exact<SelectProjectionStage<SelectedRow, RowSelection<SelectedRow, SelectedRow>>> =
+                singleType
             val spreadType = spread.exactType()
-            val exactSpread: Exact<SelectProjectionStage<SelectedRow, RowSelection<SelectedRow>>> = spreadType
+            val exactSpread:
+                Exact<SelectProjectionStage<SelectedRow, RowSelection<SelectedRow, SelectedRow>>> =
+                spreadType
             val distinctType = distinct.exactType()
-            val exactDistinct: Exact<SelectProjectionStage<SelectedRow, RowSelection<SelectedRow>>> =
+            val exactDistinct: Exact<SelectProjectionStage<SelectedRow, RowSelection<SelectedRow, SelectedRow>>> =
                 distinctType
             val pairType = pair.exactType()
-            val exactPair: Exact<SelectProjectionStage<Row2<Long, String?>, RowSelection<Row2<Long, String?>>>> =
+            val exactPair:
+                Exact<SelectProjectionStage<
+                    Row2<Long, String?>,
+                    RowSelection<Row2<Long, String>, Row2<Long, String?>>
+                >> =
                 pairType
             val rowsType = rows.exactType()
             val exactRows: Exact<List<SelectedRow>> = rowsType
@@ -91,7 +99,7 @@ internal class WideRowSelectContractTest {
             val firstNameType = firstName.exactType()
             val exactFirstName: Exact<String?> = firstNameType
             val labelsType = labels.exactType()
-            val exactLabels: Exact<SelectQuery<String, RowSelection<String>>> = labelsType
+            val exactLabels: Exact<SelectQuery<String, RowSelection<SelectedRow, String>>> = labelsType
             val fromWideType = fromWide.exactType()
             val exactFromWide: Exact<SelectQuery<Author, PartialEntitySelection<Author>>> = fromWideType
             val fromPairType = fromPair.exactType()
@@ -117,7 +125,7 @@ internal class WideRowSelectContractTest {
       "row callback on a typed row | val invalid = SELECT.COLUMNS(id, id).mapTo { row -> row[id] } | " +
           "Cannot infer type",
       "table mapping of an entity query | val invalid = SELECT.FROM(author).mapTo(author) | " +
-          "SelectQuery<T, RowSelection<T>>.mapTo(table: Table<M>): SelectQuery<M, PartialEntitySelection<M>>' " +
+          "SelectQuery<T, RowSelection<R, T>>.mapTo(table: Table<M>): SelectQuery<M, PartialEntitySelection<M>>' " +
           "is inapplicable because of a receiver type mismatch"
     ]
   )

@@ -262,6 +262,116 @@ internal class InsertContractTest {
   }
 
   @Test
+  fun `INSERT SELECT types its positions by the selected expressions`() {
+    compileInsertConsumer(
+      """
+        fun verify(connection: DbConnection) {
+          val minAge = PERSON.AGE.asParameter("min")
+          val ages = SELECT COLUMN PERSON.AGE FROM PERSON WHERE (PERSON.AGE GREATER_THAN minAge)
+          val readAges = ages
+              .readAs(SqlType.STRING)
+              .mapTo(::Token)
+          val names = SELECT
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .FROM(PERSON)
+          val mappedNames = names.mapTo { name, _ -> name.orEmpty() }
+          val adults = names AS "adults"
+          val pets = SELECT
+              .COLUMNS(PET.NAME, PET.OWNER)
+              .FROM(PET)
+          val oneColumn = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT ages
+          val readOneColumn = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT readAges
+          val inlineOneColumn = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN PERSON.AGE FROM PERSON)
+          val nullableIntoRequired = INSERT INTO PET COLUMNS PET.NAME SELECT (SELECT COLUMN PERSON.NAME FROM PERSON)
+          val counted = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (
+            SELECT COLUMN COUNT().readAs(SqlType.INT) FROM PET
+          )
+          val scalar = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN ages.asScalar())
+          val rows = INSERT
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .SELECT(names)
+          val infixRows = INSERT.INTO(PERSON).COLUMNS(PERSON.NAME, PERSON.AGE) SELECT mappedNames
+          val requiredIntoNullable = INSERT
+              .OR(CONFLICT_IGNORE)
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME, PERSON.PARENT_ID)
+              .SELECT(pets)
+          val compound = INSERT
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .SELECT(names UNION_ALL names)
+          val derived = INSERT
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .SELECT(
+                SELECT
+                    .COLUMNS(adults[PERSON.NAME], adults[PERSON.AGE])
+                    .FROM(adults)
+              )
+          val with = INSERT
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .SELECT(
+                WITH(names) { cte ->
+                  SELECT
+                      .COLUMNS(cte[PERSON.NAME], cte[PERSON.AGE])
+                      .FROM(cte)
+                }
+              )
+          val wide = INSERT
+              .INTO(PERSON)
+              .COLUMNS($WIDE_COLUMNS)
+              .SELECT(SELECT.COLUMNS($WIDE_COLUMNS).FROM(PERSON))
+          val infixWide = INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS) SELECT names
+          val affected = oneColumn
+              .bind(minAge TO 30)
+              .usingConnection(connection)
+              .execute()
+          val observed = rows.observe()
+
+          val readAgesType = readAges.exactType()
+          val mappedNamesType = mappedNames.exactType()
+          val oneColumnType = oneColumn.exactType()
+          val readOneColumnType = readOneColumn.exactType()
+          val inlineOneColumnType = inlineOneColumn.exactType()
+          val nullableIntoRequiredType = nullableIntoRequired.exactType()
+          val countedType = counted.exactType()
+          val scalarType = scalar.exactType()
+          val rowsType = rows.exactType()
+          val infixRowsType = infixRows.exactType()
+          val requiredIntoNullableType = requiredIntoNullable.exactType()
+          val compoundType = compound.exactType()
+          val derivedType = derived.exactType()
+          val withType = with.exactType()
+          val wideType = wide.exactType()
+          val infixWideType = infixWide.exactType()
+          val affectedType = affected.exactType()
+          val observedType = observed.exactType()
+          val exactReadAges: Exact<SelectQuery<Token, ScalarSelection<Int, Required, Token>>> = readAgesType
+          val exactMappedNames: Exact<SelectQuery<String, RowSelection<Row2<String, Int>, String>>> = mappedNamesType
+          val exactOneColumn: Exact<InsertSelectStage<Person>> = oneColumnType
+          val exactReadOneColumn: Exact<InsertSelectStage<Person>> = readOneColumnType
+          val exactInlineOneColumn: Exact<InsertSelectStage<Person>> = inlineOneColumnType
+          val exactNullableIntoRequired: Exact<InsertSelectStage<Pet>> = nullableIntoRequiredType
+          val exactCounted: Exact<InsertSelectStage<Person>> = countedType
+          val exactScalar: Exact<InsertSelectStage<Person>> = scalarType
+          val exactRows: Exact<InsertSelectStage<Person>> = rowsType
+          val exactInfixRows: Exact<InsertSelectStage<Person>> = infixRowsType
+          val exactRequiredIntoNullable: Exact<InsertSelectStage<Person>> = requiredIntoNullableType
+          val exactCompound: Exact<InsertSelectStage<Person>> = compoundType
+          val exactDerived: Exact<InsertSelectStage<Person>> = derivedType
+          val exactWith: Exact<InsertSelectStage<Person>> = withType
+          val exactWide: Exact<InsertSelectStage<Person>> = wideType
+          val exactInfixWide: Exact<InsertSelectStage<Person>> = infixWideType
+          val exactAffected: Exact<Int> = affectedType
+          val exactObserved: Exact<Single<Int>> = observedType
+        }
+      """
+    ).isOk()
+  }
+
+  @Test
   fun `expression readAs keeps nullability and reads the given type`() {
     compileInsertConsumer(
       """
@@ -314,6 +424,7 @@ internal class InsertContractTest {
       import com.siimkinks.sqlitemagic.InsertIntoStage
       import com.siimkinks.sqlitemagic.InsertSingleRow1Stage
       import com.siimkinks.sqlitemagic.InsertSingleRow4Stage
+      import com.siimkinks.sqlitemagic.InsertSelectStage
       import com.siimkinks.sqlitemagic.InsertSingleRowStage
       import com.siimkinks.sqlitemagic.InsertValues1Stage
       import com.siimkinks.sqlitemagic.InsertValues2Stage
@@ -326,8 +437,13 @@ internal class InsertContractTest {
       import com.siimkinks.sqlitemagic.RowIdInsertQuery
       import com.siimkinks.sqlitemagic.Row1
       import com.siimkinks.sqlitemagic.Row3
+      import com.siimkinks.sqlitemagic.RowSelection
       import com.siimkinks.sqlitemagic.SUM
+      import com.siimkinks.sqlitemagic.SelectQuery
+      import com.siimkinks.sqlitemagic.UNION_ALL
+      import com.siimkinks.sqlitemagic.WITH
       import com.siimkinks.sqlitemagic.asScalar
+      import com.siimkinks.sqlitemagic.mapTo
       import com.siimkinks.sqlitemagic.rxjava2.observe
       import io.reactivex.Maybe
       import io.reactivex.Single
@@ -483,6 +599,66 @@ internal class InsertContractTest {
         "readRowId after the count statement is configured",
         """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada").usingConnection(connection).readRowId()""",
         "Unresolved reference 'readRowId' on receiver of type 'MutationQuery'"
+      ),
+      Arguments.of(
+        "SelectedRow query in a typed form",
+        "INSERT.INTO(PERSON).COLUMNS(PERSON.NAME, PERSON.AGE).SELECT(SELECT.COLUMNS(PERSON.all()).FROM(PERSON))",
+        "actual type is 'SelectFromStage<SelectedRow, RowSelection<SelectedRow, SelectedRow>>', but " +
+            "'SelectQuery<*, out RowSelection<out Row2<String?, Int?>, *>>' was expected"
+      ),
+      Arguments.of(
+        "entity query in a typed form",
+        "INSERT INTO PERSON COLUMNS PERSON.NAME SELECT (SELECT FROM PERSON)",
+        "actual type is 'SelectFromStage<Person, EntitySelection<Person>>', but " +
+            "'SelectQuery<*, out ScalarSelection<out String?, *, *>>' was expected"
+      ),
+      Arguments.of(
+        "query of another column count",
+        "INSERT.INTO(PERSON).COLUMNS(PERSON.NAME, PERSON.AGE)" +
+            ".SELECT(SELECT.COLUMNS(PERSON.NAME, PERSON.AGE, PERSON.ID).FROM(PERSON))",
+        "actual type is 'SelectFromStage<Row3<String?, Int, Long>, RowSelection<Row3<String, Int, Long>, " +
+            "Row3<String?, Int, Long>>>', but 'SelectQuery<*, out RowSelection<out Row2<String?, Int?>, *>>' " +
+            "was expected"
+      ),
+      Arguments.of(
+        "scalar query for two columns",
+        "INSERT.INTO(PERSON).COLUMNS(PERSON.NAME, PERSON.AGE).SELECT(SELECT.COLUMN(PERSON.NAME).FROM(PERSON))",
+        "actual type is 'SelectFromStage<String?, ScalarSelection<String, SqlNullable, String?>>', but " +
+            "'SelectQuery<*, out RowSelection<out Row2<String?, Int?>, *>>' was expected"
+      ),
+      Arguments.of(
+        "selected expression of another value type",
+        "INSERT.INTO(PERSON).COLUMNS(PERSON.NAME, PERSON.AGE)" +
+            ".SELECT(SELECT.COLUMNS(PERSON.NAME, PERSON.NAME).FROM(PERSON))",
+        "actual type is 'SelectFromStage<Row2<String?, String?>, RowSelection<Row2<String, String>, " +
+            "Row2<String?, String?>>>', but 'SelectQuery<*, out RowSelection<out Row2<String?, Int?>, *>>' was expected"
+      ),
+      Arguments.of(
+        "scalar query of another value type",
+        "INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN PERSON.NAME FROM PERSON)",
+        "actual type is 'SelectFromStage<String?, ScalarSelection<String, SqlNullable, String?>>', but " +
+            "'SelectQuery<*, out ScalarSelection<out Int?, *, *>>' was expected"
+      ),
+      Arguments.of(
+        "selected wider number without readAs",
+        "INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN COUNT() FROM PET)",
+        "actual type is 'SelectFromStage<Long, ScalarSelection<Long, Required, Long>>', but " +
+            "'SelectQuery<*, out ScalarSelection<out Int?, *, *>>' was expected"
+      ),
+      Arguments.of(
+        "readRowId after SELECT",
+        "(INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN PERSON.AGE FROM PERSON)).readRowId()",
+        "Unresolved reference 'readRowId' on receiver of type 'InsertSelectStage<Person>'"
+      ),
+      Arguments.of(
+        "VALUES after SELECT",
+        "(INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN PERSON.AGE FROM PERSON)).VALUES(36)",
+        "Unresolved reference 'VALUES' on receiver of type 'InsertSelectStage<Person>'"
+      ),
+      Arguments.of(
+        "VALUES after wide SELECT",
+        "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).SELECT(SELECT.FROM(PERSON)).VALUES { }",
+        "Unresolved reference 'VALUES' on receiver of type 'InsertSelectStage<Person>'"
       ),
       Arguments.of(
         "raw table name",

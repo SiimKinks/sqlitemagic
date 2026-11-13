@@ -134,6 +134,7 @@ user
 | Save only if absent, keep the existing row (a `@Unique` column or app-assigned ID decides) | `insert().conflictAlgorithm(CONFLICT_IGNORE)` |
 | Replace an existing object completely, by ID | `update()` |
 | Insert a partial row or many rows without objects | `INSERT INTO … COLUMNS … VALUES …` ([statements.md](statements.md#insert)); it returns the row count, or the new row's ID with `readRowId()` when it inserts one row |
+| Copy rows chosen by a query, such as archiving | `INSERT INTO … COLUMNS … SELECT query` ([statements.md](statements.md#insert)), in one statement without reading the rows |
 | Change some columns, increment a counter, change many rows | `UPDATE TABLE … SET … WHERE …` ([statements.md](statements.md)) |
 | Remove one known object | `delete()` |
 | Remove rows chosen by a condition | `DELETE FROM … WHERE …` |

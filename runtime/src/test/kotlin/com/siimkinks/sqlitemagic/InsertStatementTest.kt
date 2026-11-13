@@ -1232,4 +1232,493 @@ internal class InsertStatementTest {
         List(3) { "readRowId() cannot read the row ID of an INSERT into setting, a WITHOUT ROWID table" }
       )
   }
+
+  @Test
+  fun `INSERT SELECT renders the query after the column list and inserts its rows`() {
+    data class Case(
+      val label: String,
+      val query: MutationQuery,
+      val plan: PlanSnapshot,
+      val inserted: List<Person>
+    )
+
+    val minAge = PERSON.AGE.asParameter("min")
+    val adults = SELECT
+      .COLUMNS(PERSON.NAME, PERSON.AGE)
+      .FROM(PERSON)
+      .WHERE(PERSON.AGE GREATER_THAN 30) AS "adults"
+    listOf(
+      Case(
+        label = "infix one column",
+        query = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (
+          SELECT COLUMN PERSON.AGE FROM PERSON WHERE (PERSON.NAME IS "Ada")
+        ),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("age") SELECT "person"."age" FROM "main"."person" """ +
+              """WHERE "person"."name" = ?""",
+          arguments = listOf(NativeValue.Text("Ada"))
+        ),
+        inserted = listOf(defaulted(id = 4L, age = 36))
+      ),
+      Case(
+        label = "several columns filtered by WHERE",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.NAME, PERSON.AGE)
+          .SELECT(
+            SELECT
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .FROM(PERSON)
+              .WHERE(PERSON.AGE GREATER_THAN 30)
+          ),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("name", "age") SELECT "person"."name", "person"."age" """ +
+              """FROM "main"."person" WHERE "person"."age" > ?""",
+          arguments = listOf(NativeValue.Integer(30))
+        ),
+        inserted = listOf(
+          defaulted(
+            id = 4L,
+            name = "Ada",
+            age = 36
+          ),
+          defaulted(
+            id = 5L,
+            name = "Grace",
+            age = 85
+          )
+        )
+      ),
+      Case(
+        label = "infix compound",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.NAME, PERSON.AGE) SELECT (
+            SELECT
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .FROM(PERSON)
+              .WHERE(PERSON.ID IS 3L) UNION_ALL SELECT
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .FROM(PERSON)
+              .WHERE(PERSON.ID IS 1L)
+          ),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("name", "age") SELECT "person"."name", "person"."age" """ +
+              """FROM "main"."person" WHERE "person"."id" = ? UNION ALL SELECT "person"."name", "person"."age" """ +
+              """FROM "main"."person" WHERE "person"."id" = ?""",
+          arguments = listOf(NativeValue.Integer(3), NativeValue.Integer(1))
+        ),
+        inserted = listOf(
+          defaulted(
+            id = 4L,
+            name = null,
+            age = 17
+          ),
+          defaulted(
+            id = 5L,
+            name = "Ada",
+            age = 36
+          )
+        )
+      ),
+      Case(
+        label = "derived source",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.NAME, PERSON.AGE)
+          .SELECT(
+            SELECT
+              .COLUMNS(adults[PERSON.NAME], adults[PERSON.AGE])
+              .FROM(adults)
+          ),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("name", "age") SELECT "adults"."person.name", """ +
+              """"adults"."person.age" FROM (SELECT "person"."name" AS "person.name", "person"."age" AS """ +
+              """"person.age" FROM "main"."person" WHERE "person"."age" > ?) AS "adults"""",
+          arguments = listOf(NativeValue.Integer(30))
+        ),
+        inserted = listOf(
+          defaulted(
+            id = 4L,
+            name = "Ada",
+            age = 36
+          ),
+          defaulted(
+            id = 5L,
+            name = "Grace",
+            age = 85
+          )
+        )
+      ),
+      Case(
+        label = "leading WITH",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.NAME, PERSON.AGE)
+          .SELECT(
+            WITH(
+              SELECT
+                .COLUMNS(PERSON.NAME, PERSON.AGE)
+                .FROM(PERSON)
+                .WHERE(PERSON.AGE LESS_THAN 20)
+            ) { minors ->
+              SELECT
+                .COLUMNS(minors[PERSON.NAME], minors[PERSON.AGE])
+                .FROM(minors)
+            }
+          ),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("name", "age") WITH "cte1" AS (SELECT "person"."name" AS """ +
+              """"person.name", "person"."age" AS "person.age" FROM "main"."person" WHERE "person"."age" < ?) """ +
+              """SELECT "cte1"."person.name", "cte1"."person.age" FROM "cte1"""",
+          arguments = listOf(NativeValue.Integer(20))
+        ),
+        inserted = listOf(
+          defaulted(
+            id = 4L,
+            name = null,
+            age = 17
+          )
+        )
+      ),
+      Case(
+        label = "mapTo on a row query",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.NAME, PERSON.AGE)
+          .SELECT(
+            SELECT
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .FROM(PERSON)
+              .WHERE(PERSON.ID IS 2L)
+              .mapTo { name, age -> "$name $age" }
+          ),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("name", "age") SELECT "person"."name", "person"."age" """ +
+              """FROM "main"."person" WHERE "person"."id" = ?""",
+          arguments = listOf(NativeValue.Integer(2))
+        ),
+        inserted = listOf(
+          defaulted(
+            id = 4L,
+            name = "Grace",
+            age = 85
+          )
+        )
+      ),
+      Case(
+        label = "readAs and mapTo on a scalar query",
+        query = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT SELECT
+          .COLUMN(PERSON.AGE)
+          .FROM(PERSON)
+          .WHERE(PERSON.ID IS 3L)
+          .readAs(STRING)
+          .mapTo(::Token),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("age") SELECT "person"."age" FROM "main"."person" """ +
+              """WHERE "person"."id" = ?""",
+          arguments = listOf(NativeValue.Integer(3))
+        ),
+        inserted = listOf(defaulted(id = 4L, age = 17))
+      ),
+      Case(
+        label = "parameter bound through bind",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.NAME, PERSON.AGE)
+          .SELECT(
+            SELECT
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .FROM(PERSON)
+              .WHERE(PERSON.AGE GREATER_THAN minAge)
+          )
+          .bind(minAge TO 80),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("name", "age") SELECT "person"."name", "person"."age" """ +
+              """FROM "main"."person" WHERE "person"."age" > ?""",
+          arguments = listOf(NativeValue.Integer(80))
+        ),
+        inserted = listOf(
+          defaulted(
+            id = 4L,
+            name = "Grace",
+            age = 85
+          )
+        )
+      ),
+      Case(
+        label = "number read as INT",
+        query = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN COUNT().readAs(INT) FROM PERSON),
+        plan = PlanSnapshot(
+          sql = """INSERT INTO "main"."person" ("age") SELECT COUNT(*) FROM "main"."person"""",
+          arguments = emptyList()
+        ),
+        inserted = listOf(defaulted(id = 4L, age = 3))
+      )
+    )
+      .forEach { case ->
+        assertWithMessage(case.label)
+          .that(snapshot(case.query.compile()))
+          .isEqualTo(case.plan)
+        assertWithMessage(case.label)
+          .that(
+            outcome(
+              query = case.query,
+              database = defaultedPersonDatabase().apply {
+                execSQL("INSERT INTO person (name, age) VALUES ('Ada', 36), ('Grace', 85), (NULL, 17)")
+              }
+            )
+          )
+          .isEqualTo(
+            Outcome(
+              affected = case.inserted.size,
+              rows = listOf(
+                defaulted(
+                  id = 1L,
+                  name = "Ada",
+                  age = 36
+                ),
+                defaulted(
+                  id = 2L,
+                  name = "Grace",
+                  age = 85
+                ),
+                defaulted(
+                  id = 3L,
+                  name = null,
+                  age = 17
+                )
+              ) + case.inserted,
+              triggers = listOf(setOf("person"))
+            )
+          )
+      }
+  }
+
+  @Test
+  fun `INSERT SELECT leaves NOT NULL to SQLite`() {
+    fun insert(id: Long) = INSERT
+      .INTO(PET)
+      .COLUMNS(PET.OWNER, PET.NAME)
+      .SELECT(
+        SELECT
+          .COLUMNS(PERSON.ID, PERSON.NAME)
+          .FROM(PERSON)
+          .WHERE(PERSON.ID IS id)
+      )
+
+    petDatabase().use { database ->
+      val connection = database.connection
+      val failure = sqliteErrorMessage {
+        insert(3L)
+          .usingConnection(connection)
+          .execute()
+      }
+
+      assertThat(
+        insert(1L)
+          .usingConnection(connection)
+          .execute()
+      )
+        .isEqualTo(1)
+      assertThat(failure).isEqualTo("NOT NULL constraint failed: pet.name")
+      assertThat(
+        SELECT
+          .FROM(PET)
+          .WHERE(PET.ID GREATER_THAN 3L)
+          .rows(database)
+      )
+        .isEqualTo(
+          listOf(
+            Pet(
+              id = 4L,
+              owner = 1L,
+              name = "Ada",
+              nickname = null
+            )
+          )
+        )
+    }
+  }
+
+  @Test
+  fun `INSERT SELECT counts follow changes and notifications follow VALUES`() {
+    data class Case(
+      val label: String,
+      val query: MutationQuery,
+      val outcome: Outcome
+    )
+
+    val copies = SELECT
+      .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+      .FROM(PERSON)
+    listOf(
+      Case(
+        label = "rows inserted",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.AGE, PERSON.TOKEN)
+          .SELECT(
+            SELECT
+              .COLUMNS(PERSON.AGE, PERSON.TOKEN)
+              .FROM(PERSON)
+              .WHERE(PERSON.ID IS 1L)
+          ),
+        outcome = Outcome(
+          affected = 1,
+          rows = people + Person(
+            id = 5L,
+            name = null,
+            age = 36,
+            parentId = null,
+            token = Token("a"),
+            flag = null
+          ),
+          triggers = listOf(setOf("person"))
+        )
+      ),
+      Case(
+        label = "no rows selected",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+          .SELECT(copies.WHERE(PERSON.ID IS 99L)),
+        outcome = Outcome(
+          affected = 0,
+          rows = people,
+          triggers = emptyList()
+        )
+      ),
+      Case(
+        label = "all ignored",
+        query = INSERT
+          .OR(CONFLICT_IGNORE)
+          .INTO(PERSON)
+          .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+          .SELECT(copies),
+        outcome = Outcome(
+          affected = 0,
+          rows = people,
+          triggers = emptyList()
+        )
+      ),
+      Case(
+        label = "failure after execution starts",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+          .SELECT(copies),
+        outcome = Outcome(
+          affected = null,
+          rows = people,
+          triggers = listOf(setOf("person"))
+        )
+      )
+    )
+      .forEach { case ->
+        assertWithMessage(case.label)
+          .that(outcome(case.query))
+          .isEqualTo(case.outcome)
+      }
+  }
+
+  @Test
+  fun `INSERT SELECT with REPLACE notifies the cascade when the enclosing transaction commits`() {
+    val connection = testDbConnection(
+      database = TestGeneratedDatabase(
+        tableCount = 1,
+        schema = listOf(
+          "CREATE TABLE person (id INTEGER PRIMARY KEY, name TEXT, age INTEGER NOT NULL, parent_id INTEGER, " +
+              "token TEXT NOT NULL, flag INTEGER)"
+        ),
+        cascadeTables = mapOf("person" to arrayOf("person", "pet"))
+      ),
+      driver = BundledSQLiteDriver()
+    )
+    val recorder = connection.recordTriggers()
+    val replaced = INSERT
+      .OR(CONFLICT_REPLACE)
+      .INTO(PERSON)
+      .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+      .SELECT(
+        SELECT
+          .COLUMNS(PERSON.ID, (PERSON.AGE + 1).readAs(INT), PERSON.TOKEN)
+          .FROM(PERSON)
+      )
+
+    try {
+      val inserted = INSERT
+        .INTO(PERSON)
+        .COLUMNS(PERSON.AGE, PERSON.TOKEN)
+        .VALUES(3, Token("c"))
+        .usingConnection(connection)
+        .execute()
+      val transaction = connection.newTransaction()
+      val (affected, queued) = try {
+        (
+          replaced
+            .usingConnection(connection)
+            .execute() to recorder.triggers.toList()
+        ).also { transaction.markSuccessful() }
+      } finally {
+        transaction.end()
+      }
+
+      assertThat(listOf(inserted, affected)).isEqualTo(listOf(1, 1))
+      assertThat(listOf(queued, recorder.triggers))
+        .isEqualTo(
+          listOf(
+            listOf(setOf("person")),
+            listOf(setOf("person"), setOf("person", "pet"))
+          )
+        )
+      assertThat(connection.persons())
+        .isEqualTo(
+          listOf(
+            Person(
+              id = 1L,
+              name = null,
+              age = 4,
+              parentId = null,
+              token = Token("c"),
+              flag = null
+            )
+          )
+        )
+    } finally {
+      connection.pool.close()
+    }
+  }
+
+  @Test
+  fun `INSERT SELECT rejects a query with a connection and prepares through the statement cache`() {
+    val connection = mock<DbConnectionImpl>()
+    val ages = SELECT COLUMN PERSON.AGE FROM PERSON
+    val recording = newConnection()
+    val copy = (INSERT INTO PERSON COLUMNS PERSON.AGE SELECT ages)
+      .usingConnection(recording.dbConnection)
+      .compile()
+
+    assertThat(
+      listOf(
+        { INSERT INTO PERSON COLUMNS PERSON.AGE SELECT ages.usingConnection(connection) },
+        {
+          INSERT
+            .INTO(PERSON)
+            .COLUMNS(*arrayOf(PERSON.AGE))
+            .SELECT(ages.usingConnection(connection))
+        }
+      )
+        .map { construction ->
+          assertThrows(IllegalArgumentException::class.java) { construction() }.message
+        }
+    )
+      .isEqualTo(List(2) { "A nested query cannot use a connection; choose it on the outermost query" })
+    verifyNoInteractions(connection)
+    assertThat(List(2) { copy.execute() }).isEqualTo(List(2) { 1 })
+    assertThat(recording.sqliteConnection.compiledStatements.map { it.sql to it.closeCalls })
+      .isEqualTo(
+        listOf("""INSERT INTO "main"."person" ("age") SELECT "person"."age" FROM "main"."person"""" to 0)
+      )
+  }
 }

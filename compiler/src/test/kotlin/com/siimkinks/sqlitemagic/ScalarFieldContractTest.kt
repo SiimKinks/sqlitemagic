@@ -299,7 +299,10 @@ internal class ScalarFieldContractTest {
                   .FROM(SCALAR_FIELD_RECORD)
               val inferredGeneratedRow = generatedRow.exact()
               val generatedRowType:
-                  Exact<SelectFromStage<Row2<Long, DecodedToken?>, RowSelection<Row2<Long, DecodedToken?>>>> =
+                  Exact<SelectFromStage<
+                      Row2<Long, DecodedToken?>,
+                      RowSelection<Row2<Long, DecodedToken?>, Row2<Long, DecodedToken?>>
+                  >> =
                   inferredGeneratedRow
             }
           """

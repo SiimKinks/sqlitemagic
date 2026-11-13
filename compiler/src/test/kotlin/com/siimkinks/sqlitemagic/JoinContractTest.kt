@@ -97,8 +97,17 @@ internal class JoinContractTest {
           val exactLifted: Exact<NullableEncodableExpression<String, String, String>> = liftedType
           val liftedExpression: SqlExpression<String, SqlNullable, String?> = lifted
           val exactLeftJoined:
-              Exact<SelectJoinStage<Row2<String?, String?>, RowSelection<Row2<String?, String?>>>> = leftJoinedType
-          val exactLeft: Exact<SelectFromStage<Row2<String?, String?>, RowSelection<Row2<String?, String?>>>> = leftType
+              Exact<SelectJoinStage<
+                  Row2<String?, String?>,
+                  RowSelection<Row2<String, String>, Row2<String?, String?>>
+              >> =
+              leftJoinedType
+          val exactLeft:
+              Exact<SelectFromStage<
+                  Row2<String?, String?>,
+                  RowSelection<Row2<String, String>, Row2<String?, String?>>
+              >> =
+              leftType
           val exactInfix: Exact<SelectWhereStage<String, ScalarSelection<String, Required, String>>> = infixType
           val exactEntities: Exact<SelectFromStage<Person, EntitySelection<Person>>> = entitiesType
           val exactUsingOne: Exact<SelectFromStage<Person, EntitySelection<Person>>> = usingOneType
@@ -113,9 +122,12 @@ internal class JoinContractTest {
               Exact<SelectFromStage<Number?, ScalarSelection<Number, SqlNullable, Number?>>> = computedType
           val exactChained:
               Exact<SelectOffsetStage<String?, ScalarSelection<String, SqlNullable, String?>>> = chainedType
-          val exactRightJoined: Exact<SelectJoinStage<Row2<Long?, String>, RowSelection<Row2<Long?, String>>>> =
+          val exactRightJoined:
+              Exact<SelectJoinStage<Row2<Long?, String>, RowSelection<Row2<Long, String>, Row2<Long?, String>>>> =
               rightJoinedType
-          val exactRight: Exact<SelectFromStage<Row2<Long?, String>, RowSelection<Row2<Long?, String>>>> = rightType
+          val exactRight:
+              Exact<SelectFromStage<Row2<Long?, String>, RowSelection<Row2<Long, String>, Row2<Long?, String>>>> =
+              rightType
           val exactFull: Exact<SelectFromStage<String?, ScalarSelection<String, SqlNullable, String?>>> = fullType
           val exactBareFull: Exact<SelectJoinStage<Person, EntitySelection<Person>>> = bareFullType
           val exactNaturalRight: Exact<SelectFromStage<Long, ScalarSelection<Long, Required, Long>>> = naturalRightType
