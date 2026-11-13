@@ -13,6 +13,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.SQL_STORAGE
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE_RELATIONSHIP
 import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.nullnessType
+import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
@@ -44,6 +45,9 @@ internal class ModelTableWriter(
       add(namedArgument("alias", "%N", VARIABLE_ALIAS))
       if (table.schema == TEMPORARY) {
         add(namedArgument("temporary", "true"))
+      }
+      if (WITHOUT_ROWID in table.options) {
+        add(namedArgument("withoutRowId", "true"))
       }
     },
     columns = table.allColumns.map {

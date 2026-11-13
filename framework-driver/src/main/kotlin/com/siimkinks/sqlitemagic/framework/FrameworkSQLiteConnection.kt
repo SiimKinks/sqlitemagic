@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
 import com.siimkinks.sqlitemagic.internal.MutationResults
+import android.database.sqlite.SQLiteStatement as FrameworkProgram
 
 internal class FrameworkSQLiteConnection(private val db: SQLiteDatabase) : SQLiteConnection, MutationResults {
   private val idleWindow = IdleCursorWindow()
@@ -12,6 +13,7 @@ internal class FrameworkSQLiteConnection(private val db: SQLiteDatabase) : SQLit
     db = db,
     transaction = transaction
   )
+  private var changes: FrameworkProgram? = null
 
   override fun prepare(sql: String): SQLiteStatement = FrameworkSQLiteStatement(
     db = db,
@@ -25,11 +27,23 @@ internal class FrameworkSQLiteConnection(private val db: SQLiteDatabase) : SQLit
 
   override fun close() {
     idleWindow.close()
+    changes?.close()
+    changes = null
     db.close()
   }
 
   override fun executeInsert(statement: SQLiteStatement) = (statement as FrameworkSQLiteStatement).executeInsert()
 
+  override fun executeInsertRowId(statement: SQLiteStatement) = when (val rowId = executeInsert(statement)) {
+    -1L -> rowId.takeIf { changes() > 0L }
+    else -> rowId
+  }
+
   override fun executeUpdateDelete(statement: SQLiteStatement) =
     (statement as FrameworkSQLiteStatement).executeUpdateDelete()
+
+  private fun changes() = (changes ?: db
+    .compileStatement("SELECT changes()")
+    .also { changes = it })
+    .simpleQueryForLong()
 }

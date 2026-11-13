@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
+import android.database.sqlite.SQLiteDatabase.CONFLICT_NONE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
 import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
@@ -615,6 +616,44 @@ internal class WideInsertStatementTest {
       assertThat(connection.events()).isEqualTo(listOf(swipe.copy(id = 1L)))
     } finally {
       connection.pool.close()
+    }
+  }
+
+  @Test
+  fun `a single wide row reads its row ID`() {
+    eventDatabase().use { database ->
+      val connection = database.connection
+      val recorder = connection.recordTriggers()
+      fun insert(conflictAlgorithm: Int, event: Event) = INSERT
+        .OR(conflictAlgorithm)
+        .INTO(EVENT)
+        .COLUMNS(EVENT.ID, *listed)
+        .VALUES {
+          it[EVENT.ID] = event.id
+          it.assign(event)
+        }
+        .readRowId()
+        .usingConnection(connection)
+        .execute()
+
+      val rowIds = listOf(
+        insert(
+          conflictAlgorithm = CONFLICT_NONE,
+          event = tap
+        ),
+        insert(
+          conflictAlgorithm = CONFLICT_IGNORE,
+          event = swipe.copy(id = 1L)
+        ),
+        insert(
+          conflictAlgorithm = CONFLICT_REPLACE,
+          event = swipe.copy(id = -1L)
+        )
+      )
+
+      assertThat(rowIds).isEqualTo(listOf(1L, null, -1L))
+      assertThat(recorder.triggers).isEqualTo(List(2) { setOf("event") })
+      assertThat(connection.events()).isEqualTo(listOf(swipe.copy(id = -1L), tap))
     }
   }
 }

@@ -128,6 +128,10 @@ internal class PooledConnectionTest {
     val results = listOf(
       "insert" to pooled.insert("INSERT INTO tag(name) VALUES ('second')"),
       "ignored insert" to pooled.insert("INSERT OR IGNORE INTO tag(name) VALUES ('second')"),
+      "row ID insert" to pooled.insertRowId("INSERT INTO tag(name) VALUES ('third')"),
+      "ignored row ID insert" to pooled.insertRowId("INSERT OR IGNORE INTO tag(name) VALUES ('third')"),
+      "insert of row ID -1" to pooled.insert("INSERT INTO tag(id, name) VALUES (-1, 'fourth')"),
+      "row ID insert of row ID -1" to pooled.insertRowId("INSERT INTO tag(id, name) VALUES (-2, 'fifth')"),
       "update" to pooled.updateDelete("UPDATE tag SET name = name || '!'"),
       "update without match" to pooled.updateDelete("UPDATE tag SET name = 'none' WHERE id = 99"),
       "delete" to pooled.updateDelete("DELETE FROM tag WHERE id = 7")
@@ -137,7 +141,11 @@ internal class PooledConnectionTest {
       .containsExactly(
         "insert" to 8L,
         "ignored insert" to -1L,
-        "update" to 2L,
+        "row ID insert" to 9L,
+        "ignored row ID insert" to null,
+        "insert of row ID -1" to -1L,
+        "row ID insert of row ID -1" to -2L,
+        "update" to 5L,
         "update without match" to 0L,
         "delete" to 1L
       )
@@ -156,15 +164,16 @@ internal class PooledConnectionTest {
     val duplicate = assertThrows(SQLiteException::class.java) {
       pinned.insert("INSERT INTO tag(name) VALUES ('first')")
     }
+    val rowId = pinned.insertRowId("INSERT INTO tag(name) VALUES ('third')")
     val transactionLeftOpen = connection.inTransaction()
     connection.execSQL("BEGIN")
     val inOpenTransaction = pinned.insert("INSERT INTO tag(name) VALUES ('second')")
     connection.execSQL("ROLLBACK")
 
     assertThat(duplicate).hasMessageThat().contains("UNIQUE constraint failed: tag.name")
-    assertThat(listOf(alone, inOpenTransaction)).containsExactly(1L, 2L).inOrder()
+    assertThat(listOf(alone, rowId, inOpenTransaction)).containsExactly(1L, 2L, 3L).inOrder()
     assertThat(transactionLeftOpen).isFalse()
-    assertThat(connection.long("SELECT count(*) FROM tag")).isEqualTo(1L)
+    assertThat(connection.long("SELECT count(*) FROM tag")).isEqualTo(2L)
   }
 
   @Test
@@ -184,6 +193,11 @@ internal class PooledConnectionTest {
     block = mutations::executeInsert
   )
 
+  private fun PooledConnection.insertRowId(sql: String) = withStatement(
+    sql = sql,
+    block = mutations::executeInsertRowId
+  )
+
   private fun PooledConnection.updateDelete(sql: String) = withStatement(sql) { statement ->
     mutations
       .executeUpdateDelete(statement)
@@ -194,6 +208,8 @@ internal class PooledConnectionTest {
     delegate: SQLiteConnection
   ) : SQLiteConnection by delegate, MutationResults {
     override fun executeInsert(statement: SQLiteStatement) = 0L
+
+    override fun executeInsertRowId(statement: SQLiteStatement) = 0L
 
     override fun executeUpdateDelete(statement: SQLiteStatement) = 0
   }

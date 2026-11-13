@@ -74,6 +74,7 @@ class BookRepository {
 | `takeFirst()` plan | `Flow<Query<T?>>` | `runQuery(): Flow<T>` (skips `null`), `runQueryOrDefault(d)` | `runQueryOnce(): T?`, `runQueryOnceOrDefault(d)` |
 | `count()` plan | `Flow<Query<Long>>` | `runQuery()`, `isZero()`, `isNotZero()` | `runQueryOnce(): Long` |
 | entity operations, INSERT/UPDATE/DELETE, raw statements, raw SELECT without `observes` | — | — | `await()` |
+| INSERT with `readRowId()`, `CompiledRowIdInsert` | — | — | `await(): Long?` |
 
 - Import `observe`, the operators and `await` from `com.siimkinks.sqlitemagic.coroutines`.
 - Queries run on the dispatcher set with `dispatchCoroutineQueriesOn` (default `Dispatchers.IO`); collectors receive
@@ -117,6 +118,7 @@ fun save(book: Book): Completable = book
 | raw SELECT without `observes` | `Single` (list) or `Maybe` (first row), run once | — |
 | entity operations | `Single<…>` or `Completable` ([table](entity-operations.md#async-forms)) | — |
 | INSERT/UPDATE/DELETE, raw statements, `CompiledMutation` | `Single<Int>` | — |
+| INSERT with `readRowId()`, `CompiledRowIdInsert` | `Maybe<Long>`, empty when nothing was inserted | — |
 
 - Import `observe` (and `run`, `scheduleRxQueriesOn`) from `com.siimkinks.sqlitemagic.rxjava3` or `.rxjava2`; the
   operators are members. A file using both adapters imports one with an alias.

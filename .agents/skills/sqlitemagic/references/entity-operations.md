@@ -133,7 +133,7 @@ user
 | Save an object that may or may not exist (sync from a server, "save" button) | `persist()`; bulk `Items.persist(list)`; an INSERT never writes an auto-increment ID, so server IDs need `@Id(autoIncrement = false)` ([models.md](models.md#ids)) |
 | Save only if absent, keep the existing row (a `@Unique` column or app-assigned ID decides) | `insert().conflictAlgorithm(CONFLICT_IGNORE)` |
 | Replace an existing object completely, by ID | `update()` |
-| Insert a partial row or many rows without objects, no ID needed | `INSERT INTO … COLUMNS … VALUES …` ([statements.md](statements.md#insert)); it returns the row count, not the new IDs |
+| Insert a partial row or many rows without objects | `INSERT INTO … COLUMNS … VALUES …` ([statements.md](statements.md#insert)); it returns the row count, or the new row's ID with `readRowId()` when it inserts one row |
 | Change some columns, increment a counter, change many rows | `UPDATE TABLE … SET … WHERE …` ([statements.md](statements.md)) |
 | Remove one known object | `delete()` |
 | Remove rows chosen by a condition | `DELETE FROM … WHERE …` |

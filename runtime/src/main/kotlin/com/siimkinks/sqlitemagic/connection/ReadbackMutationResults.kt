@@ -17,6 +17,16 @@ internal class ReadbackMutationResults(private val connection: SQLiteConnection)
     }
   }
 
+  override fun executeInsertRowId(statement: SQLiteStatement): Long? {
+    statement.stepToEnd()
+    return readResults { results ->
+      when (results.getLong(0)) {
+        0L -> null
+        else -> results.getLong(1)
+      }
+    }
+  }
+
   override fun executeUpdateDelete(statement: SQLiteStatement): Int {
     statement.stepToEnd()
     return readResults { results -> results.getLong(0).toInt() }
@@ -49,6 +59,8 @@ internal class PinnedMutationResults(
   private val results: MutationResults
 ) : MutationResults {
   override fun executeInsert(statement: SQLiteStatement) = pinned { results.executeInsert(statement) }
+
+  override fun executeInsertRowId(statement: SQLiteStatement) = pinned { results.executeInsertRowId(statement) }
 
   override fun executeUpdateDelete(statement: SQLiteStatement) = pinned { results.executeUpdateDelete(statement) }
 

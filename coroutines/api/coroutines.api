@@ -18,8 +18,10 @@ public final class com/siimkinks/sqlitemagic/coroutines/EntityOperationsKt {
 
 public final class com/siimkinks/sqlitemagic/coroutines/MutationOperationsKt {
 	public static final fun await (Lcom/siimkinks/sqlitemagic/CompiledMutation;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun await (Lcom/siimkinks/sqlitemagic/CompiledRowIdInsert;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun await (Lcom/siimkinks/sqlitemagic/MutationQuery;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun await (Lcom/siimkinks/sqlitemagic/RawMutationQuery;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun await (Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
 public final class com/siimkinks/sqlitemagic/coroutines/QueryDispatcherKt {

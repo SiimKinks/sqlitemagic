@@ -1,5 +1,7 @@
 package com.siimkinks.sqlitemagic
 
+import androidx.sqlite.SQLiteStatement
+import com.siimkinks.sqlitemagic.internal.MutationResults
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 import com.siimkinks.sqlitemagic.internal.sql.PreparedQuery
 import com.siimkinks.sqlitemagic.internal.sql.bindNativeValues
@@ -27,12 +29,25 @@ class CompiledMutation internal constructor(
    *
    * @return Number of inserted, updated or deleted rows
    */
-  fun execute(): Int {
-    if (skipped) {
-      return 0
-    }
+  fun execute(): Int = when {
+    skipped -> 0
+    else -> execute(
+      run = MutationResults::executeUpdateDelete,
+      changed = { it > 0 }
+    )
+  }
+
+  internal fun executeRowId() = execute(
+    run = MutationResults::executeInsertRowId,
+    changed = { it != null }
+  )
+
+  private inline fun <T> execute(
+    run: (MutationResults, SQLiteStatement) -> T,
+    changed: (T) -> Boolean
+  ): T {
     val connection = resolveConnection()
-    val affected = connection.write { pooled ->
+    val result = connection.write { pooled ->
       pooled.withStatement(
         sql = prepared.sql,
         cache = cache
@@ -43,14 +58,14 @@ class CompiledMutation internal constructor(
         )
         notifyingOnFailure(
           notify = { connection.sendChangedTables() },
-          block = { pooled.mutations.executeUpdateDelete(statement) }
+          block = { run(pooled.mutations, statement) }
         )
       }
     }
-    if (affected > 0) {
+    if (changed(result)) {
       connection.sendChangedTables()
     }
-    return affected
+    return result
   }
 
   private fun DbConnectionImpl.sendChangedTables() = when (deletedTable) {

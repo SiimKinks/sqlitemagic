@@ -1,9 +1,14 @@
 package com.siimkinks.sqlitemagic.rxjava2
 
+import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
+import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DbConnection
+import com.siimkinks.sqlitemagic.INSERT
 import com.siimkinks.sqlitemagic.PERSON
+import com.siimkinks.sqlitemagic.Person
 import com.siimkinks.sqlitemagic.SET
+import com.siimkinks.sqlitemagic.Token
 import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.ada
 import com.siimkinks.sqlitemagic.grace
@@ -48,6 +53,43 @@ internal class MutationStatementTest {
           .that(before to connection.persons())
           .isEqualTo(people to listOf(ada.copy(age = 38), grace, unnamed, linus))
       }
+    }
+  }
+
+  @Test
+  fun `observe of readRowId emits the row ID, or completes empty when nothing was inserted`() {
+    personDatabase().use { database ->
+      val connection = database.connection
+      val insert = INSERT
+        .OR(CONFLICT_IGNORE)
+        .INTO(PERSON)
+        .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+        .VALUES(5L, 2, Token("y"))
+        .readRowId()
+        .usingConnection(connection)
+      val inserted = insert.observe()
+      val ignored = insert
+        .compile()
+        .observe()
+
+      inserted
+        .test()
+        .assertResult(5L)
+      ignored
+        .test()
+        .assertResult()
+
+      assertThat(connection.persons())
+        .isEqualTo(
+          people + Person(
+            id = 5L,
+            name = null,
+            age = 2,
+            parentId = null,
+            token = Token("y"),
+            flag = null
+          )
+        )
     }
   }
 }

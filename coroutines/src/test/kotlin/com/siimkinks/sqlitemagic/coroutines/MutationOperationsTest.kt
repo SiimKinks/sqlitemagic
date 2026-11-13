@@ -1,10 +1,14 @@
 package com.siimkinks.sqlitemagic.coroutines
 
+import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
+import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DbConnection
+import com.siimkinks.sqlitemagic.INSERT
 import com.siimkinks.sqlitemagic.PERSON
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SET
+import com.siimkinks.sqlitemagic.Token
 import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.ada
 import com.siimkinks.sqlitemagic.personDatabase
@@ -56,6 +60,30 @@ internal class MutationOperationsTest {
           .that(outcome)
           .isEqualTo(1 to FlowSignals(values = listOf(listOf(ada.age), listOf(ada.age + 1))))
       }
+    }
+  }
+
+  @Test
+  fun `await of readRowId returns the row ID, or null when nothing was inserted`() {
+    personDatabase(adapterSettings = dispatcherSettings()).use { database ->
+      val insert = INSERT
+        .OR(CONFLICT_IGNORE)
+        .INTO(PERSON)
+        .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+        .VALUES(5L, 2, Token("y"))
+        .readRowId()
+        .usingConnection(database.connection)
+
+      val rowIds = runBlocking {
+        listOf(
+          insert.await(),
+          insert
+            .compile()
+            .await()
+        )
+      }
+
+      assertThat(rowIds).isEqualTo(listOf(5L, null))
     }
   }
 }

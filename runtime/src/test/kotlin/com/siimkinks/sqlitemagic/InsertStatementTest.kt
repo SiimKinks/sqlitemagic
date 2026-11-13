@@ -40,6 +40,41 @@ internal class InsertStatementTest {
     )
   }
 
+  private data class RowIdOutcome(
+    val rowId: Long?,
+    val rows: List<Person>,
+    val triggers: List<Set<String>>,
+    val failure: String? = null
+  )
+
+  private fun rowIdOutcome(
+    query: RowIdInsertQuery,
+    database: TestDatabase
+  ) = database.use {
+    val connection = database.connection
+    val recorder = connection.recordTriggers()
+    val rowId = runCatching {
+      query
+        .usingConnection(connection)
+        .execute()
+    }
+    RowIdOutcome(
+      rowId = rowId.getOrNull(),
+      rows = connection.persons(),
+      triggers = recorder.triggers,
+      failure = rowId
+        .exceptionOrNull()
+        ?.message
+        ?.substringAfter("message: ")
+    )
+  }
+
+  private fun defaultedPersonDatabase() = TestDatabase(
+    "CREATE TABLE person (id INTEGER PRIMARY KEY, name TEXT DEFAULT 'Anon', " +
+        "age INTEGER NOT NULL DEFAULT 7, parent_id INTEGER, token TEXT NOT NULL DEFAULT 'db:d', " +
+        "flag INTEGER DEFAULT 1)"
+  )
+
   private fun defaulted(
     id: Long,
     name: String? = "Anon",
@@ -198,11 +233,7 @@ internal class InsertStatementTest {
           .that(
             outcome(
               query = case.query,
-              database = TestDatabase(
-                "CREATE TABLE person (id INTEGER PRIMARY KEY, name TEXT DEFAULT 'Anon', " +
-                    "age INTEGER NOT NULL DEFAULT 7, parent_id INTEGER, token TEXT NOT NULL DEFAULT 'db:d', " +
-                    "flag INTEGER DEFAULT 1)"
-              )
+              database = defaultedPersonDatabase()
             )
           )
           .isEqualTo(
@@ -829,10 +860,22 @@ internal class InsertStatementTest {
           .usingConnection(connection)
           .execute()
       }
+      val replacedRowId = replaced
+        .readRowId()
+        .usingConnection(connection)
+        .execute()
 
       assertThat(affected).isEqualTo(listOf(1, 1, 1))
+      assertThat(replacedRowId).isEqualTo(1L)
       assertThat(recorder.triggers)
-        .isEqualTo(listOf(setOf("person"), setOf("person", "pet"), setOf("person", "pet")))
+        .isEqualTo(
+          listOf(
+            setOf("person"),
+            setOf("person", "pet"),
+            setOf("person", "pet"),
+            setOf("person", "pet")
+          )
+        )
       assertThat(connection.persons())
         .isEqualTo(
           listOf(
@@ -857,6 +900,7 @@ internal class InsertStatementTest {
       val connection = database.connection
       val recorder = connection.recordTriggers()
       val transaction = connection.newTransaction()
+      val rowId: Long?
       val queued = try {
         INSERT
           .INTO(PERSON)
@@ -864,11 +908,19 @@ internal class InsertStatementTest {
           .VALUES(listOf(Row2(1, Token("t"))))
           .usingConnection(connection)
           .execute()
+        rowId = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.AGE, PERSON.TOKEN)
+          .VALUES(2, Token("u"))
+          .readRowId()
+          .usingConnection(connection)
+          .execute()
         recorder.triggers.toList().also { transaction.markSuccessful() }
       } finally {
         transaction.end()
       }
 
+      assertThat(rowId).isEqualTo(6L)
       assertThat(listOf(queued, recorder.triggers)).isEqualTo(listOf(emptyList(), listOf(setOf("person"))))
     }
   }
@@ -975,6 +1027,209 @@ internal class InsertStatementTest {
             triggers = listOf(setOf("person"))
           )
         }
+      )
+  }
+
+  @Test
+  fun `readRowId reads the row ID of the inserted row and notifies as the count does`() {
+    data class Case(
+      val label: String,
+      val query: RowIdInsertQuery,
+      val database: () -> TestDatabase = ::personDatabase,
+      val outcome: RowIdOutcome
+    )
+
+    val row = INSERT
+      .INTO(PERSON)
+      .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+    val inserted = Person(
+      id = 5L,
+      name = null,
+      age = 2,
+      parentId = null,
+      token = Token("y"),
+      flag = null
+    )
+    listOf(
+      Case(
+        label = "host row",
+        query = INSERT
+          .INTO(PERSON)
+          .COLUMNS(PERSON.AGE, PERSON.TOKEN)
+          .VALUES(2, Token("y"))
+          .readRowId(),
+        outcome = RowIdOutcome(
+          rowId = 5L,
+          rows = people + inserted,
+          triggers = listOf(setOf("person"))
+        )
+      ),
+      Case(
+        label = "infix expression row",
+        query = (INSERT INTO PERSON COLUMNS PERSON.AGE VALUES "abs(?)".expr(INT, -40)).readRowId(),
+        database = ::defaultedPersonDatabase,
+        outcome = RowIdOutcome(
+          rowId = 1L,
+          rows = listOf(defaulted(id = 1L, age = 40)),
+          triggers = listOf(setOf("person"))
+        )
+      ),
+      Case(
+        label = "DEFAULT VALUES",
+        query = INSERT
+          .INTO(PERSON)
+          .DEFAULT_VALUES()
+          .readRowId(),
+        database = ::defaultedPersonDatabase,
+        outcome = RowIdOutcome(
+          rowId = 1L,
+          rows = listOf(defaulted(id = 1L)),
+          triggers = listOf(setOf("person"))
+        )
+      ),
+      Case(
+        label = "explicit row ID -1",
+        query = row
+          .VALUES(-1L, 2, Token("y"))
+          .readRowId(),
+        outcome = RowIdOutcome(
+          rowId = -1L,
+          rows = listOf(inserted.copy(id = -1L)) + people,
+          triggers = listOf(setOf("person"))
+        )
+      ),
+      Case(
+        label = "ignored",
+        query = INSERT
+          .OR(CONFLICT_IGNORE)
+          .INTO(PERSON)
+          .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+          .VALUES(1L, 2, Token("y"))
+          .readRowId(),
+        outcome = RowIdOutcome(
+          rowId = null,
+          rows = people,
+          triggers = emptyList()
+        )
+      ),
+      Case(
+        label = "replaced",
+        query = INSERT
+          .OR(CONFLICT_REPLACE)
+          .INTO(PERSON)
+          .COLUMNS(PERSON.ID, PERSON.AGE, PERSON.TOKEN)
+          .VALUES(1L, 2, Token("y"))
+          .readRowId(),
+        outcome = RowIdOutcome(
+          rowId = 1L,
+          rows = listOf(inserted.copy(id = 1L)) + people.drop(1),
+          triggers = listOf(setOf("person"))
+        )
+      ),
+      Case(
+        label = "failure after execution starts",
+        query = row
+          .VALUES(1L, 2, Token("y"))
+          .readRowId(),
+        outcome = RowIdOutcome(
+          rowId = null,
+          rows = people,
+          triggers = listOf(setOf("person")),
+          failure = "UNIQUE constraint failed: person.id"
+        )
+      )
+    )
+      .forEach { case ->
+        assertWithMessage(case.label)
+          .that(
+            rowIdOutcome(
+              query = case.query,
+              database = case.database()
+            )
+          )
+          .isEqualTo(case.outcome)
+      }
+  }
+
+  @Test
+  fun `readRowId binds parameters and its compiled statement runs again`() {
+    val age = PERSON.AGE.asParameter("age")
+    val token = PERSON.TOKEN.asParameter("token")
+    val insert = INSERT
+      .INTO(PERSON)
+      .COLUMNS(PERSON.AGE, PERSON.TOKEN)
+      .VALUES(age, token)
+      .readRowId()
+
+    personDatabase().use { database ->
+      val connection = database.connection
+      val recorder = connection.recordTriggers()
+      val compiled = insert
+        .bind(age TO 3, token TO Token("p"))
+        .usingConnection(connection)
+        .compile()
+
+      assertThat(compiled.sql).isEqualTo("""INSERT INTO "main"."person" ("age", "token") VALUES (?, ?)""")
+      assertThat(listOf(compiled.execute(), compiled.execute())).isEqualTo(listOf(5L, 6L))
+      assertThat(connection.persons())
+        .isEqualTo(
+          people + listOf(5L, 6L).map { id ->
+            Person(
+              id = id,
+              name = null,
+              age = 3,
+              parentId = null,
+              token = Token("p"),
+              flag = null
+            )
+          }
+        )
+      assertThat(recorder.triggers).isEqualTo(List(2) { setOf("person") })
+    }
+    assertThat(assertThrows(IllegalArgumentException::class.java) { insert.compile() }.message)
+      .isEqualTo("Missing parameter 'age'")
+  }
+
+  @Test
+  fun `readRowId rejects WITHOUT ROWID tables when the statement is built`() {
+    val setting = object : Table<Any>(
+      name = "setting",
+      alias = null,
+      withoutRowId = true
+    ) {
+      val KEY = Column<Any, String, Required, String, String, Required, String>(
+        table = this,
+        name = "key",
+        nullness = Required,
+        parameterEncoding = STRING.parameterEncoding()
+      )
+    }
+    val row = INSERT INTO setting COLUMNS setting.KEY VALUES "theme"
+
+    assertThat(row.compile().sql).isEqualTo("""INSERT INTO "main"."setting" ("key") VALUES (?)""")
+    assertThat(
+      listOf(
+        { row.readRowId() },
+        {
+          INSERT
+            .INTO(setting)
+            .DEFAULT_VALUES()
+            .readRowId()
+        },
+        {
+          INSERT
+            .INTO(setting)
+            .COLUMNS(*arrayOf(setting.KEY))
+            .VALUES { it[setting.KEY] = "theme" }
+            .readRowId()
+        }
+      )
+        .map { construction ->
+          assertThrows(IllegalArgumentException::class.java) { construction() }.message
+        }
+    )
+      .isEqualTo(
+        List(3) { "readRowId() cannot read the row ID of an INSERT into setting, a WITHOUT ROWID table" }
       )
   }
 }

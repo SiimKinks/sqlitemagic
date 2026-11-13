@@ -1,8 +1,10 @@
 package com.siimkinks.sqlitemagic.coroutines
 
 import com.siimkinks.sqlitemagic.CompiledMutation
+import com.siimkinks.sqlitemagic.CompiledRowIdInsert
 import com.siimkinks.sqlitemagic.MutationQuery
 import com.siimkinks.sqlitemagic.RawMutationQuery
+import com.siimkinks.sqlitemagic.RowIdInsertQuery
 import com.siimkinks.sqlitemagic.internal.ReactiveAdapterSupport
 import kotlinx.coroutines.CoroutineDispatcher
 
@@ -37,3 +39,27 @@ suspend fun CompiledMutation.await() = ReactiveAdapterSupport
  * @return Nr of inserted, updated or deleted records
  */
 suspend fun RawMutationQuery.await() = compile().await()
+
+/**
+ * Compile and execute this statement against a database and return the row ID of the inserted row.
+ *
+ * The statement runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ *
+ * @return Row ID of the inserted row, or `null` when no row was inserted, such as a row that `CONFLICT_IGNORE`
+ *     ignored
+ * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
+ *     parameter, or the statement uses a column outside a subquery in VALUES
+ */
+suspend fun RowIdInsertQuery.await() = compile().await()
+
+/**
+ * Execute this compiled statement against a database and return the row ID of the inserted row.
+ *
+ * The statement runs on the [CoroutineDispatcher] supplied to [dispatchCoroutineQueriesOn].
+ *
+ * @return Row ID of the inserted row, or `null` when no row was inserted, such as a row that `CONFLICT_IGNORE`
+ *     ignored
+ */
+suspend fun CompiledRowIdInsert.await() = ReactiveAdapterSupport
+  .connection(this)
+  .withQueryDispatcher { execute() }

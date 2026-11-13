@@ -36,6 +36,15 @@ INSERT
   .DEFAULT_VALUES()
   .execute()
 
+// The new row's ID instead of the count: one VALUES row or DEFAULT_VALUES()
+val bookId: Long? = INSERT
+  .OR(CONFLICT_IGNORE)
+  .INTO(BOOK)
+  .COLUMNS(BOOK.TITLE, BOOK.PAGES, BOOK.AUTHOR)
+  .VALUES("Dune", 412, authorId)
+  .readRowId()
+  .execute()
+
 // More than nine columns: each row assigns the listed columns by name
 fun InsertedRow<Event>.fill(tap: Tap) {
   this[EVENT.KIND] = "tap"
@@ -91,7 +100,12 @@ INSERT
   The count is SQLite's `changes()`: ignored rows count nothing, and an `INSERT OR REPLACE` counts the inserted row,
   not the one it deleted.
 - `DEFAULT_VALUES()` inserts one row of defaults.
-- No INSERT statement reads back the new row IDs; when the ID matters, use entity `insert()`, which returns it.
+- `readRowId()` turns a statement that inserts one row into one that returns the new row's ID, `Long?`, instead of
+  the count: `null` when nothing was inserted, such as a row `CONFLICT_IGNORE` ignored. For an auto-increment `Long`
+  ID it is the new ID. It is offered after a single `VALUES` row (typed, expression or wide `VALUES { … }`) and after
+  `DEFAULT_VALUES()`, with or without `OR`. After a second `VALUES` or list rows it does not compile, since SQLite
+  reports only the last row's ID. Call it before `bind` and `usingConnection`, which return the count statement. A
+  `WITHOUT ROWID` table has no row ID: `readRowId()` throws `IllegalArgumentException`.
 
 ## UPDATE
 
@@ -144,12 +158,12 @@ DELETE
 
 | Terminal | Result |
 | --- | --- |
-| `execute()` | inserted, updated or deleted row count, `Int` (blocking) |
-| `compile()` | `CompiledMutation`, `execute()` repeatedly |
+| `execute()` | inserted, updated or deleted row count, `Int` (blocking); after `readRowId()` the new row ID, `Long?` |
+| `compile()` | `CompiledMutation`, `execute()` repeatedly; after `readRowId()` `CompiledRowIdInsert` |
 | `bind(param TO value, …)` | the statement with parameter values, before `compile`/`execute` |
 | `usingConnection(connection)` | after the last clause |
-| coroutines `await()` | `Int` |
-| RxJava `observe()` | cold `Single<Int>`; add `subscribeOn(Schedulers.io())` |
+| coroutines `await()` | `Int`; after `readRowId()` `Long?` |
+| RxJava `observe()` | cold `Single<Int>`; after `readRowId()` cold `Maybe<Long>`, empty when nothing was inserted; add `subscribeOn(Schedulers.io())` |
 
 - Statements are immutable values like queries; `@CheckResult` makes lint flag a discarded one.
 - A successful statement that changed rows notifies observers of its table (after the commit inside a transaction).

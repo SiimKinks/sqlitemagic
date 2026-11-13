@@ -338,7 +338,34 @@ class InsertIntoStage<P> internal constructor(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun DEFAULT_VALUES(): MutationQuery = MutationStatement(node)
+  fun DEFAULT_VALUES() = InsertDefaultValuesStage(node)
+}
+
+/**
+ * SQL INSERT statement of one row of default values, which can read the row ID of the inserted row.
+ */
+class InsertDefaultValuesStage internal constructor(
+  private val node: MutationNode<InsertHead>
+) : MutationQuery by MutationStatement(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * Example:
+   * ```
+   * val id = INSERT
+   *     .INTO(BOOK)
+   *     .DEFAULT_VALUES()
+   *     .readRowId()
+   *     .execute()
+   * ```
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
 }
 
 /**
@@ -360,7 +387,7 @@ sealed class InsertRows1Stage<P, R1, W1>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  infix fun VALUES(first: W1) = InsertValues1Stage<P, R1, W1>(node.withHostRow(first))
+  open infix fun VALUES(first: W1): InsertValues1Stage<P, R1, W1> = InsertValues1Stage(node.withHostRow(first))
 
   /**
    * Add a row of expressions, such as subqueries, parameters, functions or `asValue` values.
@@ -373,7 +400,8 @@ sealed class InsertRows1Stage<P, R1, W1>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  infix fun VALUES(first: SqlExpression<R1?, *, *>) = InsertValues1Stage<P, R1, W1>(node.withExpressionRow(first))
+  open infix fun VALUES(first: SqlExpression<R1?, *, *>): InsertValues1Stage<P, R1, W1> =
+      InsertValues1Stage(node.withExpressionRow(first))
 
   /**
    * Add a row for each element of a list.
@@ -409,7 +437,14 @@ sealed class InsertRows1Stage<P, R1, W1>(
  */
 class InsertColumns1Stage<P, R1, W1> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows1Stage<P, R1, W1>(node)
+) : InsertRows1Stage<P, R1, W1>(node) {
+  @CheckResult
+  override infix fun VALUES(first: W1) = InsertSingleRow1Stage<P, R1, W1>(node.withHostRow(first))
+
+  @CheckResult
+  override infix fun VALUES(first: SqlExpression<R1?, *, *>) =
+      InsertSingleRow1Stage<P, R1, W1>(node.withExpressionRow(first))
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -418,9 +453,41 @@ class InsertColumns1Stage<P, R1, W1> internal constructor(
  * @param R1 Kotlin type of the first column values
  * @param W1 Kotlin type of the values inserted into the first column
  */
-class InsertValues1Stage<P, R1, W1> internal constructor(
+open class InsertValues1Stage<P, R1, W1> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows1Stage<P, R1, W1>(node), MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ */
+class InsertSingleRow1Stage<P, R1, W1> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues1Stage<P, R1, W1>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * Example:
+   * ```
+   * val id = INSERT
+   *     .INTO(AUTHOR)
+   *     .COLUMNS(AUTHOR.NAME)
+   *     .VALUES("Ada")
+   *     .readRowId()
+   *     .execute()
+   * ```
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of two columns.
@@ -444,10 +511,10 @@ sealed class InsertRows2Stage<P, R1, W1, R2, W2>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2
-  ) = InsertValues2Stage<P, R1, W1, R2, W2>(node.withHostRow(first, second))
+  ): InsertValues2Stage<P, R1, W1, R2, W2> = InsertValues2Stage(node.withHostRow(first, second))
 
   /**
    * Add a row of expressions, such as subqueries, parameters, functions or `asValue` values.
@@ -461,10 +528,10 @@ sealed class InsertRows2Stage<P, R1, W1, R2, W2>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>
-  ) = InsertValues2Stage<P, R1, W1, R2, W2>(node.withExpressionRow(first, second))
+  ): InsertValues2Stage<P, R1, W1, R2, W2> = InsertValues2Stage(node.withExpressionRow(first, second))
 
   /**
    * Add a row for each element of a list.
@@ -505,7 +572,19 @@ sealed class InsertRows2Stage<P, R1, W1, R2, W2>(
  */
 class InsertColumns2Stage<P, R1, W1, R2, W2> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows2Stage<P, R1, W1, R2, W2>(node)
+) : InsertRows2Stage<P, R1, W1, R2, W2>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2
+  ) = InsertSingleRow2Stage<P, R1, W1, R2, W2>(node.withHostRow(first, second))
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>
+  ) = InsertSingleRow2Stage<P, R1, W1, R2, W2>(node.withExpressionRow(first, second))
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -516,9 +595,33 @@ class InsertColumns2Stage<P, R1, W1, R2, W2> internal constructor(
  * @param R2 Kotlin type of the second column values
  * @param W2 Kotlin type of the values inserted into the second column
  */
-class InsertValues2Stage<P, R1, W1, R2, W2> internal constructor(
+open class InsertValues2Stage<P, R1, W1, R2, W2> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows2Stage<P, R1, W1, R2, W2>(node), MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ */
+class InsertSingleRow2Stage<P, R1, W1, R2, W2> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues2Stage<P, R1, W1, R2, W2>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of three columns.
@@ -545,11 +648,11 @@ sealed class InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2,
     third: W3
-  ) = InsertValues3Stage<P, R1, W1, R2, W2, R3, W3>(node.withHostRow(first, second, third))
+  ): InsertValues3Stage<P, R1, W1, R2, W2, R3, W3> = InsertValues3Stage(node.withHostRow(first, second, third))
 
   /**
    * Add a row of expressions, such as subqueries, parameters, functions or `asValue` values.
@@ -564,11 +667,11 @@ sealed class InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>
-  ) = InsertValues3Stage<P, R1, W1, R2, W2, R3, W3>(node.withExpressionRow(first, second, third))
+  ): InsertValues3Stage<P, R1, W1, R2, W2, R3, W3> = InsertValues3Stage(node.withExpressionRow(first, second, third))
 
   /**
    * Add a row for each element of a list.
@@ -603,7 +706,21 @@ sealed class InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(
  */
 class InsertColumns3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(node)
+) : InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2,
+    third: W3
+  ) = InsertSingleRow3Stage<P, R1, W1, R2, W2, R3, W3>(node.withHostRow(first, second, third))
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>,
+    third: SqlExpression<R3?, *, *>
+  ) = InsertSingleRow3Stage<P, R1, W1, R2, W2, R3, W3>(node.withExpressionRow(first, second, third))
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -616,9 +733,35 @@ class InsertColumns3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
  * @param R3 Kotlin type of the third column values
  * @param W3 Kotlin type of the values inserted into the third column
  */
-class InsertValues3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
+open class InsertValues3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(node), MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ * @param R3 Kotlin type of the third column values
+ * @param W3 Kotlin type of the values inserted into the third column
+ */
+class InsertSingleRow3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues3Stage<P, R1, W1, R2, W2, R3, W3>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of four columns.
@@ -648,12 +791,13 @@ sealed class InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2,
     third: W3,
     fourth: W4
-  ) = InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node.withHostRow(first, second, third, fourth))
+  ): InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> =
+      InsertValues4Stage(node.withHostRow(first, second, third, fourth))
 
   /**
    * Add a row of expressions, such as subqueries, parameters, functions or `asValue` values.
@@ -669,12 +813,13 @@ sealed class InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>,
     fourth: SqlExpression<R4?, *, *>
-  ) = InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node.withExpressionRow(first, second, third, fourth))
+  ): InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> =
+      InsertValues4Stage(node.withExpressionRow(first, second, third, fourth))
 
   /**
    * Add a row for each element of a list.
@@ -711,7 +856,23 @@ sealed class InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(
  */
 class InsertColumns4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node)
+) : InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2,
+    third: W3,
+    fourth: W4
+  ) = InsertSingleRow4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node.withHostRow(first, second, third, fourth))
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>,
+    third: SqlExpression<R3?, *, *>,
+    fourth: SqlExpression<R4?, *, *>
+  ) = InsertSingleRow4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node.withExpressionRow(first, second, third, fourth))
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -726,9 +887,37 @@ class InsertColumns4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructo
  * @param R4 Kotlin type of the fourth column values
  * @param W4 Kotlin type of the values inserted into the fourth column
  */
-class InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructor(
+open class InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node), MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ * @param R3 Kotlin type of the third column values
+ * @param W3 Kotlin type of the values inserted into the third column
+ * @param R4 Kotlin type of the fourth column values
+ * @param W4 Kotlin type of the values inserted into the fourth column
+ */
+class InsertSingleRow4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of five columns.
@@ -761,13 +950,13 @@ sealed class InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2,
     third: W3,
     fourth: W4,
     fifth: W5
-  ) = InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
+  ): InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> = InsertValues5Stage(
     node.withHostRow(first, second, third, fourth, fifth)
   )
 
@@ -786,13 +975,13 @@ sealed class InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>,
     fourth: SqlExpression<R4?, *, *>,
     fifth: SqlExpression<R5?, *, *>
-  ) = InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
+  ): InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> = InsertValues5Stage(
     node.withExpressionRow(first, second, third, fourth, fifth)
   )
 
@@ -835,7 +1024,29 @@ sealed class InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
  */
 class InsertColumns5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node)
+) : InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2,
+    third: W3,
+    fourth: W4,
+    fifth: W5
+  ) = InsertSingleRow5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
+    node.withHostRow(first, second, third, fourth, fifth)
+  )
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>,
+    third: SqlExpression<R3?, *, *>,
+    fourth: SqlExpression<R4?, *, *>,
+    fifth: SqlExpression<R5?, *, *>
+  ) = InsertSingleRow5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(
+    node.withExpressionRow(first, second, third, fourth, fifth)
+  )
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -852,9 +1063,39 @@ class InsertColumns5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal co
  * @param R5 Kotlin type of the fifth column values
  * @param W5 Kotlin type of the values inserted into the fifth column
  */
-class InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal constructor(
+open class InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node), MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ * @param R3 Kotlin type of the third column values
+ * @param W3 Kotlin type of the values inserted into the third column
+ * @param R4 Kotlin type of the fourth column values
+ * @param W4 Kotlin type of the values inserted into the fourth column
+ * @param R5 Kotlin type of the fifth column values
+ * @param W5 Kotlin type of the values inserted into the fifth column
+ */
+class InsertSingleRow5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of six columns.
@@ -890,14 +1131,14 @@ sealed class InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2,
     third: W3,
     fourth: W4,
     fifth: W5,
     sixth: W6
-  ) = InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(
+  ): InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> = InsertValues6Stage(
     node.withHostRow(first, second, third, fourth, fifth, sixth)
   )
 
@@ -917,14 +1158,14 @@ sealed class InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>,
     fourth: SqlExpression<R4?, *, *>,
     fifth: SqlExpression<R5?, *, *>,
     sixth: SqlExpression<R6?, *, *>
-  ) = InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(
+  ): InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> = InsertValues6Stage(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth)
   )
 
@@ -969,7 +1210,31 @@ sealed class InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>
  */
 class InsertColumns6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node)
+) : InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2,
+    third: W3,
+    fourth: W4,
+    fifth: W5,
+    sixth: W6
+  ) = InsertSingleRow6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(
+    node.withHostRow(first, second, third, fourth, fifth, sixth)
+  )
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>,
+    third: SqlExpression<R3?, *, *>,
+    fourth: SqlExpression<R4?, *, *>,
+    fifth: SqlExpression<R5?, *, *>,
+    sixth: SqlExpression<R6?, *, *>
+  ) = InsertSingleRow6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(
+    node.withExpressionRow(first, second, third, fourth, fifth, sixth)
+  )
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -988,9 +1253,41 @@ class InsertColumns6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> int
  * @param R6 Kotlin type of the sixth column values
  * @param W6 Kotlin type of the values inserted into the sixth column
  */
-class InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> internal constructor(
+open class InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node), MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ * @param R3 Kotlin type of the third column values
+ * @param W3 Kotlin type of the values inserted into the third column
+ * @param R4 Kotlin type of the fourth column values
+ * @param W4 Kotlin type of the values inserted into the fourth column
+ * @param R5 Kotlin type of the fifth column values
+ * @param W5 Kotlin type of the values inserted into the fifth column
+ * @param R6 Kotlin type of the sixth column values
+ * @param W6 Kotlin type of the values inserted into the sixth column
+ */
+class InsertSingleRow6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of seven columns.
@@ -1029,7 +1326,7 @@ sealed class InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2,
     third: W3,
@@ -1037,7 +1334,7 @@ sealed class InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
     fifth: W5,
     sixth: W6,
     seventh: W7
-  ) = InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(
+  ): InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> = InsertValues7Stage(
     node.withHostRow(first, second, third, fourth, fifth, sixth, seventh)
   )
 
@@ -1058,7 +1355,7 @@ sealed class InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>,
@@ -1066,7 +1363,7 @@ sealed class InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
     fifth: SqlExpression<R5?, *, *>,
     sixth: SqlExpression<R6?, *, *>,
     seventh: SqlExpression<R7?, *, *>
-  ) = InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(
+  ): InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> = InsertValues7Stage(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh)
   )
 
@@ -1113,7 +1410,33 @@ sealed class InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
  */
 class InsertColumns7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(node)
+) : InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2,
+    third: W3,
+    fourth: W4,
+    fifth: W5,
+    sixth: W6,
+    seventh: W7
+  ) = InsertSingleRow7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(
+    node.withHostRow(first, second, third, fourth, fifth, sixth, seventh)
+  )
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>,
+    third: SqlExpression<R3?, *, *>,
+    fourth: SqlExpression<R4?, *, *>,
+    fifth: SqlExpression<R5?, *, *>,
+    sixth: SqlExpression<R6?, *, *>,
+    seventh: SqlExpression<R7?, *, *>
+  ) = InsertSingleRow7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(
+    node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh)
+  )
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -1134,10 +1457,44 @@ class InsertColumns7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
  * @param R7 Kotlin type of the seventh column values
  * @param W7 Kotlin type of the values inserted into the seventh column
  */
-class InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> internal constructor(
+open class InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(node),
   MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ * @param R3 Kotlin type of the third column values
+ * @param W3 Kotlin type of the values inserted into the third column
+ * @param R4 Kotlin type of the fourth column values
+ * @param W4 Kotlin type of the values inserted into the fourth column
+ * @param R5 Kotlin type of the fifth column values
+ * @param W5 Kotlin type of the values inserted into the fifth column
+ * @param R6 Kotlin type of the sixth column values
+ * @param W6 Kotlin type of the values inserted into the sixth column
+ * @param R7 Kotlin type of the seventh column values
+ * @param W7 Kotlin type of the values inserted into the seventh column
+ */
+class InsertSingleRow7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of eight columns.
@@ -1179,7 +1536,7 @@ sealed class InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2,
     third: W3,
@@ -1188,7 +1545,7 @@ sealed class InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
     sixth: W6,
     seventh: W7,
     eighth: W8
-  ) = InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(
+  ): InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> = InsertValues8Stage(
     node.withHostRow(first, second, third, fourth, fifth, sixth, seventh, eighth)
   )
 
@@ -1210,7 +1567,7 @@ sealed class InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>,
@@ -1219,7 +1576,7 @@ sealed class InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
     sixth: SqlExpression<R6?, *, *>,
     seventh: SqlExpression<R7?, *, *>,
     eighth: SqlExpression<R8?, *, *>
-  ) = InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(
+  ): InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> = InsertValues8Stage(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh, eighth)
   )
 
@@ -1268,7 +1625,35 @@ sealed class InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
  */
 class InsertColumns8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(node)
+) : InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2,
+    third: W3,
+    fourth: W4,
+    fifth: W5,
+    sixth: W6,
+    seventh: W7,
+    eighth: W8
+  ) = InsertSingleRow8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(
+    node.withHostRow(first, second, third, fourth, fifth, sixth, seventh, eighth)
+  )
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>,
+    third: SqlExpression<R3?, *, *>,
+    fourth: SqlExpression<R4?, *, *>,
+    fifth: SqlExpression<R5?, *, *>,
+    sixth: SqlExpression<R6?, *, *>,
+    seventh: SqlExpression<R7?, *, *>,
+    eighth: SqlExpression<R8?, *, *>
+  ) = InsertSingleRow8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(
+    node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh, eighth)
+  )
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -1291,10 +1676,46 @@ class InsertColumns8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
  * @param R8 Kotlin type of the eighth column values
  * @param W8 Kotlin type of the values inserted into the eighth column
  */
-class InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> internal constructor(
+open class InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(node),
   MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ * @param R3 Kotlin type of the third column values
+ * @param W3 Kotlin type of the values inserted into the third column
+ * @param R4 Kotlin type of the fourth column values
+ * @param W4 Kotlin type of the values inserted into the fourth column
+ * @param R5 Kotlin type of the fifth column values
+ * @param W5 Kotlin type of the values inserted into the fifth column
+ * @param R6 Kotlin type of the sixth column values
+ * @param W6 Kotlin type of the values inserted into the sixth column
+ * @param R7 Kotlin type of the seventh column values
+ * @param W7 Kotlin type of the values inserted into the seventh column
+ * @param R8 Kotlin type of the eighth column values
+ * @param W8 Kotlin type of the values inserted into the eighth column
+ */
+class InsertSingleRow8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of nine columns.
@@ -1339,7 +1760,7 @@ sealed class InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: W1,
     second: W2,
     third: W3,
@@ -1349,7 +1770,7 @@ sealed class InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
     seventh: W7,
     eighth: W8,
     ninth: W9
-  ) = InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(
+  ): InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9> = InsertValues9Stage(
     node.withHostRow(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)
   )
 
@@ -1372,7 +1793,7 @@ sealed class InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
    * @return SQL INSERT statement
    */
   @CheckResult
-  fun VALUES(
+  open fun VALUES(
     first: SqlExpression<R1?, *, *>,
     second: SqlExpression<R2?, *, *>,
     third: SqlExpression<R3?, *, *>,
@@ -1382,7 +1803,7 @@ sealed class InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
     seventh: SqlExpression<R7?, *, *>,
     eighth: SqlExpression<R8?, *, *>,
     ninth: SqlExpression<R9?, *, *>
-  ) = InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(
+  ): InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9> = InsertValues9Stage(
     node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)
   )
 
@@ -1434,7 +1855,37 @@ sealed class InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
 class InsertColumns9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>
     internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node)
+) : InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node) {
+  @CheckResult
+  override fun VALUES(
+    first: W1,
+    second: W2,
+    third: W3,
+    fourth: W4,
+    fifth: W5,
+    sixth: W6,
+    seventh: W7,
+    eighth: W8,
+    ninth: W9
+  ) = InsertSingleRow9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(
+    node.withHostRow(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)
+  )
+
+  @CheckResult
+  override fun VALUES(
+    first: SqlExpression<R1?, *, *>,
+    second: SqlExpression<R2?, *, *>,
+    third: SqlExpression<R3?, *, *>,
+    fourth: SqlExpression<R4?, *, *>,
+    fifth: SqlExpression<R5?, *, *>,
+    sixth: SqlExpression<R6?, *, *>,
+    seventh: SqlExpression<R7?, *, *>,
+    eighth: SqlExpression<R8?, *, *>,
+    ninth: SqlExpression<R9?, *, *>
+  ) = InsertSingleRow9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(
+    node.withExpressionRow(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth)
+  )
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
@@ -1459,11 +1910,50 @@ class InsertColumns9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
  * @param R9 Kotlin type of the ninth column values
  * @param W9 Kotlin type of the values inserted into the ninth column
  */
-class InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>
+open class InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>
     internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node),
   MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ * @param R1 Kotlin type of the first column values
+ * @param W1 Kotlin type of the values inserted into the first column
+ * @param R2 Kotlin type of the second column values
+ * @param W2 Kotlin type of the values inserted into the second column
+ * @param R3 Kotlin type of the third column values
+ * @param W3 Kotlin type of the values inserted into the third column
+ * @param R4 Kotlin type of the fourth column values
+ * @param W4 Kotlin type of the values inserted into the fourth column
+ * @param R5 Kotlin type of the fifth column values
+ * @param W5 Kotlin type of the values inserted into the fifth column
+ * @param R6 Kotlin type of the sixth column values
+ * @param W6 Kotlin type of the values inserted into the sixth column
+ * @param R7 Kotlin type of the seventh column values
+ * @param W7 Kotlin type of the values inserted into the seventh column
+ * @param R8 Kotlin type of the eighth column values
+ * @param W8 Kotlin type of the values inserted into the eighth column
+ * @param R9 Kotlin type of the ninth column values
+ * @param W9 Kotlin type of the values inserted into the ninth column
+ */
+class InsertSingleRow9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>
+    internal constructor(
+  node: MutationNode<InsertHead>
+) : InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 /**
  * Builder for SQL INSERT statement that inserts rows of the columns listed with `COLUMNS(vararg columns)`.
@@ -1498,15 +1988,8 @@ sealed class InsertRowsStage<P>(
    *     column without a value
    */
   @CheckResult
-  infix fun VALUES(row: (InsertedRow<P>) -> Unit) = InsertValuesStage<P>(
-    node = InsertedRow<P>(
-      columns = columns,
-      count = 1
-    ).let { builder ->
-      row(builder)
-      builder.next()
-      node.withBuiltRow(builder.values)
-    },
+  open infix fun VALUES(row: (InsertedRow<P>) -> Unit) = InsertValuesStage<P>(
+    node = builtRow(row),
     columns = columns
   )
 
@@ -1554,6 +2037,15 @@ sealed class InsertRowsStage<P>(
     },
     columns = columns
   )
+
+  internal fun builtRow(row: (InsertedRow<P>) -> Unit) = InsertedRow<P>(
+    columns = columns,
+    count = 1
+  ).let { builder ->
+    row(builder)
+    builder.next()
+    node.withBuiltRow(builder.values)
+  }
 }
 
 /**
@@ -1567,20 +2059,50 @@ class InsertColumnsStage<P> internal constructor(
 ) : InsertRowsStage<P>(
   node = node,
   columns = columns
-)
+) {
+  @CheckResult
+  override infix fun VALUES(row: (InsertedRow<P>) -> Unit) = InsertSingleRowStage<P>(
+    node = builtRow(row),
+    columns = columns
+  )
+}
 
 /**
  * SQL INSERT statement, which can take more rows.
  *
  * @param P Inserted table model type
  */
-class InsertValuesStage<P> internal constructor(
+open class InsertValuesStage<P> internal constructor(
   node: MutationNode<InsertHead>,
   columns: InsertedColumns
 ) : InsertRowsStage<P>(
   node = node,
   columns = columns
 ), MutationQuery by MutationStatement(node)
+
+/**
+ * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ *
+ * @param P Inserted table model type
+ */
+class InsertSingleRowStage<P> internal constructor(
+  node: MutationNode<InsertHead>,
+  columns: InsertedColumns
+) : InsertValuesStage<P>(
+  node = node,
+  columns = columns
+) {
+  /**
+   * Read the row ID of the inserted row instead of the number of inserted rows.
+   *
+   * The statement reads `null` when it inserts no row, such as a row that `CONFLICT_IGNORE` ignores.
+   *
+   * @return SQL INSERT statement that reads the row ID of the inserted row
+   * @throws IllegalArgumentException if the inserted table is a `WITHOUT ROWID` table
+   */
+  @CheckResult
+  fun readRowId() = node.rowIdInsert()
+}
 
 private val ROW1_VALUES: (Row1<*>, Int) -> Any? = { row, _ -> row.first }
 

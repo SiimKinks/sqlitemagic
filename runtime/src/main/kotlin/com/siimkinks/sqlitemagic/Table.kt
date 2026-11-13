@@ -27,7 +27,8 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
   internal val name: String,
   internal val alias: String?,
   private val generatedView: GeneratedView? = null,
-  internal val temporary: Boolean = false
+  internal val temporary: Boolean = false,
+  internal val withoutRowId: Boolean = false
 ) : Source {
   internal val objectIdentity = generatedView
     ?.identity
@@ -171,7 +172,8 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
     name = name,
     alias = alias,
     generatedView = generatedView,
-    temporary = temporary
+    temporary = temporary,
+    withoutRowId = withoutRowId
   )
 
   override fun toString() = name

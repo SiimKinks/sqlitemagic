@@ -96,21 +96,21 @@ internal class InsertContractTest {
           val exactTarget: Exact<InsertIntoStage<Person>> = targetType
           val exactConflict: Exact<InsertIntoStage<Person>> = conflictType
           val exactColumns: Exact<InsertColumns1Stage<Person, String, String?>> = columnsType
-          val exactNamed: Exact<InsertValues1Stage<Person, String, String?>> = namedType
-          val exactNulled: Exact<InsertValues1Stage<Person, String, String?>> = nulledType
+          val exactNamed: Exact<InsertSingleRow1Stage<Person, String, String?>> = namedType
+          val exactNulled: Exact<InsertSingleRow1Stage<Person, String, String?>> = nulledType
           val exactListed: Exact<InsertValues1Stage<Person, String, String?>> = listedType
-          val exactEncodedNull: Exact<InsertValues1Stage<Person, Token?, Token?>> = encodedNullType
+          val exactEncodedNull: Exact<InsertSingleRow1Stage<Person, Token?, Token?>> = encodedNullType
           val exactFluent: Exact<InsertValues3Stage<Person, String, String?, Int, Int, Token, Token>> = fluentType
           val exactFluentList: Exact<InsertValues2Stage<Person, String, String?, Int, Int>> = fluentListType
           val exactInfixList: Exact<InsertValues2Stage<Person, String, String?, Int, Int>> = infixListType
           val exactExpressions: Exact<
               InsertValues4Stage<Person, String, String?, Int, Int, Long, Long?, Token, Token>
           > = expressionsType
-          val exactRequired: Exact<InsertValues1Stage<Person, Long, Long>> = requiredType
-          val exactCounted: Exact<InsertValues1Stage<Person, Int, Int>> = countedType
-          val exactCountedRows: Exact<InsertValues1Stage<Person, Int, Int>> = countedRowsType
-          val exactDefaults: Exact<MutationQuery> = defaultsType
-          val exactPets: Exact<InsertValues4Stage<Pet, Long, Long, Long, Long, String, String, String, String?>> =
+          val exactRequired: Exact<InsertSingleRow1Stage<Person, Long, Long>> = requiredType
+          val exactCounted: Exact<InsertSingleRow1Stage<Person, Int, Int>> = countedType
+          val exactCountedRows: Exact<InsertSingleRow1Stage<Person, Int, Int>> = countedRowsType
+          val exactDefaults: Exact<InsertDefaultValuesStage> = defaultsType
+          val exactPets: Exact<InsertSingleRow4Stage<Pet, Long, Long, Long, Long, String, String, String, String?>> =
               petsType
           val exactAffected: Exact<Int> = affectedType
           val exactBound: Exact<MutationQuery> = boundType
@@ -177,11 +177,85 @@ internal class InsertContractTest {
           val observedType = observed.exactType()
           val exactColumns: Exact<InsertColumnsStage<Person>> = columnsType
           val exactSpread: Exact<InsertColumnsStage<Person>> = spreadType
-          val exactRow: Exact<InsertValuesStage<Person>> = rowType
+          val exactRow: Exact<InsertSingleRowStage<Person>> = rowType
           val exactInfix: Exact<InsertValuesStage<Person>> = infixType
           val exactListed: Exact<InsertValuesStage<Person>> = listedType
           val exactAffected: Exact<Int> = affectedType
           val exactObserved: Exact<Single<Int>> = observedType
+        }
+      """
+    ).isOk()
+  }
+
+  @Test
+  fun `readRowId reads the row ID of single-row statements`() {
+    compileInsertConsumer(
+      """
+        fun verify(connection: DbConnection) {
+          val name = PERSON.NAME.asParameter("name")
+          val single = (INSERT INTO PERSON COLUMNS PERSON.NAME VALUES name).readRowId()
+          val expressions = INSERT
+              .OR(CONFLICT_IGNORE)
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .VALUES("Ada".asValue(), 36.asValue())
+              .readRowId()
+          val nine = INSERT
+              .INTO(PERSON)
+              .COLUMNS(
+                PERSON.ID,
+                PERSON.NAME,
+                PERSON.AGE,
+                PERSON.PARENT_ID,
+                PERSON.TOKEN,
+                PERSON.DECODED,
+                PERSON.ID,
+                PERSON.NAME,
+                PERSON.AGE
+              )
+              .VALUES(1L, "Ada", 36, null, Token("a"), null, 2L, "Bob", 17)
+              .readRowId()
+          val defaults = INSERT
+              .INTO(PERSON)
+              .DEFAULT_VALUES()
+              .readRowId()
+          val wide = INSERT
+              .OR(CONFLICT_REPLACE)
+              .INTO(PERSON)
+              .COLUMNS($WIDE_COLUMNS)
+              .VALUES { it[PERSON.NAME] = "Ada" }
+              .readRowId()
+          val bound = single
+              .bind(name TO "Ada")
+              .usingConnection(connection)
+          val rowId = bound.execute()
+          val compiled = bound.compile()
+          val compiledRowId = compiled.execute()
+          val observed = single.observe()
+          val compiledObserved = compiled.observe()
+
+          val singleType = single.exactType()
+          val expressionsType = expressions.exactType()
+          val nineType = nine.exactType()
+          val defaultsType = defaults.exactType()
+          val wideType = wide.exactType()
+          val boundType = bound.exactType()
+          val rowIdType = rowId.exactType()
+          val compiledType = compiled.exactType()
+          val compiledRowIdType = compiledRowId.exactType()
+          val observedType = observed.exactType()
+          val compiledObservedType = compiledObserved.exactType()
+          val exactSingle: Exact<RowIdInsertQuery> = singleType
+          val exactExpressions: Exact<RowIdInsertQuery> = expressionsType
+          val exactNine: Exact<RowIdInsertQuery> = nineType
+          val exactDefaults: Exact<RowIdInsertQuery> = defaultsType
+          val exactWide: Exact<RowIdInsertQuery> = wideType
+          val exactBound: Exact<RowIdInsertQuery> = boundType
+          val exactRowId: Exact<Long?> = rowIdType
+          val exactCompiled: Exact<CompiledRowIdInsert> = compiledType
+          val exactCompiledRowId: Exact<Long?> = compiledRowIdType
+          val exactObserved: Exact<Maybe<Long>> = observedType
+          val exactCompiledObserved: Exact<Maybe<Long>> = compiledObservedType
         }
       """
     ).isOk()
@@ -232,10 +306,15 @@ internal class InsertContractTest {
       import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
       import com.siimkinks.sqlitemagic.COUNT
       import com.siimkinks.sqlitemagic.CompiledMutation
+      import com.siimkinks.sqlitemagic.CompiledRowIdInsert
       import com.siimkinks.sqlitemagic.INSERT
       import com.siimkinks.sqlitemagic.InsertColumns1Stage
       import com.siimkinks.sqlitemagic.InsertColumnsStage
+      import com.siimkinks.sqlitemagic.InsertDefaultValuesStage
       import com.siimkinks.sqlitemagic.InsertIntoStage
+      import com.siimkinks.sqlitemagic.InsertSingleRow1Stage
+      import com.siimkinks.sqlitemagic.InsertSingleRow4Stage
+      import com.siimkinks.sqlitemagic.InsertSingleRowStage
       import com.siimkinks.sqlitemagic.InsertValues1Stage
       import com.siimkinks.sqlitemagic.InsertValues2Stage
       import com.siimkinks.sqlitemagic.InsertValues3Stage
@@ -244,11 +323,13 @@ internal class InsertContractTest {
       import com.siimkinks.sqlitemagic.InsertedRow
       import com.siimkinks.sqlitemagic.MutationQuery
       import com.siimkinks.sqlitemagic.RawMutationQuery
+      import com.siimkinks.sqlitemagic.RowIdInsertQuery
       import com.siimkinks.sqlitemagic.Row1
       import com.siimkinks.sqlitemagic.Row3
       import com.siimkinks.sqlitemagic.SUM
       import com.siimkinks.sqlitemagic.asScalar
       import com.siimkinks.sqlitemagic.rxjava2.observe
+      import io.reactivex.Maybe
       import io.reactivex.Single
     """
   )
@@ -327,7 +408,7 @@ internal class InsertContractTest {
       Arguments.of(
         "VALUES after DEFAULT VALUES",
         """(INSERT INTO PERSON).DEFAULT_VALUES().VALUES("Ada")""",
-        "Unresolved reference 'VALUES' on receiver of type 'MutationQuery'"
+        "Unresolved reference 'VALUES' on receiver of type 'InsertDefaultValuesStage'"
       ),
       Arguments.of(
         "wide columns of another table",
@@ -367,6 +448,41 @@ internal class InsertContractTest {
         "execute before wide VALUES",
         "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).execute()",
         "Unresolved reference 'execute' on receiver of type 'InsertColumnsStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after a second VALUES",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME, PERSON.AGE).VALUES("Ada", 36).VALUES("Bob", 17).readRowId()""",
+        "Unresolved reference 'readRowId' on receiver of type 'InsertValues2Stage<Person, String, String?, Int, Int>'"
+      ),
+      Arguments.of(
+        "readRowId after list rows",
+        """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES listOf(Row1("Ada"))).readRowId()""",
+        "Unresolved reference 'readRowId' on receiver of type 'InsertValues1Stage<Person, String, String?>'"
+      ),
+      Arguments.of(
+        "readRowId after a second wide VALUES",
+        """INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).VALUES { it[PERSON.NAME] = "Ada" }.VALUES { }.readRowId()""",
+        "Unresolved reference 'readRowId' on receiver of type 'InsertValuesStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after wide list rows",
+        "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).VALUES(listOf(1)) { row, _ -> row[PERSON.AGE] = 1 }.readRowId()",
+        "Unresolved reference 'readRowId' on receiver of type 'InsertValuesStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId without rows",
+        "(INSERT INTO PERSON COLUMNS PERSON.NAME).readRowId()",
+        "Unresolved reference 'readRowId' on receiver of type 'InsertColumns1Stage<Person, String, String?>'"
+      ),
+      Arguments.of(
+        "readRowId without wide rows",
+        "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).readRowId()",
+        "Unresolved reference 'readRowId' on receiver of type 'InsertColumnsStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after the count statement is configured",
+        """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada").usingConnection(connection).readRowId()""",
+        "Unresolved reference 'readRowId' on receiver of type 'MutationQuery'"
       ),
       Arguments.of(
         "raw table name",

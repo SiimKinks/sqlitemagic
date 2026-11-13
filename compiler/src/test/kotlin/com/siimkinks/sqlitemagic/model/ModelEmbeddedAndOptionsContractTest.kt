@@ -458,6 +458,16 @@ internal class ModelEmbeddedAndOptionsContractTest {
           .substringAfter(": Table<SessionValue>(")
           .substringBefore(") {")
           .assertContains("temporary = true")
+        generatedSource.assertDoesNotContain("withoutRowId")
+      }
+      .withGeneratedSource("CachedAccountTable.kt") { generatedSource ->
+        generatedSource
+          .substringAfter(": Table<CachedAccount>(")
+          .substringBefore(") {")
+          .assertContains(
+            "temporary = true",
+            "withoutRowId = true"
+          )
       }
       .withGeneratedSource("SqliteMagic_CachedAccount_Adapter.kt") { generatedSource ->
         generatedSource.assertContains(

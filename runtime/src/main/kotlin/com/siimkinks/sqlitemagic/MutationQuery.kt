@@ -76,16 +76,18 @@ internal class MutationStatement(val node: MutationNode<*>) : MutationQuery {
     node.copy(parameterValues = assignments.asList())
   )
 
-  override fun compile() = compileMutation(
-    renderable = node,
-    connection = node.connection,
-    tables = arrayOf(node.head.table.name),
-    deletedTable = node.head.deletedTable,
-    parameterValues = node.parameterValues,
-    cache = node.head.cache,
-    skipped = node.head.skipped
-  )
+  override fun compile() = node.compile()
 }
+
+internal fun MutationNode<*>.compile() = compileMutation(
+  renderable = this,
+  connection = connection,
+  tables = arrayOf(head.table.name),
+  deletedTable = head.deletedTable,
+  parameterValues = parameterValues,
+  cache = head.cache,
+  skipped = head.skipped
+)
 
 /**
  * Builder for SQL DELETE statement.

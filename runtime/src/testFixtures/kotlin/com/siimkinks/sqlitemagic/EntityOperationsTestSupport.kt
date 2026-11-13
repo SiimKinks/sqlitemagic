@@ -68,6 +68,8 @@ internal class RecordingSQLiteConnection : SQLiteConnection, MutationResults {
     return insertResults.removeFirstOrNull() ?: 1L
   }
 
+  override fun executeInsertRowId(statement: SQLiteStatement) = executeInsert(statement).takeIf { it != -1L }
+
   override fun executeUpdateDelete(statement: SQLiteStatement): Int {
     statement.step()
     return updateResults.removeFirstOrNull() ?: 1

@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.InsertedRow
 import com.siimkinks.sqlitemagic.MutationQuery
 import com.siimkinks.sqlitemagic.Row2
 import com.siimkinks.sqlitemagic.Row3
+import com.siimkinks.sqlitemagic.RowIdInsertQuery
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.ScalarStorageEntityTable.Companion.SCALAR_STORAGE_ENTITY
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
@@ -355,6 +356,52 @@ internal class QueryBuilderInsertTest {
 
       assertThat(counts).isEqualTo(listOf(1, 0, 0))
       observer.assertValuesOnly(emptyList(), listOf("first"))
+    } finally {
+      observer.dispose()
+    }
+  }
+
+  @Test
+  fun readRowIdReadsInsertedRowIdsAndNullWhenNothingWasInserted() {
+    val observer = SELECT
+      .COLUMN(SIMPLE_MUTABLE_ENTITY.VALUE)
+      .FROM(SIMPLE_MUTABLE_ENTITY)
+      .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
+      .observe()
+      .runQuery()
+      .test()
+      .assertValuesOnly(emptyList())
+    try {
+      val inserted = checkNotNull(
+        (INSERT INTO SIMPLE_MUTABLE_ENTITY COLUMNS SIMPLE_MUTABLE_ENTITY.VALUE VALUES "inserted")
+          .readRowId()
+          .execute()
+      )
+      val conflicting = INSERT
+        .OR(CONFLICT_IGNORE)
+        .INTO(SIMPLE_MUTABLE_ENTITY)
+        .COLUMNS(SIMPLE_MUTABLE_ENTITY.ID, SIMPLE_MUTABLE_ENTITY.VALUE)
+      val rowIds = listOf(
+        conflicting
+          .VALUES(inserted, "ignored")
+          .readRowId(),
+        conflicting
+          .VALUES(-1L, "minus one")
+          .readRowId(),
+        INSERT
+          .INTO(SIMPLE_MUTABLE_ENTITY)
+          .DEFAULT_VALUES()
+          .readRowId()
+      )
+        .map(RowIdInsertQuery::execute)
+
+      assertThat(rowIds).isEqualTo(listOf(null, -1L, inserted + 1))
+      observer.assertValuesOnly(
+        emptyList(),
+        listOf("inserted"),
+        listOf("minus one", "inserted"),
+        listOf("minus one", "inserted", null)
+      )
     } finally {
       observer.dispose()
     }

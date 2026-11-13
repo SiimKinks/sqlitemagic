@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.internal
 import com.siimkinks.sqlitemagic.CompiledMutation
 import com.siimkinks.sqlitemagic.CompiledRawFirst
 import com.siimkinks.sqlitemagic.CompiledRawSelect
+import com.siimkinks.sqlitemagic.CompiledRowIdInsert
 import com.siimkinks.sqlitemagic.DbConnection
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.NOT_DISPOSED
@@ -168,6 +169,15 @@ object ReactiveAdapterSupport {
    * @return Connection of [mutation]
    */
   fun connection(mutation: CompiledMutation): DbConnection = mutation.resolveConnection()
+
+  /**
+   * Resolve the connection that a compiled INSERT statement reading the row ID runs on: the one it was configured
+   * with, or else the current default connection.
+   *
+   * @param insert Compiled statement
+   * @return Connection of [insert]
+   */
+  fun connection(insert: CompiledRowIdInsert): DbConnection = insert.mutation.resolveConnection()
 
   /**
    * Get the owner of a coroutine transaction on a connection, decided by the calling thread: the owner of the coroutine

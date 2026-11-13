@@ -20,6 +20,16 @@ interface MutationResults {
   fun executeInsert(statement: SQLiteStatement): Long
 
   /**
+   * Execute an INSERT statement that inserts at most one row, prepared on this connection.
+   *
+   * Unlike [executeInsert], this tells an inserted row whose row ID is `-1` from no inserted row.
+   *
+   * @param statement Statement prepared on this connection, with its values bound
+   * @return Row ID of the inserted row, or `null` when no row was inserted
+   */
+  fun executeInsertRowId(statement: SQLiteStatement): Long?
+
+  /**
    * Execute an INSERT, UPDATE or DELETE statement prepared on this connection.
    *
    * @param statement Statement prepared on this connection, with its values bound

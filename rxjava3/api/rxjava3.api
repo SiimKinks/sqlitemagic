@@ -33,8 +33,10 @@ public class com/siimkinks/sqlitemagic/rxjava3/ListQueryObservable : io/reactive
 
 public final class com/siimkinks/sqlitemagic/rxjava3/MutationObservablesKt {
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledMutation;)Lio/reactivex/rxjava3/core/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/CompiledRowIdInsert;)Lio/reactivex/rxjava3/core/Maybe;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/MutationQuery;)Lio/reactivex/rxjava3/core/Single;
 	public static final fun observe (Lcom/siimkinks/sqlitemagic/RawMutationQuery;)Lio/reactivex/rxjava3/core/Single;
+	public static final fun observe (Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;)Lio/reactivex/rxjava3/core/Maybe;
 }
 
 public final class com/siimkinks/sqlitemagic/rxjava3/QueryMaybeKt {
