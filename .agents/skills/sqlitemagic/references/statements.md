@@ -6,6 +6,7 @@ does not express. Saving whole objects is in [entity-operations.md](entity-opera
 ## Contents
 
 - [INSERT](#insert)
+- [UPSERT](#upsert)
 - [UPDATE](#update)
 - [DELETE](#delete)
 - [Statement terminals](#statement-terminals)
@@ -130,6 +131,90 @@ INSERT
   `DEFAULT_VALUES()`, with or without `OR`. After a second `VALUES` or list rows it does not compile, since SQLite
   reports only the last row's ID. Call it before `bind` and `usingConnection`, which return the count statement. A
   `WITHOUT ROWID` table has no row ID: `readRowId()` throws `IllegalArgumentException`.
+
+## UPSERT
+
+An INSERT of `VALUES` rows or `SELECT(query)` takes `ON_CONFLICT` clauses, SQLite's UPSERT: one atomic statement that
+inserts each row or, when the row conflicts on a uniqueness constraint, skips it or updates the existing row.
+
+```kotlin
+@Table
+data class Setting(
+  @Id val id: Long? = null,
+  @Unique val key: String,
+  val value: String,
+  val changes: Int = 0
+)
+
+// Insert, or update the existing row; EXCLUDED is the value the INSERT proposed
+val written: Int = INSERT
+  .INTO(SETTING)
+  .COLUMNS(SETTING.KEY, SETTING.VALUE)
+  .VALUES("theme", "dark")
+  .ON_CONFLICT(SETTING.KEY)
+  .DO_UPDATE
+  .SET(SETTING.VALUE, SETTING.VALUE.EXCLUDED)
+  .SET(SETTING.CHANGES, SETTING.CHANGES + 1)
+  .WHERE(SETTING.VALUE.EXCLUDED IS_NOT SETTING.VALUE)
+  .execute()
+
+// Insert if absent; the new row's ID, or null when the key existed
+val settingId: Long? = INSERT
+  .INTO(SETTING)
+  .COLUMNS(SETTING.KEY, SETTING.VALUE)
+  .VALUES("locale", "en")
+  .ON_CONFLICT(SETTING.KEY)
+  .DO_NOTHING()
+  .readRowId()
+  .execute()
+
+// Infix, and a query's rows: one clause per unique constraint, the clause without a target last
+(INSERT INTO SETTING COLUMNS SETTING.KEY SELECT defaultKeys ON_CONFLICT SETTING.KEY).DO_NOTHING()
+INSERT
+  .INTO(SETTING)
+  .COLUMNS(SETTING.KEY, SETTING.VALUE)
+  .VALUES(settings.map { Row2(it.key, it.value) })
+  .ON_CONFLICT(SETTING.KEY)
+  .DO_UPDATE
+  .SET(SETTING.VALUE, SETTING.VALUE.EXCLUDED)
+  .ON_CONFLICT()
+  .DO_NOTHING()
+  .execute()
+```
+
+- SQLite versions: UPSERT needs 3.24.0, which the framework driver has from API 30. Several `ON_CONFLICT` clauses, and
+  `DO_UPDATE` after `ON_CONFLICT()`, need 3.35.0 (framework driver API 34). The bundled driver has both. The library
+  does not check: older SQLite fails with `syntax error`. Below those APIs on the framework driver use the bundled
+  driver, or entity `persist()` ([entity-operations.md](entity-operations.md#choosing-the-operation)).
+- `ON_CONFLICT(column)` and `ON_CONFLICT(first, rest…)` name the columns of one uniqueness constraint: the `@Id`, a
+  `@Unique` column, or exactly the columns of an `@Index(unique = true)`. SQLite rejects other columns with
+  `ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint`. NULLs never conflict, so a row with NULL
+  in a target column is inserted. A column of another table does not compile; one of an aliased copy throws
+  `IllegalArgumentException`.
+- `ON_CONFLICT()` handles a conflict on any uniqueness constraint and is the last clause: nothing follows it. Another
+  `ON_CONFLICT` can follow a clause with a target; SQLite tries them in order, so a table with two unique constraints
+  can handle each its own way. The INSERT's `OR` algorithm handles conflicts the clauses do not
+  (`INSERT OR CONFLICT_IGNORE INTO … ON_CONFLICT …`).
+- `DO_NOTHING()` skips the conflicting row. `DO_UPDATE` takes at least one `SET`, with the same overloads and infix
+  pairs as UPDATE, then an optional `WHERE`; a row whose `WHERE` does not match is neither inserted nor updated. The
+  SET target must be a column of the inserted table. Values and `WHERE` read the existing row through the table's own
+  columns (`SETTING.CHANGES + 1`) and the proposed row through `column.EXCLUDED`; another table's column throws
+  `IllegalArgumentException`, so reach other tables through subqueries.
+- `column.EXCLUDED` is an expression, not a column: it compares with host values through the column's transformer
+  (`SETTING.VALUE.EXCLUDED IS "dark"`) and takes part in arithmetic, but cannot be a SET target. `EXCLUDED` of another
+  table's or an aliased table's column throws `IllegalArgumentException`; outside `DO_UPDATE` SQLite reports
+  `no such column`.
+- DO UPDATE fails on any constraint violation whatever the INSERT's `OR` algorithm: `SET_NULL` on a `NOT NULL` column
+  fails with `NOT NULL constraint failed` even under `CONFLICT_IGNORE` or `CONFLICT_REPLACE`.
+- The count is SQLite's `changes()`: inserted plus updated rows; skipped rows count nothing. Notifications are as for
+  INSERT, and `INSERT.OR(CONFLICT_REPLACE)` with `ON_CONFLICT` also notifies the tables its deletes cascade into.
+- `readRowId()` stays available on a one-row statement through `DO_NOTHING()` clauses, and returns `null` for a
+  skipped row. Any `DO_UPDATE` in the chain removes it, since SQLite's last row ID is stale after an update; read an
+  updated row's ID by its unique key.
+- After `SELECT(query)` whose SQL ends in its `FROM` clause, the statement adds `WHERE true` to the query, so SQLite
+  reads `ON CONFLICT` as the upsert clause and not as a join constraint.
+- Rows only from empty lists still run no SQL, so an error SQLite reports when preparing, such as a target that
+  matches no constraint, shows only once a list has rows.
 
 ## UPDATE
 
@@ -268,7 +353,8 @@ DELETE.RAW("DELETE FROM book WHERE author = ? AND pages < ?", authorId, 10)
 
 | Need | Use |
 | --- | --- |
-| Native UPSERT (`ON CONFLICT DO UPDATE`), `RETURNING` | entity `persist()`; read back with a query |
+| `RETURNING` | read back with a query; the new row's ID with `readRowId()` |
+| UPSERT on a partial index or an expression (`ON CONFLICT (x) WHERE …`) | raw INSERT |
 | Recursive CTE, reading a `PRAGMA` | raw SELECT |
 | `ATTACH`, setting a `PRAGMA` | `configureConnection`, which runs on every connection; a raw statement reaches one connection only |
 | DDL (tables, indexes, triggers) | models and annotations; triggers and virtual tables are not supported ([migrations.md](migrations.md)) |

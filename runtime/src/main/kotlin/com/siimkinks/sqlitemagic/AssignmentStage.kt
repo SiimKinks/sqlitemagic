@@ -125,8 +125,10 @@ sealed class AssignmentStage<P, out S> {
   /**
    * Assign NULL to a column.
    *
-   * NULL is set as is, without the column's transformer. For NOT NULL columns SQLite resolves the constraint
-   * violation as the statement defines, for example with its conflict algorithm.
+   * NULL is set as is, without the column's transformer. For a NOT NULL column, UPDATE fails with SQLite's NOT NULL
+   * constraint error, except that `CONFLICT_IGNORE` skips the row and `CONFLICT_REPLACE` sets the column's default
+   * value instead, failing when the column has none. DO UPDATE of an upsert clause always fails, whatever conflict
+   * algorithm the INSERT statement has.
    *
    * @param column Column to assign. This param must be one of annotation processor
    *               generated column objects that corresponds to column in a database table

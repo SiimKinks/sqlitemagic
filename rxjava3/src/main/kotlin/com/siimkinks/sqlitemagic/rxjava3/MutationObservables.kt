@@ -15,8 +15,10 @@ import io.reactivex.rxjava3.core.Single
  *
  * @return Deferred [Single] that when subscribed to executes the statement and emits its result to downstream
  * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
- *     parameter, or the statement uses a column outside a subquery that it cannot read: a column of another
- *     table in UPDATE or DELETE, or any column in INSERT VALUES
+ *     parameter, or the statement reads a column that it cannot read: a column of another table outside a
+ *     subquery in UPDATE, DELETE or DO UPDATE, any column outside a subquery in INSERT VALUES, `EXCLUDED` of a
+ *     column outside the inserted occurrence, or a column that a query reads from a table that neither its
+ *     FROM nor an enclosing statement has
  */
 @CheckResult
 fun MutationQuery.observe(): Single<Int> = compile().observe()
@@ -46,7 +48,8 @@ fun RawMutationQuery.observe(): Single<Int> = compile().observe()
  *
  * @return Deferred [Maybe] that when subscribed to executes the statement and emits its result to downstream
  * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
- *     parameter, or the statement uses a column outside a subquery in VALUES
+ *     parameter, the statement uses a column outside a subquery in VALUES, or a query reads a column of a
+ *     table that neither its FROM nor an enclosing statement has
  */
 @CheckResult
 fun RowIdInsertQuery.observe(): Maybe<Long> = compile().observe()

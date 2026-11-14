@@ -469,7 +469,7 @@ class InsertColumns1Stage<P, R1, W1> internal constructor(
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -477,10 +477,11 @@ class InsertColumns1Stage<P, R1, W1> internal constructor(
  */
 open class InsertValues1Stage<P, R1, W1> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows1Stage<P, R1, W1>(node), MutationQuery by MutationStatement(node)
+) : InsertRows1Stage<P, R1, W1>(node), MutationQuery by MutationStatement(node), OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -488,7 +489,7 @@ open class InsertValues1Stage<P, R1, W1> internal constructor(
  */
 class InsertSingleRow1Stage<P, R1, W1> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues1Stage<P, R1, W1>(node) {
+) : InsertValues1Stage<P, R1, W1>(node), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -638,7 +639,7 @@ class InsertColumns2Stage<P, R1, W1, R2, W2> internal constructor(
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -648,10 +649,11 @@ class InsertColumns2Stage<P, R1, W1, R2, W2> internal constructor(
  */
 open class InsertValues2Stage<P, R1, W1, R2, W2> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows2Stage<P, R1, W1, R2, W2>(node), MutationQuery by MutationStatement(node)
+) : InsertRows2Stage<P, R1, W1, R2, W2>(node), MutationQuery by MutationStatement(node), OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -661,7 +663,7 @@ open class InsertValues2Stage<P, R1, W1, R2, W2> internal constructor(
  */
 class InsertSingleRow2Stage<P, R1, W1, R2, W2> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues2Stage<P, R1, W1, R2, W2>(node) {
+) : InsertValues2Stage<P, R1, W1, R2, W2>(node), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -790,7 +792,7 @@ class InsertColumns3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -802,10 +804,11 @@ class InsertColumns3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
  */
 open class InsertValues3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(node), MutationQuery by MutationStatement(node)
+) : InsertRows3Stage<P, R1, W1, R2, W2, R3, W3>(node), MutationQuery by MutationStatement(node), OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -817,7 +820,7 @@ open class InsertValues3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
  */
 class InsertSingleRow3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues3Stage<P, R1, W1, R2, W2, R3, W3>(node) {
+) : InsertValues3Stage<P, R1, W1, R2, W2, R3, W3>(node), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -958,7 +961,7 @@ class InsertColumns4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructo
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -972,10 +975,13 @@ class InsertColumns4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructo
  */
 open class InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node), MutationQuery by MutationStatement(node)
+) : InsertRows4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node),
+  MutationQuery by MutationStatement(node),
+  OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -989,7 +995,7 @@ open class InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constr
  */
 class InsertSingleRow4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node) {
+) : InsertValues4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4>(node), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -1148,7 +1154,7 @@ class InsertColumns5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal co
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1164,10 +1170,13 @@ class InsertColumns5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal co
  */
 open class InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node), MutationQuery by MutationStatement(node)
+) : InsertRows5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node),
+  MutationQuery by MutationStatement(node),
+  OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1183,7 +1192,7 @@ open class InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> interna
  */
 class InsertSingleRow5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node) {
+) : InsertValues5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5>(node), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -1352,7 +1361,7 @@ class InsertColumns6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> int
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1370,10 +1379,13 @@ class InsertColumns6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> int
  */
 open class InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node), MutationQuery by MutationStatement(node)
+) : InsertRows6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node),
+  MutationQuery by MutationStatement(node),
+  OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1391,7 +1403,7 @@ open class InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>
  */
 class InsertSingleRow6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node) {
+) : InsertValues6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6>(node), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -1570,7 +1582,7 @@ class InsertColumns7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1591,10 +1603,12 @@ class InsertColumns7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
 open class InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(node),
-  MutationQuery by MutationStatement(node)
+  MutationQuery by MutationStatement(node),
+  OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1614,7 +1628,7 @@ open class InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
  */
 class InsertSingleRow7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(node) {
+) : InsertValues7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7>(node), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -1803,7 +1817,7 @@ class InsertColumns8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1826,10 +1840,12 @@ class InsertColumns8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
 open class InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(node),
-  MutationQuery by MutationStatement(node)
+  MutationQuery by MutationStatement(node),
+  OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -1851,7 +1867,8 @@ open class InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
  */
 class InsertSingleRow8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8> internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(node) {
+) : InsertValues8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8>(node),
+  RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -2051,7 +2068,7 @@ class InsertColumns9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -2077,10 +2094,12 @@ open class InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
     internal constructor(
   node: MutationNode<InsertHead>
 ) : InsertRows9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node),
-  MutationQuery by MutationStatement(node)
+  MutationQuery by MutationStatement(node),
+  OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  * @param R1 Kotlin type of the first column values
@@ -2105,7 +2124,8 @@ open class InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6,
 class InsertSingleRow9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>
     internal constructor(
   node: MutationNode<InsertHead>
-) : InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node) {
+) : InsertValues9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7, W7, R8, W8, R9, W9>(node),
+  RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -2253,7 +2273,7 @@ class InsertColumnsStage<P> internal constructor(
 }
 
 /**
- * SQL INSERT statement, which can take more rows.
+ * SQL INSERT statement, which can take more rows or an upsert clause.
  *
  * @param P Inserted table model type
  */
@@ -2263,10 +2283,11 @@ open class InsertValuesStage<P> internal constructor(
 ) : InsertRowsStage<P>(
   node = node,
   columns = columns
-), MutationQuery by MutationStatement(node)
+), MutationQuery by MutationStatement(node), OnConflictClause<P>
 
 /**
- * SQL INSERT statement of one row, which can take more rows or read the row ID of the inserted row.
+ * SQL INSERT statement of one row, which can take more rows or an upsert clause, or read the row ID of the inserted
+ * row.
  *
  * @param P Inserted table model type
  */
@@ -2276,7 +2297,7 @@ class InsertSingleRowStage<P> internal constructor(
 ) : InsertValuesStage<P>(
   node = node,
   columns = columns
-) {
+), RowIdOnConflictClause<P> {
   /**
    * Read the row ID of the inserted row instead of the number of inserted rows.
    *
@@ -2290,13 +2311,13 @@ class InsertSingleRowStage<P> internal constructor(
 }
 
 /**
- * SQL INSERT statement that inserts the rows of a query.
+ * SQL INSERT statement that inserts the rows of a query, which can take an upsert clause.
  *
  * @param P Inserted table model type
  */
 class InsertSelectStage<P> internal constructor(
-  node: MutationNode<InsertHead>
-) : MutationQuery by MutationStatement(node)
+  internal val node: MutationNode<InsertHead>
+) : MutationQuery by MutationStatement(node), OnConflictClause<P>
 
 private val ROW1_VALUES: (Row1<*>, Int) -> Any? = { row, _ -> row.first }
 

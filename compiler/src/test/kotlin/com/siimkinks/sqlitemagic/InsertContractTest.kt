@@ -395,6 +395,119 @@ internal class InsertContractTest {
     ).isOk()
   }
 
+  @Test
+  fun `UPSERT infers its clause stages and keeps readRowId through DO NOTHING only`() {
+    compileInsertConsumer(
+      """
+        fun verify(connection: DbConnection) {
+          val target = INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME
+          val composite = INSERT
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME, PERSON.AGE)
+              .VALUES("Ada", 36)
+              .VALUES("Bob", 17)
+              .ON_CONFLICT(PERSON.NAME, PERSON.AGE)
+          val last = INSERT
+              .INTO(PERSON)
+              .COLUMNS(PERSON.NAME)
+              .VALUES("Ada")
+              .ON_CONFLICT()
+          val nothing = target.DO_NOTHING()
+          val nothingRowId = nothing.readRowId()
+          val chainedNothing = nothing
+              .ON_CONFLICT(PERSON.ID)
+              .DO_NOTHING()
+          val chainedRowId = chainedNothing.readRowId()
+          val lastNothing = last.DO_NOTHING()
+          val lastNothingRowId = lastNothing.readRowId()
+          val compositeNothing = composite.DO_NOTHING()
+          val doUpdate = target.DO_UPDATE
+          val set = doUpdate SET (PERSON.AGE to PERSON.AGE.EXCLUDED + 1)
+          val setNull = doUpdate SET_NULL PERSON.PARENT_ID
+          val excludedValue = doUpdate.SET(PERSON.TOKEN, PERSON.TOKEN.EXCLUDED)
+          val where = set WHERE (PERSON.AGE.EXCLUDED GREATER_THAN PERSON.AGE)
+          val afterUpdate = where
+              .ON_CONFLICT(PERSON.ID)
+              .DO_NOTHING()
+          val lastUpdate = last.DO_UPDATE.SET(PERSON.NAME, PERSON.NAME.EXCLUDED)
+          val lastWhere = lastUpdate WHERE (PERSON.TOKEN.EXCLUDED IS Token("a"))
+          val ages = SELECT COLUMN PERSON.AGE FROM PERSON
+          val selected = INSERT INTO PERSON COLUMNS PERSON.AGE SELECT ages ON_CONFLICT PERSON.AGE
+          val wide = INSERT
+              .INTO(PERSON)
+              .COLUMNS($WIDE_COLUMNS)
+              .VALUES { it[PERSON.NAME] = "Ada" }
+              .ON_CONFLICT(PERSON.NAME)
+          val wideRowId = wide
+              .DO_NOTHING()
+              .readRowId()
+          val wideRows = INSERT
+              .INTO(PERSON)
+              .COLUMNS($WIDE_COLUMNS)
+              .VALUES { it[PERSON.NAME] = "Ada" }
+              .VALUES { it[PERSON.NAME] = "Bob" }
+              .ON_CONFLICT()
+          val excluded = PERSON.TOKEN.EXCLUDED
+          val affected = where
+              .usingConnection(connection)
+              .execute()
+          val observed = lastWhere.observe()
+
+          val targetType = target.exactType()
+          val compositeType = composite.exactType()
+          val lastType = last.exactType()
+          val nothingType = nothing.exactType()
+          val nothingRowIdType = nothingRowId.exactType()
+          val chainedNothingType = chainedNothing.exactType()
+          val chainedRowIdType = chainedRowId.exactType()
+          val lastNothingType = lastNothing.exactType()
+          val lastNothingRowIdType = lastNothingRowId.exactType()
+          val compositeNothingType = compositeNothing.exactType()
+          val doUpdateType = doUpdate.exactType()
+          val setType = set.exactType()
+          val setNullType = setNull.exactType()
+          val excludedValueType = excludedValue.exactType()
+          val whereType = where.exactType()
+          val afterUpdateType = afterUpdate.exactType()
+          val lastUpdateType = lastUpdate.exactType()
+          val lastWhereType = lastWhere.exactType()
+          val selectedType = selected.exactType()
+          val wideType = wide.exactType()
+          val wideRowIdType = wideRowId.exactType()
+          val wideRowsType = wideRows.exactType()
+          val excludedType = excluded.exactType()
+          val affectedType = affected.exactType()
+          val observedType = observed.exactType()
+          val exactTarget: Exact<RowIdUpsertStage<Person>> = targetType
+          val exactComposite: Exact<UpsertStage<Person>> = compositeType
+          val exactLast: Exact<RowIdLastUpsertStage<Person>> = lastType
+          val exactNothing: Exact<RowIdUpsertDoNothingStage<Person>> = nothingType
+          val exactNothingRowId: Exact<RowIdInsertQuery> = nothingRowIdType
+          val exactChainedNothing: Exact<RowIdUpsertDoNothingStage<Person>> = chainedNothingType
+          val exactChainedRowId: Exact<RowIdInsertQuery> = chainedRowIdType
+          val exactLastNothing: Exact<RowIdLastUpsertDoNothingStage> = lastNothingType
+          val exactLastNothingRowId: Exact<RowIdInsertQuery> = lastNothingRowIdType
+          val exactCompositeNothing: Exact<UpsertDoNothingStage<Person>> = compositeNothingType
+          val exactDoUpdate: Exact<UpsertDoUpdateStage<Person>> = doUpdateType
+          val exactSet: Exact<UpsertSetStage<Person>> = setType
+          val exactSetNull: Exact<UpsertSetStage<Person>> = setNullType
+          val exactExcludedValue: Exact<UpsertSetStage<Person>> = excludedValueType
+          val exactWhere: Exact<UpsertWhereStage<Person>> = whereType
+          val exactAfterUpdate: Exact<UpsertDoNothingStage<Person>> = afterUpdateType
+          val exactLastUpdate: Exact<LastUpsertSetStage<Person>> = lastUpdateType
+          val exactLastWhere: Exact<MutationQuery> = lastWhereType
+          val exactSelected: Exact<UpsertStage<Person>> = selectedType
+          val exactWide: Exact<RowIdUpsertStage<Person>> = wideType
+          val exactWideRowId: Exact<RowIdInsertQuery> = wideRowIdType
+          val exactWideRows: Exact<LastUpsertStage<Person>> = wideRowsType
+          val exactExcluded: Exact<EncodableSqlExpression<Token, Token, Required, Token>> = excludedType
+          val exactAffected: Exact<Int> = affectedType
+          val exactObserved: Exact<Single<Int>> = observedType
+        }
+      """
+    ).isOk()
+  }
+
   @ParameterizedTest(name = "{0}")
   @MethodSource("invalidPrograms")
   fun `INSERT outside its contracts does not compile`(
@@ -415,6 +528,7 @@ internal class InsertContractTest {
       import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
       import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
       import com.siimkinks.sqlitemagic.COUNT
+      import com.siimkinks.sqlitemagic.EXCLUDED
       import com.siimkinks.sqlitemagic.CompiledMutation
       import com.siimkinks.sqlitemagic.CompiledRowIdInsert
       import com.siimkinks.sqlitemagic.INSERT
@@ -432,15 +546,27 @@ internal class InsertContractTest {
       import com.siimkinks.sqlitemagic.InsertValues4Stage
       import com.siimkinks.sqlitemagic.InsertValuesStage
       import com.siimkinks.sqlitemagic.InsertedRow
+      import com.siimkinks.sqlitemagic.LastUpsertSetStage
+      import com.siimkinks.sqlitemagic.LastUpsertStage
       import com.siimkinks.sqlitemagic.MutationQuery
       import com.siimkinks.sqlitemagic.RawMutationQuery
       import com.siimkinks.sqlitemagic.RowIdInsertQuery
+      import com.siimkinks.sqlitemagic.RowIdLastUpsertDoNothingStage
+      import com.siimkinks.sqlitemagic.RowIdLastUpsertStage
+      import com.siimkinks.sqlitemagic.RowIdUpsertDoNothingStage
+      import com.siimkinks.sqlitemagic.RowIdUpsertStage
       import com.siimkinks.sqlitemagic.Row1
       import com.siimkinks.sqlitemagic.Row3
       import com.siimkinks.sqlitemagic.RowSelection
       import com.siimkinks.sqlitemagic.SUM
       import com.siimkinks.sqlitemagic.SelectQuery
+      import com.siimkinks.sqlitemagic.SET
       import com.siimkinks.sqlitemagic.UNION_ALL
+      import com.siimkinks.sqlitemagic.UpsertDoNothingStage
+      import com.siimkinks.sqlitemagic.UpsertDoUpdateStage
+      import com.siimkinks.sqlitemagic.UpsertSetStage
+      import com.siimkinks.sqlitemagic.UpsertStage
+      import com.siimkinks.sqlitemagic.UpsertWhereStage
       import com.siimkinks.sqlitemagic.WITH
       import com.siimkinks.sqlitemagic.asScalar
       import com.siimkinks.sqlitemagic.mapTo
@@ -659,6 +785,114 @@ internal class InsertContractTest {
         "VALUES after wide SELECT",
         "INSERT.INTO(PERSON).COLUMNS($WIDE_COLUMNS).SELECT(SELECT.FROM(PERSON)).VALUES { }",
         "Unresolved reference 'VALUES' on receiver of type 'InsertSelectStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after DO UPDATE",
+        """((INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME).DO_UPDATE SET """ +
+            """(PERSON.AGE to 1)).readRowId()""",
+        "Unresolved reference 'readRowId' on receiver of type 'UpsertSetStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after DO UPDATE WHERE",
+        """((INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME).DO_UPDATE SET """ +
+            """(PERSON.AGE to 1) WHERE (PERSON.AGE IS 1)).readRowId()""",
+        "Unresolved reference 'readRowId' on receiver of type 'UpsertWhereStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after DO NOTHING that follows DO UPDATE",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME).VALUES("Ada").ON_CONFLICT(PERSON.NAME).DO_UPDATE""" +
+            """.SET(PERSON.AGE, 1).ON_CONFLICT(PERSON.ID).DO_NOTHING().readRowId()""",
+        "Unresolved reference 'readRowId' on receiver of type 'UpsertDoNothingStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after DO UPDATE without a target",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME).VALUES("Ada").ON_CONFLICT().DO_UPDATE.SET(PERSON.AGE, 1)""" +
+            ".readRowId()",
+        "Unresolved reference 'readRowId' on receiver of type 'LastUpsertSetStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after multi-row DO NOTHING",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME).VALUES("Ada").VALUES("Bob").ON_CONFLICT(PERSON.NAME)""" +
+            ".DO_NOTHING().readRowId()",
+        "Unresolved reference 'readRowId' on receiver of type 'UpsertDoNothingStage<Person>'"
+      ),
+      Arguments.of(
+        "readRowId after INSERT SELECT DO NOTHING",
+        "(INSERT INTO PERSON COLUMNS PERSON.AGE SELECT (SELECT COLUMN PERSON.AGE FROM PERSON) ON_CONFLICT " +
+            "PERSON.AGE).DO_NOTHING().readRowId()",
+        "Unresolved reference 'readRowId' on receiver of type 'UpsertDoNothingStage<Person>'"
+      ),
+      Arguments.of(
+        "ON_CONFLICT after DO NOTHING without a target",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME).VALUES("Ada").ON_CONFLICT().DO_NOTHING()""" +
+            ".ON_CONFLICT(PERSON.NAME)",
+        "Unresolved reference 'ON_CONFLICT' on receiver of type 'RowIdLastUpsertDoNothingStage'"
+      ),
+      Arguments.of(
+        "ON_CONFLICT after multi-row DO NOTHING without a target",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME).VALUES("Ada").VALUES("Bob").ON_CONFLICT().DO_NOTHING()""" +
+            ".ON_CONFLICT()",
+        "Unresolved reference 'ON_CONFLICT' on receiver of type 'MutationQuery'"
+      ),
+      Arguments.of(
+        "ON_CONFLICT after DO UPDATE without a target",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME).VALUES("Ada").ON_CONFLICT().DO_UPDATE.SET(PERSON.AGE, 1)""" +
+            ".ON_CONFLICT(PERSON.NAME)",
+        "Unresolved reference 'ON_CONFLICT' on receiver of type 'LastUpsertSetStage<Person>'"
+      ),
+      Arguments.of(
+        "ON_CONFLICT after DO UPDATE WHERE without a target",
+        """INSERT.INTO(PERSON).COLUMNS(PERSON.NAME).VALUES("Ada").ON_CONFLICT().DO_UPDATE.SET(PERSON.AGE, 1)""" +
+            ".WHERE(PERSON.AGE IS 1).ON_CONFLICT()",
+        "Unresolved reference 'ON_CONFLICT' on receiver of type 'MutationQuery'"
+      ),
+      Arguments.of(
+        "ON_CONFLICT after DEFAULT VALUES",
+        "INSERT.INTO(PERSON).DEFAULT_VALUES().ON_CONFLICT()",
+        "Unresolved reference 'ON_CONFLICT' on receiver of type 'InsertDefaultValuesStage'"
+      ),
+      Arguments.of(
+        "ON_CONFLICT before VALUES",
+        "INSERT INTO PERSON COLUMNS PERSON.NAME ON_CONFLICT PERSON.NAME",
+        "Unresolved reference 'ON_CONFLICT'"
+      ),
+      Arguments.of(
+        "conflict target of another table",
+        """INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PET.NAME""",
+        "actual type is 'Column<Pet"
+      ),
+      Arguments.of(
+        "execute without an upsert action",
+        """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME).execute()""",
+        "Unresolved reference 'execute' on receiver of type 'RowIdUpsertStage<Person>'"
+      ),
+      Arguments.of(
+        "execute after DO UPDATE without SET",
+        """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME).DO_UPDATE.execute()""",
+        "Unresolved reference 'execute' on receiver of type 'UpsertDoUpdateStage<Person>'"
+      ),
+      Arguments.of(
+        "DO UPDATE SET target of another table",
+        """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME).DO_UPDATE SET """ +
+            """(PET.NAME to "Rex")""",
+        "Column<Pet"
+      ),
+      Arguments.of(
+        "EXCLUDED as a SET target",
+        """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME).DO_UPDATE""" +
+            """.SET(PERSON.NAME.EXCLUDED, "Bob")""",
+        "EncodableSqlExpression<String?, String, SqlNullable, String?>"
+      ),
+      Arguments.of(
+        "EXCLUDED of another value type",
+        """(INSERT INTO PERSON COLUMNS PERSON.NAME VALUES "Ada" ON_CONFLICT PERSON.NAME).DO_UPDATE""" +
+            ".SET(PERSON.AGE, PERSON.NAME.EXCLUDED)",
+        "EncodableSqlExpression<String?, String, SqlNullable, String?>"
+      ),
+      Arguments.of(
+        "EXCLUDED of an expression",
+        "(PERSON.AGE + 1).EXCLUDED",
+        "EXCLUDED: EncodableSqlExpression<W, R, N, T>' is inapplicable because of a receiver type mismatch"
       ),
       Arguments.of(
         "raw table name",

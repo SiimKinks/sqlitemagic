@@ -121,6 +121,7 @@ internal class SelectSources(
       join.render(context)
     }
     context.limitVisibleSources(joins.size + 1)
+    context.markFromEnd()
   }
 }
 

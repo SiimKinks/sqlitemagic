@@ -34,7 +34,9 @@ open class Column<P, R, N : SqlNullability, T, W, PN : SqlNullability, PT> @Inte
   encode = parameterEncoding.encode,
   outputAlias = alias
 ), ParameterSource<W, R, PN, PT>, ReadContract<R, N, T> {
-  internal val quotedName get() = (node as ExpressionNode.Field).quotedName
+  internal val fieldNode get() = node as ExpressionNode.Field
+
+  internal val quotedName get() = fieldNode.quotedName
 
   @Volatile
   private var lift: NullableEncodableExpression<W, R, T>? = null

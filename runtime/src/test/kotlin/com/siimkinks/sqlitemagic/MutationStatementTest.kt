@@ -253,7 +253,8 @@ internal class MutationStatementTest {
         outcome(
           query = replaced,
           database = defaultedAge
-        )
+        ),
+        outcome(replaced)
       )
     )
       .isEqualTo(
@@ -271,6 +272,11 @@ internal class MutationStatementTest {
           Outcome(
             affected = 1,
             rows = listOf(ada.copy(age = 7)),
+            triggers = listOf(setOf("person"))
+          ),
+          Outcome(
+            affected = null,
+            rows = people,
             triggers = listOf(setOf("person"))
           )
         )
@@ -362,7 +368,7 @@ internal class MutationStatementTest {
           "UPDATE and DELETE targets cannot be aliased; use person itself and alias inner queries instead",
           "UPDATE and DELETE targets cannot be aliased; use person itself and alias inner queries instead",
           "SET target name must be a field of the updated person occurrence",
-          "A field requires the exact table occurrence of its FROM, UPDATE or DELETE"
+          "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT"
         )
       )
     verifyNoInteractions(connection)

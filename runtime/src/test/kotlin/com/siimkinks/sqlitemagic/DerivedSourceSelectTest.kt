@@ -289,7 +289,7 @@ internal class DerivedSourceSelectTest {
     )
     assertThat(assertThrows(IllegalArgumentException::class.java, lateral::compile))
       .hasMessageThat()
-      .isEqualTo("A field requires the exact table occurrence of its FROM, UPDATE or DELETE")
+      .isEqualTo("A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT")
     libraryDatabaseWithNotes().use { database ->
       assertThat(
         listOf(

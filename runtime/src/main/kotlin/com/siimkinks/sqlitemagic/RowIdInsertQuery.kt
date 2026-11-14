@@ -53,7 +53,8 @@ class RowIdInsertQuery internal constructor(
    *
    * @return Immutable compiled statement
    * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
-   *     parameter, or the statement uses a column outside a subquery in VALUES
+   *     parameter, the statement uses a column outside a subquery in VALUES, or a query reads a column of a
+   *     table that neither its FROM nor an enclosing statement has
    */
   @CheckResult
   fun compile() = CompiledRowIdInsert(node.compile())
@@ -66,7 +67,8 @@ class RowIdInsertQuery internal constructor(
    * @return Row ID of the inserted row, or `null` when no row was inserted, such as a row that `CONFLICT_IGNORE`
    *     ignored
    * @throws IllegalArgumentException if a parameter value is missing or duplicated, the statement has no such
-   *     parameter, or the statement uses a column outside a subquery in VALUES
+   *     parameter, the statement uses a column outside a subquery in VALUES, or a query reads a column of a
+   *     table that neither its FROM nor an enclosing statement has
    */
   fun execute(): Long? = compile().execute()
 }

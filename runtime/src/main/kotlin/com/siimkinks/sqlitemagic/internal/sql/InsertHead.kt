@@ -14,7 +14,8 @@ internal class InsertHead(
   private val conflictAlgorithm: Int,
   private val columns: Array<out Column<*, *, *, *, *, *, *>>,
   private val rows: List<InsertRows>,
-  private val select: SelectNode<*, *>? = null
+  private val select: SelectNode<*, *>? = null,
+  val upsert: UpsertClause? = null
 ) : MutationHead {
   override val deletedTable
     get() = when (conflictAlgorithm) {
@@ -47,6 +48,22 @@ internal class InsertHead(
         }
       }
     }
+    if (upsert != null) {
+      renderUpsert(
+        context = context,
+        upsert = upsert
+      )
+    }
+  }
+
+  private fun renderUpsert(context: SqlRenderingContext, upsert: UpsertClause) {
+    if (select != null && context.endsWithFrom) {
+      context.sql.append(" WHERE true")
+    }
+    context.addSource(table)
+    context.upsertTarget = table
+    upsert.render(context)
+    context.upsertTarget = null
   }
 
   private fun renderRows(context: SqlRenderingContext) {
@@ -74,31 +91,27 @@ internal class InsertHead(
     }
   }
 
-  fun withColumns(columns: Array<out Column<*, *, *, *, *, *, *>>) = InsertHead(
-    table = table,
-    conflictAlgorithm = conflictAlgorithm,
+  fun withColumns(columns: Array<out Column<*, *, *, *, *, *, *>>) = copy(
     columns = columns.onEach { column ->
       require(column.table === table) {
         "INSERT column ${column.name} must be a field of the inserted ${table.name} occurrence"
       }
-    },
-    rows = rows
+    }
   )
 
-  fun withRows(added: InsertRows) = InsertHead(
-    table = table,
-    conflictAlgorithm = conflictAlgorithm,
-    columns = columns,
-    rows = rows + added
-  )
+  fun withRows(added: InsertRows) = copy(rows = rows + added)
 
-  fun withSelect(select: SelectNode<*, *>) = InsertHead(
-    table = table,
-    conflictAlgorithm = conflictAlgorithm,
-    columns = columns,
-    rows = rows,
-    select = select
-  )
+  fun withSelect(select: SelectNode<*, *>) = copy(select = select)
+
+  fun withUpsert(upsert: UpsertClause) = copy(upsert = upsert)
+
+  val doUpdate get() = upsert as DoUpdateClause
+
+  fun conflictTarget(columns: Array<out Column<*, *, *, *, *, *, *>>) = columns.onEach { column ->
+    require(column.table === table) {
+      "ON CONFLICT column ${column.name} must be a field of the inserted ${table.name} occurrence"
+    }
+  }
 
   fun hostRow(values: Array<out Any?>) = ValuesRow(
     Array(values.size) { index -> columns[index].encodeHost(values[index]) }
@@ -108,6 +121,82 @@ internal class InsertHead(
     rows = rows,
     columns = columns,
     component = component
+  )
+
+  private fun copy(
+    columns: Array<out Column<*, *, *, *, *, *, *>> = this.columns,
+    rows: List<InsertRows> = this.rows,
+    select: SelectNode<*, *>? = this.select,
+    upsert: UpsertClause? = this.upsert
+  ) = InsertHead(
+    table = table,
+    conflictAlgorithm = conflictAlgorithm,
+    columns = columns,
+    rows = rows,
+    select = select,
+    upsert = upsert
+  )
+}
+
+internal sealed class UpsertClause(
+  protected val previous: UpsertClause?,
+  protected val target: Array<out Column<*, *, *, *, *, *, *>>
+) : SqlRenderable {
+  override fun render(context: SqlRenderingContext) {
+    previous?.render(context)
+    context.sql.append(" ON CONFLICT")
+    if (target.isNotEmpty()) {
+      context.sql.append(" (")
+      context.renderList(target.size) { context.sql.append(target[it].quotedName) }
+      context.sql.append(')')
+    }
+    renderAction(context)
+  }
+
+  abstract fun renderAction(context: SqlRenderingContext)
+}
+
+internal class DoNothingClause(
+  previous: UpsertClause?,
+  target: Array<out Column<*, *, *, *, *, *, *>>
+) : UpsertClause(
+  previous = previous,
+  target = target
+) {
+  override fun renderAction(context: SqlRenderingContext) {
+    context.sql.append(" DO NOTHING")
+  }
+}
+
+internal class DoUpdateClause(
+  previous: UpsertClause?,
+  target: Array<out Column<*, *, *, *, *, *, *>>,
+  private val assignments: List<ColumnAssignment> = emptyList(),
+  private val where: ExpressionNode? = null
+) : UpsertClause(
+  previous = previous,
+  target = target
+) {
+  override fun renderAction(context: SqlRenderingContext) {
+    context.sql.append(" DO UPDATE SET ")
+    context.renderAssignments(assignments)
+    if (where != null) {
+      context.sql.append(" WHERE ")
+      where.render(context)
+    }
+  }
+
+  fun with(assignment: ColumnAssignment) = DoUpdateClause(
+    previous = previous,
+    target = target,
+    assignments = assignments + assignment
+  )
+
+  fun filtered(where: ExpressionNode) = DoUpdateClause(
+    previous = previous,
+    target = target,
+    assignments = assignments,
+    where = where
   )
 }
 
@@ -193,6 +282,46 @@ internal fun MutationNode<InsertHead>.withColumnArray(columns: Array<out Column<
 
 internal fun MutationNode<InsertHead>.withSelect(query: SelectQuery<*, *>) =
   copy(head = head.withSelect(query.nestedNode()))
+
+internal fun MutationNode<InsertHead>.withDoNothing(target: Array<out Column<*, *, *, *, *, *, *>>) = copy(
+  head = head.withUpsert(
+    DoNothingClause(
+      previous = head.upsert,
+      target = target
+    )
+  )
+)
+
+internal fun MutationNode<InsertHead>.withDoUpdate(target: Array<out Column<*, *, *, *, *, *, *>>) = copy(
+  head = head.withUpsert(
+    DoUpdateClause(
+      previous = head.upsert,
+      target = target
+    )
+  )
+)
+
+internal fun MutationNode<InsertHead>.withUpsertAssignment(
+  column: Column<*, *, *, *, *, *, *>,
+  value: ExpressionNode
+): MutationNode<InsertHead> {
+  require(column.table === head.table) {
+    "DO UPDATE SET target ${column.name} must be a field of the inserted ${head.table.name} occurrence"
+  }
+  return copy(
+    head = head.withUpsert(
+      head.doUpdate.with(
+        ColumnAssignment(
+          column = column,
+          value = value
+        )
+      )
+    )
+  )
+}
+
+internal fun MutationNode<InsertHead>.withUpsertWhere(predicate: SqlExpression<Boolean, *, *>) =
+    copy(head = head.withUpsert(head.doUpdate.filtered(predicate.node)))
 
 internal fun MutationNode<InsertHead>.withHostRow(vararg values: Any?) =
   copy(head = head.withRows(head.hostRow(values)))

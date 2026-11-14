@@ -100,12 +100,7 @@ internal class UpdateHead(
       .append(' ')
       .append(table.sqlSource)
       .append(" SET ")
-    context.renderList(assignments) { assignment ->
-      context.sql
-        .append(assignment.quotedName)
-        .append(" = ")
-      assignment.value.render(context)
-    }
+    context.renderAssignments(assignments)
   }
 
   fun with(assignment: ColumnAssignment) = UpdateHead(
@@ -126,11 +121,19 @@ internal class DeleteHead(override val table: Table<*>) : MutationHead {
   }
 }
 
+internal fun SqlRenderingContext.renderAssignments(assignments: List<ColumnAssignment>) =
+    renderList(assignments) { assignment ->
+      sql
+        .append(assignment.quotedName)
+        .append(" = ")
+      assignment.value.render(this)
+    }
+
 internal class ColumnAssignment(
   column: Column<*, *, *, *, *, *, *>,
   val value: ExpressionNode
 ) {
-  val quotedName = (column.node as ExpressionNode.Field).quotedName
+  val quotedName = column.quotedName
 }
 
 internal fun compileMutation(

@@ -253,8 +253,8 @@ internal class RelationshipSelectTest {
         "Several relationships lead to book: series.first_book, series.last_book; join the one you mean",
         "Several relationships lead to author: series.first_book.author, series.last_book.author; " +
             "join the one you mean",
-        "A field requires the exact table occurrence of its FROM, UPDATE or DELETE",
-        "A field requires the exact table occurrence of its FROM, UPDATE or DELETE",
+        "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT",
+        "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT",
         "publisher.id is NOT NULL but an outer join can leave it NULL; select the field with .nullable()"
       )
     )

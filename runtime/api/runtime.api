@@ -529,117 +529,210 @@ public abstract class com/siimkinks/sqlitemagic/InsertRowsStage {
 	public fun VALUES (Lkotlin/jvm/functions/Function1;)Lcom/siimkinks/sqlitemagic/InsertValuesStage;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSelectStage : com/siimkinks/sqlitemagic/MutationQuery {
+public final class com/siimkinks/sqlitemagic/InsertSelectStage : com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow1Stage : com/siimkinks/sqlitemagic/InsertValues1Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow1Stage : com/siimkinks/sqlitemagic/InsertValues1Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow2Stage : com/siimkinks/sqlitemagic/InsertValues2Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow2Stage : com/siimkinks/sqlitemagic/InsertValues2Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow3Stage : com/siimkinks/sqlitemagic/InsertValues3Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow3Stage : com/siimkinks/sqlitemagic/InsertValues3Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow4Stage : com/siimkinks/sqlitemagic/InsertValues4Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow4Stage : com/siimkinks/sqlitemagic/InsertValues4Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow5Stage : com/siimkinks/sqlitemagic/InsertValues5Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow5Stage : com/siimkinks/sqlitemagic/InsertValues5Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow6Stage : com/siimkinks/sqlitemagic/InsertValues6Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow6Stage : com/siimkinks/sqlitemagic/InsertValues6Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow7Stage : com/siimkinks/sqlitemagic/InsertValues7Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow7Stage : com/siimkinks/sqlitemagic/InsertValues7Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow8Stage : com/siimkinks/sqlitemagic/InsertValues8Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow8Stage : com/siimkinks/sqlitemagic/InsertValues8Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRow9Stage : com/siimkinks/sqlitemagic/InsertValues9Stage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRow9Stage : com/siimkinks/sqlitemagic/InsertValues9Stage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public final class com/siimkinks/sqlitemagic/InsertSingleRowStage : com/siimkinks/sqlitemagic/InsertValuesStage {
+public final class com/siimkinks/sqlitemagic/InsertSingleRowStage : com/siimkinks/sqlitemagic/InsertValuesStage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues1Stage : com/siimkinks/sqlitemagic/InsertRows1Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues1Stage : com/siimkinks/sqlitemagic/InsertRows1Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues2Stage : com/siimkinks/sqlitemagic/InsertRows2Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues2Stage : com/siimkinks/sqlitemagic/InsertRows2Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues3Stage : com/siimkinks/sqlitemagic/InsertRows3Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues3Stage : com/siimkinks/sqlitemagic/InsertRows3Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues4Stage : com/siimkinks/sqlitemagic/InsertRows4Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues4Stage : com/siimkinks/sqlitemagic/InsertRows4Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues5Stage : com/siimkinks/sqlitemagic/InsertRows5Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues5Stage : com/siimkinks/sqlitemagic/InsertRows5Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues6Stage : com/siimkinks/sqlitemagic/InsertRows6Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues6Stage : com/siimkinks/sqlitemagic/InsertRows6Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues7Stage : com/siimkinks/sqlitemagic/InsertRows7Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues7Stage : com/siimkinks/sqlitemagic/InsertRows7Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues8Stage : com/siimkinks/sqlitemagic/InsertRows8Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues8Stage : com/siimkinks/sqlitemagic/InsertRows8Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValues9Stage : com/siimkinks/sqlitemagic/InsertRows9Stage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValues9Stage : com/siimkinks/sqlitemagic/InsertRows9Stage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
-public class com/siimkinks/sqlitemagic/InsertValuesStage : com/siimkinks/sqlitemagic/InsertRowsStage, com/siimkinks/sqlitemagic/MutationQuery {
+public class com/siimkinks/sqlitemagic/InsertValuesStage : com/siimkinks/sqlitemagic/InsertRowsStage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
 	public fun execute ()I
@@ -675,6 +768,23 @@ public final class com/siimkinks/sqlitemagic/JoinClause$DefaultImpls {
 	public static fun NATURAL_LEFT_JOIN (Lcom/siimkinks/sqlitemagic/JoinClause;Lcom/siimkinks/sqlitemagic/Source;)Lcom/siimkinks/sqlitemagic/SelectFromStage;
 	public static fun NATURAL_RIGHT_JOIN (Lcom/siimkinks/sqlitemagic/JoinClause;Lcom/siimkinks/sqlitemagic/Source;)Lcom/siimkinks/sqlitemagic/SelectFromStage;
 	public static fun RIGHT_JOIN (Lcom/siimkinks/sqlitemagic/JoinClause;Lcom/siimkinks/sqlitemagic/Source;)Lcom/siimkinks/sqlitemagic/SelectJoinStage;
+}
+
+public class com/siimkinks/sqlitemagic/LastUpsertDoUpdateStage : com/siimkinks/sqlitemagic/AssignmentStage {
+	public synthetic fun assign$com_siimkinks_sqlitemagic_runtime (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/internal/sql/ExpressionNode;)Ljava/lang/Object;
+}
+
+public final class com/siimkinks/sqlitemagic/LastUpsertSetStage : com/siimkinks/sqlitemagic/LastUpsertDoUpdateStage, com/siimkinks/sqlitemagic/MutationQuery {
+	public final fun WHERE (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public class com/siimkinks/sqlitemagic/LastUpsertStage {
+	public fun DO_NOTHING ()Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public final fun getDO_UPDATE ()Lcom/siimkinks/sqlitemagic/LastUpsertDoUpdateStage;
 }
 
 public final class com/siimkinks/sqlitemagic/LikeSqlExpression : com/siimkinks/sqlitemagic/SqlExpression {
@@ -714,6 +824,18 @@ public final class com/siimkinks/sqlitemagic/MutationsKt {
 }
 
 public final class com/siimkinks/sqlitemagic/NullableEncodableExpression : com/siimkinks/sqlitemagic/EncodableSqlExpression {
+}
+
+public abstract interface class com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+}
+
+public final class com/siimkinks/sqlitemagic/OnConflictClause$DefaultImpls {
+	public static fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/OnConflictClause;)Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public static fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/OnConflictClause;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public static fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/OnConflictClause;Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
 }
 
 public final class com/siimkinks/sqlitemagic/OperationsKt {
@@ -1060,6 +1182,49 @@ public final class com/siimkinks/sqlitemagic/RowIdInsertQuery {
 	public final fun compile ()Lcom/siimkinks/sqlitemagic/CompiledRowIdInsert;
 	public final fun execute ()Ljava/lang/Long;
 	public final fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/RowIdLastUpsertDoNothingStage : com/siimkinks/sqlitemagic/MutationQuery {
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/RowIdLastUpsertStage : com/siimkinks/sqlitemagic/LastUpsertStage {
+	public synthetic fun DO_NOTHING ()Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun DO_NOTHING ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertDoNothingStage;
+}
+
+public abstract interface class com/siimkinks/sqlitemagic/RowIdOnConflictClause : com/siimkinks/sqlitemagic/OnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+}
+
+public final class com/siimkinks/sqlitemagic/RowIdOnConflictClause$DefaultImpls {
+	public static fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/RowIdOnConflictClause;)Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public static fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/RowIdOnConflictClause;Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public static fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/RowIdOnConflictClause;Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+}
+
+public final class com/siimkinks/sqlitemagic/RowIdUpsertDoNothingStage : com/siimkinks/sqlitemagic/UpsertDoNothingStage, com/siimkinks/sqlitemagic/RowIdOnConflictClause {
+	public synthetic fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/RowIdLastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/RowIdUpsertStage;
+	public synthetic fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public final fun readRowId ()Lcom/siimkinks/sqlitemagic/RowIdInsertQuery;
+}
+
+public final class com/siimkinks/sqlitemagic/RowIdUpsertStage : com/siimkinks/sqlitemagic/UpsertStage {
+	public fun DO_NOTHING ()Lcom/siimkinks/sqlitemagic/RowIdUpsertDoNothingStage;
+	public synthetic fun DO_NOTHING ()Lcom/siimkinks/sqlitemagic/UpsertDoNothingStage;
 }
 
 public final class com/siimkinks/sqlitemagic/RowSelection : com/siimkinks/sqlitemagic/Selection {
@@ -1555,6 +1720,50 @@ public final class com/siimkinks/sqlitemagic/UpdateSetStage : com/siimkinks/sqli
 
 public class com/siimkinks/sqlitemagic/UpdateTableStage : com/siimkinks/sqlitemagic/AssignmentStage {
 	public synthetic fun assign$com_siimkinks_sqlitemagic_runtime (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/internal/sql/ExpressionNode;)Ljava/lang/Object;
+}
+
+public class com/siimkinks/sqlitemagic/UpsertDoNothingStage : com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public class com/siimkinks/sqlitemagic/UpsertDoUpdateStage : com/siimkinks/sqlitemagic/AssignmentStage {
+	public synthetic fun assign$com_siimkinks_sqlitemagic_runtime (Lcom/siimkinks/sqlitemagic/Column;Lcom/siimkinks/sqlitemagic/internal/sql/ExpressionNode;)Ljava/lang/Object;
+}
+
+public final class com/siimkinks/sqlitemagic/UpsertSetStage : com/siimkinks/sqlitemagic/UpsertDoUpdateStage, com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public final fun WHERE (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/UpsertWhereStage;
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+}
+
+public class com/siimkinks/sqlitemagic/UpsertStage {
+	public fun DO_NOTHING ()Lcom/siimkinks/sqlitemagic/UpsertDoNothingStage;
+	public final fun getDO_UPDATE ()Lcom/siimkinks/sqlitemagic/UpsertDoUpdateStage;
+}
+
+public final class com/siimkinks/sqlitemagic/UpsertStagesKt {
+	public static final fun getEXCLUDED (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
+}
+
+public final class com/siimkinks/sqlitemagic/UpsertWhereStage : com/siimkinks/sqlitemagic/MutationQuery, com/siimkinks/sqlitemagic/OnConflictClause {
+	public fun ON_CONFLICT ()Lcom/siimkinks/sqlitemagic/LastUpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun ON_CONFLICT (Lcom/siimkinks/sqlitemagic/Column;[Lcom/siimkinks/sqlitemagic/Column;)Lcom/siimkinks/sqlitemagic/UpsertStage;
+	public fun bind ([Lcom/siimkinks/sqlitemagic/ParameterAssignment;)Lcom/siimkinks/sqlitemagic/MutationQuery;
+	public fun compile ()Lcom/siimkinks/sqlitemagic/CompiledMutation;
+	public fun execute ()I
+	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/WhereClause : com/siimkinks/sqlitemagic/ClauseHost {

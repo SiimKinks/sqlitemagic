@@ -180,6 +180,7 @@ internal class CompoundArm(
           context.sql.append("SELECT * FROM (")
           select.render(context)
           context.sql.append(')')
+          context.markFromEnd()
         }
       }
     }

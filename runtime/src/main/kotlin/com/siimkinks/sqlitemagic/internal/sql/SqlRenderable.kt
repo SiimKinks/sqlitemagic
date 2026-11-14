@@ -47,6 +47,21 @@ internal class SqlRenderingContext(
 
   var insertingValues = false
 
+  var upsertTarget: Table<*>? = null
+
+  private var fromEnd = -1
+
+  val endsWithFrom get() = fromEnd == sql.length
+
+  fun markFromEnd() {
+    fromEnd = sql.length
+  }
+
+  fun requireExcluded(table: Table<*>, name: String) {
+    val target = upsertTarget ?: return
+    require(table === target) { "EXCLUDED column $name must be a field of the inserted ${target.name} occurrence" }
+  }
+
   val nested get() = scope.kind == NESTED
 
   val root get() = scope.kind == ROOT
@@ -459,7 +474,8 @@ internal class DefinitionFacts(val viewName: String) {
   val outputs = MutableScatterSet<String>()
 }
 
-private const val MISSING_OCCURRENCE = "A field requires the exact table occurrence of its FROM, UPDATE or DELETE"
+private const val MISSING_OCCURRENCE =
+  "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT"
 
 private const val INSERT_VALUES_FIELD = "INSERT VALUES cannot read a field outside a subquery"
 

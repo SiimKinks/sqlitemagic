@@ -133,6 +133,7 @@ user
 | Save an object that may or may not exist (sync from a server, "save" button) | `persist()`; bulk `Items.persist(list)`; an INSERT never writes an auto-increment ID, so server IDs need `@Id(autoIncrement = false)` ([models.md](models.md#ids)) |
 | Save only if absent, keep the existing row (a `@Unique` column or app-assigned ID decides) | `insert().conflictAlgorithm(CONFLICT_IGNORE)` |
 | Replace an existing object completely, by ID | `update()` |
+| Insert or update rows by a unique key in one atomic statement, writing only some columns (settings, counters, server rows) | `INSERT … ON_CONFLICT(key).DO_UPDATE.SET(…)` ([statements.md](statements.md#upsert)); unlike `persist()`, which runs an UPDATE and then an INSERT, it is one atomic statement, but it needs SQLite 3.24.0 (framework driver API 30+) and writes no related objects |
 | Insert a partial row or many rows without objects | `INSERT INTO … COLUMNS … VALUES …` ([statements.md](statements.md#insert)); it returns the row count, or the new row's ID with `readRowId()` when it inserts one row |
 | Copy rows chosen by a query, such as archiving | `INSERT INTO … COLUMNS … SELECT query` ([statements.md](statements.md#insert)), in one statement without reading the rows |
 | Change some columns, increment a counter, change many rows | `UPDATE TABLE … SET … WHERE …` ([statements.md](statements.md)) |
@@ -140,8 +141,8 @@ user
 | Remove rows chosen by a condition | `DELETE FROM … WHERE …` |
 | Remove everything | `Items.deleteTable()` |
 
-- Prefer `persist()` over `CONFLICT_REPLACE` for upserts: `REPLACE` deletes the conflicting row and inserts a new one,
-  which fires `ON DELETE CASCADE` on its children and gives an auto-increment row a new ID.
+- Prefer `persist()` or an UPSERT statement over `CONFLICT_REPLACE` for upserts: `REPLACE` deletes the conflicting
+  row and inserts a new one, which fires `ON DELETE CASCADE` on its children and gives an auto-increment row a new ID.
 - Prefer an UPDATE statement over read-modify-write of an entity when only some columns change: one statement, no race
   between the read and the write, no risk of overwriting columns another writer changed.
 

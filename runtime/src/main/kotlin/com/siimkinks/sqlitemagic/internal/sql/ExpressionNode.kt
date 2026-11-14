@@ -67,6 +67,18 @@ internal sealed interface ExpressionNode : SqlRenderable {
     }
   }
 
+  class Excluded(private val column: Field) : ExpressionNode {
+    override fun render(context: SqlRenderingContext) {
+      context.requireExcluded(
+        table = column.table,
+        name = column.name
+      )
+      context.sql
+        .append("\"excluded\".")
+        .append(column.quotedName)
+    }
+  }
+
   data class Bound(val argument: NativeValue) : ExpressionNode {
     override fun render(context: SqlRenderingContext) = context.bind(argument)
   }

@@ -44,7 +44,7 @@ asks. Apply these in order of impact.
   is its own commit.
 - Rows chosen by a condition: one UPDATE or DELETE statement instead of loading entities and writing them back.
 - Avoid `CONFLICT_REPLACE` for upserts: it deletes and re-inserts, cascading deletes and rewriting indexes; `persist()`
-  updates in place.
+  and an UPSERT statement (`ON_CONFLICT(key).DO_UPDATE`) update in place.
 
 ## Index for the queries you run
 

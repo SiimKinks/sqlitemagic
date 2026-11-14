@@ -544,7 +544,9 @@ internal class ScalarSelectTest {
         }.message
       }
     ).isEqualTo(
-      cases.map { (label, _) -> label to "A field requires the exact table occurrence of its FROM, UPDATE or DELETE" }
+      cases.map { (label, _) ->
+        label to "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT"
+      }
     )
     verifyNoInteractions(connection)
   }
