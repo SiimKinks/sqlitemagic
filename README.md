@@ -259,8 +259,8 @@ The coroutine APIs come from the `sqlitemagic-coroutines` adapter, whose version
 in `com.siimkinks.sqlitemagic.coroutines`. `observe()` returns a cold `Flow` of the query that emits again whenever a
 queried table changes; changes made while an emission is being processed are combined into one further emission. Its
 `runQuery` operators run the query. One-shot work uses suspend functions: `runQueryOnce()` on an observed query,
-`Query.run()`, and `await()` on entity operations, UPDATE and DELETE statements and raw SELECTs that do not declare the
-tables they read.
+`Query.run()`, and `await()` on entity operations, INSERT, UPDATE and DELETE statements and raw SELECTs that do not
+declare the tables they read.
 
 ```kotlin
 import com.siimkinks.sqlitemagic.coroutines.await
@@ -493,8 +493,16 @@ val bulkPersist: Completable = Authors
 <td style="padding:0; margin:0; border:none; width:50%;">
 
 ```kotlin
+import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
 import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
 ...
+
+// columns left out take their defaults
+val nrOfInsertedRows: Int = (INSERT INTO AUTHOR)
+  .COLUMNS(AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
+  .VALUES("Foo", "Bar")
+  .VALUES("Baz", null)
+  .execute()
 
 val nrOfUpdatedRows: Int = (
     UPDATE
@@ -517,9 +525,17 @@ val nrOfDeletedRows: Int = (
 <td style="padding:0; margin:0; border:none; width:50%;">
 
 ```kotlin
+import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
 import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
 import com.siimkinks.sqlitemagic.rxjava3.observe
 ...
+
+// columns left out take their defaults
+val insert: Single<Int> = (INSERT INTO AUTHOR)
+  .COLUMNS(AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
+  .VALUES("Foo", "Bar")
+  .VALUES("Baz", null)
+  .observe()
 
 val update: Single<Int> = (
     UPDATE
@@ -541,6 +557,55 @@ val delete: Single<Int> = (
 </td>
 </tr>
 </table>
+
+Each `VALUES` call adds a row to the same statement. INSERT also takes a list of rows, the rows of a query and, with
+`ON_CONFLICT`, SQLite's UPSERT, which skips a row that conflicts with an existing row or updates the existing row:
+
+```kotlin
+// one row per list element
+(INSERT INTO AUTHOR)
+  .COLUMNS(AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
+  .VALUES(someAuthors.map { Row2(it.firstName, it.lastName) })
+  .execute()
+
+// the rows of a query: copies someAuthor's books to otherAuthor
+val someAuthorsBooks = (
+    SELECT.COLUMNS(BOOK.TITLE, otherAuthor.id.asValue())
+        FROM BOOK
+        WHERE (BOOK.AUTHOR IS someAuthor.id)
+    )
+val nrOfCopiedBooks: Int = (INSERT INTO BOOK)
+  .COLUMNS(BOOK.TITLE, BOOK.AUTHOR)
+  .SELECT(someAuthorsBooks)
+  .execute()
+
+// the ID of the inserted row instead of the count, null when no row was inserted
+val authorId: Long? = (
+    INSERT
+        INTO AUTHOR
+        COLUMNS AUTHOR.LAST_NAME
+        VALUES "Bar"
+    )
+  .readRowId()
+  .execute()
+
+// insert the book, or update the existing book with this ID when its title differs;
+// EXCLUDED is the value that the INSERT proposed
+val nrOfWrittenRows: Int = (INSERT INTO BOOK)
+  .COLUMNS(BOOK.ID, BOOK.TITLE, BOOK.AUTHOR)
+  .VALUES(77L, "Foo", someAuthor.id)
+  .ON_CONFLICT(BOOK.ID)
+  .DO_UPDATE
+  .SET(BOOK.TITLE, BOOK.TITLE.EXCLUDED)
+  .WHERE(BOOK.TITLE.EXCLUDED IS_NOT BOOK.TITLE)
+  .execute()
+```
+
+A statement whose rows all come from empty lists inserts nothing and runs no SQL. `readRowId()` is offered on a
+statement of one row without `DO_UPDATE`. UPSERT (`ON_CONFLICT` with `DO_NOTHING()` or `DO_UPDATE`) needs SQLite
+3.24.0, which the framework driver has from API 30; several `ON_CONFLICT` clauses, and `DO_UPDATE` after
+`ON_CONFLICT()` without columns, need SQLite 3.35.0 (API 34). The bundled driver supports both. The library does not
+check the version: older SQLite rejects the statement with a syntax error.
 
 #### Query Data:
 SqliteMagic ships with its own SQL-first DSL (or Domain Specific Language) that emulates SQL in Kotlin (inspired by

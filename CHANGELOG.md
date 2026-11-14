@@ -8,6 +8,18 @@ Version 3.1.0 _(unreleased)_
   `RowSelection<Row2<Long, String>, Row2<Long, String?>>`. Code that writes the type out, or passes explicit type
   arguments to `SELECT.COLUMNS` or `SELECT.DISTINCT`, needs the new arguments; inferred queries and `mapTo` calls are
   unchanged
+* New: INSERT statements insert rows of the listed columns, and the other columns take their defaults. Each `VALUES`
+  call adds a row to the same statement, a list of `Row1`–`Row9` adds one row per element, `DEFAULT_VALUES()` inserts
+  a row of defaults and `SELECT(query)` inserts the rows of a query. More than nine columns take rows that assign each
+  column by name. `INSERT OR …` sets the conflict algorithm, `readRowId()` returns the row ID of a one-row insert
+  instead of the count, and `INSERT.RAW` runs raw INSERT SQL, as `UPDATE.RAW` and `DELETE.RAW` do
+* New: Native UPSERT: `ON_CONFLICT(columns)` after an INSERT's rows, followed by `DO_NOTHING()` or by `DO_UPDATE`
+  with `SET` and an optional `WHERE`, which read the proposed row through `column.EXCLUDED`. Several `ON_CONFLICT`
+  clauses handle different unique constraints, and `ON_CONFLICT()` handles any unique constraint. UPSERT needs SQLite
+  3.24.0, which the framework driver has from API 30, and several clauses or `DO_UPDATE` after `ON_CONFLICT()` need
+  3.35.0 (API 34); the bundled driver supports both
+* New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
+  inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead
   of failing with `OperationFailedException`, or returning `Ignored` under `CONFLICT_IGNORE`
 
