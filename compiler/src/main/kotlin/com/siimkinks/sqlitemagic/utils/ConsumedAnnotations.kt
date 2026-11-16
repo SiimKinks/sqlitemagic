@@ -8,6 +8,13 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.validate
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
+import com.siimkinks.sqlitemagic.annotation.FullText
+import com.siimkinks.sqlitemagic.annotation.FullTextDetail
+import com.siimkinks.sqlitemagic.annotation.FullTextIndex
+import com.siimkinks.sqlitemagic.annotation.FullTextMatchinfo
+import com.siimkinks.sqlitemagic.annotation.FullTextOrder
+import com.siimkinks.sqlitemagic.annotation.FullTextRole
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
 import com.siimkinks.sqlitemagic.annotation.Index
@@ -24,7 +31,7 @@ import kotlin.reflect.KClass
 
 /** One collection pass owns this cache. */
 internal class ConsumedAnnotations {
-  private val declarations = mutableMapOf<KSAnnotated, Map<String, KSAnnotation>>()
+  private val declarations = mutableMapOf<KSAnnotated, Map<String, List<KSAnnotation>>>()
   private val decoded = mutableMapOf<KSAnnotation, Annotation>()
 
   inline fun <reified T : Annotation> has(symbol: KSAnnotated) = raw(
@@ -35,7 +42,7 @@ internal class ConsumedAnnotations {
   fun raw(
     symbol: KSAnnotated,
     annotationClass: KClass<out Annotation>
-  ) = scan(symbol)[annotationClass.simpleName]
+  ) = scan(symbol)[annotationClass.simpleName]?.first()
 
   fun hasAny(symbol: KSAnnotated) = scan(symbol)
     .isNotEmpty()
@@ -49,7 +56,7 @@ internal class ConsumedAnnotations {
 
   fun hasUnresolvedArguments(symbol: KSAnnotated) = scan(symbol)
     .values
-    .any(KSAnnotation::hasUnresolvedArguments)
+    .any { annotations -> annotations.any(KSAnnotation::hasUnresolvedArguments) }
 
   fun table(symbol: KSAnnotated) = decode(symbol) {
     Table(
@@ -99,14 +106,39 @@ internal class ConsumedAnnotations {
 
   fun rowId(symbol: KSAnnotated) = decode(symbol) { RowId() }
 
+  fun fullTextIndexes(symbol: KSAnnotated) = decodeAll(symbol) {
+    FullTextIndex(
+      value = argument(FullTextIndex::value),
+      version = enumArgument<FullTextVersion>(FullTextIndex::version),
+      tokenize = argument(FullTextIndex::tokenize),
+      prefix = argument<List<*>>(FullTextIndex::prefix)
+        .map { checkNotNull(it) as Int }
+        .toIntArray(),
+      detail = enumArgument<FullTextDetail>(FullTextIndex::detail),
+      columnSize = argument(FullTextIndex::columnSize),
+      matchinfo = enumArgument<FullTextMatchinfo>(FullTextIndex::matchinfo),
+      order = enumArgument<FullTextOrder>(FullTextIndex::order)
+    )
+  }
+
+  fun fullTexts(symbol: KSAnnotated) = decodeAll(symbol) {
+    FullText(
+      index = argument(FullText::index),
+      role = enumArgument<FullTextRole>(FullText::role)
+    )
+  }
+
   private fun scan(symbol: KSAnnotated) = declarations.getOrPut(symbol) {
-    buildMap {
+    buildMap<String, MutableList<KSAnnotation>> {
       val property = symbol.normalizePropertySymbol()
       val backingFieldAnnotations = (property as? KSPropertyDeclaration)?.backingField?.annotations.orEmpty()
       (property.annotations + backingFieldAnnotations).forEach { annotation ->
         val name = annotation.shortName.asString()
         if (name in CONSUMED_ANNOTATION_NAMES) {
-          getOrPut(name) { annotation }
+          getOrPut(
+            key = name,
+            defaultValue = ::mutableListOf
+          ) += annotation
         }
       }
     }
@@ -121,6 +153,13 @@ internal class ConsumedAnnotations {
   )?.let { annotation ->
     decoded.getOrPut(annotation) { annotation.create() } as T
   }
+
+  private inline fun <reified T : Annotation> decodeAll(
+    symbol: KSAnnotated,
+    create: KSAnnotation.() -> T
+  ) = scan(symbol)[T::class.simpleName]
+    ?.map { annotation -> decoded.getOrPut(annotation) { annotation.create() } as T }
+    .orEmpty()
 }
 
 internal val CONSUMED_ANNOTATION_NAMES = listOf(
@@ -128,6 +167,8 @@ internal val CONSUMED_ANNOTATION_NAMES = listOf(
   View::class,
   Column::class,
   Embedded::class,
+  FullText::class,
+  FullTextIndex::class,
   Id::class,
   IgnoreColumn::class,
   Index::class,
@@ -143,6 +184,10 @@ internal fun KSAnnotation.isConsumedAnnotation() = shortName.asString() in CONSU
 
 private inline fun <reified T> KSAnnotation.argument(property: KCallable<*>) =
   checkNotNull(getArgument(property).value) as T
+
+private inline fun <reified T : Enum<T>> KSAnnotation.enumArgument(property: KCallable<*>) = enumValueOf<T>(
+  argument<Any>(property).annotationEnumName()
+)
 
 private inline fun <reified T : Enum<T>> KSAnnotation.enumArguments(
   property: KCallable<*>

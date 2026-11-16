@@ -71,8 +71,10 @@ Other variants' release tasks fail while migration testing is on (the default in
   `SAVEPOINT`, `RELEASE` and `ROLLBACK TO` work.
 - Put data fixes where they apply: `UPDATE … SET column = … WHERE column IS NULL` before the rebuild statements that
   would delete or default those rows, backfills after the column exists.
-- Models cannot declare triggers or virtual (full-text) tables, and release scripts run only on upgrades, never on a
-  fresh install, where the schema comes from the models alone. The library has no supported place for them.
+- Models cannot declare triggers or virtual tables other than full-text indexes, and release scripts run only on
+  upgrades, never on a fresh install, where the schema comes from the models alone. The library has no supported
+  place for them. Migrations do not handle full-text indexes yet, and migration testing and the release migration
+  tasks fail for a schema with one ([models.md](models.md#full-text-indexes)).
 - Edit only release scripts that have not shipped. A shipped script is history; fix forward in the next version.
 - Do not edit `db/` files or debug scripts; they are regenerated.
 

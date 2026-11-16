@@ -14,6 +14,7 @@ internal data class PropertyPath(
 
   val propertyName get() = segments.last()
   val displayName get() = segments.joinToString(separator = ".")
+  val isNested get() = segments.size > 1
 
   fun child(propertyName: String) = PropertyPath(segments + propertyName)
 }

@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.FIELD_TABLE_POSITION
 import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
+import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteSchema
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
@@ -17,7 +18,8 @@ internal data class TableElement(
   val options: Set<TableOption>,
   val construction: ModelConstruction,
   val properties: List<PropertyElement>,
-  val isPublic: Boolean
+  val isPublic: Boolean,
+  val fullTextIndexes: List<FullTextIndexElement> = emptyList()
 ) : ParsedType by parsedType, SqliteSchemaProvider by identity {
   init {
     val expectedSchema = when {

@@ -4,6 +4,7 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
+import com.siimkinks.sqlitemagic.annotation.FullText
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.RowId
 import com.siimkinks.sqlitemagic.annotation.Table
@@ -22,6 +23,7 @@ internal data class CollectedModelShape(
 internal val EXPLICIT_PERSISTENCE_ANNOTATIONS = setOf(
   checkNotNull(Column::class.simpleName),
   checkNotNull(Embedded::class.simpleName),
+  checkNotNull(FullText::class.simpleName),
   checkNotNull(Id::class.simpleName),
   checkNotNull(RowId::class.simpleName)
 )
@@ -86,9 +88,12 @@ internal class ModelShapeCollector(
     )
     val selected = when {
       annotations.embedded != null -> true
-      annotations.ignoreColumn != null && annotations.rowId == null -> false
+      annotations.ignoreColumn != null && annotations.rowId == null && annotations.fullText.isEmpty() -> false
       persistAll -> true
-      else -> annotations.column != null || annotations.id != null || annotations.rowId != null
+      else -> annotations.column != null ||
+          annotations.id != null ||
+          annotations.rowId != null ||
+          annotations.fullText.isNotEmpty()
     }
     if (!selected) return@mapNotNull null
     PropertyRoundElement(

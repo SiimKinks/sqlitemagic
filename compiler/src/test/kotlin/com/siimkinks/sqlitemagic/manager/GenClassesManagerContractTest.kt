@@ -212,7 +212,7 @@ internal class GenClassesManagerContractTest {
           "override val dbName: String? = null",
           "override val submoduleNames: Array<String>?",
           "get() = null",
-          """connection.execSQL("DELETE FROM \"transformed_values\"")""",
+          """connection.execSQL("DELETE FROM main.\"transformed_values\"")""",
           """changedTables.add("transformed_values")"""
         )
         generatedSource.assertContainsUnwrapped(

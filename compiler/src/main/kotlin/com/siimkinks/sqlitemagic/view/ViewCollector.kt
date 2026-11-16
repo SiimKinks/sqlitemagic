@@ -224,6 +224,7 @@ internal class ViewCollector(
       propertyAnnotations.index != null -> "@Index"
       propertyAnnotations.unique != null -> "@Unique"
       propertyAnnotations.rowId != null -> "@RowId"
+      propertyAnnotations.fullText.isNotEmpty() -> "@FullText"
       else -> null
     }
     if (tableOnlyAnnotation != null) {

@@ -25,7 +25,7 @@ Read the reference a task needs, not all of them up front:
 | Task | Reference |
 | --- | --- |
 | Gradle setup, choosing a driver, initialization, connection tuning, multi-module projects, logging | [setup.md](references/setup.md) |
-| Declaring tables, IDs, columns, nullability, defaults, indexes, relationships, embedded values, transformers; what is generated | [models.md](references/models.md) |
+| Declaring tables, IDs, columns, nullability, defaults, indexes, full-text indexes, relationships, embedded values, transformers; what is generated | [models.md](references/models.md) |
 | Saving and deleting objects: insert, update, persist, delete, bulk operations, results, conflicts | [entity-operations.md](references/entity-operations.md) |
 | Reading data: SELECT shapes, result types, clauses, joins, aliases, mapping, subqueries, CTEs, compounds, terminals, parameters | [queries.md](references/queries.md) |
 | Building values and predicates: comparisons, NULL, arithmetic, aggregates, windows, text helpers, CASE/COALESCE, CAST, raw fragments, functions | [expressions.md](references/expressions.md) |

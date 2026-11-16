@@ -3,14 +3,17 @@ package com.siimkinks.sqlitemagic.model
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.siimkinks.sqlitemagic.AnnotationNames.FULL_TEXT_INDEX_ANNOTATION
 import com.siimkinks.sqlitemagic.AnnotationNames.TABLE_ANNOTATION
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.processing.ProcessingStep
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
+import com.siimkinks.sqlitemagic.utils.displayName
 import com.siimkinks.sqlitemagic.utils.validateConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.validateModelMembers
 
@@ -25,11 +28,23 @@ internal class ModelCollectionStep(
     environment.setDeferredTableSourceKeys(
       deferred.filterIsInstance<KSClassDeclaration>()
     )
+    val misplacedFullTextIndexes = resolver
+      .getSymbolsWithAnnotation(FULL_TEXT_INDEX_ANNOTATION)
+      .filterNot { it is KSClassDeclaration && annotations.has<Table>(it) }
+      .onEach { symbol ->
+        environment.logger.error(
+          message = "@FullTextIndex is only valid on a @Table: " +
+              ((symbol as? KSClassDeclaration)?.displayName() ?: symbol.toString()),
+          symbol = symbol
+        )
+      }
+      .toList()
     val isCollectionSuccessful = ModelCollector(
       environment = environment,
       annotations = annotations
     ).collect(declarations)
     return when {
+      misplacedFullTextIndexes.isNotEmpty() -> Failed
       declarations.isNotEmpty() && !isCollectionSuccessful -> Failed
       deferred.isNotEmpty() -> Deferred(deferred)
       else -> Continue

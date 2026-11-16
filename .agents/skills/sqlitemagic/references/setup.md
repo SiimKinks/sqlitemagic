@@ -140,6 +140,8 @@ File databases run in WAL mode with one writer connection and up to four reader 
   commit checkpoints the WAL into the database once it holds about 4 MB.
 - Foreign keys are enforced (`PRAGMA foreign_keys = ON`) when any relationship uses `onDeleteCascade`, recursively
   handled or not.
+- `PRAGMA recursive_triggers = ON` when any table has a full-text index, so replaced rows leave the index
+  ([models.md](models.md#full-text-indexes)).
 - The database is a set of files: `<name>`, `<name>-wal`, `<name>-shm`. Backups and copies must include all three, or
   run `PRAGMA wal_checkpoint(TRUNCATE)` first.
 

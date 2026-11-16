@@ -29,6 +29,7 @@ import com.siimkinks.sqlitemagic.WriterTypes.SQLITE_CONNECTION
 import com.siimkinks.sqlitemagic.WriterTypes.SQL_UTIL
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_ARRAY
 import com.siimkinks.sqlitemagic.WriterTypes.STRING_SCATTER_SET
+import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.model.ColumnElement
@@ -73,7 +74,12 @@ internal class GenClassesManagerWriter(
         .addFunction(applySchemaPragmas())
         .addFunction(createSchemaTables(orderedTables))
         .addFunction(collectGeneratedViews())
-        .addFunction(createSchemaIndexes(orderedTables.sortedIndexes(indices)))
+        .addFunction(
+          createSchemaIndexes(
+            indexes = orderedTables.sortedIndexes(indices),
+            fullTextIndexes = orderedTables.persistent.flatMap(TableElement::fullTextIndexes)
+          )
+        )
         .addFunction(clearTables())
         .addFunction(collectCascadeTables())
         .apply {
@@ -146,6 +152,9 @@ internal class GenClassesManagerWriter(
         if (tables.any(TableElement::hasCascadeDelete)) {
           addStatement("connection.%M(%S)", EXEC_SQL, "PRAGMA foreign_keys = ON")
         }
+        if (tables.any { it.fullTextIndexes.isNotEmpty() }) {
+          addStatement("connection.%M(%S)", EXEC_SQL, "PRAGMA recursive_triggers = ON")
+        }
         submodules.forEach { addStatement("%T.%N(connection)", it.managerClassName, METHOD_APPLY_SCHEMA_PRAGMAS) }
       }
       .build()
@@ -215,7 +224,10 @@ internal class GenClassesManagerWriter(
     }
     .build()
 
-  private fun GeneratedDatabaseElement.createSchemaIndexes(indexes: List<IndexElement>) = indexes
+  private fun GeneratedDatabaseElement.createSchemaIndexes(
+    indexes: List<IndexElement>,
+    fullTextIndexes: List<FullTextIndexElement>
+  ) = indexes
     .partition { it.schema == TEMPORARY }
     .let { (temporaryIndexes, persistentIndexes) ->
       schemaPartFunction(
@@ -224,22 +236,34 @@ internal class GenClassesManagerWriter(
       )
         .addSchemaBranches(
           temporary = temporaryIndexes.map(::createIndex),
-          persistent = persistentIndexes.map(::createIndex)
+          persistent = persistentIndexes.map(::createIndex) + fullTextIndexes
+            .flatMap(FullTextIndexElement::createSql)
+            .map(::execSql)
         )
         .build()
     }
 
-  private fun createIndex(index: IndexElement) = CodeBlock.of("connection.%M(%S)", EXEC_SQL, index.createSql())
+  private fun createIndex(index: IndexElement) = execSql(index.createSql())
+
+  private fun execSql(sql: String) = CodeBlock.of("connection.%M(%S)", EXEC_SQL, sql)
 
   private fun GeneratedDatabaseElement.clearTables() = schemaPartFunction(
     name = METHOD_CLEAR_TABLES,
     parameters = listOf(CONNECTION_PARAMETER, ParameterSpec(name = "changedTables", type = STRING_SCATTER_SET))
   )
     .apply {
+      val fullTextIndexes = tables.flatMap(TableElement::fullTextIndexes)
+      fullTextIndexes
+        .flatMap(FullTextIndexElement::dropTriggerSql)
+        .forEach { addStatement("%L", execSql(it)) }
       tables.forEach { table ->
-        addStatement("connection.%M(%S)", EXEC_SQL, "DELETE FROM ${quoteSqlIdentifier(table.tableName)}")
+        addStatement("%L", execSql("DELETE FROM ${table.schema.qualifier}.${quoteSqlIdentifier(table.tableName)}"))
         addStatement("changedTables.add(%S)", table.tableName)
       }
+      fullTextIndexes.forEach { addStatement("%L", execSql(it.deleteAllSql)) }
+      fullTextIndexes
+        .flatMap(FullTextIndexElement::createTriggerSql)
+        .forEach { addStatement("%L", execSql(it)) }
     }
     .build()
 

@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.schema
 
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.fulltext.fullTextSchemaOwners
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifierProvider
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
@@ -63,14 +64,7 @@ internal class CollectionObjectValidationRegistry {
   val artifactStemRegistry = ArtifactStemRegistry()
 
   fun registerTable(table: TableElement) {
-    schemaIdentityRegistry.register(
-      SchemaIdentityOwner(
-        kind = "table",
-        rawName = table.tableName,
-        identity = table.identity,
-        typeKey = table.typeKey
-      )
-    )
+    table.schemaIdentityOwners().forEach(schemaIdentityRegistry::register)
     artifactStemRegistry.register(
       ArtifactStemOwner(
         typeKey = table.typeKey,
@@ -81,14 +75,7 @@ internal class CollectionObjectValidationRegistry {
   }
 
   fun unregisterTable(table: TableElement) {
-    schemaIdentityRegistry.unregister(
-      SchemaIdentityOwner(
-        kind = "table",
-        rawName = table.tableName,
-        identity = table.identity,
-        typeKey = table.typeKey
-      )
-    )
+    table.schemaIdentityOwners().forEach(schemaIdentityRegistry::unregister)
     artifactStemRegistry.unregister(
       ArtifactStemOwner(
         typeKey = table.typeKey,
@@ -159,6 +146,21 @@ internal class CollectionObjectValidationRegistry {
       )
     )
   }
+}
+
+private fun TableElement.schemaIdentityOwners() = listOf(
+  SchemaIdentityOwner(
+    kind = "table",
+    rawName = tableName,
+    identity = identity,
+    typeKey = typeKey
+  )
+) + fullTextIndexes.flatMap { index ->
+  fullTextSchemaOwners(
+    name = index.name,
+    columnSize = index.columnSize,
+    typeKey = typeKey
+  )
 }
 
 internal enum class SqliteIdentifierProblem {

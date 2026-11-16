@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
+import com.siimkinks.sqlitemagic.annotation.FullText
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
@@ -73,7 +74,8 @@ internal data class ColumnElement(
   val isUnique: Boolean,
   val index: FieldIndexElement?,
   val belongsToIndex: String?,
-  val isRowId: Boolean = false
+  val isRowId: Boolean = false,
+  val fullText: List<FullText> = emptyList()
 ) : PropertyMetadata {
   init {
     require(transformer == null || relationship == null) {

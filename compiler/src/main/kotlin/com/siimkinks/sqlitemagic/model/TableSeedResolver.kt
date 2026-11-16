@@ -50,10 +50,16 @@ internal class TableSeedResolver(
         construction = seed.construction,
         properties = properties,
         isPublic = seed.isPublic
-      ).also {
+      ).let { table ->
         validateTableColumns(
-          table = it,
+          table = table,
           seed = seed
+        )
+        table.copy(
+          fullTextIndexes = FullTextIndexResolver(reporter).resolve(
+            seed = seed,
+            table = table
+          )
         )
       }
     }
@@ -189,7 +195,8 @@ internal class TableSeedResolver(
       isUnique = seed.isUnique,
       index = seed.index,
       belongsToIndex = seed.belongsToIndex,
-      isRowId = seed.isRowId
+      isRowId = seed.isRowId,
+      fullText = seed.fullText
     )
   }
 

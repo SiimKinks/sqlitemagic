@@ -7,6 +7,7 @@ import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
+import com.siimkinks.sqlitemagic.annotation.FullText
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
 import com.siimkinks.sqlitemagic.annotation.Index
@@ -52,6 +53,7 @@ internal data class PropertyRoundAnnotations(
   val index: Index?,
   val unique: Unique?,
   val rowId: RowId?,
+  val fullText: List<FullText>
 ) {
   companion object {
     internal fun from(
@@ -68,7 +70,8 @@ internal data class PropertyRoundAnnotations(
         ignoreColumn = ignoreColumn(symbol),
         index = index(symbol),
         unique = unique(symbol),
-        rowId = rowId(symbol)
+        rowId = rowId(symbol),
+        fullText = fullTexts(symbol)
       )
     }
   }

@@ -2,6 +2,8 @@ package com.siimkinks.sqlitemagic.model
 
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.siimkinks.sqlitemagic.annotation.FullText
+import com.siimkinks.sqlitemagic.annotation.FullTextIndex
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.element.TypeKey
@@ -29,7 +31,8 @@ internal data class ColumnSeed(
   val isUnique: Boolean,
   val index: FieldIndexElement?,
   val belongsToIndex: String?,
-  val isRowId: Boolean
+  val isRowId: Boolean,
+  val fullText: List<FullText>
 ) : PropertySeed
 
 internal data class EmbeddedSeed(
@@ -47,6 +50,7 @@ internal data class TableSeed(
   val declarationOrder: Int,
   val options: Set<TableOption>,
   val uniqueCompositeIndexName: String?,
+  val fullTextIndexes: List<FullTextIndex>,
   val construction: ModelConstruction,
   val propertySeeds: List<PropertySeed>,
   val isPublic: Boolean

@@ -5,19 +5,29 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.Environment
 import com.siimkinks.sqlitemagic.SqlStorageType.LONG
 import com.siimkinks.sqlitemagic.annotation.Embedded
+import com.siimkinks.sqlitemagic.annotation.FullTextIndex
 import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.element.toParsedType
+import com.siimkinks.sqlitemagic.fulltext.fullTextIndexIdentity
+import com.siimkinks.sqlitemagic.fulltext.fullTextIndexName
+import com.siimkinks.sqlitemagic.fulltext.fullTextSchemaOwners
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.model.ModelKind.EMBEDDED
 import com.siimkinks.sqlitemagic.model.ModelKind.TABLE
 import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
+import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
+import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
+import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
 import com.siimkinks.sqlitemagic.utils.displayName
@@ -47,6 +57,7 @@ internal class ModelCollector(
     }
     val validation = environment.collectionObjectValidationRegistry
     validateTableNames(validation)
+    validateFullTextIndexNames(validation)
     validateArtifactStems(validation)
     if (reporter.hasErrors) return false
 
@@ -163,6 +174,7 @@ internal class ModelCollector(
         .index(declaration)
         ?.takeIf(Index::unique)
         ?.value,
+      fullTextIndexes = annotations.fullTextIndexes(declaration),
       construction = shape.construction,
       propertySeeds = logicalProperties,
       isPublic = declaration.isEffectivelyPublic()
@@ -199,6 +211,13 @@ internal class ModelCollector(
       diagnosticPath = "$tableDisplayName.${propertyPath.displayName}"
     )
     if (isInvalidRowId) return null
+    if (propertyAnnotations.fullText.isNotEmpty() && propertyAnnotations.ignoreColumn != null) {
+      reporter.error(
+        message = "@FullText cannot be combined with @IgnoreColumn: $tableDisplayName.${propertyPath.displayName}",
+        symbol = property.sourceDeclaration
+      )
+      return null
+    }
     val transformer = environment.transformerElements[property.typeKey]
     val relationshipTypeKey = property.typeKey.takeIf { typeKey ->
       transformer == null && (
@@ -252,7 +271,8 @@ internal class ModelCollector(
       belongsToIndex = columnAnnotation
         ?.belongsToIndex
         ?.takeIf(String::isNotEmpty),
-      isRowId = isRowId
+      isRowId = isRowId,
+      fullText = propertyAnnotations.fullText
     )
   }
 
@@ -288,7 +308,8 @@ internal class ModelCollector(
     embeddedAnnotation: Embedded
   ): PropertySeed? {
     val conflictingAnnotation = property.annotations.run {
-      column != null || id != null || ignoreColumn != null || index != null || unique != null || rowId != null
+      column != null || id != null || ignoreColumn != null || index != null || unique != null || rowId != null ||
+          fullText.isNotEmpty()
     }
     if (conflictingAnnotation) {
       reporter.error(
@@ -464,6 +485,58 @@ internal class ModelCollector(
       }
   }
 
+  private fun validateFullTextIndexNames(validation: CollectionObjectValidationRegistry) {
+    val accepted = validation.schemaIdentityRegistry
+    val owners = mutableMapOf<SqliteSchemaKey, SchemaIdentityOwner>()
+    tableSeeds.values.forEach { seed ->
+      owners.getOrPut(seed.normalizedKey) {
+        SchemaIdentityOwner(
+          kind = "table",
+          rawName = seed.tableName,
+          identity = seed.identity,
+          typeKey = seed.typeKey
+        )
+      }
+    }
+    for (seed in tableSeeds.values) {
+      val indexes = seed.fullTextIndexes.distinctBy { index ->
+        fullTextIndexIdentity(index.name(seed)).normalizedKey
+      }
+      for (index in indexes) {
+        val name = index.name(seed)
+        val problem = when (fullTextIndexIdentity(name).sqliteIdentifierProblem()) {
+          LINE_BREAK -> "must not contain line breaks"
+          NUL -> "must not contain NUL characters"
+          RESERVED_PREFIX -> "is reserved"
+          null -> null
+        }
+        if (problem != null) {
+          reporter.error(
+            message = "Full-text index name '$name' $problem: ${seed.qualifiedName}",
+            symbol = seed.classDeclaration
+          )
+          continue
+        }
+        fullTextSchemaOwners(
+          name = name,
+          columnSize = index.columnSize,
+          typeKey = seed.typeKey
+        ).forEach { owner ->
+          val key = owner.normalizedKey
+          val existing = owners[key] ?: accepted.lookup(key)?.takeIf { it.typeKey != seed.typeKey }
+          when (existing) {
+            null -> owners[key] = owner
+            else -> reporter.error(
+              message = "${owner.kind.replaceFirstChar(Char::uppercaseChar)} name '${owner.rawName}' " +
+                  "conflicts with ${existing.kind} name '${existing.rawName}': ${seed.qualifiedName}",
+              symbol = seed.classDeclaration
+            )
+          }
+        }
+      }
+    }
+  }
+
   private fun validateRelationshipCycles(tables: List<TableElement>) {
     val finder = StrongComponentsFinder(environment.tableElements.values + tables)
     if (finder.hasStrongComponents) {
@@ -498,3 +571,8 @@ private fun PropertySeed.sourceProperties(): Sequence<Pair<PropertyPath, KSPrope
     .asSequence()
     .flatMap(PropertySeed::sourceProperties)
 }
+
+private fun FullTextIndex.name(seed: TableSeed) = fullTextIndexName(
+  tableName = seed.tableName,
+  value = value
+)

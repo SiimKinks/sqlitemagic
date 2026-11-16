@@ -155,8 +155,9 @@ object SqliteMagic {
      *
      * The configuration runs on every connection before the database schema is created or upgraded. It runs after
      * the library's connection defaults, so its settings take precedence over them. The settings the library needs
-     * are applied after it: `journal_mode = WAL` with reader connections, `query_only` on reader connections and
-     * `foreign_keys = ON` for schemas with cascading deletes.
+     * are applied after it: `journal_mode = WAL` with reader connections, `query_only` on reader connections,
+     * `foreign_keys = ON` for schemas with cascading deletes and `recursive_triggers = ON` for schemas with full-text
+     * indexes.
      *
      * Example:
      * ```

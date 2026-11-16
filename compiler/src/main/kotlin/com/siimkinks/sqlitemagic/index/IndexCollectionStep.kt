@@ -296,12 +296,8 @@ internal class IndexCollectionStep(
           symbol = candidate.symbol
         )
         null -> when {
-          owner?.kind == "table" -> reporter.error(
-            message = "Index name '${index.name}' conflicts with table name '${owner.rawName}'",
-            symbol = candidate.symbol
-          )
-          owner?.kind == "view" -> reporter.error(
-            message = "Index name '${index.name}' conflicts with view name '${owner.rawName}'",
+          owner != null && owner.kind != "index" -> reporter.error(
+            message = "Index name '${index.name}' conflicts with ${owner.kind} name '${owner.rawName}'",
             symbol = candidate.symbol
           )
           accepted[index.normalizedKey] == index -> Unit

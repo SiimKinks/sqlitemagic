@@ -357,5 +357,5 @@ DELETE.RAW("DELETE FROM book WHERE author = ? AND pages < ?", authorId, 10)
 | UPSERT on a partial index or an expression (`ON CONFLICT (x) WHERE …`) | raw INSERT |
 | Recursive CTE, reading a `PRAGMA` | raw SELECT |
 | `ATTACH`, setting a `PRAGMA` | `configureConnection`, which runs on every connection; a raw statement reaches one connection only |
-| DDL (tables, indexes, triggers) | models and annotations; triggers and virtual tables are not supported ([migrations.md](migrations.md)) |
+| DDL (tables, indexes, triggers) | models and annotations; full-text indexes with `@FullTextIndex` ([models.md](models.md#full-text-indexes)); other triggers and virtual tables are not supported ([migrations.md](migrations.md)) |
 | `UPDATE … FROM`, `NULLS FIRST/LAST`, named windows | subqueries, `CASE` in `ORDER_BY`, or raw SQL |

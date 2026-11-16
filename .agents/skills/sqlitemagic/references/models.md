@@ -12,6 +12,7 @@ Views are in [views.md](views.md).
 - [Relationships](#relationships)
 - [Embedded values](#embedded-values)
 - [Unique columns and indexes](#unique-columns-and-indexes)
+- [Full-text indexes](#full-text-indexes)
 - [Generated code](#generated-code)
 
 ## Tables
@@ -251,6 +252,51 @@ data class Book(
   val title: String
 )
 ```
+
+## Full-text indexes
+
+`@FullTextIndex` on a `@Table` and `@FullText` on each column to search declare an SQLite FTS5 index. The library
+creates it with the schema as an external-content FTS table named `<table>_fts`, which reads the text from the table,
+and keeps it in sync with generated triggers; the application writes only the table.
+
+```kotlin
+@Table
+@FullTextIndex(tokenize = "porter unicode61")
+data class Article(
+  @Id val id: Long? = null,
+  @FullText val title: String,
+  @FullText val body: String,
+  val author: String
+)
+```
+
+- The table needs a stable row ID: an `@Id` stored as `INTEGER`, or `@RowId val rowId: Long? = null` beside a text
+  or other non-INTEGER `@Id`. `TEMPORARY` and `WITHOUT_ROWID` tables cannot have one.
+- Any persisted column can be indexed, including embedded and transformed columns (indexed in their stored form);
+  `@FullText` alone persists a property under `persistAll = false`. Columns follow property declaration order.
+- All but one of a table's indexes need a name: `@FullTextIndex("article_titles")` and
+  `@FullText("article_titles")`; a property can belong to several.
+- `@FullText` inside an embedded value joins an index only in tables that declare it, so one embedded type can serve
+  tables with and without that index. On a table's own property, `@FullText` of an undeclared index is a compile
+  error.
+- Options: `tokenize` (`unicode61` by default, `porter unicode61` for English stemming), `prefix = [2, 3]` (prefix
+  indexes for prefix queries), `detail = FullTextDetail.COLUMN` or `NONE` (smaller index; phrase and `NEAR` queries
+  fail, with `NONE` column filters too), `columnSize = false` (no stored token counts), and
+  `@FullText(role = FullTextRole.UNINDEXED)` for a column stored in the FTS table but not searched. SQLite reports an
+  invalid tokenizer when the schema is created.
+- FTS5 needs the bundled driver: the framework driver has no FTS5 module, and opening the database fails with
+  `no such module: fts5`. `version = FullTextVersion.FTS4` and the FTS4 options (`matchinfo`, `order`,
+  `FullTextRole.LANGUAGE_ID`) are compile errors for now.
+- Indexed columns cannot be named `rank`, `rowid` or like the index.
+- A schema with a full-text index runs every library connection with `PRAGMA recursive_triggers = ON`, so rows that
+  `CONFLICT_REPLACE` replaces leave the index. Connections the library did not open (the `sqlite3` shell, Database
+  Inspector) run without it.
+- Entity updates re-index a row only when its row ID or an indexed column changed.
+- The DSL does not search the index; query it with raw SQL ([statements.md](statements.md#raw-select)):
+  `SELECT rowid FROM article_fts WHERE article_fts MATCH ?`.
+- Migrations do not handle full-text indexes: an upgrade does not create an index added to an existing table, and a
+  rebuild of an indexed table drops its triggers. Only fresh installs get a working index. Migration testing (on by
+  default) and the release migration tasks fail for a schema with a full-text index.
 
 ## Generated code
 

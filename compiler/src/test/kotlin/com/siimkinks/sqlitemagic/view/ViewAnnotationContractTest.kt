@@ -91,7 +91,7 @@ internal class ViewAnnotationContractTest {
   }
 
   @ParameterizedTest(name = "{0}")
-  @ValueSource(strings = ["Column", "Id", "Index", "Unique", "RowId"])
+  @ValueSource(strings = ["Column", "Id", "Index", "Unique", "RowId", "FullText"])
   fun `rejects table-only annotations on view properties`(annotation: String) {
     compiler
       .compile(

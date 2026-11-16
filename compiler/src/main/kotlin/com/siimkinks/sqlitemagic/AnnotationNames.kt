@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Database
+import com.siimkinks.sqlitemagic.annotation.FullTextIndex
 import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.SubmoduleDatabase
 import com.siimkinks.sqlitemagic.annotation.Table
@@ -20,4 +21,5 @@ internal object AnnotationNames {
   val VIEW_ANNOTATION = View::class.qualifiedName!!
   val VIEW_QUERY_ANNOTATION = ViewQuery::class.qualifiedName!!
   val INDEX_ANNOTATION = Index::class.qualifiedName!!
+  val FULL_TEXT_INDEX_ANNOTATION = FullTextIndex::class.qualifiedName!!
 }

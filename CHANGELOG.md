@@ -22,10 +22,17 @@ Version 3.1.0 _(unreleased)_
   it becomes the `INTEGER PRIMARY KEY`, so `VACUUM` and a dump and restore keep it, and the `@Id` is stored as
   `UNIQUE` and stays the entity key. SQLite assigns it on insert; entity operations never write it. Adding or removing
   it migrates the table and keeps the row IDs of a table that stays a rowid table
+* New: `@FullTextIndex` on a table and `@FullText` on its columns declare an SQLite FTS5 full-text index. The schema
+  creates it as an external-content FTS table that generated triggers keep in sync with the table, and `clearData`
+  empties it. Options set the tokenizer, prefix indexes, `detail`, stored column sizes and unindexed columns. A schema
+  with a full-text index runs its connections with `PRAGMA recursive_triggers = ON`, so rows replaced by
+  `CONFLICT_REPLACE` leave the index. FTS5 needs the bundled driver
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead
   of failing with `OperationFailedException`, or returning `Ignored` under `CONFLICT_IGNORE`
+* Fix: `clearData` clears a table that shares its name with a temporary table, instead of clearing only the temporary
+  table
 
 Version 3.0.0 _(2026-11-09)_
 ---------------------------------
