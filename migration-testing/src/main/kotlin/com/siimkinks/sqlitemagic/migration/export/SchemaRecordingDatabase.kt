@@ -10,11 +10,14 @@ import kotlin.text.RegexOption.IGNORE_CASE
 
 internal class SchemaRecordingDatabase : SQLiteConnection {
   private var foreignKeysEnabled = false
+  private var recursiveTriggersEnabled = false
   private var transactionActive = false
   private var transactionFailed = false
   val tableSql: List<String> field = mutableListOf()
   val views: List<MigrationViewSchema> field = mutableListOf()
   val indexSql: List<String> field = mutableListOf()
+  val virtualTableSql: List<String> field = mutableListOf()
+  val triggerSql: List<String> field = mutableListOf()
   val transactionEvents: List<String> field = mutableListOf()
 
   override fun prepare(sql: String): SQLiteStatement = RecordedStatement(sql)
@@ -30,6 +33,10 @@ internal class SchemaRecordingDatabase : SQLiteConnection {
       FOREIGN_KEYS.matches(sql) -> {
         check(!transactionActive) { "Schema configuration must precede its transaction" }
         foreignKeysEnabled = true
+      }
+      RECURSIVE_TRIGGERS.matches(sql) -> {
+        check(!transactionActive) { "Schema configuration must precede its transaction" }
+        recursiveTriggersEnabled = true
       }
       BEGIN.matches(sql) -> {
         check(!transactionActive) { "Nested schema transactions are unsupported" }
@@ -69,10 +76,15 @@ internal class SchemaRecordingDatabase : SQLiteConnection {
       releaseVariant = releaseVariant,
       version = version,
       modules = modules,
-      configuration = MigrationConfiguration(foreignKeysEnabled),
+      configuration = MigrationConfiguration(
+        foreignKeysEnabled = foreignKeysEnabled,
+        recursiveTriggersEnabled = recursiveTriggersEnabled
+      ),
       tableSql = tableSql.toList(),
       views = views.toList(),
-      indexSql = indexSql.toList()
+      indexSql = indexSql.toList(),
+      virtualTableSql = virtualTableSql.toList(),
+      triggerSql = triggerSql.toList()
     )
   }
 
@@ -81,6 +93,8 @@ internal class SchemaRecordingDatabase : SQLiteConnection {
       TABLE.matches(sql) -> tableSql.add(sql)
       VIEW.matches(sql) -> views.add(parseGeneratedViewSql(sql))
       INDEX.matches(sql) -> indexSql.add(sql)
+      VIRTUAL_TABLE.matches(sql) -> virtualTableSql.add(sql)
+      TRIGGER.matches(sql) -> triggerSql.add(sql)
       else -> error("Unsupported persistent generated schema SQL: $sql")
     }
   }
@@ -89,6 +103,10 @@ internal class SchemaRecordingDatabase : SQLiteConnection {
     val OPTIONS = setOf(IGNORE_CASE, DOT_MATCHES_ALL)
     val FOREIGN_KEYS = Regex(
       pattern = """\s*PRAGMA\s+foreign_keys\s*=\s*ON\s*""",
+      options = OPTIONS
+    )
+    val RECURSIVE_TRIGGERS = Regex(
+      pattern = """\s*PRAGMA\s+recursive_triggers\s*=\s*ON\s*""",
       options = OPTIONS
     )
     val BEGIN = Regex(
@@ -113,6 +131,14 @@ internal class SchemaRecordingDatabase : SQLiteConnection {
     )
     val INDEX = Regex(
       pattern = """\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+.+""",
+      options = OPTIONS
+    )
+    val VIRTUAL_TABLE = Regex(
+      pattern = """\s*CREATE\s+VIRTUAL\s+TABLE\s+.+""",
+      options = OPTIONS
+    )
+    val TRIGGER = Regex(
+      pattern = """\s*CREATE\s+TRIGGER\s+.+""",
       options = OPTIONS
     )
   }

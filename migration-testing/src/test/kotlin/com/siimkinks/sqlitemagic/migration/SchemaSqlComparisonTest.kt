@@ -70,6 +70,57 @@ internal class SchemaSqlComparisonTest {
   }
 
   @Test
+  fun `schemas compare their table, index, virtual table and trigger SQL only`() {
+    val snapshot = ReleaseSchemaSnapshot(
+      formatVersion = 1,
+      databaseId = "app",
+      releaseVariant = "release",
+      version = 2,
+      modules = listOf("app"),
+      configuration = MigrationConfiguration(foreignKeysEnabled = false),
+      tableSql = listOf("""CREATE TABLE "note" ("id" INTEGER PRIMARY KEY, "body" TEXT)"""),
+      views = emptyList(),
+      indexSql = listOf("""CREATE INDEX "note_body" ON "note" ("body")"""),
+      virtualTableSql = listOf("""CREATE VIRTUAL TABLE "note_fts" USING fts5("body")"""),
+      triggerSql = listOf("""CREATE TRIGGER "note_fts_ai" AFTER INSERT ON "note" BEGIN SELECT 1; END""")
+    )
+    val cases = mapOf(
+      "reformatted SQL" to snapshot.copy(
+        tableSql = listOf("CREATE TABLE note (id INTEGER PRIMARY KEY, body TEXT)"),
+        triggerSql = listOf("CREATE TRIGGER note_fts_ai AFTER INSERT ON note BEGIN SELECT 1; END")
+      ),
+      "other version and configuration" to snapshot.copy(
+        version = 3,
+        configuration = MigrationConfiguration(foreignKeysEnabled = true)
+      ),
+      "different table" to snapshot.copy(tableSql = listOf("""CREATE TABLE "note" ("id" INTEGER PRIMARY KEY)""")),
+      "different index" to snapshot.copy(indexSql = emptyList()),
+      "different virtual table" to snapshot.copy(
+        virtualTableSql = listOf("""CREATE VIRTUAL TABLE "note_fts" USING fts5("title")""")
+      ),
+      "different trigger" to snapshot.copy(triggerSql = emptyList())
+    )
+
+    assertThat(
+      cases.mapValues { (_, other) ->
+        SchemaSqlComparison.sameSchema(
+          first = snapshot,
+          second = other
+        )
+      }
+    ).isEqualTo(
+      mapOf(
+        "reformatted SQL" to true,
+        "other version and configuration" to true,
+        "different table" to false,
+        "different index" to false,
+        "different virtual table" to false,
+        "different trigger" to false
+      )
+    )
+  }
+
+  @Test
   fun `keys replace identifiers once and keep unreadable SQL as written`() {
     val cases = mapOf(
       "renamed identifiers" to SchemaSqlComparison.key(

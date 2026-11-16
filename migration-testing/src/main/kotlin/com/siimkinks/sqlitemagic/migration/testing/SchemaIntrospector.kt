@@ -3,7 +3,19 @@ package com.siimkinks.sqlitemagic.migration.testing
 import androidx.sqlite.SQLiteConnection
 
 internal data class InspectedSchema(
-  val tables: Map<String, InspectedTable>
+  val tables: Map<String, InspectedTable>,
+  val virtualTables: Map<String, InspectedVirtualTable> = emptyMap(),
+  val triggers: Map<String, InspectedTrigger> = emptyMap()
+)
+
+internal data class InspectedVirtualTable(
+  val module: String,
+  val definition: String
+)
+
+internal data class InspectedTrigger(
+  val table: String,
+  val definition: String
 )
 
 internal data class InspectedTable(
@@ -58,7 +70,7 @@ internal object SchemaIntrospector {
   fun inspect(connection: SQLiteConnection): InspectedSchema {
     val objects = query(
       connection = connection,
-      sql = "SELECT type, name, tbl_name, sql FROM main.sqlite_schema WHERE type IN ('table', 'index')"
+      sql = "SELECT type, name, tbl_name, sql FROM main.sqlite_schema WHERE type IN ('table', 'index', 'trigger')"
     ).filter { it.text("name").isApplicationObject() }
     val tableList = query(
       connection = connection,
@@ -68,13 +80,18 @@ internal object SchemaIntrospector {
       condition = tableList.isNotEmpty() && tableList.all { "wr" in it && "strict" in it },
       message = "SQLite driver lacks required PRAGMA table_list capabilities"
     )
-    val tableObjects = objects.filter { it.text("type") == "table" }
+    val tableKinds = tableList
+      .filter { it["schema"] == "main" }
+      .associate { it.text("name") to it.text("type") }
+    val (virtualTableObjects, tableObjects) = objects
+      .filter { it.text("type") == "table" && tableKinds[it.text("name")] != "shadow" }
+      .partition { tableKinds[it.text("name")] == "virtual" }
     val rawColumns = tableObjects
       .associate { objectRow ->
         val name = objectRow.text("name")
         name.sqliteIdentifier() to query(
           connection = connection,
-          sql = "PRAGMA main.table_xinfo(${identifier(name)})"
+          sql = "PRAGMA main.table_xinfo(${quotedSqlIdentifier(name)})"
         )
       }
     val tables = tableObjects
@@ -117,7 +134,7 @@ internal object SchemaIntrospector {
           }
         val indices = query(
           connection = connection,
-          sql = "PRAGMA main.index_list(${identifier(name)})"
+          sql = "PRAGMA main.index_list(${quotedSqlIdentifier(name)})"
         )
           .map { index ->
             inspectIndex(
@@ -145,7 +162,7 @@ internal object SchemaIntrospector {
           ?.name
         val foreignKeys = query(
           connection = connection,
-          sql = "PRAGMA main.foreign_key_list(${identifier(name)})"
+          sql = "PRAGMA main.foreign_key_list(${quotedSqlIdentifier(name)})"
         )
           .map(::inspectForeignKey)
           .groupBy(ForeignKeyRow::id)
@@ -170,7 +187,34 @@ internal object SchemaIntrospector {
           indices = indices
         )
       }
-    return InspectedSchema(tables)
+    val virtualTables = virtualTableObjects
+      .sortedBy { it.text("name") }
+      .associate { objectRow ->
+        val tokens = SchemaSql.tokens(objectRow.text("sql"))
+        val using = tokens.indexOfFirst { !it.quotedIdentifier && it.word == "using" }
+        requireInspection(
+          condition = using >= 0 && using + 1 < tokens.size,
+          message = "Virtual table ${objectRow.text("name")} has no module"
+        )
+        objectRow.text("name").sqliteIdentifier() to InspectedVirtualTable(
+          module = tokens[using + 1].word,
+          definition = SchemaSql.identifierCanonical(tokens)
+        )
+      }
+    val triggers = objects
+      .filter { it.text("type") == "trigger" }
+      .sortedBy { it.text("name") }
+      .associate { objectRow ->
+        objectRow.text("name").sqliteIdentifier() to InspectedTrigger(
+          table = objectRow.text("tbl_name").sqliteIdentifier(),
+          definition = SchemaSql.identifierCanonical(SchemaSql.tokens(objectRow.text("sql")))
+        )
+      }
+    return InspectedSchema(
+      tables = tables,
+      virtualTables = virtualTables,
+      triggers = triggers
+    )
   }
 
   private fun inspectIndex(
@@ -187,7 +231,7 @@ internal object SchemaIntrospector {
     val origin = index.text("origin")
     val columns = query(
       connection = connection,
-      sql = "PRAGMA main.index_xinfo(${identifier(name)})"
+      sql = "PRAGMA main.index_xinfo(${quotedSqlIdentifier(name)})"
     )
       .map { column ->
         requireInspection(
@@ -261,11 +305,6 @@ internal object SchemaIntrospector {
       sql = sql
     )
     .records()
-
-  private fun identifier(value: String) = "\"" + value.replace(
-    oldValue = "\"",
-    newValue = "\"\""
-  ) + "\""
 
   private fun String.isApplicationObject() = !startsWith("sqlite_") && this != "android_metadata"
 

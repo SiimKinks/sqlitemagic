@@ -248,6 +248,7 @@ object ReleaseMigrationCoordinator {
     val temporaryIndices = linkedMapOf<String, IndexStructure>()
     val views = linkedMapOf<String, ViewStructure>()
     val temporaryViews = linkedMapOf<String, ViewStructure>()
+    val fullTextIndices = linkedMapOf<String, FullTextIndexStructure>()
     structures.forEach { (_, structure) ->
       tables.putAll(structure.tables)
       indices.putAll(structure.indices)
@@ -255,6 +256,7 @@ object ReleaseMigrationCoordinator {
       temporaryIndices.putAll(structure.temporaryIndices)
       views.putAll(structure.views)
       temporaryViews.putAll(structure.temporaryViews)
+      fullTextIndices.putAll(structure.fullTextIndices)
     }
     return DatabaseStructure(
       tables = tables,
@@ -262,7 +264,8 @@ object ReleaseMigrationCoordinator {
       temporaryTables = temporaryTables,
       temporaryIndices = temporaryIndices,
       views = views,
-      temporaryViews = temporaryViews
+      temporaryViews = temporaryViews,
+      fullTextIndices = fullTextIndices
     )
   }
 

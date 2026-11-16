@@ -30,10 +30,22 @@ internal data class FullTextIndexElement(
   val columnSize: Boolean
 ) : SqliteSchemaProvider by identity {
   val name get() = rawName
-  val createSql get() = listOf(virtualTableSql()) + createTriggerSql
+  val createSql get() = listOf(createTableSql) + createTriggerSql
+  val createTriggerSql get() = triggerSqlByName.values.toList()
+  val dropTriggerSql get() = triggerSqlByName.keys.map(::dropFullTextTriggerSql)
+  val deleteAllSql
+    get() = fullTextCommandSql(
+      name = name,
+      command = "delete-all"
+    )
+  val shadowTableNames
+    get() = fullTextShadowTableNames(
+      name = name,
+      columnSize = columnSize
+    )
 
-  val createTriggerSql
-    get() = listOf(
+  val triggerSqlByName
+    get() = mapOf(
       trigger(
         suffix = INSERT_TRIGGER_SUFFIX,
         event = "AFTER INSERT",
@@ -52,42 +64,35 @@ internal data class FullTextIndexElement(
       )
     )
 
-  val dropTriggerSql
-    get() = listOf(INSERT_TRIGGER_SUFFIX, DELETE_TRIGGER_SUFFIX, UPDATE_TRIGGER_SUFFIX).map { suffix ->
-      "DROP TRIGGER IF EXISTS ${qualified(name + suffix)}"
+  val createTableSql: String
+    get() {
+      val definitions = columns.map { column ->
+        when (column.role) {
+          UNINDEXED -> "${quoteSqlIdentifier(column.columnName)} UNINDEXED"
+          else -> quoteSqlIdentifier(column.columnName)
+        }
+      } + listOfNotNull(
+        "content=${sqlString(tableName)}",
+        "content_rowid=${sqlString(rowIdColumnName)}",
+        tokenize
+          .takeIf(String::isNotEmpty)
+          ?.let { "tokenize=${sqlString(it)}" },
+        prefix
+          .takeIf(List<Int>::isNotEmpty)
+          ?.let { "prefix=${sqlString(it.joinToString(separator = " "))}" },
+        "detail=${detail.name.lowercase(Locale.ROOT)}".takeIf { detail != FULL },
+        "columnsize=0".takeUnless { columnSize }
+      )
+      return "CREATE VIRTUAL TABLE IF NOT EXISTS ${mainQualified(name)} USING fts5(${definitions.joinToString()})"
     }
-
-  val deleteAllSql get() = "INSERT INTO ${qualified(name)}(${quoteSqlIdentifier(name)}) VALUES ('delete-all')"
-
-  private fun virtualTableSql(): String {
-    val definitions = columns.map { column ->
-      when (column.role) {
-        UNINDEXED -> "${quoteSqlIdentifier(column.columnName)} UNINDEXED"
-        else -> quoteSqlIdentifier(column.columnName)
-      }
-    } + listOfNotNull(
-      "content=${sqlString(tableName)}",
-      "content_rowid=${sqlString(rowIdColumnName)}",
-      tokenize
-        .takeIf(String::isNotEmpty)
-        ?.let { "tokenize=${sqlString(it)}" },
-      prefix
-        .takeIf(List<Int>::isNotEmpty)
-        ?.let { "prefix=${sqlString(it.joinToString(separator = " "))}" },
-      "detail=${detail.name.lowercase(Locale.ROOT)}".takeIf { detail != FULL },
-      "columnsize=0".takeUnless { columnSize }
-    )
-    return "CREATE VIRTUAL TABLE IF NOT EXISTS ${qualified(name)} USING fts5(${definitions.joinToString()})"
-  }
-
-  private fun qualified(objectName: String) = "${schema.qualifier}.${quoteSqlIdentifier(objectName)}"
 
   private fun trigger(
     suffix: String,
     event: String,
     condition: String? = null,
     statements: List<String>
-  ) = "CREATE TRIGGER IF NOT EXISTS ${qualified(name + suffix)} $event ON ${quoteSqlIdentifier(tableName)} " +
+  ) = name + suffix to "CREATE TRIGGER IF NOT EXISTS ${mainQualified(name + suffix)} $event ON " +
+      "${quoteSqlIdentifier(tableName)} " +
       condition?.let { "WHEN $it " }.orEmpty() +
       "BEGIN ${statements.joinToString(separator = " ") { "$it;" }} END"
 
@@ -123,12 +128,20 @@ internal fun fullTextIndexIdentity(name: String) = SqliteSchemaIdentity(
   identifier = SqliteIdentifier(name)
 )
 
+internal fun fullTextShadowTableNames(
+  name: String,
+  columnSize: Boolean
+) = listOfNotNull("data", "idx", "docsize".takeIf { columnSize }, "config").map { suffix -> "${name}_$suffix" }
+
 internal fun fullTextSchemaOwners(
   name: String,
   columnSize: Boolean,
   typeKey: TypeKey
-) = listOfNotNull("data", "idx", "docsize".takeIf { columnSize }, "config")
-    .map { suffix -> "full-text shadow table" to "${name}_$suffix" }
+) = fullTextShadowTableNames(
+  name = name,
+  columnSize = columnSize
+)
+    .map { "full-text shadow table" to it }
     .let { shadowTables -> listOf("full-text index" to name) + shadowTables }
     .map { (kind, objectName) ->
       SchemaIdentityOwner(
@@ -138,6 +151,17 @@ internal fun fullTextSchemaOwners(
         typeKey = typeKey
       )
     }
+
+internal fun dropFullTextTriggerSql(triggerName: String) = "DROP TRIGGER IF EXISTS ${mainQualified(triggerName)}"
+
+internal fun dropFullTextTableSql(name: String) = "DROP TABLE IF EXISTS ${mainQualified(name)}"
+
+internal fun fullTextCommandSql(
+  name: String,
+  command: String
+) = "INSERT INTO ${mainQualified(name)}(${quoteSqlIdentifier(name)}) VALUES (${sqlString(command)})"
+
+private fun mainQualified(objectName: String) = "${MAIN.qualifier}.${quoteSqlIdentifier(objectName)}"
 
 private fun sqlString(value: String) = "'${value.replace(oldValue = "'", newValue = "''")}'"
 

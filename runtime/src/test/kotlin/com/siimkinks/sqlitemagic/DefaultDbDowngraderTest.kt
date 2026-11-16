@@ -64,6 +64,36 @@ internal class DefaultDbDowngraderTest {
   }
 
   @Test
+  fun `downgrade drops full-text tables before their shadow tables`() {
+    val drops = mutableListOf<String>()
+    val names = BundledSQLiteDriver()
+      .open(MEMORY_DATABASE)
+      .use { database ->
+        val connection = object : SQLiteConnection by database {
+          override fun prepare(sql: String) = database
+            .prepare(sql)
+            .also { if (sql.startsWith("DROP")) drops += sql }
+        }
+        connection.execSQL("CREATE TABLE article (id INTEGER PRIMARY KEY, title TEXT)")
+        connection.execSQL("CREATE VIRTUAL TABLE article_fts USING fts5(title, content='article', content_rowid='id')")
+
+        DefaultDbDowngrader(
+          TestGeneratedDatabase(
+            tableCount = 1,
+            schema = listOf("CREATE TABLE item (id INTEGER)")
+          )
+        ).onDowngrade(
+          connection = connection,
+          oldVersion = 7,
+          newVersion = 2
+        )
+        connection.query("SELECT name FROM sqlite_master ORDER BY name") { it.getText(0) }
+      }
+
+    assertThat(drops.first() to names).isEqualTo("""DROP TABLE IF EXISTS "article_fts"""" to listOf("item"))
+  }
+
+  @Test
   fun `failures propagate after closing the schema query and stop the downgrade`() {
     data class FailureCase(
       val stages: Set<FailureStage>,

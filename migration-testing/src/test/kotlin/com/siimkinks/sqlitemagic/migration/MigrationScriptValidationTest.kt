@@ -20,11 +20,38 @@ internal class MigrationScriptValidationTest {
       "BEGIN", "SAVEPOINT migration", "RELEASE migration", "ROLLBACK TO migration",
       "rollback transaction /* x */ to savepoint migration",
       "UPDATE sample SET value='COMMIT'",
-      "/* COMMIT */ UPDATE sample SET \"BEGIN\"='RELEASE'",
-      "SELECT 'ROLLBACK', \"SAVEPOINT\", `END`, [BEGIN]",
-      "COMMITMENT", "RELEASE_NOTE", "BEGIN2", "COMMIT\$suffix", "COMMITõ", "COMMıT"
+      """/* COMMIT */ UPDATE sample SET "BEGIN"='RELEASE'""",
+      """SELECT 'ROLLBACK', "SAVEPOINT", `END`, [BEGIN]""",
+      "COMMITMENT", "RELEASE_NOTE", "BEGIN2", $$"COMMIT$suffix", "COMMITõ", "COMMıT"
     )
     accepted.forEach(::validateSqlLine)
+  }
+
+  @Test
+  fun `a trigger is one statement whose body ends at a semicolon followed by END`() {
+    val body = "BEGIN INSERT INTO log VALUES (new.id); DELETE FROM log WHERE id = CASE WHEN 1 THEN 0 END; END"
+    val accepted = listOf(
+      "CREATE TRIGGER t AFTER INSERT ON a $body",
+      "create temp trigger if not exists t after insert on a $body;",
+      "CREATE TEMPORARY TRIGGER t AFTER INSERT ON a $body -- note",
+      "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT 1; /* x */ end /* y */ ;"
+    )
+    val rejected = mapOf(
+      "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT 1;" to "SQL statement must be complete on one physical line",
+      "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT CASE WHEN 1 THEN 0 END;" to
+          "SQL statement must be complete on one physical line",
+      "CREATE TRIGGER t AFTER INSERT ON a $body; SELECT 1" to
+          "Each physical line must contain exactly one SQL statement",
+      "CREATE TABLE trigger_log (id INTEGER); END" to "Each physical line must contain exactly one SQL statement",
+      "SELECT 1; END" to "Each physical line must contain exactly one SQL statement"
+    )
+
+    accepted.forEach(::validateSqlLine)
+    assertThat(
+      rejected.mapValues { (line, _) ->
+        assertThrows(line, Exception::class.java) { validateSqlLine(line) }.message
+      }
+    ).isEqualTo(rejected)
   }
 
   @Test

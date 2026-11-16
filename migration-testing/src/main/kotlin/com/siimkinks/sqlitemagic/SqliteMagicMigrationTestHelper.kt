@@ -18,10 +18,12 @@ import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
 import com.siimkinks.sqlitemagic.migration.SchemaSqlComparison
 import com.siimkinks.sqlitemagic.migration.testing.InspectedSchema
+import com.siimkinks.sqlitemagic.migration.testing.InspectedVirtualTable
 import com.siimkinks.sqlitemagic.migration.testing.SQLiteQueries
 import com.siimkinks.sqlitemagic.migration.testing.SchemaComparator
 import com.siimkinks.sqlitemagic.migration.testing.SchemaIntrospector
 import com.siimkinks.sqlitemagic.migration.testing.createPersistentViews
+import com.siimkinks.sqlitemagic.migration.testing.quotedSqlIdentifier
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
 import java.io.InputStream
@@ -209,17 +211,21 @@ class SqliteMagicMigrationTestHelper(
       }
       require(userVersion(connection) == toVersion.toLong()) { "Migration did not set user_version to $toVersion" }
       verifyCurrentSnapshot()
+      val expected = expectedSchemas.getOrPut(toVersion) {
+        withFreshSchema(
+          schema = expectedSchema(toVersion),
+          action = SchemaIntrospector::inspect
+        )
+      }
       compareSchemas(
-        expected = expectedSchemas.getOrPut(toVersion) {
-          withFreshSchema(
-            schema = expectedSchema(toVersion),
-            action = SchemaIntrospector::inspect
-          )
-        },
+        expected = expected,
         actual = connection,
         operation = "Migration $fromVersion -> $toVersion completed with a different target schema"
       )
-      verifyIntegrity(connection)
+      verifyIntegrity(
+        connection = connection,
+        virtualTables = expected.virtualTables
+      )
       register(
         name = name,
         connection = connection
@@ -425,16 +431,13 @@ class SqliteMagicMigrationTestHelper(
           publicationAdvice
     }
     require(
-      SchemaSqlComparison.sameStatements(
-        first = current.tableSql,
-        second = compiledCurrent.tableSql
-      ) && SchemaSqlComparison.sameStatements(
-        first = current.indexSql,
-        second = compiledCurrent.indexSql
+      SchemaSqlComparison.sameSchema(
+        first = current,
+        second = compiledCurrent
       )
     ) {
-      "Current release snapshot tables or indices differ from independent compiled release export. " +
-          "Advance the database version before publishing schema changes. $publicationAdvice"
+      "Current release snapshot tables, indices or full-text indices differ from independent compiled release " +
+          "export. Advance the database version before publishing schema changes. $publicationAdvice"
     }
     val names = MigrationMetadataJson.structureViewNames(
       text = readText(reference.name),
@@ -453,12 +456,16 @@ class SqliteMagicMigrationTestHelper(
     if (currentSnapshotVerified) return@contextual
     withFreshSchema(schema = schema(descriptor.currentVersion)) { committed ->
       withFreshSchema(schema = compiledCurrent.copy(views = emptyList())) { compiled ->
+        val expected = SchemaIntrospector.inspect(compiled)
         compareSchemas(
-          expected = SchemaIntrospector.inspect(compiled),
+          expected = expected,
           actual = committed,
           operation = "Current release snapshot is stale relative to the independent compiled release export"
         )
-        verifyIntegrity(compiled)
+        verifyIntegrity(
+          connection = compiled,
+          virtualTables = expected.virtualTables
+        )
       }
     }
     currentSnapshotVerified = true
@@ -488,7 +495,7 @@ class SqliteMagicMigrationTestHelper(
     connection: SQLiteConnection,
     schema: ReleaseSchemaSnapshot
   ) = transaction(connection = connection) {
-    (schema.tableSql + schema.viewSql + schema.indexSql).forEach { sql ->
+    schema.creationSql.forEach { sql ->
       SQLiteQueries.execute(
         connection = connection,
         sql = sql
@@ -541,19 +548,39 @@ class SqliteMagicMigrationTestHelper(
     connection: SQLiteConnection,
     schema: ReleaseSchemaSnapshot
   ) {
+    applyPragma(
+      connection = connection,
+      pragma = "foreign_keys",
+      enabled = schema.configuration.foreignKeysEnabled,
+      policy = "foreign-key"
+    )
+    applyPragma(
+      connection = connection,
+      pragma = "recursive_triggers",
+      enabled = schema.configuration.recursiveTriggersEnabled,
+      policy = "recursive-trigger"
+    )
+  }
+
+  private fun applyPragma(
+    connection: SQLiteConnection,
+    pragma: String,
+    enabled: Boolean,
+    policy: String
+  ) {
     val setting = when {
-      schema.configuration.foreignKeysEnabled -> 1
+      enabled -> 1
       else -> 0
     }
     SQLiteQueries.execute(
       connection = connection,
-      sql = "PRAGMA foreign_keys = $setting"
+      sql = "PRAGMA $pragma = $setting"
     )
     val actual = SQLiteQueries.query(
       connection = connection,
-      sql = "PRAGMA foreign_keys"
+      sql = "PRAGMA $pragma"
     ).rows
-    require(actual == listOf(listOf(setting.toLong()))) { "Driver did not apply release foreign-key policy $setting" }
+    require(actual == listOf(listOf(setting.toLong()))) { "Driver did not apply release $policy policy $setting" }
   }
 
   private fun userVersion(connection: SQLiteConnection) = SQLiteQueries.query(
@@ -576,7 +603,10 @@ class SqliteMagicMigrationTestHelper(
     check(differences.isEmpty()) { "$operation:\n${differences.take(30).joinToString(separator = "\n")}" }
   }
 
-  private fun verifyIntegrity(connection: SQLiteConnection) {
+  private fun verifyIntegrity(
+    connection: SQLiteConnection,
+    virtualTables: Map<String, InspectedVirtualTable>
+  ) {
     val integrity = SQLiteQueries.query(
       connection = connection,
       sql = "PRAGMA integrity_check"
@@ -587,6 +617,24 @@ class SqliteMagicMigrationTestHelper(
       sql = "PRAGMA foreign_key_check"
     ).rows
     check(foreignKeys.isEmpty()) { "SQLite foreign_key_check failed: ${foreignKeys.take(20)}" }
+    virtualTables.forEach { (name, table) ->
+      val identifier = quotedSqlIdentifier(name)
+      val command = when (table.module) {
+        "fts5" -> "INSERT INTO main.$identifier($identifier, rank) VALUES ('integrity-check', 1)"
+        "fts3", "fts4" -> "INSERT INTO main.$identifier($identifier) VALUES ('integrity-check')"
+        else -> null
+      }
+      if (command != null) {
+        try {
+          SQLiteQueries.execute(
+            connection = connection,
+            sql = command
+          )
+        } catch (failure: Exception) {
+          throw IllegalStateException("Full-text index $name is out of sync with its content table", failure)
+        }
+      }
+    }
   }
 
   private fun register(

@@ -1,5 +1,10 @@
 package com.siimkinks.sqlitemagic.fulltext
 
+import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.annotation.FullTextDetail.FULL
+import com.siimkinks.sqlitemagic.annotation.FullTextRole.INDEXED
+import com.siimkinks.sqlitemagic.manager.DatabaseStructureJson
+import com.siimkinks.sqlitemagic.manager.FullTextIndexStructure
 import com.siimkinks.sqlitemagic.manager.genClassesManagerProcessingSteps
 import com.siimkinks.sqlitemagic.utils.PlainKotlinCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
@@ -7,16 +12,20 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
+import com.siimkinks.sqlitemagic.utils.debugMigrationOptions
 import com.siimkinks.sqlitemagic.utils.functionBody
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.unwrapped
 import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.nio.file.Path
+import kotlin.io.path.readText
 
 internal class FullTextIndexContractTest {
   private val compiler = SqliteMagicCompiler(::genClassesManagerProcessingSteps)
@@ -94,6 +103,44 @@ internal class FullTextIndexContractTest {
       .withGeneratedSource(MANAGER) {
         it.assertDoesNotContain("recursive_triggers", "fts5")
       }
+  }
+
+  @Test
+  fun `records each full-text index in the database structure`(@TempDir directory: Path) {
+    compile(
+      declarations = """
+        @Table
+        @FullTextIndex(columnSize = false)
+        data class Article(@Id val id: Long? = null, @FullText val title: String, val author: String)
+      """,
+      kspOptions = debugMigrationOptions(
+        projectDirectory = directory,
+        migrateDebug = false,
+        structureOutputDirectory = directory
+      )
+    ).isOk()
+
+    assertThat(DatabaseStructureJson.read(directory.resolve("latest.struct").readText()).fullTextIndices).isEqualTo(
+      mapOf(
+        "article_fts" to FullTextIndexStructure.from(
+          FullTextIndexElement(
+            identity = fullTextIndexIdentity("article_fts"),
+            tableName = "article",
+            rowIdColumnName = "id",
+            columns = listOf(
+              FullTextColumnElement(
+                columnName = "title",
+                role = INDEXED
+              )
+            ),
+            tokenize = "",
+            prefix = emptyList(),
+            detail = FULL,
+            columnSize = false
+          )
+        )
+      )
+    )
   }
 
   @Test
@@ -183,7 +230,8 @@ internal class FullTextIndexContractTest {
 
   private fun compile(
     declarations: String,
-    classpaths: List<File> = emptyList()
+    classpaths: List<File> = emptyList(),
+    kspOptions: Map<String, String> = emptyMap()
   ) = compiler.compile(
     SourceFile.kotlin(
       name = "Models.kt",
@@ -215,7 +263,8 @@ internal class FullTextIndexContractTest {
         $declarations
       """
     ),
-    classpaths = classpaths
+    classpaths = classpaths,
+    kspOptions = kspOptions
   )
 
   companion object {

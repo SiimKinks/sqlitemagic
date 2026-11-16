@@ -78,6 +78,24 @@ internal object SchemaComparator {
           }
         }
       }
+    (expected.virtualTables.keys + actual.virtualTables.keys)
+      .sorted()
+      .forEach { name ->
+        addDifference(
+          path = "virtualTable[$name]",
+          expected = expected.virtualTables[name],
+          actual = actual.virtualTables[name]
+        )
+      }
+    (expected.triggers.keys + actual.triggers.keys)
+      .sorted()
+      .forEach { name ->
+        addDifference(
+          path = "trigger[$name]",
+          expected = expected.triggers[name],
+          actual = actual.triggers[name]
+        )
+      }
   }
 
   private fun MutableList<SchemaDifference>.addDifference(

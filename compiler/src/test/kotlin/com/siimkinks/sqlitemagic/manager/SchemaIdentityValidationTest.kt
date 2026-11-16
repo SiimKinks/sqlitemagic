@@ -3,6 +3,11 @@ package com.siimkinks.sqlitemagic.manager
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.FULL_TEXT_INDEX
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.FULL_TEXT_SHADOW_TABLE
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.INDEX
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.TABLE
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.VIEW
 import org.junit.jupiter.api.Test
 
 internal class SchemaIdentityValidationTest {
@@ -42,56 +47,104 @@ internal class SchemaIdentityValidationTest {
       SchemaIdentityConflict(
         schema = MAIN,
         source = "main",
-        objectKind = SchemaObjectKind.INDEX,
+        objectKind = INDEX,
         name = "books",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Books"
         )
       ),
       SchemaIdentityConflict(
         schema = MAIN,
         source = "feature",
-        objectKind = SchemaObjectKind.TABLE,
+        objectKind = TABLE,
         name = "BOOKS",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Books"
         )
       ),
       SchemaIdentityConflict(
         schema = MAIN,
         source = "feature",
-        objectKind = SchemaObjectKind.INDEX,
+        objectKind = INDEX,
         name = "BOOKS",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Books"
         )
       ),
       SchemaIdentityConflict(
         schema = TEMPORARY,
         source = "feature",
-        objectKind = SchemaObjectKind.TABLE,
+        objectKind = TABLE,
         name = "CACHE",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Cache"
         )
       ),
       SchemaIdentityConflict(
         schema = TEMPORARY,
         source = "feature",
-        objectKind = SchemaObjectKind.INDEX,
+        objectKind = INDEX,
         name = "cache",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Cache"
+        )
+      )
+    ).inOrder()
+  }
+
+  @Test
+  fun `validates full-text indexes and their shadow tables against the objects of other modules`() {
+    val conflicts = findSchemaIdentityConflicts(
+      structures = listOf(
+        "main" to DatabaseStructure(
+          fullTextIndices = mapOf(
+            "search" to FullTextIndexStructure(
+              name = "search",
+              shadowTables = listOf("search_data", "search_config")
+            )
+          )
+        ),
+        "feature" to DatabaseStructure(
+          tables = mapOf(
+            "SEARCH" to TableStructure(name = "SEARCH"),
+            "search_data" to TableStructure(name = "search_data"),
+            "search_docsize" to TableStructure(name = "search_docsize")
+          )
+        )
+      )
+    )
+
+    assertThat(conflicts).containsExactly(
+      SchemaIdentityConflict(
+        schema = MAIN,
+        source = "feature",
+        objectKind = TABLE,
+        name = "SEARCH",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = FULL_TEXT_INDEX,
+          name = "search"
+        )
+      ),
+      SchemaIdentityConflict(
+        schema = MAIN,
+        source = "feature",
+        objectKind = TABLE,
+        name = "search_data",
+        previousOwner = SchemaIdentityOwner(
+          source = "main",
+          objectKind = FULL_TEXT_SHADOW_TABLE,
+          name = "search_data"
         )
       )
     ).inOrder()
@@ -143,66 +196,66 @@ internal class SchemaIdentityValidationTest {
       SchemaIdentityConflict(
         schema = MAIN,
         source = "main",
-        objectKind = SchemaObjectKind.VIEW,
+        objectKind = VIEW,
         name = "USERS",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Users"
         )
       ),
       SchemaIdentityConflict(
         schema = TEMPORARY,
         source = "main",
-        objectKind = SchemaObjectKind.VIEW,
+        objectKind = VIEW,
         name = "CACHE_INDEX",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.INDEX,
+          objectKind = INDEX,
           name = "cache_index"
         )
       ),
       SchemaIdentityConflict(
         schema = MAIN,
         source = "feature",
-        objectKind = SchemaObjectKind.TABLE,
+        objectKind = TABLE,
         name = "users",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Users"
         )
       ),
       SchemaIdentityConflict(
         schema = MAIN,
         source = "feature",
-        objectKind = SchemaObjectKind.INDEX,
+        objectKind = INDEX,
         name = "USERS",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Users"
         )
       ),
       SchemaIdentityConflict(
         schema = MAIN,
         source = "feature",
-        objectKind = SchemaObjectKind.VIEW,
+        objectKind = VIEW,
         name = "USER_INDEX",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.INDEX,
+          objectKind = INDEX,
           name = "user_index"
         )
       ),
       SchemaIdentityConflict(
         schema = TEMPORARY,
         source = "feature",
-        objectKind = SchemaObjectKind.VIEW,
+        objectKind = VIEW,
         name = "cache",
         previousOwner = SchemaIdentityOwner(
           source = "main",
-          objectKind = SchemaObjectKind.TABLE,
+          objectKind = TABLE,
           name = "Cache"
         )
       )

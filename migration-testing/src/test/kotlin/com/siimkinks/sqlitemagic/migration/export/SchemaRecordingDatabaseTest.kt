@@ -50,6 +50,47 @@ internal class SchemaRecordingDatabaseTest {
   }
 
   @Test
+  fun `records full-text indexes and the recursive trigger configuration`() {
+    val trigger = """CREATE TRIGGER IF NOT EXISTS main."books_fts_ai" AFTER INSERT ON "books" BEGIN """ +
+        """INSERT INTO "books_fts"(rowid, "title") VALUES (new."id", new."title"); END"""
+    val recorder = SchemaRecordingDatabase().apply {
+      execSQL("PRAGMA recursive_triggers = ON")
+      execSQL("BEGIN IMMEDIATE")
+      execSQL("CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT)")
+      execSQL("""CREATE VIRTUAL TABLE IF NOT EXISTS main."books_fts" USING fts5("title", content='books')""")
+      execSQL(trigger)
+      execSQL("COMMIT")
+    }
+    assertThat(
+      recorder.snapshot(
+        databaseId = "main",
+        releaseVariant = "release",
+        version = 2,
+        modules = listOf("main")
+      )
+    ).isEqualTo(
+      ReleaseSchemaSnapshot(
+        formatVersion = 1,
+        databaseId = "main",
+        releaseVariant = "release",
+        version = 2,
+        modules = listOf("main"),
+        configuration = MigrationConfiguration(
+          foreignKeysEnabled = false,
+          recursiveTriggersEnabled = true
+        ),
+        tableSql = listOf("CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT)"),
+        views = emptyList(),
+        indexSql = emptyList(),
+        virtualTableSql = listOf(
+          """CREATE VIRTUAL TABLE IF NOT EXISTS main."books_fts" USING fts5("title", content='books')"""
+        ),
+        triggerSql = listOf(trigger)
+      )
+    )
+  }
+
+  @Test
   fun `absent foreign key pragma records disabled configuration`() {
     assertThat(
       SchemaRecordingDatabase().snapshot(

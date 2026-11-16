@@ -76,6 +76,27 @@ internal class DatabaseStructureTest {
   }
 
   @Test
+  fun `writes full-text indexes only when the schema has one`() {
+    val withIndex = DatabaseStructure(
+      fullTextIndices = mapOf(
+        "books_fts" to FullTextIndexStructure(
+          name = "books_fts",
+          forTable = "books",
+          tableSql = "CREATE VIRTUAL TABLE books_fts USING fts5(title, content='books')",
+          triggers = mapOf("books_fts_ai" to "CREATE TRIGGER books_fts_ai AFTER INSERT ON books BEGIN SELECT 1; END"),
+          shadowTables = listOf("books_fts_data", "books_fts_idx", "books_fts_docsize", "books_fts_config")
+        )
+      )
+    )
+    val structures = listOf(DatabaseStructure(), withIndex)
+
+    assertThat(
+      structures.map { DatabaseStructureJson.write(it).contains("fullTextIndices") } to
+          structures.map { DatabaseStructureJson.read(DatabaseStructureJson.write(it)) }
+    ).isEqualTo(listOf(false, true) to structures)
+  }
+
+  @Test
   fun `compares schemas ignoring identifier quotes and spacing but not their case or meaning`() {
     fun structure(
       columnSchemas: List<String>,

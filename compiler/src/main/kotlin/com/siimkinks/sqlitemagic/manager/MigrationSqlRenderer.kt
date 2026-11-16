@@ -1,5 +1,8 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.fulltext.dropFullTextTableSql
+import com.siimkinks.sqlitemagic.fulltext.dropFullTextTriggerSql
+import com.siimkinks.sqlitemagic.fulltext.fullTextCommandSql
 import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.APPEND_COLUMNS
 import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.REBUILD
 import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
@@ -15,9 +18,20 @@ internal object MigrationSqlRenderer {
       diff.currentTables.forEach { add(it.name) }
       diff.previousIndices.forEach { add(it.name) }
       diff.currentIndices.forEach { add(it.name) }
+      (diff.previousFullTextIndices + diff.currentFullTextIndices).forEach { index ->
+        add(index.name)
+        addAll(index.shadowTables)
+      }
     }
     if ((plan.directRebuilds + plan.batchedRebuilds).any { it.operation == REBUILD && it.copiesMissingReferences }) {
       migrationStatements += "PRAGMA defer_foreign_keys = ON"
+    }
+    plan.fullTextDrops.forEach { index ->
+      index.triggers.keys.mapTo(
+        destination = migrationStatements,
+        transform = ::dropFullTextTriggerSql
+      )
+      migrationStatements += dropFullTextTableSql(index.name)
     }
     plan.indexDrops.forEach { index ->
       migrationStatements += dropMainSchemaIndexSql(index.name)
@@ -54,6 +68,14 @@ internal object MigrationSqlRenderer {
     )
     plan.indexCreates.forEach { index ->
       migrationStatements += index.structure.indexSql
+    }
+    plan.fullTextCreates.forEach { index ->
+      migrationStatements += index.tableSql
+      migrationStatements += index.triggers.values
+      migrationStatements += fullTextCommandSql(
+        name = index.name,
+        command = "rebuild"
+      )
     }
     return migrationStatements
   }

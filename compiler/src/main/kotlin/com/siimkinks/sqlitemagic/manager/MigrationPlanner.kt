@@ -148,6 +148,17 @@ internal object MigrationPlanner {
           index.structure.forTable in rebuiltCurrentTableNames ||
           index.structure.forTable in diff.newTableNames
     }
+    val unchangedFullTextIndexNames = diff.fullTextIndexTransitions
+      .filterNot(FullTextIndexTransition::changed)
+      .mapTo(destination = hashSetOf()) { it.current.name }
+    val replacedPreviousTableNames = rebuiltPreviousTableNames + simpleRenames.map(TableRename::previousName)
+    val replacedCurrentTableNames = rebuiltCurrentTableNames + simpleRenames.map(TableRename::currentName)
+    val fullTextDrops = diff.previousFullTextIndices.filter { index ->
+      index.name !in unchangedFullTextIndexNames || index.forTable in replacedPreviousTableNames
+    }
+    val fullTextCreates = diff.currentFullTextIndices.filter { index ->
+      index.name !in unchangedFullTextIndexNames || index.forTable in replacedCurrentTableNames
+    }
     return TableMigrationPlan(
       prerequisiteNewTables = earlyPrerequisiteNewTables,
       batchedPrerequisiteNewTables = batchedPrerequisiteNewTables,
@@ -157,7 +168,9 @@ internal object MigrationPlanner {
       removedTables = orderedRemovedTableNames.map(removedTablesByName::getValue),
       remainingNewTables = remainingNewTables,
       indexDrops = indexDrops,
-      indexCreates = indexCreates
+      indexCreates = indexCreates,
+      fullTextDrops = fullTextDrops,
+      fullTextCreates = fullTextCreates
     )
   }
 }
@@ -321,5 +334,7 @@ internal data class TableMigrationPlan(
   val removedTables: List<TableSnapshot>,
   val remainingNewTables: List<TableSnapshot>,
   val indexDrops: List<IndexSnapshot>,
-  val indexCreates: List<IndexSnapshot>
+  val indexCreates: List<IndexSnapshot>,
+  val fullTextDrops: List<FullTextIndexStructure>,
+  val fullTextCreates: List<FullTextIndexStructure>
 )

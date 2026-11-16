@@ -33,7 +33,8 @@ internal fun DatabaseStructure.sameSchemaAs(other: DatabaseStructure) =
       temporaryTables.sameSchemaAs(other = other.temporaryTables, same = TableStructure::sameSchemaAs) &&
       temporaryIndices.sameSchemaAs(other = other.temporaryIndices, same = IndexStructure::sameSchemaAs) &&
       views == other.views &&
-      temporaryViews == other.temporaryViews
+      temporaryViews == other.temporaryViews &&
+      fullTextIndices.sameSchemaAs(other = other.fullTextIndices, same = FullTextIndexStructure::sameSchemaAs)
 
 internal fun TableStructure.sameSchemaAs(other: TableStructure) = name == other.name &&
     columns.size == other.columns.size &&
@@ -48,6 +49,13 @@ internal fun ColumnStructure.sameSchemaAs(other: ColumnStructure) = copy(
 
 internal fun IndexStructure.sameSchemaAs(other: IndexStructure) = copy(indexSql = other.indexSql) == other &&
     indexSql.sameSqlAs(other.indexSql)
+
+internal fun FullTextIndexStructure.sameSchemaAs(other: FullTextIndexStructure) = name == other.name &&
+    forTable == other.forTable &&
+    shadowTables == other.shadowTables &&
+    tableSql.sameSqlAs(other.tableSql) &&
+    triggers.keys.toList() == other.triggers.keys.toList() &&
+    triggers.all { (triggerName, sql) -> sql.sameSqlAs(other.triggers.getValue(triggerName)) }
 
 private fun <T> Map<String, T>.sameSchemaAs(
   other: Map<String, T>,

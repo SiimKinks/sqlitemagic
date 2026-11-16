@@ -26,7 +26,8 @@ Version 3.1.0 _(unreleased)_
   creates it as an external-content FTS table that generated triggers keep in sync with the table, and `clearData`
   empties it. Options set the tokenizer, prefix indexes, `detail`, stored column sizes and unindexed columns. A schema
   with a full-text index runs its connections with `PRAGMA recursive_triggers = ON`, so rows replaced by
-  `CONFLICT_REPLACE` leave the index. FTS5 needs the bundled driver
+  `CONFLICT_REPLACE` leave the index. Migrations create, drop and refill the index as the model and its table change,
+  and migration tests check each index against its table's rows. FTS5 needs the bundled driver
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead

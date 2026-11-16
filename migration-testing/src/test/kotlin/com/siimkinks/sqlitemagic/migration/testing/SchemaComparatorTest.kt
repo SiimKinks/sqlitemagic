@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic.migration.testing
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
 
@@ -238,9 +239,53 @@ internal class SchemaComparatorTest {
       .isTrue()
   }
 
-  @Test(expected = SchemaInspectionException::class)
-  fun `unsupported virtual tables fail inspection`() {
-    inspect(listOf("CREATE VIRTUAL TABLE t USING fts5(value)"))
+  @Test
+  fun `full-text indexes are compared by their virtual table and trigger SQL without their shadow tables`() {
+    val table = "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)"
+    val index = "CREATE VIRTUAL TABLE t_fts USING fts5(value, content='t', content_rowid='id')"
+    val trigger = "CREATE TRIGGER t_fts_ai AFTER INSERT ON t BEGIN " +
+        "INSERT INTO t_fts(rowid, value) VALUES (new.id, new.value); END"
+    val schema = listOf(table, index, trigger)
+    val differences = listOf(
+      SchemaCase(
+        label = "other quoting and keyword case",
+        expected = schema,
+        actual = listOf(
+          table,
+          """create virtual table if not exists main."t_fts" using fts5("value", content='t', content_rowid='id')""",
+          """create trigger if not exists main."t_fts_ai" after insert on "t" begin """ +
+              """insert into "t_fts"(rowid, "value") values (new."id", new."value"); end"""
+        )
+      ),
+      SchemaCase(
+        label = "other tokenizer",
+        expected = schema,
+        actual = listOf(
+          table,
+          "CREATE VIRTUAL TABLE t_fts USING fts5(value, content='t', content_rowid='id', tokenize='porter')",
+          trigger
+        )
+      ),
+      SchemaCase(
+        label = "missing trigger",
+        expected = schema,
+        actual = listOf(table, index)
+      ),
+      SchemaCase(
+        label = "missing index",
+        expected = schema,
+        actual = listOf(table, trigger)
+      )
+    ).associate { case -> case.label to compare(case).map(SchemaDifference::path) }
+
+    assertThat(differences).isEqualTo(
+      mapOf(
+        "other quoting and keyword case" to emptyList(),
+        "other tokenizer" to listOf("virtualTable[t_fts]"),
+        "missing trigger" to listOf("trigger[t_fts_ai]"),
+        "missing index" to listOf("virtualTable[t_fts]")
+      )
+    )
   }
 
   private fun compare(case: SchemaCase) = SchemaComparator.compare(

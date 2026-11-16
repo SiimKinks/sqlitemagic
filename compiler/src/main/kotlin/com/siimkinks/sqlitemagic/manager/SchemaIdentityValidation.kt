@@ -2,8 +2,15 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchema
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.FULL_TEXT_INDEX
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.FULL_TEXT_SHADOW_TABLE
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.INDEX
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.TABLE
+import com.siimkinks.sqlitemagic.manager.SchemaObjectKind.VIEW
 import com.siimkinks.sqlitemagic.schema.KeyedCollisionRegistry
 
 internal fun findSchemaIdentityConflicts(
@@ -15,43 +22,59 @@ internal fun findSchemaIdentityConflicts(
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.tables.keys,
-        objectKind = SchemaObjectKind.TABLE,
-        schema = SqliteSchema.MAIN,
+        objectKind = TABLE,
+        schema = MAIN,
         ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.indices.keys,
-        objectKind = SchemaObjectKind.INDEX,
-        schema = SqliteSchema.MAIN,
+        objectKind = INDEX,
+        schema = MAIN,
         ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.views.keys,
-        objectKind = SchemaObjectKind.VIEW,
-        schema = SqliteSchema.MAIN,
+        objectKind = VIEW,
+        schema = MAIN,
+        ownersByKey = ownersByKey
+      )
+      collectSchemaIdentityConflicts(
+        source = source,
+        objects = structure.fullTextIndices.keys,
+        objectKind = FULL_TEXT_INDEX,
+        schema = MAIN,
+        ownersByKey = ownersByKey
+      )
+      collectSchemaIdentityConflicts(
+        source = source,
+        objects = structure.fullTextIndices.values
+          .flatMap(FullTextIndexStructure::shadowTables)
+          .toSet(),
+        objectKind = FULL_TEXT_SHADOW_TABLE,
+        schema = MAIN,
         ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.temporaryTables.keys,
-        objectKind = SchemaObjectKind.TABLE,
-        schema = SqliteSchema.TEMPORARY,
+        objectKind = TABLE,
+        schema = TEMPORARY,
         ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.temporaryIndices.keys,
-        objectKind = SchemaObjectKind.INDEX,
-        schema = SqliteSchema.TEMPORARY,
+        objectKind = INDEX,
+        schema = TEMPORARY,
         ownersByKey = ownersByKey
       )
       collectSchemaIdentityConflicts(
         source = source,
         objects = structure.temporaryViews.keys,
-        objectKind = SchemaObjectKind.VIEW,
-        schema = SqliteSchema.TEMPORARY,
+        objectKind = VIEW,
+        schema = TEMPORARY,
         ownersByKey = ownersByKey
       )
     }
@@ -112,5 +135,7 @@ internal enum class SchemaObjectKind(
 ) {
   TABLE("table"),
   INDEX("index"),
-  VIEW("view")
+  VIEW("view"),
+  FULL_TEXT_INDEX("full-text index"),
+  FULL_TEXT_SHADOW_TABLE("full-text shadow table")
 }

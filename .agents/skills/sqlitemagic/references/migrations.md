@@ -38,12 +38,14 @@ migration does to existing data and to test it.
 | Remove a property or class | drops the column (rebuild) or table | confirm the data is no longer needed |
 | Change a view query | recreates the view | nothing |
 | Add `onDeleteCascade` | adds the foreign key; deletes rows that reference missing rows | fix dangling rows in the script first |
+| Add, change or remove a full-text index | drops a removed or changed index before the table statements. Creates an added or changed one after them and refills it with `INSERT INTO "<index>"("<index>") VALUES ('rebuild')`, which reads every row of the table, including rows the script added. A rebuild or rename of its table replaces the index the same way; added columns leave it alone | nothing; the refill runs at the upgrade |
 | Add or remove `@RowId` | rebuilds the table, copying each row's row ID between the rowid and the `@RowId` column, so row IDs and child rows survive; a former `WITHOUT_ROWID` table gets new row IDs, and an existing column that gains `@RowId` keeps its own values | an existing column's values are unique |
 
 Every step that discards data is printed as a build warning (`Migration deletes …`, dropped columns and tables), in
 debug builds by KSP and for releases by the Gradle tasks. So is a step that fills existing rows of a transformed
 column with its implicit default (`Migration fills existing rows …`), which its decoder may reject on every read.
-Treat each warning as a decision to settle, not noise.
+Refilling the full-text index of an existing table (`Migration rebuilds full-text index …`) is printed too, because
+it reads the whole table while the upgrade opens the database. Treat each warning as a decision to settle, not noise.
 
 ## Releasing a database version
 
@@ -66,15 +68,15 @@ Other variants' release tasks fail while migration testing is on (the default in
 
 ## Editing migration scripts
 
-- A script is one SQL statement per line; blank lines and `--` comments are allowed.
+- A script is one SQL statement per line; blank lines and `--` comments are allowed. A `CREATE TRIGGER` line holds
+  the whole trigger, its `BEGIN … END` body included.
 - The upgrade's transaction wraps every script: lines with `BEGIN`, `COMMIT`, `END` or `ROLLBACK` fail it, while
   `SAVEPOINT`, `RELEASE` and `ROLLBACK TO` work.
 - Put data fixes where they apply: `UPDATE … SET column = … WHERE column IS NULL` before the rebuild statements that
   would delete or default those rows, backfills after the column exists.
 - Models cannot declare triggers or virtual tables other than full-text indexes, and release scripts run only on
   upgrades, never on a fresh install, where the schema comes from the models alone. The library has no supported
-  place for them. Migrations do not handle full-text indexes yet, and migration testing and the release migration
-  tasks fail for a schema with one ([models.md](models.md#full-text-indexes)).
+  place for them.
 - Edit only release scripts that have not shipped. A shipped script is history; fix forward in the next version.
 - Do not edit `db/` files or debug scripts; they are regenerated.
 
@@ -137,10 +139,13 @@ class DatabaseMigrationTest {
 }
 ```
 
-- `validateAllMigrations` checks that every recorded release migrates to exactly the current schema. Keep it in every
-  app with a released database.
+- `validateAllMigrations` checks that every recorded release migrates to exactly the current schema, full-text indexes
+  and their triggers included. Keep it in every app with a released database.
+- Every migration test also checks each full-text index against its table's rows (`integrity-check`), which only sees
+  rows a test seeded; `validateAllMigrations` migrates empty databases.
 - Data tests seed an old version with raw SQL and assert rows after `runMigrationsAndValidate`; write one for every
-  migration that transforms or may delete data.
+  migration that transforms or may delete data, and for every script edited to move rows into or out of a table with
+  a full-text index.
 - Also upgrade a real install on a device or emulator before shipping a migration that rebuilds tables.
 
 ## Version control

@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
@@ -85,6 +86,25 @@ internal data class IndexStructure(
 }
 
 @Serializable
+internal data class FullTextIndexStructure(
+  val name: String = "",
+  val forTable: String = "",
+  val tableSql: String = "",
+  val triggers: Map<String, String> = emptyMap(),
+  val shadowTables: List<String> = emptyList()
+) {
+  companion object {
+    fun from(index: FullTextIndexElement) = FullTextIndexStructure(
+      name = index.name,
+      forTable = index.tableName,
+      tableSql = index.createTableSql,
+      triggers = index.triggerSqlByName,
+      shadowTables = index.shadowTableNames
+    )
+  }
+}
+
+@Serializable
 internal data class ViewStructure(
   val name: String = "",
   val moduleName: String? = null
@@ -97,7 +117,9 @@ internal data class DatabaseStructure(
   val temporaryTables: Map<String, TableStructure> = emptyMap(),
   val temporaryIndices: Map<String, IndexStructure> = emptyMap(),
   val views: Map<String, ViewStructure> = emptyMap(),
-  val temporaryViews: Map<String, ViewStructure> = emptyMap()
+  val temporaryViews: Map<String, ViewStructure> = emptyMap(),
+  @EncodeDefault(NEVER)
+  val fullTextIndices: Map<String, FullTextIndexStructure> = emptyMap()
 ) {
   val enforcesForeignKeys
     get() = tables.values.any(TableStructure::hasCascadeDelete) ||
@@ -151,7 +173,14 @@ internal data class DatabaseStructure(
               name = view.viewName,
               moduleName = view.moduleName
             )
-          }
+          },
+        fullTextIndices = persistent
+          .flatMap(TableElement::fullTextIndexes)
+          .associateByTo(
+            destination = linkedMapOf(),
+            keySelector = FullTextIndexElement::name,
+            valueTransform = FullTextIndexStructure::from
+          )
       )
     }
   }
@@ -159,7 +188,8 @@ internal data class DatabaseStructure(
   fun persistentOnly() = DatabaseStructure(
     tables = tables,
     indices = indices,
-    views = views
+    views = views,
+    fullTextIndices = fullTextIndices
   )
 
   operator fun plus(other: DatabaseStructure) = DatabaseStructure(
@@ -168,6 +198,7 @@ internal data class DatabaseStructure(
     temporaryTables = LinkedHashMap(temporaryTables).apply { putAll(other.temporaryTables) },
     temporaryIndices = LinkedHashMap(temporaryIndices).apply { putAll(other.temporaryIndices) },
     views = LinkedHashMap(views).apply { putAll(other.views) },
-    temporaryViews = LinkedHashMap(temporaryViews).apply { putAll(other.temporaryViews) }
+    temporaryViews = LinkedHashMap(temporaryViews).apply { putAll(other.temporaryViews) },
+    fullTextIndices = LinkedHashMap(fullTextIndices).apply { putAll(other.fullTextIndices) }
   )
 }

@@ -294,9 +294,10 @@ data class Article(
 - Entity updates re-index a row only when its row ID or an indexed column changed.
 - The DSL does not search the index; query it with raw SQL ([statements.md](statements.md#raw-select)):
   `SELECT rowid FROM article_fts WHERE article_fts MATCH ?`.
-- Migrations do not handle full-text indexes: an upgrade does not create an index added to an existing table, and a
-  rebuild of an indexed table drops its triggers. Only fresh installs get a working index. Migration testing (on by
-  default) and the release migration tasks fail for a schema with a full-text index.
+- Migrations keep the index in step with the model and its table. A removed or changed index is dropped before the
+  table statements. An added or changed index, or one whose table is rebuilt or renamed, is created after them and
+  refilled from every row of the table, with a build warning for each refill of an existing table
+  ([migrations.md](migrations.md#changing-models-safely)).
 
 ## Generated code
 

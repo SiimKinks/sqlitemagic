@@ -32,7 +32,13 @@ internal fun migrationWarnings(
       renameCandidates = diff.renameCandidates[table.name].orEmpty()
     )
   }
-  return tableChangeWarnings + droppedTableWarnings
+  val fullTextRebuildWarnings = plan.fullTextCreates
+    .filter { it.forTable !in diff.newTableNames }
+    .map { index ->
+      "Migration rebuilds full-text index ${index.name} from all rows of ${index.forTable}, which can take long " +
+          "for a large table."
+    }
+  return tableChangeWarnings + droppedTableWarnings + fullTextRebuildWarnings
 }
 
 private fun ForeignKeyGraph.cascadeSuffix(tableName: String) = transitiveDependents(tableName)

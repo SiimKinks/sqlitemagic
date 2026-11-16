@@ -154,6 +154,12 @@ internal object SchemaSql {
   }
     .joinToString(separator = " ")
 
+  fun identifierCanonical(tokens: List<SqlToken>) = canonical(
+    tokens = tokens,
+    identifiers = emptySet(),
+    forcedIdentifiers = tokens.indices.toSet()
+  )
+
   private fun String.escapeToken() = replace(
     oldValue = """\""",
     newValue = """\\"""
@@ -340,6 +346,8 @@ internal fun String.sqliteIdentifier() = buildString(capacity = length) {
     )
   }
 }
+
+internal fun quotedSqlIdentifier(value: String) = """"${value.replace(oldValue = "\"", newValue = "\"\"")}""""
 
 internal fun requireInspection(
   condition: Boolean,

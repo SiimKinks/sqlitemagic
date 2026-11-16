@@ -146,6 +146,50 @@ internal class ReleaseMigrationPreviewTest {
           Migration SQL for src/release/assets/9.sql:
             CREATE TABLE IF NOT EXISTS "authors" ("id" INTEGER PRIMARY KEY)
         """.trimIndent()
+      ),
+      "full-text index changes" to PreviewCase(
+        databaseVersion = 9,
+        latestRelease = 8 to databaseStructure("books").copy(
+          fullTextIndices = fullTextIndices(
+            fullTextIndex(name = "kept_fts"),
+            fullTextIndex(name = "old_fts")
+          )
+        ),
+        current = databaseStructure("books").copy(
+          fullTextIndices = fullTextIndices(
+            fullTextIndex(
+              name = "kept_fts",
+              options = ", tokenize='porter'"
+            ),
+            fullTextIndex(name = "new_fts")
+          )
+        ),
+        pendingSql = null,
+        report = """
+          Release 9 preview (latest release 8)
+
+          Schema changes since release 8:
+            Full-text indices:
+              + new_fts
+              ~ kept_fts
+              - old_fts
+
+          Warnings:
+            Migration rebuilds full-text index kept_fts from all rows of books, which can take long for a large table.
+            Migration rebuilds full-text index new_fts from all rows of books, which can take long for a large table.
+
+          Migration SQL for src/release/assets/9.sql:
+            DROP TRIGGER IF EXISTS main."kept_fts_ai"
+            DROP TABLE IF EXISTS main."kept_fts"
+            DROP TRIGGER IF EXISTS main."old_fts_ai"
+            DROP TABLE IF EXISTS main."old_fts"
+            CREATE VIRTUAL TABLE kept_fts USING fts5(id, content='books', tokenize='porter')
+            CREATE TRIGGER kept_fts_ai AFTER INSERT ON books BEGIN SELECT new.id; END
+            INSERT INTO main."kept_fts"("kept_fts") VALUES ('rebuild')
+            CREATE VIRTUAL TABLE new_fts USING fts5(id, content='books')
+            CREATE TRIGGER new_fts_ai AFTER INSERT ON books BEGIN SELECT new.id; END
+            INSERT INTO main."new_fts"("new_fts") VALUES ('rebuild')
+        """.trimIndent()
       )
     ).forEach { (label, case) ->
       projectDirectory
@@ -174,6 +218,21 @@ internal class ReleaseMigrationPreviewTest {
         .isEqualTo(case.report)
     }
   }
+
+  private fun fullTextIndices(vararg indices: FullTextIndexStructure) = indices.associateBy(
+    FullTextIndexStructure::name
+  )
+
+  private fun fullTextIndex(
+    name: String,
+    options: String = ""
+  ) = FullTextIndexStructure(
+    name = name,
+    forTable = "books",
+    tableSql = "CREATE VIRTUAL TABLE $name USING fts5(id, content='books'$options)",
+    triggers = mapOf("${name}_ai" to "CREATE TRIGGER ${name}_ai AFTER INSERT ON books BEGIN SELECT new.id; END"),
+    shadowTables = listOf("${name}_data", "${name}_idx", "${name}_docsize", "${name}_config")
+  )
 
   private fun writeChangedSchema() {
     val id = migrationColumn(

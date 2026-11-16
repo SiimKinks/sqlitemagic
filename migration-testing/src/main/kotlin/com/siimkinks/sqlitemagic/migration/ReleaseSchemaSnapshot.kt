@@ -1,14 +1,23 @@
 package com.siimkinks.sqlitemagic.migration
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.EncodeDefault.Mode.NEVER
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class MigrationConfiguration(val foreignKeysEnabled: Boolean)
+data class MigrationConfiguration(
+  val foreignKeysEnabled: Boolean,
+  @EncodeDefault(NEVER)
+  val recursiveTriggersEnabled: Boolean = false
+)
 
 @Serializable
 data class MigrationViewSchema(val name: String, val createSql: String)
 
-/** Host schema capture; compiled current exports include views, retained structures provide tables and indexes. */
+/**
+ * Schema of a released database version. Compiled current exports include views; retained structures provide
+ * tables, indexes and full-text indexes.
+ */
 @Serializable
 data class ReleaseSchemaSnapshot(
   val formatVersion: Int,
@@ -19,9 +28,14 @@ data class ReleaseSchemaSnapshot(
   val configuration: MigrationConfiguration,
   val tableSql: List<String>,
   val views: List<MigrationViewSchema>,
-  val indexSql: List<String>
+  val indexSql: List<String>,
+  @EncodeDefault(NEVER)
+  val virtualTableSql: List<String> = emptyList(),
+  @EncodeDefault(NEVER)
+  val triggerSql: List<String> = emptyList()
 ) {
   val viewSql get() = views.map(MigrationViewSchema::createSql)
+  val creationSql get() = tableSql + viewSql + indexSql + virtualTableSql + triggerSql
 
   fun validate() {
     require(formatVersion == 1) { "Unsupported release schema format $formatVersion" }
@@ -35,7 +49,7 @@ data class ReleaseSchemaSnapshot(
     require(views.map(MigrationViewSchema::name).distinct().size == views.size) {
       "Release schema $version contains duplicate generated views"
     }
-    (tableSql + viewSql + indexSql).forEach { sql ->
+    creationSql.forEach { sql ->
       require(sql.isNotBlank()) { "Release schema $version contains empty creation SQL" }
     }
   }

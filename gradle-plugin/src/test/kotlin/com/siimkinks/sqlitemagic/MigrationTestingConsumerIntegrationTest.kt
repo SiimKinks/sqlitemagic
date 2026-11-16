@@ -128,6 +128,22 @@ internal class MigrationTestingConsumerIntegrationTest {
           .readText()
       )
       assertThat(exported.tableSql.toSet()).isEqualTo(snapshot.tableSql.toSet())
+      assertThat(
+        listOf(
+          exported.virtualTableSql.map { it.substringBefore(" USING ") },
+          exported.triggerSql.map { it.substringBefore(" AFTER ") }
+        ) to (exported.virtualTableSql to exported.triggerSql)
+      ).isEqualTo(
+        when (version) {
+          3 -> listOf(
+            listOf("""CREATE VIRTUAL TABLE IF NOT EXISTS main."migration_person_fts""""),
+            listOf("_ai", "_ad", "_au").map { """CREATE TRIGGER IF NOT EXISTS main."migration_person_fts$it"""" }
+          )
+          else -> listOf(emptyList(), emptyList())
+        } to (snapshot.virtualTableSql to snapshot.triggerSql)
+      )
+      assertThat(exported.configuration).isEqualTo(snapshot.configuration)
+      assertThat(snapshot.configuration.recursiveTriggersEnabled).isEqualTo(version == 3)
       assertThat(exported.tableSql.any { it.contains("migration_person") }).isTrue()
       assertThat(exported.tableSql.any { it.contains("submodule_persistent_value") }).isTrue()
       assertThat(exported.views.map(MigrationViewSchema::name))
@@ -613,18 +629,22 @@ tasks.register("inspectMigrationConsumerRuntimeDependencies") {
     )
       .take(version - 1)
       .joinToString(separator = "") { ",\n  $it" }
+    val fullTextIndex = "\n@FullTextIndex".takeIf { version >= 3 }.orEmpty()
+    val fullText = "@FullText ".takeIf { version >= 3 }.orEmpty()
     return """
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.annotation.Column
+import com.siimkinks.sqlitemagic.annotation.FullText
+import com.siimkinks.sqlitemagic.annotation.FullTextIndex
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 
-@Table
+@Table$fullTextIndex
 data class MigrationPerson(
   @Id(autoIncrement = false) val id: Long,
-  val name: String$derived
+  ${fullText}val name: String$derived
 )
 """.trimIndent() + "\n"
   }

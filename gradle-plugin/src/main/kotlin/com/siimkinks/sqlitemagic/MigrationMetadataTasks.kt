@@ -136,12 +136,9 @@ abstract class GenerateSqliteMagicMigrationManifest : DefaultTask() {
       )
       if (reference.version == compiled.version) {
         check(
-          SchemaSqlComparison.sameStatements(
-            first = snapshot.tableSql,
-            second = compiled.tableSql
-          ) && SchemaSqlComparison.sameStatements(
-            first = snapshot.indexSql,
-            second = compiled.indexSql
+          SchemaSqlComparison.sameSchema(
+            first = snapshot,
+            second = compiled
           )
         ) {
           "Compiled schema differs from retained release ${reference.version}. " +

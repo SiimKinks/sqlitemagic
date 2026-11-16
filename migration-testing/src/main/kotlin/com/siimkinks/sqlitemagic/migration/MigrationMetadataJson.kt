@@ -35,11 +35,14 @@ object MigrationMetadataJson {
       configuration = reference.configuration ?: MigrationConfiguration(
         foreignKeysEnabled = structure.tables.values.any { table ->
           table.columns.any(StructureColumn::onDeleteCascade)
-        }
+        },
+        recursiveTriggersEnabled = structure.fullTextIndices.isNotEmpty()
       ),
       tableSql = structure.tables.values.map(StructureTable::schema),
       views = emptyList(),
-      indexSql = structure.indices.values.map(StructureIndex::indexSql)
+      indexSql = structure.indices.values.map(StructureIndex::indexSql),
+      virtualTableSql = structure.fullTextIndices.values.map(StructureFullTextIndex::tableSql),
+      triggerSql = structure.fullTextIndices.values.flatMap { it.triggers.values }
     ).also { snapshot ->
       snapshot.validate()
       require(manifest.modules.containsAll(snapshot.modules)) {
@@ -79,7 +82,8 @@ object MigrationMetadataJson {
 private data class Structure(
   val tables: Map<String, StructureTable> = emptyMap(),
   val indices: Map<String, StructureIndex> = emptyMap(),
-  val views: Map<String, StructureView> = emptyMap()
+  val views: Map<String, StructureView> = emptyMap(),
+  val fullTextIndices: Map<String, StructureFullTextIndex> = emptyMap()
 )
 
 @Serializable
@@ -96,6 +100,12 @@ private data class StructureIndex(val indexSql: String)
 
 @Serializable
 private data class StructureView(val name: String)
+
+@Serializable
+private data class StructureFullTextIndex(
+  val tableSql: String,
+  val triggers: Map<String, String> = emptyMap()
+)
 
 @Serializable
 private data class ManifestJson(

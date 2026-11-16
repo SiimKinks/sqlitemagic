@@ -24,6 +24,12 @@ internal data class IndexTransition(
   val changed: Boolean
 )
 
+internal data class FullTextIndexTransition(
+  val previous: FullTextIndexStructure,
+  val current: FullTextIndexStructure,
+  val changed: Boolean
+)
+
 internal data class ViewSnapshot(
   val name: String,
   val structure: ViewStructure
@@ -51,6 +57,11 @@ internal data class SchemaDiff(
   val viewTransitions: List<ViewTransition> = emptyList(),
   val newViews: List<ViewSnapshot> = emptyList(),
   val removedViews: List<ViewSnapshot> = emptyList(),
+  val previousFullTextIndices: List<FullTextIndexStructure> = emptyList(),
+  val currentFullTextIndices: List<FullTextIndexStructure> = emptyList(),
+  val fullTextIndexTransitions: List<FullTextIndexTransition> = emptyList(),
+  val newFullTextIndices: List<FullTextIndexStructure> = emptyList(),
+  val removedFullTextIndices: List<FullTextIndexStructure> = emptyList(),
   val renameCandidates: Map<String, List<String>> = emptyMap()
 ) {
   val renamedTables = transitions
@@ -83,7 +94,10 @@ internal data class SchemaDiff(
       removedTables.isNotEmpty() ||
       indexTransitions.any(IndexTransition::changed) ||
       newIndices.isNotEmpty() ||
-      removedIndices.isNotEmpty()
+      removedIndices.isNotEmpty() ||
+      fullTextIndexTransitions.any(FullTextIndexTransition::changed) ||
+      newFullTextIndices.isNotEmpty() ||
+      removedFullTextIndices.isNotEmpty()
 
   val hasPersistentChanges = hasPersistentTableOrIndexChanges ||
       viewTransitions.any(ViewTransition::changed) ||
@@ -168,6 +182,17 @@ internal object SchemaDiffer {
     }
     val newViews = currentViews.filter { it.normalizedViewId !in previousViewsByIdentity }
     val removedViews = previousViews.filter { it.normalizedViewId !in currentViewsByIdentity }
+    val previousFullTextIndices = from.fullTextIndices.values.toList()
+    val currentFullTextIndices = to.fullTextIndices.values.toList()
+    val fullTextIndexTransitions = currentFullTextIndices.mapNotNull { currentIndex ->
+      from.fullTextIndices[currentIndex.name]?.let { previousIndex ->
+        FullTextIndexTransition(
+          previous = previousIndex,
+          current = currentIndex,
+          changed = !previousIndex.sameSchemaAs(currentIndex)
+        )
+      }
+    }
 
     return SchemaDiff(
       previousTableNames = from.tables.keys.toList(),
@@ -188,6 +213,11 @@ internal object SchemaDiffer {
       viewTransitions = viewTransitions,
       newViews = newViews,
       removedViews = removedViews,
+      previousFullTextIndices = previousFullTextIndices,
+      currentFullTextIndices = currentFullTextIndices,
+      fullTextIndexTransitions = fullTextIndexTransitions,
+      newFullTextIndices = currentFullTextIndices.filter { it.name !in from.fullTextIndices },
+      removedFullTextIndices = previousFullTextIndices.filter { it.name !in to.fullTextIndices },
       renameCandidates = renameDetection.renameCandidates
     )
   }

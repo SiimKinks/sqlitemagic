@@ -44,6 +44,10 @@ private fun PreparedRelease.schemaChanges(): String {
     changeGroup(
       title = "Views",
       changes = migration.diff.viewChanges()
+    ),
+    changeGroup(
+      title = "Full-text indices",
+      changes = migration.diff.fullTextIndexChanges()
     )
   )
   return when {
@@ -147,3 +151,9 @@ private fun SchemaDiff.viewChanges() = newViews.map { "+ ${it.name}" } +
       .filter(ViewTransition::changed)
       .map { "~ ${it.current.name}" } +
     removedViews.map { "- ${it.name}" }
+
+private fun SchemaDiff.fullTextIndexChanges() = newFullTextIndices.map { "+ ${it.name}" } +
+    fullTextIndexTransitions
+      .filter(FullTextIndexTransition::changed)
+      .map { "~ ${it.current.name}" } +
+    removedFullTextIndices.map { "- ${it.name}" }

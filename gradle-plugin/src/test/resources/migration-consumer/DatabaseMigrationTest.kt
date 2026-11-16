@@ -107,6 +107,18 @@ internal class DatabaseMigrationTest {
                     rows = listOf(listOf(7L, "O'BRIEN", 7L, "o'brien"))
                   )
                 )
+              database.execute("UPDATE migration_person SET name = 'Wilde' WHERE id = 7")
+              assertThat(
+                database.query(
+                  "SELECT rowid FROM migration_person_fts WHERE migration_person_fts MATCH 'wilde OR brien'"
+                )
+              )
+                .isEqualTo(
+                  MigrationTestResult(
+                    columns = listOf("rowid"),
+                    rows = listOf(listOf(7L))
+                  )
+                )
               assertThat(database.query("PRAGMA user_version"))
                 .isEqualTo(
                   MigrationTestResult(

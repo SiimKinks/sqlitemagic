@@ -266,4 +266,10 @@ internal fun DatabaseStructure.hasSchemaOf(release: ReleaseSchemaSnapshot) = Sch
 ) && SchemaSqlComparison.sameStatements(
   first = indices.values.map(IndexStructure::indexSql),
   second = release.indexSql
+) && SchemaSqlComparison.sameStatements(
+  first = fullTextIndices.values.map(FullTextIndexStructure::tableSql),
+  second = release.virtualTableSql
+) && SchemaSqlComparison.sameStatements(
+  first = fullTextIndices.values.flatMap { it.triggers.values },
+  second = release.triggerSql
 ) && views.keys == release.views.map(MigrationViewSchema::name).toSet()

@@ -26,6 +26,23 @@ object SchemaSqlComparison {
     }
   }
 
+  fun sameSchema(
+    first: ReleaseSchemaSnapshot,
+    second: ReleaseSchemaSnapshot
+  ) = sameStatements(
+    first = first.tableSql,
+    second = second.tableSql
+  ) && sameStatements(
+    first = first.indexSql,
+    second = second.indexSql
+  ) && sameStatements(
+    first = first.virtualTableSql,
+    second = second.virtualTableSql
+  ) && sameStatements(
+    first = first.triggerSql,
+    second = second.triggerSql
+  )
+
   fun sameStatements(
     first: Collection<String>,
     second: Collection<String>
