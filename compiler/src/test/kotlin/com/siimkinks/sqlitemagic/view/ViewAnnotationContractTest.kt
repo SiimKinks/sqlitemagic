@@ -11,6 +11,8 @@ import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class ViewAnnotationContractTest {
   private val compiler = SqliteMagicCompiler(::viewProcessingSteps)
@@ -88,8 +90,9 @@ internal class ViewAnnotationContractTest {
       )
   }
 
-  @Test
-  fun `rejects table-only annotations on view properties`() {
+  @ParameterizedTest(name = "{0}")
+  @ValueSource(strings = ["Column", "Id", "Index", "Unique", "RowId"])
+  fun `rejects table-only annotations on view properties`(annotation: String) {
     compiler
       .compile(
         ViewSources.view(
@@ -98,7 +101,7 @@ internal class ViewAnnotationContractTest {
             @View
             data class PropertyAnnotationConflict(
               @ViewColumn("value")
-              @Column
+              @com.siimkinks.sqlitemagic.annotation.$annotation
               val value: String
             ) {
               companion object {
@@ -110,7 +113,7 @@ internal class ViewAnnotationContractTest {
         )
       )
       .assertCompilationError(
-        "@Column is not valid on a @View property",
+        "@$annotation is not valid on a @View property",
         "PropertyAnnotationConflict.value"
       )
   }

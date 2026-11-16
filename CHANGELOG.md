@@ -18,6 +18,10 @@ Version 3.1.0 _(unreleased)_
   clauses handle different unique constraints, and `ON_CONFLICT()` handles any unique constraint. UPSERT needs SQLite
   3.24.0, which the framework driver has from API 30, and several clauses or `DO_UPDATE` after `ON_CONFLICT()` need
   3.35.0 (API 34); the bundled driver supports both
+* New: `@RowId val rowId: Long? = null` beside an `@Id` that is not stored as `INTEGER` declares the table's row ID:
+  it becomes the `INTEGER PRIMARY KEY`, so `VACUUM` and a dump and restore keep it, and the `@Id` is stored as
+  `UNIQUE` and stays the entity key. SQLite assigns it on insert; entity operations never write it. Adding or removing
+  it migrates the table and keeps the row IDs of a table that stays a rowid table
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead

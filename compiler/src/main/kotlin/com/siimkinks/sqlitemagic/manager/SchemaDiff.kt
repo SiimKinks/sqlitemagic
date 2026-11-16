@@ -397,6 +397,7 @@ private class RenameDetector(
   private fun ColumnStructure.hasSameStorageShapeAs(
     other: ColumnStructure
   ) = id == other.id &&
+      rowId == other.rowId &&
       autoIncrement == other.autoIncrement &&
       onDeleteCascade == other.onDeleteCascade &&
       sqlType == other.sqlType
@@ -431,6 +432,7 @@ private class RenameDetector(
   ) = from.columns.size == to.columns.size &&
       (from.columns zip to.columns).all { (fromColumn, toColumn) ->
         fromColumn.id == toColumn.id &&
+            fromColumn.rowId == toColumn.rowId &&
             fromColumn.autoIncrement == toColumn.autoIncrement &&
             fromColumn.name == toColumn.name &&
             fromColumn.onDeleteCascade == toColumn.onDeleteCascade &&

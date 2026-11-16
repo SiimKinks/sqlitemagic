@@ -28,7 +28,8 @@ internal data class ColumnSeed(
   val idAnnotation: KSAnnotation?,
   val isUnique: Boolean,
   val index: FieldIndexElement?,
-  val belongsToIndex: String?
+  val belongsToIndex: String?,
+  val isRowId: Boolean
 ) : PropertySeed
 
 internal data class EmbeddedSeed(
@@ -54,6 +55,9 @@ internal data class TableSeed(
   val idSeed = propertySeeds
     .filterIsInstance<ColumnSeed>()
     .singleOrNull { it.idAnnotation != null }
+  val hasRowId = propertySeeds
+    .filterIsInstance<ColumnSeed>()
+    .any(ColumnSeed::isRowId)
 
   fun isInUniqueIndex(column: ColumnSeed) = column.index?.isUnique == true ||
       uniqueCompositeIndexName?.compositeIndexIncludes(column.belongsToIndex) == true

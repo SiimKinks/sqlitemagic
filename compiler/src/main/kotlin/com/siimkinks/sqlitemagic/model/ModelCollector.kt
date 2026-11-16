@@ -3,10 +3,12 @@ package com.siimkinks.sqlitemagic.model
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.Environment
+import com.siimkinks.sqlitemagic.SqlStorageType.LONG
 import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Index
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
+import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.element.TypeKey
 import com.siimkinks.sqlitemagic.element.toParsedType
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
@@ -129,6 +131,27 @@ internal class ModelCollector(
         symbol = declaration
       )
     }
+    val rowIdSeeds = logicalProperties
+      .filterIsInstance<ColumnSeed>()
+      .filter(ColumnSeed::isRowId)
+    rowIdSeeds.firstOrNull()?.let { rowIdSeed ->
+      when {
+        rowIdSeeds.size > 1 -> reporter.error(
+          message = "Table must declare at most one @RowId: " +
+              rowIdSeeds.joinToString(transform = ColumnSeed::diagnosticPath),
+          symbol = declaration
+        )
+        WITHOUT_ROWID in options || TEMPORARY in options -> reporter.error(
+          message = "@RowId is not allowed in WITHOUT_ROWID or TEMPORARY tables: ${rowIdSeed.diagnosticPath}",
+          symbol = rowIdSeed.roundElement.sourceDeclaration
+        )
+        idSeeds.isEmpty() -> reporter.error(
+          message = "@RowId requires an @Id that is not stored as INTEGER; a table without an @Id declares its row " +
+              "ID as `@Id val id: Long? = null`: ${rowIdSeed.diagnosticPath}",
+          symbol = rowIdSeed.roundElement.sourceDeclaration
+        )
+      }
+    }
     return TableSeed(
       classDeclaration = declaration,
       parsedType = parsedType,
@@ -170,6 +193,12 @@ internal class ModelCollector(
       )
     }
     val columnAnnotation = propertyAnnotations.column
+    val isRowId = propertyAnnotations.rowId != null
+    val isInvalidRowId = isRowId && !isValidRowIdProperty(
+      property = property,
+      diagnosticPath = "$tableDisplayName.${propertyPath.displayName}"
+    )
+    if (isInvalidRowId) return null
     val transformer = environment.transformerElements[property.typeKey]
     val relationshipTypeKey = property.typeKey.takeIf { typeKey ->
       transformer == null && (
@@ -222,8 +251,30 @@ internal class ModelCollector(
       index = index,
       belongsToIndex = columnAnnotation
         ?.belongsToIndex
-        ?.takeIf(String::isNotEmpty)
+        ?.takeIf(String::isNotEmpty),
+      isRowId = isRowId
     )
+  }
+
+  private fun isValidRowIdProperty(
+    property: PropertyRoundElement,
+    diagnosticPath: String
+  ): Boolean {
+    val conflictingAnnotation = property.annotations.run {
+      id != null || unique != null || index != null || ignoreColumn != null ||
+          column?.defaultValue?.isNotEmpty() == true || column?.belongsToIndex?.isNotEmpty() == true
+    }
+    val message = when {
+      conflictingAnnotation -> "@RowId cannot be combined with @Id, @Unique, @Index, @IgnoreColumn, or @Column " +
+          "defaultValue or belongsToIndex: $diagnosticPath"
+      property.sqlStorageType != LONG || !property.canBeNull -> "@RowId requires a Long? property: $diagnosticPath"
+      else -> return true
+    }
+    reporter.error(
+      message = message,
+      symbol = property.sourceDeclaration
+    )
+    return false
   }
 
   private fun collectEmbeddedPropertySeed(
@@ -237,7 +288,7 @@ internal class ModelCollector(
     embeddedAnnotation: Embedded
   ): PropertySeed? {
     val conflictingAnnotation = property.annotations.run {
-      column != null || id != null || ignoreColumn != null || index != null || unique != null
+      column != null || id != null || ignoreColumn != null || index != null || unique != null || rowId != null
     }
     if (conflictingAnnotation) {
       reporter.error(
@@ -298,9 +349,17 @@ internal class ModelCollector(
     val errorsBeforeChildren = reporter.errorCount
     val childSeeds = shape.properties.mapNotNull { child ->
       val childPath = propertyPath.child(child.name)
-      if (child.annotations.id != null) {
+      val keyAnnotation = child.annotations.run {
+        when {
+          id != null -> "@Id"
+          rowId != null -> "@RowId"
+          else -> null
+        }
+      }
+      if (keyAnnotation != null) {
         reporter.error(
-          message = "@Id is not allowed inside an embedded value: $tableDisplayName.${childPath.displayName}",
+          message = "$keyAnnotation is not allowed inside an embedded value: " +
+              "$tableDisplayName.${childPath.displayName}",
           symbol = child.sourceDeclaration
         )
         return@mapNotNull null

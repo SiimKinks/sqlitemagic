@@ -38,6 +38,7 @@ migration does to existing data and to test it.
 | Remove a property or class | drops the column (rebuild) or table | confirm the data is no longer needed |
 | Change a view query | recreates the view | nothing |
 | Add `onDeleteCascade` | adds the foreign key; deletes rows that reference missing rows | fix dangling rows in the script first |
+| Add or remove `@RowId` | rebuilds the table, copying each row's row ID between the rowid and the `@RowId` column, so row IDs and child rows survive; a former `WITHOUT_ROWID` table gets new row IDs, and an existing column that gains `@RowId` keeps its own values | an existing column's values are unique |
 
 Every step that discards data is printed as a build warning (`Migration deletes …`, dropped columns and tables), in
 debug builds by KSP and for releases by the Gradle tasks. So is a step that fills existing rows of a transformed

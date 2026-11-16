@@ -51,13 +51,14 @@ internal fun ColumnElement.schemaSql() = buildString {
     append(" NOT NULL")
   }
   when {
-    isId -> {
+    id?.isPrimaryKey == true -> {
       append(" PRIMARY KEY")
-      if (id?.isAutoIncrement == true) {
+      if (id.isAutoIncrement) {
         append(" AUTOINCREMENT")
       }
     }
-    isUnique -> append(" UNIQUE")
+    isRowId -> append(" PRIMARY KEY")
+    isUnique || isId -> append(" UNIQUE")
   }
   schemaDefaultValue?.let { append(" DEFAULT $it") }
   relationship

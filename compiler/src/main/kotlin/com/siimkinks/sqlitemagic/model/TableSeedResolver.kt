@@ -166,7 +166,8 @@ internal class TableSeedResolver(
       IdElement(
         isAutoIncrement = !withoutRowId && compatible && mode != DISABLED,
         canAssignGeneratedId = seed.access.isMutable,
-        isNotNullKey = withoutRowId || storageType.affinity == INTEGER
+        isNotNullKey = withoutRowId || storageType.affinity == INTEGER,
+        isPrimaryKey = !tableSeed.hasRowId
       )
     }
     return ColumnElement(
@@ -187,7 +188,8 @@ internal class TableSeedResolver(
       id = id,
       isUnique = seed.isUnique,
       index = seed.index,
-      belongsToIndex = seed.belongsToIndex
+      belongsToIndex = seed.belongsToIndex,
+      isRowId = seed.isRowId
     )
   }
 
@@ -370,15 +372,20 @@ internal class TableSeedResolver(
           symbol = seed.classDeclaration
         )
       }
-    if (WITHOUT_ROWID in table.options) {
-      val id = table.idColumn
-      if (id == null || id.isValueNullable) {
-        val idDescription = id?.let(::describe) ?: modelName
-        reporter.error(
-          message = "WITHOUT_ROWID requires an explicit non-null @Id: $idDescription",
-          symbol = seed.classDeclaration
-        )
-      }
+    val idColumn = table.idColumn
+    if (table.rowIdColumn != null && idColumn?.sqlStorageType?.affinity == INTEGER) {
+      reporter.error(
+        message = "@RowId requires an @Id that is not stored as INTEGER; ${describe(idColumn)} already is the row " +
+            "ID: ${describe(table.rowIdColumn)}",
+        symbol = seed.classDeclaration
+      )
+    }
+    if (WITHOUT_ROWID in table.options && (idColumn == null || idColumn.isValueNullable)) {
+      val idDescription = idColumn?.let(::describe) ?: modelName
+      reporter.error(
+        message = "WITHOUT_ROWID requires an explicit non-null @Id: $idDescription",
+        symbol = seed.classDeclaration
+      )
     }
   }
 }

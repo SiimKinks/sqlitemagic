@@ -18,7 +18,8 @@ internal enum class AutoIncrementMode {
 internal data class IdElement(
   val isAutoIncrement: Boolean,
   val canAssignGeneratedId: Boolean,
-  val isNotNullKey: Boolean
+  val isNotNullKey: Boolean,
+  val isPrimaryKey: Boolean = true
 )
 
 internal data class FieldIndexElement(
@@ -71,7 +72,8 @@ internal data class ColumnElement(
   val id: IdElement?,
   val isUnique: Boolean,
   val index: FieldIndexElement?,
-  val belongsToIndex: String?
+  val belongsToIndex: String?,
+  val isRowId: Boolean = false
 ) : PropertyMetadata {
   init {
     require(transformer == null || relationship == null) {
@@ -80,10 +82,11 @@ internal data class ColumnElement(
   }
 
   val isId get() = id != null
-  val isNotNullKey get() = id?.isNotNullKey == true
+  val isNotNullKey get() = id?.isNotNullKey == true || isRowId
   val isSqlNullable get() = isModelPathNullable && !isNotNullKey
   val declaresNotNull get() = !isModelPathNullable && !isNotNullKey
-  val schemaDefaultValue get() = defaultValue.takeUnless { isId || isUnique }
+  val schemaDefaultValue get() = defaultValue.takeUnless { isId || isUnique || isRowId }
+  val isSetByUpdate get() = !isId && !isRowId
   val isRelationship get() = relationship != null
   val isHandledRecursively get() = relationship?.isHandledRecursively == true
   val referencedTableTypeKey get() = relationship?.referencedTableTypeKey

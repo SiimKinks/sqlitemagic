@@ -107,7 +107,7 @@ internal fun ColumnStructure.requiresValueDuringRebuild(table: TableStructure) =
 internal fun ColumnStructure.isNotNullIn(table: TableStructure) = notNull ||
     (id && (sqlType == INTEGER.name || table.isWithoutRowId))
 
-private val TableStructure.isWithoutRowId
+internal val TableStructure.isWithoutRowId
   get() = withoutRowIdPattern.containsMatchIn(schema.withoutQuotedSqlSegments())
 
 internal fun ColumnStructure.canBeAddedWithAlterTable(): Boolean {

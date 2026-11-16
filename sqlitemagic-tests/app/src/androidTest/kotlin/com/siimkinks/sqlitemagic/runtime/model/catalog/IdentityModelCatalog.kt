@@ -8,6 +8,8 @@ import com.siimkinks.sqlitemagic.NoIdEntityTable.Companion.NO_ID_ENTITY
 import com.siimkinks.sqlitemagic.NoIdEntitys
 import com.siimkinks.sqlitemagic.NoIdUniqueEntityTable.Companion.NO_ID_UNIQUE_ENTITY
 import com.siimkinks.sqlitemagic.NoIdUniqueEntitys
+import com.siimkinks.sqlitemagic.RowIdEntityTable.Companion.ROW_ID_ENTITY
+import com.siimkinks.sqlitemagic.RowIdEntitys
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntitys
 import com.siimkinks.sqlitemagic.TemporaryWithoutRowIdEntityTable.Companion.TEMPORARY_WITHOUT_ROW_ID_ENTITY
@@ -21,6 +23,7 @@ import com.siimkinks.sqlitemagic.fixture.model.AccountId
 import com.siimkinks.sqlitemagic.fixture.model.AutomaticTransformed
 import com.siimkinks.sqlitemagic.fixture.model.NoIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.NoIdUniqueEntity
+import com.siimkinks.sqlitemagic.fixture.model.RowIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.SequenceId
 import com.siimkinks.sqlitemagic.fixture.model.StringIdEntity
 import com.siimkinks.sqlitemagic.fixture.model.TemporaryWithoutRowIdEntity
@@ -47,6 +50,7 @@ internal object IdentityModelCatalog {
     AutomaticTransformedCase,
     AccountCase,
     StringIdEntityCase,
+    RowIdEntityCase,
     NoIdEntityCase,
     NoIdUniqueEntityCase,
     WithoutRowIdEntityCase,
@@ -134,6 +138,54 @@ internal object IdentityModelCatalog {
     override fun updatedValue(value: Account, sequence: Int) = value.copy(
       id = value.id,
       label = "account-updated-label-$sequence"
+    )
+
+    override fun toString() = name
+  }
+
+  private object RowIdEntityCase :
+    StandardBulkPersistModelCase<RowIdEntity>,
+    StandardBulkDeleteModelCase<RowIdEntity> {
+    override val name = "RowIdEntity"
+    override val table = ROW_ID_ENTITY
+    override val rowIdExpectation = InsertRowIdExpectation.PRESENT
+
+    override fun newValue(sequence: Int) = RowIdEntity(
+      id = "row-id-$sequence",
+      value = "row-id-value-$sequence"
+    )
+
+    override val operationBuilders = StandardOperationBuilders(
+      insert = RowIdEntity::insert,
+      bulkInsert = RowIdEntitys::insert,
+      update = RowIdEntity::update,
+      bulkUpdate = RowIdEntitys::update,
+      persist = RowIdEntity::persist,
+      bulkPersist = RowIdEntitys::persist
+    )
+
+    override val deleteBuilders = StandardDeleteBuilders(
+      delete = RowIdEntity::delete,
+      bulkDelete = RowIdEntitys::delete,
+      deleteTable = RowIdEntitys::deleteTable
+    )
+
+    override fun expectedAfterInsert(value: RowIdEntity, result: EntityInsertResult.Inserted) = value.copy(
+      rowId = checkNotNull(result.rowId)
+    )
+
+    override fun expectedAfterBulkInsert(
+      values: List<RowIdEntity>,
+      actual: List<RowIdEntity>
+    ) = actual.map { persisted ->
+      values
+        .single { it.id == persisted.id }
+        .copy(rowId = persisted.rowId)
+    }
+
+    override fun updatedValue(value: RowIdEntity, sequence: Int) = value.copy(
+      id = value.id,
+      value = "row-id-value-updated-$sequence"
     )
 
     override fun toString() = name

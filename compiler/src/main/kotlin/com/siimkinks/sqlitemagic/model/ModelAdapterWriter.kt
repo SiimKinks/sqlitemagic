@@ -414,7 +414,7 @@ private fun TableElement.insertSql() = when {
 }
 
 private fun TableElement.updateSql(identityColumn: ColumnElement): String {
-  val columns = allColumns.filterNot { it === identityColumn || it.isId }
+  val columns = allColumns.filter { it !== identityColumn && it.isSetByUpdate }
   val identity = identityColumn.quotedColumnName
   val setters = when {
     columns.isEmpty() -> "$identity=$identity"

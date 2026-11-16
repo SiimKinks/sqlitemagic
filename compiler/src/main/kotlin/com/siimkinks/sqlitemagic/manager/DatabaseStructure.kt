@@ -9,10 +9,8 @@ import com.siimkinks.sqlitemagic.model.schemaSql
 import com.siimkinks.sqlitemagic.view.ViewElement
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.EncodeDefault.Mode.NEVER
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
-@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class ColumnStructure(
   val id: Boolean = false,
@@ -24,7 +22,9 @@ internal data class ColumnStructure(
   val notNull: Boolean = false,
   val notNullDefault: String? = null,
   @EncodeDefault(NEVER)
-  val transformedImplicitDefault: Boolean = false
+  val transformedImplicitDefault: Boolean = false,
+  @EncodeDefault(NEVER)
+  val rowId: Boolean = false
 ) {
   val requiresValue get() = notNull && notNullDefault == null
 
@@ -40,7 +40,8 @@ internal data class ColumnStructure(
         schema = schemaSql(),
         notNull = declaresNotNull,
         notNullDefault = notNullDefault,
-        transformedImplicitDefault = notNullDefault != null && transformer != null && !hasExplicitDefault
+        transformedImplicitDefault = notNullDefault != null && transformer != null && !hasExplicitDefault,
+        rowId = isRowId
       )
     }
   }

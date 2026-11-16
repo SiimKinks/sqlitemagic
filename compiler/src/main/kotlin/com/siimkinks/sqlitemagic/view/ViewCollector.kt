@@ -223,6 +223,7 @@ internal class ViewCollector(
       propertyAnnotations.id != null -> "@Id"
       propertyAnnotations.index != null -> "@Index"
       propertyAnnotations.unique != null -> "@Unique"
+      propertyAnnotations.rowId != null -> "@RowId"
       else -> null
     }
     if (tableOnlyAnnotation != null) {

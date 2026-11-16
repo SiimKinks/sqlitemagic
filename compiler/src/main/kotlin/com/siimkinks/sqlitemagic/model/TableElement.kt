@@ -52,10 +52,11 @@ internal data class TableElement(
   private val eligibleUniqueColumns = allColumns.filter(ColumnElement::isEligibleEntityKey)
   val identityColumns = listOfNotNull(idColumn) + eligibleUniqueColumns.filterNot { it === idColumn }
   val recursiveRelationshipColumns = relationshipColumns.filter(ColumnElement::isHandledRecursively)
-  val columnsForInsert = allColumns.filterNot { it.id?.isAutoIncrement == true }
-  val generatedIdAssignmentColumn = idColumn?.takeIf {
-    it.id?.run { isAutoIncrement && canAssignGeneratedId } == true
-  }
+  val rowIdColumn = allColumns.singleOrNull(ColumnElement::isRowId)
+  val columnsForInsert = allColumns.filterNot { it.id?.isAutoIncrement == true || it.isRowId }
+  val generatedIdAssignmentColumn = idColumn
+    ?.takeIf { it.id?.run { isAutoIncrement && canAssignGeneratedId } == true }
+    ?: rowIdColumn?.takeIf { it.access.isMutable }
 
   val supportsDefaultIdentity = idColumn != null
   val supportsIdentityOperations = identityColumns.isNotEmpty()

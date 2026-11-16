@@ -72,7 +72,7 @@ private fun TableChange.dataLossWarnings(
       cascadeSuffix = cascadeSuffix
     ),
     implicitDefaultWarning(),
-    droppedColumns
+    discardedColumns
       .takeIf(List<ColumnStructure>::isNotEmpty)
       ?.let { columns ->
         "Migration drops column(s) of ${from.name} with their data: ${columns.columnNames()}. " +

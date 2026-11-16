@@ -155,11 +155,12 @@ internal object MigrationSqlRenderer {
   private fun TableChange.rowCopy(temporaryTableName: String) = when {
     !copiesRows -> null
     else -> {
-      val destinationColumnNames = copiedColumns.joinToString(separator = ",") { quoteSqlIdentifier(it.current.name) }
-      val sourceValues = copiedColumns.joinToString(
-        separator = ",",
-        transform = ColumnCopy::sourceValue
-      )
+      val destinationColumnNames = listOfNotNull(rowIdCopy?.destination)
+        .plus(copiedColumns.map { quoteSqlIdentifier(it.current.name) })
+        .joinToString(separator = ",")
+      val sourceValues = listOfNotNull(rowIdCopy?.source)
+        .plus(copiedColumns.map(ColumnCopy::sourceValue))
+        .joinToString(separator = ",")
       "INSERT INTO ${quoteSqlIdentifier(to.structure.name)} ($destinationColumnNames) SELECT $sourceValues " +
           "FROM ${quoteSqlIdentifier(temporaryTableName)}"
     }

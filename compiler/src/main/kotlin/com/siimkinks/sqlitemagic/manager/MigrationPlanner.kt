@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.manager
 
+import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import java.util.Locale
 
@@ -218,6 +219,12 @@ internal data class TableChange(
   val droppedColumns = from.structure.columns.filterNot { it.lookupName in currentColumnsByName }
   val addedColumns = to.structure.columns.filterNot { it.lookupName in previousColumnNames }
   val columnsWithoutValue = addedColumns.filter { it.requiresValueDuringRebuild(table = to.structure) }
+  val rowIdCopy = rowIdCopy(
+    from = from.structure,
+    to = to.structure,
+    addedColumns = addedColumns
+  )
+  val discardedColumns = droppedColumns.filterNot { it === rowIdCopy?.sourceColumn }
   val copiesRows get() = copiedColumns.isNotEmpty() && columnsWithoutValue.isEmpty()
   val missingReferenceConditions = copiedColumns.mapNotNull(ColumnCopy::missingReferenceCondition)
   val copiesMissingReferences get() = copiesRows && missingReferenceConditions.isNotEmpty()
@@ -253,6 +260,55 @@ internal data class ColumnCopy(
       else -> quoteSqlIdentifier(previous.name)
     }
 }
+
+internal data class RowIdCopy(
+  val destination: String,
+  val source: String,
+  val sourceColumn: ColumnStructure?
+)
+
+private fun rowIdCopy(
+  from: TableStructure,
+  to: TableStructure,
+  addedColumns: List<ColumnStructure>
+): RowIdCopy? {
+  val previousRowId = from.columns.firstOrNull(ColumnStructure::rowId)
+  val currentRowId = to.columns.firstOrNull(ColumnStructure::rowId)
+  return when {
+    currentRowId != null && currentRowId in addedColumns -> from
+      .rowIdSource(previousRowId)
+      ?.let { source ->
+        RowIdCopy(
+          destination = quoteSqlIdentifier(currentRowId.name),
+          source = source,
+          sourceColumn = previousRowId
+        )
+      }
+    previousRowId != null && currentRowId == null && to.columns.none(ColumnStructure::isRowIdAlias) -> to
+      .rowIdPseudoColumn()
+      ?.let { destination ->
+        RowIdCopy(
+          destination = destination,
+          source = quoteSqlIdentifier(previousRowId.name),
+          sourceColumn = previousRowId
+        )
+      }
+    else -> null
+  }
+}
+
+private fun TableStructure.rowIdSource(rowIdColumn: ColumnStructure?) = rowIdColumn
+  ?.name
+  ?.let(::quoteSqlIdentifier)
+  ?: rowIdPseudoColumn()
+
+private fun TableStructure.rowIdPseudoColumn() = ROW_ID_PSEUDO_COLUMNS
+  .takeUnless { isWithoutRowId }
+  ?.firstOrNull { pseudoColumn -> columns.none { it.lookupName == pseudoColumn } }
+
+private val ColumnStructure.isRowIdAlias get() = id && sqlType == INTEGER.name
+
+private val ROW_ID_PSEUDO_COLUMNS = listOf("rowid", "oid", "_rowid_")
 
 private val ColumnStructure.lookupName get() = name.lowercase(Locale.ROOT)
 

@@ -48,7 +48,7 @@ internal class DatabaseStructureTest {
   }
 
   @Test
-  fun `writes the transformed implicit default flag only when it is set`() {
+  fun `writes the transformed implicit default and row ID flags only when they are set`() {
     val structure = DatabaseStructure(
       tables = mapOf(
         "books" to TableStructure(
@@ -58,6 +58,10 @@ internal class DatabaseStructureTest {
             ColumnStructure(
               name = "status",
               transformedImplicitDefault = true
+            ),
+            ColumnStructure(
+              name = "row_id",
+              rowId = true
             )
           )
         )
@@ -65,8 +69,10 @@ internal class DatabaseStructureTest {
     )
     val json = DatabaseStructureJson.write(structure)
 
-    assertThat(json.split("transformedImplicitDefault").size - 1 to DatabaseStructureJson.read(json))
-      .isEqualTo(1 to structure)
+    assertThat(
+      listOf("transformedImplicitDefault", "rowId").map { json.split(it).size - 1 } to
+          DatabaseStructureJson.read(json)
+    ).isEqualTo(listOf(1, 1) to structure)
   }
 
   @Test

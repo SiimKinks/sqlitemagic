@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
 import com.siimkinks.sqlitemagic.annotation.Index
+import com.siimkinks.sqlitemagic.annotation.RowId
 import com.siimkinks.sqlitemagic.annotation.Unique
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.element.RoundTypeElement
@@ -25,7 +26,8 @@ internal data class ViewPropertyRoundAnnotations(
   val column: Column?,
   val id: KSAnnotation?,
   val index: Index?,
-  val unique: Unique?
+  val unique: Unique?,
+  val rowId: RowId?
 ) {
   companion object {
     internal fun from(
@@ -42,7 +44,8 @@ internal data class ViewPropertyRoundAnnotations(
           annotationClass = Id::class
         ),
         index = index(symbol),
-        unique = unique(symbol)
+        unique = unique(symbol),
+        rowId = rowId(symbol)
       )
     }
   }

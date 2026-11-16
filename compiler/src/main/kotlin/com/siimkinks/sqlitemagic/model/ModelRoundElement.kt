@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
 import com.siimkinks.sqlitemagic.annotation.Index
+import com.siimkinks.sqlitemagic.annotation.RowId
 import com.siimkinks.sqlitemagic.annotation.Unique
 import com.siimkinks.sqlitemagic.element.RoundTypeElement
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
@@ -50,6 +51,7 @@ internal data class PropertyRoundAnnotations(
   val ignoreColumn: IgnoreColumn?,
   val index: Index?,
   val unique: Unique?,
+  val rowId: RowId?,
 ) {
   companion object {
     internal fun from(
@@ -65,7 +67,8 @@ internal data class PropertyRoundAnnotations(
         ),
         ignoreColumn = ignoreColumn(symbol),
         index = index(symbol),
-        unique = unique(symbol)
+        unique = unique(symbol),
+        rowId = rowId(symbol)
       )
     }
   }

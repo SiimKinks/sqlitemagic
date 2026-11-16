@@ -141,7 +141,7 @@ private class TableDaoWriter(
     fun FunSpec.Builder.addBindingsBy(identityColumn: ColumnElement) = addBindings(
       columns = table
         .allColumns
-        .filterNot { it === identityColumn || it.isId } + identityColumn
+        .filter { it !== identityColumn && it.isSetByUpdate } + identityColumn
     )
     return when (identityColumns.size) {
       1 -> addBindingsBy(identityColumns.single())
@@ -172,7 +172,7 @@ private class TableDaoWriter(
       .addBindings(
         columns = table
           .allColumns
-          .filterNot(ColumnElement::isId) + idColumn
+          .filter(ColumnElement::isSetByUpdate) + idColumn
       )
       .endControlFlow()
       .beginControlFlow("else ->")
@@ -197,7 +197,7 @@ private class TableDaoWriter(
     endControlFlow()
     addStatement("var parameterIndex = 1")
     table.allColumns.forEachIndexed { index, column ->
-      if (column.isId) return@forEachIndexed
+      if (!column.isSetByUpdate) return@forEachIndexed
       val identityOrdinal = uniqueColumns.indexOfFirst { it === column }
       when {
         identityOrdinal >= 0 -> beginControlFlow("if (identityOrdinal != %L)", identityOrdinal)
@@ -249,7 +249,7 @@ private class TableDaoWriter(
       }
       addParameter(name = VARIABLE_GENERATED_RELATIONSHIP_IDS, type = GENERATED_RELATIONSHIP_IDS)
       columns
-        .filterNot { excludesIdentityColumn && it.isId }
+        .filterNot { excludesIdentityColumn && !it.isSetByUpdate }
         .forEach { column ->
           val nullableValue = column.bindingValueCanBeNull
           val value = serializedAccessCode(column)

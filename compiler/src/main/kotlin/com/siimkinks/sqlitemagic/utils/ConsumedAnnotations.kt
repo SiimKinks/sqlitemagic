@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.annotation.Embedded
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.IgnoreColumn
 import com.siimkinks.sqlitemagic.annotation.Index
+import com.siimkinks.sqlitemagic.annotation.RowId
 import com.siimkinks.sqlitemagic.annotation.Table
 import com.siimkinks.sqlitemagic.annotation.TableOption
 import com.siimkinks.sqlitemagic.annotation.Unique
@@ -96,6 +97,8 @@ internal class ConsumedAnnotations {
 
   fun unique(symbol: KSAnnotated) = decode(symbol) { Unique() }
 
+  fun rowId(symbol: KSAnnotated) = decode(symbol) { RowId() }
+
   private fun scan(symbol: KSAnnotated) = declarations.getOrPut(symbol) {
     buildMap {
       val property = symbol.normalizePropertySymbol()
@@ -128,6 +131,7 @@ internal val CONSUMED_ANNOTATION_NAMES = listOf(
   Id::class,
   IgnoreColumn::class,
   Index::class,
+  RowId::class,
   Unique::class,
   ViewColumn::class,
   ViewQuery::class
