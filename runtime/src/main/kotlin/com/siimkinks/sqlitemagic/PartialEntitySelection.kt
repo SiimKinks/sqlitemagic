@@ -102,7 +102,7 @@ private class PartialReadPlan(
       if (relationship.read == ID_ONLY) {
         return@forEachIndexed
       }
-      val child = planner.existingChild(
+      val child = planner.relatedChild(
         parent = occurrence,
         relationship = index
       )

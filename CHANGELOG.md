@@ -39,6 +39,9 @@ Version 3.1.0 _(unreleased)_
   of failing with `OperationFailedException`, or returning `Ignored` under `CONFLICT_IGNORE`
 * Fix: `clearData` clears a table that shares its name with a temporary table, instead of clearing only the temporary
   table
+* Fix: A field that a query reads through a relationship, such as `AUTHOR.NAME` beside
+  `FROM BOOK FULL_JOIN writer ON (BOOK.AUTHOR IS writer.ID)`, gets its own join where a `RIGHT_JOIN` or `FULL_JOIN`
+  keeps the joined row without the parent, so it reads NULL there instead of the values of that unmatched row
 
 Version 3.0.0 _(2026-11-09)_
 ---------------------------------

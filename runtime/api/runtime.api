@@ -315,6 +315,7 @@ public final class com/siimkinks/sqlitemagic/EntitySelection : com/siimkinks/sql
 
 public final class com/siimkinks/sqlitemagic/EntitySelectionKt {
 	public static final fun queryDeep (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/SelectQuery;
+	public static final fun queryRowsDeep (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/SelectQuery;
 }
 
 public final class com/siimkinks/sqlitemagic/FrameBound {
@@ -868,6 +869,10 @@ public final class com/siimkinks/sqlitemagic/MutationsKt {
 }
 
 public final class com/siimkinks/sqlitemagic/NullableEncodableExpression : com/siimkinks/sqlitemagic/EncodableSqlExpression {
+}
+
+public final class com/siimkinks/sqlitemagic/NullableEntity : com/siimkinks/sqlitemagic/SelectValue {
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract interface class com/siimkinks/sqlitemagic/OnConflictClause {
@@ -1497,6 +1502,7 @@ public final class com/siimkinks/sqlitemagic/SelectWhereStage : com/siimkinks/sq
 
 public abstract class com/siimkinks/sqlitemagic/SelectedRow {
 	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/SelectedOutputs;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public abstract fun get (Lcom/siimkinks/sqlitemagic/NullableEntity;)Ljava/lang/Object;
 	public abstract fun get (Lcom/siimkinks/sqlitemagic/SqlExpression;)Ljava/lang/Object;
 	public abstract fun get (Lcom/siimkinks/sqlitemagic/Table;)Ljava/lang/Object;
 }
@@ -1670,6 +1676,7 @@ public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/SelectV
 	protected fun getEntityFields ()Ljava/util/List;
 	protected fun getEntityProperties ()Ljava/util/List;
 	protected fun getRelationships ()Ljava/util/List;
+	public final fun nullable ()Lcom/siimkinks/sqlitemagic/NullableEntity;
 	protected fun readEntity (Landroidx/sqlite/SQLiteStatement;ILcom/siimkinks/sqlitemagic/internal/RelatedEntities;)Ljava/lang/Object;
 	protected fun readPartialEntity (Landroidx/sqlite/SQLiteStatement;[ILcom/siimkinks/sqlitemagic/internal/RelatedEntities;)Ljava/lang/Object;
 	public fun toString ()Ljava/lang/String;

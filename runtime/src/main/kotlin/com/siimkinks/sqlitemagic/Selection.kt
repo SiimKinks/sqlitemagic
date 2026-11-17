@@ -20,7 +20,11 @@ abstract class Selection<out T> internal constructor() {
 
   internal open fun forEachField(action: (ExpressionNode.Field) -> Unit) = Unit
 
+  internal open fun forEachEntityValue(action: (Table<*>) -> Unit) = Unit
+
   internal open fun planRelatedEntities(planner: RelationshipPlanner): RelatedEntities? = null
+
+  internal open fun planValues(planner: RelationshipPlanner): ValueLayout? = null
 
   internal open val exportedValues: List<SqlExpression<*, *, *>> get() = emptyList()
 
@@ -60,6 +64,10 @@ internal inline fun SqlRenderingContext.requireNotNullExtended(source: Table<*>,
 
 internal fun SqlRenderingContext.requireEntityNotNullExtended(table: Table<*>) = requireNotNullExtended(table) {
   "An outer join can leave the ${table.referenceName} entity NULL; select its fields with .nullable()"
+}
+
+internal fun SqlRenderingContext.requireEntityValueNotNullExtended(table: Table<*>) = requireNotNullExtended(table) {
+  "An outer join can leave the ${table.referenceName} entity NULL; select ${table.referenceName}.nullable()"
 }
 
 internal fun SqlRenderingContext.appendOutput(expression: SqlExpression<*, *, *>) {

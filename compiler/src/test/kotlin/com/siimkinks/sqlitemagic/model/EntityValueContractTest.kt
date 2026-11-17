@@ -33,7 +33,8 @@ internal class EntityValueContractTest {
             data class Book(
               @Id val id: Long? = null,
               val title: String,
-              val author: Author
+              val author: Author,
+              val editor: Author? = null
             )
           """
         ),
@@ -50,6 +51,7 @@ internal class EntityValueContractTest {
             import com.siimkinks.sqlitemagic.Row2
             import com.siimkinks.sqlitemagic.SELECT
             import com.siimkinks.sqlitemagic.mapTo
+            import com.siimkinks.sqlitemagic.queryDeep
             import $PACKAGE.Author
             import $PACKAGE.Book
             import typewitness.Exact
@@ -67,13 +69,34 @@ internal class EntityValueContractTest {
                 .mapTo(::AuthorWithCount)
                 .usingConnection(connection)
                 .execute()
-              val pairs = (SELECT.COLUMNS(BOOK, AUTHOR) FROM BOOK)
+              val editor = AUTHOR AS "editor"
+              val withEditors: List<Row2<Book, Author?>> = (
+                  SELECT.COLUMNS(BOOK, editor.nullable())
+                      FROM BOOK
+                      LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)
+                  )
+                .queryDeep()
                 .usingConnection(connection)
                 .execute()
-              val author = (SELECT.COLUMNS(AUTHOR, BOOK.all()) FROM BOOK)
+              val pairs = (SELECT.COLUMNS(BOOK, AUTHOR) FROM BOOK INNER_JOIN AUTHOR ON (BOOK.AUTHOR IS AUTHOR.ID))
+                .usingConnection(connection)
+                .execute()
+              val author = (
+                  SELECT.COLUMNS(AUTHOR, BOOK.all())
+                      FROM BOOK
+                      INNER_JOIN AUTHOR ON (BOOK.AUTHOR IS AUTHOR.ID)
+                  )
                 .usingConnection(connection)
                 .execute()
                 .first()[AUTHOR]
+              val nullableEditor = (
+                  SELECT.COLUMNS(BOOK.all(), editor.nullable())
+                      FROM BOOK
+                      LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)
+                  )
+                .usingConnection(connection)
+                .execute()
+                .first()[editor.nullable()]
 
               val countsType = authorsWithCounts.exactType()
               val exactCounts: Exact<List<AuthorWithCount>> = countsType
@@ -81,6 +104,8 @@ internal class EntityValueContractTest {
               val exactPairs: Exact<List<Row2<Book, Author>>> = pairsType
               val authorType = author.exactType()
               val exactAuthor: Exact<Author> = authorType
+              val nullableEditorType = nullableEditor.exactType()
+              val exactNullableEditor: Exact<Author?> = nullableEditorType
             }
           """
         ),

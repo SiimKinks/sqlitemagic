@@ -238,13 +238,16 @@ internal class RelationshipSelectTest {
 
   @Test
   fun `ambiguous or missing relationship paths reject before SQL`() {
+    val aliased = AUTHOR AS "a"
     assertThat(
       listOf(
         SELECT COLUMN BOOK.TITLE FROM SERIES,
         SELECT COLUMN AUTHOR.NAME FROM SERIES,
         SELECT COLUMN PERSON.NAME FROM BOOK,
         SELECT COLUMN (AUTHOR AS "a").NAME FROM BOOK,
-        SELECT COLUMN PUBLISHER.ID FROM AUTHOR
+        SELECT COLUMN PUBLISHER.ID FROM AUTHOR,
+        SELECT COLUMN PUBLISHER.NAME FROM aliased LEFT_JOIN BOOK ON (BOOK.AUTHOR IS aliased.ID),
+        SELECT.COLUMNS(aliased.NAME, AUTHOR.NAME) FROM aliased LEFT_JOIN BOOK ON (BOOK.AUTHOR IS aliased.ID)
       ).map { query ->
         assertThrows(IllegalArgumentException::class.java, query::compile).message
       }
@@ -255,7 +258,9 @@ internal class RelationshipSelectTest {
             "join the one you mean",
         "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT",
         "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT",
-        "publisher.id is NOT NULL but an outer join can leave it NULL; select the field with .nullable()"
+        "publisher.id is NOT NULL but an outer join can leave it NULL; select the field with .nullable()",
+        "Several relationships lead to publisher: a.publisher, book.author.publisher; join the one you mean",
+        "author.name is NOT NULL but an outer join can leave it NULL; select the field with .nullable()"
       )
     )
   }
@@ -316,6 +321,91 @@ internal class RelationshipSelectTest {
     assertThat(adas.rowsIn(::libraryDatabase)).isEqualTo(books(shallow = true).take(1))
     assertThat(reversed.rowsIn(::libraryDatabase)).isEqualTo(books(shallow = true))
     assertThat(filtered.rowsIn(::libraryDatabase)).isEqualTo(books(shallow = true))
+  }
+
+  @Test
+  fun `default handles reuse a user occurrence only where it reads the rows of their relationship path`() {
+    data class Case(
+      val label: String,
+      val query: SelectQuery<*, *>,
+      val sql: String,
+      val rows: List<Any?>
+    )
+
+    val aliased = AUTHOR AS "a"
+    val authorJoin = """LEFT JOIN "main"."author" ON "book"."author" = "author"."id""""
+    val cases = listOf(
+      Case(
+        label = "an outer join of the parent keeps the relationship's own join",
+        query = SELECT
+          .COLUMNS(aliased.NAME, AUTHOR.NAME.nullable())
+          .FROM(aliased)
+          .LEFT_JOIN(BOOK)
+          .ON(BOOK.AUTHOR IS aliased.ID)
+          .ORDER_BY(aliased.ID.ASC()),
+        sql = """SELECT "a"."name", "author"."name" FROM "main"."author" AS "a" LEFT JOIN "main"."book" """ +
+            """ON "book"."author" = "a"."id" $authorJoin ORDER BY "a"."id" ASC""",
+        rows = listOf(
+          Row2("Ada", "Ada"),
+          Row2("Grace", "Grace"),
+          Row2("Linus", "Linus"),
+          Row2("Mary", null)
+        )
+      ),
+      Case(
+        label = "an inner join of the parent reuses the earlier occurrence it joins",
+        query = SELECT
+          .COLUMNS(aliased.NAME, AUTHOR.NAME)
+          .FROM(aliased)
+          .INNER_JOIN(BOOK)
+          .ON(BOOK.AUTHOR IS aliased.ID)
+          .ORDER_BY(aliased.ID.ASC()),
+        sql = """SELECT "a"."name", "a"."name" FROM "main"."author" AS "a" INNER JOIN "main"."book" """ +
+            """ON "book"."author" = "a"."id" ORDER BY "a"."id" ASC""",
+        rows = listOf(
+          Row2("Ada", "Ada"),
+          Row2("Grace", "Grace"),
+          Row2("Linus", "Linus")
+        )
+      ),
+      Case(
+        label = "a FULL JOIN of the target keeps the relationship's own join",
+        query = SELECT
+          .COLUMNS(BOOK.TITLE.nullable(), AUTHOR.NAME.nullable())
+          .FROM(BOOK)
+          .FULL_JOIN(aliased)
+          .ON(BOOK.AUTHOR IS aliased.ID)
+          .ORDER_BY(aliased.ID.ASC()),
+        sql = """SELECT "book"."title", "author"."name" FROM "main"."book" FULL JOIN "main"."author" AS "a" """ +
+            """ON "book"."author" = "a"."id" $authorJoin ORDER BY "a"."id" ASC""",
+        rows = listOf(
+          Row2("Dune", "Ada"),
+          Row2("Emma", "Grace"),
+          Row2("Kernel", "Linus"),
+          Row2(null, null)
+        )
+      ),
+      Case(
+        label = "a path through an inner-joined child starts at the occurrence that child joins",
+        query = SELECT
+          .COLUMN(PUBLISHER.NAME)
+          .FROM(aliased)
+          .INNER_JOIN(BOOK)
+          .ON(BOOK.AUTHOR IS aliased.ID)
+          .ORDER_BY(aliased.ID.ASC()),
+        sql = """SELECT "publisher"."name" FROM "main"."author" AS "a" INNER JOIN "main"."book" """ +
+            """ON "book"."author" = "a"."id" LEFT JOIN "main"."publisher" ON "a"."publisher" = "publisher"."id" """ +
+            """ORDER BY "a"."id" ASC""",
+        rows = listOf("Tor", null, null)
+      )
+    )
+
+    val results = libraryDatabase().use { database ->
+      database.execSQL("INSERT INTO author VALUES (4, 'Mary', NULL)")
+      cases.map { case -> case.label to (case.query.compile().sql to case.query.rows(database)) }
+    }
+
+    assertThat(results).isEqualTo(cases.map { it.label to (it.sql to it.rows) })
   }
 
   @Test

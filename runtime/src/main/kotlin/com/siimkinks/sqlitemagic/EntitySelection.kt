@@ -1,7 +1,6 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
-import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.ViewDefinition
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
@@ -19,14 +18,11 @@ class EntitySelection<M> internal constructor(
   override fun planRelatedEntities(planner: RelationshipPlanner) = planner.entityRead(deep)
 
   override fun render(context: SqlRenderingContext) {
-    context.renderEntityColumns(table)
-    context.relatedEntities?.joined?.forEach { joined ->
-      context.sql.append(", ")
-      context.renderFields(
-        table = joined.table,
-        qualifier = context.qualifier(joined.table)
-      )
-    }
+    context.requireEntityNotNullExtended(table)
+    context.renderEntityColumns(
+      table = table,
+      related = context.relatedEntities
+    )
   }
 
   override fun createExecutionReader(context: SqlRenderingContext): ExecutionReader<M> {
@@ -74,17 +70,35 @@ fun <T> SelectQuery<T, EntitySelection<T>>.queryDeep() = SelectQuery(
     .withDeepArms()
 )
 
-internal fun SqlRenderingContext.renderEntityValue(table: Table<*>) {
-  require(table.tableRelationships.none { it.read == ALWAYS }) {
-    val relationship = table.tableRelationships.first { it.read == ALWAYS }
-    "The ${table.referenceName} entity reads ${table.referenceName}.${relationship.columnName} through a join, " +
-        "which a selected entity value cannot plan yet; select it with SELECT FROM ${table.referenceName}"
-  }
-  renderEntityColumns(table)
+/**
+ * Mark that the selected entity values should be queried deep.
+ *
+ * Every entity value of the selection joins its relationships and reads them in full, as `queryDeep()` of
+ * `SELECT FROM` does for its entity; without it, related objects that can be built from their stored IDs are not
+ * joined. A relationship reuses a join of the query whose constraint is `foreignKey IS id`, or an earlier occurrence,
+ * the FROM table included, that the parent's own join matches that way.
+ *
+ * In a compound SELECT all the constituent SELECTs are queried deep.
+ *
+ * Example:
+ * ```
+ * (SELECT.COLUMNS(BOOK, AUTHOR.NAME) FROM BOOK).queryDeep()
+ * ```
+ *
+ * @return SQL SELECT statement
+ * @throws IllegalArgumentException if no selected value is an entity
+ */
+@JvmName("queryRowsDeep")
+fun <R, T> SelectQuery<T, RowSelection<R, T>>.queryDeep(): SelectQuery<T, RowSelection<R, T>> {
+  require(node.selection.expressions == null) { "queryDeep() deepens entity values, and this selection has none" }
+  return SelectQuery(
+    node
+      .withSelection(node.selection.deep())
+      .withDeepArms()
+  )
 }
 
-private fun SqlRenderingContext.renderEntityColumns(table: Table<*>) {
-  requireEntityNotNullExtended(table)
+internal fun SqlRenderingContext.renderEntityColumns(table: Table<*>, related: RelatedEntities?) {
   val qualifier = entityQualifier(table)
   when (val view = table.viewDefinition) {
     null -> renderFields(
@@ -95,6 +109,13 @@ private fun SqlRenderingContext.renderEntityColumns(table: Table<*>) {
       table = table,
       view = view,
       qualifier = qualifier
+    )
+  }
+  related?.joined?.forEach { joined ->
+    sql.append(", ")
+    renderFields(
+      table = joined.table,
+      qualifier = qualifier(joined.table)
     )
   }
 }

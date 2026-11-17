@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.CteDeclaration
 import com.siimkinks.sqlitemagic.DbConnectionImpl
 import com.siimkinks.sqlitemagic.EntitySelection
 import com.siimkinks.sqlitemagic.Ordering
+import com.siimkinks.sqlitemagic.RowSelection
 import com.siimkinks.sqlitemagic.Selection
 import com.siimkinks.sqlitemagic.Source
 import com.siimkinks.sqlitemagic.Table
@@ -192,5 +193,6 @@ private val SelectNode<*, *>.rendersAsArm
 
 private fun SelectNode<*, *>.deepened(): SelectNode<*, *> = when (val selection = selection) {
   is EntitySelection<*> -> withSelection(selection.deep())
+  is RowSelection<*, *> -> withSelection(selection.deep())
   else -> this
 }.withDeepArms()

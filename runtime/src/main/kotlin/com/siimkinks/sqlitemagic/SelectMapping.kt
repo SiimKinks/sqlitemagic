@@ -203,7 +203,7 @@ fun <R, T, M> SelectQuery<T, RowSelection<R, T>>.mapTo(table: Table<M>) = Select
     PartialEntitySelection(
       outputs = requireNotNull(node.selection.expressions) {
         "mapTo(${table.referenceName}) reads plain fields, but selected value " +
-            "${node.selection.values.indexOfFirst { it is Table<*> } + 1} is an entity"
+            "${node.selection.values.indexOfFirst { it.entityTable != null } + 1} is an entity"
       },
       table = table
     )

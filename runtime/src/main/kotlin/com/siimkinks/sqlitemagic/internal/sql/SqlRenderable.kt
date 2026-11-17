@@ -6,6 +6,7 @@ import com.siimkinks.sqlitemagic.KeyedField
 import com.siimkinks.sqlitemagic.QueryDependencies
 import com.siimkinks.sqlitemagic.SqlExpression
 import com.siimkinks.sqlitemagic.Table
+import com.siimkinks.sqlitemagic.ValueLayout
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
@@ -70,6 +71,12 @@ internal class SqlRenderingContext(
     get() = scope.relatedEntities
     set(value) {
       scope.relatedEntities = value
+    }
+
+  var valueLayout: ValueLayout?
+    get() = scope.valueLayout
+    set(value) {
+      scope.valueLayout = value
     }
 
   fun renderNested(render: () -> Unit) = inScope(
@@ -340,7 +347,7 @@ internal class SqlRenderingContext(
   fun qualifier(table: Table<*>) = visibleQualifier(table) ?: missingOccurrenceQualifier(table)
 
   fun entityQualifier(table: Table<*>) = visibleQualifier(table) ?: run {
-    require(describing) { "The ${table.referenceName} entity is not a source of this query; name it in FROM or a join" }
+    require(describing) { missingEntityOccurrence(table) }
     table.sqlQualifier
   }
 
@@ -497,6 +504,9 @@ internal class DefinitionFacts(val viewName: String) {
 private const val MISSING_OCCURRENCE =
   "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT"
 
+internal fun missingEntityOccurrence(table: Table<*>) =
+  "The ${table.referenceName} entity is not a source of this query; name it in FROM or a join"
+
 private const val INSERT_VALUES_FIELD = "INSERT VALUES cannot read a field outside a subquery"
 
 internal fun derivedOutputName(expression: SqlExpression<*, *, *>, index: Int) = expression.outputAlias
@@ -533,6 +543,7 @@ private class SourceScope(
   var nullExtendedPrefix = 0
   var nullExtendedSources: MutableScatterSet<Table<*>>? = null
   var relatedEntities: RelatedEntities? = null
+  var valueLayout: ValueLayout? = null
 
   var pendingDerivedOutputs = -1
   var derivedReader: ExecutionReader<*>? = null

@@ -14,11 +14,11 @@ sealed interface SqlOutput
 
 /**
  * One selected value: an expression, read from its column, or a table, whose entity is read from the columns that
- * `SELECT FROM` the table selects.
+ * `SELECT FROM` the table selects, with the joins of its relationships.
  *
- * A table must be a source that the query names, in `FROM` or a join, and not one that an outer join can leave NULL.
- * Its related objects are built from their stored IDs, so a table with a relationship that is always joined is
- * rejected; select it with `SELECT FROM` instead. These are checked when the query is compiled.
+ * A table is an occurrence that the query names, in `FROM` or a join, or a table that its sources reach through one
+ * relationship path, which is joined as its fields would be. Select an occurrence that an outer join can leave NULL
+ * with its `nullable()`. These are checked when the query is compiled.
  *
  * @param R Kotlin type of the stored values of an expression, or [EntityRows] for an entity
  * @param T Type that the value is read as
@@ -30,6 +30,17 @@ sealed interface SelectValue<out R, out T> : SqlOutput
  * selection with an entity.
  */
 class EntityRows private constructor()
+
+/**
+ * Entity of a table occurrence that an outer join can leave NULL.
+ *
+ * Create one with `nullable()` of a table. It reads `null` when every column of the table's own row is NULL.
+ *
+ * @param T Model type
+ */
+class NullableEntity<T> internal constructor(internal val table: Table<T>) : SelectValue<EntityRows, T?> {
+  override fun toString() = table.toString()
+}
 
 /**
  * All columns of a table, in column order.
@@ -142,12 +153,23 @@ sealed class SelectedRow(
    * @throws IllegalArgumentException if [entity] is not selected
    */
   abstract operator fun <T> get(entity: Table<T>): T
+
+  /**
+   * Get the entity of a selected table that an outer join can leave NULL.
+   *
+   * @param entity Selected nullable entity, as in `row[BOOK.nullable()]`
+   * @return Entity read from the row, or `null` when every column of the table's own row is NULL
+   * @throws IllegalArgumentException if [entity] is not selected
+   */
+  abstract operator fun <T> get(entity: NullableEntity<T>): T?
 }
 
 internal class SelectedOutputs(
   values: List<SelectValue<*, *>>,
   val layout: ValueLayout
 ) {
+  val reads = Array(values.size) { values[it].read(layout.related(it)) }
+
   private val positions = MutableObjectIntMap<SelectValue<*, *>>(initialCapacity = values.size)
     .apply {
       values.forEachIndexed { index, value ->
@@ -167,7 +189,9 @@ internal class SelectedOutputs(
     )
     .also {
       require(it >= 0) {
-        val entity = (expression.node as? ExpressionNode.Field)?.table?.takeIf(positions::containsKey)
+        val entity = (expression.node as? ExpressionNode.Field)?.table?.takeIf { table ->
+          positions.containsKey(table) || positions.containsKey(table.nullable())
+        }
         when {
           positions.containsKey(expression.nullable()) ->
             "$expression is selected as nullable; read it with .nullable()"
@@ -183,7 +207,30 @@ internal class SelectedOutputs(
       key = entity,
       defaultValue = -1
     )
-    .also { require(it >= 0) { "The ${entity.referenceName} entity was not selected" } }
+    .also {
+      require(it >= 0) {
+        when {
+          positions.containsKey(entity.nullable()) ->
+            "The ${entity.referenceName} entity is selected as nullable; read it with .nullable()"
+          else -> "The ${entity.referenceName} entity was not selected"
+        }
+      }
+    }
+
+  fun position(entity: NullableEntity<*>) = positions
+    .getOrDefault(
+      key = entity,
+      defaultValue = -1
+    )
+    .also {
+      require(it >= 0) {
+        when {
+          positions.containsKey(entity.table) ->
+            "The ${entity.table.referenceName} entity is selected as not nullable; read it without .nullable()"
+          else -> "The ${entity.table.referenceName} entity was not selected"
+        }
+      }
+    }
 }
 
 internal class OwnedRowsReader(
@@ -207,11 +254,11 @@ private class OwnedRowRead(
     layout = layout
   )
   private val starts = layout.starts
-  private val readers = Array(values.size) { values[it].read(layout.related(it)) }
+  private val reads = outputs.reads
 
   override fun invoke(statement: SQLiteStatement, index: Int): SelectedRow = OwnedSelectedRow(
     outputs = outputs,
-    values = Array(readers.size) { readers[it](statement, index + starts[it]) }
+    values = Array(reads.size) { reads[it](statement, index + starts[it]) }
   )
 }
 
@@ -250,6 +297,9 @@ private class OwnedSelectedRow(
   @Suppress("UNCHECKED_CAST")
   override fun <T> get(entity: Table<T>) = values[outputs.position(entity)] as T
 
+  @Suppress("UNCHECKED_CAST")
+  override fun <T> get(entity: NullableEntity<T>) = values[outputs.position(entity)] as T?
+
   override fun equals(other: Any?) = other is OwnedSelectedRow && values.contentEquals(other.values)
 
   override fun hashCode() = values.contentHashCode()
@@ -263,7 +313,8 @@ private class OwnedSelectedRow(
 private class LiveSelectedRow(outputs: SelectedOutputs) : SelectedRow(outputs) {
   private lateinit var statement: SQLiteStatement
   private var startIndex = 0
-  private val layout = outputs.layout
+  private val starts = outputs.layout.starts
+  private val reads = outputs.reads
 
   fun moveTo(statement: SQLiteStatement, startIndex: Int) = apply {
     this.statement = statement
@@ -272,15 +323,14 @@ private class LiveSelectedRow(outputs: SelectedOutputs) : SelectedRow(outputs) {
 
   override fun <T> get(expression: SqlExpression<*, *, T>) = expression.selectRead(
     statement,
-    startIndex + layout.starts[outputs.position(expression)]
+    startIndex + starts[outputs.position(expression)]
   )
 
-  override fun <T> get(entity: Table<T>): T {
-    val position = outputs.position(entity)
-    return entity.readEntityAt(
-      statement = statement,
-      startIndex = startIndex + layout.starts[position],
-      related = layout.related(position)
-    )
-  }
+  @Suppress("UNCHECKED_CAST")
+  override fun <T> get(entity: Table<T>) = read(outputs.position(entity)) as T
+
+  @Suppress("UNCHECKED_CAST")
+  override fun <T> get(entity: NullableEntity<T>) = read(outputs.position(entity)) as T?
+
+  private fun read(position: Int) = reads[position](statement, startIndex + starts[position])
 }

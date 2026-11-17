@@ -91,13 +91,19 @@ class RelatedEntities internal constructor(
    */
   fun readOrNull(statement: SQLiteStatement, relationship: Int): Any? {
     val child = children[relationship] ?: return null
-    val start = child.startIndex
-    for (index in start..<start + child.width) {
+    return child.readIfPresent(
+      statement = statement,
+      startIndex = child.startIndex
+    )
+  }
+
+  internal fun readIfPresent(statement: SQLiteStatement, startIndex: Int): Any? {
+    for (index in startIndex..<startIndex + width) {
       if (!statement.isNull(index)) {
-        return child.table.readEntityAt(
+        return table.readEntityAt(
           statement = statement,
-          startIndex = start,
-          related = child
+          startIndex = startIndex,
+          related = this
         )
       }
     }

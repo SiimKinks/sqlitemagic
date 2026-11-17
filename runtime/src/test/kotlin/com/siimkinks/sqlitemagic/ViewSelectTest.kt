@@ -236,6 +236,27 @@ internal class ViewSelectTest {
   }
 
   @Test
+  fun `table blocks read relationships from the earlier occurrences their joins match`() {
+    val view = bookCardView(
+      viewName = "book_card",
+      query = SELECT
+        .COLUMNS(PUBLISHER.all(), AUTHOR.all(), BOOK.all())
+        .FROM(PUBLISHER)
+        .INNER_JOIN(AUTHOR)
+        .ON(AUTHOR.PUBLISHER IS PUBLISHER.ID)
+        .INNER_JOIN(BOOK)
+        .ON(BOOK.AUTHOR IS AUTHOR.ID)
+    )
+    val card = BookCardTable(view)
+    val cards = libraryDatabase().use { database ->
+      database.createViews(view)
+      (SELECT FROM card ORDER_BY card.TITLE.ASC()).rows(database)
+    }
+
+    assertThat(cards).isEqualTo(listOf(0, 2).map(bookCards(shallow = false)::get))
+  }
+
+  @Test
   fun `a view entity value after other values reads its blocks from its own columns`() {
     val view = bookCardView(
       viewName = "deep_book_card",

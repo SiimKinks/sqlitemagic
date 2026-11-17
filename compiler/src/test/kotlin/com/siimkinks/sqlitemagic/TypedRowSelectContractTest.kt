@@ -34,6 +34,8 @@ internal class TypedRowSelectContractTest {
           "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<*, *, *>' was expected",
       "entity mapped to another type | val invalid = SELECT.COLUMNS(table, id).mapTo(::Swapped) | " +
           "None of the following candidates is applicable",
+      "nullable entity for a non-null parameter | val invalid = SELECT.COLUMNS(table, table.nullable())" +
+          ".mapTo(::Entities) | None of the following candidates is applicable",
       "entity query | val invalid = SELECT.FROM(table).mapTo(::Single) | " +
           "SelectQuery<Row2<A, B>, RowSelection<R, Row2<A, B>>>.mapTo(transform: (A, B) -> M): " +
           "SelectQuery<M, RowSelection<R, M>>' is inapplicable because of a receiver type mismatch"
@@ -62,6 +64,7 @@ internal class TypedRowSelectContractTest {
           data class Triple(val id: Long, val name: String?, val extra: Int)
           data class Strict(val id: Long, val name: String)
           data class Swapped(val name: String?, val id: Long)
+          data class Entities(val first: Any, val second: Any)
 
           fun verify(
             table: Table<Any>,
@@ -100,12 +103,14 @@ internal class TypedRowSelectContractTest {
           import com.siimkinks.sqlitemagic.SqlNullable
           import com.siimkinks.sqlitemagic.Table
           import com.siimkinks.sqlitemagic.mapTo
+          import com.siimkinks.sqlitemagic.queryDeep
           import typewitness.Exact
           import typewitness.exactType
 
           class Book
           class Author
           data class BookLine(val book: Book, val title: String)
+          data class BookWithAuthor(val book: Book, val author: Author?)
 
           typealias BookTitle = Row2<Book, String>
 
@@ -130,6 +135,17 @@ internal class TypedRowSelectContractTest {
                 .FROM(book)
             val mapped = pair.mapTo(::BookLine)
             val live = wide.mapTo { row -> row[book] }
+            val nullable = SELECT
+                .COLUMNS(book, author.nullable())
+                .FROM(book)
+            val deep = nullable.queryDeep()
+            val mappedNullable = deep.mapTo(::BookWithAuthor)
+            val nullableEntity = SELECT
+                .COLUMNS(book.all(), author.nullable())
+                .FROM(book)
+                .usingConnection(connection)
+                .execute()
+                .first()[author.nullable()]
             val rows = pair
                 .FROM(book)
                 .usingConnection(connection)
@@ -167,6 +183,22 @@ internal class TypedRowSelectContractTest {
             val exactRows: Exact<List<BookTitle>> = rowsType
             val entityType = entity.exactType()
             val exactEntity: Exact<Book> = entityType
+            val nullableType = nullable.exactType()
+            val exactNullable: Exact<SelectFromStage<
+                Row2<Book, Author?>,
+                RowSelection<Row2<EntityRows, EntityRows>, Row2<Book, Author?>>
+            >> = nullableType
+            val deepType = deep.exactType()
+            val exactDeep: Exact<SelectQuery<
+                Row2<Book, Author?>,
+                RowSelection<Row2<EntityRows, EntityRows>, Row2<Book, Author?>>
+            >> = deepType
+            val mappedNullableType = mappedNullable.exactType()
+            val exactMappedNullable:
+                Exact<SelectQuery<BookWithAuthor, RowSelection<Row2<EntityRows, EntityRows>, BookWithAuthor>>> =
+                mappedNullableType
+            val nullableEntityType = nullableEntity.exactType()
+            val exactNullableEntity: Exact<Author?> = nullableEntityType
           }
         """
       )

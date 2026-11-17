@@ -79,10 +79,13 @@ val sameQuery = SELECT
   in full a parent that will be written back: a shallow related object holds Kotlin defaults for its other properties,
   and writing the parent writes them ([entity-operations.md](entity-operations.md#related-objects)).
 - The automatic joins reuse a join the query writes itself when its `ON` is exactly `fk IS id`, so filtering on the
-  related table through such a join costs nothing extra: `SELECT FROM BOOK INNER_JOIN AUTHOR ON (BOOK.AUTHOR IS
-  AUTHOR.ID) WHERE (AUTHOR.NAME IS "Ada")`. A join with extra conditions stays as written beside the automatic one;
-  put the filter in `WHERE`.
-- An entity read of a table that an outer join can NULL-extend (`RIGHT_JOIN`, `FULL_JOIN`) is rejected; select fields.
+  related table through such a join costs nothing extra:
+  `SELECT FROM BOOK INNER_JOIN AUTHOR ON (BOOK.AUTHOR IS AUTHOR.ID) WHERE (AUTHOR.NAME IS "Ada")`. A join with extra
+  conditions stays as written beside the automatic one; put the filter in `WHERE`. A field reuses a join only where it
+  reads the rows of its relationship path: not one that `RIGHT_JOIN` or `FULL_JOIN` keeps without the parent, and the
+  `FROM` table or an earlier join, matched by the parent's own `ON`, only when the parent is an `INNER_JOIN`.
+- An entity read of a table that an outer join can NULL-extend (`RIGHT_JOIN`, `FULL_JOIN`) is rejected; select the
+  table as a value with `.nullable()` beside another value (see below), or select fields.
 
 ## Columns, rows and mapping
 
@@ -128,15 +131,33 @@ val titles: List<String> = (SELECT COLUMN BOOK.TITLE FROM BOOK).execute()
     .execute()
   ```
 
-  The table must be a source the query names (`FROM` or a join), and not one an outer join can NULL-extend. An
-  entity value reads its own columns only, so its related objects come from their stored IDs: a table with a
-  relationship that is always joined (`BOOK`, whose `author` is read in full) is rejected as a value; select it with
-  `SELECT FROM BOOK`. `mapTo(BOOK)`, `UNION`/`UNION ALL` and `derived[…]` exports take plain values only;
-  `SELECT FROM` a derived source or CTE keeps the row.
+  The value selects the columns and relationship joins `SELECT FROM AUTHOR` would: a related object its ID cannot
+  build is joined and read in full, and `.queryDeep()` after the last clause reads every recursively handled one in
+  full, for every entity value of the query. A relationship joins through an occurrence the query already has when
+  its `ON` is exactly `fk IS id`, or through an earlier one, the `FROM` table included, that the parent's own `ON`
+  matches that way, so two values share their joins; each value still selects its own columns. A table the query
+  does not name joins automatically when one relationship path leads there, as its fields do. Select an occurrence
+  that an outer join can NULL-extend with `.nullable()`; it reads `null` when every column of that table's row is
+  NULL, and without it the query is rejected before SQL:
+
+  ```kotlin
+  val editor = AUTHOR AS "editor"
+  val withEditors: List<Row2<Book, Author?>> = (
+      SELECT.COLUMNS(BOOK, editor.nullable())
+          FROM BOOK
+          LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)
+      )
+    .queryDeep()
+    .execute()
+  ```
+
+  Here `BOOK` reads its `editor` from the `editor` join and joins `author` automatically. `mapTo(BOOK)`,
+  `UNION`/`UNION ALL` and `derived[…]` exports take plain values only; `SELECT FROM` a derived source or CTE keeps the
+  row.
 - Wide selections (any `table.all()`, or more than nine values) read `SelectedRow`; read a value with
-  `row[expression]` or an entity with `row[AUTHOR]`, using the exact instance that was selected (a not nullable column
-  of `table.all().nullable()` is read with its `.nullable()`, as in `row[BOOK.TITLE.nullable()]`). A field reads only
-  when it is selected itself, not as part of a selected entity:
+  `row[expression]` or an entity with `row[AUTHOR]` or `row[editor.nullable()]`, using the exact instance that was
+  selected (a not nullable column of `table.all().nullable()` is read with its `.nullable()`, as in
+  `row[BOOK.TITLE.nullable()]`). A field reads only when it is selected itself, not as part of a selected entity:
 
   ```kotlin
   val bookCount = COUNT(BOOK.ID) AS "book_count"

@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
+import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 
 /**
@@ -15,7 +16,8 @@ import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
 class RowSelection<R, T> internal constructor(
   internal val values: List<SelectValue<*, *>>,
   private val reader: RowReader<T>,
-  override val mappedWithFunction: Boolean = false
+  override val mappedWithFunction: Boolean = false,
+  private val deep: Boolean = false
 ) : Selection<T>() {
   @Suppress("UNCHECKED_CAST")
   internal val expressions = when {
@@ -30,10 +32,23 @@ class RowSelection<R, T> internal constructor(
     )
   }
 
-  override fun render(context: SqlRenderingContext) = context.renderList(items = values) { value ->
-    when (value) {
-      is SqlExpression<*, *, *> -> context.renderOutput(value)
-      is Table<*> -> context.renderEntityValue(value)
+  override fun render(context: SqlRenderingContext) {
+    val layout = context.valueLayout
+    context.renderList(count = values.size) { slot ->
+      when (val value = values[slot]) {
+        is SqlExpression<*, *, *> -> context.renderOutput(value)
+        is Table<*> -> {
+          context.requireEntityValueNotNullExtended(value)
+          context.renderEntityColumns(
+            table = value,
+            related = layout?.related(slot)
+          )
+        }
+        is NullableEntity<*> -> context.renderEntityColumns(
+          table = value.table,
+          related = layout?.related(slot)
+        )
+      }
     }
   }
 
@@ -43,36 +58,31 @@ class RowSelection<R, T> internal constructor(
     }
   }
 
-  override fun createExecutionReader(context: SqlRenderingContext) = scalarReader ?: reader.create(
-    values = values,
-    layout = entityLayout()
-  )
-
-  override val exportedValues
-    get() = requireNotNull(expressions) {
-      "UNION and derived exports take plain values, but this query selects the " +
-          "${values.filterIsInstance<Table<*>>().first().referenceName} entity"
+  override fun forEachEntityValue(action: (Table<*>) -> Unit) {
+    if (expressions == null) {
+      values.forEach { it.entityTable?.let(action) }
     }
+  }
 
-  internal fun <M> mapped(assemble: (SlotReads) -> ValueRead<M>) = mapped(typedRowReader(assemble))
-
-  internal fun <M> mapped(reader: RowReader<M>) = RowSelection<R, M>(
-    values = values,
-    reader = reader,
-    mappedWithFunction = true
-  )
-
-  private fun entityLayout(): ValueLayout {
+  override fun planValues(planner: RelationshipPlanner): ValueLayout? {
+    if (expressions != null) {
+      return null
+    }
     val starts = IntArray(values.size)
     val related = arrayOfNulls<RelatedEntities>(values.size)
     var next = 0
     values.forEachIndexed { slot, value ->
       starts[slot] = next
-      next += when (value) {
-        is SqlExpression<*, *, *> -> 1
-        is Table<*> -> {
-          related[slot] = value.entityValueRead(next)
-          value.entityValueWidth
+      next += when (val table = value.entityTable) {
+        null -> 1
+        else -> {
+          val read = planner.entityValueRead(
+            table = table,
+            startIndex = next,
+            deep = deep
+          )
+          related[slot] = read
+          read.width + read.joined.sumOf(RelatedEntities::width)
         }
       }
     }
@@ -81,6 +91,33 @@ class RowSelection<R, T> internal constructor(
       related = related
     )
   }
+
+  override fun createExecutionReader(context: SqlRenderingContext) = scalarReader ?: reader.create(
+    values = values,
+    layout = checkNotNull(context.valueLayout)
+  )
+
+  override val exportedValues
+    get() = requireNotNull(expressions) {
+      "UNION and derived exports take plain values, but this query selects the " +
+          "${values.firstNotNullOf(SelectValue<*, *>::entityTable).referenceName} entity"
+    }
+
+  internal fun <M> mapped(assemble: (SlotReads) -> ValueRead<M>) = mapped(typedRowReader(assemble))
+
+  internal fun <M> mapped(reader: RowReader<M>) = RowSelection<R, M>(
+    values = values,
+    reader = reader,
+    mappedWithFunction = true,
+    deep = deep
+  )
+
+  internal fun deep() = RowSelection<R, T>(
+    values = values,
+    reader = reader,
+    mappedWithFunction = mappedWithFunction,
+    deep = true
+  )
 }
 
 internal fun interface RowReader<out T> {
@@ -108,6 +145,13 @@ internal fun List<SqlExpression<*, *, *>>.forEachField(action: (ExpressionNode.F
   it.node.forEachField(action)
 }
 
+internal val SelectValue<*, *>.entityTable
+  get() = when (this) {
+    is SqlExpression<*, *, *> -> null
+    is Table<*> -> this
+    is NullableEntity<*> -> table
+  }
+
 internal fun SelectValue<*, *>.read(related: RelatedEntities?): ValueRead<Any?> = when (this) {
   is SqlExpression<*, *, *> -> selectRead
   is Table<*> -> ValueRead { statement, index ->
@@ -116,6 +160,15 @@ internal fun SelectValue<*, *>.read(related: RelatedEntities?): ValueRead<Any?> 
       startIndex = index,
       related = related
     )
+  }
+  is NullableEntity<*> -> {
+    val read = checkNotNull(related)
+    ValueRead { statement, index ->
+      read.readIfPresent(
+        statement = statement,
+        startIndex = index
+      )
+    }
   }
 }
 

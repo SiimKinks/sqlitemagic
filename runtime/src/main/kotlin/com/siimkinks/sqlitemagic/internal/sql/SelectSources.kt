@@ -44,6 +44,10 @@ private open class UserOccurrence(
   pathName = null
 ) {
   override val name get() = table.referenceName
+
+  fun isTargetOf(parent: SourceOccurrence, targetKey: SqliteSchemaKey) = this !== parent &&
+      table.isPhysical &&
+      table.objectIdentity.normalizedKey == targetKey
 }
 
 private class JoinedOccurrence(
@@ -64,6 +68,16 @@ private class JoinedOccurrence(
     if (kind.nullExtendsJoined) {
       context.addNullExtended(table)
     }
+  }
+
+  fun joinsRelationship(parent: SourceOccurrence, target: UserOccurrence, relationship: TableRelationship): Boolean {
+    val predicate = (join.constraint as? JoinConstraint.On)?.predicate
+    return predicate is ExpressionNode.Binary &&
+        predicate.operator == EQUAL &&
+        (predicate.left.isField(parent.table, relationship.columnName) &&
+            predicate.right.isField(target.table, relationship.targetIdColumnName) ||
+            predicate.right.isField(parent.table, relationship.columnName) &&
+            predicate.left.isField(target.table, relationship.targetIdColumnName))
   }
 }
 
@@ -154,9 +168,9 @@ internal fun prepareSources(node: SelectNode<*, *>, context: SqlRenderingContext
     context = context
   )
   planner.joinUnjoinedFields(node)
-  context.relatedEntities = when {
-    context.nested -> null
-    else -> node.selection.planRelatedEntities(planner)
+  if (!context.nested) {
+    context.relatedEntities = node.selection.planRelatedEntities(planner)
+    context.valueLayout = node.selection.planValues(planner)
   }
   val joins = planner.orderedJoins()
   planner.register(joins)
@@ -198,9 +212,11 @@ internal class RelationshipPlanner(
   private var resolvedFields: MutableList<Pair<Table<*>, SourceOccurrence>>? = null
   private var readingJoin = NO_JOIN
   private val fieldCollector: (ExpressionNode.Field) -> Unit = ::collect
+  private val tableCollector: (Table<*>) -> Unit = ::collect
 
   fun joinUnjoinedFields(node: SelectNode<*, *>) {
     node.selection.forEachField(fieldCollector)
+    node.selection.forEachEntityValue(tableCollector)
     node.joins.forEachIndexed { index, join ->
       readingJoin = index
       (join.constraint as? JoinConstraint.On)?.predicate?.forEachField(fieldCollector)
@@ -222,7 +238,10 @@ internal class RelationshipPlanner(
       }
       var occurrence: SourceOccurrence = route.start
       route.relationships.forEach { relationship ->
-        val child = childOf(
+        val child = existingChild(
+          parent = occurrence,
+          relationship = relationship
+        ) ?: automaticChild(
           parent = occurrence,
           relationship = relationship
         )
@@ -238,16 +257,42 @@ internal class RelationshipPlanner(
     }
   }
 
-  fun entityRead(deep: Boolean): RelatedEntities? {
-    val relationships = rootOccurrence.table.tableRelationships
-    if (relationships.isEmpty()) {
-      return null
+  fun entityRead(deep: Boolean) = when {
+    rootOccurrence.table.tableRelationships.isEmpty() -> null
+    else -> entityRead(
+      occurrence = rootOccurrence,
+      startIndex = 0,
+      deep = deep
+    )
+  }
+
+  fun entityValueRead(table: Table<*>, startIndex: Int, deep: Boolean): RelatedEntities {
+    val occurrence = requireNotNull(occurrenceOf(table)) { missingEntityOccurrence(table) }
+    return when (val view = table.viewDefinition) {
+      null -> entityRead(
+        occurrence = occurrence,
+        startIndex = startIndex,
+        deep = deep
+      )
+      else -> RelatedEntities(
+        table = table,
+        children = when (val blocks = view.blocks) {
+          null -> emptyArray()
+          else -> Array(blocks.size) { blocks[it]?.shifted(startIndex) }
+        },
+        startIndex = startIndex,
+        width = view.columnNames.size
+      )
     }
-    val rootChildren = arrayOfNulls<RelatedEntities>(relationships.size)
+  }
+
+  private fun entityRead(occurrence: SourceOccurrence, startIndex: Int, deep: Boolean): RelatedEntities {
+    val table = occurrence.table
+    val rootChildren = arrayOfNulls<RelatedEntities>(table.tableRelationships.size)
     val joinedReads = ArrayList<RelatedEntities>()
-    var nextIndex = rootOccurrence.table.selectedEntityFields().size
+    var nextIndex = startIndex + table.selectedEntityFields().size
     val queue = ArrayDeque<Pair<SourceOccurrence, Array<RelatedEntities?>>>()
-    queue.add(rootOccurrence to rootChildren)
+    queue.add(occurrence to rootChildren)
     while (queue.isNotEmpty()) {
       val (occurrence, children) = queue.removeFirst()
       occurrence.table.tableRelationships.forEachIndexed { index, relationship ->
@@ -257,7 +302,10 @@ internal class RelationshipPlanner(
           ID_ONLY -> false
         }
         if (isJoined) {
-          val child = childOf(
+          val child = relatedChild(
+            parent = occurrence,
+            relationship = index
+          ) ?: automaticChild(
             parent = occurrence,
             relationship = index
           )
@@ -267,6 +315,7 @@ internal class RelationshipPlanner(
             table = child.table,
             children = grandchildren,
             startIndex = nextIndex,
+            width = fields.size,
             idOffset = fields.indexOfFirst { it.name == relationship.targetIdColumnName }
           )
           nextIndex += fields.size
@@ -277,8 +326,10 @@ internal class RelationshipPlanner(
       }
     }
     return RelatedEntities(
-      table = rootOccurrence.table,
+      table = table,
       children = rootChildren,
+      startIndex = startIndex,
+      width = table.selectedEntityFields().size,
       joined = joinedReads
     )
   }
@@ -338,15 +389,16 @@ internal class RelationshipPlanner(
       return
     }
     destination[occurrence.name.lowercase()] = Array(relationships.size) { index ->
-      existingChild(
+      relatedChild(
         parent = occurrence,
         relationship = index
       )?.name
     }
   }
 
-  private fun collect(field: ExpressionNode.Field) {
-    val table = field.table
+  private fun collect(field: ExpressionNode.Field) = collect(field.table)
+
+  private fun collect(table: Table<*>) {
     when {
       !table.isDefaultHandle || isOccurrenceTable(table) -> Unit
       table is FullTextIndexTable -> collectFullText(table)
@@ -430,10 +482,20 @@ internal class RelationshipPlanner(
     return false
   }
 
-  fun existingChild(parent: SourceOccurrence, relationship: Int) = parent.child(relationship)
+  fun relatedChild(parent: SourceOccurrence, relationship: Int) = existingChild(
+    parent = parent,
+    relationship = relationship
+  ) ?: exactUserJoin(
+    parent = parent,
+    relationship = parent.table.tableRelationships[relationship],
+    everyRow = false
+  )
+
+  private fun existingChild(parent: SourceOccurrence, relationship: Int) = parent.child(relationship)
     ?: exactUserJoin(
       parent = parent,
-      relationship = parent.table.tableRelationships[relationship]
+      relationship = parent.table.tableRelationships[relationship],
+      everyRow = true
     )?.also { join ->
       parent.setChild(
         relationship = relationship,
@@ -441,10 +503,7 @@ internal class RelationshipPlanner(
       )
     }
 
-  private fun childOf(parent: SourceOccurrence, relationship: Int) = existingChild(
-    parent = parent,
-    relationship = relationship
-  ) ?: automaticOccurrence(
+  private fun automaticChild(parent: SourceOccurrence, relationship: Int) = automaticOccurrence(
     parent = parent,
     relationship = parent.table.tableRelationships[relationship]
   ).also { child ->
@@ -505,19 +564,35 @@ internal class RelationshipPlanner(
   private fun MutableScatterSet<String>.isTaken(name: String) =
     name.lowercase() in this || context.hasEnclosingName(name)
 
-  private fun exactUserJoin(parent: SourceOccurrence, relationship: TableRelationship): JoinedOccurrence? {
+  private fun exactUserJoin(
+    parent: SourceOccurrence,
+    relationship: TableRelationship,
+    everyRow: Boolean
+  ): UserOccurrence? {
     val targetKey = relationship.target().objectIdentity.normalizedKey
-    return joined.firstOrNull { user ->
-      val predicate = (user.join.constraint as? JoinConstraint.On)?.predicate
-      user.table.isPhysical &&
-          user.table.objectIdentity.normalizedKey == targetKey &&
-          predicate is ExpressionNode.Binary &&
-          predicate.operator == EQUAL &&
-          (predicate.left.isField(parent.table, relationship.columnName) &&
-              predicate.right.isField(user.table, relationship.targetIdColumnName) ||
-              predicate.right.isField(parent.table, relationship.columnName) &&
-              predicate.left.isField(user.table, relationship.targetIdColumnName))
-    }
+    return joined.firstOrNull { target ->
+      !(everyRow && target.join.kind.nullExtendsPrefix) && target.isTargetOf(
+        parent = parent,
+        targetKey = targetKey
+      ) && target.joinsRelationship(
+        parent = parent,
+        target = target,
+        relationship = relationship
+      )
+    } ?: (parent as? JoinedOccurrence)
+      ?.takeUnless { it.join.kind.nullExtendsPrefix || everyRow && it.join.kind.nullExtendsJoined }
+      ?.let { constrained ->
+        users.firstOrNull { target ->
+          target.index < constrained.index && target.isTargetOf(
+            parent = parent,
+            targetKey = targetKey
+          ) && constrained.joinsRelationship(
+            parent = parent,
+            target = target,
+            relationship = relationship
+          )
+        }
+      }
   }
 
   private class Route(
