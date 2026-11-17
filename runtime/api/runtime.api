@@ -317,6 +317,28 @@ public final class com/siimkinks/sqlitemagic/EntitySelectionKt {
 public final class com/siimkinks/sqlitemagic/FrameBound {
 }
 
+public abstract class com/siimkinks/sqlitemagic/Fts5Table : com/siimkinks/sqlitemagic/FullTextTable {
+	protected fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;)V
+	public abstract fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Fts5Table;
+	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/FullTextTable;
+	public final fun getRANK ()Lcom/siimkinks/sqlitemagic/Column;
+}
+
+public final class com/siimkinks/sqlitemagic/FullTextColumn : com/siimkinks/sqlitemagic/Column {
+	public fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;)V
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun MATCH (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SqlExpression;
+	public final fun MATCH (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqlExpression;
+}
+
+public abstract class com/siimkinks/sqlitemagic/FullTextTable : com/siimkinks/sqlitemagic/Source {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public abstract fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/FullTextTable;
+	public final fun MATCH (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SqlExpression;
+	public final fun MATCH (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqlExpression;
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class com/siimkinks/sqlitemagic/GeneratedDatabase {
 	public abstract fun applySchemaPragmas (Landroidx/sqlite/SQLiteConnection;)V
 	public abstract fun clearData (Landroidx/sqlite/SQLiteConnection;)Lcom/siimkinks/sqlitemagic/internal/MutableScatterSet;

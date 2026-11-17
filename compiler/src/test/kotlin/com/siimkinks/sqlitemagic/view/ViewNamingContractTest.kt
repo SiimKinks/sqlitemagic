@@ -2,6 +2,7 @@ package com.siimkinks.sqlitemagic.view
 
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
+import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
 import com.siimkinks.sqlitemagic.utils.assertGeneratedSources
@@ -184,6 +185,32 @@ internal class ViewNamingContractTest {
         "declaration paths map to the same generated name",
         "Outer_WithUnderscore.NestedView",
         "Outer.WithUnderscore_NestedView"
+      )
+  }
+
+  @Test
+  fun `rejects a view whose generated class is a runtime class`() {
+    compiler
+      .compile(
+        ViewSources.view(
+          name = "RuntimeClassView",
+          body = """
+            @View
+            class Cte(
+              @ViewColumn("value")
+              val value: String
+            ) {
+              companion object {
+                @ViewQuery
+                val QUERY: SelectQuery<String, *> = error("compile-only")
+              }
+            }
+          """
+        )
+      )
+      .assertCompilationError(
+        "Cannot generate code for '$PACKAGE.view.Cte': its generated class 'com.siimkinks.sqlitemagic.CteTable' " +
+            "is already declared on the classpath. Rename the declaration or an enclosing class."
       )
   }
 

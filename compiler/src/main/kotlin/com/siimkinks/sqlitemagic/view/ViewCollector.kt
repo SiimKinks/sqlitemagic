@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.view
 
+import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
@@ -33,6 +34,8 @@ import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
+import com.siimkinks.sqlitemagic.schema.declaresLibraryClass
+import com.siimkinks.sqlitemagic.schema.libraryClassCollisionMessage
 import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
@@ -46,6 +49,7 @@ import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY as TEMPORARY_SC
 
 internal class ViewCollector(
   private val environment: Environment,
+  private val resolver: Resolver,
   private val selectQueryType: KSType,
   private val annotations: ConsumedAnnotations
 ) {
@@ -349,19 +353,21 @@ internal class ViewCollector(
   private fun validateArtifactStems(validation: CollectionObjectValidationRegistry) {
     val accepted = validation.artifactStemRegistry
     seeds.values.forEach { seed ->
+      val owner = ArtifactStemOwner(
+        typeKey = seed.typeKey,
+        qualifiedName = seed.qualifiedName,
+        artifactStem = seed.artifactStem
+      )
       val previous = accepted.lookup(seed.artifactStem)
       when {
-        previous == null -> accepted.register(
-          ArtifactStemOwner(
-            typeKey = seed.typeKey,
-            qualifiedName = seed.qualifiedName,
-            artifactStem = seed.artifactStem
-          )
+        resolver.declaresLibraryClass(owner) -> reporter.error(
+          message = libraryClassCollisionMessage(owner),
+          symbol = seed.declaration
         )
+        previous == null -> accepted.register(owner)
         previous.typeKey != seed.typeKey -> reporter.error(
           message = artifactStemCollisionMessage(
-            artifactStem = seed.artifactStem,
-            qualifiedNames = listOf(previous.qualifiedName, seed.qualifiedName),
+            owners = listOf(previous, owner),
             includeRenameSuggestion = false
           ),
           symbol = seed.declaration

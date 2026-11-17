@@ -12,6 +12,7 @@ plans. Expressions used inside queries are in [expressions.md](expressions.md). 
 - [Columns, rows and mapping](#columns-rows-and-mapping)
 - [Filtering, grouping, ordering, pagination](#filtering-grouping-ordering-pagination)
 - [Joins and aliases](#joins-and-aliases)
+- [Full-text search](#full-text-search)
 - [Subqueries and derived sources](#subqueries-and-derived-sources)
 - [Common table expressions](#common-table-expressions)
 - [Compound queries](#compound-queries)
@@ -216,6 +217,44 @@ val lines = SELECT
 - **USING and NATURAL.** `SELECT FROM AUTHOR INNER_JOIN peer USING peer.ID` joins on columns of the same name
   (`USING arrayOf(a, b)` or `.USING(a, b)` for several). NATURAL joins take neither.
 - Every typed field renders qualified, so selected join keys are unambiguous.
+
+## Full-text search
+
+A table with a `@FullTextIndex` ([models.md](models.md#full-text-indexes)) is searched through its generated index
+object, `ARTICLE_FTS`. `MATCH` takes the FTS5 query string, as a `String`, a `String` expression or a parameter.
+
+```kotlin
+val hits = (SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH "sqlite OR room") ORDER_BY ARTICLE_FTS.RANK.ASC())
+  .execute()
+val inTitles = (SELECT COLUMN ARTICLE.TITLE FROM ARTICLE WHERE (ARTICLE_FTS.TITLE MATCH "sqlite"))
+  .execute()
+```
+
+```sql
+SELECT "article"."id", "article"."title", "article"."body", "article"."author" FROM "main"."article"
+INNER JOIN "main"."article_fts" ON "article_fts"."rowid" = "article"."id"
+WHERE "article_fts"."article_fts" MATCH ? ORDER BY "article_fts"."rank" ASC
+```
+
+- `ARTICLE_FTS MATCH q` searches every indexed column; `ARTICLE_FTS.TITLE MATCH q` only that column.
+  `ARTICLE_FTS.RANK` is the match rank (`Double?`, lower is better, NULL in a query that does not search the index);
+  `ARTICLE_FTS.ROWID` has the type of the table's row ID: its INTEGER `@Id`, or `Long` for `@RowId`, compared with
+  `NOTE.ROW_ID`.
+- A query that names the index without joining it gets an `INNER JOIN` placed directly after its table, before the
+  joins of relationships, so SQLite scans the index first and reads rows and related entities by key. `count()` keeps
+  the join. Queries observe the table, which is what changes the index.
+- A subquery that selects from the table joins the index itself; a subquery of another table reads the index of the
+  enclosing query, which must search it too.
+- The join needs the table as a source written once, in `FROM` or an explicit join. A table written several times
+  (aliases, self-joins) or reached only through a relationship is rejected before SQL: join it with
+  `INNER_JOIN(ARTICLE)`, or join the index explicitly, `INNER_JOIN(ARTICLE_FTS).ON(ARTICLE_FTS.ROWID IS ARTICLE.ID)`.
+  An aliased index (`ARTICLE_FTS AS "found"`) is never joined automatically.
+- The index has no entity, and write statements do not take it. Select its columns from it with
+  `SELECT.COLUMNS(ARTICLE_FTS.ROWID, ARTICLE_FTS.TITLE).FROM(ARTICLE_FTS)`, and update or delete matching rows
+  through their row IDs: `DELETE FROM ARTICLE WHERE (ARTICLE.ID IN (SELECT COLUMN ARTICLE_FTS.ROWID FROM ARTICLE_FTS
+  WHERE (ARTICLE_FTS MATCH query)))`.
+- SQLite reports a malformed query string (`fts5: syntax error near …`) when the query runs, as it does for `MATCH`
+  under `OR` or in an explicit `LEFT_JOIN`.
 
 ## Subqueries and derived sources
 

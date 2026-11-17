@@ -57,6 +57,7 @@ internal class ViewCollectionStep(
       orphanQueries.isNotEmpty() -> false
       else -> ViewCollector(
         environment = environment,
+        resolver = resolver,
         selectQueryType = selectQueryType,
         annotations = annotations
       ).collect(declarations)

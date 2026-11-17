@@ -21,6 +21,7 @@ internal enum class SqlOperator(val sql: String) {
   NOT_LIKE("NOT LIKE"),
   GLOB("GLOB"),
   NOT_GLOB("NOT GLOB"),
+  MATCH("MATCH"),
   PLUS("+"),
   MINUS("-"),
   TIMES("*"),

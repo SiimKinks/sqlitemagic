@@ -15,6 +15,7 @@ sqlitemagic {
 }
 
 val javaVersion = JavaVersion.toVersion(libs.versions.java.version.get())
+val sqliteEngine = providers.gradleProperty("sqliteEngine").getOrElse("framework")
 val mockitoAgent = configurations.create("mockitoAgent")
 val sqliteMagicRuntimeFriend = configurations.create("sqliteMagicRuntimeFriend").apply {
   isCanBeConsumed = false
@@ -51,6 +52,15 @@ android {
     getByName("debug") {
       assets.directories.add("src/migrationTest/assets")
     }
+    // FTS5 models only compile into the bundled run: the framework engine has no FTS5 module.
+    if (sqliteEngine == "bundled") {
+      getByName("main") {
+        kotlin.directories.add("src/mainBundled/kotlin")
+      }
+      getByName("androidTest") {
+        kotlin.directories.add("src/androidTestBundled/kotlin")
+      }
+    }
   }
   compileOptions {
     sourceCompatibility = javaVersion
@@ -77,7 +87,7 @@ androidComponents {
         ),
         "SQLITE_ENGINE" to BuildConfigField(
           type = "String",
-          value = """"${providers.gradleProperty("sqliteEngine").getOrElse("framework")}"""",
+          value = """"$sqliteEngine"""",
           comment = null
         )
       )

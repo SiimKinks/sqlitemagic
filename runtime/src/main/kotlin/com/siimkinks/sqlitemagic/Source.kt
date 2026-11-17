@@ -1,7 +1,8 @@
 package com.siimkinks.sqlitemagic
 
 /**
- * Source of rows in FROM and JOIN clauses: a table, a view, a subquery or a common table expression.
+ * Source of rows in FROM and JOIN clauses: a table, a view, a full-text index, a subquery or a common table
+ * expression.
  */
 sealed interface Source
 
@@ -52,5 +53,6 @@ sealed class QueryOutputSource<T> : Source {
 
 internal fun Source.occurrence() = when (this) {
   is Table<*> -> this
+  is FullTextTable -> table
   is QueryOutputSource<*> -> occurrence
 }

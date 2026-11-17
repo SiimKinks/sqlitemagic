@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
+import com.siimkinks.sqlitemagic.FullTextIndexTable
 import com.siimkinks.sqlitemagic.SqlOperator.EQUAL
 import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
@@ -107,6 +108,26 @@ private class AutomaticOccurrence(
   }
 }
 
+private class FullTextOccurrence(
+  val table: FullTextIndexTable,
+  val content: UserOccurrence
+) : JoinOccurrence {
+  override fun render(context: SqlRenderingContext) {
+    context.sql
+      .append(" INNER JOIN ")
+      .append(table.sqlSource)
+      .append(" ON ")
+      .append(table.sqlQualifier)
+      .append("""."rowid" = """)
+      .append(context.qualifier(content.table))
+      .append('.')
+      .append(table.quotedContentRowIdColumnName)
+    table.addDependencies(context.dependencies)
+  }
+
+  override fun register(context: SqlRenderingContext) = context.addSource(table)
+}
+
 private const val NO_JOIN = Int.MAX_VALUE
 
 internal class SelectSources(
@@ -168,6 +189,7 @@ internal class RelationshipPlanner(
     addAll(joined)
   }
   private val automatic = ArrayList<AutomaticOccurrence>()
+  private var fullText: MutableList<FullTextOccurrence>? = null
 
   private var automaticTables: MutableScatterSet<Table<*>>? = null
   private var usedNames: MutableScatterSet<String>? = null
@@ -267,20 +289,18 @@ internal class RelationshipPlanner(
       ?: automatic.firstOrNull { it.table === table }
 
   fun orderedJoins(): List<JoinOccurrence> {
-    if (automatic.isEmpty()) {
+    val fullText = fullText
+    if (automatic.isEmpty() && fullText == null) {
       return joined
     }
-    val ordered = ArrayList<JoinOccurrence>(joined.size + automatic.size)
-    val placed = MutableScatterSet<AutomaticOccurrence>(initialCapacity = automatic.size)
+    val ordered = ArrayList<JoinOccurrence>(joined.size + automatic.size + (fullText?.size ?: 0))
+    fullText?.filterTo(ordered) { it.content === rootOccurrence }
     joined.forEachIndexed { joinIndex, join ->
-      automatic.forEach { occurrence ->
-        if (occurrence.precedesJoin == joinIndex && placed.add(occurrence)) {
-          ordered += occurrence
-        }
-      }
+      automatic.filterTo(ordered) { it.precedesJoin == joinIndex }
       ordered += join
+      fullText?.filterTo(ordered) { it.content === join }
     }
-    automatic.filterTo(ordered) { it !in placed }
+    automatic.filterTo(ordered) { it.precedesJoin == NO_JOIN }
     return ordered
   }
 
@@ -327,9 +347,24 @@ internal class RelationshipPlanner(
 
   private fun collect(field: ExpressionNode.Field) {
     val table = field.table
-    if (!table.isDefaultHandle || isOccurrenceTable(table) || context.hasEnclosingSource(table)) {
-      return
+    when {
+      !table.isDefaultHandle || isOccurrenceTable(table) -> Unit
+      table is FullTextIndexTable -> collectFullText(table)
+      !context.hasEnclosingSource(table) -> collectReader(table)
     }
+  }
+
+  private fun collectFullText(index: FullTextIndexTable) {
+    when (val content = localFullTextContent(index)) {
+      null -> require(context.hasEnclosingSource(index)) { missingFullTextContent(index) }
+      else -> (fullText ?: ArrayList<FullTextOccurrence>(1).also { fullText = it }) += FullTextOccurrence(
+        table = index,
+        content = content
+      )
+    }
+  }
+
+  private fun collectReader(table: Table<*>) {
     val readers = readers ?: MutableObjectIntMap<Table<*>>().also { readers = it }
     when {
       readers.containsKey(table) -> readers[table] = minOf(
@@ -343,8 +378,57 @@ internal class RelationshipPlanner(
     }
   }
 
-  private fun isOccurrenceTable(table: Table<*>) =
-    users.any { it.table === table } || automaticTables?.contains(table) == true
+  private fun isOccurrenceTable(table: Table<*>) = users.any { it.table === table } ||
+      automaticTables?.contains(table) == true ||
+      fullText?.any { it.table === table } == true
+
+  private fun localFullTextContent(index: FullTextIndexTable): UserOccurrence? {
+    val content = index.contentTable
+    val contentKey = content.objectIdentity.normalizedKey
+    val occurrence = users.firstOrNull { it.isPhysicalOccurrenceOf(contentKey) } ?: return null
+    require(users.lastOrNull { it.isPhysicalOccurrenceOf(contentKey) } === occurrence) {
+      val occurrences = users.filter { it.isPhysicalOccurrenceOf(contentKey) }
+      "Full-text index ${index.name} searches ${content.name}, which is a source of the query " +
+          "${occurrences.size} times (${occurrences.joinToString { it.name }}); join ${index.name} explicitly"
+    }
+    return occurrence
+  }
+
+  private fun UserOccurrence.isPhysicalOccurrenceOf(key: SqliteSchemaKey) = table.isPhysicalTableOf(key)
+
+  private fun Table<*>.isPhysicalTableOf(key: SqliteSchemaKey) = isPhysical && objectIdentity.normalizedKey == key
+
+  private fun missingFullTextContent(index: FullTextIndexTable): String {
+    val content = index.contentTable
+    val contentKey = content.objectIdentity.normalizedKey
+    return when {
+      context.hasEnclosingSource { it.isPhysicalTableOf(contentKey) } -> "Full-text index ${index.name} searches " +
+          "${content.name}, which an enclosing query reads without searching ${index.name}; search ${index.name} " +
+          "in that query"
+      reachesThroughRelationships(contentKey) -> "Full-text index ${index.name} searches " +
+          "${content.name}, which the query joins only through a relationship; join ${content.name} explicitly " +
+          "with INNER_JOIN(…)"
+      else -> "Full-text index ${index.name} searches ${content.name}, which is not a source of the query"
+    }
+  }
+
+  private fun reachesThroughRelationships(key: SqliteSchemaKey): Boolean {
+    val visited = MutableScatterSet<SqliteSchemaKey>()
+    val pending = ArrayDeque(users.map(UserOccurrence::table))
+    while (pending.isNotEmpty()) {
+      pending.removeFirst().tableRelationships.forEach { relationship ->
+        val target = relationship.target()
+        val targetKey = target.objectIdentity.normalizedKey
+        if (targetKey == key) {
+          return true
+        }
+        if (visited.add(targetKey)) {
+          pending += target
+        }
+      }
+    }
+    return false
+  }
 
   fun existingChild(parent: SourceOccurrence, relationship: Int) = parent.child(relationship)
     ?: exactUserJoin(

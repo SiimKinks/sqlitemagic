@@ -292,8 +292,8 @@ data class Article(
   `CONFLICT_REPLACE` replaces leave the index. Connections the library did not open (the `sqlite3` shell, Database
   Inspector) run without it.
 - Entity updates re-index a row only when its row ID or an indexed column changed.
-- The DSL does not search the index; query it with raw SQL ([statements.md](statements.md#raw-select)):
-  `SELECT rowid FROM article_fts WHERE article_fts MATCH ?`.
+- Search it with the generated index object, `ArticleFtsTable.Companion.ARTICLE_FTS` (the index name in upper snake
+  case): `SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH query)` ([queries.md](queries.md#full-text-search)).
 - Migrations keep the index in step with the model and its table. A removed or changed index is dropped before the
   table statements. An added or changed index, or one whose table is rebuilt or renamed, is created after them and
   refilled from every row of the table, with a build warning for each refill of an existing table
@@ -310,11 +310,15 @@ Build after changing models; KSP generates, in package `com.siimkinks.sqlitemagi
 | Bulk operations | `Books.insert(books)`, `Books.persist(…)`, `Books.update(…)`, `Books.delete(…)`, `Books.deleteTable()` | the model name plus `s`, also after an `s` (`AccountSettingss`) |
 | `SqlType` selectors and conversions for transformed types | `SqlType.BOOK_STATUS`, `BookStatus.PUBLISHED.asValue()` | raw SQL, standalone values |
 | View table objects | `AUTHOR_STATS` for `@View class AuthorStats` | [views.md](views.md) |
+| Full-text index objects | `ArticleFtsTable.Companion.ARTICLE_FTS`, `ARTICLE_FTS.TITLE`, `ARTICLE_FTS.ROWID`, `ARTICLE_FTS.RANK` | [queries.md](queries.md#full-text-search) |
 | The database | `SqliteMagicDatabase` | setup |
 
 - The Gradle plugin, not KSP, generates `SqliteMagicMigrationDatabase` into the unit-test sources of application
   modules for migration tests ([migrations.md](migrations.md)).
 - Field names are the column names in upper snake case: `BOOK.TITLE`, `LIBRARY.HOME_STREET`.
+- Generated class names must be unique. The build fails when the generated class (`BookTable`, `ArticleFtsTable`) of a
+  model, view or full-text index matches another one's or a runtime class such as `FullTextTable`; rename the model,
+  its enclosing class or the index.
 - Entity operations are `internal` unless the module sets `publicKotlinExtensionFunctions = true`.
 - Generated code is plain Kotlin; read it under `build/generated/ksp/<variant>/kotlin/` to check a field's type. Never
   edit or hand-write generated types, `Table`/`Column` instances or anything needing `@InternalSqliteMagicApi`.

@@ -59,7 +59,7 @@ internal class ViewTableWriter(
         val decodesNull = property.transformer?.decoderInputNullable == true
         listOf(
           scalarFieldProperty(
-            ownerType = view.modelClassName,
+            ownerTypeArguments = listOf(view.modelClassName),
             fieldClass = COLUMN,
             fieldName = property.generatedFieldName,
             columnName = property.selectionKey,

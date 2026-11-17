@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.model
 
+import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.siimkinks.sqlitemagic.Environment
@@ -26,7 +27,11 @@ import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
+import com.siimkinks.sqlitemagic.schema.ArtifactStemOwner
 import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
+import com.siimkinks.sqlitemagic.schema.declaresLibraryClass
+import com.siimkinks.sqlitemagic.schema.libraryClassCollisionMessage
+import com.siimkinks.sqlitemagic.schema.tableArtifactStemOwners
 import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.camelCaseToSnakeCase
@@ -37,6 +42,7 @@ import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY as TEMPORARY_SC
 
 internal class ModelCollector(
   private val environment: Environment,
+  private val resolver: Resolver,
   private val annotations: ConsumedAnnotations
 ) {
   private val tableSeeds = linkedMapOf<TypeKey, TableSeed>()
@@ -416,32 +422,41 @@ internal class ModelCollector(
 
   private fun validateArtifactStems(validation: CollectionObjectValidationRegistry) {
     val accepted = validation.artifactStemRegistry
-    for (seed in tableSeeds.values) {
-      val existing = accepted.lookup(seed.artifactStem)
-      if (existing != null && existing.typeKey != seed.typeKey) {
-        reporter.error(
+    val owners = tableSeeds.values.flatMap { seed ->
+      tableArtifactStemOwners(
+        typeKey = seed.typeKey,
+        qualifiedName = seed.qualifiedName,
+        artifactStem = seed.artifactStem,
+        fullTextIndexNames = seed.fullTextIndexes.map { it.name(seed) }
+      ).map { owner -> seed to owner }
+    }
+    for ((seed, owner) in owners) {
+      val existing = accepted.lookup(owner.artifactStem)
+      when {
+        resolver.declaresLibraryClass(owner) -> reporter.error(
+          message = libraryClassCollisionMessage(owner),
+          symbol = seed.classDeclaration
+        )
+        existing != null && existing.typeKey != seed.typeKey -> reporter.error(
           message = artifactStemCollisionMessage(
-            artifactStem = seed.artifactStem,
-            qualifiedNames = listOf(existing.qualifiedName, seed.qualifiedName),
+            owners = listOf(existing, owner),
             includeRenameSuggestion = true
           ),
           symbol = seed.classDeclaration
         )
       }
     }
-    tableSeeds.values
-      .groupBy(TableSeed::artifactStem)
+    owners
+      .groupBy { (_, owner) -> owner.artifactStem }
       .values
       .filter { it.size > 1 }
-      .forEach { seeds ->
-        val first = seeds.first()
+      .forEach { collisions ->
         reporter.error(
           message = artifactStemCollisionMessage(
-            artifactStem = first.artifactStem,
-            qualifiedNames = seeds.map(TableSeed::qualifiedName),
+            owners = collisions.map(Pair<TableSeed, ArtifactStemOwner>::second),
             includeRenameSuggestion = true
           ),
-          symbol = first.classDeclaration
+          symbol = collisions.first().first.classDeclaration
         )
       }
   }

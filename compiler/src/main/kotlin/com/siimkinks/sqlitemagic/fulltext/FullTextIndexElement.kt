@@ -11,6 +11,9 @@ import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaProvider
 import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
+import com.siimkinks.sqlitemagic.tableStructureClassName
+import com.siimkinks.sqlitemagic.utils.firstCharToUpperCase
+import com.siimkinks.sqlitemagic.utils.generatedFieldName
 import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import java.util.Locale
 
@@ -30,6 +33,8 @@ internal data class FullTextIndexElement(
   val columnSize: Boolean
 ) : SqliteSchemaProvider by identity {
   val name get() = rawName
+  val tableClassName get() = tableStructureClassName(fullTextIndexArtifactStem(name))
+  val fieldName get() = name.replace(regex = nonIdentifierCharacters, replacement = "_").generatedFieldName()
   val createSql get() = listOf(createTableSql) + createTriggerSql
   val createTriggerSql get() = triggerSqlByName.values.toList()
   val dropTriggerSql get() = triggerSqlByName.keys.map(::dropFullTextTriggerSql)
@@ -123,6 +128,10 @@ internal fun fullTextIndexName(
   value: String
 ) = value.ifEmpty { "${tableName}_fts" }
 
+internal fun fullTextIndexArtifactStem(name: String) = name
+    .split(nonIdentifierCharacters)
+    .joinToString(separator = "", transform = String::firstCharToUpperCase)
+
 internal fun fullTextIndexIdentity(name: String) = SqliteSchemaIdentity(
   schema = MAIN,
   identifier = SqliteIdentifier(name)
@@ -169,3 +178,4 @@ private const val INSERT_TRIGGER_SUFFIX = "_ai"
 private const val DELETE_TRIGGER_SUFFIX = "_ad"
 private const val UPDATE_TRIGGER_SUFFIX = "_au"
 private val ROW_ID_ALIASES = listOf("rowid", "oid", "_rowid_")
+private val nonIdentifierCharacters = Regex("""[^\p{L}\p{N}]+""")

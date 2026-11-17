@@ -5,6 +5,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_RELATIONSHIP_ID_ENCODINGS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.ENCODING_TYPE
+import com.siimkinks.sqlitemagic.WriterTypes.FULL_TEXT_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE_READ_TYPE
 import com.siimkinks.sqlitemagic.WriterTypes.PARAMETER_ENCODING_FACTORY
 import com.siimkinks.sqlitemagic.WriterTypes.RELATIONSHIP_READ
@@ -14,16 +15,21 @@ import com.siimkinks.sqlitemagic.WriterTypes.TABLE_RELATIONSHIP
 import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.nullnessType
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
+import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
+import com.siimkinks.sqlitemagic.writer.FullTextTableStructureWriter
 import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter
 import com.siimkinks.sqlitemagic.writer.ReadTableStructureWriter.PartialRead
 import com.siimkinks.sqlitemagic.writer.databaseValueGetter
 import com.siimkinks.sqlitemagic.writer.entityProperties
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
+import com.squareup.kotlinpoet.NOTHING
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeName
 
 internal class ModelTableWriter(
   private val environment: Environment
@@ -34,6 +40,16 @@ internal class ModelTableWriter(
         codeGenerator = environment.codeGenerator,
         originatingFiles = originatingFiles
       )
+    table.fullTextIndexes.forEach { index ->
+      fullTextTableStructureWriter(
+        table = table,
+        index = index
+      )
+        .write(
+          codeGenerator = environment.codeGenerator,
+          originatingFiles = originatingFiles
+        )
+    }
   }
 
   private fun readTableStructureWriter(table: TableElement) = ReadTableStructureWriter(
@@ -50,10 +66,17 @@ internal class ModelTableWriter(
         add(namedArgument("withoutRowId", "true"))
       }
     },
-    columns = table.allColumns.map {
+    columns = table.allColumns.map { column ->
       columnProperty(
-        table = table,
-        column = it
+        column = column,
+        field = FieldTarget(
+          fieldClass = column.fieldClass,
+          ownerTypeArguments = listOf(table.modelClassName),
+          table = CodeBlock.of("this"),
+          encodingsClassName = table.generationNames.tableClassName,
+          fieldName = column.fieldName,
+          columnName = column.columnName
+        )
       )
     },
     readsRelated = table.hasRecursiveRelationships,
@@ -68,36 +91,83 @@ internal class ModelTableWriter(
       ),
       readsRelated = table.hasRecursiveRelationships
     ),
-    relationshipIdEncodings = table.allColumns.mapNotNull { column ->
-      column.relationshipBackedId?.let { relationship ->
-        relationshipBackedIdEncoding(
-          column = column,
-          relationship = relationship
-        )
-      }
-    }
+    relationshipIdEncodings = relationshipIdEncodings(table.allColumns)
   )
 
-  private fun columnProperty(
+  private fun fullTextTableStructureWriter(
     table: TableElement,
-    column: ColumnElement
+    index: FullTextIndexElement
+  ): FullTextTableStructureWriter {
+    val className = index.tableClassName
+    val columnsByName = table.allColumns.associateBy(ColumnElement::columnName)
+    val members = index.columns.map { columnsByName.getValue(it.columnName) }
+    val rowIdColumn = columnsByName.getValue(index.rowIdColumnName)
+    fun field(
+      column: ColumnElement,
+      fieldClass: ClassName,
+      ownerTypeArguments: List<TypeName>,
+      fieldName: String,
+      columnName: String
+    ) = columnProperty(
+      column = column,
+      field = FieldTarget(
+        fieldClass = fieldClass,
+        ownerTypeArguments = ownerTypeArguments,
+        table = CodeBlock.of("fieldTable"),
+        encodingsClassName = className,
+        fieldName = fieldName,
+        columnName = columnName
+      )
+    )
+    return FullTextTableStructureWriter(
+      className = className,
+      fieldName = index.fieldName,
+      isPublic = table.isPublic,
+      constructorArguments = listOf(
+        namedArgument("name", "%S", index.name),
+        namedArgument("alias", "%N", VARIABLE_ALIAS),
+        namedArgument("contentTable", "%L", table.generationNames.tableHandle),
+        namedArgument("contentRowIdColumnName", "%S", index.rowIdColumnName)
+      ),
+      columns = members.map { column ->
+        field(
+          column = column,
+          fieldClass = FULL_TEXT_COLUMN,
+          ownerTypeArguments = emptyList(),
+          fieldName = column.fieldName,
+          columnName = column.columnName
+        )
+      } + field(
+        column = rowIdColumn,
+        fieldClass = COLUMN,
+        ownerTypeArguments = listOf(NOTHING),
+        fieldName = FULL_TEXT_ROW_ID_FIELD,
+        columnName = FULL_TEXT_ROW_ID_COLUMN
+      ),
+      relationshipIdEncodings = relationshipIdEncodings((members + rowIdColumn).distinct())
+    )
+  }
+
+  private fun columnProperty(
+    column: ColumnElement,
+    field: FieldTarget
   ): PropertySpec {
     val relationship = column.relationship
     val relationshipBackedId = column.relationshipBackedId
     return when {
       relationshipBackedId != null -> relationshipBackedIdProperty(
-        table = table,
         column = column,
+        field = field,
         relationship = relationshipBackedId
       )
       relationship == null -> scalarColumnProperty(
-        table = table,
         column = column,
+        field = field,
         value = column
       )
       else -> scalarColumnProperty(
-        table = table,
         column = column,
+        field = field,
         value = column.copy(
           deserializedType = relationship.referencedIdType,
           transformer = relationship.referencedIdTransformer,
@@ -108,14 +178,15 @@ internal class ModelTableWriter(
   }
 
   private fun scalarColumnProperty(
-    table: TableElement,
     column: ColumnElement,
+    field: FieldTarget,
     value: ColumnElement
   ) = scalarFieldProperty(
-    ownerType = table.modelClassName,
-    fieldClass = column.fieldClass,
-    fieldName = column.fieldName,
-    columnName = column.columnName,
+    ownerTypeArguments = field.ownerTypeArguments,
+    fieldClass = field.fieldClass,
+    tableArgument = field.table,
+    fieldName = field.fieldName,
+    columnName = field.columnName,
     propertyName = column.access.path.displayName,
     deserializedType = value.deserializedType.typeName,
     sqlStorageType = value.sqlStorageType,
@@ -127,8 +198,8 @@ internal class ModelTableWriter(
 
   /** A relationship whose referenced ID is itself a relationship has the ID-only referenced model as its value. */
   private fun relationshipBackedIdProperty(
-    table: TableElement,
     column: ColumnElement,
+    field: FieldTarget,
     relationship: RelationshipElement
   ): PropertySpec {
     val idType = relationship.nullableIdType
@@ -148,28 +219,29 @@ internal class ModelTableWriter(
     }
     return PropertySpec
       .builder(
-        name = column.fieldName,
-        type = column.fieldClass.parameterizedBy(
-          table.modelClassName,
-          idType,
-          nullness,
-          idType.copy(nullable = column.isSqlNullable),
-          idType.copy(nullable = column.isModelPathNullable),
-          SQL_NULLABLE,
-          idType
+        name = field.fieldName,
+        type = field.fieldClass.parameterizedBy(
+          field.ownerTypeArguments + listOf(
+            idType,
+            nullness,
+            idType.copy(nullable = column.isSqlNullable),
+            idType.copy(nullable = column.isModelPathNullable),
+            SQL_NULLABLE,
+            idType
+          )
         )
       )
       .initializer(
         callCode(
-          callee = CodeBlock.of("%T", column.fieldClass),
+          callee = CodeBlock.of("%T", field.fieldClass),
           arguments = listOfNotNull(
-            namedArgument("table", "this"),
-            namedArgument("name", "%S", column.columnName),
+            namedArgument("table", "%L", field.table),
+            namedArgument("name", "%S", field.columnName),
             namedArgument("nullness", "%T", nullness),
             namedArgument(
               "parameterEncoding",
               "%T.%N.%M()",
-              table.generationNames.tableClassName.nestedClass(CLASS_RELATIONSHIP_ID_ENCODINGS),
+              field.encodingsClassName.nestedClass(CLASS_RELATIONSHIP_ID_ENCODINGS),
               column.fieldName,
               PARAMETER_ENCODING_FACTORY
             ),
@@ -178,6 +250,15 @@ internal class ModelTableWriter(
         )
       )
       .build()
+  }
+
+  private fun relationshipIdEncodings(columns: List<ColumnElement>) = columns.mapNotNull { column ->
+    column.relationshipBackedId?.let { relationship ->
+      relationshipBackedIdEncoding(
+        column = column,
+        relationship = relationship
+      )
+    }
   }
 
   private fun relationshipBackedIdEncoding(column: ColumnElement, relationship: RelationshipElement): PropertySpec {
@@ -211,6 +292,18 @@ internal class ModelTableWriter(
       .build()
   }
 }
+
+private class FieldTarget(
+  val fieldClass: ClassName,
+  val ownerTypeArguments: List<TypeName>,
+  val table: CodeBlock,
+  val encodingsClassName: ClassName,
+  val fieldName: String,
+  val columnName: String
+)
+
+private const val FULL_TEXT_ROW_ID_FIELD = "ROWID"
+private const val FULL_TEXT_ROW_ID_COLUMN = "rowid"
 
 /** Targets resolve lazily, since tables can reference each other. */
 private fun relationships(columns: List<ColumnElement>) = callCode(

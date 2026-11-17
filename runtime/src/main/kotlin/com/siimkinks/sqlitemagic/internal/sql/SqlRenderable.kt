@@ -271,6 +271,19 @@ internal class SqlRenderingContext(
     return describing
   }
 
+  fun hasEnclosingSource(predicate: (Table<*>) -> Boolean): Boolean {
+    var enclosing = scope.enclosing
+    while (enclosing != null) {
+      enclosing.positions.forEach { table, _ ->
+        if (predicate(table)) {
+          return true
+        }
+      }
+      enclosing = enclosing.enclosing
+    }
+    return false
+  }
+
   fun hasEnclosingName(name: String): Boolean {
     var enclosing = scope.enclosing ?: return false
     val qualifier = quoteSqlIdentifier(name)

@@ -13,8 +13,9 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 
 internal fun scalarFieldProperty(
-  ownerType: ClassName,
+  ownerTypeArguments: List<TypeName>,
   fieldClass: ClassName,
+  tableArgument: CodeBlock = CodeBlock.of("this"),
   fieldName: String,
   columnName: String,
   propertyName: String,
@@ -43,20 +44,21 @@ internal fun scalarFieldProperty(
     .builder(
       name = fieldName,
       type = fieldClass.parameterizedBy(
-        ownerType,
-        read.descriptorResultType,
-        read.nullness,
-        read.selectedType,
-        deserializedType.copy(nullable = isModelPathNullable),
-        encoding.nullness,
-        encoding.parameterResultType(read.descriptorResultType)
+        ownerTypeArguments + listOf(
+          read.descriptorResultType,
+          read.nullness,
+          read.selectedType,
+          deserializedType.copy(nullable = isModelPathNullable),
+          encoding.nullness,
+          encoding.parameterResultType(read.descriptorResultType)
+        )
       )
     )
     .initializer(
       callCode(
         callee = CodeBlock.of("%T", fieldClass),
         arguments = listOf(
-          namedArgument("table", "this"),
+          namedArgument("table", "%L", tableArgument),
           namedArgument("name", "%S", columnName),
           namedArgument("nullness", "%T", read.nullness),
           namedArgument("parameterEncoding", "%T.%N.%M()", SQL_TYPE, read.descriptorName, encoding.factory),

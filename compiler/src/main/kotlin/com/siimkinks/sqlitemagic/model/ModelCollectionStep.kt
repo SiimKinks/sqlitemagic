@@ -41,6 +41,7 @@ internal class ModelCollectionStep(
       .toList()
     val isCollectionSuccessful = ModelCollector(
       environment = environment,
+      resolver = resolver,
       annotations = annotations
     ).collect(declarations)
     return when {

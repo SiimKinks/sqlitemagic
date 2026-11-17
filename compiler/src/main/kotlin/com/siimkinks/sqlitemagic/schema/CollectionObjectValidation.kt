@@ -1,6 +1,11 @@
 package com.siimkinks.sqlitemagic.schema
 
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.symbol.Origin.JAVA_LIB
+import com.google.devtools.ksp.symbol.Origin.KOTLIN_LIB
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
+import com.siimkinks.sqlitemagic.fulltext.fullTextIndexArtifactStem
 import com.siimkinks.sqlitemagic.fulltext.fullTextSchemaOwners
 import com.siimkinks.sqlitemagic.index.IndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifierProvider
@@ -10,6 +15,7 @@ import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
 import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
+import com.siimkinks.sqlitemagic.tableStructureClassName
 import com.siimkinks.sqlitemagic.view.ViewElement
 
 internal data class SchemaIdentityOwner(
@@ -40,8 +46,16 @@ internal class SchemaIdentityRegistry {
 internal data class ArtifactStemOwner(
   val typeKey: TypeKey,
   val qualifiedName: String,
-  val artifactStem: String
-)
+  val artifactStem: String,
+  val fullTextIndexName: String? = null
+) {
+  val displayName
+    get() = when (fullTextIndexName) {
+      null -> "'$qualifiedName'"
+      else -> "full-text index '$fullTextIndexName' of '$qualifiedName'"
+    }
+  val tableClassName get() = tableStructureClassName(artifactStem).canonicalName
+}
 
 internal class ArtifactStemRegistry {
   private val ownersByStem = KeyedCollisionRegistry<String, ArtifactStemOwner>()
@@ -65,24 +79,12 @@ internal class CollectionObjectValidationRegistry {
 
   fun registerTable(table: TableElement) {
     table.schemaIdentityOwners().forEach(schemaIdentityRegistry::register)
-    artifactStemRegistry.register(
-      ArtifactStemOwner(
-        typeKey = table.typeKey,
-        qualifiedName = table.qualifiedName,
-        artifactStem = table.artifactStem
-      )
-    )
+    table.artifactStemOwners().forEach(artifactStemRegistry::register)
   }
 
   fun unregisterTable(table: TableElement) {
     table.schemaIdentityOwners().forEach(schemaIdentityRegistry::unregister)
-    artifactStemRegistry.unregister(
-      ArtifactStemOwner(
-        typeKey = table.typeKey,
-        qualifiedName = table.qualifiedName,
-        artifactStem = table.artifactStem
-      )
-    )
+    table.artifactStemOwners().forEach(artifactStemRegistry::unregister)
   }
 
   fun replaceTable(
@@ -163,6 +165,33 @@ private fun TableElement.schemaIdentityOwners() = listOf(
   )
 }
 
+private fun TableElement.artifactStemOwners() = tableArtifactStemOwners(
+  typeKey = typeKey,
+  qualifiedName = qualifiedName,
+  artifactStem = artifactStem,
+  fullTextIndexNames = fullTextIndexes.map(FullTextIndexElement::name)
+)
+
+internal fun tableArtifactStemOwners(
+  typeKey: TypeKey,
+  qualifiedName: String,
+  artifactStem: String,
+  fullTextIndexNames: List<String>
+) = listOf(
+  ArtifactStemOwner(
+    typeKey = typeKey,
+    qualifiedName = qualifiedName,
+    artifactStem = artifactStem
+  )
+) + fullTextIndexNames.distinct().map { name ->
+  ArtifactStemOwner(
+    typeKey = typeKey,
+    qualifiedName = qualifiedName,
+    artifactStem = fullTextIndexArtifactStem(name),
+    fullTextIndexName = name
+  )
+}
+
 internal enum class SqliteIdentifierProblem {
   LINE_BREAK,
   NUL,
@@ -177,18 +206,37 @@ internal fun SqliteIdentifierProvider.sqliteIdentifierProblem() = when {
 }
 
 internal fun artifactStemCollisionMessage(
-  artifactStem: String,
-  qualifiedNames: List<String>,
+  owners: List<ArtifactStemOwner>,
   includeRenameSuggestion: Boolean
 ): String {
-  val declarations = qualifiedNames.joinToString(
-    separator = "', '",
-    prefix = "'",
-    postfix = "'"
-  )
-  val suffix = when {
-    includeRenameSuggestion -> ". Rename one model or an enclosing class to make the generated names unique."
-    else -> ""
+  val artifactStem = owners.first().artifactStem
+  val names = owners.joinToString(transform = ArtifactStemOwner::displayName)
+  return when {
+    owners.any { it.fullTextIndexName != null } -> "Cannot generate code for $names: they map to the same " +
+        "generated name '$artifactStem'. Rename a model, an enclosing class or a full-text index to make the " +
+        "generated names unique."
+    else -> {
+      val suffix = when {
+        includeRenameSuggestion -> ". Rename one model or an enclosing class to make the generated names unique."
+        else -> ""
+      }
+      "Cannot generate code for declarations $names: their declaration paths map to the same generated name " +
+          "'$artifactStem'$suffix"
+    }
   }
-  return "Cannot generate code for declarations $declarations: their declaration paths map to the same generated name '$artifactStem'$suffix"
 }
+
+internal fun libraryClassCollisionMessage(owner: ArtifactStemOwner): String {
+  val rename = when (owner.fullTextIndexName) {
+    null -> "the declaration or an enclosing class"
+    else -> "the full-text index"
+  }
+  return "Cannot generate code for ${owner.displayName}: its generated class '${owner.tableClassName}' is already " +
+      "declared on the classpath. Rename $rename."
+}
+
+internal fun Resolver.declaresLibraryClass(owner: ArtifactStemOwner) = getClassDeclarationByName(
+  getKSNameFromString(owner.tableClassName)
+)
+  ?.origin
+  .let { it == KOTLIN_LIB || it == JAVA_LIB }

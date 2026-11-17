@@ -11,10 +11,13 @@ internal data class GenerationNames(
   val artifactStem: String
 ) {
   val daoClassName = ClassName(PACKAGE_ROOT, "SqliteMagic_${artifactStem}_$CLASS_MODEL_DAO")
-  val tableClassName = ClassName(PACKAGE_ROOT, "$artifactStem$CLASS_TABLE_STRUCTURE")
+  val tableClassName = tableStructureClassName(artifactStem)
   val structureFieldName = artifactStem.generatedFieldName()
   val adapterClassName = ClassName(PACKAGE_ROOT, "SqliteMagic_${artifactStem}_Adapter")
   val extensionsFileName = "_$artifactStem"
   val bulkOperationsObjectName = "${artifactStem}s"
   val tableHandle = CodeBlock.of("%T.%N", tableClassName, structureFieldName)
 }
+
+internal fun tableStructureClassName(artifactStem: String) =
+  ClassName(PACKAGE_ROOT, "$artifactStem$CLASS_TABLE_STRUCTURE")

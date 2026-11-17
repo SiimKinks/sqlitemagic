@@ -27,7 +27,10 @@ Version 3.1.0 _(unreleased)_
   empties it. Options set the tokenizer, prefix indexes, `detail`, stored column sizes and unindexed columns. A schema
   with a full-text index runs its connections with `PRAGMA recursive_triggers = ON`, so rows replaced by
   `CONFLICT_REPLACE` leave the index. Migrations create, drop and refill the index as the model and its table change,
-  and migration tests check each index against its table's rows. FTS5 needs the bundled driver
+  and migration tests check each index against its table's rows. The generated index object (`ARTICLE_FTS`) searches
+  it with `MATCH`, on the whole index or one column, and ranks matches with `RANK`; a query of the table that refers to
+  it joins it automatically after the table, and its `ROWID` has the type of the table's row ID. FTS5 needs the
+  bundled driver
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead
