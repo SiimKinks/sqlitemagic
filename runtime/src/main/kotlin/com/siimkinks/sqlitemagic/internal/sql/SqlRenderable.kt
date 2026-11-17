@@ -337,7 +337,14 @@ internal class SqlRenderingContext(
     qualifier(table)
   }
 
-  fun qualifier(table: Table<*>): String {
+  fun qualifier(table: Table<*>) = visibleQualifier(table) ?: missingOccurrenceQualifier(table)
+
+  fun entityQualifier(table: Table<*>) = visibleQualifier(table) ?: run {
+    require(describing) { "The ${table.referenceName} entity is not a source of this query; name it in FROM or a join" }
+    table.sqlQualifier
+  }
+
+  private fun visibleQualifier(table: Table<*>): String? {
     var current: SourceScope? = scope
     while (current != null) {
       val position = current.positions.getOrDefault(
@@ -347,12 +354,12 @@ internal class SqlRenderingContext(
       if (position >= 0) {
         return when {
           position < current.visibleSources -> current.qualifiers[position]
-          else -> missingOccurrenceQualifier(table)
+          else -> null
         }
       }
       current = current.enclosing
     }
-    return missingOccurrenceQualifier(table)
+    return null
   }
 
   private fun missingOccurrenceQualifier(table: Table<*>) = when {

@@ -29,7 +29,7 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
   private val generatedView: GeneratedView? = null,
   internal val temporary: Boolean = false,
   internal val withoutRowId: Boolean = false
-) : Source {
+) : Source, SelectValue<EntityRows, T> {
   internal val objectIdentity = generatedView
     ?.identity
     ?: SqliteSchemaIdentity.from(
@@ -155,6 +155,27 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
     startIndex = startIndex,
     related = related
   )
+
+  internal val entityValueWidth get() = viewDefinition?.columnNames?.size ?: selectedEntityFields().size
+
+  internal fun entityValueRead(startIndex: Int): RelatedEntities? = when (val view = viewDefinition) {
+    null -> relationships
+      .takeIf(List<*>::isNotEmpty)
+      ?.let {
+        RelatedEntities(
+          table = this,
+          children = arrayOfNulls(it.size),
+          startIndex = startIndex
+        )
+      }
+    else -> view.blocks?.let { blocks ->
+      RelatedEntities(
+        table = this,
+        children = Array(blocks.size) { blocks[it]?.shifted(startIndex) },
+        startIndex = startIndex
+      )
+    }
+  }
 
   /**
    * Create an alias for this table.

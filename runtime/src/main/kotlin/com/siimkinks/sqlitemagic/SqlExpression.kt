@@ -41,7 +41,7 @@ open class SqlExpression<out R, out N : SqlNullability, out T> internal construc
   internal val nonNullRead: ValueRead<R>,
   internal val selectRead: ValueRead<T>,
   internal val outputAlias: String? = null
-) : SqlOperand, SqlOutput {
+) : SqlOperand, SelectValue<R, T> {
   internal constructor(
     source: SqlExpression<R, N, T>,
     node: ExpressionNode = source.node,

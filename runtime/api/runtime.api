@@ -307,6 +307,9 @@ public final class com/siimkinks/sqlitemagic/EncodedSqlExpression : com/siimkink
 public final class com/siimkinks/sqlitemagic/EncodingType : com/siimkinks/sqlitemagic/EncodableReadType {
 }
 
+public final class com/siimkinks/sqlitemagic/EntityRows {
+}
+
 public final class com/siimkinks/sqlitemagic/EntitySelection : com/siimkinks/sqlitemagic/Selection {
 }
 
@@ -1309,24 +1312,24 @@ public final class com/siimkinks/sqlitemagic/SearchedCaseWhen {
 public final class com/siimkinks/sqlitemagic/Select {
 	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/Select;
 	public final fun COLUMN (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun COLUMNS ([Lcom/siimkinks/sqlitemagic/SqlOutput;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
-	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun DISTINCT ([Lcom/siimkinks/sqlitemagic/SqlOutput;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun FROM (Lcom/siimkinks/sqlitemagic/QueryOutputSource;)Lcom/siimkinks/sqlitemagic/SelectFromStage;
 	public final fun FROM (Lcom/siimkinks/sqlitemagic/Table;)Lcom/siimkinks/sqlitemagic/SelectFromStage;
@@ -1478,6 +1481,9 @@ public class com/siimkinks/sqlitemagic/SelectQuery : com/siimkinks/sqlitemagic/Q
 	public final fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/SelectQuery;
 }
 
+public abstract interface class com/siimkinks/sqlitemagic/SelectValue : com/siimkinks/sqlitemagic/SqlOutput {
+}
+
 public final class com/siimkinks/sqlitemagic/SelectWhereStage : com/siimkinks/sqlitemagic/SelectQuery, com/siimkinks/sqlitemagic/GroupClause, com/siimkinks/sqlitemagic/LimitClause, com/siimkinks/sqlitemagic/OrderClause {
 	public fun GROUP_BY (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectGroupStage;
 	public fun GROUP_BY (Lcom/siimkinks/sqlitemagic/SqlExpression;Lcom/siimkinks/sqlitemagic/SqlExpression;[Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectGroupStage;
@@ -1492,6 +1498,7 @@ public final class com/siimkinks/sqlitemagic/SelectWhereStage : com/siimkinks/sq
 public abstract class com/siimkinks/sqlitemagic/SelectedRow {
 	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/SelectedOutputs;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public abstract fun get (Lcom/siimkinks/sqlitemagic/SqlExpression;)Ljava/lang/Object;
+	public abstract fun get (Lcom/siimkinks/sqlitemagic/Table;)Ljava/lang/Object;
 }
 
 public abstract class com/siimkinks/sqlitemagic/Selection {
@@ -1513,7 +1520,7 @@ public final class com/siimkinks/sqlitemagic/SimpleCaseWhen {
 public abstract interface class com/siimkinks/sqlitemagic/Source {
 }
 
-public class com/siimkinks/sqlitemagic/SqlExpression : com/siimkinks/sqlitemagic/SqlOperand, com/siimkinks/sqlitemagic/SqlOutput {
+public class com/siimkinks/sqlitemagic/SqlExpression : com/siimkinks/sqlitemagic/SelectValue, com/siimkinks/sqlitemagic/SqlOperand {
 	public final fun AS (Lcom/siimkinks/sqlitemagic/CastType;)Lcom/siimkinks/sqlitemagic/CastTarget;
 	public fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/SqlExpression;
 	public final fun ASC ()Lcom/siimkinks/sqlitemagic/Ordering;
@@ -1655,7 +1662,7 @@ public final class com/siimkinks/sqlitemagic/SubqueriesKt {
 	public static final fun asScalar (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/SqlExpression;
 }
 
-public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/Source {
+public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/SelectValue, com/siimkinks/sqlitemagic/Source {
 	protected fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/internal/GeneratedView;ZZ)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/internal/GeneratedView;ZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Table;

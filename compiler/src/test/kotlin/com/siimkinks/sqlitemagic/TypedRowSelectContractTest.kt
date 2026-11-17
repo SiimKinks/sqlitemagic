@@ -26,6 +26,14 @@ internal class TypedRowSelectContractTest {
       "non-null parameter for a nullable output | val invalid = pair.mapTo(::Strict) | " +
           "None of the following candidates is applicable",
       "swapped parameter types | val invalid = pair.mapTo(::Swapped) | None of the following candidates is applicable",
+      "entity as a scalar column | val invalid = SELECT.COLUMN(table) | " +
+          "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<uninferred R",
+      "entity in WHERE | val invalid = pair.FROM(table).WHERE(table) | " +
+          "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<Boolean, *, *>' was expected",
+      "entity in GROUP_BY | val invalid = pair.FROM(table).GROUP_BY(table) | " +
+          "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<*, *, *>' was expected",
+      "entity mapped to another type | val invalid = SELECT.COLUMNS(table, id).mapTo(::Swapped) | " +
+          "None of the following candidates is applicable",
       "entity query | val invalid = SELECT.FROM(table).mapTo(::Single) | " +
           "SelectQuery<Row2<A, B>, RowSelection<R, Row2<A, B>>>.mapTo(transform: (A, B) -> M): " +
           "SelectQuery<M, RowSelection<R, M>>' is inapplicable because of a receiver type mismatch"
@@ -67,6 +75,102 @@ internal class TypedRowSelectContractTest {
         """
       )
       .assertCompilationError(diagnostic)
+  }
+
+  @Test
+  fun `entity values select typed rows beside expressions and wide rows read them by table`() {
+    PlainKotlinCompilation
+      .compile(
+        fileName = "EntityValueConsumer.kt",
+        contents = """
+          package downstream.typedrow.entity
+
+          import com.siimkinks.sqlitemagic.DbConnection
+          import com.siimkinks.sqlitemagic.EntityRows
+          import com.siimkinks.sqlitemagic.Required
+          import com.siimkinks.sqlitemagic.Row2
+          import com.siimkinks.sqlitemagic.Row3
+          import com.siimkinks.sqlitemagic.RowSelection
+          import com.siimkinks.sqlitemagic.SELECT
+          import com.siimkinks.sqlitemagic.SelectFromStage
+          import com.siimkinks.sqlitemagic.SelectProjectionStage
+          import com.siimkinks.sqlitemagic.SelectQuery
+          import com.siimkinks.sqlitemagic.SelectedRow
+          import com.siimkinks.sqlitemagic.SqlExpression
+          import com.siimkinks.sqlitemagic.SqlNullable
+          import com.siimkinks.sqlitemagic.Table
+          import com.siimkinks.sqlitemagic.mapTo
+          import typewitness.Exact
+          import typewitness.exactType
+
+          class Book
+          class Author
+          data class BookLine(val book: Book, val title: String)
+
+          typealias BookTitle = Row2<Book, String>
+
+          fun verify(
+            book: Table<Book>,
+            author: Table<Author>,
+            title: SqlExpression<String, Required, String>,
+            nickname: SqlExpression<String, SqlNullable, String?>,
+            connection: DbConnection
+          ) {
+            val pair = SELECT
+                .COLUMNS(book, title)
+            val entities = SELECT
+                .COLUMNS(book, nickname, author)
+                .FROM(book)
+            val distinct = SELECT
+                .DISTINCT(book, title)
+            val explicit = SELECT
+                .COLUMNS<String, String, String, String?>(title, nickname)
+            val wide = SELECT
+                .COLUMNS(book, author.all())
+                .FROM(book)
+            val mapped = pair.mapTo(::BookLine)
+            val live = wide.mapTo { row -> row[book] }
+            val rows = pair
+                .FROM(book)
+                .usingConnection(connection)
+                .execute()
+            val entity = wide
+                .usingConnection(connection)
+                .execute()
+                .first()[book]
+
+            val pairType = pair.exactType()
+            val exactPair: Exact<SelectProjectionStage<BookTitle, RowSelection<Row2<EntityRows, String>, BookTitle>>> =
+                pairType
+            val entitiesType = entities.exactType()
+            val exactEntities: Exact<SelectFromStage<
+                Row3<Book, String?, Author>,
+                RowSelection<Row3<EntityRows, String, EntityRows>, Row3<Book, String?, Author>>
+            >> = entitiesType
+            val distinctType = distinct.exactType()
+            val exactDistinct:
+                Exact<SelectProjectionStage<BookTitle, RowSelection<Row2<EntityRows, String>, BookTitle>>> =
+                distinctType
+            val explicitType = explicit.exactType()
+            val exactExplicit: Exact<SelectProjectionStage<
+                Row2<String, String?>,
+                RowSelection<Row2<String, String>, Row2<String, String?>>
+            >> = explicitType
+            val wideType = wide.exactType()
+            val exactWide: Exact<SelectFromStage<SelectedRow, RowSelection<SelectedRow, SelectedRow>>> = wideType
+            val mappedType = mapped.exactType()
+            val exactMapped: Exact<SelectQuery<BookLine, RowSelection<Row2<EntityRows, String>, BookLine>>> =
+                mappedType
+            val liveType = live.exactType()
+            val exactLive: Exact<SelectQuery<Book, RowSelection<SelectedRow, Book>>> = liveType
+            val rowsType = rows.exactType()
+            val exactRows: Exact<List<BookTitle>> = rowsType
+            val entityType = entity.exactType()
+            val exactEntity: Exact<Book> = entityType
+          }
+        """
+      )
+      .isOk()
   }
 
   @Test

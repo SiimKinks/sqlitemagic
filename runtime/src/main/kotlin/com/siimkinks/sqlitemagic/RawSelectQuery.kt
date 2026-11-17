@@ -357,13 +357,13 @@ class RawSelect<O : RawTables> internal constructor(
 
   private inline fun <T> readColumns(
     vararg reads: ValueRead<Any?>,
-    read: (List<ValueRead<Any?>>) -> ValueRead<T>
+    read: (SlotReads) -> ValueRead<T>
   ): RawSelectQuery<T, O> {
     val columns = reads.asList()
     return RawSelectQuery(
       select = this,
       columns = columns,
-      read = read(columns)
+      read = read(SlotReads(columns))
     )
   }
 }

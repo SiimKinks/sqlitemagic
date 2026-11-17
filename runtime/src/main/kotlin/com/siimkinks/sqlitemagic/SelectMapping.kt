@@ -41,7 +41,7 @@ fun <R, N : SqlNullability, T, M> SelectQuery<T, ScalarSelection<R, N, T>>.mapTo
 fun <R, A, B, M> SelectQuery<Row2<A, B>, RowSelection<R, Row2<A, B>>>.mapTo(
   transform: (A, B) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read2(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read2(transform) })
 )
 
 /**
@@ -55,7 +55,7 @@ fun <R, A, B, M> SelectQuery<Row2<A, B>, RowSelection<R, Row2<A, B>>>.mapTo(
 fun <R, A, B, C, M> SelectQuery<Row3<A, B, C>, RowSelection<R, Row3<A, B, C>>>.mapTo(
   transform: (A, B, C) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read3(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read3(transform) })
 )
 
 /**
@@ -69,7 +69,7 @@ fun <R, A, B, C, M> SelectQuery<Row3<A, B, C>, RowSelection<R, Row3<A, B, C>>>.m
 fun <R, A, B, C, D, M> SelectQuery<Row4<A, B, C, D>, RowSelection<R, Row4<A, B, C, D>>>.mapTo(
   transform: (A, B, C, D) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read4(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read4(transform) })
 )
 
 /**
@@ -83,7 +83,7 @@ fun <R, A, B, C, D, M> SelectQuery<Row4<A, B, C, D>, RowSelection<R, Row4<A, B, 
 fun <R, A, B, C, D, E, M> SelectQuery<Row5<A, B, C, D, E>, RowSelection<R, Row5<A, B, C, D, E>>>.mapTo(
   transform: (A, B, C, D, E) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read5(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read5(transform) })
 )
 
 /**
@@ -97,7 +97,7 @@ fun <R, A, B, C, D, E, M> SelectQuery<Row5<A, B, C, D, E>, RowSelection<R, Row5<
 fun <R, A, B, C, D, E, F, M> SelectQuery<Row6<A, B, C, D, E, F>, RowSelection<R, Row6<A, B, C, D, E, F>>>.mapTo(
   transform: (A, B, C, D, E, F) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read6(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read6(transform) })
 )
 
 /**
@@ -112,7 +112,7 @@ fun <R, A, B, C, D, E, F, G, M>
     SelectQuery<Row7<A, B, C, D, E, F, G>, RowSelection<R, Row7<A, B, C, D, E, F, G>>>.mapTo(
   transform: (A, B, C, D, E, F, G) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read7(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read7(transform) })
 )
 
 /**
@@ -127,7 +127,7 @@ fun <R, A, B, C, D, E, F, G, H, M>
     SelectQuery<Row8<A, B, C, D, E, F, G, H>, RowSelection<R, Row8<A, B, C, D, E, F, G, H>>>.mapTo(
   transform: (A, B, C, D, E, F, G, H) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read8(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read8(transform) })
 )
 
 /**
@@ -142,7 +142,7 @@ fun <R, A, B, C, D, E, F, G, H, I, M>
     SelectQuery<Row9<A, B, C, D, E, F, G, H, I>, RowSelection<R, Row9<A, B, C, D, E, F, G, H, I>>>.mapTo(
   transform: (A, B, C, D, E, F, G, H, I) -> M
 ) = SelectQuery(
-  node.withSelection(node.selection.mapped(node.selection.columnReads.read9(transform)))
+  node.withSelection(node.selection.mapped { reads -> reads.read9(transform) })
 )
 
 /**
@@ -167,12 +167,13 @@ fun <M> SelectQuery<SelectedRow, RowSelection<SelectedRow, SelectedRow>>.mapTo(
   transform: (SelectedRow) -> M
 ) = SelectQuery(
   node.withSelection(
-    node.selection.mapped(
+    node.selection.mapped { values, layout ->
       LiveRowsReader(
-        expressions = node.selection.outputs,
+        values = values,
+        layout = layout,
         mapper = transform
       )
-    )
+    }
   )
 )
 
@@ -192,14 +193,18 @@ fun <M> SelectQuery<SelectedRow, RowSelection<SelectedRow, SelectedRow>>.mapTo(
  *
  * @param table Table of the model
  * @return SQL SELECT statement
- * @throws IllegalArgumentException when the query is compiled if [table] is not a source of the query, a selected
- *     value is not a column of [table] or of a table its relationships reach, or a required column is not selected
+ * @throws IllegalArgumentException if a selected value is an entity, or when the query is compiled if [table] is
+ *     not a source of the query, a selected value is not a column of [table] or of a table its relationships reach,
+ *     or a required column is not selected
  */
 @JvmName("mapRowsToTable")
 fun <R, T, M> SelectQuery<T, RowSelection<R, T>>.mapTo(table: Table<M>) = SelectQuery(
   node.withSelection(
     PartialEntitySelection(
-      outputs = node.selection.outputs,
+      outputs = requireNotNull(node.selection.expressions) {
+        "mapTo(${table.referenceName}) reads plain fields, but selected value " +
+            "${node.selection.values.indexOfFirst { it is Table<*> } + 1} is an entity"
+      },
       table = table
     )
   )

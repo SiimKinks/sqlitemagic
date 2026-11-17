@@ -236,6 +236,31 @@ internal class ViewSelectTest {
   }
 
   @Test
+  fun `a view entity value after other values reads its blocks from its own columns`() {
+    val view = bookCardView(
+      viewName = "deep_book_card",
+      query = (SELECT FROM BOOK).queryDeep()
+    )
+    val card = BookCardTable(view)
+    val query = SELECT
+      .COLUMNS(card.TITLE, card)
+      .FROM(card)
+
+    val rows = libraryDatabase().use { database ->
+      database.createViews(view)
+      query.rows(database)
+    }
+
+    assertThat(query.compile().sql to rows).isEqualTo(
+      """SELECT "deep_book_card"."book.title", "deep_book_card"."book.title", "deep_book_card"."book.id", """ +
+          """"deep_book_card"."book.title", "deep_book_card"."book.author", "deep_book_card"."author.id", """ +
+          """"deep_book_card"."author.name", "deep_book_card"."author.publisher", "deep_book_card"."publisher.id", """ +
+          """"deep_book_card"."publisher.name" FROM "main"."deep_book_card"""" to
+          bookCards(shallow = false).map { Row2(it.title, it) }
+    )
+  }
+
+  @Test
   fun `table blocks whose related row is missing fall back to the stored ID or fail`() {
     val shallowView = bookCardView(
       viewName = "book_card",

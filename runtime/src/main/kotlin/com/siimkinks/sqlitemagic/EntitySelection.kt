@@ -1,6 +1,7 @@
 package com.siimkinks.sqlitemagic
 
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.ViewDefinition
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
@@ -18,24 +19,12 @@ class EntitySelection<M> internal constructor(
   override fun planRelatedEntities(planner: RelationshipPlanner) = planner.entityRead(deep)
 
   override fun render(context: SqlRenderingContext) {
-    context.requireEntityNotNullExtended(table)
-    when (val view = table.viewDefinition) {
-      null -> {
-        renderFields(
-          context = context,
-          table = table
-        )
-        context.relatedEntities?.joined?.forEach { joined ->
-          context.sql.append(", ")
-          renderFields(
-            context = context,
-            table = joined.table
-          )
-        }
-      }
-      else -> renderViewColumns(
-        context = context,
-        view = view
+    context.renderEntityColumns(table)
+    context.relatedEntities?.joined?.forEach { joined ->
+      context.sql.append(", ")
+      context.renderFields(
+        table = joined.table,
+        qualifier = context.qualifier(joined.table)
       )
     }
   }
@@ -63,24 +52,6 @@ class EntitySelection<M> internal constructor(
     table = table,
     deep = true
   )
-
-  private fun renderViewColumns(context: SqlRenderingContext, view: ViewDefinition) {
-    val qualifier = context.qualifier(table)
-    if (!context.namesFieldOutputs) {
-      context.sql.append(view.renderedColumns(qualifier))
-      return
-    }
-    context.renderList(count = view.columnNames.size) { index ->
-      context.sql
-        .append(qualifier)
-        .append('.')
-        .append(view.quotedColumnNames[index])
-      context.nameFieldOutput(
-        table = table,
-        name = view.columnNames[index]
-      )
-    }
-  }
 }
 
 /**
@@ -103,14 +74,56 @@ fun <T> SelectQuery<T, EntitySelection<T>>.queryDeep() = SelectQuery(
     .withDeepArms()
 )
 
-private fun renderFields(context: SqlRenderingContext, table: Table<*>) {
-  if (!context.namesFieldOutputs) {
-    context.sql.append(table.renderedFields(context.qualifier(table)))
+internal fun SqlRenderingContext.renderEntityValue(table: Table<*>) {
+  require(table.tableRelationships.none { it.read == ALWAYS }) {
+    val relationship = table.tableRelationships.first { it.read == ALWAYS }
+    "The ${table.referenceName} entity reads ${table.referenceName}.${relationship.columnName} through a join, " +
+        "which a selected entity value cannot plan yet; select it with SELECT FROM ${table.referenceName}"
+  }
+  renderEntityColumns(table)
+}
+
+private fun SqlRenderingContext.renderEntityColumns(table: Table<*>) {
+  requireEntityNotNullExtended(table)
+  val qualifier = entityQualifier(table)
+  when (val view = table.viewDefinition) {
+    null -> renderFields(
+      table = table,
+      qualifier = qualifier
+    )
+    else -> renderViewColumns(
+      table = table,
+      view = view,
+      qualifier = qualifier
+    )
+  }
+}
+
+private fun SqlRenderingContext.renderViewColumns(table: Table<*>, view: ViewDefinition, qualifier: String) {
+  if (!namesFieldOutputs) {
+    sql.append(view.renderedColumns(qualifier))
     return
   }
-  context.renderList(items = table.selectedEntityFields()) { field ->
-    field.node.render(context)
-    context.nameFieldOutput(
+  renderList(count = view.columnNames.size) { index ->
+    sql
+      .append(qualifier)
+      .append('.')
+      .append(view.quotedColumnNames[index])
+    nameFieldOutput(
+      table = table,
+      name = view.columnNames[index]
+    )
+  }
+}
+
+private fun SqlRenderingContext.renderFields(table: Table<*>, qualifier: String) {
+  if (!namesFieldOutputs) {
+    sql.append(table.renderedFields(qualifier))
+    return
+  }
+  renderList(items = table.selectedEntityFields()) { field ->
+    field.node.render(this)
+    nameFieldOutput(
       table = table,
       name = field.name
     )

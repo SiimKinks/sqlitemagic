@@ -28,6 +28,7 @@ plans. Expressions used inside queries are in [expressions.md](expressions.md). 
 | `SELECT COLUMN BOOK.TITLE FROM BOOK` | `List<String>` (the field's type; `List<String?>` for a nullable column) |
 | `SELECT DISTINCT BOOK.PAGES FROM BOOK` | `List<Int>`, distinct values |
 | `SELECT.COLUMNS(BOOK.ID, BOOK.TITLE).FROM(BOOK)` | `List<Row2<Long, String>>`; two to nine values give `Row2`…`Row9` |
+| `SELECT.COLUMNS(AUTHOR, COUNT(BOOK.ID)).FROM(AUTHOR)…` | `List<Row2<Author, Long>>`: a table is one value, its entity |
 | `SELECT.COLUMNS(BOOK.ID, AUTHOR.all()).FROM(BOOK)…` | `List<SelectedRow>`: any `all()` list or more than nine values |
 | `….mapTo(::BookRow)` | `List<BookRow>`, constructor arguments checked against the selected types |
 | `….mapTo { row -> … }` | your type, from a wide `SelectedRow` row |
@@ -110,30 +111,42 @@ val titles: List<String> = (SELECT COLUMN BOOK.TITLE FROM BOOK).execute()
   required relationship needs its target's fields unless the target builds from its ID alone. Nullable properties not
   selected read `null`. Partial entities are for reading; write them back only with
   `persist().ignoreNullValues()` or prefer a DTO.
-- Wide selections (any `table.all()`, or more than nine values) read `SelectedRow`; read a value with
-  `row[expression]`, using the exact instance that was selected (a not nullable column of `table.all().nullable()` is
-  read with its `.nullable()`, as in `row[BOOK.TITLE.nullable()]`):
+- A table object among the selected values (`AUTHOR`, or an alias of it) is one value: its whole entity, read from
+  the columns `SELECT FROM AUTHOR` selects. It is one slot of `RowN` and one parameter of `mapTo(::Dto)`, so an entity
+  with aggregates needs no hand-built model:
 
   ```kotlin
   data class AuthorWithCount(val author: Author, val bookCount: Long)
 
+  val authorsWithCounts = (
+      SELECT.COLUMNS(AUTHOR, COUNT(BOOK.ID))
+          FROM AUTHOR
+          LEFT_JOIN BOOK ON (BOOK.AUTHOR IS AUTHOR.ID)
+          GROUP_BY AUTHOR.ID
+      )
+    .mapTo(::AuthorWithCount)
+    .execute()
+  ```
+
+  The table must be a source the query names (`FROM` or a join), and not one an outer join can NULL-extend. An
+  entity value reads its own columns only, so its related objects come from their stored IDs: a table with a
+  relationship that is always joined (`BOOK`, whose `author` is read in full) is rejected as a value; select it with
+  `SELECT FROM BOOK`. `mapTo(BOOK)`, `UNION`/`UNION ALL` and `derived[…]` exports take plain values only;
+  `SELECT FROM` a derived source or CTE keeps the row.
+- Wide selections (any `table.all()`, or more than nine values) read `SelectedRow`; read a value with
+  `row[expression]` or an entity with `row[AUTHOR]`, using the exact instance that was selected (a not nullable column
+  of `table.all().nullable()` is read with its `.nullable()`, as in `row[BOOK.TITLE.nullable()]`). A field reads only
+  when it is selected itself, not as part of a selected entity:
+
+  ```kotlin
   val bookCount = COUNT(BOOK.ID) AS "book_count"
-  val authorsWithCounts = SELECT
+  val namesWithCounts = SELECT
     .COLUMNS(AUTHOR.all(), bookCount)
     .FROM(AUTHOR)
     .LEFT_JOIN(BOOK)
     .ON(BOOK.AUTHOR IS AUTHOR.ID)
     .GROUP_BY(AUTHOR.ID)
-    .mapTo { row ->
-      AuthorWithCount(
-        author = Author(
-          id = row[AUTHOR.ID],
-          name = row[AUTHOR.NAME],
-          nickname = row[AUTHOR.NICKNAME]
-        ),
-        bookCount = row[bookCount]
-      )
-    }
+    .mapTo { row -> row[AUTHOR.NAME] to row[bookCount] }
   ```
 
   The `row` in `mapTo { }` is valid only during the call. Unmapped `SelectedRow` results own their values.
