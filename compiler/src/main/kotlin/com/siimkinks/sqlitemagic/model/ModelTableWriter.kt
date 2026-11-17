@@ -5,7 +5,7 @@ import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_RELATIONSHIP_ID_ENCODINGS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.ENCODING_TYPE
-import com.siimkinks.sqlitemagic.WriterTypes.FULL_TEXT_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.FTS5_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE_READ_TYPE
 import com.siimkinks.sqlitemagic.WriterTypes.PARAMETER_ENCODING_FACTORY
 import com.siimkinks.sqlitemagic.WriterTypes.RELATIONSHIP_READ
@@ -107,7 +107,8 @@ internal class ModelTableWriter(
       fieldClass: ClassName,
       ownerTypeArguments: List<TypeName>,
       fieldName: String,
-      columnName: String
+      columnName: String,
+      position: Int?
     ) = columnProperty(
       column = column,
       field = FieldTarget(
@@ -116,7 +117,8 @@ internal class ModelTableWriter(
         table = CodeBlock.of("fieldTable"),
         encodingsClassName = className,
         fieldName = fieldName,
-        columnName = columnName
+        columnName = columnName,
+        position = position
       )
     )
     return FullTextTableStructureWriter(
@@ -129,20 +131,22 @@ internal class ModelTableWriter(
         namedArgument("contentTable", "%L", table.generationNames.tableHandle),
         namedArgument("contentRowIdColumnName", "%S", index.rowIdColumnName)
       ),
-      columns = members.map { column ->
+      columns = members.mapIndexed { position, column ->
         field(
           column = column,
-          fieldClass = FULL_TEXT_COLUMN,
+          fieldClass = FTS5_COLUMN,
           ownerTypeArguments = emptyList(),
           fieldName = column.fieldName,
-          columnName = column.columnName
+          columnName = column.columnName,
+          position = position
         )
       } + field(
         column = rowIdColumn,
         fieldClass = COLUMN,
         ownerTypeArguments = listOf(NOTHING),
         fieldName = FULL_TEXT_ROW_ID_FIELD,
-        columnName = FULL_TEXT_ROW_ID_COLUMN
+        columnName = FULL_TEXT_ROW_ID_COLUMN,
+        position = null
       ),
       relationshipIdEncodings = relationshipIdEncodings((members + rowIdColumn).distinct())
     )
@@ -187,6 +191,7 @@ internal class ModelTableWriter(
     tableArgument = field.table,
     fieldName = field.fieldName,
     columnName = field.columnName,
+    position = field.position,
     propertyName = column.access.path.displayName,
     deserializedType = value.deserializedType.typeName,
     sqlStorageType = value.sqlStorageType,
@@ -237,6 +242,7 @@ internal class ModelTableWriter(
           arguments = listOfNotNull(
             namedArgument("table", "%L", field.table),
             namedArgument("name", "%S", field.columnName),
+            field.position?.let { namedArgument("position", "%L", it) },
             namedArgument("nullness", "%T", nullness),
             namedArgument(
               "parameterEncoding",
@@ -299,7 +305,8 @@ private class FieldTarget(
   val table: CodeBlock,
   val encodingsClassName: ClassName,
   val fieldName: String,
-  val columnName: String
+  val columnName: String,
+  val position: Int? = null
 )
 
 private const val FULL_TEXT_ROW_ID_FIELD = "ROWID"

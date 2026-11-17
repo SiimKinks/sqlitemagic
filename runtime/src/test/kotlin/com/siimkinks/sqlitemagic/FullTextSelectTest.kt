@@ -286,9 +286,10 @@ private class BookFtsTable(alias: String? = null) : Fts5Table(
   contentTable = BOOK,
   contentRowIdColumnName = "id"
 ) {
-  val TITLE = FullTextColumn<String, Required, String, String, Required, String>(
+  val TITLE = Fts5Column<String, Required, String, String, Required, String>(
     table = fieldTable,
     name = "title",
+    position = 0,
     nullness = Required,
     parameterEncoding = STRING.parameterEncoding()
   )

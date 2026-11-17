@@ -18,6 +18,7 @@ internal fun scalarFieldProperty(
   tableArgument: CodeBlock = CodeBlock.of("this"),
   fieldName: String,
   columnName: String,
+  position: Int? = null,
   propertyName: String,
   deserializedType: TypeName,
   sqlStorageType: SqlStorageType,
@@ -57,9 +58,10 @@ internal fun scalarFieldProperty(
     .initializer(
       callCode(
         callee = CodeBlock.of("%T", fieldClass),
-        arguments = listOf(
+        arguments = listOfNotNull(
           namedArgument("table", "%L", tableArgument),
           namedArgument("name", "%S", columnName),
+          position?.let { namedArgument("position", "%L", it) },
           namedArgument("nullness", "%T", read.nullness),
           namedArgument("parameterEncoding", "%T.%N.%M()", SQL_TYPE, read.descriptorName, encoding.factory),
           namedArgument("selectedRead", "{ statement, index -> %L }", read.selectedRead)

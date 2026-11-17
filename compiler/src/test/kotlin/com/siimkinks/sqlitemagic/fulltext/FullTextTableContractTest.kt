@@ -25,10 +25,10 @@ internal class FullTextTableContractTest {
         it.assertContains(
           "public class ArticleFtsTable private constructor(\n  alias: String?,\n) : Fts5Table(name = " +
               "\"article_fts\", alias = alias, contentTable = ArticleTable.ARTICLE, contentRowIdColumnName = \"id\")",
-          "public val TITLE: FullTextColumn<String, Required, String, String, Required, String> =\n" +
-              "      FullTextColumn(\n        table = fieldTable,\n        name = \"title\",",
-          "public val AUTHOR_NAME:\n      " +
-              "FullTextColumn<String, SqlNullable, String?, String?, SqlNullable, String?> =",
+          "public val TITLE: Fts5Column<String, Required, String, String, Required, String> = Fts5Column(\n" +
+              "        table = fieldTable,\n        name = \"title\",\n        position = 0,",
+          "public val AUTHOR_NAME: Fts5Column<String, SqlNullable, String?, String?, SqlNullable, String?> =\n" +
+              "      Fts5Column(\n        table = fieldTable,\n        name = \"author_name\",\n        position = 1,",
           "public val ROWID: Column<Nothing, Long, Required, Long, Long?, SqlNullable, Long?> =",
           "name = \"rowid\",",
           "override infix fun AS(alias: String): ArticleFtsTable = ArticleFtsTable(alias)",
@@ -38,6 +38,7 @@ internal class FullTextTableContractTest {
       .withGeneratedSource("NoteSearchTable.kt") {
         it.assertContains(
           "contentTable = NoteTable.NOTE, contentRowIdColumnName = \"row_id\")",
+          "name = \"body\",\n        position = 1,",
           "public val ROWID: Column<Nothing, Long, Required, Long, Long?, SqlNullable, Long?> =",
           "public val NOTE_SEARCH: NoteSearchTable = NoteSearchTable(null)"
         )
@@ -93,6 +94,43 @@ internal class FullTextTableContractTest {
             .ON(ARTICLE_FTS.ROWID IS ARTICLE.ID)
           val removed = DELETE FROM ARTICLE WHERE (ARTICLE.ID IN (SELECT COLUMN ARTICLE_FTS.ROWID FROM ARTICLE_FTS
               WHERE (ARTICLE_FTS MATCH query)))
+          val results: List<Row4<String, String?, String?, String?>> = SELECT
+            .COLUMNS(
+              HIGHLIGHT(ARTICLE_FTS.TITLE, "<b>", "</b>"),
+              HIGHLIGHT(ARTICLE_FTS.AUTHOR_NAME, "<b>", "</b>"),
+              SNIPPET(ARTICLE_FTS, "<b>", "</b>", "…", 10),
+              SNIPPET(ARTICLE_FTS.AUTHOR_NAME, "<b>", "</b>", "…", 10)
+            )
+            .FROM(ARTICLE)
+            .WHERE(ARTICLE_FTS MATCH ARTICLE_FTS.terms(query, prefix = true))
+            .ORDER_BY(BM25(ARTICLE_FTS.TITLE to 10.0, ARTICLE_FTS.AUTHOR_NAME to 2.0).ASC(), BM25(ARTICLE_FTS).ASC())
+            .usingConnection(connection)
+            .execute()
+          val snippets: List<String> = (SELECT COLUMN SNIPPET(ARTICLE_FTS.TITLE, "<b>", "</b>", "…", 10) FROM ARTICLE
+              WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(query)) ORDER_BY BM25(ARTICLE_FTS.TITLE to 10.0).ASC())
+            .usingConnection(connection)
+            .execute()
+          val noteHits: List<String> = SELECT
+            .COLUMN(HIGHLIGHT(NOTE_SEARCH.BODY, "<b>", "</b>"))
+            .FROM(NOTE)
+            .WHERE(NOTE_SEARCH MATCH query)
+            .usingConnection(connection)
+            .execute()
+          val documented: List<Row3<Long, String, String?>> = (
+              SELECT.COLUMNS(
+                  ARTICLE.ID,
+                  HIGHLIGHT(ARTICLE_FTS.TITLE, "<b>", "</b>"),
+                  SNIPPET(ARTICLE_FTS.AUTHOR_NAME, "<b>", "</b>", "…", 10)
+              )
+                  FROM ARTICLE
+                  WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(query, prefix = true))
+                  ORDER_BY BM25(ARTICLE_FTS.TITLE to 10.0).ASC()
+                  LIMIT 20
+              )
+            .usingConnection(connection)
+            .execute()
+          val changes: List<Int> = listOf(ARTICLE_FTS.rebuild(), ARTICLE_FTS.optimize(), ARTICLE_FTS.integrityCheck())
+            .map { it.usingConnection(connection).execute() }
         }
       """
     ).isOk()
@@ -143,6 +181,7 @@ internal class FullTextTableContractTest {
         import com.siimkinks.sqlitemagic.annotation.Embedded
         import com.siimkinks.sqlitemagic.annotation.FullText
         import com.siimkinks.sqlitemagic.annotation.FullTextIndex
+        import com.siimkinks.sqlitemagic.annotation.FullTextRole
         import com.siimkinks.sqlitemagic.annotation.Id
         import com.siimkinks.sqlitemagic.annotation.RowId
         import com.siimkinks.sqlitemagic.annotation.Table
@@ -160,7 +199,12 @@ internal class FullTextTableContractTest {
 
         @Table
         @FullTextIndex("note_search")
-        data class Note(@Id val id: String, @RowId val rowId: Long? = null, @FullText("note_search") val body: String)
+        data class Note(
+          @Id val id: String,
+          @RowId val rowId: Long? = null,
+          @FullText("note_search", role = FullTextRole.UNINDEXED) val tag: String,
+          @FullText("note_search") val body: String
+        )
       """
     ),
     SourceFile.kotlin(
@@ -170,15 +214,19 @@ internal class FullTextTableContractTest {
 
         import com.siimkinks.sqlitemagic.ArticleFtsTable.Companion.ARTICLE_FTS
         import com.siimkinks.sqlitemagic.ArticleTable.Companion.ARTICLE
+        import com.siimkinks.sqlitemagic.BM25
         import com.siimkinks.sqlitemagic.DELETE
         import com.siimkinks.sqlitemagic.DbConnection
+        import com.siimkinks.sqlitemagic.HIGHLIGHT
         import com.siimkinks.sqlitemagic.IN
         import com.siimkinks.sqlitemagic.INSERT
         import com.siimkinks.sqlitemagic.IS
         import com.siimkinks.sqlitemagic.NoteSearchTable.Companion.NOTE_SEARCH
         import com.siimkinks.sqlitemagic.NoteTable.Companion.NOTE
         import com.siimkinks.sqlitemagic.Row3
+        import com.siimkinks.sqlitemagic.Row4
         import com.siimkinks.sqlitemagic.SELECT
+        import com.siimkinks.sqlitemagic.SNIPPET
         import com.siimkinks.sqlitemagic.UPDATE
         import $PACKAGE.Article
 
@@ -277,7 +325,12 @@ internal class FullTextTableContractTest {
       Arguments.of(
         "update of the table through an index column",
         """UPDATE TABLE ARTICLE SET (ARTICLE_FTS.TITLE to "Dune")""",
-        "actual type is 'Pair<FullTextColumn<String"
+        "actual type is 'Pair<Fts5Column<String"
+      ),
+      Arguments.of(
+        "highlight of a nullable column read as required",
+        "(SELECT COLUMN HIGHLIGHT(ARTICLE_FTS.AUTHOR_NAME, \"<b>\", \"</b>\") FROM ARTICLE).execute().first().length",
+        "Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'String?'"
       )
     )
   }

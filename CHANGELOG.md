@@ -29,7 +29,9 @@ Version 3.1.0 _(unreleased)_
   `CONFLICT_REPLACE` leave the index. Migrations create, drop and refill the index as the model and its table change,
   and migration tests check each index against its table's rows. The generated index object (`ARTICLE_FTS`) searches
   it with `MATCH`, on the whole index or one column, and ranks matches with `RANK`; a query of the table that refers to
-  it joins it automatically after the table, and its `ROWID` has the type of the table's row ID. FTS5 needs the
+  it joins it automatically after the table, and its `ROWID` has the type of the table's row ID. `BM25` ranks with
+  column weights, `HIGHLIGHT` and `SNIPPET` mark the matches in column text, `terms(input)` turns user input into a
+  query that cannot fail, and `rebuild()`, `optimize()` and `integrityCheck()` maintain the index. FTS5 needs the
   bundled driver
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column

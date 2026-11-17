@@ -255,6 +255,47 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY "article_fts"."rank" ASC
   WHERE (ARTICLE_FTS MATCH query)))`.
 - SQLite reports a malformed query string (`fts5: syntax error near …`) when the query runs, as it does for `MATCH`
   under `OR` or in an explicit `LEFT_JOIN`.
+- `ARTICLE_FTS.terms(input)` turns free text such as user input into a query that never fails: each term between
+  whitespace (or NUL) becomes a quoted phrase (`"sqlite" "OR" "room"`, so operators and quotes are searched as text),
+  every term must match, and blank input matches nothing. `terms(input, prefix = true)` also matches words that begin
+  with the last term, for search as you type (`"sqlite" "ro"*`).
+
+```kotlin
+val results = (
+    SELECT.COLUMNS(
+        ARTICLE.ID,
+        HIGHLIGHT(ARTICLE_FTS.TITLE, "<b>", "</b>"),
+        SNIPPET(ARTICLE_FTS.BODY, "<b>", "</b>", "…", 10)
+    )
+        FROM ARTICLE
+        WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(input, prefix = true))
+        ORDER_BY BM25(ARTICLE_FTS.TITLE to 10.0).ASC()
+        LIMIT 20
+    )
+  .execute()
+```
+
+```sql
+SELECT "article"."id", highlight("article_fts"."article_fts", 0, ?, ?),
+  snippet("article_fts"."article_fts", 1, ?, ?, ?, 10) FROM "main"."article"
+INNER JOIN "main"."article_fts" ON "article_fts"."rowid" = "article"."id"
+WHERE "article_fts"."article_fts" MATCH ? ORDER BY bm25("article_fts"."article_fts", 10.0) ASC LIMIT 20
+```
+
+- `HIGHLIGHT(column, open, close)` is the column's text with every match marked; `SNIPPET(column, open, close,
+  ellipsis, tokens)` a fragment of at most `tokens` (up to 64) around the matches, and `SNIPPET(ARTICLE_FTS, …)` one
+  from the best matching column. The column functions read `String`, `String?` for a nullable column;
+  `SNIPPET(ARTICLE_FTS, …)` reads `String?`. The library passes the column's position in the index.
+- `BM25(ARTICLE_FTS)` equals `RANK` under `MATCH`; `BM25(ARTICLE_FTS.TITLE to 10.0, ARTICLE_FTS.BODY to 0.5)`
+  weighs columns (unnamed ones weigh 1.0), so matches in heavier columns rank better. Weighing a column twice or
+  columns of different indexes (an alias counts as another) or a NaN weight fails before SQL.
+- In a query that does not search their index with `MATCH`, `HIGHLIGHT` and `SNIPPET` return the unmarked text
+  (`SNIPPET(ARTICLE_FTS, …)` from the first column, NULL when it is NULL) and `BM25` 0, while `RANK` is NULL. On a
+  row that a `LEFT_JOIN` of the index fills with NULLs, SQLite fails every function with "no such cursor".
+- Maintenance statements on the index object, executed like other statements: `ARTICLE_FTS.rebuild()` refills the
+  index from the table (needed only after something bypassed the triggers; observers of the table re-run),
+  `optimize()` merges its segments, and `integrityCheck()` fails with SQLite's error ("database disk image is
+  malformed") when the index differs from the table's rows.
 
 ## Subqueries and derived sources
 

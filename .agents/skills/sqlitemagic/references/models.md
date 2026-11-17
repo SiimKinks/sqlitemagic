@@ -310,7 +310,7 @@ Build after changing models; KSP generates, in package `com.siimkinks.sqlitemagi
 | Bulk operations | `Books.insert(books)`, `Books.persist(…)`, `Books.update(…)`, `Books.delete(…)`, `Books.deleteTable()` | the model name plus `s`, also after an `s` (`AccountSettingss`) |
 | `SqlType` selectors and conversions for transformed types | `SqlType.BOOK_STATUS`, `BookStatus.PUBLISHED.asValue()` | raw SQL, standalone values |
 | View table objects | `AUTHOR_STATS` for `@View class AuthorStats` | [views.md](views.md) |
-| Full-text index objects | `ArticleFtsTable.Companion.ARTICLE_FTS`, `ARTICLE_FTS.TITLE`, `ARTICLE_FTS.ROWID`, `ARTICLE_FTS.RANK` | [queries.md](queries.md#full-text-search) |
+| Full-text index objects | `ArticleFtsTable.Companion.ARTICLE_FTS`, `ARTICLE_FTS.TITLE`, `ARTICLE_FTS.ROWID`, `ARTICLE_FTS.RANK`, `ARTICLE_FTS.terms(input)`, `ARTICLE_FTS.rebuild()` | [queries.md](queries.md#full-text-search) |
 | The database | `SqliteMagicDatabase` | setup |
 
 - The Gradle plugin, not KSP, generates `SqliteMagicMigrationDatabase` into the unit-test sources of application

@@ -73,7 +73,7 @@ internal object WriterTypes {
   val RELATIONSHIP_READ = RelationshipRead::class.asClassName()
   val RELATED_ENTITIES = RelatedEntities::class.asClassName()
   val COLUMN = Column::class.asClassName()
-  val FULL_TEXT_COLUMN = FullTextColumn::class.asClassName()
+  val FTS5_COLUMN = Fts5Column::class.asClassName()
   val FTS5_TABLE = Fts5Table::class.asClassName()
   val ENCODED_SQL_EXPRESSION = EncodedSqlExpression::class.asClassName()
   val ENCODING_TYPE = EncodingType::class.asClassName()
