@@ -3,6 +3,7 @@
 package com.siimkinks.sqlitemagic
 
 import androidx.annotation.CheckResult
+import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.SelectNode
@@ -75,6 +76,40 @@ internal abstract class QueryOutputTable<T>(
     selected = selected
   )
 
+  fun <M> exportEntity(entity: EntityValue<M>) = DerivedEntity<M>(
+    occurrence = this,
+    export = exportOf(
+      value = entity,
+      otherForm = entity.nullable()
+    ) { "the ${entity.label} as nullable; read it with .nullable()" }
+  )
+
+  fun <M> exportNullableEntity(entity: NullableEntity<M>) = DerivedEntity<M>(
+    occurrence = this,
+    export = exportOf(
+      value = entity,
+      otherForm = entity.entity
+    ) { "the ${entity.entity.label} as not nullable; read it without .nullable()" }
+  ).nullable()
+
+  private inline fun exportOf(
+    value: SelectValue<*, *>,
+    otherForm: SelectValue<*, *>,
+    mismatch: () -> String
+  ): EntityExport {
+    val exported = node.selection.exportedEntities
+    val found = exported.firstOrNull { it.value === value }
+    require(found != null) {
+      when {
+        exported.any { it.value === otherForm } -> "$sourceName exports ${mismatch()}"
+        else -> "$sourceName exports only the entities its query selects; use the selected instance"
+      }
+    }
+    return found.export
+  }
+
+  private val sourceName get() = label ?: "A $kind"
+
   private fun exportNode(selected: SqlExpression<*, *, *>): ExpressionNode.Field {
     val selection = node.selection
     val widenedIndex = selection.widenedIndex(selected)
@@ -83,7 +118,7 @@ internal abstract class QueryOutputTable<T>(
       else -> selection.exportedValues.indexOfExport(selected)
     }
     require(index >= 0) {
-      val name = label ?: "A $kind"
+      val name = sourceName
       when {
         selection.exportedValues.indexOfExport(selected.nullable()) >= 0 ->
           "$name exports $selected as nullable; read it with .nullable()"
@@ -100,8 +135,25 @@ internal abstract class QueryOutputTable<T>(
   override fun toString() = label ?: "the $kind"
 }
 
-private fun List<SqlExpression<*, *, *>>.indexOfExport(selected: SqlExpression<*, *, *>) = indexOfFirst { value ->
+private fun List<SqlExpression<*, *, *>?>.indexOfExport(selected: SqlExpression<*, *, *>) = indexOfFirst { value ->
   value === selected || value is KeyedField<*, *, *> && value.field === selected
+}
+
+internal fun Selection<*>.requireUniqueExportedNames(source: String) {
+  val names = exportedNames
+  val columns = MutableObjectIntMap<String>(initialCapacity = names.size)
+  names.forEachIndexed { column, name ->
+    val key = name.lowercase()
+    val first = columns.getOrDefault(
+      key = key,
+      defaultValue = -1
+    )
+    require(first < 0) {
+      "$source exports two columns named $name, from ${exportOwner(first)} and ${exportOwner(column)}; alias one " +
+          "of them"
+    }
+    columns[key] = column
+  }
 }
 
 internal class DerivedTable<T>(
@@ -117,6 +169,15 @@ internal class DerivedTable<T>(
   override val label get() = alias
 
   override val kind get() = "derived source"
+
+  init {
+    node.selection.requireUniqueExportedNames(
+      source = when (alias) {
+        null -> "A derived source"
+        else -> "Derived source $alias"
+      }
+    )
+  }
 
   override fun renderSource(context: SqlRenderingContext) {
     context.sql.append('(')
@@ -165,9 +226,15 @@ class QuerySelection<T> internal constructor(
 
   override val exportedValues get() = occurrence.node.selection.exportedValues
 
+  override val exportedNames get() = occurrence.node.selection.exportedNames
+
+  override val exportedEntities get() = occurrence.node.selection.exportedEntities
+
+  override val selectedValues get() = occurrence.node.selection.selectedValues
+
   override val mappedWithFunction get() = occurrence.node.selection.mappedWithFunction
 
   override fun widenedIndex(selected: SqlExpression<*, *, *>) = occurrence.node.selection.widenedIndex(selected)
 
-  override fun exportedName(index: Int) = occurrence.node.selection.exportedName(index)
+  override fun exportOwner(column: Int) = occurrence.node.selection.exportOwner(column)
 }

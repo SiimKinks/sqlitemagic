@@ -43,15 +43,24 @@ internal class CteDeclaration(
   val name: String?
 )
 
-internal fun <T> declared(query: SelectQuery<T, *>, name: String?) = Cte(
-  CteTable<T>(
-    declaration = CteDeclaration(
-      node = query.nestedNode(),
-      name = name
-    ),
-    alias = null
+internal fun <T> declared(query: SelectQuery<T, *>, name: String?): Cte<T> {
+  val node = query.nestedNode()
+  node.selection.requireUniqueExportedNames(
+    source = when (name) {
+      null -> "A CTE"
+      else -> "CTE $name"
+    }
   )
-)
+  return Cte(
+    CteTable(
+      declaration = CteDeclaration(
+        node = node,
+        name = name
+      ),
+      alias = null
+    )
+  )
+}
 
 internal class CteTable<T>(
   val declaration: CteDeclaration,

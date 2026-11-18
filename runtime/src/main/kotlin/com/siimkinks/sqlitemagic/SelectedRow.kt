@@ -13,17 +13,36 @@ import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 sealed interface SqlOutput
 
 /**
- * One selected value: an expression, read from its column, or a table, whose entity is read from the columns that
- * `SELECT FROM` the table selects, with the joins of its relationships.
- *
- * A table is an occurrence that the query names, in `FROM` or a join, or a table that its sources reach through one
- * relationship path, which is joined as its fields would be. Select an occurrence that an outer join can leave NULL
- * with its `nullable()`. These are checked when the query is compiled.
+ * One selected value: an expression, read from its column, or an entity, read from several columns.
  *
  * @param R Kotlin type of the stored values of an expression, or [EntityRows] for an entity
  * @param T Type that the value is read as
  */
 sealed interface SelectValue<out R, out T> : SqlOutput
+
+/**
+ * Selected entity: a table, whose entity is read from the columns that `SELECT FROM` the table selects, with the joins
+ * of its relationships, or an entity that a subquery or a common table expression selects.
+ *
+ * A table is an occurrence that the query names, in `FROM` or a join, or a table that its sources reach through one
+ * relationship path, which is joined as its fields would be. Select an entity that an outer join can leave NULL with
+ * its [nullable]. These are checked when the query is compiled.
+ *
+ * @param T Model type
+ */
+sealed interface EntityValue<out T> : SelectValue<EntityRows, T> {
+  /**
+   * Convert this entity to a nullable entity.
+   *
+   * Use it for selecting an entity that an outer join can leave NULL among other values, for example
+   * `SELECT.COLUMNS(BOOK, editor.nullable()) FROM BOOK LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)`; it reads
+   * `null` when every column of the entity's own row is NULL. Every call returns the same instance, so a selected row
+   * reads the entity with another call, as in `row[editor.nullable()]`.
+   *
+   * @return Nullable entity
+   */
+  fun nullable(): NullableEntity<T>
+}
 
 /**
  * Stored type of a selected entity. No column has this type, so the typed `INSERT … SELECT` stages do not accept a
@@ -32,14 +51,43 @@ sealed interface SelectValue<out R, out T> : SqlOutput
 class EntityRows private constructor()
 
 /**
- * Entity of a table occurrence that an outer join can leave NULL.
+ * Entity that an outer join can leave NULL.
  *
- * Create one with `nullable()` of a table. It reads `null` when every column of the table's own row is NULL.
+ * Create one with `nullable()` of a table or of a [DerivedEntity]. It reads `null` when every column of the entity's
+ * own row is NULL.
  *
  * @param T Model type
  */
-class NullableEntity<T> internal constructor(internal val table: Table<T>) : SelectValue<EntityRows, T?> {
-  override fun toString() = table.toString()
+class NullableEntity<out T> internal constructor(internal val entity: EntityValue<T>) : SelectValue<EntityRows, T?> {
+  override fun toString() = entity.toString()
+}
+
+/**
+ * Entity selected by a subquery or a common table expression, referenced from the outer query.
+ *
+ * Create one with `source[TABLE]`. It reads the entity from the columns that the subquery exports for it, with the
+ * related objects that the subquery reads, so `queryDeep()` of the outer query does not change it. A selected row
+ * reads it with the same instance, so keep the instance that is selected.
+ *
+ * Example:
+ * ```
+ * SELECT.COLUMNS(totals[AUTHOR], totals[bookCount]) FROM totals
+ * ```
+ *
+ * @param T Model type
+ */
+class DerivedEntity<T> internal constructor(
+  internal val occurrence: QueryOutputTable<*>,
+  internal val export: EntityExport
+) : EntityValue<T> {
+  @Volatile
+  private var lift: NullableEntity<T>? = null
+
+  override fun nullable() = lift ?: synchronized(this) {
+    lift ?: NullableEntity(this).also { lift = it }
+  }
+
+  override fun toString() = reference
 }
 
 /**
@@ -146,19 +194,19 @@ sealed class SelectedRow(
   abstract operator fun <T> get(expression: SqlExpression<*, *, T>): T
 
   /**
-   * Get the entity of a selected table.
+   * Get a selected entity.
    *
-   * @param entity Selected table. It must be the same instance that is selected
+   * @param entity Selected table or derived entity. It must be the same instance that is selected
    * @return Entity read from the row
    * @throws IllegalArgumentException if [entity] is not selected
    */
-  abstract operator fun <T> get(entity: Table<T>): T
+  abstract operator fun <T> get(entity: EntityValue<T>): T
 
   /**
-   * Get the entity of a selected table that an outer join can leave NULL.
+   * Get a selected entity that an outer join can leave NULL.
    *
    * @param entity Selected nullable entity, as in `row[BOOK.nullable()]`
-   * @return Entity read from the row, or `null` when every column of the table's own row is NULL
+   * @return Entity read from the row, or `null` when every column of the entity's own row is NULL
    * @throws IllegalArgumentException if [entity] is not selected
    */
   abstract operator fun <T> get(entity: NullableEntity<T>): T?
@@ -202,7 +250,7 @@ internal class SelectedOutputs(
       }
     }
 
-  fun position(entity: Table<*>) = positions
+  fun position(entity: EntityValue<*>) = positions
     .getOrDefault(
       key = entity,
       defaultValue = -1
@@ -211,8 +259,8 @@ internal class SelectedOutputs(
       require(it >= 0) {
         when {
           positions.containsKey(entity.nullable()) ->
-            "The ${entity.referenceName} entity is selected as nullable; read it with .nullable()"
-          else -> "The ${entity.referenceName} entity was not selected"
+            "The ${entity.label} is selected as nullable; read it with .nullable()"
+          else -> "The ${entity.label} was not selected"
         }
       }
     }
@@ -225,9 +273,9 @@ internal class SelectedOutputs(
     .also {
       require(it >= 0) {
         when {
-          positions.containsKey(entity.table) ->
-            "The ${entity.table.referenceName} entity is selected as not nullable; read it without .nullable()"
-          else -> "The ${entity.table.referenceName} entity was not selected"
+          positions.containsKey(entity.entity) ->
+            "The ${entity.entity.label} is selected as not nullable; read it without .nullable()"
+          else -> "The ${entity.entity.label} was not selected"
         }
       }
     }
@@ -295,7 +343,7 @@ private class OwnedSelectedRow(
   override fun <T> get(expression: SqlExpression<*, *, T>) = values[outputs.position(expression)] as T
 
   @Suppress("UNCHECKED_CAST")
-  override fun <T> get(entity: Table<T>) = values[outputs.position(entity)] as T
+  override fun <T> get(entity: EntityValue<T>) = values[outputs.position(entity)] as T
 
   @Suppress("UNCHECKED_CAST")
   override fun <T> get(entity: NullableEntity<T>) = values[outputs.position(entity)] as T?
@@ -327,7 +375,7 @@ private class LiveSelectedRow(outputs: SelectedOutputs) : SelectedRow(outputs) {
   )
 
   @Suppress("UNCHECKED_CAST")
-  override fun <T> get(entity: Table<T>) = read(outputs.position(entity)) as T
+  override fun <T> get(entity: EntityValue<T>) = read(outputs.position(entity)) as T
 
   @Suppress("UNCHECKED_CAST")
   override fun <T> get(entity: NullableEntity<T>) = read(outputs.position(entity)) as T?

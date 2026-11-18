@@ -101,11 +101,11 @@ internal class DerivedSourceSelectTest {
         """SELECT "published"."author.id", "published"."author.name" FROM (SELECT "author"."id" AS """ +
             """"author.id", "author"."name" AS "author.name" FROM "main"."author" """ +
             """WHERE "author"."publisher" IS NOT NULL) AS "published"""",
-        """SELECT "shelf"."book.id", "shelf"."book.title", "shelf"."book.author", """ +
-            """"shelf"."author.id", "shelf"."author.name", "shelf"."author.publisher" FROM """ +
-            """(SELECT "book"."id" AS "book.id", "book"."title" AS "book.title", "book"."author" AS """ +
-            """"book.author", "author"."id" AS "author.id", "author"."name" AS "author.name", """ +
-            """"author"."publisher" AS "author.publisher" FROM "main"."book" """ +
+        """SELECT "shelf"."book.id", "shelf"."book.title", "shelf"."book.author", "shelf"."book.author.id", """ +
+            """"shelf"."book.author.name", "shelf"."book.author.publisher" FROM (SELECT "book"."id" AS "book.id", """ +
+            """"book"."title" AS "book.title", "book"."author" AS "book.author", "author"."id" AS """ +
+            """"book.author.id", "author"."name" AS "book.author.name", "author"."publisher" AS """ +
+            """"book.author.publisher" FROM "main"."book" """ +
             """LEFT JOIN "main"."author" ON "book"."author" = "author"."id") AS "shelf"""",
         """SELECT "again"."author.id", "again"."author.name" FROM (SELECT "published"."author.id" AS """ +
             """"author.id", "published"."author.name" AS "author.name" FROM (SELECT "author"."id" AS """ +

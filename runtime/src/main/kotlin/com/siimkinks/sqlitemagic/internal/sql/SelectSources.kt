@@ -3,13 +3,12 @@ package com.siimkinks.sqlitemagic.internal.sql
 import com.siimkinks.sqlitemagic.FullTextIndexTable
 import com.siimkinks.sqlitemagic.SqlOperator.EQUAL
 import com.siimkinks.sqlitemagic.Table
+import com.siimkinks.sqlitemagic.entityReadTree
+import com.siimkinks.sqlitemagic.entityValueTree
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
-import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
-import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
-import com.siimkinks.sqlitemagic.internal.RelationshipRead.ID_ONLY
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.internal.TableRelationship
@@ -268,71 +267,34 @@ internal class RelationshipPlanner(
 
   fun entityValueRead(table: Table<*>, startIndex: Int, deep: Boolean): RelatedEntities {
     val occurrence = requireNotNull(occurrenceOf(table)) { missingEntityOccurrence(table) }
-    return when (val view = table.viewDefinition) {
+    return when (table.viewDefinition) {
       null -> entityRead(
         occurrence = occurrence,
         startIndex = startIndex,
         deep = deep
       )
-      else -> RelatedEntities(
-        table = table,
-        children = when (val blocks = view.blocks) {
-          null -> emptyArray()
-          else -> Array(blocks.size) { blocks[it]?.shifted(startIndex) }
-        },
+      else -> table.entityValueTree(
         startIndex = startIndex,
-        width = view.columnNames.size
+        deep = deep
       )
     }
   }
 
-  private fun entityRead(occurrence: SourceOccurrence, startIndex: Int, deep: Boolean): RelatedEntities {
-    val table = occurrence.table
-    val rootChildren = arrayOfNulls<RelatedEntities>(table.tableRelationships.size)
-    val joinedReads = ArrayList<RelatedEntities>()
-    var nextIndex = startIndex + table.selectedEntityFields().size
-    val queue = ArrayDeque<Pair<SourceOccurrence, Array<RelatedEntities?>>>()
-    queue.add(occurrence to rootChildren)
-    while (queue.isNotEmpty()) {
-      val (occurrence, children) = queue.removeFirst()
-      occurrence.table.tableRelationships.forEachIndexed { index, relationship ->
-        val isJoined = when (relationship.read) {
-          ALWAYS -> true
-          DEEP -> deep
-          ID_ONLY -> false
-        }
-        if (isJoined) {
-          val child = relatedChild(
-            parent = occurrence,
-            relationship = index
-          ) ?: automaticChild(
-            parent = occurrence,
-            relationship = index
-          )
-          val grandchildren = arrayOfNulls<RelatedEntities>(child.table.tableRelationships.size)
-          val fields = child.table.selectedEntityFields()
-          val read = RelatedEntities(
-            table = child.table,
-            children = grandchildren,
-            startIndex = nextIndex,
-            width = fields.size,
-            idOffset = fields.indexOfFirst { it.name == relationship.targetIdColumnName }
-          )
-          nextIndex += fields.size
-          children[index] = read
-          joinedReads += read
-          queue.add(child to grandchildren)
-        }
-      }
+  private fun entityRead(occurrence: SourceOccurrence, startIndex: Int, deep: Boolean) = entityReadTree(
+    root = occurrence,
+    startIndex = startIndex,
+    deep = deep,
+    tableOf = SourceOccurrence::table,
+    childOf = { parent, relationship ->
+      relatedChild(
+        parent = parent,
+        relationship = relationship
+      ) ?: automaticChild(
+        parent = parent,
+        relationship = relationship
+      )
     }
-    return RelatedEntities(
-      table = table,
-      children = rootChildren,
-      startIndex = startIndex,
-      width = table.selectedEntityFields().size,
-      joined = joinedReads
-    )
-  }
+  )
 
   fun occurrenceOf(table: Table<*>) =
     users.firstOrNull { it.table === table }

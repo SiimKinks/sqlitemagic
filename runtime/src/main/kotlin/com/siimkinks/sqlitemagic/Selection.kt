@@ -26,16 +26,27 @@ abstract class Selection<out T> internal constructor() {
 
   internal open fun planValues(planner: RelationshipPlanner): ValueLayout? = null
 
-  internal open val exportedValues: List<SqlExpression<*, *, *>> get() = emptyList()
+  internal open val exportedValues: List<SqlExpression<*, *, *>?> get() = emptyList()
+
+  internal open val exportedNames: List<String>
+    get() = exportedValues.mapIndexed { index, value ->
+      derivedOutputName(
+        expression = checkNotNull(value),
+        index = index
+      )
+    }
+
+  internal open val exportedEntities: List<ExportedEntity> get() = emptyList()
+
+  internal open val selectedValues: List<SelectValue<*, *>> get() = emptyList()
 
   internal open fun widenedIndex(selected: SqlExpression<*, *, *>) = -1
 
   internal open val mappedWithFunction get() = false
 
-  internal open fun exportedName(index: Int) = derivedOutputName(
-    expression = exportedValues[index],
-    index = index
-  )
+  internal fun exportedName(index: Int) = exportedNames[index]
+
+  internal open fun exportOwner(column: Int) = "selected value ${column + 1} (${exportedValues[column]})"
 }
 
 internal fun SqlRenderingContext.renderOutput(expression: SqlExpression<*, *, *>) {
@@ -66,8 +77,14 @@ internal fun SqlRenderingContext.requireEntityNotNullExtended(table: Table<*>) =
   "An outer join can leave the ${table.referenceName} entity NULL; select its fields with .nullable()"
 }
 
-internal fun SqlRenderingContext.requireEntityValueNotNullExtended(table: Table<*>) = requireNotNullExtended(table) {
-  "An outer join can leave the ${table.referenceName} entity NULL; select ${table.referenceName}.nullable()"
+internal fun SqlRenderingContext.requireEntityValueNotNullExtended(entity: EntityValue<*>) {
+  val source = when (entity) {
+    is Table<*> -> entity
+    is DerivedEntity<*> -> entity.occurrence
+  }
+  requireNotNullExtended(source) {
+    "An outer join can leave the ${entity.label} NULL; select ${entity.reference}.nullable()"
+  }
 }
 
 internal fun SqlRenderingContext.appendOutput(expression: SqlExpression<*, *, *>) {

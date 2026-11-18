@@ -84,6 +84,26 @@ object Select {
   )
 
   /**
+   * Select the entity that a subquery or a common table expression selects.
+   *
+   * Rows are returned as the entity's model objects, read with the related objects that the subquery reads. Select
+   * the entity of a table with `SELECT FROM` the table instead.
+   *
+   * Example:
+   * ```
+   * SELECT COLUMN totals[AUTHOR] FROM totals WHERE (totals[bookCount] GREATER_THAN 1L)
+   * ```
+   *
+   * @param entity Entity of a subquery or a common table expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <M> COLUMN(entity: DerivedEntity<M>) = rowProjection<EntityRows, M>(
+    values = listOf(entity),
+    assemble = { reads -> reads.read(0) }
+  )
+
+  /**
    * Select two values.
    *
    * Rows are returned as [Row2]. A value is a column, an expression or a table, whose entity is read from the columns
@@ -314,6 +334,7 @@ object Select {
    *
    * @param outputs Columns, expressions, entities and column lists to select
    * @return SQL SELECT statement builder
+   * @throws IllegalArgumentException if an entity is the only selected value
    */
   @CheckResult
   fun COLUMNS(vararg outputs: SqlOutput) = wideProjection(outputs)
@@ -392,6 +413,24 @@ object Select {
    */
   @CheckResult
   infix fun <R, N : SqlNullability, T> DISTINCT(expression: SqlExpression<R, N, T>) = COLUMN(expression).distinct()
+
+  /**
+   * Select the distinct entities that a subquery or a common table expression selects.
+   *
+   * Creates "SELECT DISTINCT ..." query builder where duplicate rows are removed from the set of result rows.
+   * For the purposes of detecting duplicate rows, two NULL values are considered to be equal. Rows are returned as
+   * the entity's model objects.
+   *
+   * Example:
+   * ```
+   * SELECT DISTINCT shelf[AUTHOR] FROM shelf
+   * ```
+   *
+   * @param entity Entity of a subquery or a common table expression to select
+   * @return SQL SELECT statement builder
+   */
+  @CheckResult
+  infix fun <M> DISTINCT(entity: DerivedEntity<M>) = COLUMN(entity).distinct()
 
   /**
    * Select two distinct values.
@@ -594,6 +633,7 @@ object Select {
    *
    * @param outputs Columns, expressions, entities and column lists to select
    * @return SQL SELECT statement builder
+   * @throws IllegalArgumentException if an entity is the only selected value
    */
   @CheckResult
   fun DISTINCT(vararg outputs: SqlOutput) = wideProjection(outputs).distinct()
@@ -680,11 +720,22 @@ private fun wideProjection(outputs: Array<out SqlOutput>) = SelectProjectionStag
             is TableFields -> addAll(output.fields)
           }
         }
-      },
+      }.also(::requireNotOneEntity),
       reader = ::OwnedRowsReader
     )
   )
 )
+
+private fun requireNotOneEntity(values: List<SelectValue<*, *>>) {
+  val value = values.singleOrNull()
+  val entity = value?.entity ?: return
+  val advice = when {
+    value is NullableEntity<*> -> "select another value beside it"
+    entity is DerivedEntity<*> -> "select it with SELECT COLUMN ${entity.reference}"
+    else -> "select one entity with SELECT FROM ${entity.reference}"
+  }
+  throw IllegalArgumentException("The ${entity.label} is the only selected value; $advice")
+}
 
 private fun <T, S : Selection<T>> SelectProjectionStage<T, S>.distinct() = SelectProjectionStage(
   node.copy(distinct = true)

@@ -36,7 +36,7 @@ class TableRelationship(
 @InternalSqliteMagicApi
 class RelatedEntities internal constructor(
   internal val table: Table<*>,
-  private val children: Array<RelatedEntities?>,
+  internal val children: Array<RelatedEntities?>,
   internal val startIndex: Int = 0,
   internal val width: Int = 0,
   internal val positions: IntArray = EmptyIntArray,

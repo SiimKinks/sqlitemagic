@@ -47,6 +47,7 @@ internal class EntityValueContractTest {
             import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
             import com.siimkinks.sqlitemagic.COUNT
             import com.siimkinks.sqlitemagic.DbConnection
+            import com.siimkinks.sqlitemagic.GREATER_THAN
             import com.siimkinks.sqlitemagic.IS
             import com.siimkinks.sqlitemagic.Row2
             import com.siimkinks.sqlitemagic.SELECT
@@ -97,6 +98,27 @@ internal class EntityValueContractTest {
                 .usingConnection(connection)
                 .execute()
                 .first()[editor.nullable()]
+              val bookCount = COUNT(BOOK.ID) AS "book_count"
+              val authorTotals = (
+                  SELECT.COLUMNS(AUTHOR, bookCount)
+                      FROM AUTHOR
+                      LEFT_JOIN BOOK ON (BOOK.AUTHOR IS AUTHOR.ID)
+                      GROUP_BY AUTHOR.ID
+                  ) AS "author_totals"
+              val prolific: List<Row2<Author, Long>> = (
+                  SELECT.COLUMNS(authorTotals[AUTHOR], authorTotals[bookCount])
+                      FROM authorTotals
+                      WHERE (authorTotals[bookCount] GREATER_THAN 10L)
+                  )
+                .usingConnection(connection)
+                .execute()
+              val totalsByEditor = (
+                  SELECT.COLUMNS(BOOK.TITLE, authorTotals[AUTHOR].nullable())
+                      FROM BOOK
+                      LEFT_JOIN authorTotals ON (BOOK.EDITOR IS authorTotals[AUTHOR.ID])
+                  )
+                .usingConnection(connection)
+                .execute()
 
               val countsType = authorsWithCounts.exactType()
               val exactCounts: Exact<List<AuthorWithCount>> = countsType
@@ -106,6 +128,8 @@ internal class EntityValueContractTest {
               val exactAuthor: Exact<Author> = authorType
               val nullableEditorType = nullableEditor.exactType()
               val exactNullableEditor: Exact<Author?> = nullableEditorType
+              val totalsByEditorType = totalsByEditor.exactType()
+              val exactTotalsByEditor: Exact<List<Row2<String, Author?>>> = totalsByEditorType
             }
           """
         ),

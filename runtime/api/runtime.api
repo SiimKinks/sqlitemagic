@@ -238,6 +238,11 @@ public final class com/siimkinks/sqlitemagic/DeleteFromStage : com/siimkinks/sql
 	public fun usingConnection (Lcom/siimkinks/sqlitemagic/DbConnection;)Lcom/siimkinks/sqlitemagic/MutationQuery;
 }
 
+public final class com/siimkinks/sqlitemagic/DerivedEntity : com/siimkinks/sqlitemagic/EntityValue {
+	public fun nullable ()Lcom/siimkinks/sqlitemagic/NullableEntity;
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/siimkinks/sqlitemagic/DerivedField : com/siimkinks/sqlitemagic/EncodableSqlExpression {
 }
 
@@ -316,6 +321,10 @@ public final class com/siimkinks/sqlitemagic/EntitySelection : com/siimkinks/sql
 public final class com/siimkinks/sqlitemagic/EntitySelectionKt {
 	public static final fun queryDeep (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/SelectQuery;
 	public static final fun queryRowsDeep (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/SelectQuery;
+}
+
+public abstract interface class com/siimkinks/sqlitemagic/EntityValue : com/siimkinks/sqlitemagic/SelectValue {
+	public abstract fun nullable ()Lcom/siimkinks/sqlitemagic/NullableEntity;
 }
 
 public final class com/siimkinks/sqlitemagic/FrameBound {
@@ -964,6 +973,8 @@ public final class com/siimkinks/sqlitemagic/QueryHandle {
 
 public abstract class com/siimkinks/sqlitemagic/QueryOutputSource : com/siimkinks/sqlitemagic/Source {
 	public final fun get (Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;)Lcom/siimkinks/sqlitemagic/DerivedField;
+	public final fun get (Lcom/siimkinks/sqlitemagic/EntityValue;)Lcom/siimkinks/sqlitemagic/DerivedEntity;
+	public final fun get (Lcom/siimkinks/sqlitemagic/NullableEntity;)Lcom/siimkinks/sqlitemagic/NullableEntity;
 	public final fun get (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/DerivedValue;
 }
 
@@ -1277,6 +1288,8 @@ public final class com/siimkinks/sqlitemagic/RowIdUpsertStage : com/siimkinks/sq
 }
 
 public final class com/siimkinks/sqlitemagic/RowSelection : com/siimkinks/sqlitemagic/Selection {
+	public synthetic fun getExportedEntities$com_siimkinks_sqlitemagic_runtime ()Ljava/util/List;
+	public synthetic fun getExportedNames$com_siimkinks_sqlitemagic_runtime ()Ljava/util/List;
 }
 
 public final class com/siimkinks/sqlitemagic/RowValue {
@@ -1316,6 +1329,7 @@ public final class com/siimkinks/sqlitemagic/SearchedCaseWhen {
 
 public final class com/siimkinks/sqlitemagic/Select {
 	public static final field INSTANCE Lcom/siimkinks/sqlitemagic/Select;
+	public final fun COLUMN (Lcom/siimkinks/sqlitemagic/DerivedEntity;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun COLUMN (Lcom/siimkinks/sqlitemagic/SqlExpression;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
@@ -1326,6 +1340,7 @@ public final class com/siimkinks/sqlitemagic/Select {
 	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun COLUMNS (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun COLUMNS ([Lcom/siimkinks/sqlitemagic/SqlOutput;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
+	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/DerivedEntity;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
 	public final fun DISTINCT (Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;Lcom/siimkinks/sqlitemagic/SelectValue;)Lcom/siimkinks/sqlitemagic/SelectProjectionStage;
@@ -1502,9 +1517,9 @@ public final class com/siimkinks/sqlitemagic/SelectWhereStage : com/siimkinks/sq
 
 public abstract class com/siimkinks/sqlitemagic/SelectedRow {
 	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/SelectedOutputs;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public abstract fun get (Lcom/siimkinks/sqlitemagic/EntityValue;)Ljava/lang/Object;
 	public abstract fun get (Lcom/siimkinks/sqlitemagic/NullableEntity;)Ljava/lang/Object;
 	public abstract fun get (Lcom/siimkinks/sqlitemagic/SqlExpression;)Ljava/lang/Object;
-	public abstract fun get (Lcom/siimkinks/sqlitemagic/Table;)Ljava/lang/Object;
 }
 
 public abstract class com/siimkinks/sqlitemagic/Selection {
@@ -1668,7 +1683,7 @@ public final class com/siimkinks/sqlitemagic/SubqueriesKt {
 	public static final fun asScalar (Lcom/siimkinks/sqlitemagic/SelectQuery;)Lcom/siimkinks/sqlitemagic/SqlExpression;
 }
 
-public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/SelectValue, com/siimkinks/sqlitemagic/Source {
+public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/EntityValue, com/siimkinks/sqlitemagic/Source {
 	protected fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/internal/GeneratedView;ZZ)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/internal/GeneratedView;ZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Table;

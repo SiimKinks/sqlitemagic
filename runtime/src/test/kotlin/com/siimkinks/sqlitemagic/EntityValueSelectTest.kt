@@ -582,14 +582,27 @@ internal class EntityValueSelectTest {
         rows = deepBooks.map { book -> Row2(book, book.title) }
       ),
       Case(
-        label = "SELECT FROM a derived source",
-        run = SELECT.FROM(books AS "books")::sqlAndRows,
-        sql = """SELECT "books"."book.id", "books"."book.title", "books"."book.author", "books"."author.id", """ +
-            """"books"."author.name", "books"."author.publisher", "books"."book.title" FROM (SELECT "book"."id" """ +
-            """AS "book.id", "book"."title" AS "book.title", "book"."author" AS "book.author", "author"."id" """ +
-            """AS "author.id", "author"."name" AS "author.name", "author"."publisher" AS "author.publisher", """ +
-            """"book"."title" AS "book.title" FROM "main"."book" $authorJoin) AS "books"""",
+        label = "SELECT FROM a derived source names relationship columns by their path",
+        run = SELECT.FROM(SELECT.COLUMNS(BOOK, BOOK.TITLE AS "title") FROM BOOK AS "books")::sqlAndRows,
+        sql = """SELECT "books"."book.id", "books"."book.title", "books"."book.author", "books"."book.author.id", """ +
+            """"books"."book.author.name", "books"."book.author.publisher", "books"."title" FROM (SELECT """ +
+            """"book"."id" AS "book.id", "book"."title" AS "book.title", "book"."author" AS "book.author", """ +
+            """"author"."id" AS "book.author.id", "author"."name" AS "book.author.name", "author"."publisher" AS """ +
+            """"book.author.publisher", "book"."title" AS "title" FROM "main"."book" $authorJoin) AS "books"""",
         rows = bookRows
+      ),
+      Case(
+        label = "count() of DISTINCT with an automatically joined value",
+        run = { database ->
+          val count = SELECT
+            .DISTINCT(BOOK, AUTHOR)
+            .FROM(BOOK)
+            .usingConnection(database.connection)
+            .count()
+          count.sql to listOf(count.execute())
+        },
+        sql = """SELECT count(*) FROM (SELECT DISTINCT $bookColumns, $authorColumns FROM "main"."book" $authorJoin)""",
+        rows = listOf(3L)
       ),
       Case(
         label = "count()",
@@ -673,8 +686,7 @@ internal class EntityValueSelectTest {
           .FROM(BOOK)
           .queryDeep()
       },
-      { joinedPublishers.mapTo(AUTHOR) },
-      { joinedPublishers UNION joinedPublishers }
+      { joinedPublishers.mapTo(AUTHOR) }
     ).map { failure -> assertThrows(IllegalArgumentException::class.java) { failure() }.message }
 
     assertThat(failures).isEqualTo(
@@ -686,8 +698,7 @@ internal class EntityValueSelectTest {
         "The writer entity is not a source of this query; name it in FROM or a join",
         "Several relationships lead to book: series.first_book, series.last_book; join the one you mean",
         "queryDeep() deepens entity values, and this selection has none",
-        "mapTo(author) reads plain fields, but selected value 1 is an entity",
-        "UNION and derived exports take plain values, but this query selects the author entity"
+        "mapTo(author) reads plain fields, but selected value 1 is an entity"
       )
     )
   }

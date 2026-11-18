@@ -3,9 +3,11 @@ package com.siimkinks.sqlitemagic.internal.sql
 import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
 import com.siimkinks.sqlitemagic.Column
 import com.siimkinks.sqlitemagic.ConflictAlgorithm.Companion.CONFLICT_VALUES
+import com.siimkinks.sqlitemagic.RowSelection
 import com.siimkinks.sqlitemagic.SelectQuery
 import com.siimkinks.sqlitemagic.SqlExpression
 import com.siimkinks.sqlitemagic.Table
+import com.siimkinks.sqlitemagic.entity
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
 import com.siimkinks.sqlitemagic.requireHostValue
 
@@ -280,8 +282,16 @@ internal fun MutationNode<InsertHead>.withColumns(vararg columns: Column<*, *, *
 internal fun MutationNode<InsertHead>.withColumnArray(columns: Array<out Column<*, *, *, *, *, *, *>>) =
   copy(head = head.withColumns(columns))
 
-internal fun MutationNode<InsertHead>.withSelect(query: SelectQuery<*, *>) =
-  copy(head = head.withSelect(query.nestedNode()))
+internal fun MutationNode<InsertHead>.withSelect(query: SelectQuery<*, *>): MutationNode<InsertHead> {
+  val entityIndex = (query.node.selection as? RowSelection<*, *>)
+    ?.values
+    ?.indexOfFirst { it.entity != null }
+    ?: -1
+  require(entityIndex < 0) {
+    "INSERT … SELECT takes one value per column, but selected value ${entityIndex + 1} is an entity"
+  }
+  return copy(head = head.withSelect(query.nestedNode()))
+}
 
 internal fun MutationNode<InsertHead>.withDoNothing(target: Array<out Column<*, *, *, *, *, *, *>>) = copy(
   head = head.withUpsert(

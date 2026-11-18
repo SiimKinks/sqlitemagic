@@ -18,8 +18,9 @@ import com.siimkinks.sqlitemagic.internal.sql.CompoundOperator
  *
  * @param other Connected SELECT statement to form a compound SELECT
  * @return SQL SELECT statement builder
- * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, or if a value that
- *     this query selects as NOT NULL is nullable in [other]; select such a value with `.nullable()` in this query
+ * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, if one query selects
+ *     an entity where the other does not select an entity of the same table, or if a value or an entity that this
+ *     query selects as NOT NULL is nullable in [other]; select such a value with `.nullable()` in this query
  * @see [SQLite documentation: Compound Select Statements](https://www.sqlite.org/lang_select.html#compound)
  */
 infix fun <T, S : Selection<T>> SelectQuery<T, S>.UNION(other: SelectQuery<out T, *>) = compound(
@@ -68,8 +69,9 @@ infix fun <R, T> SelectQuery<T, ScalarSelection<R, Required, T>>.UNION(
  *
  * @param other Connected SELECT statement to form a compound SELECT
  * @return SQL SELECT statement builder
- * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, or if a value that
- *     this query selects as NOT NULL is nullable in [other]; select such a value with `.nullable()` in this query
+ * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, if one query selects
+ *     an entity where the other does not select an entity of the same table, or if a value or an entity that this
+ *     query selects as NOT NULL is nullable in [other]; select such a value with `.nullable()` in this query
  * @see [SQLite documentation: Compound Select Statements](https://www.sqlite.org/lang_select.html#compound)
  */
 infix fun <T, S : Selection<T>> SelectQuery<T, S>.UNION_ALL(other: SelectQuery<out T, *>) = compound(
@@ -118,7 +120,8 @@ infix fun <R, T> SelectQuery<T, ScalarSelection<R, Required, T>>.UNION_ALL(
  *
  * @param other Connected SELECT statement to form a compound SELECT
  * @return SQL SELECT statement builder
- * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`
+ * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, or if one query
+ *     selects an entity where the other does not select an entity of the same table
  * @see [SQLite documentation: Compound Select Statements](https://www.sqlite.org/lang_select.html#compound)
  */
 infix fun <T, S : Selection<T>> SelectQuery<T, S>.INTERSECT(other: SelectQuery<out T, *>) = compound(
@@ -168,7 +171,8 @@ infix fun <R, T> SelectQuery<T, ScalarSelection<R, Required, T>>.INTERSECT(
  *
  * @param other Connected SELECT statement to form a compound SELECT
  * @return SQL SELECT statement builder
- * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`
+ * @throws IllegalArgumentException if this query or [other] is mapped with a function `mapTo`, or if one query
+ *     selects an entity where the other does not select an entity of the same table
  * @see [SQLite documentation: Compound Select Statements](https://www.sqlite.org/lang_select.html#compound)
  */
 infix fun <T, S : Selection<T>> SelectQuery<T, S>.EXCEPT(other: SelectQuery<out T, *>) = compound(
@@ -211,19 +215,58 @@ private fun <T, S : Selection<T>> SelectQuery<T, S>.compound(
   node.compound(
     operator = operator,
     arm = unmappedArm(other).also { arm ->
-      if (operator == CompoundOperator.UNION || operator == CompoundOperator.UNION_ALL) {
+      val unites = operator == CompoundOperator.UNION || operator == CompoundOperator.UNION_ALL
+      requireMatchingEntitySlots(
+        armSelection = arm.selection,
+        unites = unites
+      )
+      if (unites) {
         requireRequiredOutputsStayRequired(arm.selection)
       }
     }
   )
 )
 
+private fun SelectQuery<*, *>.requireMatchingEntitySlots(armSelection: Selection<*>, unites: Boolean) {
+  val values = node.selection.selectedValues
+  val armValues = armSelection.selectedValues
+  repeat(maxOf(values.size, armValues.size)) { slot ->
+    val value = values.getOrNull(slot)
+    val armValue = armValues.getOrNull(slot)
+    val entity = value?.entity
+    val armEntity = armValue?.entity
+    if (entity == null && armEntity == null) {
+      return@repeat
+    }
+    require(
+      entity != null &&
+          armEntity != null &&
+          entity.readTable.objectIdentity.normalizedKey == armEntity.readTable.objectIdentity.normalizedKey
+    ) {
+      "Result value ${slot + 1} is ${value.describedValue} in the left SELECT but ${armValue.describedValue} in the " +
+          "connected SELECT; select entities of the same table in the same place"
+    }
+    require(!unites || value is NullableEntity<*> || armValue !is NullableEntity<*>) {
+      "Result value ${slot + 1} (${entity.reference}) is NOT NULL in the left SELECT but nullable in the connected " +
+          "SELECT; select it with .nullable() in the left SELECT"
+    }
+  }
+}
+
+private val SelectValue<*, *>?.describedValue
+  get() = when (this) {
+    null -> "missing"
+    else -> entity?.let { "the ${it.label}" } ?: toString()
+  }
+
 private fun SelectQuery<*, *>.requireRequiredOutputsStayRequired(armSelection: Selection<*>) {
   val selection = node.selection
   val outputs = selection.exportedValues
   val armOutputs = armSelection.exportedValues
   repeat(minOf(outputs.size, armOutputs.size)) { index ->
-    require(outputs[index].nullness != Required || armOutputs[index].nullness != SqlNullable) {
+    val output = outputs[index] ?: return@repeat
+    val armOutput = armOutputs[index] ?: return@repeat
+    require(output.nullness != Required || armOutput.nullness != SqlNullable) {
       "Result column ${index + 1} (${selection.exportedName(index)}) is NOT NULL in the left SELECT but nullable in " +
           "the connected SELECT; select it with .nullable() in the left SELECT"
     }

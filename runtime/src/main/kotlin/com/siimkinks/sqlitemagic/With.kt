@@ -25,6 +25,7 @@ package com.siimkinks.sqlitemagic
  * @param query Definition of the common table expression
  * @param main Function that creates the main query with the common table expression
  * @return SQL SELECT statement
+ * @throws IllegalArgumentException if a query selects two columns of the same name; alias one of them
  * @see [SQLite documentation: The WITH Clause](https://www.sqlite.org/lang_with.html)
  */
 fun <A, T, S : Selection<T>> WITH(
@@ -47,6 +48,7 @@ fun <A, T, S : Selection<T>> WITH(
  * @param second Definition of the second common table expression
  * @param main Function that creates the main query with the common table expressions
  * @return SQL SELECT statement
+ * @throws IllegalArgumentException if a query selects two columns of the same name; alias one of them
  * @see [SQLite documentation: The WITH Clause](https://www.sqlite.org/lang_with.html)
  */
 fun <A, B, T, S : Selection<T>> WITH(
@@ -71,6 +73,7 @@ fun <A, B, T, S : Selection<T>> WITH(
  * @param third Definition of the third common table expression
  * @param main Function that creates the main query with the common table expressions
  * @return SQL SELECT statement
+ * @throws IllegalArgumentException if a query selects two columns of the same name; alias one of them
  * @see [SQLite documentation: The WITH Clause](https://www.sqlite.org/lang_with.html)
  */
 fun <A, B, C, T, S : Selection<T>> WITH(

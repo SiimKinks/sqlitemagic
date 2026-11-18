@@ -3,8 +3,10 @@ package com.siimkinks.sqlitemagic
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.ValueRead
 import com.siimkinks.sqlitemagic.internal.ViewDefinition
+import com.siimkinks.sqlitemagic.internal.appendQuotedSqlIdentifier
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 /**
  * Selection of all columns of a table or view, read into its model objects.
@@ -43,6 +45,19 @@ class EntitySelection<M> internal constructor(
   }
 
   override val exportedValues get() = table.selectedEntityFields()
+
+  override val selectedValues get() = listOf(table)
+
+  override val exportedEntities by lazy(PUBLICATION) {
+    listOf(
+      ExportedEntity(
+        value = table,
+        export = table.export(deep)
+      )
+    )
+  }
+
+  override val exportedNames get() = exportedEntities[0].export.names
 
   internal fun deep() = EntitySelection(
     table = table,
@@ -85,12 +100,14 @@ fun <T> SelectQuery<T, EntitySelection<T>>.queryDeep() = SelectQuery(
  * (SELECT.COLUMNS(BOOK, AUTHOR.NAME) FROM BOOK).queryDeep()
  * ```
  *
+ * An entity that a subquery or a common table expression selects keeps the depth of that query.
+ *
  * @return SQL SELECT statement
- * @throws IllegalArgumentException if no selected value is an entity
+ * @throws IllegalArgumentException if no selected value is the entity of a table
  */
 @JvmName("queryRowsDeep")
 fun <R, T> SelectQuery<T, RowSelection<R, T>>.queryDeep(): SelectQuery<T, RowSelection<R, T>> {
-  require(node.selection.expressions == null) { "queryDeep() deepens entity values, and this selection has none" }
+  require(node.selection.deepensEntities) { "queryDeep() deepens entity values, and this selection has none" }
   return SelectQuery(
     node
       .withSelection(node.selection.deep())
@@ -98,7 +115,15 @@ fun <R, T> SelectQuery<T, RowSelection<R, T>>.queryDeep(): SelectQuery<T, RowSel
   )
 }
 
-internal fun SqlRenderingContext.renderEntityColumns(table: Table<*>, related: RelatedEntities?) {
+internal fun SqlRenderingContext.renderEntityValue(entity: EntityValue<*>, related: RelatedEntities?) = when (entity) {
+  is Table<*> -> renderEntityColumns(
+    table = entity,
+    related = related
+  )
+  is DerivedEntity<*> -> renderDerivedEntity(entity)
+}
+
+private fun SqlRenderingContext.renderEntityColumns(table: Table<*>, related: RelatedEntities?) {
   val qualifier = entityQualifier(table)
   when (val view = table.viewDefinition) {
     null -> renderFields(
@@ -111,11 +136,34 @@ internal fun SqlRenderingContext.renderEntityColumns(table: Table<*>, related: R
       qualifier = qualifier
     )
   }
-  related?.joined?.forEach { joined ->
+  val joined = related?.joined ?: return
+  joined.forEach { child ->
     sql.append(", ")
     renderFields(
-      table = joined.table,
-      qualifier = qualifier(joined.table)
+      table = child.table,
+      qualifier = qualifier(child.table)
+    )
+  }
+}
+
+private fun SqlRenderingContext.renderDerivedEntity(entity: DerivedEntity<*>) {
+  val occurrence = entity.occurrence
+  val qualifier = entityQualifier(occurrence)
+  val export = entity.export
+  if (!namesFieldOutputs) {
+    sql.append(export.renderedColumns(qualifier))
+    return
+  }
+  renderList(items = export.names) { name ->
+    if (qualifier.isNotEmpty()) {
+      sql
+        .append(qualifier)
+        .append('.')
+    }
+    sql.appendQuotedSqlIdentifier(name)
+    nameFieldOutput(
+      table = occurrence,
+      name = name
     )
   }
 }

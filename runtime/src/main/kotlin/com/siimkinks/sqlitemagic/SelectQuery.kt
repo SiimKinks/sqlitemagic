@@ -24,11 +24,16 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
   final override val handle = QueryHandle(initialNode)
   internal val node get() = handle.node
 
+  @Volatile
+  private var unaliased: DerivedTable<T>? = null
+
   override val occurrence
-    get() = DerivedTable(
-      query = this,
-      alias = null
-    )
+    get() = unaliased ?: synchronized(this) {
+      unaliased ?: DerivedTable(
+        query = this,
+        alias = null
+      ).also { unaliased = it }
+    }
 
   /**
    * Create an alias for this query, which can then be used as a subquery in FROM and JOIN clauses.
@@ -44,6 +49,7 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
    *
    * @param alias The alias name
    * @return Aliased subquery
+   * @throws IllegalArgumentException if this query selects two columns of the same name; alias one of them
    */
   @CheckResult
   infix fun AS(alias: String) = DerivedSource(
@@ -59,6 +65,7 @@ open class SelectQuery<T, S : Selection<T>> internal constructor(
    * The common table expression is named automatically. Use `(query AS "name").asCte()` to name it.
    *
    * @return Common table expression
+   * @throws IllegalArgumentException if this query selects two columns of the same name; alias one of them
    */
   fun asCte() = cte()
 

@@ -29,7 +29,7 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
   private val generatedView: GeneratedView? = null,
   internal val temporary: Boolean = false,
   internal val withoutRowId: Boolean = false
-) : Source, SelectValue<EntityRows, T> {
+) : Source, EntityValue<T> {
   internal val objectIdentity = generatedView
     ?.identity
     ?: SqliteSchemaIdentity.from(
@@ -159,17 +159,7 @@ open class Table<T> @InternalSqliteMagicApi protected constructor(
   @Volatile
   private var lift: NullableEntity<T>? = null
 
-  /**
-   * Convert this table to a nullable entity.
-   *
-   * Use it for selecting the entity of a table occurrence that an outer join can leave NULL among other values, for
-   * example `SELECT.COLUMNS(BOOK, editor.nullable()) FROM BOOK LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)`; it
-   * reads `null` when every column of the table's own row is NULL. Every call returns the same instance, so a selected
-   * row reads the entity with another call, as in `row[editor.nullable()]`.
-   *
-   * @return Nullable entity of this table
-   */
-  fun nullable() = lift ?: synchronized(this) {
+  final override fun nullable() = lift ?: synchronized(this) {
     lift ?: NullableEntity(this).also { lift = it }
   }
 

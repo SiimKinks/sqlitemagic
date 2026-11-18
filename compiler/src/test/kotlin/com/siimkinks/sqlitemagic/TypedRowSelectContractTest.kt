@@ -27,11 +27,23 @@ internal class TypedRowSelectContractTest {
           "None of the following candidates is applicable",
       "swapped parameter types | val invalid = pair.mapTo(::Swapped) | None of the following candidates is applicable",
       "entity as a scalar column | val invalid = SELECT.COLUMN(table) | " +
-          "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<uninferred R",
+          "None of the following candidates is applicable",
+      """nullable derived entity as a column | val invalid = SELECT.COLUMN((SELECT.FROM(table) AS "d")[table]""" +
+          ".nullable()) | None of the following candidates is applicable",
       "entity in WHERE | val invalid = pair.FROM(table).WHERE(table) | " +
           "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<Boolean, *, *>' was expected",
       "entity in GROUP_BY | val invalid = pair.FROM(table).GROUP_BY(table) | " +
           "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<*, *, *>' was expected",
+      "entity in ORDER_BY | val invalid = pair.FROM(table).ORDER_BY(table) | " +
+          "Argument type mismatch: actual type is 'Table<Any>', but 'Ordering' was expected",
+      "entity in IN | val invalid = id.IN(table) | " +
+          "Argument type mismatch: actual type is 'Table<Any>', but 'SqlExpression<Long?, *, *>' was expected",
+      "entity query in IN | val invalid = id.IN(SELECT.COLUMNS(table, id).FROM(table)) | " +
+          "Argument type mismatch: actual type is 'SelectFromStage<Row2<Any, Long>, RowSelection<Row2<EntityRows, " +
+          "Long>, Row2<Any, Long>>>', but 'SelectQuery<*, out ScalarSelection<out Long?, *, *>>' was expected",
+      "entity query as a scalar subquery | val invalid = SELECT.COLUMNS(table, id).FROM(table).asScalar() | " +
+          "SelectQuery<T, ScalarSelection<R, N, T>>.asScalar(): SqlExpression<R, SqlNullable, R?>' is inapplicable " +
+          "because of a receiver type mismatch",
       "entity mapped to another type | val invalid = SELECT.COLUMNS(table, id).mapTo(::Swapped) | " +
           "None of the following candidates is applicable",
       "nullable entity for a non-null parameter | val invalid = SELECT.COLUMNS(table, table.nullable())" +
@@ -53,9 +65,11 @@ internal class TypedRowSelectContractTest {
           package downstream.typedrow
 
           import com.siimkinks.sqlitemagic.DbConnection
+          import com.siimkinks.sqlitemagic.IN
           import com.siimkinks.sqlitemagic.SELECT
           import com.siimkinks.sqlitemagic.SqlType
           import com.siimkinks.sqlitemagic.Table
+          import com.siimkinks.sqlitemagic.asScalar
           import com.siimkinks.sqlitemagic.asValue
           import com.siimkinks.sqlitemagic.mapTo
           import com.siimkinks.sqlitemagic.readAs
@@ -89,7 +103,9 @@ internal class TypedRowSelectContractTest {
           package downstream.typedrow.entity
 
           import com.siimkinks.sqlitemagic.DbConnection
+          import com.siimkinks.sqlitemagic.DerivedEntity
           import com.siimkinks.sqlitemagic.EntityRows
+          import com.siimkinks.sqlitemagic.NullableEntity
           import com.siimkinks.sqlitemagic.Required
           import com.siimkinks.sqlitemagic.Row2
           import com.siimkinks.sqlitemagic.Row3
@@ -199,6 +215,24 @@ internal class TypedRowSelectContractTest {
                 mappedNullableType
             val nullableEntityType = nullableEntity.exactType()
             val exactNullableEntity: Exact<Author?> = nullableEntityType
+            val derived = SELECT.COLUMNS(book, title).FROM(book) AS "derived"
+            val derivedBook = derived[book]
+            val nullableDerivedBook = derivedBook.nullable()
+            val fromDerived = SELECT
+                .COLUMNS(derivedBook, derived[title])
+                .FROM(derived)
+            val derivedBookType = derivedBook.exactType()
+            val exactDerivedBook: Exact<DerivedEntity<Book>> = derivedBookType
+            val nullableDerivedBookType = nullableDerivedBook.exactType()
+            val exactNullableDerivedBook: Exact<NullableEntity<Book>> = nullableDerivedBookType
+            val fromDerivedType = fromDerived.exactType()
+            val exactFromDerived:
+                Exact<SelectFromStage<BookTitle, RowSelection<Row2<EntityRows, String>, BookTitle>>> = fromDerivedType
+            val derivedOnly = SELECT
+                .COLUMN(derivedBook)
+                .FROM(derived)
+            val derivedOnlyType = derivedOnly.exactType()
+            val exactDerivedOnly: Exact<SelectFromStage<Book, RowSelection<EntityRows, Book>>> = derivedOnlyType
           }
         """
       )

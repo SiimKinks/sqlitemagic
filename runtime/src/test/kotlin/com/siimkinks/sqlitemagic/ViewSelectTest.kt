@@ -9,6 +9,7 @@ import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.GeneratedView
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.ViewBlock
+import com.siimkinks.sqlitemagic.internal.getRequiredText
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -31,7 +32,10 @@ private class SeriesEndingTable(alias: String? = null) : Table<SeriesEnding>(
   generatedView = SERIES_ENDING_VIEW
 ) {
   override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = SeriesEnding(
-    name = statement.getText(startIndex),
+    name = statement.getRequiredText(
+      index = startIndex,
+      nullMessage = """Column "series.name" was NULL"""
+    ),
     lastBook = checkNotNull(related).readOrNull(
       statement = statement,
       relationship = 0
@@ -97,15 +101,23 @@ private class BookCardTable(
   val TITLE = Column(
     table = this,
     name = "book.title",
-    nullness = SqlNullable,
+    nullness = Required,
     parameterEncoding = STRING.parameterEncoding(),
-    selectedRead = SQLiteStatement::getText
+    selectedRead = { statement, index ->
+      statement.getRequiredText(
+        index = index,
+        nullMessage = BOOK_TITLE_NULL
+      )
+    }
   )
 
   override val entityFields = listOf(TITLE)
 
   override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = BookCard(
-    title = statement.getText(startIndex),
+    title = statement.getRequiredText(
+      index = startIndex,
+      nullMessage = BOOK_TITLE_NULL
+    ),
     book = checkNotNull(related).read(
       statement = statement,
       relationship = 0
@@ -117,6 +129,8 @@ private class BookCardTable(
     alias = alias
   )
 }
+
+private const val BOOK_TITLE_NULL = """Column "book.title" was NULL"""
 
 private fun bookCardView(viewName: String, query: SelectQuery<*, *>) = GeneratedView(
   viewName = viewName,

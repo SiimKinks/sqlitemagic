@@ -631,7 +631,7 @@ class InsertColumns2Stage<P, R1, W1, R2, W2> internal constructor(
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row2<R1?, R2?>, *>>) =
@@ -784,7 +784,7 @@ class InsertColumns3Stage<P, R1, W1, R2, W2, R3, W3> internal constructor(
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row3<R1?, R2?, R3?>, *>>) =
@@ -953,7 +953,7 @@ class InsertColumns4Stage<P, R1, W1, R2, W2, R3, W3, R4, W4> internal constructo
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row4<R1?, R2?, R3?, R4?>, *>>) =
@@ -1146,7 +1146,7 @@ class InsertColumns5Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5> internal co
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row5<R1?, R2?, R3?, R4?, R5?>, *>>) =
@@ -1353,7 +1353,7 @@ class InsertColumns6Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6> int
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row6<R1?, R2?, R3?, R4?, R5?, R6?>, *>>) =
@@ -1574,7 +1574,7 @@ class InsertColumns7Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row7<R1?, R2?, R3?, R4?, R5?, R6?, R7?>, *>>) =
@@ -1809,7 +1809,7 @@ class InsertColumns8Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row8<R1?, R2?, R3?, R4?, R5?, R6?, R7?, R8?>, *>>) =
@@ -2060,7 +2060,7 @@ class InsertColumns9Stage<P, R1, W1, R2, W2, R3, W3, R4, W4, R5, W5, R6, W6, R7,
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, out RowSelection<out Row9<R1?, R2?, R3?, R4?, R5?, R6?, R7?, R8?, R9?>, *>>) =
@@ -2266,7 +2266,7 @@ class InsertColumnsStage<P> internal constructor(
    *
    * @param query Query whose rows to insert
    * @return SQL INSERT statement
-   * @throws IllegalArgumentException if [query] uses a connection
+   * @throws IllegalArgumentException if [query] uses a connection or selects an entity
    */
   @CheckResult
   infix fun SELECT(query: SelectQuery<*, *>) = InsertSelectStage<P>(node.withSelect(query))

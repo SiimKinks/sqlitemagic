@@ -12,6 +12,7 @@ import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
+import com.siimkinks.sqlitemagic.internal.appendQuotedSqlIdentifier
 import com.siimkinks.sqlitemagic.internal.sql.ScopeKind.ARM
 import com.siimkinks.sqlitemagic.internal.sql.ScopeKind.DERIVED
 import com.siimkinks.sqlitemagic.internal.sql.ScopeKind.NESTED
@@ -102,7 +103,7 @@ internal class SqlRenderingContext(
   fun renderDerived(occurrence: Table<*>, body: SelectNode<*, *>) {
     val current = scope
     val index = current.pendingDerivedOutputs
-    val rendered = renderBody(
+    val reader = renderBody(
       body = body,
       read = index >= 0
     )
@@ -110,13 +111,13 @@ internal class SqlRenderingContext(
       return
     }
     current.pendingDerivedOutputs = -1
-    current.derivedReader = rendered.reader
+    current.derivedReader = reader
     sql.insert(
       index,
       StringBuilder().also { outputs ->
         appendDerivedOutputs(
           occurrence = occurrence,
-          names = rendered.outputNames,
+          names = body.selection.exportedNames,
           target = outputs
         )
       }
@@ -142,7 +143,7 @@ internal class SqlRenderingContext(
       sql
         .append(body.quotedName)
         .append(" AS (")
-      body.rendered = renderBody(
+      body.reader = renderBody(
         body = declaration.node,
         read = true
       )
@@ -155,17 +156,17 @@ internal class SqlRenderingContext(
 
   /** A declaration that no enclosing WITH rendered lists `*`, and SQLite reports the missing table. */
   fun appendCteOutputs(occurrence: Table<*>, declaration: CteDeclaration) {
-    when (val rendered = cteBody(declaration).rendered) {
+    when (cteBody(declaration).reader) {
       null -> sql.append('*')
       else -> appendDerivedOutputs(
         occurrence = occurrence,
-        names = rendered.outputNames,
+        names = declaration.node.selection.exportedNames,
         target = sql
       )
     }
   }
 
-  fun cteReader(declaration: CteDeclaration) = cteBody(declaration).rendered?.reader
+  fun cteReader(declaration: CteDeclaration) = cteBody(declaration).reader
     ?: ExecutionReader<Nothing> { error("A CTE was read without a WITH declaring it") }
 
   private fun cteBody(declaration: CteDeclaration): CteBody {
@@ -186,20 +187,17 @@ internal class SqlRenderingContext(
     return name
   }
 
-  private fun renderBody(body: SelectNode<*, *>, read: Boolean): RenderedBody {
-    val derived = SourceScope(
+  private fun renderBody(body: SelectNode<*, *>, read: Boolean) = inScope(
+    next = SourceScope(
       enclosing = scope.enclosing,
-      kind = DERIVED
+      kind = DERIVED,
+      exportedNames = body.selection.exportedNames
     )
-    return inScope(derived) {
-      body.render(this)
-      RenderedBody(
-        outputNames = derived.outputNames ?: emptyList(),
-        reader = when {
-          read -> body.selection.createExecutionReader(this)
-          else -> null
-        }
-      )
+  ) {
+    body.render(this)
+    when {
+      read -> body.selection.createExecutionReader(this)
+      else -> null
     }
   }
 
@@ -228,12 +226,9 @@ internal class SqlRenderingContext(
       val quotedName = quoteSqlIdentifier(name)
       target.append(quotedName)
       when (scope.kind) {
-        DERIVED -> {
-          scope.addOutputName(name)
-          target
-            .append(" AS ")
-            .append(quotedName)
-        }
+        DERIVED -> target
+          .append(" AS ")
+          .append(quotedName)
         else -> nameDefinitionOutput(
           table = occurrence,
           name = name,
@@ -379,14 +374,12 @@ internal class SqlRenderingContext(
     val scope = scope
     when {
       scope.kind == DERIVED -> {
-        val name = derivedOutputName(
-          expression = expression,
-          index = scope.outputNames?.size ?: 0
-        )
-        scope.addOutputName(name)
-        sql
-          .append(" AS ")
-          .append(expression.quotedOutputAlias ?: quoteSqlIdentifier(name))
+        val name = scope.nextExportedName()
+        sql.append(" AS ")
+        when (val alias = expression.quotedOutputAlias) {
+          null -> sql.appendQuotedSqlIdentifier(name)
+          else -> sql.append(alias)
+        }
       }
       expression is KeyedField<*, *, *> -> nameKeyedOutput(expression)
       expression.quotedOutputAlias != null -> sql
@@ -420,16 +413,9 @@ internal class SqlRenderingContext(
   fun nameFieldOutput(table: Table<*>, name: String) {
     val scope = scope
     when (scope.kind) {
-      DERIVED -> {
-        val outputName = fieldOutputName(
-          table = table,
-          name = name
-        )
-        scope.addOutputName(outputName)
-        sql
-          .append(" AS ")
-          .append(quoteSqlIdentifier(outputName))
-      }
+      DERIVED -> sql
+        .append(" AS ")
+        .appendQuotedSqlIdentifier(scope.nextExportedName())
       else -> nameDefinitionOutput(
         table = table,
         name = name
@@ -484,13 +470,8 @@ internal class SqlRenderingContext(
   )
 }
 
-private class RenderedBody(
-  val outputNames: List<String>,
-  val reader: ExecutionReader<*>?
-)
-
 private class CteBody(val quotedName: String) {
-  var rendered: RenderedBody? = null
+  var reader: ExecutionReader<*>? = null
 }
 
 internal class DefinitionFacts(val viewName: String) {
@@ -535,7 +516,8 @@ private enum class ScopeKind {
 
 private class SourceScope(
   val enclosing: SourceScope?,
-  val kind: ScopeKind
+  val kind: ScopeKind,
+  val exportedNames: List<String> = emptyList()
 ) {
   val positions = MutableObjectIntMap<Table<*>>(initialCapacity = 1)
   val qualifiers = ArrayList<String>(1)
@@ -548,9 +530,7 @@ private class SourceScope(
   var pendingDerivedOutputs = -1
   var derivedReader: ExecutionReader<*>? = null
 
-  var outputNames: MutableList<String>? = null
+  private var nextExport = 0
 
-  fun addOutputName(name: String) {
-    (outputNames ?: ArrayList<String>(4).also { outputNames = it }) += name
-  }
+  fun nextExportedName() = exportedNames[nextExport++]
 }

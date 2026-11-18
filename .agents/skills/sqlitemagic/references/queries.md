@@ -151,9 +151,11 @@ val titles: List<String> = (SELECT COLUMN BOOK.TITLE FROM BOOK).execute()
     .execute()
   ```
 
-  Here `BOOK` reads its `editor` from the `editor` join and joins `author` automatically. `mapTo(BOOK)`,
-  `UNION`/`UNION ALL` and `derived[…]` exports take plain values only; `SELECT FROM` a derived source or CTE keeps the
-  row.
+  Here `BOOK` reads its `editor` from the `editor` join and joins `author` automatically. Entity values work in
+  `DISTINCT`, `count()`, `EXISTS`, [derived sources and CTEs](#subqueries-and-derived-sources) and
+  [compounds](#compound-queries); `mapTo(BOOK)` and `INSERT … SELECT` take plain values only, and a wide selection
+  whose only value is an entity is rejected: `SELECT FROM AUTHOR` reads one entity, and `SELECT COLUMN source[AUTHOR]`
+  the entity of a [derived source or CTE](#subqueries-and-derived-sources).
 - Wide selections (any `table.all()`, or more than nine values) read `SelectedRow`; read a value with
   `row[expression]` or an entity with `row[AUTHOR]` or `row[editor.nullable()]`, using the exact instance that was
   selected (a not nullable column of `table.all().nullable()` is read with its `.nullable()`, as in
@@ -374,6 +376,33 @@ val authorsWithLatest = SELECT.COLUMNS(AUTHOR.NAME, latestTitle).FROM(AUTHOR)
     .ORDER_BY(totals[pageTotal].DESC())
   ```
 
+- A derived source or CTE exports an entity value's columns as `occurrence.column` (`author.id`) and the columns of
+  its joined relationships by their path (`book.author.id`). Exports that repeat a name are rejected when the query
+  becomes a source, as `SELECT.COLUMNS(BOOK, BOOK.TITLE)` repeats `book.title`: alias the field
+  (`BOOK.TITLE AS "title"`). Read the entity with `source[AUTHOR]` and its own fields with `source[AUTHOR.NAME]`:
+
+  ```kotlin
+  val bookCount = COUNT(BOOK.ID) AS "book_count"
+  val authorTotals = (
+      SELECT.COLUMNS(AUTHOR, bookCount)
+          FROM AUTHOR
+          LEFT_JOIN BOOK ON (BOOK.AUTHOR IS AUTHOR.ID)
+          GROUP_BY AUTHOR.ID
+      ) AS "author_totals"
+  val prolific: List<Row2<Author, Long>> = (
+      SELECT.COLUMNS(authorTotals[AUTHOR], authorTotals[bookCount])
+          FROM authorTotals
+          WHERE (authorTotals[bookCount] GREATER_THAN 10L)
+      )
+    .execute()
+  ```
+
+  `source[AUTHOR]` reads the related objects the inner query reads; `queryDeep()` of the outer query does not change
+  it, and an outer query whose only entity values come from sources rejects `queryDeep()`. Select it with
+  `source[AUTHOR].nullable()` where an outer join can leave the source NULL, and read an entity that the inner query
+  selects with `.nullable()` as `source[BOOK.nullable()]`. Keep the instance to read it from a `SelectedRow`, as for
+  `source[expression]`. `SELECT FROM authorTotals` keeps the inner row type (`Row2<Author, Long>`); select only the
+  entity with `SELECT COLUMN authorTotals[AUTHOR] FROM authorTotals` (`List<Author>`), or `SELECT DISTINCT`.
 - A nested query never chooses a connection; call `usingConnection` on the outermost query only. Mapping of a nested
   query (`mapTo`) is ignored where SQL consumes it.
 
@@ -413,6 +442,10 @@ val names = ((SELECT COLUMN AUTHOR.NAME FROM AUTHOR) UNION (SELECT COLUMN AUTHOR
 - `ORDER_BY`, `LIMIT` and `OFFSET` after the last arm apply to the whole compound; its `ORDER_BY` terms name the first
   arm's fields.
 - Map after compounding, `(a UNION b).mapTo(::Dto)`: an arm mapped with a function is rejected.
+- Arms with entity values select an entity of the same table in the same place (an aliased occurrence counts), or the
+  compound is rejected; with `UNION`/`UNION_ALL`, select it `.nullable()` in the left arm when the right arm's is.
+  `queryDeep()` of the compound deepens every arm; an entity of a derived source keeps its source's depth, so arms of
+  different depths fail with SQLite's column-count error.
 - Prefer `UNION_ALL` when duplicates are impossible or wanted; `UNION` sorts to remove them.
 
 ## Terminals

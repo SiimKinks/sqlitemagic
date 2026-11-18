@@ -9,6 +9,8 @@ import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.RelationshipPlanner
 import com.siimkinks.sqlitemagic.internal.sql.SourceOccurrence
 import com.siimkinks.sqlitemagic.internal.sql.SqlRenderingContext
+import com.siimkinks.sqlitemagic.internal.sql.derivedOutputName
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 
 /**
  * Selection of columns read into partial model objects.
@@ -56,6 +58,17 @@ class PartialEntitySelection<M> internal constructor(
   override fun forEachField(action: (ExpressionNode.Field) -> Unit) = outputs.forEachField(action)
 
   override val exportedValues get() = outputs
+
+  override val exportedNames by lazy(PUBLICATION) {
+    outputs.mapIndexed { index, output ->
+      derivedOutputName(
+        expression = output,
+        index = index
+      )
+    }
+  }
+
+  override val selectedValues get() = listOf(table)
 
   override fun createExecutionReader(context: SqlRenderingContext): ExecutionReader<M> {
     val related = requireNotNull(context.relatedEntities) {

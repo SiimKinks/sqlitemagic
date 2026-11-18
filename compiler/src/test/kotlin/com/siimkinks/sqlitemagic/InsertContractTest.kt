@@ -733,6 +733,14 @@ internal class InsertContractTest {
             "'SelectQuery<*, out RowSelection<out Row2<String?, Int?>, *>>' was expected"
       ),
       Arguments.of(
+        "entity value in a typed form",
+        "INSERT.INTO(PERSON).COLUMNS(PERSON.NAME, PERSON.AGE)" +
+            ".SELECT(SELECT.COLUMNS(PERSON, PERSON.AGE).FROM(PERSON))",
+        "actual type is 'SelectFromStage<Row2<Person, Int>, " +
+            "RowSelection<Row2<EntityRows, Int>, Row2<Person, Int>>>', " +
+            "but 'SelectQuery<*, out RowSelection<out Row2<String?, Int?>, *>>' was expected"
+      ),
+      Arguments.of(
         "entity query in a typed form",
         "INSERT INTO PERSON COLUMNS PERSON.NAME SELECT (SELECT FROM PERSON)",
         "actual type is 'SelectFromStage<Person, EntitySelection<Person>>', but " +

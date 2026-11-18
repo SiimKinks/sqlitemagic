@@ -10,6 +10,7 @@ import com.siimkinks.sqlitemagic.Row3
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.StringIdEntityTable.Companion.STRING_ID_ENTITY
+import com.siimkinks.sqlitemagic.UNION_ALL
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithRelationship
 import com.siimkinks.sqlitemagic.fixture.model.EntityWithStringIdRelationship
 import com.siimkinks.sqlitemagic.fixture.model.SimpleMutableEntity
@@ -34,7 +35,9 @@ internal class EntityValueQueryTest {
       val live: List<Pair<Int?, String?>>,
       val always: List<Row2<EntityWithStringIdRelationship, String>>,
       val deep: List<Row2<EntityWithRelationship, Int?>>,
-      val outer: List<Row2<SimpleMutableEntity, EntityWithRelationship?>>
+      val outer: List<Row2<SimpleMutableEntity, EntityWithRelationship?>>,
+      val derived: List<Row2<EntityWithRelationship, Int?>>,
+      val compound: List<Row2<EntityWithStringIdRelationship, String>>
     )
 
     val withRelationship = EntityWithRelationship().apply {
@@ -75,6 +78,14 @@ internal class EntityValueQueryTest {
     )
     val related = checkNotNull(withRelationship.relatedEntity)
     val joinedOn = ENTITY_WITH_RELATIONSHIP.RELATED_ENTITY IS SIMPLE_MUTABLE_ENTITY.ID
+    val shelfCount = ENTITY_WITH_RELATIONSHIP.COUNT AS "shelf_count"
+    val shelf = SELECT
+      .COLUMNS(ENTITY_WITH_RELATIONSHIP, shelfCount)
+      .FROM(ENTITY_WITH_RELATIONSHIP)
+      .queryDeep() AS "shelf"
+    val withStringIds = SELECT
+      .COLUMNS(ENTITY_WITH_STRING_ID_RELATIONSHIP, STRING_ID_ENTITY.VALUE)
+      .FROM(ENTITY_WITH_STRING_ID_RELATIONSHIP)
 
     val reads = Reads(
       joined = SELECT
@@ -115,7 +126,12 @@ internal class EntityValueQueryTest {
         .ON(joinedOn)
         .ORDER_BY(SIMPLE_MUTABLE_ENTITY.ID.ASC())
         .queryDeep()
-        .execute()
+        .execute(),
+      derived = SELECT
+        .COLUMNS(shelf[ENTITY_WITH_RELATIONSHIP], shelf[shelfCount])
+        .FROM(shelf)
+        .execute(),
+      compound = (withStringIds UNION_ALL withStringIds).execute()
     )
 
     val shallowParent = EntityWithRelationship().apply {
@@ -131,7 +147,9 @@ internal class EntityValueQueryTest {
         live = listOf(7 to "related"),
         always = listOf(Row2(withStringId.copy(id = stringIdRow.rowId), "parent")),
         deep = listOf(Row2(withRelationship, 7)),
-        outer = listOf(Row2(related, withRelationship), Row2(unrelated, null))
+        outer = listOf(Row2(related, withRelationship), Row2(unrelated, null)),
+        derived = listOf(Row2(withRelationship, 7)),
+        compound = List(2) { Row2(withStringId.copy(id = stringIdRow.rowId), "parent") }
       )
     )
   }

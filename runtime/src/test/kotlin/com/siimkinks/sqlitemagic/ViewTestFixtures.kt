@@ -8,6 +8,8 @@ import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.EntityProperty
 import com.siimkinks.sqlitemagic.internal.GeneratedView
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
+import com.siimkinks.sqlitemagic.internal.getRequiredLong
+import com.siimkinks.sqlitemagic.internal.getRequiredText
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 
 internal data class AuthorSummary(
@@ -26,23 +28,39 @@ internal class AuthorSummaryTable(
   val AUTHOR_ID = Column(
     table = this,
     name = "author.id",
-    nullness = SqlNullable,
+    nullness = Required,
     parameterEncoding = LONG.parameterEncoding(),
-    selectedRead = SQLiteStatement::getLong
+    selectedRead = { statement, index ->
+      statement.getRequiredLong(
+        index = index,
+        nullMessage = AUTHOR_ID_NULL
+      )
+    }
   )
   val NAME = Column(
     table = this,
     name = "name",
-    nullness = SqlNullable,
+    nullness = Required,
     parameterEncoding = STRING.parameterEncoding(),
-    selectedRead = SQLiteStatement::getText
+    selectedRead = { statement, index ->
+      statement.getRequiredText(
+        index = index,
+        nullMessage = NAME_NULL
+      )
+    }
   )
 
   override val entityFields = listOf(AUTHOR_ID, NAME)
 
   override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) = AuthorSummary(
-    id = statement.getLong(startIndex),
-    name = statement.getText(startIndex + 1)
+    id = statement.getRequiredLong(
+      index = startIndex,
+      nullMessage = AUTHOR_ID_NULL
+    ),
+    name = statement.getRequiredText(
+      index = startIndex + 1,
+      nullMessage = NAME_NULL
+    )
   )
 
   override val entityProperties = listOf(
@@ -61,8 +79,14 @@ internal class AuthorSummaryTable(
     positions: IntArray,
     related: RelatedEntities?
   ) = AuthorSummary(
-    id = statement.getLong(positions[0]),
-    name = statement.getText(positions[1])
+    id = statement.getRequiredLong(
+      index = positions[0],
+      nullMessage = AUTHOR_ID_NULL
+    ),
+    name = statement.getRequiredText(
+      index = positions[1],
+      nullMessage = NAME_NULL
+    )
   )
 
   override infix fun AS(alias: String) = AuthorSummaryTable(
@@ -70,6 +94,10 @@ internal class AuthorSummaryTable(
     view = view
   )
 }
+
+private const val AUTHOR_ID_NULL = """Column "author.id" was NULL"""
+
+private const val NAME_NULL = """Column "name" was NULL"""
 
 internal val AUTHOR_SUMMARY_VIEW = GeneratedView(
   viewName = "author_summary",

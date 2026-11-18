@@ -25,6 +25,8 @@ class ScalarSelection<R, N : SqlNullability, T> internal constructor(
 
   override val exportedValues get() = listOf(expression)
 
+  override val selectedValues get() = listOf(expression)
+
   override fun widenedIndex(selected: SqlExpression<*, *, *>) = when {
     widenedFrom === selected -> 0
     else -> -1

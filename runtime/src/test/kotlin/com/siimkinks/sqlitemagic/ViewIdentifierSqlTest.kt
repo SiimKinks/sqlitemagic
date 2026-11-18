@@ -10,8 +10,11 @@ import com.siimkinks.sqlitemagic.internal.GeneratedView
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.internal.getRequiredText
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import org.junit.Test
+
+private const val NAME_NULL = """Column "name" was NULL"""
 
 internal class ViewIdentifierSqlTest {
   @Test
@@ -78,13 +81,21 @@ internal class ViewIdentifierSqlTest {
     val NAME = Column(
       table = this,
       name = "name",
-      nullness = SqlNullable,
+      nullness = Required,
       parameterEncoding = STRING.parameterEncoding(),
-      selectedRead = SQLiteStatement::getText
+      selectedRead = { statement, index ->
+        statement.getRequiredText(
+          index = index,
+          nullMessage = NAME_NULL
+        )
+      }
     )
 
     override fun readEntity(statement: SQLiteStatement, startIndex: Int, related: RelatedEntities?) =
-      statement.getText(startIndex)
+      statement.getRequiredText(
+        index = startIndex,
+        nullMessage = NAME_NULL
+      )
 
     override infix fun AS(alias: String) = IdentifierViewTable(
       generatedView = generatedView,
