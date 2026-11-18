@@ -42,6 +42,8 @@ data class RequiredReadView(
 ) {
   companion object {
     @ViewQuery
-    val query = SELECT.FROM(REQUIRED_READ_SOURCE)
+    val query = SELECT
+      .COLUMNS(REQUIRED_READ_SOURCE.all())
+      .FROM(REQUIRED_READ_SOURCE)
   }
 }

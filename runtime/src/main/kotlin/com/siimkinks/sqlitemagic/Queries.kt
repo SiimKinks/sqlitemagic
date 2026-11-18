@@ -717,7 +717,7 @@ private fun wideProjection(outputs: Array<out SqlOutput>) = SelectProjectionStag
         outputs.forEach { output ->
           when (output) {
             is SelectValue<*, *> -> add(output)
-            is TableFields -> addAll(output.fields)
+            is TableFields -> output.addTo(this)
           }
         }
       }.also(::requireNotOneEntity),

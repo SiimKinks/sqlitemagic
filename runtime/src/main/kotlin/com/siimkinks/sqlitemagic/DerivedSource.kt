@@ -135,9 +135,8 @@ internal abstract class QueryOutputTable<T>(
   override fun toString() = label ?: "the $kind"
 }
 
-private fun List<SqlExpression<*, *, *>?>.indexOfExport(selected: SqlExpression<*, *, *>) = indexOfFirst { value ->
-  value === selected || value is KeyedField<*, *, *> && value.field === selected
-}
+private fun List<SqlExpression<*, *, *>?>.indexOfExport(selected: SqlExpression<*, *, *>) =
+  indexOfFirst { it === selected }
 
 internal fun Selection<*>.requireUniqueExportedNames(source: String) {
   val names = exportedNames

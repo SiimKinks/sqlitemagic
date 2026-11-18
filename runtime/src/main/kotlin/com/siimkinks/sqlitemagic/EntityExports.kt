@@ -11,6 +11,7 @@ import com.siimkinks.sqlitemagic.internal.sql.fieldOutputName
 internal class EntityExport(
   val table: Table<*>,
   val deep: Boolean,
+  val key: String,
   val names: List<String>,
   read: RelatedEntities? = null
 ) {
@@ -59,6 +60,7 @@ internal fun EntityValue<*>.export(deep: Boolean) = when (this) {
     EntityExport(
       table = this,
       deep = deep,
+      key = alias ?: name,
       names = entityExportNames(
         table = this,
         read = read
@@ -69,6 +71,10 @@ internal fun EntityValue<*>.export(deep: Boolean) = when (this) {
   is DerivedEntity<*> -> EntityExport(
     table = export.table,
     deep = export.deep,
+    key = fieldOutputName(
+      table = occurrence,
+      name = export.key
+    ),
     names = export.names.map { name ->
       fieldOutputName(
         table = occurrence,

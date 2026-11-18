@@ -97,82 +97,39 @@ class DerivedEntity<T> internal constructor(
  */
 class TableFields internal constructor(
   private val columns: List<Column<*, *, *, *, *, *, *>>,
-  private val key: String? = null,
   private val lifted: Boolean = false
 ) : SqlOutput {
-  internal val fields: List<SqlExpression<*, *, *>>
-    get() = when {
-      key == null && !lifted -> columns
-      else -> columns.map(::output)
+  internal fun addTo(values: MutableList<SelectValue<*, *>>) {
+    when {
+      lifted -> columns.mapTo(values, ::lift)
+      else -> values.addAll(columns)
     }
-
-  /**
-   * Create an alias for these columns in a view definition.
-   *
-   * The columns are named `key.column`, which a view model property annotated with `@ViewColumn("key")` reads.
-   *
-   * Example:
-   * ```
-   * TODO_LIST.all() AS "list"
-   * ```
-   *
-   * @param key The alias name
-   * @return Columns with provided alias
-   */
-  infix fun AS(key: String) = TableFields(
-    columns = columns,
-    key = key,
-    lifted = lifted
-  )
+  }
 
   /**
    * Convert these columns to nullable columns.
    *
-   * The SQL stays the same. Use it for selecting all columns of a table that an outer join can leave NULL. In a view
-   * definition they fill a nullable model property, which is `null` when all its columns are NULL. In a selected row
-   * or a subquery, read a not nullable column with its `nullable()`, for example `row[BOOK.TITLE.nullable()]`.
+   * The SQL stays the same. Use it for selecting all columns of a table that an outer join can leave NULL. In a
+   * selected row or a subquery, read a not nullable column with its `nullable()`, for example
+   * `row[BOOK.TITLE.nullable()]`.
    *
    * Example:
    * ```
-   * SELECT
-   *     .COLUMNS(AUTHOR.all() AS "author", BOOK.all().nullable() AS "book")
-   *     .FROM(AUTHOR)
-   *     .LEFT_JOIN(BOOK)
-   *     .ON(AUTHOR.ID IS BOOK.AUTHOR)
+   * SELECT.COLUMNS(BOOK.TITLE, editor.all().nullable()) FROM BOOK LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)
    * ```
    *
    * @return Nullable columns
    */
   fun nullable() = TableFields(
     columns = columns,
-    key = key,
     lifted = true
   )
 
-  private fun output(column: Column<*, *, *, *, *, *, *>): SqlExpression<*, *, *> {
-    val field = when {
-      lifted && column.nullness == Required -> column.nullable()
-      else -> column
-    }
-    return when (key) {
-      null -> field
-      else -> KeyedField(
-        field = field,
-        name = column.name,
-        key = key
-      )
-    }
+  private fun lift(column: Column<*, *, *, *, *, *, *>): SqlExpression<*, *, *> = when (column.nullness) {
+    Required -> column.nullable()
+    else -> column
   }
 }
-
-internal class KeyedField<R, N : SqlNullability, T>(
-  val field: SqlExpression<R, N, T>,
-  name: String,
-  val key: String
-) : SqlExpression<R, N, T>(
-  source = field,
-  outputAlias = "$key.$name"
-)
 
 /**
  * Row of multiple columns selection.
@@ -223,9 +180,6 @@ internal class SelectedOutputs(
       values.forEachIndexed { index, value ->
         if (!containsKey(value)) {
           this[value] = index
-        }
-        if (value is KeyedField<*, *, *> && !containsKey(value.field)) {
-          this[value.field] = index
         }
       }
     }

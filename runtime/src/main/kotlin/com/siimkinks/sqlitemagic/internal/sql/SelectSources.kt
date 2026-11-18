@@ -6,7 +6,6 @@ import com.siimkinks.sqlitemagic.Table
 import com.siimkinks.sqlitemagic.entityReadTree
 import com.siimkinks.sqlitemagic.entityValueTree
 import com.siimkinks.sqlitemagic.internal.MutableObjectIntMap
-import com.siimkinks.sqlitemagic.internal.MutableScatterMap
 import com.siimkinks.sqlitemagic.internal.MutableScatterSet
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
 import com.siimkinks.sqlitemagic.internal.SqlUtil.quoteSqlIdentifier
@@ -112,8 +111,7 @@ private class AutomaticOccurrence(
   override fun register(context: SqlRenderingContext) {
     context.addSource(
       table = table,
-      qualifier = qualifier,
-      name = name
+      qualifier = qualifier
     )
     if (relationship.nullable || context.isNullExtended(parent.table)) {
       context.addNullExtended(table)
@@ -173,9 +171,6 @@ internal fun prepareSources(node: SelectNode<*, *>, context: SqlRenderingContext
   }
   val joins = planner.orderedJoins()
   planner.register(joins)
-  if (context.root) {
-    context.definition?.occurrences?.let(planner::exportOccurrences)
-  }
   return SelectSources(
     root = root,
     joins = joins
@@ -327,34 +322,6 @@ internal class RelationshipPlanner(
           occurrence = occurrence.table
         )
       }
-    }
-  }
-
-  fun exportOccurrences(destination: MutableScatterMap<String, Array<String?>>) {
-    users.forEach { user ->
-      export(
-        occurrence = user,
-        destination = destination
-      )
-    }
-    automatic.forEach { occurrence ->
-      export(
-        occurrence = occurrence,
-        destination = destination
-      )
-    }
-  }
-
-  private fun export(occurrence: SourceOccurrence, destination: MutableScatterMap<String, Array<String?>>) {
-    val relationships = occurrence.table.tableRelationships
-    if (relationships.isEmpty()) {
-      return
-    }
-    destination[occurrence.name.lowercase()] = Array(relationships.size) { index ->
-      relatedChild(
-        parent = occurrence,
-        relationship = index
-      )?.name
     }
   }
 

@@ -8,7 +8,6 @@ import com.siimkinks.sqlitemagic.annotation.View
 import com.siimkinks.sqlitemagic.annotation.ViewColumn
 import com.siimkinks.sqlitemagic.annotation.ViewQuery
 import com.siimkinks.sqlitemagic.asValue
-import com.siimkinks.sqlitemagic.queryDeep
 
 @View("review_star_author")
 data class ReviewStarAuthorView(
@@ -18,8 +17,8 @@ data class ReviewStarAuthorView(
   companion object {
     @ViewQuery
     val query = SELECT
+      .COLUMNS(QUERY_COMPOSITION_AUTHOR.all())
       .FROM(QUERY_COMPOSITION_AUTHOR)
-      .queryDeep()
   }
 }
 
@@ -44,7 +43,7 @@ data class ReviewRelationshipCompositionView(
 
     @ViewQuery
     val query = SELECT
-      .COLUMNS(bookAlias.all(), "tail".asValue() AS "tail", authorAlias.all())
+      .COLUMNS("tail".asValue() AS "tail", bookAlias)
       .FROM(bookAlias)
       .INNER_JOIN(authorAlias)
       .ON(bookAlias.AUTHOR IS authorAlias.ID)

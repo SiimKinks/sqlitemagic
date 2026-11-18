@@ -104,7 +104,7 @@ val QUERY = (
 @ViewQuery
 val QUERY = (
     SELECT.COLUMNS(
-      TODO_LIST.all() AS "todo_list",
+      TODO_LIST,
       (SELECT COLUMN COUNT() FROM TODO_ITEM
           WHERE ((TODO_ITEM.COMPLETED IS false) AND (TODO_ITEM.LIST IS TODO_LIST.ID)))
         .asScalar() AS "items_count"
@@ -118,6 +118,16 @@ val QUERY = (
   `usingConnection`. A Java `@View` model's query is Kotlin DSL now, so convert that view to Kotlin.
 - Values in a definition render as SQL literals, so plain values replace `asColumn(…)` there. Raw expressions in a
   definition write constants into the text: SQLite rejects view parameters.
+- A table- or view-typed property reads the entity value of the occurrence its key names: `TODO_LIST` fills
+  `@ViewColumn("todo_list")`, and an alias (`TODO_LIST AS "list"`, used in `FROM` and `COLUMNS`) fills another key.
+  Write legacy `TABLE.all() AS "key"` as that occurrence, and an outer-joined block as `TABLE.nullable()` into a
+  nullable property. `all()` selects plain columns only; it does not fill such a property, and the view fails when it
+  is created. A view whose only property is an entity is `SELECT FROM TABLE`.
+- The entity joins its relationships itself: drop related tables selected only to fill them, and add `queryDeep()` to
+  the definition to read `DEEP` ones in full. Its own columns keep `key.column` names; its relationships' columns are
+  named by path (`key.relationship.column`).
+- A scalar property reads a column the definition selects itself, never one inside an entity: a `SELECT FROM TABLE`
+  definition read by scalar `@ViewColumn("table.column")` keys becomes `SELECT.COLUMNS(TABLE.all()) FROM TABLE`.
 - View columns are named by qualified names (`book.title`) or `AS` aliases. The example's view columns change from
   `id`, `name` to `todo_list.id`, `todo_list.name`, so databases already installed need a schema upgrade before the
   view can be read; see [behavior](behavior.md#view-columns-have-qualified-names), which also covers raw SQL over

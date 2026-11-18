@@ -221,9 +221,9 @@ internal class ViewObservationRuntimeTest(
   }
 
   @Test
-  fun nestedDtoIndependentQueryDoesNotBecomeOuterDependency() {
+  fun viewTypedPropertyObservesTheNestedViewSources() {
     insert(
-      QueryCompositionAuthor(
+      ViewObservationFilter(
         id = 1L,
         name = "Ada"
       )
@@ -235,7 +235,7 @@ internal class ViewObservationRuntimeTest(
       .assertValuesOnly(listOf(initial))
     try {
       insert(
-        ViewObservationFilter(
+        QueryCompositionAuthor(
           id = 1L,
           name = "unrelated"
         )
@@ -243,7 +243,7 @@ internal class ViewObservationRuntimeTest(
       observer.assertValuesOnly(listOf(initial))
 
       assertThat(
-        QueryCompositionAuthor(
+        ViewObservationFilter(
           id = 1L,
           name = "Grace"
         )

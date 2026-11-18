@@ -1,12 +1,15 @@
 package com.siimkinks.sqlitemagic.internal.sql
 
+import com.siimkinks.sqlitemagic.ExportedEntity
+import com.siimkinks.sqlitemagic.NullableEntity
 import com.siimkinks.sqlitemagic.SelectQuery
-import com.siimkinks.sqlitemagic.Table
+import com.siimkinks.sqlitemagic.Selection
+import com.siimkinks.sqlitemagic.entity
 import com.siimkinks.sqlitemagic.internal.RelatedEntities
-import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
-import com.siimkinks.sqlitemagic.internal.RelationshipRead.ID_ONLY
 import com.siimkinks.sqlitemagic.internal.ViewBlock
 import com.siimkinks.sqlitemagic.internal.ViewDefinition
+import com.siimkinks.sqlitemagic.label
+import com.siimkinks.sqlitemagic.requireUniqueExportedNames
 
 internal fun compileViewDefinition(
   query: SelectQuery<*, *>,
@@ -14,21 +17,33 @@ internal fun compileViewDefinition(
   columns: List<String>,
   blocks: List<ViewBlock>
 ): ViewDefinition {
+  val failure = "Cannot create view '$viewName'"
   val node = query.node
-  require(node.connection == null) {
-    "Cannot create view '$viewName': a view definition cannot use a connection"
-  }
-  val facts = DefinitionFacts(viewName)
-  val context = SqlRenderingContext(facts)
+  require(node.connection == null) { "$failure: a view definition cannot use a connection" }
+  val selection = node.selection
+  selection.requireUniqueExportedNames(source = "$failure: its definition")
+  val context = SqlRenderingContext(
+    DefinitionFacts(
+      viewName = viewName,
+      exportedNames = selection.exportedNames
+    )
+  )
   node.render(context)
-  val columnNames = ArrayList<String>(columns.size + blocks.size).apply { addAll(columns) }
+  requireOwnColumns(
+    failure = failure,
+    columns = columns,
+    entities = selection.exportedEntities
+  )
+  val columnNames = ArrayList(columns)
   val blockReads = when {
     blocks.isEmpty() -> null
-    else -> ViewBlockLayout(
-      facts = facts,
-      columnNames = columnNames
-    ).let { layout ->
-      Array<RelatedEntities?>(blocks.size) { layout.add(blocks[it]) }
+    else -> Array<RelatedEntities?>(blocks.size) { index ->
+      blockRead(
+        failure = failure,
+        block = blocks[index],
+        selection = selection,
+        columnNames = columnNames
+      )
     }
   }
   return ViewDefinition(
@@ -39,96 +54,72 @@ internal fun compileViewDefinition(
   )
 }
 
-private class ViewBlockLayout(
-  private val facts: DefinitionFacts,
-  private val columnNames: MutableList<String>
-) {
-  fun add(block: ViewBlock): RelatedEntities {
-    val start = columnNames.size
-    val target = block.target
-    return when (val view = target.viewDefinition) {
-      null -> tableBlock(
-        key = block.key,
-        table = target
-      )
-      else -> {
-        view.columnNames.mapTo(columnNames) { "${block.key}.$it" }
-        val blocks = view.blocks ?: emptyArray()
-        RelatedEntities(
-          table = target,
-          children = Array(blocks.size) { blocks[it]?.shifted(start) },
-          startIndex = start,
-          width = view.columnNames.size
+private fun requireOwnColumns(failure: String, columns: List<String>, entities: List<ExportedEntity>) {
+  columns.forEach { column ->
+    val owner = entities.firstOrNull { entity ->
+      entity.export.names.any {
+        it.equals(
+          other = column,
+          ignoreCase = true
         )
       }
     }
+    require(owner == null) {
+      "$failure: column $column is part of the selected ${owner?.entityLabel}; a scalar property reads a " +
+          "column selected itself, so select it with an alias"
+    }
   }
+}
 
-  private fun tableBlock(key: String, table: Table<*>): RelatedEntities {
-    val root = read(
-      occurrence = key,
-      table = table,
-      targetIdColumnName = null
+private fun blockRead(
+  failure: String,
+  block: ViewBlock,
+  selection: Selection<*>,
+  columnNames: MutableList<String>
+): RelatedEntities {
+  val target = block.target
+  val entity = selection.exportedEntities.firstOrNull {
+    it.export.key.equals(
+      other = block.key,
+      ignoreCase = true
     )
-    val queue = ArrayDeque<Pair<String, RelatedEntities>>()
-    queue.add(key to root)
-    while (queue.isNotEmpty()) {
-      val (occurrence, parent) = queue.removeFirst()
-      val targets = facts.occurrences[occurrence.lowercase()]
-      parent.table.tableRelationships.forEachIndexed { index, relationship ->
-        if (relationship.read == ID_ONLY) {
-          return@forEachIndexed
-        }
-        val target = relationship.target()
-        val targetOccurrence = targets
-          ?.get(index)
-          ?.takeIf { name ->
-            selects(
-              occurrence = name,
-              table = target
-            )
-          }
-        when {
-          targetOccurrence != null -> {
-            val child = read(
-              occurrence = targetOccurrence,
-              table = target,
-              targetIdColumnName = relationship.targetIdColumnName
-            )
-            parent.setChild(
-              relationship = index,
-              child = child
-            )
-            queue.add(targetOccurrence to child)
-          }
-          relationship.read == ALWAYS -> throw IllegalArgumentException(
-            "Cannot create view '${facts.viewName}': $occurrence.${relationship.columnName} needs the columns of the " +
-                "${target.name} its definition joins through it"
+  }
+  requireNotNull(entity) {
+    val columnsOnly = target
+      .selectedEntityFields()
+      .all { field ->
+        val name = "${block.key}.${field.name}"
+        selection.exportedNames.any {
+          it.equals(
+            other = name,
+            ignoreCase = true
           )
         }
       }
+    val entityName = when {
+      block.key.equals(
+        other = target.name,
+        ignoreCase = true
+      ) -> "the ${target.name} entity"
+      else -> "the ${target.name} entity of occurrence ${block.key}"
     }
-    return root
+    when {
+      columnsOnly -> "$failure: ${block.path} reads an entity, and its definition selects only the columns of " +
+          "${block.key}; select $entityName instead of its all()"
+      else -> "$failure: ${block.path} reads an entity; select $entityName"
+    }
   }
-
-  private fun read(
-    occurrence: String,
-    table: Table<*>,
-    targetIdColumnName: String?
-  ): RelatedEntities {
-    val start = columnNames.size
-    val fields = table.selectedEntityFields()
-    fields.mapTo(columnNames) { "$occurrence.${it.name}" }
-    return RelatedEntities(
-      table = table,
-      children = arrayOfNulls(table.tableRelationships.size),
-      startIndex = start,
-      width = fields.size,
-      idOffset = fields.indexOfFirst { it.name == targetIdColumnName }
-    )
+  val export = entity.export
+  require(export.table.objectIdentity.normalizedKey == target.objectIdentity.normalizedKey) {
+    "$failure: ${block.path} reads the ${target.name} entity, and its definition selects the " +
+        "${export.table.name} entity as ${block.key}"
   }
-
-  private fun selects(occurrence: String, table: Table<*>) = table
-    .selectedEntityFields()
-    .all { "$occurrence.${it.name}".lowercase() in facts.outputs }
+  require(block.nullable || entity.value !is NullableEntity<*>) {
+    "$failure: ${block.path} is not nullable, and its definition selects the ${entity.entityLabel} as nullable"
+  }
+  val read = export.read(columnNames.size)
+  columnNames.addAll(export.names)
+  return read
 }
+
+private val ExportedEntity.entityLabel get() = value.entity?.label

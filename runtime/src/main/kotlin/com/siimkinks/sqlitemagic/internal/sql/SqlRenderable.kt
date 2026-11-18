@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.internal.sql
 
 import com.siimkinks.sqlitemagic.CteDeclaration
 import com.siimkinks.sqlitemagic.ExecutionReader
-import com.siimkinks.sqlitemagic.KeyedField
 import com.siimkinks.sqlitemagic.QueryDependencies
 import com.siimkinks.sqlitemagic.SqlExpression
 import com.siimkinks.sqlitemagic.Table
@@ -40,7 +39,8 @@ internal class SqlRenderingContext(
   val dependencies = QueryDependencies.Builder(collectDirectSources = definition != null)
   private var scope = SourceScope(
     enclosing = null,
-    kind = ROOT
+    kind = ROOT,
+    exportedNames = definition?.exportedNames.orEmpty()
   )
 
   private var ctes: MutableScatterMap<CteDeclaration, CteBody>? = null
@@ -212,7 +212,7 @@ internal class SqlRenderingContext(
   }
 
   private fun appendDerivedOutputs(occurrence: Table<*>, names: List<String>, target: StringBuilder) {
-    val scope = scope
+    val named = namesFieldOutputs
     val qualifier = occurrence.qualifier(this)
     names.forEachIndexed { index, name ->
       if (index != 0) {
@@ -225,32 +225,20 @@ internal class SqlRenderingContext(
       }
       val quotedName = quoteSqlIdentifier(name)
       target.append(quotedName)
-      when (scope.kind) {
-        DERIVED -> target
+      if (named) {
+        target
           .append(" AS ")
           .append(quotedName)
-        else -> nameDefinitionOutput(
-          table = occurrence,
-          name = name,
-          target = target
-        )
       }
     }
   }
 
   val derivedReader get() = scope.derivedReader
 
-  fun addSource(
-    table: Table<*>,
-    qualifier: String = table.qualifier(this),
-    name: String = table.alias ?: table.name
-  ) {
+  fun addSource(table: Table<*>, qualifier: String = table.qualifier(this)) {
     val scope = scope
     scope.positions[table] = scope.qualifiers.size
     scope.qualifiers += qualifier
-    if (scope.kind == ROOT) {
-      definition?.sourceNames?.add(name)
-    }
     scope.visibleSources = scope.qualifiers.size
   }
 
@@ -371,77 +359,28 @@ internal class SqlRenderingContext(
   }
 
   fun nameOutput(expression: SqlExpression<*, *, *>) {
-    val scope = scope
+    val alias = expression.quotedOutputAlias
     when {
-      scope.kind == DERIVED -> {
+      namesFieldOutputs -> {
         val name = scope.nextExportedName()
         sql.append(" AS ")
-        when (val alias = expression.quotedOutputAlias) {
+        when (alias) {
           null -> sql.appendQuotedSqlIdentifier(name)
           else -> sql.append(alias)
         }
       }
-      expression is KeyedField<*, *, *> -> nameKeyedOutput(expression)
-      expression.quotedOutputAlias != null -> sql
+      alias != null -> sql
         .append(" AS ")
-        .append(expression.quotedOutputAlias)
-      else -> (expression.node as? ExpressionNode.Field)?.let { field ->
-        nameDefinitionOutput(
-          table = field.table,
-          name = field.name
-        )
-      }
+        .append(alias)
     }
   }
 
-  private fun nameKeyedOutput(field: KeyedField<*, *, *>) {
+  val namesFieldOutputs get() = scope.kind == DERIVED || definition != null && scope.kind == ROOT
+
+  fun nameFieldOutput() {
     sql
       .append(" AS ")
-      .append(field.quotedOutputAlias)
-    val definition = definition ?: return
-    if (scope.kind != ROOT) {
-      return
-    }
-    definition.outputs += checkNotNull(field.outputAlias).lowercase()
-    val table = (field.node as ExpressionNode.Field).table
-    val sourceName = definition.sourceNames[scope.positions[table]]
-    definition.occurrences[sourceName.lowercase()]?.let { definition.occurrences[field.key.lowercase()] = it }
-  }
-
-  val namesFieldOutputs get() = scope.kind == DERIVED || (definition != null && scope.kind == ROOT)
-
-  fun nameFieldOutput(table: Table<*>, name: String) {
-    val scope = scope
-    when (scope.kind) {
-      DERIVED -> sql
-        .append(" AS ")
-        .appendQuotedSqlIdentifier(scope.nextExportedName())
-      else -> nameDefinitionOutput(
-        table = table,
-        name = name
-      )
-    }
-  }
-
-  private fun nameDefinitionOutput(table: Table<*>, name: String, target: StringBuilder = sql) {
-    val definition = definition ?: return
-    if (scope.kind != ROOT) {
-      return
-    }
-    val position = scope.positions.getOrDefault(
-      key = table,
-      defaultValue = scope.visibleSources
-    )
-    require(position < scope.visibleSources) { MISSING_OCCURRENCE }
-    val sourceName = definition.sourceNames[position]
-    val outputName = when {
-      sourceName.isEmpty() -> name
-      else -> "$sourceName.$name"
-    }
-    definition.outputs += outputName.lowercase()
-    target
-      .append(" AS ")
-      .append(quoteSqlIdentifier(outputName))
+      .appendQuotedSqlIdentifier(scope.nextExportedName())
   }
 
   fun bind(argument: NativeValue) {
@@ -474,13 +413,10 @@ private class CteBody(val quotedName: String) {
   var reader: ExecutionReader<*>? = null
 }
 
-internal class DefinitionFacts(val viewName: String) {
-  val sourceNames = ArrayList<String>(1)
-
-  val occurrences = MutableScatterMap<String, Array<String?>>()
-
-  val outputs = MutableScatterSet<String>()
-}
+internal class DefinitionFacts(
+  val viewName: String,
+  val exportedNames: List<String>
+)
 
 private const val MISSING_OCCURRENCE =
   "A field requires the exact table occurrence of its FROM, UPDATE, DELETE or INSERT"

@@ -21,7 +21,7 @@ data class TodoListSummary(
     @ViewQuery
     val QUERY = (
         SELECT.COLUMNS(
-          TODO_LIST.all() AS "todo_list",
+          TODO_LIST,
           (SELECT
               COLUMN COUNT()
               FROM TODO_ITEM

@@ -1,8 +1,13 @@
 package com.siimkinks.sqlitemagic.fixture.view
 
+import com.siimkinks.sqlitemagic.ReaderAllNullableInnerViewTable.Companion.READER_ALL_NULLABLE_INNER_VIEW
+import com.siimkinks.sqlitemagic.ReaderAllNullableNoIdProjectionTable.Companion.READER_ALL_NULLABLE_NO_ID_PROJECTION
+import com.siimkinks.sqlitemagic.ReaderNestedNameViewTable.Companion.READER_NESTED_NAME_VIEW
 import com.siimkinks.sqlitemagic.ReaderNoIdProjectionTable.Companion.READER_NO_ID_PROJECTION
 import com.siimkinks.sqlitemagic.ReaderRelationshipAuthorTable.Companion.READER_RELATIONSHIP_AUTHOR
 import com.siimkinks.sqlitemagic.ReaderRelationshipBookTable.Companion.READER_RELATIONSHIP_BOOK
+import com.siimkinks.sqlitemagic.ReaderRelationshipTrailingScalarViewTable.Companion.READER_RELATIONSHIP_TRAILING_SCALAR_VIEW
+import com.siimkinks.sqlitemagic.ReaderRepeatedNestedViewTable.Companion.READER_REPEATED_NESTED_VIEW
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SimpleMutableEntityTable.Companion.SIMPLE_MUTABLE_ENTITY
 import com.siimkinks.sqlitemagic.annotation.Column
@@ -37,7 +42,7 @@ data class ReaderRequiredNullableTableView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT FROM (READER_ALL_NULLABLE_NO_ID_PROJECTION AS "row")
   }
 }
 
@@ -58,7 +63,7 @@ data class ReaderRequiredNullableNestedView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT FROM (READER_ALL_NULLABLE_INNER_VIEW AS "inner")
   }
 }
 
@@ -69,7 +74,7 @@ data class ReaderReorderedNullableNestedView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT FROM (READER_ALL_NULLABLE_INNER_VIEW AS "inner")
   }
 }
 
@@ -80,7 +85,7 @@ data class ReaderNullableNoIdView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT FROM (READER_NO_ID_PROJECTION AS "row")
   }
 }
 
@@ -124,12 +129,15 @@ data class ReaderOuterJoinedBlockView(
   @ViewColumn("row") val row: ReaderNoIdProjection?
 ) {
   companion object {
+    private val author = READER_RELATIONSHIP_AUTHOR AS "author"
+    private val row = READER_NO_ID_PROJECTION AS "row"
+
     @ViewQuery
     val query = SELECT
-      .COLUMNS(READER_RELATIONSHIP_AUTHOR.all() AS "author", READER_NO_ID_PROJECTION.all().nullable() AS "row")
-      .FROM(READER_RELATIONSHIP_AUTHOR)
-      .LEFT_JOIN(READER_NO_ID_PROJECTION)
-      .ON(READER_RELATIONSHIP_AUTHOR.NAME IS READER_NO_ID_PROJECTION.CODE)
+      .COLUMNS(author, row.nullable())
+      .FROM(author)
+      .LEFT_JOIN(row)
+      .ON(author.NAME IS row.CODE)
   }
 }
 
@@ -139,17 +147,15 @@ data class ReaderOuterJoinedRelationshipBlockView(
   @ViewColumn("book") val book: ReaderRelationshipBook?
 ) {
   companion object {
+    private val owner = READER_RELATIONSHIP_AUTHOR AS "owner"
     private val book = READER_RELATIONSHIP_BOOK AS "book"
-    private val bookAuthor = READER_RELATIONSHIP_AUTHOR AS "book_author"
 
     @ViewQuery
     val query = SELECT
-      .COLUMNS(READER_RELATIONSHIP_AUTHOR.all() AS "owner", book.all().nullable(), bookAuthor.all().nullable())
-      .FROM(READER_RELATIONSHIP_AUTHOR)
+      .COLUMNS(owner, book.nullable())
+      .FROM(owner)
       .LEFT_JOIN(book)
-      .ON(book.AUTHOR IS READER_RELATIONSHIP_AUTHOR.ID)
-      .LEFT_JOIN(bookAuthor)
-      .ON(book.AUTHOR IS bookAuthor.ID)
+      .ON(book.AUTHOR IS owner.ID)
   }
 }
 
@@ -179,7 +185,7 @@ data class ReaderEmbeddedViewLeafView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT FROM (READER_NESTED_NAME_VIEW AS "details_nested")
   }
 }
 
@@ -191,7 +197,7 @@ data class ReaderEmbeddedNestedView(
 ) {
   companion object {
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT FROM (READER_NESTED_NAME_VIEW AS "inner")
   }
 }
 
@@ -202,8 +208,14 @@ data class ReaderRepeatedNestedView(
   @ViewColumn("tail") val tail: String
 ) {
   companion object {
+    private val left = READER_NESTED_NAME_VIEW AS "left"
+    private val right = READER_NESTED_NAME_VIEW AS "right"
+
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT
+      .COLUMNS(left.nullable(), right.nullable())
+      .FROM(left)
+      .CROSS_JOIN(right)
   }
 }
 
@@ -213,8 +225,14 @@ data class ReaderNestedSpansView(
   @ViewColumn("repeated") val repeated: ReaderRepeatedNestedView
 ) {
   companion object {
+    private val relationship = READER_RELATIONSHIP_TRAILING_SCALAR_VIEW AS "relationship"
+    private val repeated = READER_REPEATED_NESTED_VIEW AS "repeated"
+
     @ViewQuery
-    val query = READER_QUERY
+    val query = SELECT
+      .COLUMNS(relationship, repeated)
+      .FROM(relationship)
+      .CROSS_JOIN(repeated)
   }
 }
 

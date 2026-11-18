@@ -8,6 +8,30 @@ Version 3.1.0 _(unreleased)_
   `RowSelection<Row2<Long, String>, Row2<Long, String?>>`. Code that writes the type out, or passes explicit type
   arguments to `SELECT.COLUMNS` or `SELECT.DISTINCT`, needs the new arguments; inferred queries and `mapTo` calls are
   unchanged
+* Breaking: View definitions select entity values instead of `TABLE.all() AS "key"`, and `all() AS` no longer
+  compiles, in views or in wide rows. A table- or view-typed property reads the entity of the occurrence its key
+  names, `TODO_LIST` or an alias `TODO_LIST AS "list"`, and an outer-joined one reads `TABLE.nullable()`. The entity
+  joins its own relationships, reusing the definition's joins, and names their columns by path
+  (`todo_list.owner.id`); `queryDeep()` on the definition reads every `DEEP` relationship in full. Creating the view
+  fails, naming the property, when a property has no entity value (an unkeyed `all()` or aliased columns no longer
+  fill one), when a non-null property reads a `nullable()` entity, or when a scalar property names a column inside an
+  entity value. Installed databases need a new database version for views whose columns change
+* Breaking: A subquery, common table expression or view definition whose columns repeat a name fails when it is
+  created, naming both columns, instead of reading the first of them
+* Breaking: View columns are named as subquery columns are. A field is qualified by its table object as written, not
+  by the occurrence it resolves to (`AUTHOR.NAME` beside a joined `AUTHOR AS "writer"` is `author.name`, not
+  `writer.name`, and an automatically joined author is no longer `author_2.name`); `SELECT FROM` an aliased subquery
+  or common table expression keeps its column names (`book.title`, not `d.book.title`); an unaliased computed value is
+  named `_N` by its position instead of by SQLite. Installed databases need a new database version for views whose
+  columns change
+* New: A table object among the values of `SELECT.COLUMNS` or `SELECT.DISTINCT` selects its whole entity as one
+  value, read as `SELECT FROM` that table reads it: `SELECT.COLUMNS(AUTHOR, COUNT(BOOK.ID))` reads
+  `Row2<Author, Long>`, `mapTo(::AuthorWithCount)` takes the entity as one constructor parameter, and a wide row reads
+  it with `row[AUTHOR]`. The entity joins its relationships, reusing the query's joins, and `queryDeep()` reads them in
+  full. `editor.nullable()` selects an entity that an outer join can leave NULL, read as `null` when its row is
+  missing. A subquery or common table expression exports the entities it selects, read with `source[AUTHOR]`, and
+  `SELECT COLUMN source[AUTHOR]` selects one alone; compound arms combine when they select entities of the same table
+  in the same places
 * New: INSERT statements insert rows of the listed columns, and the other columns take their defaults. Each `VALUES`
   call adds a row to the same statement, a list of `Row1`–`Row9` adds one row per element, `DEFAULT_VALUES()` inserts
   a row of defaults and `SELECT(query)` inserts the rows of a query. More than nine columns take rows that assign each

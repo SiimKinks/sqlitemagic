@@ -69,7 +69,12 @@ internal class ViewDaoWriter(
                 "%L",
                 callCode(
                   callee = CodeBlock.of("listOf"),
-                  arguments = view.blocks.map(::viewBlock)
+                  arguments = view.blocks.map { block ->
+                    viewBlock(
+                      view = view,
+                      block = block
+                    )
+                  }
                 )
               )
             )
@@ -87,11 +92,13 @@ internal class ViewDaoWriter(
     )
   }
 
-  private fun viewBlock(block: ViewProjectionPropertyElement) = callCode(
+  private fun viewBlock(view: ViewElement, block: ViewProjectionPropertyElement) = callCode(
     callee = CodeBlock.of("%T", VIEW_BLOCK),
     arguments = listOf(
       namedArgument("key", "%S", block.selectionKey),
-      namedArgument("target", "%L", block.target.tableHandle)
+      namedArgument("target", "%L", block.target.tableHandle),
+      namedArgument("path", "%S", "${view.modelName}.${block.access.path.displayName}"),
+      namedArgument("nullable", "%L", block.isNullable)
     )
   )
 

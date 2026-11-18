@@ -48,6 +48,7 @@ internal class TypedRowSelectContractTest {
           "None of the following candidates is applicable",
       "nullable entity for a non-null parameter | val invalid = SELECT.COLUMNS(table, table.nullable())" +
           ".mapTo(::Entities) | None of the following candidates is applicable",
+      """keyed column list | val invalid = table.all() AS "key" | Unresolved reference 'AS'""",
       "entity query | val invalid = SELECT.FROM(table).mapTo(::Single) | " +
           "SelectQuery<Row2<A, B>, RowSelection<R, Row2<A, B>>>.mapTo(transform: (A, B) -> M): " +
           "SelectQuery<M, RowSelection<R, M>>' is inapplicable because of a receiver type mismatch"

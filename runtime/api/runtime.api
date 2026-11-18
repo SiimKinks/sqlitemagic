@@ -1698,7 +1698,6 @@ public class com/siimkinks/sqlitemagic/Table : com/siimkinks/sqlitemagic/EntityV
 }
 
 public final class com/siimkinks/sqlitemagic/TableFields : com/siimkinks/sqlitemagic/SqlOutput {
-	public final fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/TableFields;
 	public final fun nullable ()Lcom/siimkinks/sqlitemagic/TableFields;
 }
 
@@ -2461,7 +2460,7 @@ public abstract interface class com/siimkinks/sqlitemagic/internal/ValueRead {
 }
 
 public final class com/siimkinks/sqlitemagic/internal/ViewBlock {
-	public fun <init> (Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;)V
+	public fun <init> (Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Z)V
 }
 
 public final class com/siimkinks/sqlitemagic/internal/WriterCall {

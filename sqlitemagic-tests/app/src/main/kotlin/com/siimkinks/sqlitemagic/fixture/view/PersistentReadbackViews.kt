@@ -1,5 +1,6 @@
 package com.siimkinks.sqlitemagic.fixture.view
 
+import com.siimkinks.sqlitemagic.PersistentInnerReadbackViewTable.Companion.PERSISTENT_INNER_READBACK_VIEW
 import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COMPOSITION_AUTHOR
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SubmodulePersistentValueTable.Companion.SUBMODULE_PERSISTENT_VALUE
@@ -55,10 +56,12 @@ data class PersistentNestedReadbackView(
   @ViewColumn("tail") val tail: String
 ) {
   companion object {
+    private val inner = PERSISTENT_INNER_READBACK_VIEW AS "inner"
+
     @ViewQuery
     val query = SELECT
-      .COLUMNS(QUERY_COMPOSITION_AUTHOR.NAME AS "inner.name", QUERY_COMPOSITION_AUTHOR.NAME AS "tail")
-      .FROM(QUERY_COMPOSITION_AUTHOR)
+      .COLUMNS(inner, inner.NAME AS "tail")
+      .FROM(inner)
   }
 }
 

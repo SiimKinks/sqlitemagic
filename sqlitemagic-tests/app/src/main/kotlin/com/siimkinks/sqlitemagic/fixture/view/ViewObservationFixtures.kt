@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.QueryCompositionAuthorTable.Companion.QUERY_COM
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.ViewObservationDeepestTable.Companion.VIEW_OBSERVATION_DEEPEST
 import com.siimkinks.sqlitemagic.ViewObservationFilterTable.Companion.VIEW_OBSERVATION_FILTER
+import com.siimkinks.sqlitemagic.ViewObservationInnerTable.Companion.VIEW_OBSERVATION_INNER
 import com.siimkinks.sqlitemagic.ViewObservationJoinTable.Companion.VIEW_OBSERVATION_JOIN
 import com.siimkinks.sqlitemagic.annotation.Id
 import com.siimkinks.sqlitemagic.annotation.Table
@@ -96,8 +97,6 @@ data class ViewObservationOuter(
 ) {
   companion object {
     @ViewQuery
-    val query = SELECT
-      .COLUMN(QUERY_COMPOSITION_AUTHOR.NAME AS "inner.name")
-      .FROM(QUERY_COMPOSITION_AUTHOR)
+    val query = SELECT FROM (VIEW_OBSERVATION_INNER AS "inner")
   }
 }

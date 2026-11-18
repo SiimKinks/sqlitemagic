@@ -39,6 +39,7 @@ private data class Member(
   val place: Place?
 )
 
+@Suppress("PropertyName")
 private class MemberTable : Table<Member>(
   name = "member",
   alias = null
@@ -163,29 +164,21 @@ internal class WideRowSelectTest {
   }
 
   @Test
-  fun `nullable field lists keep their alias in either order and plain ones reject an outer join`() {
-    val aliasLast = SELECT
-      .COLUMNS(PET.all().nullable() AS "animal")
-      .FROM(PERSON)
-      .LEFT_JOIN(PET)
-      .ON(PERSON.ID IS PET.OWNER)
-    val aliasFirst = SELECT
-      .COLUMNS((PET.all() AS "animal").nullable())
+  fun `nullable field lists read their plain columns and plain ones reject an outer join`() {
+    val nullable = SELECT
+      .COLUMNS(PET.all().nullable())
       .FROM(PERSON)
       .LEFT_JOIN(PET)
       .ON(PERSON.ID IS PET.OWNER)
     val plain = SELECT
-      .COLUMNS(PET.all() AS "animal")
+      .COLUMNS(PET.all())
       .FROM(PERSON)
       .LEFT_JOIN(PET)
       .ON(PERSON.ID IS PET.OWNER)
 
-    assertThat(listOf(aliasLast, aliasFirst).map { it.compile().sql }).isEqualTo(
-      List(size = 2) {
-        """SELECT "pet"."id" AS "animal.id", "pet"."owner" AS "animal.owner", "pet"."name" AS "animal.name", """ +
-            """"pet"."nickname" AS "animal.nickname" FROM "main"."person" """ +
-            """LEFT JOIN "main"."pet" ON "person"."id" = "pet"."owner""""
-      }
+    assertThat(nullable.compile().sql).isEqualTo(
+      """SELECT "pet"."id", "pet"."owner", "pet"."name", "pet"."nickname" FROM "main"."person" """ +
+          """LEFT JOIN "main"."pet" ON "person"."id" = "pet"."owner""""
     )
     assertThat(assertThrows(IllegalArgumentException::class.java, plain::compile))
       .hasMessageThat()

@@ -131,7 +131,6 @@ private fun SqlRenderingContext.renderEntityColumns(table: Table<*>, related: Re
       qualifier = qualifier
     )
     else -> renderViewColumns(
-      table = table,
       view = view,
       qualifier = qualifier
     )
@@ -161,14 +160,11 @@ private fun SqlRenderingContext.renderDerivedEntity(entity: DerivedEntity<*>) {
         .append('.')
     }
     sql.appendQuotedSqlIdentifier(name)
-    nameFieldOutput(
-      table = occurrence,
-      name = name
-    )
+    nameFieldOutput()
   }
 }
 
-private fun SqlRenderingContext.renderViewColumns(table: Table<*>, view: ViewDefinition, qualifier: String) {
+private fun SqlRenderingContext.renderViewColumns(view: ViewDefinition, qualifier: String) {
   if (!namesFieldOutputs) {
     sql.append(view.renderedColumns(qualifier))
     return
@@ -178,10 +174,7 @@ private fun SqlRenderingContext.renderViewColumns(table: Table<*>, view: ViewDef
       .append(qualifier)
       .append('.')
       .append(view.quotedColumnNames[index])
-    nameFieldOutput(
-      table = table,
-      name = view.columnNames[index]
-    )
+    nameFieldOutput()
   }
 }
 
@@ -192,9 +185,6 @@ private fun SqlRenderingContext.renderFields(table: Table<*>, qualifier: String)
   }
   renderList(items = table.selectedEntityFields()) { field ->
     field.node.render(this)
-    nameFieldOutput(
-      table = table,
-      name = field.name
-    )
+    nameFieldOutput()
   }
 }

@@ -29,9 +29,11 @@ internal class ViewDefinition(
   }
 }
 
-/** A view property of table or view type, read from the columns named `key.column`. */
+/** A view property of table or view type, read from the entity value of the occurrence its key names. */
 @InternalSqliteMagicApi
 class ViewBlock(
   internal val key: String,
-  internal val target: Table<*>
+  internal val target: Table<*>,
+  internal val path: String,
+  internal val nullable: Boolean
 )

@@ -5,12 +5,81 @@ import com.siimkinks.sqlitemagic.utils.PlainKotlinCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.readDriverSupport
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
 
 internal class ViewSelectContractTest {
+  @Test
+  fun `the usage guide's view selects its entity property as an entity value`() {
+    SqliteMagicCompilation
+      .compile(
+        SourceFile.kotlin(
+          name = "GuideViews.kt",
+          contents = """
+            package fixtures.guide
+
+            import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
+            import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
+            import com.siimkinks.sqlitemagic.COUNT
+            import com.siimkinks.sqlitemagic.IS
+            import com.siimkinks.sqlitemagic.MAX
+            import com.siimkinks.sqlitemagic.SELECT
+            import com.siimkinks.sqlitemagic.annotation.Id
+            import com.siimkinks.sqlitemagic.annotation.Table
+            import com.siimkinks.sqlitemagic.annotation.View
+            import com.siimkinks.sqlitemagic.annotation.ViewColumn
+            import com.siimkinks.sqlitemagic.annotation.ViewQuery
+            import com.siimkinks.sqlitemagic.asScalar
+
+            @Table
+            data class Author(
+              @Id val id: Long? = null,
+              val name: String
+            )
+
+            @Table
+            data class Book(
+              @Id val id: Long? = null,
+              val pages: Int,
+              val author: Author
+            )
+
+            @View
+            data class AuthorSummary(
+              @ViewColumn("author")
+              val author: Author,
+              @ViewColumn("book_count")
+              val bookCount: Long,
+              @ViewColumn("longest")
+              val longest: Int?
+            ) {
+              companion object {
+                @ViewQuery
+                val QUERY = SELECT
+                  .COLUMNS(
+                    AUTHOR,
+                    (SELECT COLUMN COUNT() FROM BOOK WHERE (BOOK.AUTHOR IS AUTHOR.ID)).asScalar() AS "book_count",
+                    (SELECT COLUMN MAX(BOOK.PAGES) FROM BOOK WHERE (BOOK.AUTHOR IS AUTHOR.ID)).asScalar() AS "longest"
+                  )
+                  .FROM(AUTHOR)
+              }
+            }
+          """
+        ),
+        processingStepsFactory = null
+      )
+      .isOk()
+      .withGeneratedSource("SqliteMagic_AuthorSummary_Dao.kt") {
+        it.assertContainsUnwrapped(
+          """columns = listOf("book_count", "longest")""",
+          """ViewBlock(key = "author", target = AuthorTable.AUTHOR, path = "AuthorSummary.author", nullable = false)"""
+        )
+      }
+  }
+
   @Test
   fun `views define their query with the DSL and read through their generated handles`() {
     val generated = SqliteMagicCompilation
@@ -44,7 +113,7 @@ internal class ViewSelectContractTest {
             ) {
               companion object {
                 @ViewQuery
-                val QUERY = SELECT FROM AUTHOR WHERE (AUTHOR.NAME LIKE "A%")
+                val QUERY = SELECT.COLUMNS(AUTHOR.all()) FROM AUTHOR WHERE (AUTHOR.NAME LIKE "A%")
               }
             }
 

@@ -31,7 +31,7 @@ data class AuthorSummary(
     @ViewQuery
     val QUERY = SELECT
       .COLUMNS(
-        AUTHOR.all() AS "author",
+        AUTHOR,
         (SELECT COLUMN COUNT() FROM BOOK WHERE (BOOK.AUTHOR IS AUTHOR.ID)).asScalar() AS "book_count",
         (SELECT COLUMN MAX(BOOK.PAGES) FROM BOOK WHERE (BOOK.AUTHOR IS AUTHOR.ID)).asScalar() AS "longest"
       )
@@ -53,15 +53,25 @@ data class AuthorSummary(
 ## Columns and names
 
 - A view column is named by its `AS` alias, otherwise by the field's qualified name: an unaliased `AUTHOR.NAME`
-  is the column `author.name`. Computed values always take an `AS` alias.
+  is the column `author.name`, named by the table object as written even when it reads an aliased or automatically
+  joined occurrence. `SELECT FROM` a subquery or CTE keeps its column names. Computed values always take an `AS`
+  alias; an unaliased one is named `_N` by its position.
 - A root property maps the column named after it in snake case (`bookCount` → alias `book_count`); `@ViewColumn("…")`
   names another, and is required for qualified names (`"author.name"`).
-- A property whose type is a `@Table` (or `@View`) model reads a whole block: select `AUTHOR.all() AS "author"` and
-  annotate `@ViewColumn("author") val author: Author`. Its relationships are built from the columns the definition
-  joins for them, or from their IDs where the model allows. A nullable block reads `null` when all its columns are NULL.
-- A block from the NULL-extended side of an outer join is selected lifted, into a nullable property: with
-  `.LEFT_JOIN(BOOK)`, select `BOOK.all().nullable() AS "book"` and declare `@ViewColumn("book") val book: Book?`. Plain
-  `BOOK.all()` there fails when the view is created. Lift the blocks a nullable block's relationships join too.
+- A property whose type is a `@Table` (or `@View`) model reads an entity value of the definition, matched by
+  occurrence name: select `AUTHOR` and annotate `@ViewColumn("author") val author: Author`. Another key is another
+  occurrence, made with an alias: `val writer = AUTHOR AS "writer"`, used in `FROM` and `COLUMNS`, fills
+  `@ViewColumn("writer")`. A view whose only property is an entity has the definition `SELECT FROM AUTHOR`.
+- The entity value joins its relationships as in queries: `ALWAYS` targets always, `DEEP` targets in full with
+  `queryDeep()` on the definition (for every block), otherwise built from their IDs. A block's own columns are named
+  `key.column` (`author.name`), and its relationships' by path (`author.publisher.id`).
+- An entity on the NULL-extended side of an outer join is selected with `nullable()`, into a nullable property: with
+  `.LEFT_JOIN(BOOK)`, select `BOOK.nullable()` and declare `@ViewColumn("book") val book: Book?`; it reads `null` when
+  every column of the book's own row is NULL. Without `nullable()`, or into a non-null property, the view fails when
+  it is created.
+- A scalar property reads a column the definition selects itself: a field, an aliased value or the columns of
+  `all()` (`AUTHOR.all()` selects `author.id`, `author.name`, …), never a column inside an entity value. A scalar
+  column named like one an entity value exports fails when the view is created; alias it.
 - Properties of `@Embedded` values map by their snake-case names with the embedded prefix.
 - Raw SQL over a view quotes dotted names: `SELECT "author.name", book_count FROM author_summary`.
 
@@ -70,8 +80,9 @@ data class AuthorSummary(
 - Values in the definition render as escaped SQL literals: `WHERE (BOOK.STATUS IS BookStatus.PUBLISHED)` becomes part
   of the view text. Named parameters are rejected when the view is created.
 - Raw fragments in a definition must write constants into their text; SQLite rejects `?` in views.
-- The definition is rendered once per process, when views are first created, and checked then: a required
-  relationship block the definition cannot fill, or a parameter, fails before any DDL.
+- The definition is rendered once per process, when views are first created, and checked then: a table- or view-typed
+  property without its entity value (`AUTHOR.all()` does not fill one), a required property fed by `nullable()`, two
+  columns with one name, or a parameter fails before any DDL.
 - Changing a view's query changes the schema: debug builds migrate automatically; a release needs a new database
   version ([migrations.md](migrations.md)). Persistent views are dropped and recreated on every upgrade.
 - Functions and syntax in the definition must exist in every SQLite that opens the database (the framework driver's

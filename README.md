@@ -755,6 +755,15 @@ val authorNames = SELECT
   .mapTo(::AuthorName)
   .execute()
 
+// whole entities beside other values -- List<Row2<Author, Long>>
+val booksPerAuthor = (
+    SELECT.COLUMNS(AUTHOR, COUNT(BOOK.ID))
+        FROM AUTHOR
+        LEFT_JOIN BOOK ON (BOOK.AUTHOR IS AUTHOR.ID)
+        GROUP_BY AUTHOR.ID
+    )
+  .execute()
+
 // single columns, the first result and counting
 val titles: List<String> = (SELECT COLUMN BOOK.TITLE FROM BOOK).execute()
 val first: Author? = (SELECT FROM AUTHOR).takeFirst().execute()

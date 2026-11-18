@@ -85,11 +85,9 @@ internal class GeneratedViewCompositionTest {
       )
     )
     assertThat(READER_OUTER_JOINED_BLOCK_VIEW.viewDefinition?.sql).isEqualTo(
-      """SELECT "reader_relationship_author"."id" AS "author.id", """ +
-          """"reader_relationship_author"."name" AS "author.name", """ +
-          """"reader_no_id_projection"."code" AS "row.code", "reader_no_id_projection"."count" AS "row.count" """ +
-          """FROM "main"."reader_relationship_author" LEFT JOIN "main"."reader_no_id_projection" """ +
-          """ON "reader_relationship_author"."name" = "reader_no_id_projection"."code""""
+      """SELECT "author"."id" AS "author.id", "author"."name" AS "author.name", "row"."code" AS "row.code", """ +
+          """"row"."count" AS "row.count" FROM "main"."reader_relationship_author" AS "author" """ +
+          """LEFT JOIN "main"."reader_no_id_projection" AS "row" ON "author"."name" = "row"."code""""
     )
   }
 

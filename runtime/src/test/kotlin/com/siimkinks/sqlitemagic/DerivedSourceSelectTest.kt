@@ -336,7 +336,7 @@ internal class DerivedSourceSelectTest {
       viewName = "published_row",
       temporary = false,
       query = { SELECT FROM published },
-      columns = listOf("published.book.title")
+      columns = listOf("book.title")
     )
 
     assertThat(
@@ -345,9 +345,9 @@ internal class DerivedSourceSelectTest {
         defaultView.definition.sql
       )
     ).isEqualTo(
-      List(2) {
-        """SELECT "published"."book.title" AS "published.book.title" FROM (SELECT "book"."title" AS """ +
-            """"book.title" FROM "main"."book" WHERE "book"."title" != 'Dune') AS "published""""
+      listOf("published.book.title", "book.title").map { name ->
+        """SELECT "published"."book.title" AS "$name" FROM (SELECT "book"."title" AS "book.title" """ +
+            """FROM "main"."book" WHERE "book"."title" != 'Dune') AS "published""""
       }
     )
     libraryDatabase().use { database ->
@@ -369,9 +369,9 @@ internal class DerivedSourceSelectTest {
         )
       )
       assertThat(
-        listOf("published_title", "published_row").map { viewName ->
+        listOf("published_title" to "published.book.title", "published_row" to "book.title").map { (viewName, name) ->
           SELECT
-            .RAW("""SELECT "published.book.title" FROM $viewName""")
+            .RAW("""SELECT "$name" FROM $viewName""")
             .readAs(STRING)
             .usingConnection(connection)
             .execute()

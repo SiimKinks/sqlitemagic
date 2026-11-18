@@ -25,9 +25,12 @@ internal class ViewProjectionContractTest {
       .withGeneratedSource("SqliteMagic_CompleteProjectionView_Dao.kt") {
         it.assertContainsUnwrapped(
           "columns = emptyList()",
-          """ViewBlock(key = "no_id_row", target = NoIdRowTable.NO_ID_ROW)""",
-          """ViewBlock(key = "text_id_row", target = TextIdRowTable.TEXT_ID_ROW)""",
-          """ViewBlock(key = "late_id_row", target = LateIdRowTable.LATE_ID_ROW)""",
+          """ViewBlock(key = "no_id_row", target = NoIdRowTable.NO_ID_ROW, """ +
+              """path = "CompleteProjectionView.noId", nullable = false)""",
+          """ViewBlock(key = "text_id_row", target = TextIdRowTable.TEXT_ID_ROW, """ +
+              """path = "CompleteProjectionView.textId", nullable = false)""",
+          """ViewBlock(key = "late_id_row", target = LateIdRowTable.LATE_ID_ROW, """ +
+              """path = "CompleteProjectionView.lateId", nullable = false)""",
           "noId = related.read(statement, 0) as NoIdRow",
           "textId = related.read(statement, 1) as TextIdRow",
           "lateId = related.read(statement, 2) as LateIdRow"
@@ -42,7 +45,8 @@ internal class ViewProjectionContractTest {
       .assertGeneratedSources("SqliteMagic_RelationshipGraphProjection_Dao.kt")
       .withGeneratedSource("SqliteMagic_RelationshipGraphProjection_Dao.kt") { generatedSource ->
         generatedSource.assertContainsUnwrapped(
-          """blocks = listOf(ViewBlock(key = "book", target = ProjectionBookTable.PROJECTION_BOOK))""",
+          """blocks = listOf(ViewBlock(key = "book", target = ProjectionBookTable.PROJECTION_BOOK, """ +
+              """path = "RelationshipGraphProjection.book", nullable = false))""",
           "book = related.read(statement, 0) as ProjectionBook"
         )
         generatedSource.assertDoesNotContain(
@@ -59,8 +63,10 @@ internal class ViewProjectionContractTest {
       .assertGeneratedSources("SqliteMagic_RepeatedProjectionView_Dao.kt")
       .withGeneratedSource("SqliteMagic_RepeatedProjectionView_Dao.kt") {
         it.assertContainsUnwrapped(
-          """ViewBlock(key = "first_no_id", target = NoIdRowTable.NO_ID_ROW)""",
-          """ViewBlock(key = "second_no_id", target = NoIdRowTable.NO_ID_ROW)""",
+          """ViewBlock(key = "first_no_id", target = NoIdRowTable.NO_ID_ROW, """ +
+              """path = "RepeatedProjectionView.first", nullable = true)""",
+          """ViewBlock(key = "second_no_id", target = NoIdRowTable.NO_ID_ROW, """ +
+              """path = "RepeatedProjectionView.second", nullable = true)""",
           "first = related.readOrNull(statement, 0) as NoIdRow?",
           "second = related.readOrNull(statement, 1) as NoIdRow?"
         )
@@ -91,7 +97,7 @@ internal class ViewProjectionContractTest {
       }
       .withGeneratedSource("SqliteMagic_ComposedView_Dao.kt") { generatedSource ->
         generatedSource.assertContainsUnwrapped(
-          """ViewBlock(key = "base", target = BaseViewTable.BASE_VIEW)""",
+          """ViewBlock(key = "base", target = BaseViewTable.BASE_VIEW, path = "ComposedView.base", nullable = false)""",
           "base = related.read(statement, 0) as BaseView",
           "tail = "
         )
@@ -123,7 +129,8 @@ internal class ViewProjectionContractTest {
       )
       .withGeneratedSource("SqliteMagic_OuterAuthor_Dao.kt") {
         it.assertContainsUnwrapped(
-          """ViewBlock(key = "inner_author", target = InnerAuthorTable.INNER_AUTHOR)""",
+          """ViewBlock(key = "inner_author", target = InnerAuthorTable.INNER_AUTHOR, """ +
+              """path = "OuterAuthor.inner", nullable = true)""",
           "`inner` = related.readOrNull(statement, 0) as InnerAuthor?",
           "fun objectFromRow("
         )
@@ -149,7 +156,8 @@ internal class ViewProjectionContractTest {
         generatedSource.assertContainsUnwrapped(
           """columns = listOf("details_contact_email_alias", "details_contact_city", "other_email_alias", """ +
               """"other_city")""",
-          """blocks = listOf(ViewBlock(key = "details_author", target = AuthorTable.AUTHOR))""",
+          """blocks = listOf(ViewBlock(key = "details_author", target = AuthorTable.AUTHOR, """ +
+              """path = "EmbeddedView.details.author", nullable = true))""",
           "details = Details(contact = if (column0IsNull && column1IsNull) null else Contact(",
           "EmbeddedEmailTransformer.fromDb(statement.getText(startIndex))",
           "author = related.readOrNull(statement, 0) as Author?",
@@ -175,7 +183,8 @@ internal class ViewProjectionContractTest {
       .withGeneratedSource("SqliteMagic_EmbeddedViewProjection_Dao.kt") {
         it.assertContainsUnwrapped(
           """columns = listOf("details_marker")""",
-          """blocks = listOf(ViewBlock(key = "details_inner", target = InnerViewTable.INNER_VIEW))""",
+          """blocks = listOf(ViewBlock(key = "details_inner", target = InnerViewTable.INNER_VIEW, """ +
+              """path = "EmbeddedViewProjection.details.inner", nullable = false))""",
           "details = NestedDetails(`inner` = related.read(statement, 0) as InnerView",
           "marker = statement.getRequiredText(startIndex, "
         )
