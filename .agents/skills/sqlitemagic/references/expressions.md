@@ -65,6 +65,7 @@ are members and need no import.
 | `IS NULL`, `IS NOT NULL` | `a.IS_NULL()`, `a.IS_NOT_NULL()` |
 | `AND`, `OR`, `NOT` | `p AND q`, `p OR q`, `p AND_NOT q`, `p OR_NOT q`, `!p` |
 | `EXISTS (…)` | `EXISTS(query)`, `NOT_EXISTS(query)` |
+| full-text `MATCH` | `ARTICLE_FTS MATCH "sqlite"`, `ARTICLE_FTS.TITLE MATCH query` |
 
 - `IS` means SQL `=`: comparing with NULL yields NULL, never true. Test NULL with `IS_NULL()`; host values passed to
   `IS` must be non-null.
@@ -76,7 +77,9 @@ are members and need no import.
   the IDs with a subquery (`IN query`) or chunk the list.
 - `LIKE` is case-insensitive for ASCII only (and for all letters with ICU on the framework driver); `GLOB` is
   case-sensitive. A pattern with a leading wildcard (`"%term%"`) scans the whole table; a prefix pattern (`"term%"`)
-  can use an index on the column.
+  can use an index on the column. To search words in text, declare a full-text index and use `MATCH`.
+- `MATCH`, its ranking (`RANK`, `BM25`) and its result functions (`HIGHLIGHT`, `SNIPPET`, `OFFSETS`, `MATCHINFO`)
+  work on the generated object of a full-text index: [queries.md](queries.md#full-text-search).
 - Kotlin's infix calls all have the same precedence and associate left: parenthesize every comparison inside `AND`/
   `OR`, and every `AND` inside `OR`. The generated SQL follows the Kotlin grouping exactly.
 

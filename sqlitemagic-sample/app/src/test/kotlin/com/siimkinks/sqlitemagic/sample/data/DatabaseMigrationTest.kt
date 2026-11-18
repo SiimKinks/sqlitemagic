@@ -87,6 +87,41 @@ internal class DatabaseMigrationTest {
   }
 
   @Test
+  fun `upgrade indexes the titles of existing items for search`() {
+    migrationHelper.use { helper ->
+      helper
+        .createDatabase(
+          name = "todos",
+          version = 5
+        )
+        .use { database ->
+          database.execute(
+            sql = "INSERT INTO todo_list(id,name) VALUES (?,?)",
+            bindArgs = listOf(7L, "Groceries")
+          )
+          database.execute(
+            sql = "INSERT INTO todo_item(id,title,list) VALUES (?,?,?)",
+            bindArgs = listOf(11L, "Buy oat milk", 7L)
+          )
+        }
+      helper
+        .runMigrationsAndValidate(
+          name = "todos",
+          fromVersion = 5
+        )
+        .use { database ->
+          assertEquals(
+            MigrationTestResult(
+              columns = listOf("rowid"),
+              rows = listOf(listOf(11L))
+            ),
+            database.query("SELECT rowid FROM todo_item_fts WHERE todo_item_fts MATCH 'milks'")
+          )
+        }
+    }
+  }
+
+  @Test
   fun `upgrade rebuilds the summary view that pre-rewrite releases created`() {
     migrationHelper.use { helper ->
       helper

@@ -16,7 +16,7 @@ android {
     targetSdk = 37
     versionCode = 1
     versionName = "1.0"
-    buildConfigField("int", "DB_VERSION", "5")
+    buildConfigField("int", "DB_VERSION", "6")
   }
   sourceSets.named("debug") {
     assets.directories.add("src/release/assets")

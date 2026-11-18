@@ -1,14 +1,14 @@
 ---
 name: sqlitemagic
 description: >-
-  Write, extend and review Android code that uses SqliteMagic 3, the KSP-generated SQLite layer with a SQL-first
-  Kotlin DSL: setup and drivers, @Table models, relationships, transformers and views, entity operations (insert,
-  update, persist, delete), queries (SELECT FROM, SELECT.COLUMNS, joins, subqueries, aggregates, compiled queries),
-  INSERT (with UPSERT), UPDATE and DELETE statements, raw SQL, observing queries with coroutines or RxJava,
-  transactions and migrations. Use whenever code imports com.siimkinks.sqlitemagic or a task adds a table, column,
-  query, repository, database screen or migration in a SqliteMagic project, even if the request only says "store
-  this", "query the db" or "make it reactive". Not for upgrading from SqliteMagic 2.x or 0.x (use
-  sqlitemagic-upgrade), nor for changing SqliteMagic itself.
+  Write, extend and review Android code that uses SqliteMagic 3, the KSP-generated SQLite layer with a SQL-first Kotlin
+  DSL: setup and drivers, @Table models, relationships, transformers and views, entity operations (insert, update,
+  persist, delete), queries (SELECT FROM, SELECT.COLUMNS, joins, subqueries, aggregates, compiled queries), full-text
+  search (@FullTextIndex, MATCH, ranking, highlighting), INSERT (with UPSERT), UPDATE and DELETE statements, raw SQL,
+  observing queries with coroutines or RxJava, transactions and migrations. Use whenever code imports
+  com.siimkinks.sqlitemagic or a task adds a table, column, query, repository, database screen or migration in a
+  SqliteMagic project, even if the request only says "store this", "query the db" or "make it reactive". Not for
+  upgrading from SqliteMagic 2.x or 0.x (use sqlitemagic-upgrade), nor for changing SqliteMagic itself.
 ---
 
 # Using SqliteMagic
@@ -27,7 +27,7 @@ Read the reference a task needs, not all of them up front:
 | Gradle setup, choosing a driver, initialization, connection tuning, multi-module projects, logging | [setup.md](references/setup.md) |
 | Declaring tables, IDs, columns, nullability, defaults, indexes, full-text indexes, relationships, embedded values, transformers; what is generated | [models.md](references/models.md) |
 | Saving and deleting objects: insert, update, persist, delete, bulk operations, results, conflicts | [entity-operations.md](references/entity-operations.md) |
-| Reading data: SELECT shapes, result types, clauses, joins, aliases, mapping, subqueries, CTEs, compounds, terminals, parameters | [queries.md](references/queries.md) |
+| Reading data: SELECT shapes, result types, clauses, joins, aliases, mapping, full-text search, subqueries, CTEs, compounds, terminals, parameters | [queries.md](references/queries.md) |
 | Building values and predicates: comparisons, NULL, arithmetic, aggregates, windows, text helpers, CASE/COALESCE, CAST, raw fragments, functions | [expressions.md](references/expressions.md) |
 | INSERT (with UPSERT), UPDATE and DELETE statements and whole raw SQL | [statements.md](references/statements.md) |
 | SQLite views from a DSL query | [views.md](references/views.md) |

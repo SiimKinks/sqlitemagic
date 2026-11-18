@@ -110,10 +110,14 @@ There is no default driver. Keep the project's choice; for a new project:
 | Text | ICU case folding in `LOWER`/`UPPER`/`LIKE`, `LOCALIZED` and `UNICODE` collations | ASCII-only folding, no Android collations |
 | Tooling | Android Studio Database Inspector | none |
 | Limits | a row larger than a cursor window (~2 MB) cannot be read; `RETURNING` re-runs per window | none of these |
+| Full-text search | FTS4 only, with the `icu` tokenizer | FTS5 and FTS4, no `icu` tokenizer |
 
 - Choose bundled when the app needs newer SQL on every supported device: window functions (SQLite 3.25), `FILTER`
   (3.30), `RIGHT`/`FULL` joins (3.39), row values (3.15) or `RETURNING` (3.35). On the framework driver those fail on
   older devices when the statement is prepared; the library does not check versions or fall back.
+- Choose bundled also for FTS5 full-text search with its ranking and highlighting
+  ([models.md](models.md#full-text-indexes)): the framework driver has no FTS5 module on any API level, so a schema
+  with an FTS5 index fails to open there. FTS4 indexes work on both.
 - Choose framework when locale-aware text handling, minimal APK size or the Database Inspector matter.
 - On the framework driver, each process's first open of a WAL database logs
   `E/SQLiteLog: (5) statement aborts … [PRAGMA journal_mode=…]` and
