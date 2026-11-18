@@ -5,7 +5,10 @@ import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_RELATIONSHIP_ID_ENCODINGS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.ENCODING_TYPE
+import com.siimkinks.sqlitemagic.WriterTypes.FTS4_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.FTS4_TABLE
 import com.siimkinks.sqlitemagic.WriterTypes.FTS5_COLUMN
+import com.siimkinks.sqlitemagic.WriterTypes.FTS5_TABLE
 import com.siimkinks.sqlitemagic.WriterTypes.NULLABLE_READ_TYPE
 import com.siimkinks.sqlitemagic.WriterTypes.PARAMETER_ENCODING_FACTORY
 import com.siimkinks.sqlitemagic.WriterTypes.RELATIONSHIP_READ
@@ -14,6 +17,8 @@ import com.siimkinks.sqlitemagic.WriterTypes.SQL_STORAGE
 import com.siimkinks.sqlitemagic.WriterTypes.TABLE_RELATIONSHIP
 import com.siimkinks.sqlitemagic.WriterTypes.UNIQUE_COLUMN
 import com.siimkinks.sqlitemagic.WriterTypes.nullnessType
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS4
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
@@ -100,7 +105,12 @@ internal class ModelTableWriter(
   ): FullTextTableStructureWriter {
     val className = index.tableClassName
     val columnsByName = table.allColumns.associateBy(ColumnElement::columnName)
-    val members = index.columns.map { columnsByName.getValue(it.columnName) }
+    val members = index.tableColumns.map { columnsByName.getValue(it.columnName) }
+    val languageIdColumn = index.languageIdColumn?.let { columnsByName.getValue(it.columnName) }
+    val columnClass = when (index.version) {
+      FTS5 -> FTS5_COLUMN
+      FTS4 -> FTS4_COLUMN
+    }
     val rowIdColumn = columnsByName.getValue(index.rowIdColumnName)
     fun field(
       column: ColumnElement,
@@ -123,6 +133,10 @@ internal class ModelTableWriter(
     )
     return FullTextTableStructureWriter(
       className = className,
+      superclass = when (index.version) {
+        FTS5 -> FTS5_TABLE
+        FTS4 -> FTS4_TABLE
+      },
       fieldName = index.fieldName,
       isPublic = table.isPublic,
       constructorArguments = listOf(
@@ -134,11 +148,20 @@ internal class ModelTableWriter(
       columns = members.mapIndexed { position, column ->
         field(
           column = column,
-          fieldClass = FTS5_COLUMN,
+          fieldClass = columnClass,
           ownerTypeArguments = emptyList(),
           fieldName = column.fieldName,
           columnName = column.columnName,
           position = position
+        )
+      } + listOfNotNull(languageIdColumn).map { column ->
+        field(
+          column = column,
+          fieldClass = COLUMN,
+          ownerTypeArguments = listOf(NOTHING),
+          fieldName = column.fieldName,
+          columnName = column.columnName,
+          position = null
         )
       } + field(
         column = rowIdColumn,
@@ -148,7 +171,9 @@ internal class ModelTableWriter(
         columnName = FULL_TEXT_ROW_ID_COLUMN,
         position = null
       ),
-      relationshipIdEncodings = relationshipIdEncodings((members + rowIdColumn).distinct())
+      relationshipIdEncodings = relationshipIdEncodings(
+        (members + listOfNotNull(languageIdColumn, rowIdColumn)).distinct()
+      )
     )
   }
 

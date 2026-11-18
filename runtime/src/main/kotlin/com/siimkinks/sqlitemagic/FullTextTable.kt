@@ -19,8 +19,8 @@ import com.siimkinks.sqlitemagic.internal.sql.compileMutation
  * Search the table with [MATCH] in a query that selects from it: the query joins the index with an `INNER JOIN`
  * directly after the table. Join the index explicitly when the table is a source more than once or only through a
  * relationship. The index has no entity: select from it with `SELECT.COLUMNS(…).FROM(…)`. Write statements do not
- * take it, since its table's triggers keep it in sync. [BM25], [HIGHLIGHT] and [SNIPPET] fail with SQLite's error for
- * a row that a `LEFT JOIN` of the index fills with NULLs.
+ * take it, since its table's triggers keep it in sync. [BM25], [HIGHLIGHT], [SNIPPET], [OFFSETS] and [MATCHINFO] fail
+ * with SQLite's error for a row that a `LEFT JOIN` of the index fills with NULLs.
  *
  * Example:
  * ```
@@ -56,6 +56,7 @@ sealed class FullTextTable(
    * @param query Full-text query
    * @return Expression
    * @see [SQLite documentation: Full-text query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax)
+   * @see [SQLite documentation: FTS4 queries](https://www.sqlite.org/fts3.html#full_text_index_queries)
    */
   infix fun MATCH(query: String) = binaryPredicate(
     left = table.operand,
@@ -78,6 +79,7 @@ sealed class FullTextTable(
    * @param query Full-text query, such as a parameter
    * @return Expression
    * @see [SQLite documentation: Full-text query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax)
+   * @see [SQLite documentation: FTS4 queries](https://www.sqlite.org/fts3.html#full_text_index_queries)
    */
   infix fun MATCH(query: SqlExpression<String?, *, *>) = binaryPredicate(
     left = table.operand,
@@ -101,6 +103,7 @@ sealed class FullTextTable(
    *
    * @return SQL statement
    * @see [SQLite documentation: The 'rebuild' command](https://www.sqlite.org/fts5.html#the_rebuild_command)
+   * @see [SQLite documentation: The 'rebuild' command of FTS4](https://www.sqlite.org/fts3.html#rebuild)
    */
   @CheckResult
   fun rebuild(): MutationQuery = FullTextCommand(
@@ -120,6 +123,7 @@ sealed class FullTextTable(
    *
    * @return SQL statement
    * @see [SQLite documentation: The 'optimize' command](https://www.sqlite.org/fts5.html#the_optimize_command)
+   * @see [SQLite documentation: The 'optimize' command of FTS4](https://www.sqlite.org/fts3.html#optimize)
    */
   @CheckResult
   fun optimize(): MutationQuery = FullTextCommand(
@@ -141,6 +145,7 @@ sealed class FullTextTable(
    *
    * @return SQL statement
    * @see [SQLite documentation: integrity-check](https://www.sqlite.org/fts5.html#the_integrity_check_command)
+   * @see [SQLite documentation: The 'integrity-check' command of FTS4](https://www.sqlite.org/fts3.html#integcheck)
    */
   @CheckResult
   fun integrityCheck(): MutationQuery = FullTextCommand(
@@ -149,6 +154,7 @@ sealed class FullTextTable(
         command = "integrity-check",
         rank = 1
       )
+      is Fts4Table -> table.command("integrity-check")
     }
   )
 
@@ -248,6 +254,110 @@ abstract class Fts5Table @InternalSqliteMagicApi protected constructor(
 }
 
 /**
+ * FTS4 full-text index of a table, generated for each `@FullTextIndex(version = FTS4)`.
+ *
+ * A column with the `LANGUAGE_ID` role is a plain field of the index: [MATCH] searches language 0 unless the query
+ * also compares that field, as in `(MEMO_FTS MATCH "sqlite") AND (MEMO_FTS.LANGUAGE IS 1)`.
+ *
+ * @see FullTextTable
+ */
+abstract class Fts4Table @InternalSqliteMagicApi protected constructor(
+  name: String,
+  alias: String?,
+  contentTable: Table<*>,
+  contentRowIdColumnName: String
+) : FullTextTable(
+  name = name,
+  alias = alias,
+  contentTable = contentTable,
+  contentRowIdColumnName = contentRowIdColumnName
+) {
+  /**
+   * Full-text query that matches the rows containing every term of free text, such as user input.
+   *
+   * The text is split at whitespace and NUL characters and every term is quoted as a phrase, so query syntax in the
+   * text (`AND`, `OR`, `NOT`, `NEAR`, `-`, quotes, column filters) is searched for as text and never fails the query.
+   * FTS4 cannot quote a `*` or a quote inside a phrase, so they separate words. A term without a letter or digit is
+   * left out, since FTS4 matches no row for a phrase without words. Text without terms matches no rows.
+   *
+   * Example:
+   * ```
+   * SELECT FROM MEMO WHERE (MEMO_FTS MATCH MEMO_FTS.terms(input, prefix = true))
+   * ```
+   *
+   * @param text Free text
+   * @param prefix Whether the last term also matches the words it begins, for search as you type
+   * @return Full-text query, such as `"sqlite" "ro*"` for `sqlite ro` with [prefix]
+   */
+  fun terms(text: String, prefix: Boolean = false) = buildString {
+    var start = -1
+    var wordsEnd = -1
+    for (index in 0..text.length) {
+      when {
+        index < text.length && !text[index].separatesTerms() -> if (start < 0) {
+          start = index
+        }
+        start >= 0 -> {
+          val end = text.letterOrDigitEnd(
+            start = start,
+            end = index
+          )
+          if (end > start) {
+            if (isNotEmpty()) {
+              append(' ')
+            }
+            append('"')
+            appendTermText(
+              text = text,
+              start = start,
+              end = end
+            )
+            wordsEnd = length
+            appendTermText(
+              text = text,
+              start = end,
+              end = index
+            )
+            append('"')
+          }
+          start = -1
+        }
+      }
+    }
+    if (prefix && wordsEnd >= 0) {
+      setLength(wordsEnd)
+      append('*')
+      append('"')
+    }
+  }
+
+  abstract override infix fun AS(alias: String): Fts4Table
+}
+
+private fun Char.separatesTerms() = isWhitespace() || this == '\u0000'
+
+private fun String.letterOrDigitEnd(start: Int, end: Int): Int {
+  var position = end
+  while (position > start) {
+    val codePoint = codePointBefore(position)
+    if (Character.isLetterOrDigit(codePoint)) {
+      return position
+    }
+    position -= Character.charCount(codePoint)
+  }
+  return start
+}
+
+private fun StringBuilder.appendTermText(text: String, start: Int, end: Int) {
+  for (index in start..<end) {
+    when (val character = text[index]) {
+      '"', '*' -> append(' ')
+      else -> append(character)
+    }
+  }
+}
+
+/**
  * Column of a full-text index.
  *
  * @param R Kotlin type of the column values
@@ -284,6 +394,7 @@ sealed class FullTextColumn<R, N : SqlNullability, T, W, PN : SqlNullability, PT
    * @param query Full-text query
    * @return Expression
    * @see [SQLite documentation: Full-text query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax)
+   * @see [SQLite documentation: FTS4 queries](https://www.sqlite.org/fts3.html#full_text_index_queries)
    */
   infix fun MATCH(query: String) = binaryPredicate(
     left = node,
@@ -297,6 +408,7 @@ sealed class FullTextColumn<R, N : SqlNullability, T, W, PN : SqlNullability, PT
    * @param query Full-text query, such as a parameter
    * @return Expression
    * @see [SQLite documentation: Full-text query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax)
+   * @see [SQLite documentation: FTS4 queries](https://www.sqlite.org/fts3.html#full_text_index_queries)
    */
   infix fun MATCH(query: SqlExpression<String?, *, *>) = binaryPredicate(
     left = node,
@@ -311,6 +423,27 @@ sealed class FullTextColumn<R, N : SqlNullability, T, W, PN : SqlNullability, PT
  * @see FullTextColumn
  */
 class Fts5Column<R, N : SqlNullability, T, W, PN : SqlNullability, PT> @InternalSqliteMagicApi constructor(
+  table: Table<Nothing>,
+  name: String,
+  position: Int,
+  nullness: N,
+  parameterEncoding: ParameterEncoding<W, R, PN, PT>,
+  selectedRead: ValueRead<T>? = null
+) : FullTextColumn<R, N, T, W, PN, PT>(
+  table = table,
+  name = name,
+  position = position,
+  nullness = nullness,
+  parameterEncoding = parameterEncoding,
+  selectedRead = selectedRead
+)
+
+/**
+ * Column of an FTS4 full-text index.
+ *
+ * @see FullTextColumn
+ */
+class Fts4Column<R, N : SqlNullability, T, W, PN : SqlNullability, PT> @InternalSqliteMagicApi constructor(
   table: Table<Nothing>,
   name: String,
   position: Int,

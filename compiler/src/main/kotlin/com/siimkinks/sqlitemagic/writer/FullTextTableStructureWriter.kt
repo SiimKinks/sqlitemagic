@@ -4,7 +4,6 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_RELATIONSHIP_ID_ENCODINGS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
 import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
-import com.siimkinks.sqlitemagic.WriterTypes.FTS5_TABLE
 import com.siimkinks.sqlitemagic.model.writeModelSource
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
@@ -20,6 +19,7 @@ import com.squareup.kotlinpoet.TypeSpec
 
 internal class FullTextTableStructureWriter(
   private val className: ClassName,
+  private val superclass: ClassName,
   private val fieldName: String,
   private val isPublic: Boolean,
   private val constructorArguments: List<CodeBlock>,
@@ -41,7 +41,7 @@ internal class FullTextTableStructureWriter(
             .addParameter(name = VARIABLE_ALIAS, type = STRING.copy(nullable = true))
             .build()
         )
-        .superclass(FTS5_TABLE)
+        .superclass(superclass)
         .apply {
           if (!isPublic) {
             addModifiers(INTERNAL)

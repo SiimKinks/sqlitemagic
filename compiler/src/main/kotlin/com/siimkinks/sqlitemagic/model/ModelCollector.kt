@@ -16,6 +16,7 @@ import com.siimkinks.sqlitemagic.element.toParsedType
 import com.siimkinks.sqlitemagic.fulltext.fullTextIndexIdentity
 import com.siimkinks.sqlitemagic.fulltext.fullTextIndexName
 import com.siimkinks.sqlitemagic.fulltext.fullTextSchemaOwners
+import com.siimkinks.sqlitemagic.fulltext.fullTextShadowTableNames
 import com.siimkinks.sqlitemagic.internal.SqliteIdentifier
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
@@ -534,7 +535,12 @@ internal class ModelCollector(
         }
         fullTextSchemaOwners(
           name = name,
-          columnSize = index.columnSize,
+          shadowTableNames = fullTextShadowTableNames(
+            name = name,
+            version = index.version,
+            columnSize = index.columnSize,
+            matchinfo = index.matchinfo
+          ),
           typeKey = seed.typeKey
         ).forEach { owner ->
           val key = owner.normalizedKey

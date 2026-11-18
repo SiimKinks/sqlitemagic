@@ -2,7 +2,10 @@ package com.siimkinks.sqlitemagic.fulltext
 
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.annotation.FullTextDetail.FULL
+import com.siimkinks.sqlitemagic.annotation.FullTextMatchinfo
+import com.siimkinks.sqlitemagic.annotation.FullTextOrder.ASC
 import com.siimkinks.sqlitemagic.annotation.FullTextRole.INDEXED
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.manager.DatabaseStructureJson
 import com.siimkinks.sqlitemagic.manager.FullTextIndexStructure
 import com.siimkinks.sqlitemagic.manager.genClassesManagerProcessingSteps
@@ -127,6 +130,7 @@ internal class FullTextIndexContractTest {
             identity = fullTextIndexIdentity("article_fts"),
             tableName = "article",
             rowIdColumnName = "id",
+            version = FTS5,
             columns = listOf(
               FullTextColumnElement(
                 columnName = "title",
@@ -136,7 +140,9 @@ internal class FullTextIndexContractTest {
             tokenize = "",
             prefix = emptyList(),
             detail = FULL,
-            columnSize = false
+            columnSize = false,
+            matchinfo = FullTextMatchinfo.FTS4,
+            order = ASC
           )
         )
       )
@@ -381,6 +387,71 @@ internal class FullTextIndexContractTest {
         )
       ),
       Arguments.of(
+        "FTS4 index and its triggers",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(@Id val id: Long? = null, @FullText val title: String, @FullText val body: String)
+        """,
+        listOf(
+          """CREATE VIRTUAL TABLE IF NOT EXISTS main.\"doc_fts\" USING fts4(\"title\", \"body\", content='doc')""",
+          """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_ai\" AFTER INSERT ON \"doc\" BEGIN """ +
+              """INSERT INTO \"doc_fts\"(docid, \"title\", \"body\") VALUES (new.\"id\", new.\"title\", """ +
+              """new.\"body\"); END""",
+          """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_bd\" BEFORE DELETE ON \"doc\" BEGIN """ +
+              """DELETE FROM \"doc_fts\" WHERE docid = old.\"id\"; END""",
+          """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_bu\" BEFORE UPDATE OF \"id\", \"title\", \"body\", """ +
+              """rowid, oid, _rowid_ ON \"doc\" WHEN old.\"id\" IS NOT new.\"id\" OR old.\"title\" IS NOT """ +
+              """new.\"title\" OR old.\"body\" IS NOT new.\"body\" BEGIN DELETE FROM \"doc_fts\" WHERE """ +
+              """docid = old.\"id\"; END""",
+          """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_au\" AFTER UPDATE OF \"id\", \"title\", \"body\", """ +
+              """rowid, oid, _rowid_ ON \"doc\" WHEN old.\"id\" IS NOT new.\"id\" OR old.\"title\" IS NOT """ +
+              """new.\"title\" OR old.\"body\" IS NOT new.\"body\" BEGIN INSERT INTO \"doc_fts\"(docid, """ +
+              """\"title\", \"body\") VALUES (new.\"id\", new.\"title\", new.\"body\"); END"""
+        )
+      ),
+      Arguments.of(
+        "FTS4 options and roles",
+        """
+          @Table
+          @FullTextIndex(
+            version = FullTextVersion.FTS4,
+            tokenize = "unicode61 \"remove_diacritics=2\"",
+            prefix = [2, 3],
+            matchinfo = FullTextMatchinfo.FTS3,
+            order = FullTextOrder.DESC
+          )
+          data class Doc(
+            @Id val id: Long? = null,
+            @FullText(role = FullTextRole.UNINDEXED) val tag: String,
+            @FullText val title: String,
+            @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
+          )
+        """,
+        listOf(
+          """USING fts4(\"tag\", \"title\", content='doc', languageid=\"language\", notindexed=\"tag\", """ +
+              """matchinfo=fts3, order=DESC, tokenize=unicode61 \"remove_diacritics=2\", prefix=\"2,3\")""",
+          """INSERT INTO \"doc_fts\"(docid, \"tag\", \"title\", \"language\") VALUES (new.\"id\", """ +
+              """new.\"tag\", new.\"title\", new.\"language\")""",
+          """BEFORE UPDATE OF \"id\", \"title\", \"language\", rowid, oid, _rowid_ ON \"doc\" WHEN """ +
+              """old.\"id\" IS NOT new.\"id\" OR old.\"title\" IS NOT new.\"title\" OR """ +
+              """old.\"language\" IS NOT new.\"language\" BEGIN"""
+        )
+      ),
+      Arguments.of(
+        "FTS4 language ID stored as text",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(
+            @Id val id: Long? = null,
+            @FullText val title: String,
+            @FullText(role = FullTextRole.LANGUAGE_ID) val language: String
+          )
+        """,
+        listOf("""USING fts4(\"title\", content='doc', languageid=\"language\")""")
+      ),
+      Arguments.of(
         "property persisted by @FullText alone",
         """
           @Table(persistAll = false)
@@ -432,13 +503,97 @@ internal class FullTextIndexContractTest {
             "`@Id val id: Long? = null`: Doc"
       ),
       Arguments.of(
-        "FTS4",
+        "FTS5 detail option on FTS4",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4, detail = FullTextDetail.COLUMN)
+          data class Doc(@Id val id: Long? = null, @FullText val title: String)
+        """,
+        "FTS4 index 'doc_fts' cannot use the FTS5 option detail: Doc"
+      ),
+      Arguments.of(
+        "FTS5 column size option on FTS4",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4, columnSize = false)
+          data class Doc(@Id val id: Long? = null, @FullText val title: String)
+        """,
+        "FTS4 index 'doc_fts' cannot use the FTS5 option columnSize: Doc"
+      ),
+      Arguments.of(
+        "two language IDs",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(
+            @Id val id: Long? = null,
+            @FullText val title: String,
+            @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int,
+            @FullText(role = FullTextRole.LANGUAGE_ID) val dialect: Int
+          )
+        """,
+        "FTS4 index 'doc_fts' has more than one LANGUAGE_ID column: Doc"
+      ),
+      Arguments.of(
+        "FTS4 column named rowid",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(@Id val id: Long? = null, @FullText @Column("RowId") val title: String)
+        """,
+        "Column name 'RowId' hides the row ID that FTS4 index 'doc_fts' reads: Doc.title"
+      ),
+      Arguments.of(
+        "FTS4 table column named rowid outside the index",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(@Id val id: Long? = null, @FullText val title: String, @Column("rowid") val legacy: String)
+        """,
+        "Column name 'rowid' hides the row ID that FTS4 index 'doc_fts' reads: Doc.legacy"
+      ),
+      Arguments.of(
+        "FTS4 column named docid",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(@Id val id: Long? = null, @FullText @Column("DocId") val title: String)
+        """,
+        "Column name 'DocId' is reserved in FTS4 index 'doc_fts': Doc.title"
+      ),
+      Arguments.of(
+        "FTS4 column named as the index",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(@Id val id: Long? = null, @FullText @Column("doc_fts") val title: String)
+        """,
+        "Column name 'doc_fts' is reserved in FTS4 index 'doc_fts': Doc.title"
+      ),
+      Arguments.of(
+        "FTS4 index without indexed columns",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(
+            @Id val id: Long? = null,
+            @FullText(role = FullTextRole.UNINDEXED) val title: String,
+            @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
+          )
+        """,
+        "Full-text index 'doc_fts' has no INDEXED column: Doc"
+      ),
+      Arguments.of(
+        "FTS4 shadow table named as another table",
         """
           @Table
           @FullTextIndex(version = FullTextVersion.FTS4)
           data class Doc(@Id val id: Long? = null, @FullText val title: String)
+
+          @Table("doc_fts_segdir")
+          data class Other(@Id val id: Long? = null)
         """,
-        "FTS4 full-text indexes are not supported yet: Doc"
+        "Full-text shadow table name 'doc_fts_segdir' conflicts with table name 'doc_fts_segdir': $PACKAGE.Doc"
       ),
       Arguments.of(
         "FTS4 matchinfo option",

@@ -330,6 +330,19 @@ public abstract interface class com/siimkinks/sqlitemagic/EntityValue : com/siim
 public final class com/siimkinks/sqlitemagic/FrameBound {
 }
 
+public final class com/siimkinks/sqlitemagic/Fts4Column : com/siimkinks/sqlitemagic/FullTextColumn {
+	public fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;ILcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;)V
+	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;ILcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public abstract class com/siimkinks/sqlitemagic/Fts4Table : com/siimkinks/sqlitemagic/FullTextTable {
+	protected fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;)V
+	public abstract fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Fts4Table;
+	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/FullTextTable;
+	public final fun terms (Ljava/lang/String;Z)Ljava/lang/String;
+	public static synthetic fun terms$default (Lcom/siimkinks/sqlitemagic/Fts4Table;Ljava/lang/String;ZILjava/lang/Object;)Ljava/lang/String;
+}
+
 public final class com/siimkinks/sqlitemagic/Fts5Column : com/siimkinks/sqlitemagic/FullTextColumn {
 	public fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;ILcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;)V
 	public synthetic fun <init> (Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;ILcom/siimkinks/sqlitemagic/SqlNullability;Lcom/siimkinks/sqlitemagic/internal/ParameterEncoding;Lcom/siimkinks/sqlitemagic/internal/ValueRead;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -354,6 +367,9 @@ public final class com/siimkinks/sqlitemagic/FullTextFunctionsKt {
 	public static final fun BM25 (Lcom/siimkinks/sqlitemagic/Fts5Table;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public static final fun BM25 (Lkotlin/Pair;[Lkotlin/Pair;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public static final fun HIGHLIGHT (Lcom/siimkinks/sqlitemagic/Fts5Column;Ljava/lang/String;Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
+	public static final fun MATCHINFO (Lcom/siimkinks/sqlitemagic/Fts4Table;Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
+	public static synthetic fun MATCHINFO$default (Lcom/siimkinks/sqlitemagic/Fts4Table;Ljava/lang/String;ILjava/lang/Object;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
+	public static final fun OFFSETS (Lcom/siimkinks/sqlitemagic/Fts4Table;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public static final fun SNIPPET (Lcom/siimkinks/sqlitemagic/FullTextColumn;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public static final fun SNIPPET (Lcom/siimkinks/sqlitemagic/FullTextTable;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;
 	public static final fun requiredHighlight (Lcom/siimkinks/sqlitemagic/Fts5Column;Ljava/lang/String;Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/EncodableSqlExpression;

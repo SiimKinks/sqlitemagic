@@ -9,8 +9,8 @@ enum class FullTextRole {
   UNINDEXED,
 
   /**
-   * The column holds the language ID of the row in an FTS4 index, which splits the index by its value. The property
-   * must be stored as `INTEGER`, and an index has at most one.
+   * The column holds the language ID of the row in an FTS4 index, which splits the index by its value. SQLite reads
+   * the value as an integer, and an index has at most one.
    */
   LANGUAGE_ID
 }

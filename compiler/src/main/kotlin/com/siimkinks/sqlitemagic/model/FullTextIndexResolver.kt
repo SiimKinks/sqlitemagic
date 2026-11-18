@@ -1,12 +1,14 @@
 package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
+import com.siimkinks.sqlitemagic.annotation.FullTextDetail.FULL
 import com.siimkinks.sqlitemagic.annotation.FullTextIndex
 import com.siimkinks.sqlitemagic.annotation.FullTextMatchinfo
 import com.siimkinks.sqlitemagic.annotation.FullTextOrder.ASC
 import com.siimkinks.sqlitemagic.annotation.FullTextRole.INDEXED
 import com.siimkinks.sqlitemagic.annotation.FullTextRole.LANGUAGE_ID
 import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS4
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.fulltext.FullTextColumnElement
@@ -78,28 +80,50 @@ internal class FullTextIndexResolver(
       reporter.takeIfNoNewErrors {
         val name = index.displayName(table)
         val indexMembers = members.filter { (_, fullText) -> fullText.index == index.value }
-        when {
-          index.version == FTS4 -> report("FTS4 full-text indexes are not supported yet: $modelName")
-          else -> {
+        val languageIds = indexMembers.filter { (_, fullText) -> fullText.role == LANGUAGE_ID }
+        val reservedNames = when (index.version) {
+          FTS5 -> {
             listOfNotNull(
               "matchinfo".takeIf { index.matchinfo != FullTextMatchinfo.FTS4 },
               "order".takeIf { index.order != ASC }
             ).forEach { option ->
               report("FTS5 index '$name' cannot use the FTS4 option $option: $modelName")
             }
-            indexMembers
-              .filter { (_, fullText) -> fullText.role == LANGUAGE_ID }
-              .forEach { (column, _) ->
-                report("FTS5 index '$name' cannot use the FTS4 role LANGUAGE_ID: ${describe(column)}")
-              }
-            val reservedNames = setOf("rank", "rowid", name.lowercase(Locale.ROOT))
-            indexMembers
-              .filter { (column, _) -> column.columnName.lowercase(Locale.ROOT) in reservedNames }
-              .forEach { (column, _) ->
-                report("Column name '${column.columnName}' is reserved in FTS5 index '$name': ${describe(column)}")
-              }
+            languageIds.forEach { (column, _) ->
+              report("FTS5 index '$name' cannot use the FTS4 role LANGUAGE_ID: ${describe(column)}")
+            }
+            setOf("rank", "rowid")
           }
-        }
+          FTS4 -> {
+            listOfNotNull(
+              "detail".takeIf { index.detail != FULL },
+              "columnSize".takeUnless { index.columnSize }
+            ).forEach { option ->
+              report("FTS4 index '$name' cannot use the FTS5 option $option: $modelName")
+            }
+            if (languageIds.size > 1) {
+              report("FTS4 index '$name' has more than one LANGUAGE_ID column: $modelName")
+            }
+            table.allColumns
+              .filter { column ->
+                column != rowIdColumn && column.columnName.equals(other = "rowid", ignoreCase = true)
+              }
+              .forEach { column ->
+                report(
+                  "Column name '${column.columnName}' hides the row ID that FTS4 index '$name' reads: " +
+                      describe(column)
+                )
+              }
+            setOf("docid")
+          }
+        } + name.lowercase(Locale.ROOT)
+        indexMembers
+          .filter { (column, _) -> column.columnName.lowercase(Locale.ROOT) in reservedNames }
+          .forEach { (column, _) ->
+            report(
+              "Column name '${column.columnName}' is reserved in ${index.version} index '$name': ${describe(column)}"
+            )
+          }
         when {
           indexMembers.isEmpty() -> report("Full-text index '$name' has no @FullText column: $modelName")
           indexMembers.none { (_, fullText) -> fullText.role == INDEXED } -> report(
@@ -110,6 +134,7 @@ internal class FullTextIndexResolver(
           identity = fullTextIndexIdentity(name),
           tableName = table.tableName,
           rowIdColumnName = rowIdColumn.columnName,
+          version = index.version,
           columns = indexMembers.map { (column, fullText) ->
             FullTextColumnElement(
               columnName = column.columnName,
@@ -119,7 +144,9 @@ internal class FullTextIndexResolver(
           tokenize = index.tokenize,
           prefix = index.prefix.toList(),
           detail = index.detail,
-          columnSize = index.columnSize
+          columnSize = index.columnSize,
+          matchinfo = index.matchinfo,
+          order = index.order
         )
       }
     }

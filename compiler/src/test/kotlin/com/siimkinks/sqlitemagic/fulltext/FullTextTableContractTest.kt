@@ -35,6 +35,19 @@ internal class FullTextTableContractTest {
           "public val ARTICLE_FTS: ArticleFtsTable = ArticleFtsTable(null)"
         )
       }
+      .withGeneratedSource("LetterFtsTable.kt") {
+        it.assertContains(
+          "public class LetterFtsTable private constructor(\n  alias: String?,\n) : Fts4Table(name = " +
+              "\"letter_fts\", alias = alias, contentTable = LetterTable.LETTER, contentRowIdColumnName = \"id\")",
+          "public val SUBJECT: Fts4Column<String, Required, String, String, Required, String> = Fts4Column(\n" +
+              "        table = fieldTable,\n        name = \"subject\",\n        position = 0,",
+          "public val TAG: Fts4Column<String, SqlNullable, String?, String?, SqlNullable, String?> =\n" +
+              "      Fts4Column(\n        table = fieldTable,\n        name = \"tag\",\n        position = 1,",
+          "public val LANGUAGE: Column<Nothing, Int, Required, Int, Int, Required, Int> = Column(\n" +
+              "        table = fieldTable,\n        name = \"language\",\n        nullness = Required,",
+          "public val LETTER_FTS: LetterFtsTable = LetterFtsTable(null)"
+        )
+      }
       .withGeneratedSource("NoteSearchTable.kt") {
         it.assertContains(
           "contentTable = NoteTable.NOTE, contentRowIdColumnName = \"row_id\")",
@@ -131,6 +144,36 @@ internal class FullTextTableContractTest {
             .execute()
           val changes: List<Int> = listOf(ARTICLE_FTS.rebuild(), ARTICLE_FTS.optimize(), ARTICLE_FTS.integrityCheck())
             .map { it.usingConnection(connection).execute() }
+          val letters: List<Row5<String, String?, String, ByteArray, ByteArray>> = SELECT
+            .COLUMNS(
+              SNIPPET(LETTER_FTS.SUBJECT, "<b>", "</b>", "…", 10),
+              SNIPPET(LETTER_FTS, "<b>", "</b>", "…", 10),
+              OFFSETS(LETTER_FTS),
+              MATCHINFO(LETTER_FTS),
+              MATCHINFO(LETTER_FTS, "pcnalx")
+            )
+            .FROM(LETTER)
+            .WHERE((LETTER_FTS MATCH LETTER_FTS.terms(query, prefix = true)) AND (LETTER_FTS.LANGUAGE IS 1))
+            .usingConnection(connection)
+            .execute()
+          val letterRows: List<Row3<Long, String?, Int>> = SELECT
+            .COLUMNS(LETTER_FTS.ROWID, LETTER_FTS.TAG, LETTER_FTS.LANGUAGE)
+            .FROM(LETTER_FTS)
+            .WHERE(LETTER_FTS.SUBJECT MATCH query)
+            .usingConnection(connection)
+            .execute()
+          val memos: List<Row3<Memo, String, String>> = (
+              SELECT.COLUMNS(MEMO, SNIPPET(MEMO_FTS.TEXT, "<b>", "</b>", "…", 10), OFFSETS(MEMO_FTS))
+                  FROM MEMO
+                  WHERE ((MEMO_FTS MATCH MEMO_FTS.terms(query, prefix = true)) AND (MEMO_FTS.LANGUAGE IS 1))
+              )
+            .usingConnection(connection)
+            .execute()
+          val letterChanges: List<Int> = listOf(
+            LETTER_FTS.rebuild(),
+            LETTER_FTS.optimize(),
+            LETTER_FTS.integrityCheck()
+          ).map { it.usingConnection(connection).execute() }
         }
       """
     ).isOk()
@@ -182,6 +225,7 @@ internal class FullTextTableContractTest {
         import com.siimkinks.sqlitemagic.annotation.FullText
         import com.siimkinks.sqlitemagic.annotation.FullTextIndex
         import com.siimkinks.sqlitemagic.annotation.FullTextRole
+        import com.siimkinks.sqlitemagic.annotation.FullTextVersion
         import com.siimkinks.sqlitemagic.annotation.Id
         import com.siimkinks.sqlitemagic.annotation.RowId
         import com.siimkinks.sqlitemagic.annotation.Table
@@ -195,6 +239,23 @@ internal class FullTextTableContractTest {
           @FullText val title: String,
           @Embedded(prefix = "author_") val author: Byline,
           val pages: Int
+        )
+
+        @Table
+        @FullTextIndex(version = FullTextVersion.FTS4)
+        data class Letter(
+          @Id val id: Long? = null,
+          @FullText val subject: String,
+          @FullText(role = FullTextRole.UNINDEXED) val tag: String?,
+          @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
+        )
+
+        @Table
+        @FullTextIndex(version = FullTextVersion.FTS4, tokenize = "unicode61")
+        data class Memo(
+          @Id val id: Long? = null,
+          @FullText val text: String,
+          @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
         )
 
         @Table
@@ -212,6 +273,7 @@ internal class FullTextTableContractTest {
       contents = """
         package consumer
 
+        import com.siimkinks.sqlitemagic.AND
         import com.siimkinks.sqlitemagic.ArticleFtsTable.Companion.ARTICLE_FTS
         import com.siimkinks.sqlitemagic.ArticleTable.Companion.ARTICLE
         import com.siimkinks.sqlitemagic.BM25
@@ -221,14 +283,22 @@ internal class FullTextTableContractTest {
         import com.siimkinks.sqlitemagic.IN
         import com.siimkinks.sqlitemagic.INSERT
         import com.siimkinks.sqlitemagic.IS
+        import com.siimkinks.sqlitemagic.LetterFtsTable.Companion.LETTER_FTS
+        import com.siimkinks.sqlitemagic.LetterTable.Companion.LETTER
+        import com.siimkinks.sqlitemagic.MATCHINFO
+        import com.siimkinks.sqlitemagic.MemoFtsTable.Companion.MEMO_FTS
+        import com.siimkinks.sqlitemagic.MemoTable.Companion.MEMO
         import com.siimkinks.sqlitemagic.NoteSearchTable.Companion.NOTE_SEARCH
         import com.siimkinks.sqlitemagic.NoteTable.Companion.NOTE
         import com.siimkinks.sqlitemagic.Row3
+        import com.siimkinks.sqlitemagic.OFFSETS
         import com.siimkinks.sqlitemagic.Row4
+        import com.siimkinks.sqlitemagic.Row5
         import com.siimkinks.sqlitemagic.SELECT
         import com.siimkinks.sqlitemagic.SNIPPET
         import com.siimkinks.sqlitemagic.UPDATE
         import $PACKAGE.Article
+        import $PACKAGE.Memo
 
         $consumer
       """
@@ -326,6 +396,37 @@ internal class FullTextTableContractTest {
         "update of the table through an index column",
         """UPDATE TABLE ARTICLE SET (ARTICLE_FTS.TITLE to "Dune")""",
         "actual type is 'Pair<Fts5Column<String"
+      ),
+      Arguments.of(
+        "highlight of an FTS4 column",
+        "HIGHLIGHT(LETTER_FTS.SUBJECT, \"<b>\", \"</b>\")",
+        "Argument type mismatch: actual type is 'Fts4Column<String, Required, String, String, Required, String>', " +
+            "but 'Fts5Column<*, Required, *, *, *, *>' was expected"
+      ),
+      Arguments.of(
+        "bm25 of an FTS4 index",
+        "BM25(LETTER_FTS)",
+        "Argument type mismatch: actual type is 'LetterFtsTable', but 'Fts5Table' was expected"
+      ),
+      Arguments.of(
+        "rank of an FTS4 index",
+        "LETTER_FTS.RANK",
+        "Unresolved reference 'RANK'"
+      ),
+      Arguments.of(
+        "offsets of an FTS5 index",
+        "OFFSETS(ARTICLE_FTS)",
+        "Argument type mismatch: actual type is 'ArticleFtsTable', but 'Fts4Table' was expected"
+      ),
+      Arguments.of(
+        "match on the language ID",
+        "LETTER_FTS.LANGUAGE MATCH \"x\"",
+        "Unresolved reference 'MATCH'"
+      ),
+      Arguments.of(
+        "snippet of the language ID",
+        "SNIPPET(LETTER_FTS.LANGUAGE, \"<b>\", \"</b>\", \"…\", 10)",
+        "None of the following candidates is applicable"
       ),
       Arguments.of(
         "highlight of a nullable column read as required",

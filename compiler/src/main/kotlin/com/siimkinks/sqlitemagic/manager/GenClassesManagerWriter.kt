@@ -260,7 +260,7 @@ internal class GenClassesManagerWriter(
         addStatement("%L", execSql("DELETE FROM ${table.schema.qualifier}.${quoteSqlIdentifier(table.tableName)}"))
         addStatement("changedTables.add(%S)", table.tableName)
       }
-      fullTextIndexes.forEach { addStatement("%L", execSql(it.deleteAllSql)) }
+      fullTextIndexes.forEach { addStatement("%L", execSql(it.clearSql)) }
       fullTextIndexes
         .flatMap(FullTextIndexElement::createTriggerSql)
         .forEach { addStatement("%L", execSql(it)) }

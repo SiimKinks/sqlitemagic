@@ -31,8 +31,10 @@ import kotlin.annotation.AnnotationTarget.CLASS
  * @property value FTS table name, which [FullText.index] refers to. Defaults to the table name followed by `_fts`. All
  *     but one of a table's full-text indexes need a name.
  * @property version FTS version. The framework driver supports only FTS4.
- * @property tokenize Tokenizer and its arguments, such as `porter unicode61`. Defaults to SQLite's default
- *     tokenizer: `unicode61` for FTS5 and `simple` for FTS4.
+ * @property tokenize Tokenizer and its arguments, in the syntax of the version: such as `porter unicode61` or
+ *     `unicode61 remove_diacritics 2` for FTS5, and `porter` or `unicode61 "remove_diacritics=2"` for FTS4, which
+ *     quotes each argument and cannot wrap `unicode61` in `porter`. Defaults to SQLite's default tokenizer:
+ *     `unicode61` for FTS5 and `simple` for FTS4.
  * @property prefix Prefix lengths, in characters, to build prefix indexes for.
  * @property detail How much detail an FTS5 index stores. See [FullTextDetail].
  * @property columnSize Whether an FTS5 index stores the token count of each column of each row.

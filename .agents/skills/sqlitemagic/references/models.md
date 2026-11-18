@@ -255,7 +255,8 @@ data class Book(
 
 ## Full-text indexes
 
-`@FullTextIndex` on a `@Table` and `@FullText` on each column to search declare an SQLite FTS5 index. The library
+`@FullTextIndex` on a `@Table` and `@FullText` on each column to search declare an SQLite FTS5 index, or FTS4 with
+`version = FullTextVersion.FTS4`. The library
 creates it with the schema as an external-content FTS table named `<table>_fts`, which reads the text from the table,
 and keeps it in sync with generated triggers; the application writes only the table.
 
@@ -285,9 +286,30 @@ data class Article(
   `@FullText(role = FullTextRole.UNINDEXED)` for a column stored in the FTS table but not searched. SQLite reports an
   invalid tokenizer when the schema is created.
 - FTS5 needs the bundled driver: the framework driver has no FTS5 module, and opening the database fails with
-  `no such module: fts5`. `version = FullTextVersion.FTS4` and the FTS4 options (`matchinfo`, `order`,
-  `FullTextRole.LANGUAGE_ID`) are compile errors for now.
-- Indexed columns cannot be named `rank`, `rowid` or like the index.
+  `no such module: fts5`. Apps on the framework driver use FTS4, which both drivers support:
+
+  ```kotlin
+  @Table
+  @FullTextIndex(version = FullTextVersion.FTS4, tokenize = "unicode61")
+  data class Memo(
+    @Id val id: Long? = null,
+    @FullText val text: String,
+    @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
+  )
+  ```
+
+- FTS4's default tokenizer, `simple`, folds the case of ASCII letters only; `tokenize = "unicode61"` handles other
+  text, `porter` stems English but cannot be combined with `unicode61` as in FTS5. FTS4 quotes each tokenizer
+  argument: `tokenize = """unicode61 "remove_diacritics=2""""`. `icu` works on the framework driver only (the bundled one fails with
+  `unknown tokenizer: icu`). `prefix = [2, 3]` works as in FTS5.
+- FTS4 options: `matchinfo = FullTextMatchinfo.FTS3` (smaller index; `MATCHINFO` formats other than `p`, `c` and `x`
+  fail), `order = FullTextOrder.DESC` (matches in descending row ID order; on API 24 `integrityCheck()` reports such
+  an index malformed although its queries are correct), `UNINDEXED`, and `@FullText(role = FullTextRole.LANGUAGE_ID)`
+  on one column, whose value SQLite reads as an integer: it splits the index by it, and a search matches language 0 unless it
+  also compares `MEMO_FTS.LANGUAGE` ([queries.md](queries.md#full-text-search)). `detail` and `columnSize` are
+  compile errors on FTS4, the FTS4 options on FTS5.
+- Indexed columns cannot be named like the index, nor `rank` or `rowid` in FTS5 or `docid` in FTS4. A table with an
+  FTS4 index cannot have a column named `rowid` other than its row ID, since FTS4 reads the row ID by that name.
 - A schema with a full-text index runs every library connection with `PRAGMA recursive_triggers = ON`, so rows that
   `CONFLICT_REPLACE` replaces leave the index. Connections the library did not open (the `sqlite3` shell, Database
   Inspector) run without it.
@@ -310,7 +332,7 @@ Build after changing models; KSP generates, in package `com.siimkinks.sqlitemagi
 | Bulk operations | `Books.insert(books)`, `Books.persist(…)`, `Books.update(…)`, `Books.delete(…)`, `Books.deleteTable()` | the model name plus `s`, also after an `s` (`AccountSettingss`) |
 | `SqlType` selectors and conversions for transformed types | `SqlType.BOOK_STATUS`, `BookStatus.PUBLISHED.asValue()` | raw SQL, standalone values |
 | View table objects | `AUTHOR_STATS` for `@View class AuthorStats` | [views.md](views.md) |
-| Full-text index objects | `ArticleFtsTable.Companion.ARTICLE_FTS`, `ARTICLE_FTS.TITLE`, `ARTICLE_FTS.ROWID`, `ARTICLE_FTS.RANK`, `ARTICLE_FTS.terms(input)`, `ARTICLE_FTS.rebuild()` | [queries.md](queries.md#full-text-search) |
+| Full-text index objects | `ArticleFtsTable.Companion.ARTICLE_FTS`, `ARTICLE_FTS.TITLE`, `ARTICLE_FTS.ROWID`, `ARTICLE_FTS.RANK` (FTS5), `MEMO_FTS.LANGUAGE` (FTS4 language ID), `ARTICLE_FTS.terms(input)`, `ARTICLE_FTS.rebuild()` | [queries.md](queries.md#full-text-search) |
 | The database | `SqliteMagicDatabase` | setup |
 
 - The Gradle plugin, not KSP, generates `SqliteMagicMigrationDatabase` into the unit-test sources of application

@@ -5,7 +5,12 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.annotation.FullTextDetail.FULL
+import com.siimkinks.sqlitemagic.annotation.FullTextMatchinfo
+import com.siimkinks.sqlitemagic.annotation.FullTextOrder.ASC
 import com.siimkinks.sqlitemagic.annotation.FullTextRole.INDEXED
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS4
+import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.fulltext.FullTextColumnElement
 import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
 import com.siimkinks.sqlitemagic.fulltext.dropFullTextTableSql
@@ -14,13 +19,29 @@ import com.siimkinks.sqlitemagic.fulltext.fullTextCommandSql
 import com.siimkinks.sqlitemagic.fulltext.fullTextIndexIdentity
 import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 
 internal class FullTextMigrationTest {
-  @Test
-  fun `migrations keep full-text indexes in sync with their tables and equal to a fresh install`() {
+  @ParameterizedTest(name = "{0}")
+  @EnumSource(FullTextVersion::class)
+  fun `migrations keep full-text indexes in sync with their tables and equal to a fresh install`(
+    version: FullTextVersion
+  ) {
     val articleIndex = index(
       table = "article",
-      columns = listOf("title", "body")
+      columns = listOf("title", "body"),
+      version = version
+    )
+    val commentIndex = index(
+      table = "comment",
+      columns = listOf("text"),
+      version = version
+    )
+    val noteIndex = index(
+      table = "note",
+      columns = listOf("text"),
+      version = version
     )
     val cases = mapOf(
       "adding an index" to Change(
@@ -43,7 +64,27 @@ internal class FullTextMigrationTest {
           indices = listOf(
             index(
               table = "article",
-              columns = listOf("title")
+              columns = listOf("title"),
+              version = version
+            )
+          )
+        ),
+        current = structure(
+          ARTICLE,
+          indices = listOf(articleIndex)
+        )
+      ),
+      "switching the version of an index" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title", "body"),
+              version = when (version) {
+                FTS5 -> FTS4
+                FTS4 -> FTS5
+              }
             )
           )
         ),
@@ -66,12 +107,12 @@ internal class FullTextMigrationTest {
         previous = structure(
           ARTICLE,
           COMMENT,
-          indices = listOf(COMMENT_INDEX)
+          indices = listOf(commentIndex)
         ),
         current = structure(
           ARTICLE_WITHOUT_AUTHOR,
           COMMENT,
-          indices = listOf(COMMENT_INDEX)
+          indices = listOf(commentIndex)
         )
       ),
       "renaming the content table" to Change(
@@ -81,6 +122,7 @@ internal class FullTextMigrationTest {
             index(
               table = "article",
               columns = listOf("title", "body"),
+              version = version,
               name = "search"
             )
           )
@@ -91,6 +133,7 @@ internal class FullTextMigrationTest {
             index(
               table = "post",
               columns = listOf("title", "body"),
+              version = version,
               name = "search"
             )
           )
@@ -100,7 +143,7 @@ internal class FullTextMigrationTest {
         previous = structure(
           ARTICLE,
           NOTE,
-          indices = listOf(NOTE_INDEX)
+          indices = listOf(noteIndex)
         ),
         current = structure(ARTICLE)
       ),
@@ -131,7 +174,7 @@ internal class FullTextMigrationTest {
         current = structure(
           ARTICLE,
           NOTE,
-          indices = listOf(NOTE_INDEX)
+          indices = listOf(noteIndex)
         )
       ),
       "filling an added table with an index in the script" to Change(
@@ -139,7 +182,7 @@ internal class FullTextMigrationTest {
         current = structure(
           ARTICLE,
           NOTE,
-          indices = listOf(NOTE_INDEX)
+          indices = listOf(noteIndex)
         ),
         statementsBeforeIndices = listOf(
           """INSERT INTO "note" ("id", "text") SELECT "id" + 10, "body" FROM "article""""
@@ -163,6 +206,13 @@ internal class FullTextMigrationTest {
       ),
       "removing an index" to MigratedIndices(dropped = listOf("article_fts")),
       "changing an index" to MigratedIndices(
+        dropped = listOf("article_fts"),
+        created = listOf("article_fts"),
+        rebuilt = listOf("article_fts"),
+        matches = articleMatches,
+        warnings = listOf(articleRebuildWarning)
+      ),
+      "switching the version of an index" to MigratedIndices(
         dropped = listOf("article_fts"),
         created = listOf("article_fts"),
         rebuilt = listOf("article_fts"),
@@ -228,14 +278,15 @@ internal class FullTextMigrationTest {
       )
     )
 
-    assertThat(cases.mapValues { (_, change) -> change.migrate() }).isEqualTo(expected)
+    assertThat(cases.mapValues { (_, change) -> change.migrate(version) }).isEqualTo(expected)
   }
 
   @Test
   fun `drops the index before the table statements and creates and rebuilds it after them`() {
     val index = index(
       table = "article",
-      columns = listOf("title", "body")
+      columns = listOf("title", "body"),
+      version = FTS5
     )
     val statements = planSchemaMigration(
       previous = structure(
@@ -269,7 +320,7 @@ internal class FullTextMigrationTest {
     val current: DatabaseStructure,
     val statementsBeforeIndices: List<String> = emptyList()
   ) {
-    fun migrate(): MigratedIndices {
+    fun migrate(version: FullTextVersion): MigratedIndices {
       val migration = planSchemaMigration(
         previous = previous,
         current = current
@@ -303,7 +354,10 @@ internal class FullTextMigrationTest {
         rebuilt = migration.statements
           .filter { it.endsWith("VALUES ('rebuild')") }
           .objectNames(prefix = "INSERT INTO main."),
-        matches = connection.matches(current.fullTextIndices.keys),
+        matches = connection.matches(
+          indices = current.fullTextIndices.keys,
+          version = version
+        ),
         matchesFreshInstall = connection.schemaRows() == fresh.schemaRows(),
         warnings = migration.warnings
       )
@@ -357,14 +411,6 @@ internal class FullTextMigrationTest {
       columns = listOf(ID, text("text"))
     )
     val NOTE_WITH_EXTRA = NOTE.withColumns(NOTE.columns + text("extra"))
-    val COMMENT_INDEX = index(
-      table = "comment",
-      columns = listOf("text")
-    )
-    val NOTE_INDEX = index(
-      table = "note",
-      columns = listOf("text")
-    )
     val PREVIOUS_ROWS = mapOf(
       "article" to listOf(
         """INSERT INTO "article" ("id", "title", "body") VALUES (1, 'Dune', 'desert planet'), (2, 'Emma', 'novel')"""
@@ -420,12 +466,14 @@ internal class FullTextMigrationTest {
     fun index(
       table: String,
       columns: List<String>,
+      version: FullTextVersion,
       name: String = "${table}_fts"
     ) = FullTextIndexStructure.from(
       FullTextIndexElement(
         identity = fullTextIndexIdentity(name),
         tableName = table,
         rowIdColumnName = "id",
+        version = version,
         columns = columns.map { column ->
           FullTextColumnElement(
             columnName = column,
@@ -435,7 +483,9 @@ internal class FullTextMigrationTest {
         tokenize = "",
         prefix = emptyList(),
         detail = FULL,
-        columnSize = true
+        columnSize = true,
+        matchinfo = FullTextMatchinfo.FTS4,
+        order = ASC
       )
     )
 
@@ -456,9 +506,17 @@ internal class FullTextMigrationTest {
         .substringBefore('"')
     }
 
-    fun SQLiteConnection.matches(indices: Set<String>) = indices
+    fun SQLiteConnection.matches(
+      indices: Set<String>,
+      version: FullTextVersion
+    ) = indices
       .flatMap { index ->
-        execSQL("""INSERT INTO main."$index"("$index", rank) VALUES ('integrity-check', 1)""")
+        execSQL(
+          when (version) {
+            FTS5 -> """INSERT INTO main."$index"("$index", rank) VALUES ('integrity-check', 1)"""
+            FTS4 -> """INSERT INTO main."$index"("$index") VALUES ('integrity-check')"""
+          }
+        )
         SEARCHED_TERMS.map { term ->
           "$index $term" to longs("""SELECT rowid FROM "$index" WHERE "$index" MATCH '$term' ORDER BY rowid""")
         }

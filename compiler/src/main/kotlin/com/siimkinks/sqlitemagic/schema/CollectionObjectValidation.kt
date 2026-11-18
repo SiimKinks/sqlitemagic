@@ -160,7 +160,7 @@ private fun TableElement.schemaIdentityOwners() = listOf(
 ) + fullTextIndexes.flatMap { index ->
   fullTextSchemaOwners(
     name = index.name,
-    columnSize = index.columnSize,
+    shadowTableNames = index.shadowTableNames,
     typeKey = typeKey
   )
 }

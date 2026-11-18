@@ -257,7 +257,8 @@ val lines = SELECT
 ## Full-text search
 
 A table with a `@FullTextIndex` ([models.md](models.md#full-text-indexes)) is searched through its generated index
-object, `ARTICLE_FTS`. `MATCH` takes the FTS5 query string, as a `String`, a `String` expression or a parameter.
+object, `ARTICLE_FTS`. `MATCH` takes a query string in the syntax of the index's version (FTS5 or FTS4), as a
+`String`, a `String` expression or a parameter.
 
 ```kotlin
 val hits = (SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH "sqlite OR room") ORDER_BY ARTICLE_FTS.RANK.ASC())
@@ -289,12 +290,14 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY "article_fts"."rank" ASC
   `SELECT.COLUMNS(ARTICLE_FTS.ROWID, ARTICLE_FTS.TITLE).FROM(ARTICLE_FTS)`, and update or delete matching rows
   through their row IDs: `DELETE FROM ARTICLE WHERE (ARTICLE.ID IN (SELECT COLUMN ARTICLE_FTS.ROWID FROM ARTICLE_FTS
   WHERE (ARTICLE_FTS MATCH query)))`.
-- SQLite reports a malformed query string (`fts5: syntax error near …`) when the query runs, as it does for `MATCH`
-  under `OR` or in an explicit `LEFT_JOIN`.
+- SQLite reports a malformed query string (`fts5: syntax error near …`, FTS4 `malformed MATCH expression`) when the
+  query runs, as it does for `MATCH` under `OR` or in an explicit `LEFT_JOIN`.
 - `ARTICLE_FTS.terms(input)` turns free text such as user input into a query that never fails: each term between
   whitespace (or NUL) becomes a quoted phrase (`"sqlite" "OR" "room"`, so operators and quotes are searched as text),
   every term must match, and blank input matches nothing. `terms(input, prefix = true)` also matches words that begin
-  with the last term, for search as you type (`"sqlite" "ro"*`).
+  with the last term, for search as you type (`"sqlite" "ro"*`). FTS4's `terms` writes the prefix as `"ro*"`, reads
+  `*` and quotes inside a term as word breaks, since FTS4 cannot quote them in a phrase, and leaves out terms without
+  a letter or digit, since FTS4 matches no row for a phrase without words.
 
 ```kotlin
 val results = (
@@ -327,7 +330,24 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY bm25("article_fts"."article_f
   columns of different indexes (an alias counts as another) or a NaN weight fails before SQL.
 - In a query that does not search their index with `MATCH`, `HIGHLIGHT` and `SNIPPET` return the unmarked text
   (`SNIPPET(ARTICLE_FTS, …)` from the first column, NULL when it is NULL) and `BM25` 0, while `RANK` is NULL. On a
-  row that a `LEFT_JOIN` of the index fills with NULLs, SQLite fails every function with "no such cursor".
+  row that a `LEFT_JOIN` of the index fills with NULLs, SQLite fails every function with "no such cursor" (FTS4:
+  "illegal first argument to …").
+- An FTS4 index has no `RANK`, `BM25` or `HIGHLIGHT` (compile errors). `SNIPPET` works on it as on FTS5, without
+  marks or text outside a search, and two FTS4 functions read the matches: `OFFSETS(MEMO_FTS)`, four integers per
+  match (column, query term, byte offset, byte size) as `String`, and `MATCHINFO(MEMO_FTS)`, the `pcx` statistics as
+  a `ByteArray` of 32-bit integers in the device's byte order (`MATCHINFO(MEMO_FTS, "pcnalx")` picks others). Both
+  are empty outside a search. A language-ID column is a plain field of the index object; compare it to search
+  another language:
+
+  ```kotlin
+  val memos = (
+      SELECT.COLUMNS(MEMO, SNIPPET(MEMO_FTS.TEXT, "<b>", "</b>", "…", 10), OFFSETS(MEMO_FTS))
+          FROM MEMO
+          WHERE ((MEMO_FTS MATCH MEMO_FTS.terms(input, prefix = true)) AND (MEMO_FTS.LANGUAGE IS 1))
+      )
+    .execute()
+  ```
+
 - Maintenance statements on the index object, executed like other statements: `ARTICLE_FTS.rebuild()` refills the
   index from the table (needed only after something bypassed the triggers; observers of the table re-run),
   `optimize()` merges its segments, and `integrityCheck()` fails with SQLite's error ("database disk image is

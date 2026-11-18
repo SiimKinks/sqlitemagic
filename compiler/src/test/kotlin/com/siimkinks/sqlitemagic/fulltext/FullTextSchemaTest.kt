@@ -111,22 +111,119 @@ internal class FullTextSchemaTest {
   }
 
   @Test
+  fun `keeps every FTS4 index in sync with its table`() {
+    val cases = mapOf(
+      "inserts" to listOf(
+        PAPER,
+        """INSERT INTO "paper" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')"""
+      ),
+      "updates with unchanged values" to listOf(
+        PAPER,
+        """UPDATE "paper" SET "title"='Dune', "body"='desert planet', "author"='Frank' WHERE "id"=1""",
+        """UPDATE "paper" SET "author"='F. Herbert' WHERE "id"=1"""
+      ),
+      "updates of indexed columns" to listOf(
+        PAPER,
+        """UPDATE "paper" SET "title"='Arrakis', "body"='desert planet', "author"='Frank' WHERE "id"=1"""
+      ),
+      "updates of the row ID" to listOf(
+        PAPER,
+        """UPDATE "paper" SET rowid=7 WHERE "id"=1"""
+      ),
+      "updates of the row ID as oid" to listOf(
+        PAPER,
+        """UPDATE "paper" SET oid=7 WHERE "id"=1"""
+      ),
+      "updates of the row ID as _rowid_" to listOf(
+        PAPER,
+        """UPDATE "paper" SET _rowid_=7 WHERE "id"=1"""
+      ),
+      "updates of the ID column" to listOf(
+        PAPER,
+        """UPDATE "paper" SET "ID"=7 WHERE "id"=1"""
+      ),
+      "upserts of indexed columns" to listOf(
+        PAPER,
+        """INSERT INTO "paper" ("id", "title", "body", "author") VALUES (1, 'Arrakis', 'sand', 'Frank') """ +
+            """ON CONFLICT ("id") DO UPDATE SET "title"=excluded."title""""
+      ),
+      "deletes" to listOf(
+        PAPER,
+        """DELETE FROM "paper" WHERE "id"=1"""
+      ),
+      "replaces" to listOf(
+        PAPER,
+        """INSERT OR REPLACE INTO "paper" ("id", "title", "body", "author") VALUES (1, 'Emma', 'novel', 'Jane')"""
+      ),
+      "stemmed inserts in a language" to listOf(
+        PAPER,
+        REMARK
+      ),
+      "updates of the language" to listOf(
+        PAPER,
+        REMARK,
+        """UPDATE "remark" SET "language"=2 WHERE "id"=1"""
+      ),
+      "updates of unindexed columns" to listOf(
+        PAPER,
+        REMARK,
+        """UPDATE "remark" SET "tag"='dunes' WHERE "id"=1"""
+      ),
+      "cascades" to listOf(
+        PAPER,
+        REMARK,
+        """DELETE FROM "paper" WHERE "id"=1"""
+      ),
+      "cascades of replaced rows" to listOf(
+        PAPER,
+        REMARK,
+        """INSERT OR REPLACE INTO "paper" ("id", "title", "body", "author") VALUES (1, 'Emma', 'novel', 'Jane')"""
+      )
+    )
+
+    assertThat(cases.mapValues { (_, statements) -> database().openWith(statements).fts4Matches() }).isEqualTo(
+      mapOf(
+        "inserts" to mapOf("paper_fts dune" to listOf(1L), "paper_fts emma" to listOf(2L)),
+        "updates with unchanged values" to mapOf("paper_fts dune" to listOf(1L)),
+        "updates of indexed columns" to mapOf("paper_fts arrakis" to listOf(1L)),
+        "updates of the row ID" to mapOf("paper_fts dune" to listOf(7L)),
+        "updates of the row ID as oid" to mapOf("paper_fts dune" to listOf(7L)),
+        "updates of the row ID as _rowid_" to mapOf("paper_fts dune" to listOf(7L)),
+        "updates of the ID column" to mapOf("paper_fts dune" to listOf(7L)),
+        "upserts of indexed columns" to mapOf("paper_fts arrakis" to listOf(1L)),
+        "deletes" to emptyMap(),
+        "replaces" to mapOf("paper_fts emma" to listOf(1L)),
+        "stemmed inserts in a language" to mapOf("paper_fts dune" to listOf(1L), "remark_fts dunes 1" to listOf(1L)),
+        "updates of the language" to mapOf("paper_fts dune" to listOf(1L), "remark_fts dunes 2" to listOf(1L)),
+        "updates of unindexed columns" to mapOf("paper_fts dune" to listOf(1L), "remark_fts dunes 1" to listOf(1L)),
+        "cascades" to emptyMap(),
+        "cascades of replaced rows" to mapOf("paper_fts emma" to listOf(1L))
+      )
+    )
+  }
+
+  @Test
   fun `clears the data of indexed tables and keeps indexing new rows with their settings`() {
     val database = database()
     val connection = database.openWith(
       listOf(
         ARTICLE,
         """INSERT INTO "comment" ("article", "text") VALUES (1, 'Dune again')""",
-        """INSERT INTO "article_fts"("article_fts", rank) VALUES ('rank', 'bm25(10.0, 1.0)')"""
+        """INSERT INTO "article_fts"("article_fts", rank) VALUES ('rank', 'bm25(10.0, 1.0)')""",
+        PAPER,
+        REMARK
       )
     )
     database.clearData(connection)
     connection.execSQL("""INSERT INTO "article" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""")
+    connection.execSQL("""INSERT INTO "paper" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""")
     val rank = connection
       .prepare("""SELECT v FROM "article_fts_config" WHERE k = 'rank'""")
       .use { statement -> statement.takeIf(SQLiteStatement::step)?.getText(0) }
 
-    assertThat(connection.matches() to rank).isEqualTo(mapOf("article_fts emma" to listOf(2L)) to "bm25(10.0, 1.0)")
+    assertThat(Triple(connection.matches(), connection.fts4Matches(), rank)).isEqualTo(
+      Triple(mapOf("article_fts emma" to listOf(2L)), mapOf("paper_fts emma" to listOf(2L)), "bm25(10.0, 1.0)")
+    )
   }
 
   @Test
@@ -202,10 +299,29 @@ internal class FullTextSchemaTest {
     .filter { (_, rowIds) -> rowIds.isNotEmpty() }
     .toMap()
 
+  private fun SQLiteConnection.fts4Matches() = FTS4_SEARCHES
+    .flatMap { (index, searches) ->
+      execSQL("""INSERT INTO main."$index"("$index") VALUES ('integrity-check')""")
+      searches.map { (term, language) ->
+        listOfNotNull(index, term, language).joinToString(separator = " ") to rowIds(
+          index = index,
+          term = term,
+          language = language
+        )
+      }
+    }
+    .filter { (_, rowIds) -> rowIds.isNotEmpty() }
+    .toMap()
+
   private fun SQLiteConnection.rowIds(
     index: String,
-    term: String
-  ) = prepare("""SELECT rowid FROM main."$index" WHERE "$index" MATCH ? ORDER BY rowid""").use { statement ->
+    term: String,
+    language: Int? = null
+  ) = prepare(
+    """SELECT rowid FROM main."$index" WHERE "$index" MATCH ?""" +
+        language?.let { """ AND "language" = $it""" }.orEmpty() +
+        " ORDER BY rowid"
+  ).use { statement ->
     statement.bindText(
       index = 1,
       value = term
@@ -220,6 +336,17 @@ internal class FullTextSchemaTest {
   private companion object {
     const val ARTICLE =
       """INSERT INTO "article" ("id", "title", "body", "author") VALUES (1, 'Dune', 'desert planet', 'Frank')"""
+
+    const val PAPER =
+      """INSERT INTO "paper" ("id", "title", "body", "author") VALUES (1, 'Dune', 'desert planet', 'Frank')"""
+
+    const val REMARK =
+      """INSERT INTO "remark" ("paper", "text", "tag", "language") VALUES (1, 'Dune again', 'books', 1)"""
+
+    val FTS4_SEARCHES = mapOf(
+      "paper_fts" to listOf("dune", "emma", "arrakis").map { it to null },
+      "remark_fts" to listOf("dunes" to 0, "dunes" to 1, "dunes" to 2)
+    )
 
     val SEARCHED_TERMS = mapOf(
       "article_fts" to listOf("dune", "emma", "arrakis"),
@@ -239,7 +366,11 @@ internal class FullTextSchemaTest {
               import com.siimkinks.sqlitemagic.annotation.FullTextDetail.COLUMN
               import com.siimkinks.sqlitemagic.annotation.FullText
               import com.siimkinks.sqlitemagic.annotation.FullTextIndex
+              import com.siimkinks.sqlitemagic.annotation.FullTextMatchinfo.FTS3
+              import com.siimkinks.sqlitemagic.annotation.FullTextOrder.DESC
+              import com.siimkinks.sqlitemagic.annotation.FullTextRole.LANGUAGE_ID
               import com.siimkinks.sqlitemagic.annotation.FullTextRole.UNINDEXED
+              import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS4
               import com.siimkinks.sqlitemagic.annotation.Id
               import com.siimkinks.sqlitemagic.annotation.RowId
               import com.siimkinks.sqlitemagic.annotation.Table
@@ -259,6 +390,25 @@ internal class FullTextSchemaTest {
                 @Id val id: Long? = null,
                 @Column(onDeleteCascade = true) val article: Article,
                 @FullText val text: String
+              )
+
+              @Table
+              @FullTextIndex(version = FTS4)
+              data class Paper(
+                @Id val id: Long? = null,
+                @FullText val title: String,
+                @FullText val body: String,
+                val author: String
+              )
+
+              @Table
+              @FullTextIndex(version = FTS4, tokenize = "porter", prefix = [2], matchinfo = FTS3, order = DESC)
+              data class Remark(
+                @Id val id: Long? = null,
+                @Column(onDeleteCascade = true) val paper: Paper,
+                @FullText val text: String,
+                @FullText(role = UNINDEXED) val tag: String,
+                @FullText(role = LANGUAGE_ID) val language: Int
               )
 
               @Table

@@ -136,7 +136,8 @@ fun HIGHLIGHT(column: Fts5Column<*, *, *, *, *, *>, open: String, close: String)
  * Fragment of [column] around the matches of the search, with every match between [open] and [close].
  *
  * The fragment has at most [tokens] tokens (up to 64) and [ellipsis] where it cuts the text. In a query that does
- * not search the index of [column] with `MATCH`, it is the start of the column text without marks.
+ * not search the index of [column] with `MATCH`, it is the start of the column text without marks in FTS5 and empty
+ * text in FTS4.
  *
  * Example:
  * ```
@@ -150,6 +151,7 @@ fun HIGHLIGHT(column: Fts5Column<*, *, *, *, *, *>, open: String, close: String)
  * @param tokens Maximum number of tokens in the fragment
  * @return Expression representing the result of this function
  * @see [SQLite documentation: The snippet() function](https://www.sqlite.org/fts5.html#the_snippet_function)
+ * @see [SQLite documentation: The snippet() function of FTS4](https://www.sqlite.org/fts3.html#snippet)
  */
 @JvmName("requiredSnippet")
 fun SNIPPET(
@@ -174,7 +176,8 @@ fun SNIPPET(
  * the column is NULL.
  *
  * The fragment has at most [tokens] tokens (up to 64) and [ellipsis] where it cuts the text. In a query that does
- * not search the index of [column] with `MATCH`, it is the start of the column text without marks.
+ * not search the index of [column] with `MATCH`, it is the start of the column text without marks in FTS5 and empty
+ * text in FTS4.
  *
  * Example:
  * ```
@@ -188,6 +191,7 @@ fun SNIPPET(
  * @param tokens Maximum number of tokens in the fragment
  * @return Expression representing the result of this function
  * @see [SQLite documentation: The snippet() function](https://www.sqlite.org/fts5.html#the_snippet_function)
+ * @see [SQLite documentation: The snippet() function of FTS4](https://www.sqlite.org/fts3.html#snippet)
  */
 fun SNIPPET(
   column: FullTextColumn<*, *, *, *, *, *>,
@@ -211,7 +215,7 @@ fun SNIPPET(
  *
  * The fragment has at most [tokens] tokens (up to 64) and [ellipsis] where it cuts the text. In a query that does
  * not search [index] with `MATCH`, it is the start of the first column of [index] without marks, or NULL when that
- * column is NULL.
+ * column is NULL, in FTS5 and empty text in FTS4.
  *
  * Example:
  * ```
@@ -225,6 +229,7 @@ fun SNIPPET(
  * @param tokens Maximum number of tokens in the fragment
  * @return Expression representing the result of this function
  * @see [SQLite documentation: The snippet() function](https://www.sqlite.org/fts5.html#the_snippet_function)
+ * @see [SQLite documentation: The snippet() function of FTS4](https://www.sqlite.org/fts3.html#snippet)
  */
 fun SNIPPET(
   index: FullTextTable,
@@ -242,8 +247,70 @@ fun SNIPPET(
       ellipsis = ellipsis,
       tokens = tokens
     )
+    is Fts4Table -> fts4Snippet(
+      index = index.table,
+      position = ANY_COLUMN,
+      open = open,
+      close = close,
+      ellipsis = ellipsis,
+      tokens = tokens
+    )
   },
   type = TEXT
+)
+
+/**
+ * Positions of the matches of the search in the columns of [index].
+ *
+ * The text holds four integers per match, separated by spaces: the column, the matched term of the query, and the
+ * byte offset and byte size of the match in the column text. In a query that does not search [index] with `MATCH`,
+ * it is empty.
+ *
+ * Example:
+ * ```
+ * SELECT COLUMN OFFSETS(MEMO_FTS) FROM MEMO WHERE (MEMO_FTS MATCH "sqlite")
+ * ```
+ *
+ * @param index FTS4 full-text index that the query searches
+ * @return Expression representing the result of this function
+ * @see [SQLite documentation: The offsets() function](https://www.sqlite.org/fts3.html#offsets)
+ */
+fun OFFSETS(index: Fts4Table) = requiredNativeResult(
+  node = ExpressionNode.Call(
+    function = "offsets",
+    arguments = listOf(index.table.operand),
+    requiredBy = 0
+  ),
+  type = TEXT
+)
+
+/**
+ * Statistics of the matches of the search in [index], for ranking matches in application code.
+ *
+ * The value is an array of 32-bit unsigned integers in the byte order of the device, whose content [format]
+ * selects. An index declared with `matchinfo = FTS3` supports only the formats `p`, `c` and `x`. In a query that does
+ * not search [index] with `MATCH`, it is empty.
+ *
+ * Example:
+ * ```
+ * SELECT COLUMN MATCHINFO(MEMO_FTS) FROM MEMO WHERE (MEMO_FTS MATCH "sqlite")
+ * ```
+ *
+ * @param index FTS4 full-text index that the query searches
+ * @param format Characters selecting the statistics, `pcx` by default
+ * @return Expression representing the result of this function
+ * @see [SQLite documentation: The matchinfo() function](https://www.sqlite.org/fts3.html#matchinfo)
+ */
+fun MATCHINFO(index: Fts4Table, format: String = "pcx") = requiredNativeResult(
+  node = ExpressionNode.Call(
+    function = "matchinfo",
+    arguments = listOf(
+      index.table.operand,
+      textValue(format)
+    ),
+    requiredBy = 0
+  ),
+  type = BLOB
 )
 
 private const val ANY_COLUMN = -1L
@@ -280,6 +347,14 @@ private fun snippet(
     ellipsis = ellipsis,
     tokens = tokens
   )
+  is Fts4Column -> fts4Snippet(
+    index = column.index,
+    position = column.position.toLong(),
+    open = open,
+    close = close,
+    ellipsis = ellipsis,
+    tokens = tokens
+  )
 }
 
 private fun fts5Snippet(
@@ -297,6 +372,26 @@ private fun fts5Snippet(
     textValue(open),
     textValue(close),
     textValue(ellipsis),
+    integerLiteral(tokens.toLong())
+  ),
+  requiredBy = 0
+)
+
+private fun fts4Snippet(
+  index: FullTextIndexTable,
+  position: Long,
+  open: String,
+  close: String,
+  ellipsis: String,
+  tokens: Int
+) = ExpressionNode.Call(
+  function = "snippet",
+  arguments = listOf(
+    index.operand,
+    textValue(open),
+    textValue(close),
+    textValue(ellipsis),
+    integerLiteral(position),
     integerLiteral(tokens.toLong())
   ),
   requiredBy = 0

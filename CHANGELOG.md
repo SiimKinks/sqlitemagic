@@ -57,6 +57,11 @@ Version 3.1.0 _(unreleased)_
   column weights, `HIGHLIGHT` and `SNIPPET` mark the matches in column text, `terms(input)` turns user input into a
   query that cannot fail, and `rebuild()`, `optimize()` and `integrityCheck()` maintain the index. FTS5 needs the
   bundled driver
+* New: `@FullTextIndex(version = FTS4)` declares an FTS4 full-text index, which the framework driver supports too.
+  It takes the FTS4 options `matchinfo` and `order`, unindexed columns and a `LANGUAGE_ID` column, which splits the
+  index by its value and is compared through the index object to search another language. `SNIPPET`, `OFFSETS` and
+  `MATCHINFO` read the matches, `terms(input)` writes FTS4 query syntax, and the commands and migrations work as for
+  FTS5
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead
