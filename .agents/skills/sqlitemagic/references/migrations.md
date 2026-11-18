@@ -45,7 +45,9 @@ Every step that discards data is printed as a build warning (`Migration deletes 
 debug builds by KSP and for releases by the Gradle tasks. So is a step that fills existing rows of a transformed
 column with its implicit default (`Migration fills existing rows …`), which its decoder may reject on every read.
 Refilling the full-text index of an existing table (`Migration rebuilds full-text index …`) is printed too, because
-it reads the whole table while the upgrade opens the database. Treat each warning as a decision to settle, not noise.
+it reads the whole table while the upgrade opens the database. When the new index replaces one, under the same name or
+another, the warning adds that the replaced index's settings set through raw SQL, such as `'automerge'` or FTS5's
+`'rank'`, are lost; re-apply them at the end of the script. Treat each warning as a decision to settle, not noise.
 
 ## Releasing a database version
 

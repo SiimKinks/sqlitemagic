@@ -1,23 +1,27 @@
 package com.siimkinks.sqlitemagic.runtime.contract.fulltext
 
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.Row2
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SearchBookFtsTable.Companion.SEARCH_BOOK_FTS
 import com.siimkinks.sqlitemagic.SearchBookTable.Companion.SEARCH_BOOK
+import com.siimkinks.sqlitemagic.SearchNoteFtsTable.Companion.SEARCH_NOTE_FTS
+import com.siimkinks.sqlitemagic.SearchNoteTable.Companion.SEARCH_NOTE
+import com.siimkinks.sqlitemagic.SearchNotes
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.fixture.model.fulltext.SearchAuthor
 import com.siimkinks.sqlitemagic.fixture.model.fulltext.SearchBook
+import com.siimkinks.sqlitemagic.fixture.model.fulltext.SearchNote
+import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
-import com.siimkinks.sqlitemagic.runtime.support.RxJava3Adapter
-import com.siimkinks.sqlitemagic.runtime.support.record
 import com.siimkinks.sqlitemagic.runtime.support.withDefaultWriter
 import com.siimkinks.sqlitemagic.update
 import org.junit.Rule
 import org.junit.Test
 
-internal class FullTextSearchTest {
+internal class Fts5SearchTest {
   @get:Rule
   val clearDatabase = ClearDatabaseRule()
 
@@ -104,33 +108,71 @@ internal class FullTextSearchTest {
   }
 
   @Test
-  fun searchesRefreshWhenTheirTableChanges() {
-    seed()
-    val titles = RxJava3Adapter
-      .runQuery(
-        SELECT
-          .COLUMN(SEARCH_BOOK.TITLE)
-          .FROM(SEARCH_BOOK)
-          .WHERE(SEARCH_BOOK_FTS MATCH "dune")
-          .ORDER_BY(SEARCH_BOOK.ID.ASC())
+  fun searchesOfATableKeyedByTextJoinAndCompareItsRowIds() {
+    SearchNotes
+      .insert(
+        listOf(
+          SearchNote(
+            code = "b",
+            text = "Buy desert dates"
+          ),
+          SearchNote(
+            code = "a",
+            text = "Cross the desert by night"
+          ),
+          SearchNote(
+            code = "c",
+            text = "Plant the seeds"
+          )
+        )
       )
-      .record()
-    try {
-      SearchBook(
-        id = 4,
-        title = "Dune Messiah",
-        summary = "The sequel",
-        author = frank
-      )
-        .persist()
-        .execute()
+      .execute()
 
-      titles
-        .assertNoErrors()
-        .assertValuesOnly(listOf("Dune"), listOf("Dune", "Dune Messiah"))
-    } finally {
-      titles.dispose()
-    }
+    assertThat(
+      mapOf(
+        "automatic join" to SELECT
+          .COLUMN(SEARCH_NOTE.CODE)
+          .FROM(SEARCH_NOTE)
+          .WHERE(SEARCH_NOTE_FTS MATCH "desert")
+          .ORDER_BY(SEARCH_NOTE.ROW_ID.ASC())
+          .execute(),
+        "explicit join" to SELECT
+          .COLUMN(SEARCH_NOTE.CODE)
+          .FROM(SEARCH_NOTE)
+          .INNER_JOIN(SEARCH_NOTE_FTS)
+          .ON(SEARCH_NOTE_FTS.ROWID IS SEARCH_NOTE.ROW_ID)
+          .WHERE(SEARCH_NOTE_FTS MATCH "desert")
+          .ORDER_BY(SEARCH_NOTE.ROW_ID.ASC())
+          .execute(),
+        "row IDs from a subquery" to SELECT
+          .COLUMN(SEARCH_NOTE.CODE)
+          .FROM(SEARCH_NOTE)
+          .WHERE(
+            SEARCH_NOTE.ROW_ID IN SELECT
+              .COLUMN(SEARCH_NOTE_FTS.ROWID)
+              .FROM(SEARCH_NOTE_FTS)
+              .WHERE(SEARCH_NOTE_FTS MATCH "seeds")
+          )
+          .execute(),
+        "entities" to SELECT
+          .FROM(SEARCH_NOTE)
+          .WHERE(SEARCH_NOTE_FTS MATCH "night")
+          .execute()
+      )
+    ).isEqualTo(
+      mapOf(
+        "automatic join" to listOf("b", "a"),
+        "explicit join" to listOf("b", "a"),
+        "row IDs from a subquery" to listOf("c"),
+        "entities" to listOf(
+          SearchNote(
+            code = "a",
+            rowId = 2,
+            text = "Cross the desert by night"
+          )
+        )
+      )
+    )
   }
 
   @Test

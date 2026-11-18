@@ -22,8 +22,8 @@ class SelectProjectionStage<T, S : Selection<T>> internal constructor(
   /**
    * Define a FROM clause.
    *
-   * @param source Table, subquery or common table expression to select from. Tables must be one of
-   *               annotation processor generated table objects that corresponds to table in a database
+   * @param source Table, view, full-text index, subquery or common table expression to select from. Tables must be one
+   *     of annotation processor generated table objects that corresponds to table in a database
    * @return SQL SELECT statement builder
    */
   @CheckResult

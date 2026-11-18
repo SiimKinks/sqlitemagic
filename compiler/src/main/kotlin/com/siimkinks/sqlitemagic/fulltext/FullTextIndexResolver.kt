@@ -1,4 +1,4 @@
-package com.siimkinks.sqlitemagic.model
+package com.siimkinks.sqlitemagic.fulltext
 
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.annotation.FullTextDetail.FULL
@@ -11,22 +11,88 @@ import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS4
 import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
-import com.siimkinks.sqlitemagic.fulltext.FullTextColumnElement
-import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
-import com.siimkinks.sqlitemagic.fulltext.fullTextIndexIdentity
-import com.siimkinks.sqlitemagic.fulltext.fullTextIndexName
+import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
+import com.siimkinks.sqlitemagic.manager.normalizedSqlIdentifier
+import com.siimkinks.sqlitemagic.model.ColumnElement
+import com.siimkinks.sqlitemagic.model.ModelCollectionReporter
+import com.siimkinks.sqlitemagic.model.TableSeed
+import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
+import com.siimkinks.sqlitemagic.schema.SchemaIdentityRegistry
+import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.displayName
-import java.util.Locale
 
 internal class FullTextIndexResolver(
   private val reporter: ModelCollectionReporter
 ) {
+  fun validateNames(
+    tableSeeds: Collection<TableSeed>,
+    accepted: SchemaIdentityRegistry
+  ) {
+    val owners = mutableMapOf<SqliteSchemaKey, SchemaIdentityOwner>()
+    tableSeeds.forEach { seed ->
+      owners.getOrPut(seed.normalizedKey) {
+        SchemaIdentityOwner(
+          kind = "table",
+          rawName = seed.tableName,
+          identity = seed.identity,
+          typeKey = seed.typeKey
+        )
+      }
+    }
+    for (seed in tableSeeds) {
+      val indexesByKey = seed.fullTextIndexes.groupBy { index ->
+        fullTextIndexIdentity(seed.fullTextIndexName(index.value)).normalizedKey
+      }
+      indexesByKey.values
+        .filter { it.size > 1 }
+        .forEach { indexes ->
+          reporter.error(
+            message = "Duplicate full-text index name '${seed.fullTextIndexName(indexes.first().value)}': " +
+                seed.classDeclaration.displayName(),
+            symbol = seed.classDeclaration
+          )
+        }
+      for (index in indexesByKey.values.map(List<FullTextIndex>::first)) {
+        val name = seed.fullTextIndexName(index.value)
+        val problem = fullTextIndexIdentity(name).sqliteIdentifierProblem(kind = "Full-text index")
+        if (problem != null) {
+          reporter.error(
+            message = problem,
+            symbol = seed.classDeclaration
+          )
+          continue
+        }
+        fullTextSchemaOwners(
+          name = name,
+          shadowTableNames = fullTextShadowTableNames(
+            name = name,
+            version = index.version,
+            columnSize = index.columnSize,
+            matchinfo = index.matchinfo
+          ),
+          typeKey = seed.typeKey
+        ).forEach { owner ->
+          val key = owner.normalizedKey
+          val existing = owners[key] ?: accepted.lookup(key)?.takeIf { it.typeKey != seed.typeKey }
+          when (existing) {
+            null -> owners[key] = owner
+            else -> reporter.error(
+              message = "${owner.kind.replaceFirstChar(Char::uppercaseChar)} name '${owner.rawName}' " +
+                  "conflicts with ${existing.kind} name '${existing.rawName}': ${seed.qualifiedName}",
+              symbol = seed.classDeclaration
+            )
+          }
+        }
+      }
+    }
+  }
+
   fun resolve(
     seed: TableSeed,
-    table: TableElement
+    columns: List<ColumnElement>
   ): List<FullTextIndexElement> {
     val modelName = seed.classDeclaration.displayName()
-    val memberships = table.allColumns.flatMap { column -> column.fullText.map { column to it } }
+    val memberships = columns.flatMap { column -> column.fullTextMemberships.map { column to it } }
     fun report(message: String) = reporter.error(
       message = message,
       symbol = seed.classDeclaration
@@ -34,30 +100,33 @@ internal class FullTextIndexResolver(
     fun describe(column: ColumnElement) = "$modelName.${column.access.path.displayName}"
 
     val declaredNames = seed.fullTextIndexes.map(FullTextIndex::value)
-    val (members, undeclaredMemberships) = memberships.partition { (_, fullText) -> fullText.index in declaredNames }
+    val (members, undeclaredMemberships) = memberships.partition { (_, membership) ->
+      membership.index in declaredNames
+    }
     undeclaredMemberships
       .filterNot { (column, _) -> column.access.path.isNested }
-      .forEach { (column, fullText) ->
+      .forEach { (column, membership) ->
         val index = when {
-          fullText.index.isEmpty() -> "the unnamed @FullTextIndex"
-          else -> "@FullTextIndex '${fullText.index}'"
+          membership.index.isEmpty() -> "the unnamed @FullTextIndex"
+          else -> "@FullTextIndex '${membership.index}'"
         }
         report("@FullText refers to $index, which $modelName does not declare: ${describe(column)}")
       }
     memberships
-      .groupBy { (column, fullText) -> column to fullText.index }
+      .groupBy { (column, membership) -> column to membership.index }
       .filterValues { it.size > 1 }
       .keys
       .forEach { (column, index) ->
-        report("Duplicate @FullText of full-text index '${index.displayName(table)}': ${describe(column)}")
+        report("Duplicate @FullText of full-text index '${seed.fullTextIndexName(index)}': ${describe(column)}")
       }
     if (seed.fullTextIndexes.isEmpty()) return emptyList()
-    if (WITHOUT_ROWID in table.options || TEMPORARY in table.options) {
+    if (WITHOUT_ROWID in seed.options || TEMPORARY in seed.options) {
       report("@FullTextIndex is not allowed in WITHOUT_ROWID or TEMPORARY tables: $modelName")
       return emptyList()
     }
-    val idColumn = table.idColumn
-    val rowIdColumn = table.rowIdColumn ?: idColumn?.takeIf { it.sqlStorageType.affinity == INTEGER }
+    val idColumn = columns.singleOrNull(ColumnElement::isId)
+    val rowIdColumn = columns.singleOrNull(ColumnElement::isRowId)
+      ?: idColumn?.takeIf { it.sqlStorageType.affinity == INTEGER }
     if (rowIdColumn == null) {
       when (idColumn) {
         null -> report(
@@ -71,16 +140,11 @@ internal class FullTextIndexResolver(
       }
       return emptyList()
     }
-    seed.fullTextIndexes
-      .groupBy { it.displayName(table).lowercase(Locale.ROOT) }
-      .values
-      .filter { it.size > 1 }
-      .forEach { report("Duplicate full-text index name '${it.first().displayName(table)}': $modelName") }
     return seed.fullTextIndexes.mapNotNull { index ->
       reporter.takeIfNoNewErrors {
-        val name = index.displayName(table)
-        val indexMembers = members.filter { (_, fullText) -> fullText.index == index.value }
-        val languageIds = indexMembers.filter { (_, fullText) -> fullText.role == LANGUAGE_ID }
+        val name = seed.fullTextIndexName(index.value)
+        val indexMembers = members.filter { (_, membership) -> membership.index == index.value }
+        val languageIds = indexMembers.filter { (_, membership) -> membership.role == LANGUAGE_ID }
         val reservedNames = when (index.version) {
           FTS5 -> {
             listOfNotNull(
@@ -104,10 +168,8 @@ internal class FullTextIndexResolver(
             if (languageIds.size > 1) {
               report("FTS4 index '$name' has more than one LANGUAGE_ID column: $modelName")
             }
-            table.allColumns
-              .filter { column ->
-                column != rowIdColumn && column.columnName.equals(other = "rowid", ignoreCase = true)
-              }
+            columns
+              .filter { column -> column != rowIdColumn && column.columnName.normalizedSqlIdentifier() == "rowid" }
               .forEach { column ->
                 report(
                   "Column name '${column.columnName}' hides the row ID that FTS4 index '$name' reads: " +
@@ -116,9 +178,9 @@ internal class FullTextIndexResolver(
               }
             setOf("docid")
           }
-        } + name.lowercase(Locale.ROOT)
+        } + name.normalizedSqlIdentifier()
         indexMembers
-          .filter { (column, _) -> column.columnName.lowercase(Locale.ROOT) in reservedNames }
+          .filter { (column, _) -> column.columnName.normalizedSqlIdentifier() in reservedNames }
           .forEach { (column, _) ->
             report(
               "Column name '${column.columnName}' is reserved in ${index.version} index '$name': ${describe(column)}"
@@ -126,19 +188,19 @@ internal class FullTextIndexResolver(
           }
         when {
           indexMembers.isEmpty() -> report("Full-text index '$name' has no @FullText column: $modelName")
-          indexMembers.none { (_, fullText) -> fullText.role == INDEXED } -> report(
+          indexMembers.none { (_, membership) -> membership.role == INDEXED } -> report(
             "Full-text index '$name' has no INDEXED column: $modelName"
           )
         }
         FullTextIndexElement(
           identity = fullTextIndexIdentity(name),
-          tableName = table.tableName,
+          tableName = seed.tableName,
           rowIdColumnName = rowIdColumn.columnName,
           version = index.version,
-          columns = indexMembers.map { (column, fullText) ->
+          columns = indexMembers.map { (column, membership) ->
             FullTextColumnElement(
               columnName = column.columnName,
-              role = fullText.role
+              role = membership.role
             )
           },
           tokenize = index.tokenize,
@@ -152,10 +214,3 @@ internal class FullTextIndexResolver(
     }
   }
 }
-
-private fun FullTextIndex.displayName(table: TableElement) = value.displayName(table)
-
-private fun String.displayName(table: TableElement) = fullTextIndexName(
-  tableName = table.tableName,
-  value = this
-)

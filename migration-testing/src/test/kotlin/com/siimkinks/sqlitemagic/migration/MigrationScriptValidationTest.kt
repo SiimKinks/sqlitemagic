@@ -36,20 +36,20 @@ internal class MigrationScriptValidationTest {
       "CREATE TEMPORARY TRIGGER t AFTER INSERT ON a $body -- note",
       "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT 1; /* x */ end /* y */ ;"
     )
+    val incomplete = "SQL statement must be complete on one physical line"
+    val several = "Each physical line must contain exactly one SQL statement"
     val rejected = mapOf(
-      "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT 1;" to "SQL statement must be complete on one physical line",
-      "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT CASE WHEN 1 THEN 0 END;" to
-          "SQL statement must be complete on one physical line",
-      "CREATE TRIGGER t AFTER INSERT ON a $body; SELECT 1" to
-          "Each physical line must contain exactly one SQL statement",
-      "CREATE TABLE trigger_log (id INTEGER); END" to "Each physical line must contain exactly one SQL statement",
-      "SELECT 1; END" to "Each physical line must contain exactly one SQL statement"
+      "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT 1;" to incomplete,
+      "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT CASE WHEN 1 THEN 0 END;" to incomplete,
+      "CREATE TRIGGER t AFTER INSERT ON a $body; SELECT 1" to several,
+      "CREATE TABLE trigger_log (id INTEGER); END" to several,
+      "SELECT 1; END" to several
     )
 
     accepted.forEach(::validateSqlLine)
     assertThat(
       rejected.mapValues { (line, _) ->
-        assertThrows(line, Exception::class.java) { validateSqlLine(line) }.message
+        assertThrows(line, IllegalArgumentException::class.java) { validateSqlLine(line) }.message
       }
     ).isEqualTo(rejected)
   }

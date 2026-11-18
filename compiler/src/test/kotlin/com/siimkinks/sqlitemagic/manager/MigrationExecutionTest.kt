@@ -1,7 +1,5 @@
 package com.siimkinks.sqlitemagic.manager
 
-import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
@@ -590,6 +588,30 @@ internal class MigrationExecutionTest {
   }
 
   @Test
+  fun `rebuilds keep columns named apart only by non-ASCII case`() {
+    val previous = structure(
+      "books" to listOf("id INTEGER PRIMARY KEY", """"colÄ" TEXT""", """"colä" TEXT""")
+    )
+    val current = structure(
+      "books" to listOf("id INTEGER PRIMARY KEY", """"colÄ" TEXT""", """"colä" TEXT""", """"code" TEXT UNIQUE""")
+    )
+
+    migratedDatabase(
+      previous = previous,
+      current = current,
+      rows = listOf("""INSERT INTO books (id, "colÄ", "colä") VALUES (1, 'upper', 'lower')""")
+    ).use { connection ->
+      assertThat(connection.strings("""SELECT "colÄ" || ',' || "colä" FROM books""")).containsExactly("upper,lower")
+    }
+    assertThat(
+      planSchemaMigration(
+        previous = previous,
+        current = current
+      ).warnings
+    ).isEmpty()
+  }
+
+  @Test
   fun `evidence with unquoted identifiers migrates only what changed`() {
     val evidence = DatabaseStructure(
       tables = mapOf(
@@ -623,35 +645,6 @@ internal class MigrationExecutionTest {
         "renamed table" to listOf("""ALTER TABLE "books" RENAME TO "writers"""")
       )
     )
-  }
-
-  private fun migratedDatabase(
-    previous: DatabaseStructure,
-    current: DatabaseStructure,
-    rows: List<String>
-  ): SQLiteConnection {
-    val connection = BundledSQLiteDriver().open(":memory:")
-    previous.tables.values.forEach { connection.execSQL(it.schema) }
-    previous.indices.values.forEach { connection.execSQL(it.indexSql) }
-    rows.forEach(connection::execSQL)
-    if (current.enforcesForeignKeys) {
-      connection.execSQL("PRAGMA foreign_keys = ON")
-    }
-    connection.execSQL("BEGIN EXCLUSIVE")
-    planSchemaMigration(
-      previous = previous,
-      current = current
-    ).statements.forEach(connection::execSQL)
-    connection.execSQL("COMMIT")
-    return connection
-  }
-
-  private fun SQLiteConnection.longs(sql: String) = prepare(sql).use { statement ->
-    buildList {
-      while (statement.step()) {
-        add(statement.getLong(0))
-      }
-    }
   }
 
   private fun structure(vararg tables: Pair<String, List<String>>) = DatabaseStructure(

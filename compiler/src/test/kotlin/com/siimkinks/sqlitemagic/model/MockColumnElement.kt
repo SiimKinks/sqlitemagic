@@ -26,5 +26,7 @@ internal fun mockColumnElement(
   id = id,
   isUnique = isUnique,
   index = null,
-  belongsToIndex = null
+  belongsToIndex = null,
+  isRowId = false,
+  fullTextMemberships = emptyList()
 )

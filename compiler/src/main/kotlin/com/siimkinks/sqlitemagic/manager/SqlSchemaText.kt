@@ -13,6 +13,8 @@ private val nonConstantDefaultPattern = Regex(
 private val withoutRowIdPattern = Regex("""(?i)\bWITHOUT\s+ROWID\b""")
 private const val normalizedTableName = "__TABLE__"
 
+internal val ROW_ID_PSEUDO_COLUMNS = listOf("rowid", "oid", "_rowid_")
+
 internal fun normalizeSql(
   schema: String,
   ownTableName: String?,
@@ -50,12 +52,12 @@ internal fun ColumnStructure.sameSchemaAs(other: ColumnStructure) = copy(
 internal fun IndexStructure.sameSchemaAs(other: IndexStructure) = copy(indexSql = other.indexSql) == other &&
     indexSql.sameSqlAs(other.indexSql)
 
-internal fun FullTextIndexStructure.sameSchemaAs(other: FullTextIndexStructure) = name == other.name &&
-    forTable == other.forTable &&
-    shadowTables == other.shadowTables &&
+internal fun FullTextIndexStructure.sameSchemaAs(other: FullTextIndexStructure) = copy(
+  tableSql = other.tableSql,
+  triggers = other.triggers
+) == other &&
     tableSql.sameSqlAs(other.tableSql) &&
-    triggers.keys.toList() == other.triggers.keys.toList() &&
-    triggers.all { (triggerName, sql) -> sql.sameSqlAs(other.triggers.getValue(triggerName)) }
+    triggers.sameSchemaAs(other = other.triggers, same = String::sameSqlAs)
 
 private fun <T> Map<String, T>.sameSchemaAs(
   other: Map<String, T>,

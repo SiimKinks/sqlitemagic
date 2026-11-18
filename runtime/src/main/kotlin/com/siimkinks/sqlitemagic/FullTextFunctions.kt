@@ -7,7 +7,8 @@ import com.siimkinks.sqlitemagic.internal.sql.ExpressionNode
 import com.siimkinks.sqlitemagic.internal.sql.NativeValue
 
 /**
- * Rank of a matching row with every column of [index] weighing the same: lower is a better match.
+ * The bm25() function returns the rank of a matching row with every column of [index] weighing the same: lower is a
+ * better match.
  *
  * It equals [Fts5Table.RANK] in a query that searches [index] with `MATCH`. In a query that does not, it is 0 for every
  * row, while RANK is NULL.
@@ -23,7 +24,7 @@ import com.siimkinks.sqlitemagic.internal.sql.NativeValue
  */
 fun BM25(index: Fts5Table) = requiredNativeResult(
   node = ExpressionNode.Call(
-    function = "bm25",
+    function = "BM25",
     arguments = listOf(index.table.operand),
     requiredBy = 0
   ),
@@ -31,7 +32,7 @@ fun BM25(index: Fts5Table) = requiredNativeResult(
 )
 
 /**
- * Rank of a matching row with weighted columns: lower is a better match.
+ * The bm25() function returns the rank of a matching row with weighted columns: lower is a better match.
  *
  * A match in a column with a higher weight ranks the row better. Columns that no weight names weigh 1.0. All the
  * columns belong to the same index. In a query that does not search it with `MATCH`, it is 0 for every row.
@@ -52,10 +53,15 @@ fun BM25(
   weight: Pair<Fts5Column<*, *, *, *, *, *>, Double>,
   vararg weights: Pair<Fts5Column<*, *, *, *, *, *>, Double>
 ): EncodableSqlExpression<Double, Double, Required, Double> {
-  val columns = arrayOf(weight, *weights)
-  val index = weight.first.index
-  val byPosition = arrayOfNulls<Double>(columns.maxOf { it.first.position } + 1)
-  columns.forEach { (column, columnWeight) ->
+  val (firstColumn, firstWeight) = weight
+  val index = firstColumn.index
+  val byPosition = arrayOfNulls<Double>(
+    weights.fold(initial = firstColumn.position) { maxPosition, (column) ->
+      maxPosition.coerceAtLeast(column.position)
+    } + 1
+  )
+  byPosition[firstColumn.position] = firstWeight
+  weights.forEach { (column, columnWeight) ->
     require(column.index === index) {
       "BM25 weighs the columns of one full-text index, not of both ${index.referenceName} and " +
           column.index.referenceName
@@ -65,13 +71,13 @@ fun BM25(
   }
   return requiredNativeResult(
     node = ExpressionNode.Call(
-      function = "bm25",
+      function = "BM25",
       arguments = buildList(capacity = byPosition.size + 1) {
         add(index.operand)
         byPosition.mapTo(this) { columnWeight ->
           when (columnWeight) {
             null -> DEFAULT_WEIGHT
-            else -> ExpressionNode.Literal(SqlStorage.DOUBLE.encode(columnWeight))
+            else -> ExpressionNode.Bound(SqlStorage.DOUBLE.encode(columnWeight))
           }
         }
       },
@@ -82,7 +88,7 @@ fun BM25(
 }
 
 /**
- * Text of [column] with every match of the search between [open] and [close].
+ * The highlight() function returns the text of [column] with every match of the search between [open] and [close].
  *
  * In a query that does not search the index of [column] with `MATCH`, it is the text of [column] without marks.
  *
@@ -108,7 +114,8 @@ fun HIGHLIGHT(column: Fts5Column<*, Required, *, *, *, *>, open: String, close: 
 )
 
 /**
- * Text of [column] with every match of the search between [open] and [close], or NULL when the column is NULL.
+ * The highlight() function returns the text of [column] with every match of the search between [open] and [close], or
+ * NULL when the column is NULL.
  *
  * In a query that does not search the index of [column] with `MATCH`, it is the text of [column] without marks.
  *
@@ -133,7 +140,8 @@ fun HIGHLIGHT(column: Fts5Column<*, *, *, *, *, *>, open: String, close: String)
 )
 
 /**
- * Fragment of [column] around the matches of the search, with every match between [open] and [close].
+ * The snippet() function returns a fragment of [column] around the matches of the search, with every match between
+ * [open] and [close].
  *
  * The fragment has at most [tokens] tokens (up to 64) and [ellipsis] where it cuts the text. In a query that does
  * not search the index of [column] with `MATCH`, it is the start of the column text without marks in FTS5 and empty
@@ -172,8 +180,8 @@ fun SNIPPET(
 )
 
 /**
- * Fragment of [column] around the matches of the search, with every match between [open] and [close], or NULL when
- * the column is NULL.
+ * The snippet() function returns a fragment of [column] around the matches of the search, with every match between
+ * [open] and [close], or NULL when the column is NULL.
  *
  * The fragment has at most [tokens] tokens (up to 64) and [ellipsis] where it cuts the text. In a query that does
  * not search the index of [column] with `MATCH`, it is the start of the column text without marks in FTS5 and empty
@@ -211,7 +219,8 @@ fun SNIPPET(
 )
 
 /**
- * Fragment of the column that best matches the search, with every match between [open] and [close].
+ * The snippet() function returns a fragment of the column that best matches the search, with every match between [open]
+ * and [close].
  *
  * The fragment has at most [tokens] tokens (up to 64) and [ellipsis] where it cuts the text. In a query that does
  * not search [index] with `MATCH`, it is the start of the first column of [index] without marks, or NULL when that
@@ -260,7 +269,7 @@ fun SNIPPET(
 )
 
 /**
- * Positions of the matches of the search in the columns of [index].
+ * The offsets() function returns the positions of the matches of the search in the columns of [index].
  *
  * The text holds four integers per match, separated by spaces: the column, the matched term of the query, and the
  * byte offset and byte size of the match in the column text. In a query that does not search [index] with `MATCH`,
@@ -277,7 +286,7 @@ fun SNIPPET(
  */
 fun OFFSETS(index: Fts4Table) = requiredNativeResult(
   node = ExpressionNode.Call(
-    function = "offsets",
+    function = "OFFSETS",
     arguments = listOf(index.table.operand),
     requiredBy = 0
   ),
@@ -285,7 +294,8 @@ fun OFFSETS(index: Fts4Table) = requiredNativeResult(
 )
 
 /**
- * Statistics of the matches of the search in [index], for ranking matches in application code.
+ * The matchinfo() function returns statistics of the matches of the search in [index], for ranking matches in
+ * application code.
  *
  * The value is an array of 32-bit unsigned integers in the byte order of the device, whose content [format]
  * selects. An index declared with `matchinfo = FTS3` supports only the formats `p`, `c` and `x`. In a query that does
@@ -297,17 +307,17 @@ fun OFFSETS(index: Fts4Table) = requiredNativeResult(
  * ```
  *
  * @param index FTS4 full-text index that the query searches
- * @param format Characters selecting the statistics, `pcx` by default
+ * @param format Characters selecting the statistics, or `null` for the default `pcx`
  * @return Expression representing the result of this function
  * @see [SQLite documentation: The matchinfo() function](https://www.sqlite.org/fts3.html#matchinfo)
  */
-fun MATCHINFO(index: Fts4Table, format: String = "pcx") = requiredNativeResult(
+fun MATCHINFO(index: Fts4Table, format: String? = null) = requiredNativeResult(
   node = ExpressionNode.Call(
-    function = "matchinfo",
-    arguments = listOf(
-      index.table.operand,
-      textValue(format)
-    ),
+    function = "MATCHINFO",
+    arguments = when (format) {
+      null -> listOf(index.table.operand)
+      else -> listOf(index.table.operand, textValue(format))
+    },
     requiredBy = 0
   ),
   type = BLOB
@@ -322,7 +332,7 @@ private fun highlight(
   open: String,
   close: String
 ) = ExpressionNode.Call(
-  function = "highlight",
+  function = "HIGHLIGHT",
   arguments = listOf(
     column.index.operand,
     integerLiteral(column.position.toLong()),
@@ -365,14 +375,14 @@ private fun fts5Snippet(
   ellipsis: String,
   tokens: Int
 ) = ExpressionNode.Call(
-  function = "snippet",
+  function = "SNIPPET",
   arguments = listOf(
     index.operand,
     integerLiteral(position),
     textValue(open),
     textValue(close),
     textValue(ellipsis),
-    integerLiteral(tokens.toLong())
+    integerValue(tokens.toLong())
   ),
   requiredBy = 0
 )
@@ -385,14 +395,14 @@ private fun fts4Snippet(
   ellipsis: String,
   tokens: Int
 ) = ExpressionNode.Call(
-  function = "snippet",
+  function = "SNIPPET",
   arguments = listOf(
     index.operand,
     textValue(open),
     textValue(close),
     textValue(ellipsis),
     integerLiteral(position),
-    integerLiteral(tokens.toLong())
+    integerValue(tokens.toLong())
   ),
   requiredBy = 0
 )

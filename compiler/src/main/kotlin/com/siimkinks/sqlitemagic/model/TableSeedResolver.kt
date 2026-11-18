@@ -15,6 +15,7 @@ import com.siimkinks.sqlitemagic.annotation.TableOption.TEMPORARY
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.element.TypeKey
+import com.siimkinks.sqlitemagic.fulltext.FullTextIndexResolver
 import com.siimkinks.sqlitemagic.model.AutoIncrementMode.AUTOMATIC
 import com.siimkinks.sqlitemagic.model.AutoIncrementMode.DISABLED
 import com.siimkinks.sqlitemagic.model.AutoIncrementMode.ENABLED
@@ -24,7 +25,8 @@ import com.siimkinks.sqlitemagic.utils.getArgument
 internal class TableSeedResolver(
   private val environment: Environment,
   private val tableSeeds: Map<TypeKey, TableSeed>,
-  private val reporter: ModelCollectionReporter
+  private val reporter: ModelCollectionReporter,
+  private val fullTextIndexResolver: FullTextIndexResolver
 ) {
   private val resolvedIdColumns = mutableMapOf<TypeKey, ColumnElement?>()
 
@@ -49,17 +51,15 @@ internal class TableSeedResolver(
         options = seed.options,
         construction = seed.construction,
         properties = properties,
-        isPublic = seed.isPublic
-      ).let { table ->
+        isPublic = seed.isPublic,
+        fullTextIndexes = fullTextIndexResolver.resolve(
+          seed = seed,
+          columns = properties.flatMap(PropertyElement::flattenedColumns)
+        )
+      ).also { table ->
         validateTableColumns(
           table = table,
           seed = seed
-        )
-        table.copy(
-          fullTextIndexes = FullTextIndexResolver(reporter).resolve(
-            seed = seed,
-            table = table
-          )
         )
       }
     }
@@ -196,7 +196,12 @@ internal class TableSeedResolver(
       index = seed.index,
       belongsToIndex = seed.belongsToIndex,
       isRowId = seed.isRowId,
-      fullText = seed.fullText
+      fullTextMemberships = seed.fullText.map { fullText ->
+        FullTextMembership(
+          index = fullText.index,
+          role = fullText.role
+        )
+      }
     )
   }
 

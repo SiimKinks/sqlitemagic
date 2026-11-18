@@ -97,8 +97,8 @@ internal data class FullTextIndexStructure(
     fun from(index: FullTextIndexElement) = FullTextIndexStructure(
       name = index.name,
       forTable = index.tableName,
-      tableSql = index.createTableSql,
-      triggers = index.triggerSqlByName,
+      tableSql = index.createTableSql(),
+      triggers = index.triggerSqlByName(),
       shadowTables = index.shadowTableNames
     )
   }

@@ -86,7 +86,9 @@ internal class FullTextSchemaTest {
       )
     )
 
-    assertThat(cases.mapValues { (_, statements) -> database().openWith(statements).matches() }).isEqualTo(
+    val matches = cases.mapValues { (_, statements) -> database().openWith(statements).use { it.matches() } }
+
+    assertThat(matches).isEqualTo(
       mapOf(
         "inserts" to mapOf("article_fts dune" to listOf(1L), "article_fts emma" to listOf(2L)),
         "updates with unchanged values" to mapOf("article_fts dune" to listOf(1L)),
@@ -178,10 +180,21 @@ internal class FullTextSchemaTest {
         PAPER,
         REMARK,
         """INSERT OR REPLACE INTO "paper" ("id", "title", "body", "author") VALUES (1, 'Emma', 'novel', 'Jane')"""
+      ),
+      "replaces in a table with a declared row ID" to listOf(
+        LETTER,
+        """INSERT OR REPLACE INTO "letter" ("id", "title", "tag") VALUES ('a', 'Dunes', 'sand')""",
+        """UPDATE "letter" SET "title"='Emma', "tag"='novels' WHERE "id"='b'"""
+      ),
+      "updates of a declared row ID" to listOf(
+        LETTER,
+        """UPDATE "letter" SET "row_id"=7 WHERE "id"='a'"""
       )
     )
 
-    assertThat(cases.mapValues { (_, statements) -> database().openWith(statements).fts4Matches() }).isEqualTo(
+    val matches = cases.mapValues { (_, statements) -> database().openWith(statements).use { it.fts4Matches() } }
+
+    assertThat(matches).isEqualTo(
       mapOf(
         "inserts" to mapOf("paper_fts dune" to listOf(1L), "paper_fts emma" to listOf(2L)),
         "updates with unchanged values" to mapOf("paper_fts dune" to listOf(1L)),
@@ -197,7 +210,15 @@ internal class FullTextSchemaTest {
         "updates of the language" to mapOf("paper_fts dune" to listOf(1L), "remark_fts dunes 2" to listOf(1L)),
         "updates of unindexed columns" to mapOf("paper_fts dune" to listOf(1L), "remark_fts dunes 1" to listOf(1L)),
         "cascades" to emptyMap(),
-        "cascades of replaced rows" to mapOf("paper_fts emma" to listOf(1L))
+        "cascades of replaced rows" to mapOf("paper_fts emma" to listOf(1L)),
+        "replaces in a table with a declared row ID" to mapOf(
+          "letter_fts dunes" to listOf(3L),
+          "letter_fts emma" to listOf(2L)
+        ),
+        "updates of a declared row ID" to mapOf(
+          "letter_fts dune" to listOf(7L),
+          "letter_fts emma" to listOf(2L)
+        )
       )
     )
   }
@@ -205,23 +226,27 @@ internal class FullTextSchemaTest {
   @Test
   fun `clears the data of indexed tables and keeps indexing new rows with their settings`() {
     val database = database()
-    val connection = database.openWith(
-      listOf(
-        ARTICLE,
-        """INSERT INTO "comment" ("article", "text") VALUES (1, 'Dune again')""",
-        """INSERT INTO "article_fts"("article_fts", rank) VALUES ('rank', 'bm25(10.0, 1.0)')""",
-        PAPER,
-        REMARK
+    val cleared = database
+      .openWith(
+        listOf(
+          ARTICLE,
+          """INSERT INTO "comment" ("article", "text") VALUES (1, 'Dune again')""",
+          """INSERT INTO "article_fts"("article_fts", rank) VALUES ('rank', 'bm25(10.0, 1.0)')""",
+          PAPER,
+          REMARK
+        )
       )
-    )
-    database.clearData(connection)
-    connection.execSQL("""INSERT INTO "article" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""")
-    connection.execSQL("""INSERT INTO "paper" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""")
-    val rank = connection
-      .prepare("""SELECT v FROM "article_fts_config" WHERE k = 'rank'""")
-      .use { statement -> statement.takeIf(SQLiteStatement::step)?.getText(0) }
+      .use { connection ->
+        database.clearData(connection)
+        connection.execSQL("""INSERT INTO "article" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""")
+        connection.execSQL("""INSERT INTO "paper" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""")
+        val rank = connection
+          .prepare("""SELECT v FROM "article_fts_config" WHERE k = 'rank'""")
+          .use { statement -> statement.takeIf(SQLiteStatement::step)?.getText(0) }
+        Triple(connection.matches(), connection.fts4Matches(), rank)
+      }
 
-    assertThat(Triple(connection.matches(), connection.fts4Matches(), rank)).isEqualTo(
+    assertThat(cleared).isEqualTo(
       Triple(mapOf("article_fts emma" to listOf(2L)), mapOf("paper_fts emma" to listOf(2L)), "bm25(10.0, 1.0)")
     )
   }
@@ -260,21 +285,24 @@ internal class FullTextSchemaTest {
       )
       .isOk()
       .database()
-    val connection = database.openWith(
-      listOf(
-        """INSERT INTO main."article" ("id", "title", "body", "author") VALUES (1, 'Dune', 'desert', 'Frank')""",
-        """INSERT INTO temp."article" ("title") VALUES ('Draft')""",
-        """INSERT INTO temp."article_fts" ("term") VALUES ('dune')"""
+    val matches = database
+      .openWith(
+        listOf(
+          """INSERT INTO main."article" ("id", "title", "body", "author") VALUES (1, 'Dune', 'desert', 'Frank')""",
+          """INSERT INTO temp."article" ("title") VALUES ('Draft')""",
+          """INSERT INTO temp."article_fts" ("term") VALUES ('dune')"""
+        )
       )
-    )
-    database.clearData(connection)
-    listOf(
-      """INSERT INTO main."article" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""",
-      """INSERT INTO temp."article_fts" ("term") VALUES ('emma')"""
-    ).forEach(connection::execSQL)
+      .use { connection ->
+        database.clearData(connection)
+        listOf(
+          """INSERT INTO main."article" ("title", "body", "author") VALUES ('Emma', 'novel', 'Jane')""",
+          """INSERT INTO temp."article_fts" ("term") VALUES ('emma')"""
+        ).forEach(connection::execSQL)
+        connection.matches(mapOf("article_fts" to listOf("dune", "emma")))
+      }
 
-    assertThat(connection.matches(mapOf("article_fts" to listOf("dune", "emma"))))
-        .isEqualTo(mapOf("article_fts emma" to listOf(2L)))
+    assertThat(matches).isEqualTo(mapOf("article_fts emma" to listOf(2L)))
   }
 
   private fun GeneratedDatabase.openWith(statements: List<String>) = BundledSQLiteDriver()
@@ -343,9 +371,13 @@ internal class FullTextSchemaTest {
     const val REMARK =
       """INSERT INTO "remark" ("paper", "text", "tag", "language") VALUES (1, 'Dune again', 'books', 1)"""
 
+    const val LETTER =
+      """INSERT INTO "letter" ("id", "title", "tag") VALUES ('a', 'Dune', 'books'), ('b', 'Emma', 'books')"""
+
     val FTS4_SEARCHES = mapOf(
       "paper_fts" to listOf("dune", "emma", "arrakis").map { it to null },
-      "remark_fts" to listOf("dunes" to 0, "dunes" to 1, "dunes" to 2)
+      "remark_fts" to listOf("dunes" to 0, "dunes" to 1, "dunes" to 2),
+      "letter_fts" to listOf("dune", "dunes", "emma", "books").map { it to null }
     )
 
     val SEARCHED_TERMS = mapOf(
@@ -409,6 +441,15 @@ internal class FullTextSchemaTest {
                 @FullText val text: String,
                 @FullText(role = UNINDEXED) val tag: String,
                 @FullText(role = LANGUAGE_ID) val language: Int
+              )
+
+              @Table
+              @FullTextIndex(version = FTS4)
+              data class Letter(
+                @Id val id: String,
+                @RowId val rowId: Long? = null,
+                @FullText val title: String,
+                @FullText(role = UNINDEXED) val tag: String
               )
 
               @Table

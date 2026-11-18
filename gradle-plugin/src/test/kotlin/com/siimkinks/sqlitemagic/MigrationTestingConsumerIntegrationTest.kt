@@ -128,10 +128,15 @@ internal class MigrationTestingConsumerIntegrationTest {
           .readText()
       )
       assertThat(exported.tableSql.toSet()).isEqualTo(snapshot.tableSql.toSet())
+      val declaredIndex = """main."migration_person_fts"""
       assertThat(
         listOf(
-          exported.virtualTableSql.map { it.substringBefore(" USING ") },
-          exported.triggerSql.map { it.substringBefore(" AFTER ") }
+          exported.virtualTableSql
+            .filter { it.contains(declaredIndex) }
+            .map { it.substringBefore(" USING ") },
+          exported.triggerSql
+            .filter { it.contains(declaredIndex) }
+            .map { it.substringBefore(" AFTER ") }
         ) to (exported.virtualTableSql to exported.triggerSql)
       ).isEqualTo(
         when (version) {
@@ -143,7 +148,7 @@ internal class MigrationTestingConsumerIntegrationTest {
         } to (snapshot.virtualTableSql to snapshot.triggerSql)
       )
       assertThat(exported.configuration).isEqualTo(snapshot.configuration)
-      assertThat(snapshot.configuration.recursiveTriggersEnabled).isEqualTo(version == 3)
+      assertThat(snapshot.configuration.recursiveTriggersEnabled).isTrue()
       assertThat(exported.tableSql.any { it.contains("migration_person") }).isTrue()
       assertThat(exported.tableSql.any { it.contains("submodule_persistent_value") }).isTrue()
       assertThat(exported.views.map(MigrationViewSchema::name))

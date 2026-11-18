@@ -109,11 +109,14 @@ internal class ModelCollectionStepTest {
                 id = IdElement(
                   isAutoIncrement = false,
                   canAssignGeneratedId = false,
-                  isNotNullKey = false
+                  isNotNullKey = false,
+                  isPrimaryKey = true
                 ),
                 isUnique = false,
                 index = null,
-                belongsToIndex = null
+                belongsToIndex = null,
+                isRowId = false,
+                fullTextMemberships = emptyList()
               )
             ),
             ColumnPropertyElement(
@@ -137,7 +140,9 @@ internal class ModelCollectionStepTest {
                   name = "title_lookup",
                   isUnique = true
                 ),
-                belongsToIndex = "books_title"
+                belongsToIndex = "books_title",
+                isRowId = false,
+                fullTextMemberships = emptyList()
               )
             ),
             ColumnPropertyElement(
@@ -158,11 +163,14 @@ internal class ModelCollectionStepTest {
                 id = null,
                 isUnique = false,
                 index = null,
-                belongsToIndex = "books_title"
+                belongsToIndex = "books_title",
+                isRowId = false,
+                fullTextMemberships = emptyList()
               )
             )
           ),
-          isPublic = true
+          isPublic = true,
+          fullTextIndexes = emptyList()
         )
       )
     assertThat(environment.tableRoundElementsForCurrentRound.values.single().table)
@@ -279,13 +287,16 @@ internal class ModelCollectionStepTest {
                     id = null,
                     isUnique = false,
                     index = null,
-                    belongsToIndex = null
+                    belongsToIndex = null,
+                    isRowId = false,
+                    fullTextMemberships = emptyList()
                   )
                 )
               )
             )
           ),
-          isPublic = true
+          isPublic = true,
+          fullTextIndexes = emptyList()
         )
       )
   }

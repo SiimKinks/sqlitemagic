@@ -44,7 +44,7 @@ internal fun validateSqlLine(sql: String) {
         index++
       }
       character.isWhitespace() || !hasToken && character == '\uFEFF' -> Unit
-      terminated -> error("Each physical line must contain exactly one SQL statement")
+      terminated -> throw IllegalArgumentException("Each physical line must contain exactly one SQL statement")
       character == ';' -> {
         require(hasToken && parentheses == 0) { "SQL statement is incomplete before its terminating semicolon" }
         when {

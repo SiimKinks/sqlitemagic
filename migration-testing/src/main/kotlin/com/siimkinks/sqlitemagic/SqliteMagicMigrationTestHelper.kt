@@ -23,7 +23,7 @@ import com.siimkinks.sqlitemagic.migration.testing.SQLiteQueries
 import com.siimkinks.sqlitemagic.migration.testing.SchemaComparator
 import com.siimkinks.sqlitemagic.migration.testing.SchemaIntrospector
 import com.siimkinks.sqlitemagic.migration.testing.createPersistentViews
-import com.siimkinks.sqlitemagic.migration.testing.quotedSqlIdentifier
+import com.siimkinks.sqlitemagic.migration.testing.quoteSqlIdentifier
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
 import java.io.InputStream
@@ -618,21 +618,17 @@ class SqliteMagicMigrationTestHelper(
     ).rows
     check(foreignKeys.isEmpty()) { "SQLite foreign_key_check failed: ${foreignKeys.take(20)}" }
     virtualTables.forEach { (name, table) ->
-      val identifier = quotedSqlIdentifier(name)
-      val command = when (table.module) {
-        "fts5" -> "INSERT INTO main.$identifier($identifier, rank) VALUES ('integrity-check', 1)"
-        "fts3", "fts4" -> "INSERT INTO main.$identifier($identifier) VALUES ('integrity-check')"
-        else -> null
-      }
-      if (command != null) {
-        try {
-          SQLiteQueries.execute(
-            connection = connection,
-            sql = command
-          )
-        } catch (failure: Exception) {
-          throw IllegalStateException("Full-text index $name is out of sync with its content table", failure)
-        }
+      val identifier = quoteSqlIdentifier(name)
+      try {
+        SQLiteQueries.execute(
+          connection = connection,
+          sql = when (table.module) {
+            "fts5" -> "INSERT INTO main.$identifier($identifier, rank) VALUES ('integrity-check', 1)"
+            else -> "INSERT INTO main.$identifier($identifier) VALUES ('integrity-check')"
+          }
+        )
+      } catch (failure: Exception) {
+        throw IllegalStateException("Full-text index $name is out of sync with its content table", failure)
       }
     }
   }

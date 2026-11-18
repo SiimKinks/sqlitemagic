@@ -1,24 +1,32 @@
 package com.siimkinks.sqlitemagic.runtime.contract.fulltext
 
+import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AND
-import com.siimkinks.sqlitemagic.BuildConfig
 import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.LetterFtsTable.Companion.LETTER_FTS
 import com.siimkinks.sqlitemagic.LetterTable.Companion.LETTER
 import com.siimkinks.sqlitemagic.MATCHINFO
+import com.siimkinks.sqlitemagic.MemoFtsTable.Companion.MEMO_FTS
+import com.siimkinks.sqlitemagic.MemoTable.Companion.MEMO
+import com.siimkinks.sqlitemagic.Memos
 import com.siimkinks.sqlitemagic.OFFSETS
 import com.siimkinks.sqlitemagic.Row2
 import com.siimkinks.sqlitemagic.Row3
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SNIPPET
 import com.siimkinks.sqlitemagic.delete
+import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.fulltext.Letter
 import com.siimkinks.sqlitemagic.fixture.model.fulltext.LetterAuthor
+import com.siimkinks.sqlitemagic.fixture.model.fulltext.Memo
+import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.persist
 import com.siimkinks.sqlitemagic.runtime.support.ClearDatabaseRule
 import com.siimkinks.sqlitemagic.runtime.support.RxJava3Adapter
 import com.siimkinks.sqlitemagic.runtime.support.record
+import com.siimkinks.sqlitemagic.runtime.support.sqliteVersion
+import com.siimkinks.sqlitemagic.runtime.support.supportsSqlite
 import com.siimkinks.sqlitemagic.runtime.support.withDefaultWriter
 import com.siimkinks.sqlitemagic.update
 import org.junit.Rule
@@ -93,7 +101,10 @@ internal class Fts4SearchTest {
       "language 0" to (LETTER_FTS MATCH "dune"),
       "language 1" to ((LETTER_FTS MATCH "dune") AND (LETTER_FTS.LANGUAGE IS 1)),
       "unindexed column" to (LETTER_FTS MATCH "melange"),
-      "stemmed prefix of free text" to (LETTER_FTS MATCH LETTER_FTS.terms("deserts plan", prefix = true)),
+      "stemmed prefix of free text" to (LETTER_FTS MATCH LETTER_FTS.terms(
+        text = "deserts plan",
+        prefix = true
+      )),
       "syntax in free text" to (LETTER_FTS MATCH LETTER_FTS.terms("""dune OR "sands" -""")),
       "quoted free text" to (LETTER_FTS MATCH LETTER_FTS.terms(""""Sands"""")),
       "column filter" to (LETTER_FTS.SUBJECT MATCH "desert")
@@ -175,6 +186,198 @@ internal class Fts4SearchTest {
   }
 
   @Test
+  fun replacingWritesKeepTheIndexInStep() {
+    seed()
+    Memos
+      .insert(
+        listOf(
+          Memo(
+            code = "a",
+            title = "Trip",
+            text = "Cross the desert"
+          ),
+          Memo(
+            code = "b",
+            title = "Groceries",
+            text = "Buy dates"
+          )
+        )
+      )
+      .execute()
+
+    val results = listOf(
+      dune
+        .copy(
+          subject = "Arrakis",
+          author = LetterAuthor(
+            id = 3,
+            name = "Paul"
+          )
+        )
+        .insert()
+        .conflictAlgorithm(CONFLICT_REPLACE)
+        .execute(),
+      Memo(
+        code = "a",
+        title = "Trip",
+        text = "Sail the sea"
+      )
+        .insert()
+        .conflictAlgorithm(CONFLICT_REPLACE)
+        .execute(),
+      Memo(
+        code = "b",
+        title = "Trip",
+        text = "Buy figs"
+      )
+        .update()
+        .conflictAlgorithm(CONFLICT_REPLACE)
+        .execute()
+    )
+    val memoSearches = mapOf(
+      "memo replaced by an insert" to "desert",
+      "memo replaced by an update" to "sea",
+      "updated memo" to "figs OR dates"
+    )
+
+    assertThat(
+      listOf(
+        results,
+        SELECT
+          .COLUMN(LETTER_FTS.ROWID)
+          .FROM(LETTER_FTS)
+          .WHERE(LETTER_FTS MATCH "dune OR arrakis")
+          .execute(),
+        memoSearches.mapValues { (_, query) ->
+          SELECT
+            .COLUMN(MEMO_FTS.ROWID)
+            .FROM(MEMO_FTS)
+            .WHERE(MEMO_FTS MATCH query)
+            .execute()
+        },
+        listOf(LETTER_FTS.integrityCheck(), MEMO_FTS.integrityCheck()).map { it.execute() }
+      )
+    ).isEqualTo(
+      listOf(
+        listOf(
+          EntityInsertResult.Inserted(1),
+          EntityInsertResult.Inserted(3),
+          true
+        ),
+        listOf(1L),
+        mapOf(
+          "memo replaced by an insert" to emptyList(),
+          "memo replaced by an update" to emptyList(),
+          "updated memo" to listOf(2L)
+        ),
+        listOf(1, 1)
+      )
+    )
+  }
+
+  @Test
+  fun aCascadingDeleteRemovesTheChildrenFromTheIndex() {
+    seed()
+    frank
+      .delete()
+      .execute()
+
+    val searches = mapOf(
+      "letters of the deleted author" to (LETTER_FTS MATCH "running OR sands"),
+      "letter of another author" to ((LETTER_FTS MATCH "dune") AND (LETTER_FTS.LANGUAGE IS 1))
+    )
+
+    assertThat(
+      searches.mapValues { (_, search) ->
+        SELECT
+          .COLUMN(LETTER_FTS.ROWID)
+          .FROM(LETTER_FTS)
+          .WHERE(search)
+          .execute()
+      } to LETTER_FTS
+        .integrityCheck()
+        .execute()
+    ).isEqualTo(
+      mapOf(
+        "letters of the deleted author" to emptyList(),
+        "letter of another author" to listOf(3L)
+      ) to 1
+    )
+  }
+
+  @Test
+  fun searchesOfATableKeyedByTextJoinAndCompareItsRowIds() {
+    Memos
+      .insert(
+        listOf(
+          Memo(
+            code = "b",
+            title = "Groceries",
+            text = "Buy desert dates"
+          ),
+          Memo(
+            code = "a",
+            title = "Trip",
+            text = "Cross the desert by night"
+          ),
+          Memo(
+            code = "c",
+            title = "Garden",
+            text = "Plant the seeds"
+          )
+        )
+      )
+      .execute()
+
+    assertThat(
+      mapOf(
+        "automatic join" to SELECT
+          .COLUMN(MEMO.CODE)
+          .FROM(MEMO)
+          .WHERE(MEMO_FTS MATCH "desert")
+          .ORDER_BY(MEMO.ROW_ID.ASC())
+          .execute(),
+        "explicit join" to SELECT
+          .COLUMN(MEMO.CODE)
+          .FROM(MEMO)
+          .INNER_JOIN(MEMO_FTS)
+          .ON(MEMO_FTS.ROWID IS MEMO.ROW_ID)
+          .WHERE(MEMO_FTS MATCH "desert")
+          .ORDER_BY(MEMO.ROW_ID.ASC())
+          .execute(),
+        "row IDs from a subquery" to SELECT
+          .COLUMN(MEMO.CODE)
+          .FROM(MEMO)
+          .WHERE(
+            MEMO.ROW_ID IN SELECT
+              .COLUMN(MEMO_FTS.ROWID)
+              .FROM(MEMO_FTS)
+              .WHERE(MEMO_FTS MATCH "seeds")
+          )
+          .execute(),
+        "entities" to SELECT
+          .FROM(MEMO)
+          .WHERE(MEMO_FTS MATCH "night")
+          .execute()
+      )
+    ).isEqualTo(
+      mapOf(
+        "automatic join" to listOf("b", "a"),
+        "explicit join" to listOf("b", "a"),
+        "row IDs from a subquery" to listOf("c"),
+        "entities" to listOf(
+          Memo(
+            code = "a",
+            rowId = 2,
+            title = "Trip",
+            text = "Cross the desert by night"
+          )
+        )
+      )
+    )
+  }
+
+  @Test
   fun searchesRefreshWhenTheirTableChanges() {
     seed()
     val subjects = RxJava3Adapter
@@ -230,8 +433,11 @@ internal class Fts4SearchTest {
     }
 
     assertThat(plan).isEqualTo(
-      when (BuildConfig.SQLITE_ENGINE) {
-        "bundled" -> listOf(
+      when {
+        supportsSqlite(
+          version = sqliteVersion(),
+          minor = 39
+        ) -> listOf(
           "SCAN main.letter_fts VIRTUAL TABLE INDEX 5:",
           "SEARCH main.letter USING INTEGER PRIMARY KEY (rowid=?)",
           "SEARCH main.letter_author USING INTEGER PRIMARY KEY (rowid=?) LEFT-JOIN"

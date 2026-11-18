@@ -24,7 +24,7 @@ import com.siimkinks.sqlitemagic.internal.sql.compileMutation
  *
  * Example:
  * ```
- * SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH "sqlite") ORDER_BY ARTICLE_FTS.RANK.ASC()
+ * SELECT COLUMN SNIPPET(ARTICLE_FTS, "<b>", "</b>", "…", 10) FROM ARTICLE WHERE (ARTICLE_FTS MATCH "sqlite")
  * ```
  */
 sealed class FullTextTable(
@@ -163,6 +163,12 @@ sealed class FullTextTable(
    *
    * An aliased index is not joined automatically.
    *
+   * Example:
+   * ```
+   * val found = ARTICLE_FTS AS "found"
+   * SELECT FROM ARTICLE INNER_JOIN found ON (found.ROWID IS ARTICLE.ID) WHERE (found MATCH "sqlite")
+   * ```
+   *
    * @param alias The alias name
    * @return New index with provided alias
    */
@@ -174,8 +180,6 @@ sealed class FullTextTable(
 
 /**
  * FTS5 full-text index of a table, generated for each `@FullTextIndex`.
- *
- * @see FullTextTable
  */
 abstract class Fts5Table @InternalSqliteMagicApi protected constructor(
   name: String,
@@ -211,7 +215,7 @@ abstract class Fts5Table @InternalSqliteMagicApi protected constructor(
    *
    * Example:
    * ```
-   * SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(input, prefix = true))
+   * SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(text = input, prefix = true))
    * ```
    *
    * @param text Free text
@@ -222,7 +226,7 @@ abstract class Fts5Table @InternalSqliteMagicApi protected constructor(
     var inTerm = false
     text.forEach { character ->
       when {
-        character.isWhitespace() || character == '\u0000' -> if (inTerm) {
+        character.separatesTerms() -> if (inTerm) {
           append('"')
           inTerm = false
         }
@@ -245,7 +249,10 @@ abstract class Fts5Table @InternalSqliteMagicApi protected constructor(
       append('"')
     }
     when {
-      isEmpty() -> append('"').append('"')
+      isEmpty() -> {
+        append('"')
+        append('"')
+      }
       prefix -> append('*')
     }
   }
@@ -258,8 +265,6 @@ abstract class Fts5Table @InternalSqliteMagicApi protected constructor(
  *
  * A column with the `LANGUAGE_ID` role is a plain field of the index: [MATCH] searches language 0 unless the query
  * also compares that field, as in `(MEMO_FTS MATCH "sqlite") AND (MEMO_FTS.LANGUAGE IS 1)`.
- *
- * @see FullTextTable
  */
 abstract class Fts4Table @InternalSqliteMagicApi protected constructor(
   name: String,
@@ -282,7 +287,7 @@ abstract class Fts4Table @InternalSqliteMagicApi protected constructor(
    *
    * Example:
    * ```
-   * SELECT FROM MEMO WHERE (MEMO_FTS MATCH MEMO_FTS.terms(input, prefix = true))
+   * SELECT FROM MEMO WHERE (MEMO_FTS MATCH MEMO_FTS.terms(text = input, prefix = true))
    * ```
    *
    * @param text Free text
@@ -405,6 +410,13 @@ sealed class FullTextColumn<R, N : SqlNullability, T, W, PN : SqlNullability, PT
   /**
    * Search only this column of its index.
    *
+   * Example:
+   * ```
+   * val query = ARTICLE.TITLE.asParameter("query")
+   * val search = (SELECT FROM ARTICLE WHERE (ARTICLE_FTS.TITLE MATCH query))
+   *     .compile()
+   * ```
+   *
    * @param query Full-text query, such as a parameter
    * @return Expression
    * @see [SQLite documentation: Full-text query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax)
@@ -420,7 +432,12 @@ sealed class FullTextColumn<R, N : SqlNullability, T, W, PN : SqlNullability, PT
 /**
  * Column of an FTS5 full-text index.
  *
- * @see FullTextColumn
+ * @param R Kotlin type of the column values
+ * @param N Column nullability -- either [Required] or [SqlNullable]
+ * @param T Return type (when this column is selected)
+ * @param W Kotlin type of the values this column is compared with
+ * @param PN Nullability of the parameters created from this column -- either [Required] or [SqlNullable]
+ * @param PT Return type of the parameters created from this column (when selected)
  */
 class Fts5Column<R, N : SqlNullability, T, W, PN : SqlNullability, PT> @InternalSqliteMagicApi constructor(
   table: Table<Nothing>,
@@ -441,7 +458,12 @@ class Fts5Column<R, N : SqlNullability, T, W, PN : SqlNullability, PT> @Internal
 /**
  * Column of an FTS4 full-text index.
  *
- * @see FullTextColumn
+ * @param R Kotlin type of the column values
+ * @param N Column nullability -- either [Required] or [SqlNullable]
+ * @param T Return type (when this column is selected)
+ * @param W Kotlin type of the values this column is compared with
+ * @param PN Nullability of the parameters created from this column -- either [Required] or [SqlNullable]
+ * @param PT Return type of the parameters created from this column (when selected)
  */
 class Fts4Column<R, N : SqlNullability, T, W, PN : SqlNullability, PT> @InternalSqliteMagicApi constructor(
   table: Table<Nothing>,
@@ -463,7 +485,7 @@ internal class FullTextIndexTable(
   name: String,
   alias: String?,
   val contentTable: Table<*>,
-  private val contentRowIdColumnName: String
+  contentRowIdColumnName: String
 ) : Table<Nothing>(
   name = name,
   alias = alias
@@ -503,13 +525,6 @@ internal class FullTextIndexTable(
   )
 
   override fun addDependencies(destination: QueryDependencies.Builder) = contentTable.addDependencies(destination)
-
-  override fun AS(alias: String) = FullTextIndexTable(
-    name = name,
-    alias = alias,
-    contentTable = contentTable,
-    contentRowIdColumnName = contentRowIdColumnName
-  )
 }
 
 private class FullTextCommand(

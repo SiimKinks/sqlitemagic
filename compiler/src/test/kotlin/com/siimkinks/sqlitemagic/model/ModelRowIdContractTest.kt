@@ -4,6 +4,7 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.withGeneratedSource
@@ -51,10 +52,10 @@ internal class ModelRowIdContractTest {
         )
       }
       .withGeneratedSource("SqliteMagic_Note_Dao.kt") { generatedSource ->
-        generatedSource.assertContains(
-          "statement.bindText(1, entity.id)\n    statement.bindText(2, entity.title)\n  }",
-          "statement.bindText(1, entity.title)\n    statement.bindText(2, entity.id)\n  }",
-          "values.clear()\n    values.put(\"title\", entity.title)\n  }"
+        generatedSource.assertContainsUnwrapped(
+          "statement.bindText(1, entity.id) statement.bindText(2, entity.title) }",
+          "statement.bindText(1, entity.title) statement.bindText(2, entity.id) }",
+          """values.clear() values.put("title", entity.title) }"""
         )
         generatedSource.assertDoesNotContain("entity.rowId)")
       }
@@ -65,9 +66,9 @@ internal class ModelRowIdContractTest {
     GENERATED
       .isOk()
       .withGeneratedSource("SqliteMagic_Note_Adapter.kt") {
-        it.assertContains(
+        it.assertContainsUnwrapped(
           "EntityGeneratedIdAdapter<Note>",
-          "override fun assignGeneratedId(entity: Note, rowId: Long) {\n    entity.rowId = rowId\n  }"
+          "override fun assignGeneratedId(entity: Note, rowId: Long) { entity.rowId = rowId }"
         )
       }
       .withGeneratedSource("SqliteMagic_RealIdNote_Adapter.kt") {

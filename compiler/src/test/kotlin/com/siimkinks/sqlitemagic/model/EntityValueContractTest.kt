@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
-import com.siimkinks.sqlitemagic.utils.TYPE_WITNESSES
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.tschuchort.compiletesting.SourceFile
 import org.junit.jupiter.api.Test
@@ -132,8 +131,7 @@ internal class EntityValueContractTest {
               val exactTotalsByEditor: Exact<List<Row2<String, Author?>>> = totalsByEditorType
             }
           """
-        ),
-        TYPE_WITNESSES
+        )
       )
       .isOk()
   }

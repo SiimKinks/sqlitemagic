@@ -32,12 +32,32 @@ internal fun migrationWarnings(
       renameCandidates = diff.renameCandidates[table.name].orEmpty()
     )
   }
-  val fullTextRebuildWarnings = plan.fullTextCreates
-    .filter { it.forTable !in diff.newTableNames }
-    .map { index ->
-      "Migration rebuilds full-text index ${index.name} from all rows of ${index.forTable}, which can take long " +
-          "for a large table."
+  val droppedFullTextIndexNames = plan.fullTextDrops.mapTo(destination = hashSetOf()) {
+    it.name.normalizedSqlIdentifier()
+  }
+  val createdFullTextIndexNames = plan.fullTextCreates.mapTo(destination = hashSetOf()) {
+    it.name.normalizedSqlIdentifier()
+  }
+  val currentTableNames = previousTableNames.entries.associate { (currentName, previousName) ->
+    previousName to currentName
+  }
+  val tablesWithReplacedFullTextIndices = plan.fullTextDrops
+    .filterNot { it.name.normalizedSqlIdentifier() in createdFullTextIndexNames }
+    .mapTo(destination = hashSetOf()) { index ->
+      val tableName = index.forTable.normalizedSqlIdentifier()
+      currentTableNames[tableName] ?: tableName
     }
+  val fullTextRebuildWarnings = plan.fullTextCreates.mapNotNull { index ->
+    val rebuild = "Migration rebuilds full-text index ${index.name} from all rows of ${index.forTable}"
+    val replacesIndex = index.name.normalizedSqlIdentifier() in droppedFullTextIndexNames ||
+        index.forTable.normalizedSqlIdentifier() in tablesWithReplacedFullTextIndices
+    when {
+      replacesIndex -> "$rebuild and loses the settings of the index it replaces, such as 'automerge' or " +
+          "FTS5 'rank' set through raw SQL. Re-apply them at the end of the migration SQL."
+      index.forTable in diff.newTableNames -> null
+      else -> "$rebuild."
+    }
+  }
   return tableChangeWarnings + droppedTableWarnings + fullTextRebuildWarnings
 }
 

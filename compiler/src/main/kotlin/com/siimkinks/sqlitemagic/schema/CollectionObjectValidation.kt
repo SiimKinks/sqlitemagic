@@ -12,9 +12,6 @@ import com.siimkinks.sqlitemagic.internal.SqliteIdentifierProvider
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaIdentity
 import com.siimkinks.sqlitemagic.internal.SqliteSchemaKey
 import com.siimkinks.sqlitemagic.model.TableElement
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.tableStructureClassName
 import com.siimkinks.sqlitemagic.view.ViewElement
 
@@ -192,16 +189,10 @@ internal fun tableArtifactStemOwners(
   )
 }
 
-internal enum class SqliteIdentifierProblem {
-  LINE_BREAK,
-  NUL,
-  RESERVED_PREFIX
-}
-
-internal fun SqliteIdentifierProvider.sqliteIdentifierProblem() = when {
-  rawName.contains('\n') || rawName.contains('\r') -> LINE_BREAK
-  rawName.contains('\u0000') -> NUL
-  normalizedName.startsWith(prefix = "sqlite_") -> RESERVED_PREFIX
+internal fun SqliteIdentifierProvider.sqliteIdentifierProblem(kind: String) = when {
+  rawName.contains('\n') || rawName.contains('\r') -> "$kind name must not contain line breaks: $rawName"
+  rawName.contains('\u0000') -> "$kind name must not contain NUL characters"
+  normalizedName.startsWith(prefix = "sqlite_") -> "$kind name '$rawName' is reserved"
   else -> null
 }
 

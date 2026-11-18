@@ -1,11 +1,11 @@
 package com.siimkinks.sqlitemagic.fulltext
 
 import com.siimkinks.sqlitemagic.model.modelProcessingSteps
+import com.siimkinks.sqlitemagic.utils.PlainKotlinCompilation
 import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
-import com.siimkinks.sqlitemagic.utils.TYPE_WITNESSES
 import com.siimkinks.sqlitemagic.utils.assertCompilationError
-import com.siimkinks.sqlitemagic.utils.assertContains
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.isOk
 import com.siimkinks.sqlitemagic.utils.withGeneratedSource
 import com.tschuchort.compiletesting.SourceFile
@@ -19,39 +19,38 @@ internal class FullTextTableContractTest {
 
   @Test
   fun `generates an index object with its columns and the row ID of its table`() {
-    compile(consumer = "")
-      .isOk()
+    GENERATED
       .withGeneratedSource("ArticleFtsTable.kt") {
-        it.assertContains(
-          "public class ArticleFtsTable private constructor(\n  alias: String?,\n) : Fts5Table(name = " +
-              "\"article_fts\", alias = alias, contentTable = ArticleTable.ARTICLE, contentRowIdColumnName = \"id\")",
-          "public val TITLE: Fts5Column<String, Required, String, String, Required, String> = Fts5Column(\n" +
-              "        table = fieldTable,\n        name = \"title\",\n        position = 0,",
-          "public val AUTHOR_NAME: Fts5Column<String, SqlNullable, String?, String?, SqlNullable, String?> =\n" +
-              "      Fts5Column(\n        table = fieldTable,\n        name = \"author_name\",\n        position = 1,",
+        it.assertContainsUnwrapped(
+          """public class ArticleFtsTable private constructor(alias: String?) : Fts5Table(name = "article_fts", """ +
+              """alias = alias, contentTable = ArticleTable.ARTICLE, contentRowIdColumnName = "id")""",
+          "public val TITLE: Fts5Column<String, Required, String, String, Required, String> = Fts5Column(" +
+              """table = fieldTable, name = "title", position = 0,""",
+          "public val AUTHOR_NAME: Fts5Column<String, SqlNullable, String?, String?, SqlNullable, String?> = " +
+              """Fts5Column(table = fieldTable, name = "author_name", position = 1,""",
           "public val ROWID: Column<Nothing, Long, Required, Long, Long?, SqlNullable, Long?> =",
-          "name = \"rowid\",",
+          """name = "rowid",""",
           "override infix fun AS(alias: String): ArticleFtsTable = ArticleFtsTable(alias)",
           "public val ARTICLE_FTS: ArticleFtsTable = ArticleFtsTable(null)"
         )
       }
       .withGeneratedSource("LetterFtsTable.kt") {
-        it.assertContains(
-          "public class LetterFtsTable private constructor(\n  alias: String?,\n) : Fts4Table(name = " +
-              "\"letter_fts\", alias = alias, contentTable = LetterTable.LETTER, contentRowIdColumnName = \"id\")",
-          "public val SUBJECT: Fts4Column<String, Required, String, String, Required, String> = Fts4Column(\n" +
-              "        table = fieldTable,\n        name = \"subject\",\n        position = 0,",
-          "public val TAG: Fts4Column<String, SqlNullable, String?, String?, SqlNullable, String?> =\n" +
-              "      Fts4Column(\n        table = fieldTable,\n        name = \"tag\",\n        position = 1,",
-          "public val LANGUAGE: Column<Nothing, Int, Required, Int, Int, Required, Int> = Column(\n" +
-              "        table = fieldTable,\n        name = \"language\",\n        nullness = Required,",
+        it.assertContainsUnwrapped(
+          """public class LetterFtsTable private constructor(alias: String?) : Fts4Table(name = "letter_fts", """ +
+              """alias = alias, contentTable = LetterTable.LETTER, contentRowIdColumnName = "id")""",
+          "public val SUBJECT: Fts4Column<String, Required, String, String, Required, String> = Fts4Column(" +
+              """table = fieldTable, name = "subject", position = 0,""",
+          "public val TAG: Fts4Column<String, SqlNullable, String?, String?, SqlNullable, String?> = " +
+              """Fts4Column(table = fieldTable, name = "tag", position = 1,""",
+          "public val LANGUAGE: Column<Nothing, Int, Required, Int, Int, Required, Int> = Column(" +
+              """table = fieldTable, name = "language", nullness = Required,""",
           "public val LETTER_FTS: LetterFtsTable = LetterFtsTable(null)"
         )
       }
       .withGeneratedSource("NoteSearchTable.kt") {
-        it.assertContains(
-          "contentTable = NoteTable.NOTE, contentRowIdColumnName = \"row_id\")",
-          "name = \"body\",\n        position = 1,",
+        it.assertContainsUnwrapped(
+          """contentTable = NoteTable.NOTE, contentRowIdColumnName = "row_id")""",
+          """name = "body", position = 1,""",
           "public val ROWID: Column<Nothing, Long, Required, Long, Long?, SqlNullable, Long?> =",
           "public val NOTE_SEARCH: NoteSearchTable = NoteSearchTable(null)"
         )
@@ -60,22 +59,22 @@ internal class FullTextTableContractTest {
 
   @Test
   fun `index objects search, rank and compare row IDs with their tables`() {
-    compile(
-      consumer = """
+    compileConsumer(
+      """
         fun searches(connection: DbConnection, query: String) {
-          val articles: List<Article> = SELECT
+          val articles = SELECT
             .FROM(ARTICLE)
             .WHERE(ARTICLE_FTS MATCH query)
             .ORDER_BY(ARTICLE_FTS.RANK.ASC())
             .usingConnection(connection)
             .execute()
-          val titles: List<String> = SELECT
+          val titles = SELECT
             .COLUMN(ARTICLE.TITLE)
             .FROM(ARTICLE)
             .WHERE(ARTICLE_FTS.TITLE MATCH ARTICLE.TITLE.asParameter("query"))
             .usingConnection(connection)
             .execute()
-          val indexed: List<Row3<Long, String, Double?>> = SELECT
+          val indexed = SELECT
             .COLUMNS(ARTICLE_FTS.ROWID, ARTICLE_FTS.TITLE, ARTICLE_FTS.RANK)
             .FROM(ARTICLE_FTS)
             .WHERE(ARTICLE_FTS MATCH query)
@@ -93,12 +92,11 @@ internal class FullTextTableContractTest {
           val notes = SELECT
             .FROM(NOTE)
             .WHERE(NOTE.ROW_ID IN (SELECT COLUMN NOTE_SEARCH.ROWID FROM NOTE_SEARCH WHERE (NOTE_SEARCH MATCH query)))
-          val hits: List<Article> = (SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH "sqlite OR room") ORDER_BY
+          val hits = (SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH "sqlite OR room") ORDER_BY
               ARTICLE_FTS.RANK.ASC())
             .usingConnection(connection)
             .execute()
-          val inTitles: List<String> = (SELECT COLUMN ARTICLE.TITLE FROM ARTICLE WHERE
-              (ARTICLE_FTS.TITLE MATCH "sqlite"))
+          val inTitles = (SELECT COLUMN ARTICLE.TITLE FROM ARTICLE WHERE (ARTICLE_FTS.TITLE MATCH "sqlite"))
             .usingConnection(connection)
             .execute()
           val explicit = SELECT
@@ -107,7 +105,7 @@ internal class FullTextTableContractTest {
             .ON(ARTICLE_FTS.ROWID IS ARTICLE.ID)
           val removed = DELETE FROM ARTICLE WHERE (ARTICLE.ID IN (SELECT COLUMN ARTICLE_FTS.ROWID FROM ARTICLE_FTS
               WHERE (ARTICLE_FTS MATCH query)))
-          val results: List<Row4<String, String?, String?, String?>> = SELECT
+          val results = SELECT
             .COLUMNS(
               HIGHLIGHT(ARTICLE_FTS.TITLE, "<b>", "</b>"),
               HIGHLIGHT(ARTICLE_FTS.AUTHOR_NAME, "<b>", "</b>"),
@@ -119,17 +117,17 @@ internal class FullTextTableContractTest {
             .ORDER_BY(BM25(ARTICLE_FTS.TITLE to 10.0, ARTICLE_FTS.AUTHOR_NAME to 2.0).ASC(), BM25(ARTICLE_FTS).ASC())
             .usingConnection(connection)
             .execute()
-          val snippets: List<String> = (SELECT COLUMN SNIPPET(ARTICLE_FTS.TITLE, "<b>", "</b>", "…", 10) FROM ARTICLE
+          val snippets = (SELECT COLUMN SNIPPET(ARTICLE_FTS.TITLE, "<b>", "</b>", "…", 10) FROM ARTICLE
               WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(query)) ORDER_BY BM25(ARTICLE_FTS.TITLE to 10.0).ASC())
             .usingConnection(connection)
             .execute()
-          val noteHits: List<String> = SELECT
+          val noteHits = SELECT
             .COLUMN(HIGHLIGHT(NOTE_SEARCH.BODY, "<b>", "</b>"))
             .FROM(NOTE)
             .WHERE(NOTE_SEARCH MATCH query)
             .usingConnection(connection)
             .execute()
-          val documented: List<Row3<Long, String, String?>> = (
+          val documented = (
               SELECT.COLUMNS(
                   ARTICLE.ID,
                   HIGHLIGHT(ARTICLE_FTS.TITLE, "<b>", "</b>"),
@@ -142,9 +140,9 @@ internal class FullTextTableContractTest {
               )
             .usingConnection(connection)
             .execute()
-          val changes: List<Int> = listOf(ARTICLE_FTS.rebuild(), ARTICLE_FTS.optimize(), ARTICLE_FTS.integrityCheck())
+          val changes = listOf(ARTICLE_FTS.rebuild(), ARTICLE_FTS.optimize(), ARTICLE_FTS.integrityCheck())
             .map { it.usingConnection(connection).execute() }
-          val letters: List<Row5<String, String?, String, ByteArray, ByteArray>> = SELECT
+          val letters = SELECT
             .COLUMNS(
               SNIPPET(LETTER_FTS.SUBJECT, "<b>", "</b>", "…", 10),
               SNIPPET(LETTER_FTS, "<b>", "</b>", "…", 10),
@@ -156,24 +154,53 @@ internal class FullTextTableContractTest {
             .WHERE((LETTER_FTS MATCH LETTER_FTS.terms(query, prefix = true)) AND (LETTER_FTS.LANGUAGE IS 1))
             .usingConnection(connection)
             .execute()
-          val letterRows: List<Row3<Long, String?, Int>> = SELECT
+          val letterRows = SELECT
             .COLUMNS(LETTER_FTS.ROWID, LETTER_FTS.TAG, LETTER_FTS.LANGUAGE)
             .FROM(LETTER_FTS)
             .WHERE(LETTER_FTS.SUBJECT MATCH query)
             .usingConnection(connection)
             .execute()
-          val memos: List<Row3<Memo, String, String>> = (
+          val memos = (
               SELECT.COLUMNS(MEMO, SNIPPET(MEMO_FTS.TEXT, "<b>", "</b>", "…", 10), OFFSETS(MEMO_FTS))
                   FROM MEMO
                   WHERE ((MEMO_FTS MATCH MEMO_FTS.terms(query, prefix = true)) AND (MEMO_FTS.LANGUAGE IS 1))
               )
             .usingConnection(connection)
             .execute()
-          val letterChanges: List<Int> = listOf(
+          val letterChanges = listOf(
             LETTER_FTS.rebuild(),
             LETTER_FTS.optimize(),
             LETTER_FTS.integrityCheck()
           ).map { it.usingConnection(connection).execute() }
+
+          val articlesType = articles.exactType()
+          val exactArticles: Exact<List<Article>> = articlesType
+          val titlesType = titles.exactType()
+          val exactTitles: Exact<List<String>> = titlesType
+          val indexedType = indexed.exactType()
+          val exactIndexed: Exact<List<Row3<Long, String, Double?>>> = indexedType
+          val hitsType = hits.exactType()
+          val exactHits: Exact<List<Article>> = hitsType
+          val inTitlesType = inTitles.exactType()
+          val exactInTitles: Exact<List<String>> = inTitlesType
+          val resultsType = results.exactType()
+          val exactResults: Exact<List<Row4<String, String?, String?, String?>>> = resultsType
+          val snippetsType = snippets.exactType()
+          val exactSnippets: Exact<List<String>> = snippetsType
+          val noteHitsType = noteHits.exactType()
+          val exactNoteHits: Exact<List<String>> = noteHitsType
+          val documentedType = documented.exactType()
+          val exactDocumented: Exact<List<Row3<Long, String, String?>>> = documentedType
+          val changesType = changes.exactType()
+          val exactChanges: Exact<List<Int>> = changesType
+          val lettersType = letters.exactType()
+          val exactLetters: Exact<List<Row5<String, String?, String, ByteArray, ByteArray>>> = lettersType
+          val letterRowsType = letterRows.exactType()
+          val exactLetterRows: Exact<List<Row3<Long, String?, Int>>> = letterRowsType
+          val memosType = memos.exactType()
+          val exactMemos: Exact<List<Row3<Memo, String, String>>> = memosType
+          val letterChangesType = letterChanges.exactType()
+          val exactLetterChanges: Exact<List<Int>> = letterChangesType
         }
       """
     ).isOk()
@@ -186,7 +213,7 @@ internal class FullTextTableContractTest {
     statement: String,
     diagnostic: String
   ) {
-    compile(consumer = "fun invalid() { val statement = $statement }").assertCompilationError(diagnostic)
+    compileConsumer("fun invalid() { val statement = $statement }").assertCompilationError(diagnostic)
   }
 
   @ParameterizedTest(name = "{0}")
@@ -215,59 +242,7 @@ internal class FullTextTableContractTest {
       .assertCompilationError(*diagnostics.toTypedArray())
   }
 
-  private fun compile(consumer: String) = compiler.compile(
-    SourceFile.kotlin(
-      name = "Models.kt",
-      contents = """
-        package $PACKAGE
-
-        import com.siimkinks.sqlitemagic.annotation.Embedded
-        import com.siimkinks.sqlitemagic.annotation.FullText
-        import com.siimkinks.sqlitemagic.annotation.FullTextIndex
-        import com.siimkinks.sqlitemagic.annotation.FullTextRole
-        import com.siimkinks.sqlitemagic.annotation.FullTextVersion
-        import com.siimkinks.sqlitemagic.annotation.Id
-        import com.siimkinks.sqlitemagic.annotation.RowId
-        import com.siimkinks.sqlitemagic.annotation.Table
-
-        data class Byline(@FullText val name: String?)
-
-        @Table
-        @FullTextIndex
-        data class Article(
-          @Id val id: Long? = null,
-          @FullText val title: String,
-          @Embedded(prefix = "author_") val author: Byline,
-          val pages: Int
-        )
-
-        @Table
-        @FullTextIndex(version = FullTextVersion.FTS4)
-        data class Letter(
-          @Id val id: Long? = null,
-          @FullText val subject: String,
-          @FullText(role = FullTextRole.UNINDEXED) val tag: String?,
-          @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
-        )
-
-        @Table
-        @FullTextIndex(version = FullTextVersion.FTS4, tokenize = "unicode61")
-        data class Memo(
-          @Id val id: Long? = null,
-          @FullText val text: String,
-          @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
-        )
-
-        @Table
-        @FullTextIndex("note_search")
-        data class Note(
-          @Id val id: String,
-          @RowId val rowId: Long? = null,
-          @FullText("note_search", role = FullTextRole.UNINDEXED) val tag: String,
-          @FullText("note_search") val body: String
-        )
-      """
-    ),
+  private fun compileConsumer(consumer: String) = PlainKotlinCompilation.compile(
     SourceFile.kotlin(
       name = "Consumer.kt",
       contents = """
@@ -290,8 +265,8 @@ internal class FullTextTableContractTest {
         import com.siimkinks.sqlitemagic.MemoTable.Companion.MEMO
         import com.siimkinks.sqlitemagic.NoteSearchTable.Companion.NOTE_SEARCH
         import com.siimkinks.sqlitemagic.NoteTable.Companion.NOTE
-        import com.siimkinks.sqlitemagic.Row3
         import com.siimkinks.sqlitemagic.OFFSETS
+        import com.siimkinks.sqlitemagic.Row3
         import com.siimkinks.sqlitemagic.Row4
         import com.siimkinks.sqlitemagic.Row5
         import com.siimkinks.sqlitemagic.SELECT
@@ -299,16 +274,77 @@ internal class FullTextTableContractTest {
         import com.siimkinks.sqlitemagic.UPDATE
         import $PACKAGE.Article
         import $PACKAGE.Memo
+        import typewitness.Exact
+        import typewitness.exactType
 
         $consumer
       """
     ),
-    TYPE_WITNESSES
+    classpaths = listOf(GENERATED.outputDirectory)
   )
 
   companion object {
     private const val SHARED_NAME = "they map to the same generated name"
     private const val LIBRARY_CLASS = "is already declared on the classpath"
+
+    private val GENERATED by lazy {
+      SqliteMagicCompiler(::modelProcessingSteps)
+        .compile(
+          SourceFile.kotlin(
+            name = "Models.kt",
+            contents = """
+              package $PACKAGE
+
+              import com.siimkinks.sqlitemagic.annotation.Embedded
+              import com.siimkinks.sqlitemagic.annotation.FullText
+              import com.siimkinks.sqlitemagic.annotation.FullTextIndex
+              import com.siimkinks.sqlitemagic.annotation.FullTextRole
+              import com.siimkinks.sqlitemagic.annotation.FullTextVersion
+              import com.siimkinks.sqlitemagic.annotation.Id
+              import com.siimkinks.sqlitemagic.annotation.RowId
+              import com.siimkinks.sqlitemagic.annotation.Table
+
+              data class Byline(@FullText val name: String?)
+
+              @Table
+              @FullTextIndex
+              data class Article(
+                @Id val id: Long? = null,
+                @FullText val title: String,
+                @Embedded(prefix = "author_") val author: Byline,
+                val pages: Int
+              )
+
+              @Table
+              @FullTextIndex(version = FullTextVersion.FTS4)
+              data class Letter(
+                @Id val id: Long? = null,
+                @FullText val subject: String,
+                @FullText(role = FullTextRole.UNINDEXED) val tag: String?,
+                @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
+              )
+
+              @Table
+              @FullTextIndex(version = FullTextVersion.FTS4, tokenize = "unicode61")
+              data class Memo(
+                @Id val id: Long? = null,
+                @FullText val text: String,
+                @FullText(role = FullTextRole.LANGUAGE_ID) val language: Int
+              )
+
+              @Table
+              @FullTextIndex("note_search")
+              data class Note(
+                @Id val id: String,
+                @RowId val rowId: Long? = null,
+                @FullText("note_search", role = FullTextRole.UNINDEXED) val tag: String,
+                @FullText("note_search") val body: String
+              )
+            """
+          )
+        )
+        .isOk()
+    }
 
     @JvmStatic
     fun generatedNameCollisions() = listOf(
@@ -399,7 +435,7 @@ internal class FullTextTableContractTest {
       ),
       Arguments.of(
         "highlight of an FTS4 column",
-        "HIGHLIGHT(LETTER_FTS.SUBJECT, \"<b>\", \"</b>\")",
+        """HIGHLIGHT(LETTER_FTS.SUBJECT, "<b>", "</b>")""",
         "Argument type mismatch: actual type is 'Fts4Column<String, Required, String, String, Required, String>', " +
             "but 'Fts5Column<*, Required, *, *, *, *>' was expected"
       ),
@@ -420,17 +456,17 @@ internal class FullTextTableContractTest {
       ),
       Arguments.of(
         "match on the language ID",
-        "LETTER_FTS.LANGUAGE MATCH \"x\"",
+        """LETTER_FTS.LANGUAGE MATCH "x"""",
         "Unresolved reference 'MATCH'"
       ),
       Arguments.of(
         "snippet of the language ID",
-        "SNIPPET(LETTER_FTS.LANGUAGE, \"<b>\", \"</b>\", \"…\", 10)",
+        """SNIPPET(LETTER_FTS.LANGUAGE, "<b>", "</b>", "…", 10)""",
         "None of the following candidates is applicable"
       ),
       Arguments.of(
         "highlight of a nullable column read as required",
-        "(SELECT COLUMN HIGHLIGHT(ARTICLE_FTS.AUTHOR_NAME, \"<b>\", \"</b>\") FROM ARTICLE).execute().first().length",
+        """(SELECT COLUMN HIGHLIGHT(ARTICLE_FTS.AUTHOR_NAME, "<b>", "</b>") FROM ARTICLE).execute().first().length""",
         "Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'String?'"
       )
     )

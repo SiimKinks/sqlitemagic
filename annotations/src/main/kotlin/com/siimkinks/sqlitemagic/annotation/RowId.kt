@@ -14,6 +14,10 @@ import kotlin.annotation.AnnotationTarget.FIELD
  * A stable row ID is what full-text indexes and other row-ID-keyed data refer to: a `VACUUM` or a dump and restore
  * can renumber the implicit row IDs of a table without one.
  *
+ * A table declares at most one row ID. It cannot be declared in `WITHOUT_ROWID` or `TEMPORARY` tables or inside an
+ * [Embedded] value, and cannot be combined on the same property with [Id], [Unique], [Index], [IgnoreColumn],
+ * [Column.defaultValue], or [Column.belongsToIndex].
+ *
  * Example:
  * ```
  * @Table
@@ -24,7 +28,7 @@ import kotlin.annotation.AnnotationTarget.FIELD
  * )
  * ```
  *
- * @see [SQLite documentation: Rowid Tables](https://www.sqlite.org/rowidtable.html)
+ * See [SQLite documentation: Rowid Tables](https://www.sqlite.org/rowidtable.html).
  */
 @Target(FIELD)
 @Retention(BINARY)

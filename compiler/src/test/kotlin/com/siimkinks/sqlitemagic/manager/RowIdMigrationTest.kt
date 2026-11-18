@@ -1,10 +1,8 @@
 package com.siimkinks.sqlitemagic.manager
 
-import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import org.junit.jupiter.api.Test
 
 internal class RowIdMigrationTest {
@@ -114,18 +112,18 @@ internal class RowIdMigrationTest {
 
   @Test
   fun `a WITHOUT ROWID table that gains a row ID gets new row IDs`() {
-    val migrated = migratedDatabase(
+    migratedDatabase(
       previous = structure(
         note = listOf(TEXT_PRIMARY_KEY, TITLE),
         noteOptions = " WITHOUT ROWID"
       ),
       current = structure(note = listOf(TEXT_UNIQUE_ID, ROW_ID, TITLE)),
       rows = listOf("""INSERT INTO "note" ("id", "title") VALUES ('a', 'A'), ('c', 'C'), ('d', 'D')""")
-    )
-
-    assertThat(migrated.strings("""SELECT "id" || ':' || ("row_id" IS NOT NULL) FROM "note" ORDER BY "id""""))
-      .containsExactly("a:1", "c:1", "d:1")
-      .inOrder()
+    ).use { migrated ->
+      assertThat(migrated.strings("""SELECT "id" || ':' || ("row_id" IS NOT NULL) FROM "note" ORDER BY "id""""))
+        .containsExactly("a:1", "c:1", "d:1")
+        .inOrder()
+    }
   }
 
   @Test
@@ -152,22 +150,25 @@ internal class RowIdMigrationTest {
     fun migrate(): MigratedRows {
       val previousStructure = structure(note = previous)
       val currentStructure = structure(note = current)
-      val migrated = migratedDatabase(
+      val freshSchemaRows = BundledSQLiteDriver().open(":memory:").use { fresh ->
+        currentStructure.tables.values.forEach { fresh.execSQL(it.schema) }
+        fresh.schemaRows()
+      }
+      return migratedDatabase(
         previous = previousStructure,
         current = currentStructure,
         rows = rows + ATTACHMENT_ROWS
-      )
-      val fresh = BundledSQLiteDriver().open(":memory:")
-      currentStructure.tables.values.forEach { fresh.execSQL(it.schema) }
-      return MigratedRows(
-        rows = migrated.strings(read),
-        attachments = migrated.strings("""SELECT count(*) FROM "attachment"""").single().toInt(),
-        matchesFreshInstall = migrated.schemaRows() == fresh.schemaRows(),
-        warnings = planSchemaMigration(
-          previous = previousStructure,
-          current = currentStructure
-        ).warnings
-      )
+      ).use { migrated ->
+        MigratedRows(
+          rows = migrated.strings(read),
+          attachments = migrated.longs("""SELECT count(*) FROM "attachment"""").single().toInt(),
+          matchesFreshInstall = migrated.schemaRows() == freshSchemaRows,
+          warnings = planSchemaMigration(
+            previous = previousStructure,
+            current = currentStructure
+          ).warnings
+        )
+      }
     }
   }
 
@@ -230,58 +231,16 @@ internal class RowIdMigrationTest {
       noteOptions: String = ""
     ) = DatabaseStructure(
       tables = mapOf(
-        "note" to table(
+        "note" to quotedMigrationTable(
           name = "note",
           columns = note,
           options = noteOptions
         ),
-        "attachment" to table(
+        "attachment" to quotedMigrationTable(
           name = "attachment",
           columns = ATTACHMENT
         )
       )
     )
-
-    fun table(
-      name: String,
-      columns: List<ColumnStructure>,
-      options: String = ""
-    ) = TableStructure(
-      name = name,
-      schema = "CREATE TABLE IF NOT EXISTS ${quoteSqlIdentifier(name)} " +
-          "(${columns.joinToString(transform = ColumnStructure::schema)})$options",
-      columns = columns
-    )
-
-    fun migratedDatabase(
-      previous: DatabaseStructure,
-      current: DatabaseStructure,
-      rows: List<String>
-    ): SQLiteConnection {
-      val connection = BundledSQLiteDriver().open(":memory:")
-      previous.tables.values.forEach { connection.execSQL(it.schema) }
-      rows.forEach(connection::execSQL)
-      connection.execSQL("PRAGMA foreign_keys = ON")
-      connection.execSQL("BEGIN EXCLUSIVE")
-      planSchemaMigration(
-        previous = previous,
-        current = current
-      ).statements.forEach(connection::execSQL)
-      connection.execSQL("COMMIT")
-      return connection
-    }
-
-    fun SQLiteConnection.schemaRows() = strings(
-      "SELECT type || ' ' || name || ' ' || tbl_name || ' ' || IFNULL(sql, '') FROM sqlite_master " +
-          "WHERE name NOT LIKE 'sqlite_sequence' ORDER BY name"
-    )
-
-    fun SQLiteConnection.strings(sql: String) = prepare(sql).use { statement ->
-      buildList {
-        while (statement.step()) {
-          add(statement.getText(0))
-        }
-      }
-    }
   }
 }

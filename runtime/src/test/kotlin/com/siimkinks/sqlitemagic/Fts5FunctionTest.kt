@@ -1,7 +1,7 @@
 package com.siimkinks.sqlitemagic
 
-import com.google.common.truth.Truth.assertThat
 import androidx.sqlite.SQLiteStatement
+import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
 import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
@@ -10,7 +10,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import kotlin.math.absoluteValue
 
-internal class FullTextFunctionTest {
+internal class Fts5FunctionTest {
   private val indexJoin = """INNER JOIN "main"."article_fts" ON "article_fts"."rowid" = "article"."id""""
   private val operand = """"article_fts"."article_fts""""
 
@@ -37,7 +37,7 @@ internal class FullTextFunctionTest {
           .FROM(ARTICLE)
           .WHERE(ARTICLE_FTS MATCH "sqlite OR room")
           .ORDER_BY(ARTICLE.ID.ASC()),
-        sql = """SELECT highlight($operand, 0, ?, ?) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT HIGHLIGHT($operand, 0, ?, ?) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "article"."id" ASC""",
         rows = listOf("[SQLite] search", "[Room] guide", "Kotlin notes")
       ),
@@ -48,7 +48,7 @@ internal class FullTextFunctionTest {
           .FROM(ARTICLE)
           .WHERE(ARTICLE_FTS MATCH "sqlite OR room")
           .ORDER_BY(ARTICLE.ID.ASC()),
-        sql = """SELECT highlight($operand, 2, ?, ?) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT HIGHLIGHT($operand, 2, ?, ?) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "article"."id" ASC""",
         rows = listOf("Ranking rows", null, "[sqlite] from kotlin, [sqlite] everywhere and in every app")
       ),
@@ -59,7 +59,7 @@ internal class FullTextFunctionTest {
           .FROM(ARTICLE)
           .WHERE(ARTICLE_FTS MATCH "sqlite OR room")
           .ORDER_BY(ARTICLE.ID.ASC()),
-        sql = """SELECT snippet($operand, 2, ?, ?, ?, 4) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT SNIPPET($operand, 2, ?, ?, ?, ?) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "article"."id" ASC""",
         rows = listOf("Ranking rows", null, "[sqlite] from kotlin, [sqlite]…")
       ),
@@ -70,7 +70,7 @@ internal class FullTextFunctionTest {
           .FROM(ARTICLE)
           .WHERE(ARTICLE_FTS MATCH "sqlite OR room")
           .ORDER_BY(ARTICLE.ID.ASC()),
-        sql = """SELECT snippet($operand, -1, ?, ?, ?, 3) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT SNIPPET($operand, -1, ?, ?, ?, ?) FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "article"."id" ASC""",
         rows = listOf("[SQLite] search", "[Room] guide", "[sqlite] from kotlin…")
       ),
@@ -80,7 +80,7 @@ internal class FullTextFunctionTest {
           .COLUMN(HIGHLIGHT(ARTICLE_FTS.SUMMARY, "[", "]"))
           .FROM(ARTICLE)
           .ORDER_BY(ARTICLE.ID.ASC()),
-        sql = """SELECT highlight($operand, 2, ?, ?) FROM "main"."article" $indexJoin ORDER BY "article"."id" ASC""",
+        sql = """SELECT HIGHLIGHT($operand, 2, ?, ?) FROM "main"."article" $indexJoin ORDER BY "article"."id" ASC""",
         rows = listOf("Ranking rows", null, "sqlite from kotlin, sqlite everywhere and in every app")
       ),
       Case(
@@ -89,7 +89,7 @@ internal class FullTextFunctionTest {
           .COLUMN(SNIPPET(ARTICLE_FTS.SUMMARY, "[", "]", "…", 4))
           .FROM(ARTICLE)
           .ORDER_BY(ARTICLE.ID.ASC()),
-        sql = """SELECT snippet($operand, 2, ?, ?, ?, 4) FROM "main"."article" $indexJoin """ +
+        sql = """SELECT SNIPPET($operand, 2, ?, ?, ?, ?) FROM "main"."article" $indexJoin """ +
             """ORDER BY "article"."id" ASC""",
         rows = listOf("Ranking rows", null, "sqlite from kotlin, sqlite…")
       ),
@@ -99,7 +99,7 @@ internal class FullTextFunctionTest {
           .COLUMN(SNIPPET(SUMMARY_FTS, "[", "]", "…", 3))
           .FROM(ARTICLE)
           .ORDER_BY(ARTICLE.ID.ASC()),
-        sql = """SELECT snippet("summary_fts"."summary_fts", -1, ?, ?, ?, 3) FROM "main"."article" INNER JOIN """ +
+        sql = """SELECT SNIPPET("summary_fts"."summary_fts", -1, ?, ?, ?, ?) FROM "main"."article" INNER JOIN """ +
             """"main"."summary_fts" ON "summary_fts"."rowid" = "article"."id" ORDER BY "article"."id" ASC""",
         rows = listOf("Ranking rows", null, "sqlite from kotlin…")
       ),
@@ -107,21 +107,21 @@ internal class FullTextFunctionTest {
         label = "unweighted rank",
         query = ranked(BM25(ARTICLE_FTS)),
         sql = """SELECT "article"."id" FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
-            """ORDER BY bm25($operand) ASC""",
+            """ORDER BY BM25($operand) ASC""",
         rows = listOf(1L, 3L)
       ),
       Case(
         label = "weight of a later column fills the earlier ones",
         query = ranked(BM25(ARTICLE_FTS.SUMMARY to 10.0)),
         sql = """SELECT "article"."id" FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
-            """ORDER BY bm25($operand, 1.0, 1.0, 10.0) ASC""",
+            """ORDER BY BM25($operand, 1.0, 1.0, ?) ASC""",
         rows = listOf(3L, 1L)
       ),
       Case(
         label = "weights in any order",
         query = ranked(BM25(ARTICLE_FTS.SUMMARY to 2.0, ARTICLE_FTS.TITLE to 0.0)),
         sql = """SELECT "article"."id" FROM "main"."article" $indexJoin WHERE $operand MATCH ? """ +
-            """ORDER BY bm25($operand, 0.0, 1.0, 2.0) ASC""",
+            """ORDER BY BM25($operand, ?, 1.0, ?) ASC""",
         rows = listOf(3L, 1L)
       ),
       Case(
@@ -133,9 +133,9 @@ internal class FullTextFunctionTest {
           .ON(found.ROWID IS ARTICLE.ID)
           .WHERE(found MATCH "room")
           .ORDER_BY(BM25(found.TITLE to 2.0).ASC()),
-        sql = """SELECT highlight("found"."article_fts", 0, ?, ?) FROM "main"."article" INNER JOIN """ +
+        sql = """SELECT HIGHLIGHT("found"."article_fts", 0, ?, ?) FROM "main"."article" INNER JOIN """ +
             """"main"."article_fts" AS "found" ON "found"."rowid" = "article"."id" WHERE "found"."article_fts" """ +
-            """MATCH ? ORDER BY bm25("found"."article_fts", 2.0) ASC""",
+            """MATCH ? ORDER BY BM25("found"."article_fts", ?) ASC""",
         rows = listOf("[Room] guide")
       )
     )
@@ -416,12 +416,7 @@ private class ArticleFtsTable(alias: String? = null) : Fts5Table(
     parameterEncoding = STRING.nullBypassParameterEncoding(),
     selectedRead = nullableRead(SQLiteStatement::getText)
   )
-  val ROWID = Column<Nothing, Long, Required, Long, Long, Required, Long>(
-    table = fieldTable,
-    name = "rowid",
-    nullness = Required,
-    parameterEncoding = LONG.parameterEncoding()
-  )
+  val ROWID = fullTextRowId(fieldTable)
 
   override infix fun AS(alias: String) = ArticleFtsTable(alias)
 }

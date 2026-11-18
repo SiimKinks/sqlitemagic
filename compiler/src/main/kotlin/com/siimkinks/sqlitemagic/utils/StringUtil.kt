@@ -1,10 +1,11 @@
 package com.siimkinks.sqlitemagic.utils
 
+import com.siimkinks.sqlitemagic.internal.SqliteSchema
 import java.util.Locale
 
 internal fun String.firstCharToUpperCase() = replaceFirstChar {
   when {
-    it.isLowerCase() -> it.titlecase(Locale.getDefault())
+    it.isLowerCase() -> it.titlecase(Locale.ROOT)
     else -> it.toString()
   }
 }
@@ -31,3 +32,7 @@ internal fun String.generatedFieldName() = camelCaseToSnakeCase()
 
 internal fun quoteSqlIdentifier(identifier: String) =
     """"${identifier.replace(oldValue = "\"", newValue = "\"\"")}""""
+
+internal fun SqliteSchema.qualifiedSqlIdentifier(identifier: String) = "$qualifier.${quoteSqlIdentifier(identifier)}"
+
+internal fun quoteSqlLiteral(value: String) = "'${value.replace(oldValue = "'", newValue = "''")}'"

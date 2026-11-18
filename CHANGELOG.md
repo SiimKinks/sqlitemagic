@@ -46,22 +46,14 @@ Version 3.1.0 _(unreleased)_
   it becomes the `INTEGER PRIMARY KEY`, so `VACUUM` and a dump and restore keep it, and the `@Id` is stored as
   `UNIQUE` and stays the entity key. SQLite assigns it on insert; entity operations never write it. Adding or removing
   it migrates the table and keeps the row IDs of a table that stays a rowid table
-* New: `@FullTextIndex` on a table and `@FullText` on its columns declare an SQLite FTS5 full-text index. The schema
-  creates it as an external-content FTS table that generated triggers keep in sync with the table, and `clearData`
-  empties it. Options set the tokenizer, prefix indexes, `detail`, stored column sizes and unindexed columns. A schema
-  with a full-text index runs its connections with `PRAGMA recursive_triggers = ON`, so rows replaced by
-  `CONFLICT_REPLACE` leave the index. Migrations create, drop and refill the index as the model and its table change,
-  and migration tests check each index against its table's rows. The generated index object (`ARTICLE_FTS`) searches
-  it with `MATCH`, on the whole index or one column, and ranks matches with `RANK`; a query of the table that refers to
-  it joins it automatically after the table, and its `ROWID` has the type of the table's row ID. `BM25` ranks with
-  column weights, `HIGHLIGHT` and `SNIPPET` mark the matches in column text, `terms(input)` turns user input into a
-  query that cannot fail, and `rebuild()`, `optimize()` and `integrityCheck()` maintain the index. FTS5 needs the
-  bundled driver
-* New: `@FullTextIndex(version = FTS4)` declares an FTS4 full-text index, which the framework driver supports too.
-  It takes the FTS4 options `matchinfo` and `order`, unindexed columns and a `LANGUAGE_ID` column, which splits the
-  index by its value and is compared through the index object to search another language. `SNIPPET`, `OFFSETS` and
-  `MATCHINFO` read the matches, `terms(input)` writes FTS4 query syntax, and the commands and migrations work as for
-  FTS5
+* New: Full-text search: `@FullTextIndex` on a table and `@FullText` on its columns declare an SQLite FTS5 index, which
+  needs the bundled driver, or with `version = FTS4` an FTS4 index, which the framework driver supports too. The schema
+  creates it as an external-content FTS table that generated triggers keep in sync, migrations create, drop and refill
+  it as the model changes, and its connections run with `PRAGMA recursive_triggers = ON`, so rows replaced by
+  `CONFLICT_REPLACE` leave the index. The generated index object (`ARTICLE_FTS`) searches it with `MATCH`, joined
+  directly after its table. FTS5 ranks matches with `RANK` and `BM25` and marks them with `HIGHLIGHT` and `SNIPPET`;
+  FTS4 reads them with `SNIPPET`, `OFFSETS` and `MATCHINFO`. `terms(input)` turns user input into a query that cannot
+  fail, and `rebuild()`, `optimize()` and `integrityCheck()` maintain the index
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead

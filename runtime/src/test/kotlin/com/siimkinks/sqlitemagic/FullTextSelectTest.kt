@@ -1,8 +1,10 @@
 package com.siimkinks.sqlitemagic
 
+import androidx.sqlite.SQLiteStatement
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.SqlType.LONG
 import com.siimkinks.sqlitemagic.SqlType.STRING
+import com.siimkinks.sqlitemagic.internal.nullBypassParameterEncoding
 import com.siimkinks.sqlitemagic.internal.parameterEncoding
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -166,6 +168,78 @@ internal class FullTextSelectTest {
   }
 
   @Test
+  fun `searches of a table keyed by text join and compare its row ID column`() {
+    data class Case(
+      val label: String,
+      val query: SelectQuery<*, *>,
+      val sql: String,
+      val rows: List<String>
+    )
+
+    fun cases(
+      version: String,
+      index: FullTextTable,
+      rowId: Column<Nothing, Long, Required, Long, Long?, SqlNullable, Long?>
+    ): List<Case> {
+      val indexJoin = """INNER JOIN "main"."$index" ON "$index"."rowid" = "note"."row_id""""
+      val match = """"$index"."$index" MATCH ?"""
+      val order = """ORDER BY "note"."row_id" ASC"""
+      return listOf(
+        Case(
+          label = "$version automatic join",
+          query = SELECT
+            .COLUMN(NOTE.ID)
+            .FROM(NOTE)
+            .WHERE(index MATCH "kotlin")
+            .ORDER_BY(NOTE.ROW_ID.ASC()),
+          sql = """SELECT "note"."id" FROM "main"."note" $indexJoin WHERE $match $order""",
+          rows = listOf("b", "c")
+        ),
+        Case(
+          label = "$version explicit join",
+          query = SELECT
+            .COLUMN(NOTE.ID)
+            .FROM(NOTE)
+            .INNER_JOIN(index)
+            .ON(rowId IS NOTE.ROW_ID)
+            .WHERE(index MATCH "kotlin")
+            .ORDER_BY(NOTE.ROW_ID.ASC()),
+          sql = """SELECT "note"."id" FROM "main"."note" INNER JOIN "main"."$index" ON "$index"."rowid" = """ +
+              """"note"."row_id" WHERE $match $order""",
+          rows = listOf("b", "c")
+        ),
+        Case(
+          label = "$version row IDs from a subquery",
+          query = SELECT
+            .COLUMN(NOTE.ID)
+            .FROM(NOTE)
+            .WHERE(NOTE.ROW_ID IN (SELECT COLUMN rowId FROM index WHERE (index MATCH "room")))
+            .ORDER_BY(NOTE.ROW_ID.ASC()),
+          sql = """SELECT "note"."id" FROM "main"."note" WHERE "note"."row_id" IN (SELECT "$index"."rowid" """ +
+              """FROM "main"."$index" WHERE $match) $order""",
+          rows = listOf("a")
+        )
+      )
+    }
+
+    val cases = cases(
+      version = "FTS5",
+      index = NOTE_FTS5,
+      rowId = NOTE_FTS5.ROWID
+    ) + cases(
+      version = "FTS4",
+      index = NOTE_FTS4,
+      rowId = NOTE_FTS4.ROWID
+    )
+
+    val results = noteDatabase().use { database ->
+      cases.map { case -> case.label to (case.query.compile().sql to case.query.rows(database)) }
+    }
+
+    assertThat(results).isEqualTo(cases.map { it.label to (it.sql to it.rows) })
+  }
+
+  @Test
   fun `compiled searches bind the query string`() {
     val query = BOOK.TITLE.asParameter("query")
 
@@ -293,12 +367,7 @@ private class BookFtsTable(alias: String? = null) : Fts5Table(
     nullness = Required,
     parameterEncoding = STRING.parameterEncoding()
   )
-  val ROWID = Column<Nothing, Long, Required, Long, Long, Required, Long>(
-    table = fieldTable,
-    name = "rowid",
-    nullness = Required,
-    parameterEncoding = LONG.parameterEncoding()
-  )
+  val ROWID = fullTextRowId(fieldTable)
 
   override infix fun AS(alias: String) = BookFtsTable(alias)
 }
@@ -309,3 +378,64 @@ private fun fullTextLibraryDatabase() = libraryDatabase().apply {
   execSQL("CREATE VIRTUAL TABLE book_fts USING fts5(title, content='book', content_rowid='id')")
   execSQL("INSERT INTO book_fts(book_fts) VALUES ('rebuild')")
 }
+
+@Suppress("PropertyName", "TestFunctionName")
+private class NoteTable(alias: String? = null) : Table<Unit>(
+  name = "note",
+  alias = alias
+) {
+  val ID = Column<Unit, String, Required, String, String, Required, String>(
+    table = this,
+    name = "id",
+    nullness = Required,
+    parameterEncoding = STRING.parameterEncoding()
+  )
+  val ROW_ID = Column(
+    table = this,
+    name = "row_id",
+    nullness = Required,
+    parameterEncoding = LONG.nullBypassParameterEncoding(),
+    selectedRead = SQLiteStatement::getLong
+  )
+
+  override infix fun AS(alias: String) = NoteTable(alias)
+}
+
+private val NOTE = NoteTable()
+
+@Suppress("PropertyName", "TestFunctionName")
+private class NoteFts5Table(alias: String? = null) : Fts5Table(
+  name = "note_fts5",
+  alias = alias,
+  contentTable = NOTE,
+  contentRowIdColumnName = "row_id"
+) {
+  val ROWID = fullTextRowId(fieldTable)
+
+  override infix fun AS(alias: String) = NoteFts5Table(alias)
+}
+
+private val NOTE_FTS5 = NoteFts5Table()
+
+@Suppress("PropertyName", "TestFunctionName")
+private class NoteFts4Table(alias: String? = null) : Fts4Table(
+  name = "note_fts4",
+  alias = alias,
+  contentTable = NOTE,
+  contentRowIdColumnName = "row_id"
+) {
+  val ROWID = fullTextRowId(fieldTable)
+
+  override infix fun AS(alias: String) = NoteFts4Table(alias)
+}
+
+private val NOTE_FTS4 = NoteFts4Table()
+
+private fun noteDatabase() = TestDatabase(
+  "CREATE TABLE note (id TEXT NOT NULL UNIQUE, row_id INTEGER PRIMARY KEY, body TEXT NOT NULL)",
+  "INSERT INTO note VALUES ('b', 10, 'kotlin search'), ('a', 20, 'room guide'), ('c', 30, 'kotlin notes')",
+  "CREATE VIRTUAL TABLE note_fts5 USING fts5(body, content='note', content_rowid='row_id')",
+  "INSERT INTO note_fts5(note_fts5) VALUES ('rebuild')",
+  "CREATE VIRTUAL TABLE note_fts4 USING fts4(body, content='note')",
+  "INSERT INTO note_fts4(note_fts4) VALUES ('rebuild')"
+)

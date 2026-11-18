@@ -347,7 +347,8 @@ internal fun String.sqliteIdentifier() = buildString(capacity = length) {
   }
 }
 
-internal fun quotedSqlIdentifier(value: String) = """"${value.replace(oldValue = "\"", newValue = "\"\"")}""""
+internal fun quoteSqlIdentifier(identifier: String) =
+    """"${identifier.replace(oldValue = "\"", newValue = "\"\"")}""""
 
 internal fun requireInspection(
   condition: Boolean,

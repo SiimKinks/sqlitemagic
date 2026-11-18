@@ -2,7 +2,6 @@ package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.SqlAffinity.INTEGER
 import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
-import java.util.Locale
 
 internal enum class TableMigrationOperation {
   APPEND_COLUMNS,
@@ -237,7 +236,7 @@ internal data class TableChange(
     to = to.structure,
     addedColumns = addedColumns
   )
-  val discardedColumns = droppedColumns.filterNot { it === rowIdCopy?.sourceColumn }
+  val discardedColumns = droppedColumns.filterNot { it == rowIdCopy?.sourceColumn }
   val copiesRows get() = copiedColumns.isNotEmpty() && columnsWithoutValue.isEmpty()
   val missingReferenceConditions = copiedColumns.mapNotNull(ColumnCopy::missingReferenceCondition)
   val copiesMissingReferences get() = copiesRows && missingReferenceConditions.isNotEmpty()
@@ -321,9 +320,7 @@ private fun TableStructure.rowIdPseudoColumn() = ROW_ID_PSEUDO_COLUMNS
 
 private val ColumnStructure.isRowIdAlias get() = id && sqlType == INTEGER.name
 
-private val ROW_ID_PSEUDO_COLUMNS = listOf("rowid", "oid", "_rowid_")
-
-private val ColumnStructure.lookupName get() = name.lowercase(Locale.ROOT)
+private val ColumnStructure.lookupName get() = name.normalizedSqlIdentifier()
 
 internal data class TableMigrationPlan(
   val prerequisiteNewTables: List<TableSnapshot>,

@@ -1,11 +1,9 @@
 package com.siimkinks.sqlitemagic.manager
 
-import com.siimkinks.sqlitemagic.fulltext.dropFullTextTableSql
-import com.siimkinks.sqlitemagic.fulltext.dropFullTextTriggerSql
-import com.siimkinks.sqlitemagic.fulltext.fullTextCommandSql
 import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.APPEND_COLUMNS
 import com.siimkinks.sqlitemagic.manager.TableMigrationOperation.REBUILD
 import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
+import com.siimkinks.sqlitemagic.utils.quoteSqlLiteral
 
 internal object MigrationSqlRenderer {
   fun render(
@@ -219,8 +217,6 @@ internal object MigrationSqlRenderer {
     return temporaryName
   }
 }
-
-private fun quoteSqlLiteral(value: String) = "'${value.replace(oldValue = "'", newValue = "''")}'"
 
 private data class RebuildTable(
   val change: TableChange,

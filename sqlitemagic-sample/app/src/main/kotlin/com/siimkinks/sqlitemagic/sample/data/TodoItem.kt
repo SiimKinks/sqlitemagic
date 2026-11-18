@@ -69,7 +69,7 @@ data class TodoItem(
 
     fun search(listId: Long, text: String) = searchPlan.bind(
       searchList TO listId,
-      searchTerms TO TODO_ITEM_FTS.terms(text, prefix = true)
+      searchTerms TO TODO_ITEM_FTS.terms(text = text, prefix = true)
     )
 
     fun countItemsFor(listId: Long) = (

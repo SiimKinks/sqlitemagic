@@ -23,5 +23,6 @@ internal fun mockTableElement(
   options = emptySet(),
   construction = mockModelConstruction(),
   properties = properties,
-  isPublic = true
+  isPublic = true,
+  fullTextIndexes = emptyList()
 )

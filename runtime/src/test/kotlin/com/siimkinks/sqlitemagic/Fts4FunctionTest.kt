@@ -33,35 +33,35 @@ internal class Fts4FunctionTest {
       Case(
         label = "snippet of a column",
         query = searched(SNIPPET(PAPER_FTS.SUMMARY, "[", "]", "…", 4)),
-        sql = """SELECT snippet($operand, ?, ?, ?, 2, 4) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT SNIPPET($operand, ?, ?, ?, 2, ?) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "paper"."id" ASC""",
         rows = listOf(null, "[sqlite] from kotlin, [sqlite]…")
       ),
       Case(
         label = "snippet of the best matching column",
         query = searched(SNIPPET(PAPER_FTS, "[", "]", "…", 3)),
-        sql = """SELECT snippet($operand, ?, ?, ?, -1, 3) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT SNIPPET($operand, ?, ?, ?, -1, ?) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "paper"."id" ASC""",
         rows = listOf("[SQLite] search", "[sqlite] from kotlin…")
       ),
       Case(
         label = "offsets",
         query = searched(OFFSETS(PAPER_FTS)),
-        sql = """SELECT offsets($operand) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT OFFSETS($operand) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "paper"."id" ASC""",
         rows = listOf("0 0 0 6", "2 0 0 6 2 0 20 6")
       ),
       Case(
         label = "matchinfo in its default format",
         query = searched(MATCHINFO(PAPER_FTS)),
-        sql = """SELECT matchinfo($operand, ?) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT MATCHINFO($operand) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "paper"."id" ASC""",
         rows = listOf(44, 44)
       ),
       Case(
         label = "matchinfo in another format",
         query = searched(MATCHINFO(PAPER_FTS, "pcnalx")),
-        sql = """SELECT matchinfo($operand, ?) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
+        sql = """SELECT MATCHINFO($operand, ?) FROM "main"."paper" $indexJoin WHERE $operand MATCH ? """ +
             """ORDER BY "paper"."id" ASC""",
         rows = listOf(72, 72)
       ),
@@ -91,7 +91,7 @@ internal class Fts4FunctionTest {
           .COLUMNS(SNIPPET(PAPER_FTS.TITLE, "[", "]", "…", 4), OFFSETS(PAPER_FTS))
           .FROM(PAPER)
           .ORDER_BY(PAPER.ID.ASC()),
-        sql = """SELECT snippet($operand, ?, ?, ?, 0, 4), offsets($operand) FROM "main"."paper" $indexJoin """ +
+        sql = """SELECT SNIPPET($operand, ?, ?, ?, 0, ?), OFFSETS($operand) FROM "main"."paper" $indexJoin """ +
             """ORDER BY "paper"."id" ASC""",
         rows = List(4) { Row2("", "") }
       ),
@@ -104,7 +104,7 @@ internal class Fts4FunctionTest {
           .ON(found.ROWID IS PAPER.ID)
           .WHERE(found MATCH "room")
           .ORDER_BY(PAPER.ID.ASC()),
-        sql = """SELECT snippet("found"."paper_fts", ?, ?, ?, 0, 4) FROM "main"."paper" INNER JOIN """ +
+        sql = """SELECT SNIPPET("found"."paper_fts", ?, ?, ?, 0, ?) FROM "main"."paper" INNER JOIN """ +
             """"main"."paper_fts" AS "found" ON "found"."rowid" = "paper"."id" WHERE "found"."paper_fts" MATCH ? """ +
             """ORDER BY "paper"."id" ASC""",
         rows = listOf("Title: [room] - guide")
@@ -379,12 +379,7 @@ private class PaperFtsTable(alias: String? = null) : Fts4Table(
     nullness = Required,
     parameterEncoding = INT.parameterEncoding()
   )
-  val ROWID = Column<Nothing, Long, Required, Long, Long, Required, Long>(
-    table = fieldTable,
-    name = "rowid",
-    nullness = Required,
-    parameterEncoding = LONG.parameterEncoding()
-  )
+  val ROWID = fullTextRowId(fieldTable)
 
   override infix fun AS(alias: String) = PaperFtsTable(alias)
 }
@@ -397,7 +392,7 @@ private fun paperDatabase() = TestDatabase(
   "INSERT INTO paper VALUES (1, 'SQLite search', 'db', NULL, 0), (2, 'Room guide', 'sqlite', 'sqlite room', 1), " +
       "(3, 'Kotlin notes', 'lang', 'sqlite from kotlin, sqlite everywhere and in every app', 0), " +
       "(4, 'Title: room - guide', 'lang', NULL, 0)",
-  "CREATE VIRTUAL TABLE paper_fts USING fts4(title, tag, summary, content='paper', languageid=\"language\", " +
-      "notindexed=\"tag\")",
+  """CREATE VIRTUAL TABLE paper_fts USING fts4(title, tag, summary, content='paper', languageid="language", """ +
+      """notindexed="tag")""",
   "INSERT INTO paper_fts(paper_fts) VALUES ('rebuild')"
 )

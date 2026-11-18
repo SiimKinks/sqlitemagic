@@ -116,10 +116,10 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY "article_fts"."rank" ASC
   query runs, as it does for `MATCH` under `OR` or in an explicit `LEFT_JOIN`.
 - `ARTICLE_FTS.terms(input)` turns free text such as user input into a query that never fails: each term between
   whitespace (or NUL) becomes a quoted phrase (`"sqlite" "OR" "room"`, so operators and quotes are searched as text),
-  every term must match, and blank input matches nothing. `terms(input, prefix = true)` also matches words that begin
-  with the last term, for search as you type (`"sqlite" "ro"*`). FTS4's `terms` writes the prefix as `"ro*"`, reads
-  `*` and quotes inside a term as word breaks, since FTS4 cannot quote them in a phrase, and leaves out terms without
-  a letter or digit, since FTS4 matches no row for a phrase without words.
+  every term must match, and blank input matches nothing. `terms(text = input, prefix = true)` also matches words
+  that begin with the last term, for search as you type (`"sqlite" "ro"*`). FTS4's `terms` writes the prefix as
+  `"ro*"`, reads `*` and quotes inside a term as word breaks, since FTS4 cannot quote them in a phrase, and leaves out
+  terms without a letter or digit, since FTS4 matches no row for a phrase without words.
 
 ```kotlin
 val results = (
@@ -129,7 +129,7 @@ val results = (
         SNIPPET(ARTICLE_FTS.BODY, "<b>", "</b>", "…", 10)
     )
         FROM ARTICLE
-        WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(input, prefix = true))
+        WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(text = input, prefix = true))
         ORDER_BY BM25(ARTICLE_FTS.TITLE to 10.0).ASC()
         LIMIT 20
     )
@@ -137,16 +137,17 @@ val results = (
 ```
 
 ```sql
-SELECT "article"."id", highlight("article_fts"."article_fts", 0, ?, ?),
-  snippet("article_fts"."article_fts", 1, ?, ?, ?, 10) FROM "main"."article"
+SELECT "article"."id", HIGHLIGHT("article_fts"."article_fts", 0, ?, ?),
+  SNIPPET("article_fts"."article_fts", 1, ?, ?, ?, ?) FROM "main"."article"
 INNER JOIN "main"."article_fts" ON "article_fts"."rowid" = "article"."id"
-WHERE "article_fts"."article_fts" MATCH ? ORDER BY bm25("article_fts"."article_fts", 10.0) ASC LIMIT 20
+WHERE "article_fts"."article_fts" MATCH ? ORDER BY BM25("article_fts"."article_fts", ?) ASC LIMIT 20
 ```
 
 - `HIGHLIGHT(column, open, close)` is the column's text with every match marked; `SNIPPET(column, open, close,
   ellipsis, tokens)` a fragment of at most `tokens` (up to 64) around the matches, and `SNIPPET(ARTICLE_FTS, …)` one
   from the best matching column. The column functions read `String`, `String?` for a nullable column;
-  `SNIPPET(ARTICLE_FTS, …)` reads `String?`. The library passes the column's position in the index.
+  `SNIPPET(ARTICLE_FTS, …)` reads `String?`. The library passes the column's position in the index and binds the
+  other arguments, weights included.
 - `BM25(ARTICLE_FTS)` equals `RANK` under `MATCH`; `BM25(ARTICLE_FTS.TITLE to 10.0, ARTICLE_FTS.BODY to 0.5)`
   weighs columns (unnamed ones weigh 1.0), so matches in heavier columns rank better. Weighing a column twice or
   columns of different indexes (an alias counts as another) or a NaN weight fails before SQL.
@@ -165,7 +166,7 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY bm25("article_fts"."article_f
   val memos = (
       SELECT.COLUMNS(MEMO, SNIPPET(MEMO_FTS.TEXT, "<b>", "</b>", "…", 10), OFFSETS(MEMO_FTS))
           FROM MEMO
-          WHERE ((MEMO_FTS MATCH MEMO_FTS.terms(input, prefix = true)) AND (MEMO_FTS.LANGUAGE IS 1))
+          WHERE ((MEMO_FTS MATCH MEMO_FTS.terms(text = input, prefix = true)) AND (MEMO_FTS.LANGUAGE IS 1))
       )
     .execute()
   ```

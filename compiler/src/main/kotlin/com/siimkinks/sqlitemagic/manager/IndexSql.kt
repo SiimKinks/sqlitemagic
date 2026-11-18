@@ -1,6 +1,8 @@
 package com.siimkinks.sqlitemagic.manager
 
 import com.siimkinks.sqlitemagic.index.IndexElement
+import com.siimkinks.sqlitemagic.internal.SqliteSchema.MAIN
+import com.siimkinks.sqlitemagic.utils.qualifiedSqlIdentifier
 import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 
 internal fun IndexElement.createSql() = buildString {
@@ -9,9 +11,7 @@ internal fun IndexElement.createSql() = buildString {
     append("UNIQUE ")
   }
   append("INDEX IF NOT EXISTS ")
-  append(schema.qualifier)
-  append('.')
-  append(quoteSqlIdentifier(name))
+  append(schema.qualifiedSqlIdentifier(name))
   append(" ON ")
   append(quoteSqlIdentifier(tableName))
   append(" (")
@@ -22,4 +22,4 @@ internal fun IndexElement.createSql() = buildString {
 }
 
 internal fun dropMainSchemaIndexSql(indexName: String) =
-  "DROP INDEX IF EXISTS main.${quoteSqlIdentifier(indexName)}"
+  "DROP INDEX IF EXISTS ${MAIN.qualifiedSqlIdentifier(indexName)}"

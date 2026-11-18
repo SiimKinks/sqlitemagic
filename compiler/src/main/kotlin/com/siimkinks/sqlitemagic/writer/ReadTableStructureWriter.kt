@@ -1,11 +1,8 @@
 package com.siimkinks.sqlitemagic.writer
 
 import com.google.devtools.ksp.processing.CodeGenerator
-import com.siimkinks.sqlitemagic.GeneratedNames.CLASS_RELATIONSHIP_ID_ENCODINGS
-import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_AS
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_ROW
 import com.siimkinks.sqlitemagic.GeneratedNames.METHOD_OBJECT_FROM_SELECTED_POSITIONS
-import com.siimkinks.sqlitemagic.GeneratedNames.VARIABLE_ALIAS
 import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.WriterTypes.CHECK_NOT_NULL
 import com.siimkinks.sqlitemagic.WriterTypes.COLUMN
@@ -24,17 +21,13 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.INT
 import com.squareup.kotlinpoet.INT_ARRAY
-import com.squareup.kotlinpoet.KModifier.INFIX
-import com.squareup.kotlinpoet.KModifier.INTERNAL
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PRIVATE
 import com.squareup.kotlinpoet.LIST
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STAR
-import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeName
-import com.squareup.kotlinpoet.TypeSpec
 
 internal class ReadTableStructureWriter(
   private val names: GenerationNames,
@@ -60,41 +53,32 @@ internal class ReadTableStructureWriter(
   ) = FileSpec
     .builder(className)
     .addType(
-      TypeSpec
-        .classBuilder(className)
-        .primaryConstructor(
-          FunSpec
-            .constructorBuilder()
-            .addModifiers(PRIVATE)
-            .addParameter(name = VARIABLE_ALIAS, type = STRING.copy(nullable = true))
-            .build()
-        )
-        .superclass(TABLE.parameterizedBy(modelClassName))
-        .apply {
-          if (!isPublic) {
-            addModifiers(INTERNAL)
-          }
-          constructorArguments.forEach {
-            addSuperclassConstructorParameter("%L", it)
-          }
-        }
-        .addProperties(columns)
-        .addProperty(
-          PropertySpec
-            .builder(
-              name = "entityFields",
-              type = LIST.parameterizedBy(COLUMN.parameterizedBy(modelClassName, STAR, STAR, STAR, STAR, STAR, STAR))
-            )
-            .addModifiers(OVERRIDE)
-            .initializer(
-              callCode(
-                callee = CodeBlock.of("listOf"),
-                arguments = columns.map { CodeBlock.of("%N", it) }
+      tableStructureType(
+        className = className,
+        superclass = TABLE.parameterizedBy(modelClassName),
+        isPublic = isPublic,
+        constructorArguments = constructorArguments,
+        columns = columns,
+        relationshipIdEncodings = relationshipIdEncodings,
+        fieldName = names.structureFieldName,
+        members = {
+          addProperty(
+            PropertySpec
+              .builder(
+                name = "entityFields",
+                type = LIST.parameterizedBy(
+                  COLUMN.parameterizedBy(modelClassName, STAR, STAR, STAR, STAR, STAR, STAR)
+                )
               )
-            )
-            .build()
-        )
-        .apply {
+              .addModifiers(OVERRIDE)
+              .initializer(
+                callCode(
+                  callee = CodeBlock.of("listOf"),
+                  arguments = columns.map { CodeBlock.of("%N", it) }
+                )
+              )
+              .build()
+          )
           if (relationships != null) {
             addProperty(
               companionListOverride(
@@ -113,17 +97,15 @@ internal class ReadTableStructureWriter(
               )
             )
           }
-        }
-        .addFunction(
-          reader(
-            name = "readEntity",
-            position = "startIndex",
-            positionType = INT,
-            daoReader = METHOD_OBJECT_FROM_ROW,
-            related = readsRelated
+          addFunction(
+            reader(
+              name = "readEntity",
+              position = "startIndex",
+              positionType = INT,
+              daoReader = METHOD_OBJECT_FROM_ROW,
+              related = readsRelated
+            )
           )
-        )
-        .apply {
           if (partialRead != null) {
             addFunction(
               reader(
@@ -135,59 +117,28 @@ internal class ReadTableStructureWriter(
               )
             )
           }
-        }
-        .addFunction(
-          FunSpec
-            .builder(METHOD_AS)
-            .addModifiers(OVERRIDE, INFIX)
-            .addParameter(name = VARIABLE_ALIAS, type = STRING)
-            .returns(className)
-            .addStatement("return %T(%N)", className, VARIABLE_ALIAS)
-            .build()
-        )
-        .apply {
-          if (relationshipIdEncodings.isNotEmpty()) {
-            addType(
-              TypeSpec
-                .objectBuilder(CLASS_RELATIONSHIP_ID_ENCODINGS)
-                .addModifiers(PRIVATE)
-                .addProperties(relationshipIdEncodings)
-                .build()
+        },
+        companionMembers = {
+          if (relationships != null) {
+            addProperty(
+              companionList(
+                name = RELATIONSHIPS,
+                type = TABLE_RELATIONSHIP,
+                initializer = relationships
+              )
+            )
+          }
+          if (partialRead != null) {
+            addProperty(
+              companionList(
+                name = ENTITY_PROPERTIES,
+                type = ENTITY_PROPERTY,
+                initializer = partialRead.entityProperties
+              )
             )
           }
         }
-        .addType(
-          TypeSpec
-            .companionObjectBuilder()
-            .addProperty(
-              PropertySpec
-                .builder(name = names.structureFieldName, type = className)
-                .initializer("%T(null)", className)
-                .build()
-            )
-            .apply {
-              if (relationships != null) {
-                addProperty(
-                  companionList(
-                    name = RELATIONSHIPS,
-                    type = TABLE_RELATIONSHIP,
-                    initializer = relationships
-                  )
-                )
-              }
-              if (partialRead != null) {
-                addProperty(
-                  companionList(
-                    name = ENTITY_PROPERTIES,
-                    type = ENTITY_PROPERTY,
-                    initializer = partialRead.entityProperties
-                  )
-                )
-              }
-            }
-            .build()
-        )
-        .build()
+      )
     )
     .writeModelSource(
       codeGenerator = codeGenerator,

@@ -1,6 +1,10 @@
 package com.siimkinks.sqlitemagic.manager
 
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import java.io.File
 import java.nio.file.Path
 
@@ -10,6 +14,17 @@ internal fun migrationTable(
 ) = TableStructure(
   name = name,
   schema = "CREATE TABLE IF NOT EXISTS $name (${columns.joinToString(transform = ColumnStructure::schema)})",
+  columns = columns
+)
+
+internal fun quotedMigrationTable(
+  name: String,
+  columns: List<ColumnStructure>,
+  options: String = ""
+) = TableStructure(
+  name = name,
+  schema = "CREATE TABLE IF NOT EXISTS ${quoteSqlIdentifier(name)} " +
+      "(${columns.joinToString(transform = ColumnStructure::schema)})$options",
   columns = columns
 )
 
@@ -91,4 +106,51 @@ internal fun runMigrationResult(
       .orEmpty(),
     warnings = warnings
   )
+}
+
+internal fun recreatedFullTextIndexWarning(
+  index: String,
+  table: String
+) = "Migration rebuilds full-text index $index from all rows of $table and loses the settings of the index it " +
+    "replaces, such as 'automerge' or FTS5 'rank' set through raw SQL. Re-apply them at the end of the migration SQL."
+
+internal fun migratedDatabase(
+  previous: DatabaseStructure,
+  current: DatabaseStructure,
+  rows: List<String>
+): SQLiteConnection {
+  val connection = BundledSQLiteDriver().open(":memory:")
+  previous.tables.values.forEach { connection.execSQL(it.schema) }
+  previous.indices.values.forEach { connection.execSQL(it.indexSql) }
+  rows.forEach(connection::execSQL)
+  if (current.enforcesForeignKeys) {
+    connection.execSQL("PRAGMA foreign_keys = ON")
+  }
+  connection.execSQL("BEGIN EXCLUSIVE")
+  planSchemaMigration(
+    previous = previous,
+    current = current
+  ).statements.forEach(connection::execSQL)
+  connection.execSQL("COMMIT")
+  return connection
+}
+
+internal fun SQLiteConnection.schemaRows() = strings(
+  "SELECT type || ' ' || name || ' ' || tbl_name || ' ' || IFNULL(sql, '') FROM sqlite_master ORDER BY name"
+)
+
+internal fun SQLiteConnection.strings(sql: String) = prepare(sql).use { statement ->
+  buildList {
+    while (statement.step()) {
+      add(statement.getText(0))
+    }
+  }
+}
+
+internal fun SQLiteConnection.longs(sql: String) = prepare(sql).use { statement ->
+  buildList {
+    while (statement.step()) {
+      add(statement.getLong(0))
+    }
+  }
 }

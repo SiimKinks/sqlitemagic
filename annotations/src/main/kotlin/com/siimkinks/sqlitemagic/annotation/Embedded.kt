@@ -33,9 +33,9 @@ import kotlin.annotation.AnnotationTarget.FIELD
  * A nullable embedded value is stored as `NULL` in all of its descendant columns. It is restored
  * as `null` when all of those values are `NULL`; otherwise, the embedded object is reconstructed.
  *
- * This annotation cannot be combined on the same property with [Column], [Id], [Unique], [Index],
- * or [IgnoreColumn]. An [Id] must also not be declared inside an embedded value because table
- * identity must be a direct property of the enclosing table.
+ * This annotation cannot be combined on the same property with [Column], [Id], [RowId], [Unique], [Index], [FullText],
+ * or [IgnoreColumn]. An [Id] or a [RowId] must also not be declared inside an embedded value because table identity
+ * must be a direct property of the enclosing table.
  *
  * @property prefix Text prepended exactly as declared to every descendant column name. For example:
  *

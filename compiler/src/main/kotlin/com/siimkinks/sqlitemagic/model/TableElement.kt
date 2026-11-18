@@ -19,7 +19,7 @@ internal data class TableElement(
   val construction: ModelConstruction,
   val properties: List<PropertyElement>,
   val isPublic: Boolean,
-  val fullTextIndexes: List<FullTextIndexElement> = emptyList()
+  val fullTextIndexes: List<FullTextIndexElement>
 ) : ParsedType by parsedType, SqliteSchemaProvider by identity {
   init {
     val expectedSchema = when {

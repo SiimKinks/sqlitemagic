@@ -1,11 +1,6 @@
 package com.siimkinks.sqlitemagic.fulltext
 
 import com.google.common.truth.Truth.assertThat
-import com.siimkinks.sqlitemagic.annotation.FullTextDetail.FULL
-import com.siimkinks.sqlitemagic.annotation.FullTextMatchinfo
-import com.siimkinks.sqlitemagic.annotation.FullTextOrder.ASC
-import com.siimkinks.sqlitemagic.annotation.FullTextRole.INDEXED
-import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.manager.DatabaseStructureJson
 import com.siimkinks.sqlitemagic.manager.FullTextIndexStructure
 import com.siimkinks.sqlitemagic.manager.genClassesManagerProcessingSteps
@@ -14,6 +9,7 @@ import com.siimkinks.sqlitemagic.utils.SqliteMagicCompiler
 import com.siimkinks.sqlitemagic.utils.SqliteMagicSources.PACKAGE
 import com.siimkinks.sqlitemagic.utils.assertCompilationError
 import com.siimkinks.sqlitemagic.utils.assertContainsInOrder
+import com.siimkinks.sqlitemagic.utils.assertContainsUnwrapped
 import com.siimkinks.sqlitemagic.utils.assertDoesNotContain
 import com.siimkinks.sqlitemagic.utils.debugMigrationOptions
 import com.siimkinks.sqlitemagic.utils.functionBody
@@ -115,6 +111,10 @@ internal class FullTextIndexContractTest {
         @Table
         @FullTextIndex(columnSize = false)
         data class Article(@Id val id: Long? = null, @FullText val title: String, val author: String)
+
+        @Table
+        @FullTextIndex(version = FullTextVersion.FTS4)
+        data class Letter(@Id val id: Long? = null, @FullText val subject: String)
       """,
       kspOptions = debugMigrationOptions(
         projectDirectory = directory,
@@ -125,25 +125,44 @@ internal class FullTextIndexContractTest {
 
     assertThat(DatabaseStructureJson.read(directory.resolve("latest.struct").readText()).fullTextIndices).isEqualTo(
       mapOf(
-        "article_fts" to FullTextIndexStructure.from(
-          FullTextIndexElement(
-            identity = fullTextIndexIdentity("article_fts"),
-            tableName = "article",
-            rowIdColumnName = "id",
-            version = FTS5,
-            columns = listOf(
-              FullTextColumnElement(
-                columnName = "title",
-                role = INDEXED
-              )
-            ),
-            tokenize = "",
-            prefix = emptyList(),
-            detail = FULL,
-            columnSize = false,
-            matchinfo = FullTextMatchinfo.FTS4,
-            order = ASC
-          )
+        "article_fts" to FullTextIndexStructure(
+          name = "article_fts",
+          forTable = "article",
+          tableSql = """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts5("title", """ +
+              """content='article', content_rowid='id', columnsize=0)""",
+          triggers = mapOf(
+            "article_fts_ai" to """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" """ +
+                """BEGIN INSERT INTO "article_fts"(rowid, "title") VALUES (new."id", new."title"); END""",
+            "article_fts_ad" to """CREATE TRIGGER IF NOT EXISTS main."article_fts_ad" AFTER DELETE ON "article" """ +
+                """BEGIN INSERT INTO "article_fts"("article_fts", rowid, "title") VALUES ('delete', old."id", """ +
+                """old."title"); END""",
+            "article_fts_au" to """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", """ +
+                """"title", rowid, oid, _rowid_ ON "article" WHEN old."id" IS NOT new."id" OR old."title" IS NOT """ +
+                """new."title" BEGIN INSERT INTO "article_fts"("article_fts", rowid, "title") VALUES ('delete', """ +
+                """old."id", old."title"); INSERT INTO "article_fts"(rowid, "title") VALUES (new."id", """ +
+                """new."title"); END"""
+          ),
+          shadowTables = listOf("article_fts_data", "article_fts_idx", "article_fts_config")
+        ),
+        "letter_fts" to FullTextIndexStructure(
+          name = "letter_fts",
+          forTable = "letter",
+          tableSql = """CREATE VIRTUAL TABLE IF NOT EXISTS main."letter_fts" USING fts4("subject", """ +
+              """content='letter')""",
+          triggers = mapOf(
+            "letter_fts_ai" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_ai" AFTER INSERT ON "letter" """ +
+                """BEGIN INSERT INTO "letter_fts"(docid, "subject") VALUES (new."id", new."subject"); END""",
+            "letter_fts_bd" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_bd" BEFORE DELETE ON "letter" """ +
+                """BEGIN DELETE FROM "letter_fts" WHERE docid = old."id"; END""",
+            "letter_fts_bu" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_bu" BEFORE UPDATE OF "id", """ +
+                """"subject", rowid, oid, _rowid_ ON "letter" WHEN old."id" IS NOT new."id" OR old."subject" IS """ +
+                """NOT new."subject" BEGIN DELETE FROM "letter_fts" WHERE docid = old."id"; END""",
+            "letter_fts_au" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_au" AFTER UPDATE OF "id", """ +
+                """"subject", rowid, oid, _rowid_ ON "letter" WHEN old."id" IS NOT new."id" OR old."subject" IS """ +
+                """NOT new."subject" BEGIN INSERT INTO "letter_fts"(docid, "subject") VALUES (new."id", """ +
+                """new."subject"); END"""
+          ),
+          shadowTables = listOf("letter_fts_segments", "letter_fts_segdir", "letter_fts_docsize", "letter_fts_stat")
         )
       )
     )
@@ -171,19 +190,14 @@ internal class FullTextIndexContractTest {
       }
   }
 
-  @Test
-  fun `reads repeated memberships of an embedded value from a compiled library`() {
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("compiledLibraries")
+  fun `reads repeated memberships of an embedded value from a compiled library`(
+    label: String,
+    source: SourceFile
+  ) {
     val library = PlainKotlinCompilation
-      .compile(
-        fileName = "Passage.kt",
-        contents = """
-          package library
-
-          import com.siimkinks.sqlitemagic.annotation.FullText
-
-          data class Passage(@FullText @FullText("passage_texts") val text: String)
-        """
-      )
+      .compile(source)
       .isOk()
 
     compile(
@@ -203,6 +217,52 @@ internal class FullTextIndexContractTest {
           .assertContainsInOrder(
             """main.\"doc_fts\" USING fts5(\"text\", content='doc', content_rowid='id')""",
             """main.\"passage_texts\" USING fts5(\"text\", content='doc', content_rowid='id')"""
+          )
+      }
+  }
+
+  @Test
+  fun `reads repeated indexes, repeated memberships and the row ID of a Java model`() {
+    compiler
+      .compile(
+        SourceFile.java(
+          name = "JavaNote.java",
+          contents = """
+            package $PACKAGE;
+
+            import com.siimkinks.sqlitemagic.annotation.FullText;
+            import com.siimkinks.sqlitemagic.annotation.FullTextIndex;
+            import com.siimkinks.sqlitemagic.annotation.Id;
+            import com.siimkinks.sqlitemagic.annotation.RowId;
+            import com.siimkinks.sqlitemagic.annotation.Table;
+
+            @Table
+            @FullTextIndex("note_titles")
+            @FullTextIndex("note_texts")
+            public class JavaNote {
+              @Id public String id;
+              @RowId public Long rowId;
+              @FullText(index = "note_titles") @FullText(index = "note_texts") public String title;
+              @FullText(index = "note_texts") public String body;
+
+              public JavaNote() {}
+            }
+          """
+        )
+      )
+      .isOk()
+      .withGeneratedSource("SqliteMagic_JavaNote_Adapter.kt") {
+        it.assertContainsUnwrapped("""\"row_id\" INTEGER PRIMARY KEY""")
+      }
+      .withGeneratedSource(MANAGER) {
+        it
+          .functionBody("createSchemaIndexes")
+          .assertContainsUnwrapped(
+            """main.\"note_titles\" USING fts5(\"title\", content='java_note', content_rowid='row_id')""",
+            """INSERT INTO \"note_titles\"(rowid, \"title\") VALUES (new.\"row_id\", new.\"title\")""",
+            """main.\"note_texts\" USING fts5(\"title\", \"body\", content='java_note', content_rowid='row_id')""",
+            """INSERT INTO \"note_texts\"(rowid, \"title\", \"body\") VALUES (new.\"row_id\", new.\"title\", """ +
+                """new.\"body\")"""
           )
       }
   }
@@ -275,6 +335,40 @@ internal class FullTextIndexContractTest {
 
   companion object {
     private const val MANAGER = "SqliteMagicDatabase.kt"
+
+    @JvmStatic
+    fun compiledLibraries() = listOf(
+      Arguments.of(
+        "Kotlin",
+        SourceFile.kotlin(
+          name = "Passage.kt",
+          contents = """
+            package library
+
+            import com.siimkinks.sqlitemagic.annotation.FullText
+
+            data class Passage(@FullText @FullText("passage_texts") val text: String)
+          """
+        )
+      ),
+      Arguments.of(
+        "Java",
+        SourceFile.java(
+          name = "Passage.java",
+          contents = """
+            package library;
+
+            import com.siimkinks.sqlitemagic.annotation.FullText;
+
+            public class Passage {
+              @FullText @FullText(index = "passage_texts") public String text;
+
+              public Passage() {}
+            }
+          """
+        )
+      )
+    )
 
     @JvmStatic
     fun indexDefinitions() = listOf(
@@ -368,6 +462,15 @@ internal class FullTextIndexContractTest {
         )
       ),
       Arguments.of(
+        "column named as the index apart from non-ASCII case",
+        """
+          @Table
+          @FullTextIndex("ärtikkel")
+          data class Doc(@Id val id: Long? = null, @FullText("ärtikkel") @Column("ÄRTIKKEL") val title: String)
+        """,
+        listOf("""main.\"ärtikkel\" USING fts5(\"ÄRTIKKEL\", content='doc', content_rowid='id')""")
+      ),
+      Arguments.of(
         "several indexes sharing a column",
         """
           @Table
@@ -408,6 +511,26 @@ internal class FullTextIndexContractTest {
               """rowid, oid, _rowid_ ON \"doc\" WHEN old.\"id\" IS NOT new.\"id\" OR old.\"title\" IS NOT """ +
               """new.\"title\" OR old.\"body\" IS NOT new.\"body\" BEGIN INSERT INTO \"doc_fts\"(docid, """ +
               """\"title\", \"body\") VALUES (new.\"id\", new.\"title\", new.\"body\"); END"""
+        )
+      ),
+      Arguments.of(
+        "FTS4 declared row ID",
+        """
+          @Table
+          @FullTextIndex(version = FullTextVersion.FTS4)
+          data class Doc(@Id val id: String, @RowId val rowId: Long? = null, @FullText val title: String)
+        """,
+        listOf(
+          """CREATE VIRTUAL TABLE IF NOT EXISTS main.\"doc_fts\" USING fts4(\"title\", content='doc')""",
+          """AFTER INSERT ON \"doc\" BEGIN INSERT INTO \"doc_fts\"(docid, \"title\") VALUES (new.\"row_id\", """ +
+              """new.\"title\"); END""",
+          """BEFORE DELETE ON \"doc\" BEGIN DELETE FROM \"doc_fts\" WHERE docid = old.\"row_id\"; END""",
+          """BEFORE UPDATE OF \"row_id\", \"title\", rowid, oid, _rowid_ ON \"doc\" WHEN """ +
+              """old.\"row_id\" IS NOT new.\"row_id\" OR old.\"title\" IS NOT new.\"title\" BEGIN DELETE FROM """ +
+              """\"doc_fts\" WHERE docid = old.\"row_id\"; END""",
+          """AFTER UPDATE OF \"row_id\", \"title\", rowid, oid, _rowid_ ON \"doc\" WHEN """ +
+              """old.\"row_id\" IS NOT new.\"row_id\" OR old.\"title\" IS NOT new.\"title\" BEGIN INSERT INTO """ +
+              """\"doc_fts\"(docid, \"title\") VALUES (new.\"row_id\", new.\"title\"); END"""
         )
       ),
       Arguments.of(
@@ -791,7 +914,7 @@ internal class FullTextIndexContractTest {
           @FullTextIndex("sqlite_search")
           data class Doc(@Id val id: Long? = null, @FullText("sqlite_search") val title: String)
         """,
-        "Full-text index name 'sqlite_search' is reserved: $PACKAGE.Doc"
+        "Full-text index name 'sqlite_search' is reserved"
       ),
       Arguments.of(
         "B-tree index named as a full-text index",

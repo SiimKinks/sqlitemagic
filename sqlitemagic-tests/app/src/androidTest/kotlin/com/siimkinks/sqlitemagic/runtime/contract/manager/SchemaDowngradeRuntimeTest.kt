@@ -3,9 +3,14 @@ package com.siimkinks.sqlitemagic.runtime.contract.manager
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
+import com.siimkinks.sqlitemagic.LetterFtsTable.Companion.LETTER_FTS
+import com.siimkinks.sqlitemagic.LetterTable.Companion.LETTER
 import com.siimkinks.sqlitemagic.LibraryBookTable.Companion.LIBRARY_BOOK
+import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SqliteMagicDatabase
 import com.siimkinks.sqlitemagic.fixture.model.LibraryBook
+import com.siimkinks.sqlitemagic.fixture.model.fulltext.Letter
+import com.siimkinks.sqlitemagic.fixture.model.fulltext.LetterAuthor
 import com.siimkinks.sqlitemagic.insert
 import com.siimkinks.sqlitemagic.runtime.support.SQLITE_MASTER
 import com.siimkinks.sqlitemagic.runtime.support.assertRowsIgnoringOrder
@@ -20,6 +25,7 @@ import com.siimkinks.sqlitemagic.runtime.support.withWriter
 import org.junit.Test
 
 private const val DOWNGRADE_DATABASE_NAME = "schema-downgrade-runtime-test.db"
+private const val FULL_TEXT_DOWNGRADE_DATABASE_NAME = "full-text-schema-downgrade-runtime-test.db"
 
 internal class SchemaDowngradeRuntimeTest {
   @Test
@@ -82,6 +88,68 @@ internal class SchemaDowngradeRuntimeTest {
         expected = listOf(book),
         connection = connection
       )
+    }
+  }
+
+  @Test
+  fun defaultDowngradeDropsFullTextIndexesWithTheirShadowTablesAndRecreatesSearchableIndexes() = withNamedDatabase(
+    databaseName = FULL_TEXT_DOWNGRADE_DATABASE_NAME
+  ) { application ->
+    val database = SqliteMagicDatabase()
+    openDatabaseFile(
+      application = application,
+      databaseName = FULL_TEXT_DOWNGRADE_DATABASE_NAME
+    ).use { oldConnection ->
+      oldConnection.execSQL("CREATE TABLE letter (id INTEGER PRIMARY KEY, subject TEXT)")
+      oldConnection.execSQL("INSERT INTO letter VALUES (1, 'discarded dune')")
+      oldConnection.execSQL("CREATE VIRTUAL TABLE letter_fts USING fts4(subject, content='letter')")
+      oldConnection.execSQL("CREATE TABLE obsolete_note (id INTEGER PRIMARY KEY, body TEXT)")
+      oldConnection.execSQL("INSERT INTO obsolete_note VALUES (1, 'obsolete dune')")
+      oldConnection.execSQL("CREATE VIRTUAL TABLE obsolete_note_fts USING fts4(body, content='obsolete_note')")
+      listOf("letter_fts", "obsolete_note_fts").forEach { index ->
+        oldConnection.execSQL("INSERT INTO $index($index) VALUES ('rebuild')")
+      }
+      oldConnection.execSQL("PRAGMA user_version = ${database.dbVersion + 1}")
+    }
+
+    openNamedConnection(
+      application = application,
+      databaseName = FULL_TEXT_DOWNGRADE_DATABASE_NAME,
+      database = database
+    ).use { connection ->
+      val tables = schemaObjectNames(
+        master = SQLITE_MASTER,
+        type = "table",
+        connection = connection
+      )
+      assertThat(tables).containsAtLeast("letter", "letter_fts", "letter_fts_segdir")
+      assertThat(tables.filter { it.orEmpty().startsWith("obsolete_note") }).isEmpty()
+
+      Letter(
+        id = 2,
+        subject = "Dune",
+        body = null,
+        tag = "recreated",
+        language = 0,
+        author = LetterAuthor(
+          id = 1,
+          name = "Frank"
+        )
+      )
+        .insert()
+        .usingConnection(connection)
+        .execute()
+      assertThat(
+        SELECT
+          .COLUMN(LETTER.ID)
+          .FROM(LETTER)
+          .WHERE(LETTER_FTS MATCH "dune")
+          .usingConnection(connection)
+          .execute() to LETTER_FTS
+          .integrityCheck()
+          .usingConnection(connection)
+          .execute()
+      ).isEqualTo(listOf(2L) to 1)
     }
   }
 }

@@ -3,5 +3,6 @@ package com.siimkinks.sqlitemagic.model
 internal fun mockIdElement() = IdElement(
   isAutoIncrement = true,
   canAssignGeneratedId = true,
-  isNotNullKey = true
+  isNotNullKey = true,
+  isPrimaryKey = true
 )

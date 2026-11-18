@@ -30,9 +30,6 @@ import com.siimkinks.sqlitemagic.model.validateRootModelDeclaration
 import com.siimkinks.sqlitemagic.schema.ArtifactStemOwner
 import com.siimkinks.sqlitemagic.schema.CollectionObjectValidationRegistry
 import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.schema.artifactStemCollisionMessage
 import com.siimkinks.sqlitemagic.schema.declaresLibraryClass
 import com.siimkinks.sqlitemagic.schema.libraryClassCollisionMessage
@@ -380,37 +377,26 @@ internal class ViewCollector(
     val accepted = validation.schemaIdentityRegistry
     seeds.values.forEach { seed ->
       val name = seed.rawName
-      when (seed.sqliteIdentifierProblem()) {
-        LINE_BREAK -> reporter.error(
-          message = "View name must not contain line breaks: $name",
+      val problem = seed.sqliteIdentifierProblem(kind = "View")
+      val previous = accepted.lookup(seed.normalizedKey)
+      when {
+        problem != null -> reporter.error(
+          message = problem,
           symbol = seed.declaration
         )
-        NUL -> reporter.error(
-          message = "View name must not contain NUL characters",
+        previous == null -> accepted.register(
+          SchemaIdentityOwner(
+            kind = "view",
+            rawName = name,
+            identity = seed.identity,
+            typeKey = seed.typeKey
+          )
+        )
+        else -> reporter.error(
+          message = "View name '$name' conflicts with ${previous.kind} name '${previous.rawName}': " +
+              seed.declaration.displayName(),
           symbol = seed.declaration
         )
-        RESERVED_PREFIX -> reporter.error(
-          message = "View name '$name' is reserved",
-          symbol = seed.declaration
-        )
-        null -> {
-          val previous = accepted.lookup(seed.normalizedKey)
-          when {
-            previous == null -> accepted.register(
-              SchemaIdentityOwner(
-                kind = "view",
-                rawName = name,
-                identity = seed.identity,
-                typeKey = seed.typeKey
-              )
-            )
-            else -> reporter.error(
-              message = "View name '$name' conflicts with ${previous.kind} name '${previous.rawName}': " +
-                  seed.declaration.displayName(),
-              symbol = seed.declaration
-            )
-          }
-        }
       }
     }
   }

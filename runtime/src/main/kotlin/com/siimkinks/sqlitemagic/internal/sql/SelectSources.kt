@@ -370,7 +370,8 @@ internal class RelationshipPlanner(
     require(users.lastOrNull { it.isPhysicalOccurrenceOf(contentKey) } === occurrence) {
       val occurrences = users.filter { it.isPhysicalOccurrenceOf(contentKey) }
       "Full-text index ${index.name} searches ${content.name}, which is a source of the query " +
-          "${occurrences.size} times (${occurrences.joinToString { it.name }}); join ${index.name} explicitly"
+          "${occurrences.size} times (${occurrences.joinToString(transform = UserOccurrence::name)}); " +
+          "join ${index.name} explicitly"
     }
     return occurrence
   }

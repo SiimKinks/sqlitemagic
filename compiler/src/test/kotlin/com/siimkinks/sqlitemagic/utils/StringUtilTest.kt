@@ -1,7 +1,9 @@
 package com.siimkinks.sqlitemagic.utils
 
+import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.jupiter.api.Test
+import java.util.Locale
 
 internal class StringUtilTest {
   @Test
@@ -24,6 +26,17 @@ internal class StringUtilTest {
       "1value" mapsTo "1value",
       "_value" mapsTo "_value"
     )
+  }
+
+  @Test
+  fun `uppercases the first character independently of the default locale`() {
+    val defaultLocale = Locale.getDefault()
+    Locale.setDefault(Locale.forLanguageTag("tr"))
+    try {
+      assertThat("index".firstCharToUpperCase()).isEqualTo("Index")
+    } finally {
+      Locale.setDefault(defaultLocale)
+    }
   }
 
   @Test

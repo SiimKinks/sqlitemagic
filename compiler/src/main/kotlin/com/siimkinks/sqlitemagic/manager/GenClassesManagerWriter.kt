@@ -37,7 +37,7 @@ import com.siimkinks.sqlitemagic.model.RelationshipElement
 import com.siimkinks.sqlitemagic.model.TableElement
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
-import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
+import com.siimkinks.sqlitemagic.utils.qualifiedSqlIdentifier
 import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -150,10 +150,10 @@ internal class GenClassesManagerWriter(
       .addParameter(CONNECTION_PARAMETER)
       .apply {
         if (tables.any(TableElement::hasCascadeDelete)) {
-          addStatement("connection.%M(%S)", EXEC_SQL, "PRAGMA foreign_keys = ON")
+          addStatement("%L", execSql("PRAGMA foreign_keys = ON"))
         }
         if (tables.any { it.fullTextIndexes.isNotEmpty() }) {
-          addStatement("connection.%M(%S)", EXEC_SQL, "PRAGMA recursive_triggers = ON")
+          addStatement("%L", execSql("PRAGMA recursive_triggers = ON"))
         }
         submodules.forEach { addStatement("%T.%N(connection)", it.managerClassName, METHOD_APPLY_SCHEMA_PRAGMAS) }
       }
@@ -213,7 +213,7 @@ internal class GenClassesManagerWriter(
     .build()
 
   private fun createTable(table: TableElement) =
-    CodeBlock.of("connection.%M(%T.%N)", EXEC_SQL, table.generationNames.adapterClassName, FIELD_TABLE_SCHEMA)
+    execSql(CodeBlock.of("%T.%N", table.generationNames.adapterClassName, FIELD_TABLE_SCHEMA))
 
   private fun GeneratedDatabaseElement.collectGeneratedViews() = schemaPartFunction(
     name = METHOD_COLLECT_GENERATED_VIEWS,
@@ -245,7 +245,9 @@ internal class GenClassesManagerWriter(
 
   private fun createIndex(index: IndexElement) = execSql(index.createSql())
 
-  private fun execSql(sql: String) = CodeBlock.of("connection.%M(%S)", EXEC_SQL, sql)
+  private fun execSql(sql: String) = execSql(CodeBlock.of("%S", sql))
+
+  private fun execSql(sql: CodeBlock) = CodeBlock.of("connection.%M(%L)", EXEC_SQL, sql)
 
   private fun GeneratedDatabaseElement.clearTables() = schemaPartFunction(
     name = METHOD_CLEAR_TABLES,
@@ -257,10 +259,10 @@ internal class GenClassesManagerWriter(
         .flatMap(FullTextIndexElement::dropTriggerSql)
         .forEach { addStatement("%L", execSql(it)) }
       tables.forEach { table ->
-        addStatement("%L", execSql("DELETE FROM ${table.schema.qualifier}.${quoteSqlIdentifier(table.tableName)}"))
+        addStatement("%L", execSql("DELETE FROM ${table.schema.qualifiedSqlIdentifier(table.tableName)}"))
         addStatement("changedTables.add(%S)", table.tableName)
       }
-      fullTextIndexes.forEach { addStatement("%L", execSql(it.clearSql)) }
+      fullTextIndexes.forEach { addStatement("%L", execSql(it.clearSql())) }
       fullTextIndexes
         .flatMap(FullTextIndexElement::createTriggerSql)
         .forEach { addStatement("%L", execSql(it)) }

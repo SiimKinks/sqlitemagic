@@ -19,6 +19,8 @@ Simple yet powerful SQLite database layer for Android that makes database handli
 * Built for Kotlin – data classes, generated extension functions and typed result rows
 * Full support for complex columns – related objects and embedded values
 * Support for SQLite views defined with the same DSL
+* Full-text search with SQLite FTS5 and FTS4 – indexes declared on tables, kept in sync and migrated, searched, ranked
+  and highlighted with the DSL
 * Persist any third party object with fully customizable object transformers
 * Automatic schema migrations with generated migration test support
 * **No reflection**
@@ -206,6 +208,9 @@ version. It costs:
 * errors are plain `SQLException`s with SQLite's result code in the message, instead of typed subclasses;
 * once the schema uses SQL the device's SQLite does not understand, only a SQLite that does can open the database.
 
+Full-text indexes are FTS5 by default, which only the bundled driver has; apps on the framework driver declare FTS4
+indexes, which both drivers support ([Full-Text Search](#full-text-search)).
+
 Never open the database file through Android's own database APIs while the app runs it on a bundled driver: two SQLite
 libraries in one process do not see each other's locks and can corrupt the file. A corrupt database fails with an
 exception and its files are kept.
@@ -358,6 +363,20 @@ operations in a generated object named after the model (`Authors`). Typed tables
 `AUTHOR.FIRST_NAME`) are generated alongside them. The schema follows the Kotlin declarations: columns of non-null
 properties are `NOT NULL`, so selected values keep their property types. Generated code is plain Kotlin, so one can
 still see human readable code during debugging - just press "step into" when a generated method is encountered.**
+
+A table whose `@Id` is not stored as `INTEGER`, such as a text key, can declare its row ID with `@RowId`. It becomes the
+table's `INTEGER PRIMARY KEY`, so `VACUUM` and a dump and restore keep it, while the `@Id` is stored as `UNIQUE` and
+stays the entity key. SQLite assigns it on insert and entity operations never write it. A full-text index on such a
+table needs it:
+
+```kotlin
+@Table
+data class Note(
+  @Id val id: String,
+  @RowId val rowId: Long? = null,
+  val title: String
+)
+```
 
 #### Do Operations With Objects:
 
@@ -790,6 +809,65 @@ SQL functions, window functions, views, compiled queries with named parameters, 
 etc. **Every part of the DSL is documented in KDoc, and the [sample app](sqlitemagic-sample) shows the pieces working
 together.**
 
+#### Full-Text Search:
+
+`@FullTextIndex` declares an SQLite full-text index on a table and `@FullText` the columns it indexes:
+
+```kotlin
+@Table
+@FullTextIndex(tokenize = "porter unicode61")
+data class Article(
+  @Id val id: Long? = null,
+  @FullText val title: String,
+  @FullText val body: String,
+  val author: String
+)
+```
+
+The schema creates the index as an external-content FTS table, `article_fts`, that generated triggers keep in sync,
+so the app writes only `Article`. Migrations create, drop and refill the index as the model changes. Queries search it
+through the generated index object `ARTICLE_FTS`:
+
+```kotlin
+import com.siimkinks.sqlitemagic.ArticleFtsTable.Companion.ARTICLE_FTS
+import com.siimkinks.sqlitemagic.ArticleTable.Companion.ARTICLE
+...
+
+// best matches first
+val articles: List<Article> = (
+    SELECT
+        FROM ARTICLE
+        WHERE (ARTICLE_FTS MATCH "sqlite OR room")
+        ORDER_BY ARTICLE_FTS.RANK.ASC()
+    )
+  .execute()
+
+// user input as a query that cannot fail, the last term matching the words it begins;
+// matches in titles rank higher, with the title highlighted and a snippet of the body
+val hits: List<Row3<Article, String, String>> = (
+    SELECT.COLUMNS(
+        ARTICLE,
+        HIGHLIGHT(ARTICLE_FTS.TITLE, "<b>", "</b>"),
+        SNIPPET(ARTICLE_FTS.BODY, "<b>", "</b>", "…", 10)
+    )
+        FROM ARTICLE
+        WHERE (ARTICLE_FTS MATCH ARTICLE_FTS.terms(text = input, prefix = true))
+        ORDER_BY BM25(ARTICLE_FTS.TITLE to 10.0).ASC()
+        LIMIT 20
+    )
+  .execute()
+```
+
+A query that searches the index joins it with an `INNER JOIN` directly after its table, so SQLite scans the index
+first. Join it explicitly, `INNER_JOIN ARTICLE_FTS ON (ARTICLE_FTS.ROWID IS ARTICLE.ID)`, when the table is a source
+more than once or only through a relationship. `ARTICLE_FTS.TITLE MATCH query` searches one column, and `rebuild()`,
+`optimize()` and `integrityCheck()` on the index object maintain the index. A database with a full-text index runs its
+connections with `PRAGMA recursive_triggers = ON`, so rows that `CONFLICT_REPLACE` replaces leave the index.
+
+The table needs a stable row ID: an `@Id` stored as `INTEGER`, or a [`@RowId`](#define-database). FTS5 needs the
+bundled driver; `@FullTextIndex(version = FullTextVersion.FTS4)` declares an FTS4 index, which both drivers support.
+FTS4 has no `RANK`, `BM25` or `HIGHLIGHT`, and reads the matches with `SNIPPET`, `OFFSETS` and `MATCHINFO`.
+
 #### Migrate Database:
 
 Debug databases migrate automatically when the schema changes. When releasing a new database version, raise
@@ -836,12 +914,13 @@ fun `all releases migrate to the current schema`() {
 Documentation
 -----------------
 
-- [Sample app](sqlitemagic-sample) – a todo app with tables, a view, reactive queries and migration tests
+- [Sample app](sqlitemagic-sample) – a todo app with tables, a view, full-text search, reactive queries and migration
+  tests
 - [Using SqliteMagic](.agents/skills/sqlitemagic/SKILL.md) – a guide to every feature of 3.x and how to use it
-  idiomatically and efficiently: models, entity operations, the query DSL, raw SQL, views, coroutines and RxJava,
-  transactions, migrations and performance. It is also an agent skill: copy the `sqlitemagic` directory into your
-  project's skills directory, such as `.claude/skills/`, so a coding agent writes SqliteMagic code the way it is meant
-  to be written
+  idiomatically and efficiently: models, entity operations, the query DSL, raw SQL, views, full-text search,
+  coroutines and RxJava, transactions, migrations and performance. It is also an agent skill: copy the `sqlitemagic`
+  directory into your project's skills directory, such as `.claude/skills/`, so a coding agent writes SqliteMagic code
+  the way it is meant to be written
 - [Upgrading from 2.x or 0.x](.agents/skills/sqlitemagic-upgrade/SKILL.md) – 3.x rewrites the query DSL and runs
   on an androidx `SQLiteDriver`; this guide maps legacy setup and queries to 3.x, lists behavior changes and covers the
   first database release on 3.x. It is also an agent skill: copy the `sqlitemagic-upgrade` directory into your

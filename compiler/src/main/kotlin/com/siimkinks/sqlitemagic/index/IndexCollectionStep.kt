@@ -35,9 +35,6 @@ import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Continue
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Deferred
 import com.siimkinks.sqlitemagic.processing.ProcessingStepResult.Failed
 import com.siimkinks.sqlitemagic.schema.SchemaIdentityOwner
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.LINE_BREAK
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.NUL
-import com.siimkinks.sqlitemagic.schema.SqliteIdentifierProblem.RESERVED_PREFIX
 import com.siimkinks.sqlitemagic.schema.sqliteIdentifierProblem
 import com.siimkinks.sqlitemagic.utils.ConsumedAnnotations
 import com.siimkinks.sqlitemagic.utils.isConsumedAnnotation
@@ -282,39 +279,30 @@ internal class IndexCollectionStep(
     candidates.forEach { candidate ->
       val index = candidate.roundElement.index
       val owner = names.lookup(index.normalizedKey)
-      when (index.sqliteIdentifierProblem()) {
-        LINE_BREAK -> reporter.error(
-          message = "Index name must not contain line breaks: ${index.name}",
+      val problem = index.sqliteIdentifierProblem(kind = "Index")
+      when {
+        problem != null -> reporter.error(
+          message = problem,
           symbol = candidate.symbol
         )
-        NUL -> reporter.error(
-          message = "Index name must not contain NUL characters",
+        owner != null && owner.kind != "index" -> reporter.error(
+          message = "Index name '${index.name}' conflicts with ${owner.kind} name '${owner.rawName}'",
           symbol = candidate.symbol
         )
-        RESERVED_PREFIX -> reporter.error(
-          message = "Index name '${index.name}' is reserved",
+        accepted[index.normalizedKey] == index -> Unit
+        accepted.containsKey(index.normalizedKey) -> reporter.error(
+          message = "Duplicate index name '${accepted.getValue(index.normalizedKey).name}'",
           symbol = candidate.symbol
         )
-        null -> when {
-          owner != null && owner.kind != "index" -> reporter.error(
-            message = "Index name '${index.name}' conflicts with ${owner.kind} name '${owner.rawName}'",
-            symbol = candidate.symbol
-          )
-          accepted[index.normalizedKey] == index -> Unit
-          accepted.containsKey(index.normalizedKey) -> reporter.error(
-            message = "Duplicate index name '${accepted.getValue(index.normalizedKey).name}'",
-            symbol = candidate.symbol
-          )
-          else -> {
-            accepted[index.normalizedKey] = index
-            names.register(
-              SchemaIdentityOwner(
-                kind = "index",
-                rawName = index.name,
-                identity = index.identity
-              )
+        else -> {
+          accepted[index.normalizedKey] = index
+          names.register(
+            SchemaIdentityOwner(
+              kind = "index",
+              rawName = index.name,
+              identity = index.identity
             )
-          }
+          )
         }
       }
     }

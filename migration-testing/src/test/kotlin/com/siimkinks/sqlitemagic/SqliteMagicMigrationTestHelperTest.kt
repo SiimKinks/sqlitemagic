@@ -5,6 +5,8 @@ import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.siimkinks.sqlitemagic.FullTextModule.FTS4
+import com.siimkinks.sqlitemagic.FullTextModule.FTS5
 import com.siimkinks.sqlitemagic.migration.MigrationConfiguration
 import com.siimkinks.sqlitemagic.migration.MigrationDatabaseDescriptor
 import com.siimkinks.sqlitemagic.migration.MigrationManifest
@@ -950,89 +952,101 @@ internal class SqliteMagicMigrationTestHelperTest {
 
   @Test
   fun `full-text index migrations run with recursive triggers and keep the index in sync`() {
-    SqliteMagicMigrationTestHelper(
-      descriptor = fullTextHistory(),
-      driver = BundledSQLiteDriver()
-    )
-      .use { helper ->
-        helper.createDatabase(
-          name = "search",
-          version = 1
-        )
-          .use { database -> database.execute("INSERT INTO article(id,title) VALUES (1,'Dune'),(2,'Emma')") }
-        helper.runMigrationsAndValidate(
-          name = "search",
-          fromVersion = 1
-        )
-          .use { database ->
-            database.execute("INSERT OR REPLACE INTO article(id,title) VALUES (2,'Solaris')")
-            database.execute("INSERT INTO article_fts(article_fts, rank) VALUES ('integrity-check', 1)")
-
-            assertThat(
-              listOf(
-                database.query("PRAGMA recursive_triggers"),
-                database.query("SELECT rowid FROM article_fts WHERE article_fts MATCH 'dune OR emma OR solaris'")
-              )
-            ).isEqualTo(
-              listOf(
-                MigrationTestResult(
-                  columns = listOf("recursive_triggers"),
-                  rows = listOf(listOf(1L))
-                ),
-                MigrationTestResult(
-                  columns = listOf("rowid"),
-                  rows = listOf(listOf(1L), listOf(2L))
-                )
-              )
-            )
-          }
-      }
-  }
-
-  @Test
-  fun `full-text index migrations that leave the index stale or lose a trigger fail validation`() {
-    val failures = mapOf(
-      "index without its rebuild" to { script: String -> script.lineSequence().filterNot { "'rebuild'" in it } },
-      "index without its update trigger" to { script: String -> script.lineSequence().filterNot { "_au" in it } }
-    ).mapValues { (_, edit) ->
-      val descriptor = fullTextHistory()
-      descriptor.resources["2.sql"] = edit(descriptor.text("2.sql"))
-        .joinToString(separator = "\n")
-        .toByteArray()
+    val results = FullTextModule.entries.associateWith { module ->
       SqliteMagicMigrationTestHelper(
-        descriptor = descriptor,
+        descriptor = fullTextHistory(module),
         driver = BundledSQLiteDriver()
-      ).use { helper ->
-        helper.createDatabase(
-          name = "search",
-          version = 1
-        )
-          .use { database -> database.execute("INSERT INTO article(id,title) VALUES (1,'Dune')") }
-        assertThrows(IllegalStateException::class.java) {
+      )
+        .use { helper ->
+          helper.createDatabase(
+            name = "search",
+            version = 1
+          )
+            .use { database -> database.execute("INSERT INTO article(id,title) VALUES (1,'Dune'),(2,'Emma')") }
           helper.runMigrationsAndValidate(
             name = "search",
             fromVersion = 1
           )
-        }.message.orEmpty()
-      }
+            .use { database ->
+              database.execute("INSERT OR REPLACE INTO article(id,title) VALUES (2,'Solaris')")
+              database.execute(module.integrityCheckSql)
+
+              listOf(
+                database.query("PRAGMA recursive_triggers"),
+                database.query("SELECT rowid FROM article_fts WHERE article_fts MATCH 'dune OR emma OR solaris'")
+              )
+            }
+        }
     }
 
-    assertThat(
-      failures.mapValues { (_, message) ->
-        message
+    assertThat(results).isEqualTo(
+      FullTextModule.entries.associateWith {
+        listOf(
+          MigrationTestResult(
+            columns = listOf("recursive_triggers"),
+            rows = listOf(listOf(1L))
+          ),
+          MigrationTestResult(
+            columns = listOf("rowid"),
+            rows = listOf(listOf(1L), listOf(2L))
+          )
+        )
+      }
+    )
+  }
+
+  @Test
+  fun `full-text index migrations that leave the index stale or lose a trigger fail validation`() {
+    val edits = mapOf(
+      "index without its rebuild" to { script: String -> script.lineSequence().filterNot { "'rebuild'" in it } },
+      "index without its update trigger" to { script: String -> script.lineSequence().filterNot { "_au" in it } }
+    )
+    val failures = FullTextModule.entries.flatMap { module ->
+      edits.map { (label, edit) ->
+        val descriptor = fullTextHistory(module)
+        descriptor.resources["2.sql"] = edit(descriptor.text("2.sql"))
+          .joinToString(separator = "\n")
+          .toByteArray()
+        val message = SqliteMagicMigrationTestHelper(
+          descriptor = descriptor,
+          driver = BundledSQLiteDriver()
+        ).use { helper ->
+          helper.createDatabase(
+            name = "search",
+            version = 1
+          )
+            .use { database -> database.execute("INSERT INTO article(id,title) VALUES (1,'Dune')") }
+          assertThrows(IllegalStateException::class.java) {
+            helper.runMigrationsAndValidate(
+              name = "search",
+              fromVersion = 1
+            )
+          }.message.orEmpty()
+        }
+        "$module $label" to message
           .substringAfter("SQLite ")
           .substringAfter(". ")
           .lines()
           .take(2)
       }
-    ).isEqualTo(
-      mapOf(
-        "index without its rebuild" to listOf("Full-text index article_fts is out of sync with its content table"),
-        "index without its update trigger" to listOf(
-          "Migration 1 -> 2 completed with a different target schema:",
-          "trigger[article_fts_au]"
+    }
+
+    assertThat(failures).isEqualTo(
+      FullTextModule.entries.flatMap { module ->
+        listOf(
+          "$module index without its rebuild" to listOf(
+            when (module) {
+              FTS5 -> "Full-text index article_fts is out of sync with its content table"
+              FTS4 ->
+                "SQLite integrity_check failed: [[malformed inverted index for FTS4 table main.article_fts]]"
+            }
+          ),
+          "$module index without its update trigger" to listOf(
+            "Migration 1 -> 2 completed with a different target schema:",
+            "trigger[article_fts_au]"
+          )
         )
-      )
+      }
     )
   }
 
@@ -1102,19 +1116,8 @@ internal class SqliteMagicMigrationTestHelperTest {
     return descriptor
   }
 
-  private fun fullTextHistory(): MemoryDescriptor {
+  private fun fullTextHistory(module: FullTextModule): MemoryDescriptor {
     val table = "CREATE TABLE article(id INTEGER PRIMARY KEY, title TEXT)"
-    val index = """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts5("title", content='article', """ +
-        """content_rowid='id')"""
-    val insert = """INSERT INTO "article_fts"(rowid, "title") VALUES (new."id", new."title");"""
-    val delete = """INSERT INTO "article_fts"("article_fts", rowid, "title") VALUES ('delete', old."id", """ +
-        """old."title");"""
-    val triggers = listOf(
-      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" BEGIN $insert END""",
-      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ad" AFTER DELETE ON "article" BEGIN $delete END""",
-      """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", rowid, oid, _rowid_ """ +
-          """ON "article" WHEN old."id" IS NOT new."id" OR old."title" IS NOT new."title" BEGIN $delete $insert END"""
-    )
     val schemas = (1..2).map { version ->
       ReleaseSchemaSnapshot(
         formatVersion = 1,
@@ -1129,13 +1132,13 @@ internal class SqliteMagicMigrationTestHelperTest {
         tableSql = listOf(table),
         views = emptyList(),
         indexSql = emptyList(),
-        virtualTableSql = listOfNotNull(index.takeIf { version == 2 }),
-        triggerSql = triggers.takeIf { version == 2 }.orEmpty()
+        virtualTableSql = listOfNotNull(module.virtualTableSql.takeIf { version == 2 }),
+        triggerSql = module.triggerSql.takeIf { version == 2 }.orEmpty()
       )
     }
     val descriptor = descriptor(schemas = schemas)
     val rebuild = """INSERT INTO main."article_fts"("article_fts") VALUES ('rebuild')"""
-    descriptor.resources["2.sql"] = (listOf(index) + triggers + rebuild)
+    descriptor.resources["2.sql"] = (listOf(module.virtualTableSql) + module.triggerSql + rebuild)
       .joinToString(
         separator = "\n",
         postfix = "\n"
@@ -1260,3 +1263,42 @@ internal class SqliteMagicMigrationTestHelperTest {
       .also { paths.add(Path.of(fileName)) }
   }
 }
+
+private const val FULL_TEXT_UPDATED = """old."id" IS NOT new."id" OR old."title" IS NOT new."title""""
+
+private enum class FullTextModule(
+  val virtualTableSql: String,
+  val triggerSql: List<String>,
+  val integrityCheckSql: String
+) {
+  FTS5(
+    virtualTableSql = """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts5("title", """ +
+        """content='article', content_rowid='id')""",
+    triggerSql = listOf(
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" BEGIN $FTS5_INSERT END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ad" AFTER DELETE ON "article" BEGIN $FTS5_DELETE END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", rowid, oid, _rowid_ """ +
+          """ON "article" WHEN $FULL_TEXT_UPDATED BEGIN $FTS5_DELETE $FTS5_INSERT END"""
+    ),
+    integrityCheckSql = "INSERT INTO article_fts(article_fts, rank) VALUES ('integrity-check', 1)"
+  ),
+  FTS4(
+    virtualTableSql = """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts4("title", """ +
+        """content='article')""",
+    triggerSql = listOf(
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" BEGIN $FTS4_INSERT END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_bd" BEFORE DELETE ON "article" BEGIN $FTS4_DELETE END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_bu" BEFORE UPDATE OF "id", "title", rowid, oid, _rowid_ """ +
+          """ON "article" WHEN $FULL_TEXT_UPDATED BEGIN $FTS4_DELETE END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", rowid, oid, _rowid_ """ +
+          """ON "article" WHEN $FULL_TEXT_UPDATED BEGIN $FTS4_INSERT END"""
+    ),
+    integrityCheckSql = "INSERT INTO article_fts(article_fts) VALUES ('integrity-check')"
+  )
+}
+
+private const val FTS5_INSERT = """INSERT INTO "article_fts"(rowid, "title") VALUES (new."id", new."title");"""
+private const val FTS5_DELETE = """INSERT INTO "article_fts"("article_fts", rowid, "title") VALUES ('delete', """ +
+    """old."id", old."title");"""
+private const val FTS4_INSERT = """INSERT INTO "article_fts"(docid, "title") VALUES (new."id", new."title");"""
+private const val FTS4_DELETE = """DELETE FROM "article_fts" WHERE docid = old."id";"""

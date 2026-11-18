@@ -38,7 +38,7 @@ sealed interface ClauseHost<T, S : Selection<T>> {
  */
 interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   /**
-   * INNER JOIN a table or subquery to the query.
+   * INNER JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * Follow it with `ON` or `USING` to define the join constraint.
    *
@@ -47,7 +47,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
    * SELECT FROM BOOK INNER_JOIN AUTHOR ON (BOOK.AUTHOR IS AUTHOR.ID)
    * ```
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -59,7 +59,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * LEFT JOIN a table or subquery to the query.
+   * LEFT JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * Follow it with `ON` or `USING` to define the join constraint.
    *
@@ -75,7 +75,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
    *     .ON(AUTHOR.ID IS BOOK.AUTHOR)
    * ```
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -87,14 +87,14 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * RIGHT JOIN a table or subquery to the query.
+   * RIGHT JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * Follow it with `ON` or `USING` to define the join constraint.
    *
    * Columns of the sources before the joined one are NULL in rows that have no match, so select their not
    * nullable columns with `nullable()`. Requires SQLite 3.39.0 or newer.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -106,14 +106,14 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * FULL JOIN a table or subquery to the query.
+   * FULL JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * Follow it with `ON` or `USING` to define the join constraint.
    *
    * Columns of all joined sources are NULL in rows that have no match, so select their not nullable columns
    * with `nullable()`. Requires SQLite 3.39.0 or newer.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -125,12 +125,12 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * CROSS JOIN a table or subquery to the query.
+   * CROSS JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * Follow it with `ON` or `USING` to define the join constraint. SQLite does not reorder CROSS JOIN sources
    * when it optimizes the query.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -142,7 +142,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * NATURAL JOIN a table or subquery to the query.
+   * NATURAL JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * If the NATURAL keyword is in the join-operator then an implicit USING clause
    * is added to the join-constraints. The implicit USING clause contains each of
@@ -150,7 +150,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
    * If the left and right-hand input datasets feature no common column names, then
    * the NATURAL keyword has no effect on the results of the join.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -162,7 +162,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * NATURAL LEFT JOIN a table or subquery to the query.
+   * NATURAL LEFT JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * If the NATURAL keyword is in the join-operator then an implicit USING clause
    * is added to the join-constraints. The implicit USING clause contains each of
@@ -173,7 +173,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
    * Columns of the joined source are NULL in rows that have no match, so select its not nullable columns
    * with `nullable()`.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -185,7 +185,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * NATURAL RIGHT JOIN a table or subquery to the query.
+   * NATURAL RIGHT JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * If the NATURAL keyword is in the join-operator then an implicit USING clause
    * is added to the join-constraints. The implicit USING clause contains each of
@@ -196,7 +196,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
    * Columns of the sources before the joined one are NULL in rows that have no match, so select their not
    * nullable columns with `nullable()`. Requires SQLite 3.39.0 or newer.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -208,7 +208,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * NATURAL FULL JOIN a table or subquery to the query.
+   * NATURAL FULL JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * If the NATURAL keyword is in the join-operator then an implicit USING clause
    * is added to the join-constraints. The implicit USING clause contains each of
@@ -219,7 +219,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
    * Columns of all joined sources are NULL in rows that have no match, so select their not nullable columns
    * with `nullable()`. Requires SQLite 3.39.0 or newer.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult
@@ -231,7 +231,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
   )
 
   /**
-   * NATURAL CROSS JOIN a table or subquery to the query.
+   * NATURAL CROSS JOIN a table, view, full-text index, subquery or common table expression to the query.
    *
    * If the NATURAL keyword is in the join-operator then an implicit USING clause
    * is added to the join-constraints. The implicit USING clause contains each of
@@ -239,7 +239,7 @@ interface JoinClause<T, S : Selection<T>> : ClauseHost<T, S> {
    * If the left and right-hand input datasets feature no common column names, then
    * the NATURAL keyword has no effect on the results of the join.
    *
-   * @param source Table, subquery or common table expression to join
+   * @param source Table, view, full-text index, subquery or common table expression to join
    * @return SQL SELECT statement builder
    */
   @CheckResult

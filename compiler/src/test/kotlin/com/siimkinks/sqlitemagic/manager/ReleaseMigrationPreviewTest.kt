@@ -81,6 +81,14 @@ internal class ReleaseMigrationPreviewTest {
 
   @Test
   fun `previews releases from their latest release and declared version`() {
+    val keptIndexWarning = recreatedFullTextIndexWarning(
+      index = "kept_fts",
+      table = "books"
+    )
+    val newIndexWarning = recreatedFullTextIndexWarning(
+      index = "new_fts",
+      table = "books"
+    )
     mapOf(
       "first release" to PreviewCase(
         databaseVersion = 1,
@@ -175,8 +183,8 @@ internal class ReleaseMigrationPreviewTest {
               - old_fts
 
           Warnings:
-            Migration rebuilds full-text index kept_fts from all rows of books, which can take long for a large table.
-            Migration rebuilds full-text index new_fts from all rows of books, which can take long for a large table.
+            $keptIndexWarning
+            $newIndexWarning
 
           Migration SQL for src/release/assets/9.sql:
             DROP TRIGGER IF EXISTS main."kept_fts_ai"

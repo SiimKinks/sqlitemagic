@@ -3,6 +3,7 @@ package com.siimkinks.sqlitemagic.runtime.model
 import com.siimkinks.sqlitemagic.runtime.model.catalog.ConstructionModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.DeclarationShapeModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.EmbeddedModelCatalog
+import com.siimkinks.sqlitemagic.runtime.model.catalog.FullTextModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.IdentityModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.NoIdKeyModelCatalog
 import com.siimkinks.sqlitemagic.runtime.model.catalog.RelationshipBackedIdModelCatalog
@@ -22,7 +23,8 @@ internal object ModelCatalog {
     RelationshipBackedIdModelCatalog.cases,
     RelationshipModelCatalog.cases,
     TransformerModelCatalog.cases,
-    SqlKeywordModelCatalog.cases
+    SqlKeywordModelCatalog.cases,
+    FullTextModelCatalog.cases
   ).flatten()
 
   val insertCases = allCases

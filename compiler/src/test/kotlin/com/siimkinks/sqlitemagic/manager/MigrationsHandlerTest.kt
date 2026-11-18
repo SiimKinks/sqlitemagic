@@ -1042,6 +1042,75 @@ internal class MigrationsHandlerTest {
   }
 
   @Test
+  fun `drops and creates instead of inferring a rename when a column becomes the row ID`() {
+    val idColumn = migrationColumn(
+      name = "id",
+      schema = "id TEXT NOT NULL UNIQUE"
+    ).copy(
+      id = true,
+      sqlType = "TEXT"
+    )
+    val titleColumn = migrationColumn(
+      name = "title",
+      schema = "title TEXT DEFAULT ''"
+    ).copy(sqlType = "TEXT")
+    val previous = DatabaseStructure(
+      tables = mapOf(
+        "legacy_notes" to migrationTable(
+          name = "legacy_notes",
+          columns = listOf(
+            idColumn,
+            migrationColumn(
+              name = "row_id",
+              schema = "row_id INTEGER DEFAULT NULL"
+            ).copy(sqlType = "INTEGER"),
+            titleColumn
+          )
+        )
+      )
+    )
+    val current = DatabaseStructure(
+      tables = mapOf(
+        "notes" to migrationTable(
+          name = "notes",
+          columns = listOf(
+            idColumn,
+            migrationColumn(
+              name = "row_id",
+              schema = "row_id INTEGER PRIMARY KEY"
+            ).copy(
+              sqlType = "INTEGER",
+              rowId = true
+            ),
+            titleColumn
+          )
+        )
+      )
+    )
+
+    assertThat(
+      runMigrationResult(
+        previous = previous,
+        current = current,
+        temporaryDirectory = temporaryDirectory
+      )
+    ).isEqualTo(
+      MigrationRun(
+        migrationHappened = true,
+        statements = listOf(
+          """DROP TABLE IF EXISTS "legacy_notes"""",
+          "CREATE TABLE IF NOT EXISTS notes (id TEXT NOT NULL UNIQUE, row_id INTEGER PRIMARY KEY, " +
+              "title TEXT DEFAULT '')"
+        ),
+        warnings = listOf(
+          "Migration drops table legacy_notes with its rows; if it was renamed to notes, edit the migration SQL to " +
+              "keep them."
+        )
+      )
+    )
+  }
+
+  @Test
   fun `drops and creates instead of inferring a rename when an idless column is renamed`() {
     val previous = DatabaseStructure(
       tables = mapOf(

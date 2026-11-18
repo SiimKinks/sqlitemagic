@@ -5,6 +5,8 @@ import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.Origin.JAVA
+import com.google.devtools.ksp.symbol.Origin.JAVA_LIB
 import com.google.devtools.ksp.validate
 import com.siimkinks.sqlitemagic.annotation.Column
 import com.siimkinks.sqlitemagic.annotation.Embedded
@@ -131,7 +133,11 @@ internal class ConsumedAnnotations {
   private fun scan(symbol: KSAnnotated) = declarations.getOrPut(symbol) {
     buildMap<String, MutableList<KSAnnotation>> {
       val property = symbol.normalizePropertySymbol()
-      val backingFieldAnnotations = (property as? KSPropertyDeclaration)?.backingField?.annotations.orEmpty()
+      val backingFieldAnnotations = (property as? KSPropertyDeclaration)
+        ?.takeUnless { it.origin == JAVA || it.origin == JAVA_LIB }
+        ?.backingField
+        ?.annotations
+        .orEmpty()
       (property.annotations + backingFieldAnnotations).forEach { annotation ->
         val name = annotation.shortName.asString()
         if (name in CONSUMED_ANNOTATION_NAMES) {

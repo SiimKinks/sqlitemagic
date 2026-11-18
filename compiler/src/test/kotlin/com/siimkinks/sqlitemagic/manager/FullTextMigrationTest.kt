@@ -13,11 +13,7 @@ import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS4
 import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.fulltext.FullTextColumnElement
 import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
-import com.siimkinks.sqlitemagic.fulltext.dropFullTextTableSql
-import com.siimkinks.sqlitemagic.fulltext.dropFullTextTriggerSql
-import com.siimkinks.sqlitemagic.fulltext.fullTextCommandSql
 import com.siimkinks.sqlitemagic.fulltext.fullTextIndexIdentity
-import com.siimkinks.sqlitemagic.utils.quoteSqlIdentifier
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -128,7 +124,7 @@ internal class FullTextMigrationTest {
           )
         ),
         current = structure(
-          ARTICLE.renamed("post"),
+          POST,
           indices = listOf(
             index(
               table = "post",
@@ -136,6 +132,88 @@ internal class FullTextMigrationTest {
               version = version,
               name = "search"
             )
+          )
+        )
+      ),
+      "renaming the content table of an index with the default name" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(articleIndex)
+        ),
+        current = structure(
+          POST,
+          indices = listOf(
+            index(
+              table = "post",
+              columns = listOf("title", "body"),
+              version = version
+            )
+          )
+        )
+      ),
+      "renaming an index" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title", "body"),
+              version = version,
+              name = "search"
+            )
+          )
+        ),
+        current = structure(
+          ARTICLE,
+          indices = listOf(articleIndex)
+        )
+      ),
+      "renaming an index by case" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title", "body"),
+              version = version,
+              name = "Search"
+            )
+          )
+        ),
+        current = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title", "body"),
+              version = version,
+              name = "search"
+            )
+          )
+        )
+      ),
+      "adding an index next to a changed one" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title"),
+              version = version,
+              name = "search"
+            )
+          )
+        ),
+        current = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title", "body"),
+              version = version,
+              name = "search"
+            ),
+            articleIndex
           )
         )
       ),
@@ -153,14 +231,24 @@ internal class FullTextMigrationTest {
           indices = listOf(articleIndex)
         ),
         current = structure(
-          ARTICLE_WITH_YEAR,
+          quotedMigrationTable(
+            name = "article",
+            columns = ARTICLE.columns + ColumnStructure(
+              name = "year",
+              sqlType = "INTEGER",
+              schema = """"year" INTEGER"""
+            )
+          ),
           indices = listOf(articleIndex)
         )
       ),
       "rebuilding another table" to Change(
         previous = structure(
           ARTICLE,
-          NOTE_WITH_EXTRA,
+          quotedMigrationTable(
+            name = "note",
+            columns = NOTE.columns + text("extra")
+          ),
           indices = listOf(articleIndex)
         ),
         current = structure(
@@ -195,14 +283,22 @@ internal class FullTextMigrationTest {
       "article_fts ocean" to listOf(3L),
       "article_fts solaris" to listOf(3L)
     )
-    val articleRebuildWarning = "Migration rebuilds full-text index article_fts from all rows of article, which " +
-        "can take long for a large table."
+    fun articleMatches(index: String) = articleMatches.mapKeys { (key, _) ->
+      key.replace(
+        oldValue = "article_fts",
+        newValue = index
+      )
+    }
+    val articleRebuildWarning = recreatedFullTextIndexWarning(
+      index = "article_fts",
+      table = "article"
+    )
     val expected = mapOf(
       "adding an index" to MigratedIndices(
         created = listOf("article_fts"),
         rebuilt = listOf("article_fts"),
         matches = articleMatches,
-        warnings = listOf(articleRebuildWarning)
+        warnings = listOf("Migration rebuilds full-text index article_fts from all rows of article.")
       ),
       "removing an index" to MigratedIndices(dropped = listOf("article_fts")),
       "changing an index" to MigratedIndices(
@@ -239,17 +335,66 @@ internal class FullTextMigrationTest {
         ),
         warnings = listOf(
           "Migration drops column(s) of article with their data: author. Edit the migration SQL to keep it.",
-          "Migration rebuilds full-text index comment_fts from all rows of comment, which can take long for a " +
-              "large table."
+          recreatedFullTextIndexWarning(
+            index = "comment_fts",
+            table = "comment"
+          )
         )
       ),
       "renaming the content table" to MigratedIndices(
         dropped = listOf("search"),
         created = listOf("search"),
         rebuilt = listOf("search"),
-        matches = articleMatches.mapKeys { (key, _) -> key.replace(oldValue = "article_fts", newValue = "search") },
+        matches = articleMatches("search"),
         warnings = listOf(
-          "Migration rebuilds full-text index search from all rows of post, which can take long for a large table."
+          recreatedFullTextIndexWarning(
+            index = "search",
+            table = "post"
+          )
+        )
+      ),
+      "renaming the content table of an index with the default name" to MigratedIndices(
+        dropped = listOf("article_fts"),
+        created = listOf("post_fts"),
+        rebuilt = listOf("post_fts"),
+        matches = articleMatches("post_fts"),
+        warnings = listOf(
+          recreatedFullTextIndexWarning(
+            index = "post_fts",
+            table = "post"
+          )
+        )
+      ),
+      "renaming an index" to MigratedIndices(
+        dropped = listOf("search"),
+        created = listOf("article_fts"),
+        rebuilt = listOf("article_fts"),
+        matches = articleMatches,
+        warnings = listOf(articleRebuildWarning)
+      ),
+      "renaming an index by case" to MigratedIndices(
+        dropped = listOf("Search"),
+        created = listOf("search"),
+        rebuilt = listOf("search"),
+        matches = articleMatches("search"),
+        warnings = listOf(
+          recreatedFullTextIndexWarning(
+            index = "search",
+            table = "article"
+          )
+        )
+      ),
+      "adding an index next to a changed one" to MigratedIndices(
+        dropped = listOf("search"),
+        created = listOf("search", "article_fts"),
+        rebuilt = listOf("search", "article_fts"),
+        matches = articleMatches("search") + articleMatches,
+        warnings = listOf(
+          recreatedFullTextIndexWarning(
+            index = "search",
+            table = "article"
+          ),
+          "Migration rebuilds full-text index article_fts from all rows of article."
         )
       ),
       "removing the content table" to MigratedIndices(
@@ -282,36 +427,136 @@ internal class FullTextMigrationTest {
   }
 
   @Test
-  fun `drops the index before the table statements and creates and rebuilds it after them`() {
-    val index = index(
+  fun `migration SQL drops, creates and rebuilds indexes around the table statements`() {
+    val articleIndex = index(
       table = "article",
       columns = listOf("title", "body"),
       version = FTS5
     )
-    val statements = planSchemaMigration(
-      previous = structure(
-        ARTICLE,
-        indices = listOf(index)
+    val titleIndex = index(
+      table = "article",
+      columns = listOf("title"),
+      version = FTS5
+    )
+    val cases = mapOf(
+      "adding an FTS5 index to an existing table" to Change(
+        previous = structure(ARTICLE),
+        current = structure(
+          ARTICLE,
+          indices = listOf(articleIndex)
+        )
       ),
-      current = structure(
-        ARTICLE_WITHOUT_AUTHOR,
-        indices = listOf(index)
-      )
-    ).statements
-
-    assertThat(statements).isEqualTo(
-      index.triggers.keys.map(::dropFullTextTriggerSql) +
-          dropFullTextTableSql(index.name) +
-          planSchemaMigration(
-            previous = structure(ARTICLE),
-            current = structure(ARTICLE_WITHOUT_AUTHOR)
-          ).statements +
-          index.tableSql +
-          index.triggers.values +
-          fullTextCommandSql(
-            name = index.name,
-            command = "rebuild"
+      "removing an FTS5 index" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(articleIndex)
+        ),
+        current = structure(ARTICLE)
+      ),
+      "changing an FTS5 index" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(titleIndex)
+        ),
+        current = structure(
+          ARTICLE,
+          indices = listOf(articleIndex)
+        )
+      ),
+      "rebuilding the content table of an FTS5 index" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(articleIndex)
+        ),
+        current = structure(
+          ARTICLE_WITHOUT_AUTHOR,
+          indices = listOf(articleIndex)
+        )
+      ),
+      "changing an FTS4 index" to Change(
+        previous = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title"),
+              version = FTS4
+            )
           )
+        ),
+        current = structure(
+          ARTICLE,
+          indices = listOf(
+            index(
+              table = "article",
+              columns = listOf("title", "body"),
+              version = FTS4
+            )
+          )
+        )
+      )
+    )
+    val fts5Drops = listOf(
+      """DROP TRIGGER IF EXISTS main."article_fts_ai"""",
+      """DROP TRIGGER IF EXISTS main."article_fts_ad"""",
+      """DROP TRIGGER IF EXISTS main."article_fts_au"""",
+      """DROP TABLE IF EXISTS main."article_fts""""
+    )
+    val fts5Creates = listOf(
+      """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts5("title", "body", content='article', """ +
+          """content_rowid='id')""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" BEGIN INSERT INTO """ +
+          """"article_fts"(rowid, "title", "body") VALUES (new."id", new."title", new."body"); END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ad" AFTER DELETE ON "article" BEGIN INSERT INTO """ +
+          """"article_fts"("article_fts", rowid, "title", "body") VALUES ('delete', old."id", old."title", """ +
+          """old."body"); END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", "body", rowid, """ +
+          """oid, _rowid_ ON "article" WHEN old."id" IS NOT new."id" OR old."title" IS NOT new."title" OR """ +
+          """old."body" IS NOT new."body" BEGIN INSERT INTO "article_fts"("article_fts", rowid, "title", """ +
+          """"body") VALUES ('delete', old."id", old."title", old."body"); INSERT INTO "article_fts"(rowid, """ +
+          """"title", "body") VALUES (new."id", new."title", new."body"); END""",
+      """INSERT INTO main."article_fts"("article_fts") VALUES ('rebuild')"""
+    )
+
+    assertThat(
+      cases.mapValues { (_, change) ->
+        planSchemaMigration(
+          previous = change.previous,
+          current = change.current
+        ).statements
+      }
+    ).isEqualTo(
+      mapOf(
+        "adding an FTS5 index to an existing table" to fts5Creates,
+        "removing an FTS5 index" to fts5Drops,
+        "changing an FTS5 index" to fts5Drops + fts5Creates,
+        "rebuilding the content table of an FTS5 index" to fts5Drops + listOf(
+          """ALTER TABLE "article" RENAME TO "article_"""",
+          """CREATE TABLE IF NOT EXISTS "article" ("id" INTEGER PRIMARY KEY, "title" TEXT, "body" TEXT)""",
+          """INSERT INTO "article" ("id","title","body") SELECT "id","title","body" FROM "article_"""",
+          """DROP TABLE IF EXISTS "article_""""
+        ) + fts5Creates,
+        "changing an FTS4 index" to listOf(
+          """DROP TRIGGER IF EXISTS main."article_fts_ai"""",
+          """DROP TRIGGER IF EXISTS main."article_fts_bd"""",
+          """DROP TRIGGER IF EXISTS main."article_fts_bu"""",
+          """DROP TRIGGER IF EXISTS main."article_fts_au"""",
+          """DROP TABLE IF EXISTS main."article_fts"""",
+          """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts4("title", "body", content='article')""",
+          """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" BEGIN INSERT INTO """ +
+              """"article_fts"(docid, "title", "body") VALUES (new."id", new."title", new."body"); END""",
+          """CREATE TRIGGER IF NOT EXISTS main."article_fts_bd" BEFORE DELETE ON "article" BEGIN DELETE FROM """ +
+              """"article_fts" WHERE docid = old."id"; END""",
+          """CREATE TRIGGER IF NOT EXISTS main."article_fts_bu" BEFORE UPDATE OF "id", "title", "body", rowid, """ +
+              """oid, _rowid_ ON "article" WHEN old."id" IS NOT new."id" OR old."title" IS NOT new."title" OR """ +
+              """old."body" IS NOT new."body" BEGIN DELETE FROM "article_fts" WHERE docid = old."id"; END""",
+          """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", "body", rowid, """ +
+              """oid, _rowid_ ON "article" WHEN old."id" IS NOT new."id" OR old."title" IS NOT new."title" OR """ +
+              """old."body" IS NOT new."body" BEGIN INSERT INTO "article_fts"(docid, "title", "body") VALUES """ +
+              """(new."id", new."title", new."body"); END""",
+          """INSERT INTO main."article_fts"("article_fts") VALUES ('rebuild')"""
+        )
+      )
     )
   }
 
@@ -325,42 +570,45 @@ internal class FullTextMigrationTest {
         previous = previous,
         current = current
       )
-      val connection = BundledSQLiteDriver().open(":memory:")
-      connection.execSQL("PRAGMA foreign_keys = ON")
-      connection.execSQL("PRAGMA recursive_triggers = ON")
-      previous.creationSql().forEach(connection::execSQL)
-      previous.tables.keys
-        .flatMap(PREVIOUS_ROWS::getValue)
-        .forEach(connection::execSQL)
-      val firstIndexStatement = migration.statements.firstOrNull { it.startsWith(CREATE_INDEX_PREFIX) }
-      connection.execSQL("BEGIN EXCLUSIVE")
-      migration.statements
-        .flatMap { statement ->
-          when (statement) {
-            firstIndexStatement -> statementsBeforeIndices + statement
-            else -> listOf(statement)
+      val freshSchemaRows = BundledSQLiteDriver().open(":memory:").use { fresh ->
+        current.creationSql().forEach(fresh::execSQL)
+        fresh.schemaRows()
+      }
+      return BundledSQLiteDriver().open(":memory:").use { connection ->
+        connection.execSQL("PRAGMA foreign_keys = ON")
+        connection.execSQL("PRAGMA recursive_triggers = ON")
+        previous.creationSql().forEach(connection::execSQL)
+        previous.tables.keys
+          .flatMap(PREVIOUS_ROWS::getValue)
+          .forEach(connection::execSQL)
+        val firstIndexStatement = migration.statements.firstOrNull { it.startsWith(CREATE_INDEX_PREFIX) }
+        connection.execSQL("BEGIN EXCLUSIVE")
+        migration.statements
+          .flatMap { statement ->
+            when (statement) {
+              firstIndexStatement -> statementsBeforeIndices + statement
+              else -> listOf(statement)
+            }
           }
-        }
-        .forEach(connection::execSQL)
-      connection.execSQL("COMMIT")
-      current.tables.keys
-        .flatMap(CURRENT_CHANGES::getValue)
-        .forEach(connection::execSQL)
-      val fresh = BundledSQLiteDriver().open(":memory:")
-      current.creationSql().forEach(fresh::execSQL)
-      return MigratedIndices(
-        dropped = migration.statements.objectNames(prefix = "DROP TABLE IF EXISTS main."),
-        created = migration.statements.objectNames(prefix = CREATE_INDEX_PREFIX),
-        rebuilt = migration.statements
-          .filter { it.endsWith("VALUES ('rebuild')") }
-          .objectNames(prefix = "INSERT INTO main."),
-        matches = connection.matches(
-          indices = current.fullTextIndices.keys,
-          version = version
-        ),
-        matchesFreshInstall = connection.schemaRows() == fresh.schemaRows(),
-        warnings = migration.warnings
-      )
+          .forEach(connection::execSQL)
+        connection.execSQL("COMMIT")
+        current.tables.keys
+          .flatMap(CURRENT_CHANGES::getValue)
+          .forEach(connection::execSQL)
+        MigratedIndices(
+          dropped = migration.statements.objectNames(prefix = "DROP TABLE IF EXISTS main."),
+          created = migration.statements.objectNames(prefix = CREATE_INDEX_PREFIX),
+          rebuilt = migration.statements
+            .filter { it.endsWith("VALUES ('rebuild')") }
+            .objectNames(prefix = "INSERT INTO main."),
+          matches = connection.matches(
+            indices = current.fullTextIndices.keys,
+            version = version
+          ),
+          matchesFreshInstall = connection.schemaRows() == freshSchemaRows,
+          warnings = migration.warnings
+        )
+      }
     }
   }
 
@@ -381,19 +629,19 @@ internal class FullTextMigrationTest {
       sqlType = "INTEGER",
       schema = """"id" INTEGER PRIMARY KEY"""
     )
-    val ARTICLE = table(
+    val ARTICLE = quotedMigrationTable(
       name = "article",
       columns = listOf(ID, text("title"), text("body"), text("author"))
     )
-    val ARTICLE_WITHOUT_AUTHOR = ARTICLE.withColumns(ARTICLE.columns.dropLast(1))
-    val ARTICLE_WITH_YEAR = ARTICLE.withColumns(
-      ARTICLE.columns + ColumnStructure(
-        name = "year",
-        sqlType = "INTEGER",
-        schema = """"year" INTEGER"""
-      )
+    val POST = quotedMigrationTable(
+      name = "post",
+      columns = ARTICLE.columns
     )
-    val COMMENT = table(
+    val ARTICLE_WITHOUT_AUTHOR = quotedMigrationTable(
+      name = "article",
+      columns = ARTICLE.columns.dropLast(1)
+    )
+    val COMMENT = quotedMigrationTable(
       name = "comment",
       columns = listOf(
         ID,
@@ -406,11 +654,10 @@ internal class FullTextMigrationTest {
         text("text")
       )
     )
-    val NOTE = table(
+    val NOTE = quotedMigrationTable(
       name = "note",
       columns = listOf(ID, text("text"))
     )
-    val NOTE_WITH_EXTRA = NOTE.withColumns(NOTE.columns + text("extra"))
     val PREVIOUS_ROWS = mapOf(
       "article" to listOf(
         """INSERT INTO "article" ("id", "title", "body") VALUES (1, 'Dune', 'desert planet'), (2, 'Emma', 'novel')"""
@@ -441,26 +688,6 @@ internal class FullTextMigrationTest {
       name = name,
       sqlType = "TEXT",
       schema = """"$name" TEXT"""
-    )
-
-    fun table(
-      name: String,
-      columns: List<ColumnStructure>
-    ) = TableStructure(
-      name = name,
-      schema = "CREATE TABLE IF NOT EXISTS ${quoteSqlIdentifier(name)} " +
-          "(${columns.joinToString(transform = ColumnStructure::schema)})",
-      columns = columns
-    )
-
-    fun TableStructure.withColumns(columns: List<ColumnStructure>) = table(
-      name = name,
-      columns = columns
-    )
-
-    fun TableStructure.renamed(name: String) = table(
-      name = name,
-      columns = columns
     )
 
     fun index(
@@ -500,11 +727,12 @@ internal class FullTextMigrationTest {
     fun DatabaseStructure.creationSql() = tables.values.map(TableStructure::schema) +
         fullTextIndices.values.flatMap { listOf(it.tableSql) + it.triggers.values }
 
-    fun List<String>.objectNames(prefix: String) = filter { it.startsWith(prefix) }.map { statement ->
-      statement
-        .removePrefix("$prefix\"")
-        .substringBefore('"')
-    }
+    fun List<String>.objectNames(prefix: String) = filter { it.startsWith(prefix) }
+      .map { statement ->
+        statement
+          .removePrefix("""$prefix"""")
+          .substringBefore('"')
+      }
 
     fun SQLiteConnection.matches(
       indices: Set<String>,
@@ -523,23 +751,5 @@ internal class FullTextMigrationTest {
       }
       .filter { (_, rowIds) -> rowIds.isNotEmpty() }
       .toMap()
-
-    fun SQLiteConnection.schemaRows() = prepare(
-      "SELECT type || ' ' || name || ' ' || tbl_name || ' ' || IFNULL(sql, '') FROM sqlite_master ORDER BY name"
-    ).use { statement ->
-      buildList {
-        while (statement.step()) {
-          add(statement.getText(0))
-        }
-      }
-    }
-
-    fun SQLiteConnection.longs(sql: String) = prepare(sql).use { statement ->
-      buildList {
-        while (statement.step()) {
-          add(statement.getLong(0))
-        }
-      }
-    }
   }
 }

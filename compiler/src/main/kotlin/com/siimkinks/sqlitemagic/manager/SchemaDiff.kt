@@ -435,7 +435,8 @@ private class RenameDetector(
   private fun isCaseOnlyRename(
     previousTableName: String,
     tableName: String
-  ) = previousTableName != tableName && previousTableName.equals(tableName, ignoreCase = true)
+  ) = previousTableName != tableName &&
+      previousTableName.normalizedSqlIdentifier() == tableName.normalizedSqlIdentifier()
 
   private fun isEquivalentRename(
     from: TableStructure,

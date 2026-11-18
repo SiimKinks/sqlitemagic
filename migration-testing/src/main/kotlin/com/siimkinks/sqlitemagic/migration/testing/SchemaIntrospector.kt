@@ -91,7 +91,7 @@ internal object SchemaIntrospector {
         val name = objectRow.text("name")
         name.sqliteIdentifier() to query(
           connection = connection,
-          sql = "PRAGMA main.table_xinfo(${quotedSqlIdentifier(name)})"
+          sql = "PRAGMA main.table_xinfo(${quoteSqlIdentifier(name)})"
         )
       }
     val tables = tableObjects
@@ -134,7 +134,7 @@ internal object SchemaIntrospector {
           }
         val indices = query(
           connection = connection,
-          sql = "PRAGMA main.index_list(${quotedSqlIdentifier(name)})"
+          sql = "PRAGMA main.index_list(${quoteSqlIdentifier(name)})"
         )
           .map { index ->
             inspectIndex(
@@ -162,7 +162,7 @@ internal object SchemaIntrospector {
           ?.name
         val foreignKeys = query(
           connection = connection,
-          sql = "PRAGMA main.foreign_key_list(${quotedSqlIdentifier(name)})"
+          sql = "PRAGMA main.foreign_key_list(${quoteSqlIdentifier(name)})"
         )
           .map(::inspectForeignKey)
           .groupBy(ForeignKeyRow::id)
@@ -231,7 +231,7 @@ internal object SchemaIntrospector {
     val origin = index.text("origin")
     val columns = query(
       connection = connection,
-      sql = "PRAGMA main.index_xinfo(${quotedSqlIdentifier(name)})"
+      sql = "PRAGMA main.index_xinfo(${quoteSqlIdentifier(name)})"
     )
       .map { column ->
         requireInspection(

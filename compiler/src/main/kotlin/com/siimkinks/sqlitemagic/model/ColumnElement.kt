@@ -2,7 +2,7 @@ package com.siimkinks.sqlitemagic.model
 
 import com.siimkinks.sqlitemagic.GenerationNames
 import com.siimkinks.sqlitemagic.SqlAffinity.BLOB
-import com.siimkinks.sqlitemagic.annotation.FullText
+import com.siimkinks.sqlitemagic.annotation.FullTextRole
 import com.siimkinks.sqlitemagic.element.ParsedType
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.ALWAYS
 import com.siimkinks.sqlitemagic.internal.RelationshipRead.DEEP
@@ -20,12 +20,17 @@ internal data class IdElement(
   val isAutoIncrement: Boolean,
   val canAssignGeneratedId: Boolean,
   val isNotNullKey: Boolean,
-  val isPrimaryKey: Boolean = true
+  val isPrimaryKey: Boolean
 )
 
 internal data class FieldIndexElement(
   val name: String,
   val isUnique: Boolean
+)
+
+internal data class FullTextMembership(
+  val index: String,
+  val role: FullTextRole
 )
 
 internal data class RelationshipElement(
@@ -74,8 +79,8 @@ internal data class ColumnElement(
   val isUnique: Boolean,
   val index: FieldIndexElement?,
   val belongsToIndex: String?,
-  val isRowId: Boolean = false,
-  val fullText: List<FullText> = emptyList()
+  val isRowId: Boolean,
+  val fullTextMemberships: List<FullTextMembership>
 ) : PropertyMetadata {
   init {
     require(transformer == null || relationship == null) {

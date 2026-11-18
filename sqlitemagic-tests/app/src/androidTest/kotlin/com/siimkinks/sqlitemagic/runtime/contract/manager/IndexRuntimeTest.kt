@@ -2,6 +2,7 @@
 
 package com.siimkinks.sqlitemagic.runtime.contract.manager
 
+import androidx.sqlite.execSQL
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.DbConnection
@@ -24,9 +25,11 @@ import com.siimkinks.sqlitemagic.runtime.support.openNamedConnection
 import com.siimkinks.sqlitemagic.runtime.support.queryRows
 import com.siimkinks.sqlitemagic.runtime.support.readStrings
 import com.siimkinks.sqlitemagic.runtime.support.reopenDefaultConnection
+import com.siimkinks.sqlitemagic.runtime.support.schemaObjectNames
 import com.siimkinks.sqlitemagic.runtime.support.seedDatabaseFile
 import com.siimkinks.sqlitemagic.runtime.support.userVersion
 import com.siimkinks.sqlitemagic.runtime.support.withNamedDatabase
+import com.siimkinks.sqlitemagic.runtime.support.withWriter
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -36,6 +39,9 @@ private const val INDEX_FAILURE_DATABASE_NAME = "index-migration-failure-runtime
 private const val INDEX_MIGRATION_INITIAL_VERSION = 1_100_000
 private const val INDEX_MIGRATION_VERSION = 1_100_001
 private const val INDEX_FAILURE_VERSION = 1_100_002
+private const val FULL_TEXT_MIGRATION_DATABASE_NAME = "full-text-index-migration-runtime-test.db"
+private const val FULL_TEXT_MIGRATION_INITIAL_VERSION = 1_100_010
+private const val FULL_TEXT_MIGRATION_VERSION = 1_100_011
 
 internal class IndexRuntimeTest {
   @get:Rule
@@ -168,6 +174,91 @@ internal class IndexRuntimeTest {
           connection = connection
         )
       ).containsExactly(listOf("1", "preserved", ""))
+    }
+  }
+
+  @Test
+  fun fullTextIndexMigrationCreatesAndChangesIndexesWhilePreservingRowsAndSearches() = withNamedDatabase(
+    databaseName = FULL_TEXT_MIGRATION_DATABASE_NAME
+  ) { application ->
+    seedDatabaseFile(
+      application = application,
+      databaseName = FULL_TEXT_MIGRATION_DATABASE_NAME,
+      version = FULL_TEXT_MIGRATION_INITIAL_VERSION,
+      statements = listOf(
+        "CREATE TABLE changed_note (id INTEGER PRIMARY KEY, title TEXT, body TEXT)",
+        "INSERT INTO changed_note (id, title, body) VALUES (1, 'Dune', 'A desert planet')",
+        "INSERT INTO changed_note (id, title, body) VALUES (2, 'Emma', 'A novel of manners')",
+        "CREATE VIRTUAL TABLE changed_note_fts USING fts4(title, content='changed_note')",
+        "CREATE TRIGGER changed_note_fts_ai AFTER INSERT ON changed_note BEGIN " +
+            "INSERT INTO changed_note_fts(docid, title) VALUES (new.id, new.title); END",
+        "CREATE TRIGGER changed_note_fts_bd BEFORE DELETE ON changed_note BEGIN " +
+            "DELETE FROM changed_note_fts WHERE docid = old.id; END",
+        "CREATE TRIGGER changed_note_fts_bu BEFORE UPDATE OF id, title ON changed_note BEGIN " +
+            "DELETE FROM changed_note_fts WHERE docid = old.id; END",
+        "CREATE TRIGGER changed_note_fts_au AFTER UPDATE OF id, title ON changed_note BEGIN " +
+            "INSERT INTO changed_note_fts(docid, title) VALUES (new.id, new.title); END",
+        "INSERT INTO changed_note_fts(changed_note_fts) VALUES ('rebuild')",
+        "CREATE TABLE added_note (id INTEGER PRIMARY KEY, body TEXT)",
+        "INSERT INTO added_note (id, body) VALUES (1, 'Sail the sea')"
+      )
+    )
+
+    openNamedConnection(
+      application = application,
+      databaseName = FULL_TEXT_MIGRATION_DATABASE_NAME,
+      database = IndexMigrationDatabase(dbVersion = FULL_TEXT_MIGRATION_VERSION)
+    ).use { connection ->
+      connection.withWriter {
+        it.execSQL("UPDATE changed_note SET body = 'An ice planet' WHERE id = 1")
+        it.execSQL("INSERT INTO added_note (id, body) VALUES (2, 'Sail the ocean')")
+      }
+      val queries = mapOf(
+        "changed table rows" to "SELECT id, title, body FROM changed_note ORDER BY id",
+        "added column" to
+            "SELECT docid FROM changed_note_fts WHERE changed_note_fts MATCH 'planet OR novel' ORDER BY docid",
+        "updated text" to "SELECT docid FROM changed_note_fts WHERE changed_note_fts MATCH 'desert'",
+        "added index" to "SELECT docid FROM added_note_fts WHERE added_note_fts MATCH 'sail' ORDER BY docid",
+        "changed index integrity" to "INSERT INTO changed_note_fts(changed_note_fts) VALUES ('integrity-check')",
+        "added index integrity" to "INSERT INTO added_note_fts(added_note_fts) VALUES ('integrity-check')"
+      )
+
+      assertThat(
+        queries.mapValues { (_, sql) ->
+          queryRows(
+            sql = sql,
+            connection = connection
+          )
+        }
+      ).isEqualTo(
+        mapOf(
+          "changed table rows" to listOf(
+            listOf("1", "Dune", "An ice planet"),
+            listOf("2", "Emma", "A novel of manners")
+          ),
+          "added column" to listOf(listOf("1"), listOf("2")),
+          "updated text" to emptyList(),
+          "added index" to listOf(listOf("1"), listOf("2")),
+          "changed index integrity" to emptyList(),
+          "added index integrity" to emptyList()
+        )
+      )
+      assertThat(
+        schemaObjectNames(
+          master = SQLITE_MASTER,
+          type = "trigger",
+          connection = connection
+        )
+      ).containsExactly(
+        "changed_note_fts_ai",
+        "changed_note_fts_bd",
+        "changed_note_fts_bu",
+        "changed_note_fts_au",
+        "added_note_fts_ai",
+        "added_note_fts_bd",
+        "added_note_fts_bu",
+        "added_note_fts_au"
+      )
     }
   }
 

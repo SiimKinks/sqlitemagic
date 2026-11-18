@@ -327,7 +327,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               id = IdElement(
                 isAutoIncrement = true,
                 canAssignGeneratedId = true,
-                isNotNullKey = true
+                isNotNullKey = true,
+                isPrimaryKey = true
               )
             ),
             "EnabledIdTable" to DefaultMetadata(
@@ -337,7 +338,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               id = IdElement(
                 isAutoIncrement = true,
                 canAssignGeneratedId = true,
-                isNotNullKey = true
+                isNotNullKey = true,
+                isPrimaryKey = true
               )
             ),
             "DisabledIdTable" to DefaultMetadata(
@@ -347,7 +349,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               id = IdElement(
                 isAutoIncrement = false,
                 canAssignGeneratedId = true,
-                isNotNullKey = true
+                isNotNullKey = true,
+                isPrimaryKey = true
               )
             ),
             "TableOptions" to DefaultMetadata(
@@ -357,7 +360,8 @@ internal class ConsumedAnnotationReadinessContractTest {
               id = IdElement(
                 isAutoIncrement = false,
                 canAssignGeneratedId = true,
-                isNotNullKey = true
+                isNotNullKey = true,
+                isPrimaryKey = true
               )
             ),
             "ViewDefaults" to DefaultMetadata(
