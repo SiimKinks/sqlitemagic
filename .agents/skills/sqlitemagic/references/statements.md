@@ -357,6 +357,6 @@ DELETE.RAW("DELETE FROM book WHERE author = ? AND pages < ?", authorId, 10)
 | UPSERT on a partial index or an expression (`ON CONFLICT (x) WHERE …`) | raw INSERT |
 | Recursive CTE, reading a `PRAGMA` | raw SELECT |
 | `ATTACH`, setting a `PRAGMA` | `configureConnection`, which runs on every connection; a raw statement reaches one connection only |
-| DDL (tables, indexes, triggers) | models and annotations; full-text indexes with `@FullTextIndex` ([models.md](models.md#full-text-indexes)); other triggers and virtual tables are not supported ([migrations.md](migrations.md)) |
-| Full-text index commands | `ARTICLE_FTS.rebuild()`, `optimize()` and `integrityCheck()` ([queries.md](queries.md#full-text-search)); other commands, such as FTS5's `'automerge'`, as raw INSERT into the index. Settings are stored in the index, so a migration that recreates it drops them. Weigh columns with `BM25` in `ORDER_BY` instead of the `'rank'` setting, which changes what `RANK` returns |
+| DDL (tables, indexes, triggers) | models and annotations; full-text indexes with `@FullTextIndex` ([full-text-search.md](full-text-search.md)); other triggers and virtual tables are not supported ([migrations.md](migrations.md)) |
+| Full-text index commands | `ARTICLE_FTS.rebuild()`, `optimize()` and `integrityCheck()` ([full-text-search.md](full-text-search.md#search)); other commands, such as FTS5's `'automerge'`, as raw INSERT into the index. Settings are stored in the index, so a migration that recreates it drops them. Weigh columns with `BM25` in `ORDER_BY` instead of the `'rank'` setting, which changes what `RANK` returns |
 | `UPDATE … FROM`, `NULLS FIRST/LAST`, named windows | subqueries, `CASE` in `ORDER_BY`, or raw SQL |

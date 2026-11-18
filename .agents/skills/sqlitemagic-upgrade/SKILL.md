@@ -5,9 +5,9 @@ description: >-
   (sqliteFactory → driver(...), the framework or bundled driver, the RxJava and coroutines adapters), porting
   legacy queries (Select.from, Update.table, Delete.from, is/greaterThan, @ViewQuery) to the SQL-first DSL,
   changes that still compile but alter results, exceptions or transactions, and the first 3.x release of installed
-  databases. Use when upgrading an app, module, sample, test or snippet, or fixing compile errors and behavior
-  differences after the upgrade, even if the request only says "bump SqliteMagic" or "update the queries". Not for
-  later schema migrations of an app already on 3.x (use sqlitemagic), nor for changing or testing SqliteMagic itself.
+  databases. Use when upgrading any code on SqliteMagic 2.x or 0.x, or fixing compile errors and behavior differences
+  after the upgrade, even if the request only says "bump SqliteMagic" or "update the queries". Not for later schema
+  migrations of an app already on 3.x (use sqlitemagic), nor for changing or testing SqliteMagic itself.
 ---
 
 # Upgrading to SqliteMagic 3
@@ -20,26 +20,21 @@ kind is handled.
 
 ## Know the sources
 
-Read the references a task needs, not all of them up front:
+The steps below point to `setup.md`, `behavior.md` and `database-upgrade.md` where they apply. For step 2, read the
+spelling reference a file needs, not all of them up front:
 
-- [references/setup.md](references/setup.md): dependencies, choosing a driver, the reactive adapters, transactions
-  and connection options. Every upgrade needs it.
 - [references/queries.md](references/queries.md): imports, construction order, entity and column selections,
   ordering, joins, subqueries and compounds. Every file that builds a query needs it.
 - [references/expressions.md](references/expressions.md): values, raw SQL fragments, predicates, aggregates, text
   helpers and arithmetic.
 - [references/statements-and-types.md](references/statements-and-types.md): whole raw SQL, UPDATE/DELETE, views,
   compiled plans and declared types, reading rows without `Cursor`, `Logger`, generated code and removed API.
-- [references/behavior.md](references/behavior.md): changes that compile but behave differently, how to find each
-  and what to do about it.
-- [references/database-upgrade.md](references/database-upgrade.md): releasing the first 3.x database version for
-  installed databases, the files on disk, and testing the upgrade.
 - In the [SqliteMagic repository](https://github.com/SiimKinks/sqlitemagic), the
-  [README](https://github.com/SiimKinks/sqlitemagic/blob/3.0.0/README.md) documents 3.x setup and release
+  [README](https://github.com/SiimKinks/sqlitemagic/blob/3.x/README.md) documents 3.x setup and release
   migrations, the legacy sources are at tag `2.0.0` (`git show 2.0.0:<path>`), and
   `git diff 2.0.0 3.0.0 -- sqlitemagic-sample` is a small worked upgrade of a real app.
-- Code on 2.x needs only these references and the 3.0.0 entries of the
-  [changelog](https://github.com/SiimKinks/sqlitemagic/blob/3.0.0/CHANGELOG.md). Code on an older 0.x release also
+- Code on 2.x needs only this skill's references and the 3.x entries of the
+  [changelog](https://github.com/SiimKinks/sqlitemagic/blob/3.x/CHANGELOG.md). Code on an older 0.x release also
   needs its 2.0.0 entries, such as the move to the KSP processor and the raised minimum API.
 
 ## Scope the work
@@ -73,7 +68,7 @@ Read the references a task needs, not all of them up front:
 blocks. Keep the device's SQLite (`FrameworkSQLiteDriver`) and the project's reactive library unless the user decides
 otherwise.
 
-**Step 2, spelling.** Rewrite each site with the spelling references, file by file, compiling often. The rules
+**Step 2, spelling.** Rewrite each site with the spelling references above, file by file, compiling often. The rules
 behind most edits:
 
 - Queries are immutable values. Every call returns a new query, so reassign or chain; a discarded result does nothing.
@@ -89,9 +84,9 @@ behind most edits:
 - `observe()` and `run()` come from the reactive adapter's package (`com.siimkinks.sqlitemagic.rxjava2`, `.rxjava3`
   or `.coroutines`); `Cursor` reads become `useRows`.
 
-Do not recreate legacy names with local extension functions, wrappers or typealiases to shrink the diff. They keep
-legacy semantics alive in the caller's head while the engine behaves differently, and they hide the sites the
-behavior pass must review.
+Port each call site to the new spelling at the site itself, so the behavior pass sees every changed site. Local
+extension functions, wrappers or typealiases that keep legacy names shrink the diff but keep legacy semantics alive in
+the caller's head while the engine behaves differently, and they hide those sites.
 
 **Step 3, behavior.** Walk [behavior.md](references/behavior.md) for every migrated query and for the code around
 entity operations, transactions and views, not only the sites that needed edits: several changes apply to code whose
@@ -115,4 +110,4 @@ without `NOT NULL`.
   build with data in place ([database-upgrade](references/database-upgrade.md#test-the-upgrade)).
 - Record the migrated files, the behavior items that applied and how each was resolved, the migration warnings and
   how each was resolved, the decisions still open, and which runtime behavior no test exercised, for example in the
-  change's description. Do not claim behavior parity that only compilation established.
+  change's description. Claim only the parity a test established, and list the runtime behavior no test exercised.

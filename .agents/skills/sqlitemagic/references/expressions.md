@@ -79,7 +79,7 @@ are members and need no import.
   case-sensitive. A pattern with a leading wildcard (`"%term%"`) scans the whole table; a prefix pattern (`"term%"`)
   can use an index on the column. To search words in text, declare a full-text index and use `MATCH`.
 - `MATCH`, its ranking (`RANK`, `BM25`) and its result functions (`HIGHLIGHT`, `SNIPPET`, `OFFSETS`, `MATCHINFO`)
-  work on the generated object of a full-text index: [queries.md](queries.md#full-text-search).
+  work on the generated object of a full-text index: [full-text-search.md](full-text-search.md#search).
 - Kotlin's infix calls all have the same precedence and associate left: parenthesize every comparison inside `AND`/
   `OR`, and every `AND` inside `OR`. The generated SQL follows the Kotlin grouping exactly.
 

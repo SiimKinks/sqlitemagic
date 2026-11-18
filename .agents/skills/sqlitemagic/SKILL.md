@@ -1,14 +1,12 @@
 ---
 name: sqlitemagic
 description: >-
-  Write, extend and review Android code that uses SqliteMagic 3, the KSP-generated SQLite layer with a SQL-first Kotlin
-  DSL: setup and drivers, @Table models, relationships, transformers and views, entity operations (insert, update,
-  persist, delete), queries (SELECT FROM, SELECT.COLUMNS, joins, subqueries, aggregates, compiled queries), full-text
-  search (@FullTextIndex, MATCH, ranking, highlighting), INSERT (with UPSERT), UPDATE and DELETE statements, raw SQL,
-  observing queries with coroutines or RxJava, transactions and migrations. Use whenever code imports
-  com.siimkinks.sqlitemagic or a task adds a table, column, query, repository, database screen or migration in a
-  SqliteMagic project, even if the request only says "store this", "query the db" or "make it reactive". Not for
-  upgrading from SqliteMagic 2.x or 0.x (use sqlitemagic-upgrade), nor for changing SqliteMagic itself.
+  SqliteMagic 3 usage: write, extend and review Android code on its KSP-generated SQLite layer and SQL-first Kotlin
+  DSL, from models and queries to writes, full-text search, reactive observation, transactions and migrations. Use
+  whenever code imports com.siimkinks.sqlitemagic or a task adds a table, column, query, repository, database screen,
+  search or migration in a SqliteMagic project, even if the request only says "store this", "query the db" or "make
+  it reactive". Not for upgrading from SqliteMagic 2.x or 0.x (use sqlitemagic-upgrade), nor for changing
+  SqliteMagic itself.
 ---
 
 # Using SqliteMagic
@@ -25,9 +23,10 @@ Read the reference a task needs, not all of them up front:
 | Task | Reference |
 | --- | --- |
 | Gradle setup, choosing a driver, initialization, connection tuning, multi-module projects, logging | [setup.md](references/setup.md) |
-| Declaring tables, IDs, columns, nullability, defaults, indexes, full-text indexes, relationships, embedded values, transformers; what is generated | [models.md](references/models.md) |
+| Declaring tables, IDs, columns, nullability, defaults, indexes, relationships, embedded values, transformers; what is generated | [models.md](references/models.md) |
 | Saving and deleting objects: insert, update, persist, delete, bulk operations, results, conflicts | [entity-operations.md](references/entity-operations.md) |
-| Reading data: SELECT shapes, result types, clauses, joins, aliases, mapping, full-text search, subqueries, CTEs, compounds, terminals, parameters | [queries.md](references/queries.md) |
+| Reading data: SELECT shapes, result types, clauses, joins, aliases, mapping, subqueries, CTEs, compounds, terminals, parameters | [queries.md](references/queries.md) |
+| Full-text search: declaring an FTS5 or FTS4 index, `MATCH`, ranking, highlights and snippets, index commands | [full-text-search.md](references/full-text-search.md) |
 | Building values and predicates: comparisons, NULL, arithmetic, aggregates, windows, text helpers, CASE/COALESCE, CAST, raw fragments, functions | [expressions.md](references/expressions.md) |
 | INSERT (with UPSERT), UPDATE and DELETE statements and whole raw SQL | [statements.md](references/statements.md) |
 | SQLite views from a DSL query | [views.md](references/views.md) |
@@ -38,8 +37,26 @@ Read the reference a task needs, not all of them up front:
 | Reviewing SqliteMagic code, or checking your own before finishing | [review-checklist.md](references/review-checklist.md) |
 
 Every DSL declaration has KDoc; when the reference and the IDE disagree about a signature, the compiled API wins. The
-[README](https://github.com/SiimKinks/sqlitemagic/blob/3.0.0/README.md) and the
-[sample app](https://github.com/SiimKinks/sqlitemagic/tree/3.0.0/sqlitemagic-sample) show the pieces together.
+[README](https://github.com/SiimKinks/sqlitemagic/blob/3.x/README.md) and the
+[sample app](https://github.com/SiimKinks/sqlitemagic/tree/3.x/sqlitemagic-sample) show the pieces together.
+
+## Workflow for a database task
+
+1. Find the project's setup: the `@Database` class, the driver, the reactive adapter in use (coroutines, RxJava 3 or 2)
+   and existing models and repositories. Follow their conventions; this skill fills in what the project does not show.
+2. Change models first, build once so KSP regenerates tables and columns, then write queries against the generated
+   objects. Generated code lives in `build/generated/ksp/<variant>/kotlin/com/siimkinks/sqlitemagic/`; read it to see a
+   field's exact type rather than guessing.
+3. Write the query or operation with the references and the rules below, choosing the smallest selection and the
+   reactive form that fits the caller.
+4. Build, then prepare and run the code. A JVM unit test that calls `compile()` (or `takeFirst()`/`count()`) on each
+   query surfaces the checks made when a query is prepared (outer-join NULLs, ambiguous joins, partial entities)
+   without a database. Behavior against data, and view definitions, need a real database: an instrumented test, or the
+   migration test helper with `BundledSQLiteDriver`.
+5. When a model change alters the schema of a released app, follow [migrations.md](references/migrations.md) before
+   calling the work done.
+6. Walk [review-checklist.md](references/review-checklist.md) over the changed code. The task is done when a test
+   compiles every changed query and statement and every checklist item has been checked against every changed file.
 
 ## The model to keep in mind
 
@@ -175,22 +192,5 @@ import, except the arithmetic operators (`+`, `-`, `*`, `/`, `%`) and the `SET` 
 (`SET(BOOK.PAGES, BOOK.PAGES + 1)`): both are top-level (`com.siimkinks.sqlitemagic.plus`, `…SET`), and without them the
 member `SET` reports a type mismatch rather than an unresolved name. Reactive `observe()`, `await()` and their operators
 come from the adapter's package (`com.siimkinks.sqlitemagic.coroutines`, `.rxjava3` or `.rxjava2`). Conflict algorithm
-constants are Android's `SQLiteDatabase.CONFLICT_*`. Let the IDE add imports; when a DSL word is "unresolved", it is
-usually a missing import of a top-level function, not a missing feature.
-
-## Workflow for a database task
-
-1. Find the project's setup: the `@Database` class, the driver, the reactive adapter in use (coroutines, RxJava 3 or 2)
-   and existing models and repositories. Follow their conventions; this skill fills in what the project does not show.
-2. Change models first, build once so KSP regenerates tables and columns, then write queries against the generated
-   objects. Generated code lives in `build/generated/ksp/<variant>/kotlin/com/siimkinks/sqlitemagic/`; read it to see a
-   field's exact type rather than guessing.
-3. Write the query or operation with the references above, choosing the smallest selection and the reactive form that
-   fits the caller.
-4. Build, then prepare and run the code. A JVM unit test that calls `compile()` (or `takeFirst()`/`count()`) on each
-   query surfaces the checks made when a query is prepared (outer-join NULLs, ambiguous joins, partial entities)
-   without a database. Behavior against data, and view definitions, need a real database: an instrumented test, or the
-   migration test helper with `BundledSQLiteDriver`.
-5. When a model change alters the schema of a released app, follow [migrations.md](references/migrations.md) before
-   calling the work done.
-6. Walk [review-checklist.md](references/review-checklist.md) over the changed code.
+constants are Android's `SQLiteDatabase.CONFLICT_*`. A DSL word reported "unresolved" is usually a missing import of a
+top-level function, not a missing feature.

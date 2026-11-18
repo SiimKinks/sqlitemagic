@@ -38,6 +38,9 @@ Walk this over SqliteMagic code you wrote or review. Each item names what to loo
   UI waits inside.
 - [ ] **Raw SQL.** Values are bound arguments, never interpolated; arguments have their storage type (`10L`, not
   `"10"`); `observes(…)`/`notifies(…)` declare every table read or changed; views' dotted column names are quoted.
+- [ ] **Full-text search.** User input reaches `MATCH` through `ARTICLE_FTS.terms(input)`, so query syntax in it is
+  searched as text; an FTS5 index runs only on the bundled driver and an FTS4 one on either; `HIGHLIGHT` and `SNIPPET`
+  of a nullable column are handled as `String?` ([full-text-search.md](full-text-search.md)).
 - [ ] **Feature versions.** Window functions, `FILTER_WHERE`, `RIGHT`/`FULL` joins, row values and newer SQL functions
   are used only with the bundled driver or a `minSdk` whose SQLite has them.
 
@@ -59,6 +62,7 @@ Walk this over SqliteMagic code you wrote or review. Each item names what to loo
 - [ ] No `execute().size`, `execute().isEmpty()`, `execute().first()` where `count()`, `takeFirst()` or `EXISTS` fits.
 - [ ] No filtering, sorting, grouping or pagination in Kotlin over a full result.
 - [ ] No query per item in a loop; joins, `IN query` or subquery columns instead.
+- [ ] Word search over text uses a full-text index and `MATCH`; `LIKE "%term%"` scans the whole table.
 - [ ] Selections match what the code reads; entity reads only where the object is needed; `queryDeep()` only where
   related values are read.
 - [ ] Writes of many objects use bulk operations or one transaction; column changes use UPDATE statements.
